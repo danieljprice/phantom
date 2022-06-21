@@ -1248,7 +1248,7 @@ end function cool_dust_radiation
 
 !-----------------------------------------------------------------------
 !+
-!  DUST: Viscous heating
+!  DUST: Friction heating caused by dust-drift through gas (Golreich & Scoville 1976)
 !+
 !-----------------------------------------------------------------------
 real function heat_dust_friction(rho_gas)
@@ -1267,10 +1267,10 @@ end function heat_dust_friction
 
 !-----------------------------------------------------------------------
 !+
-!  DUST: photovoltaic heating (Weingartner & Draine 2001)
+!  DUST: photovoltaic heating by soft UV field (Weingartner & Draine 2001)
 !+
 !-----------------------------------------------------------------------
-real function heat_dust_photovoltaic(T_gas, rho_gas, mu, nH, nHe)
+real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe)
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
  
@@ -1278,19 +1278,34 @@ real function heat_dust_photovoltaic(T_gas, rho_gas, mu, nH, nHe)
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: C0=5.45, C1=2.50, C2=0.00945, C3=0.01453, C4=0.147, C5=0.623, C6=0.511 ! see Table 2 in Weingartner & Draine 2001, last line
  
- ! only for soft UV background fields
- 
  x  = G*sqrt(T_gas)/n_e(T_gas, rho_gas, mu, nH, nHe)
  
- heat_dust_photovoltaic = 1d-26*G*nH*(C0+C1*T_gas**C4)/(1+C2*x**C5*(1+C3*x**C6))
- 
- ! for hard UV background fields, such as in the presence of a WD, use
+ heat_dust_photovoltaic_soft = 1d-26*G*nH*(C0+C1*T_gas**C4)/(1+C2*x**C5*(1+C3*x**C6))
 
-end function heat_dust_photovoltaic
+end function heat_dust_photovoltaic_soft
 
 !-----------------------------------------------------------------------
 !+
-!  PARTICLE: Coulomb cooling
+!  DUST: photovoltaic heating by hard UV field (Inoue & Kamaya 2010)
+!+
+!-----------------------------------------------------------------------
+real function heat_dust_photovoltaic_hard(T_gas, nH)
+
+ real, intent(in)  :: T_gas, nH
+ 
+ real              :: d2g
+ real              :: JL       ! mean intensity of background UV radiation at hydrogen Lyman limit
+ 
+ heat_dust_photovoltaic_hard = 1.2d-34*(d2g   /1.d-4) &
+                                      *(nH   /1.d-5 )**(4. /3.) &
+                                      *(T_gas/1.d4  )**(-1./6.) &
+                                      *(JL   /1.d-21)**(2. /3.)
+
+end function heat_dust_photovoltaic_hard
+
+!-----------------------------------------------------------------------
+!+
+!  PARTICLE: Coulomb cooling via electron scattering (Weingartner & Draine 2001)
 !+
 !-----------------------------------------------------------------------
 real function cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
@@ -1330,7 +1345,7 @@ end function heat_CosmicRays
 
 !-----------------------------------------------------------------------
 !+
-!  ATOMIC: Cooling due to electron excitation of neutral H (Spitzer 1978)
+!  ATOMIC: Cooling due to electron excitation of neutral H (Spitzer 1978, Black 1982, Cen 1992)
 !+
 !-----------------------------------------------------------------------
 real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
@@ -1355,7 +1370,7 @@ end function cool_HI
 
 !-----------------------------------------------------------------------
 !+
-!  ATOMIC: Cooling due to collisional ionisation of neutral H
+!  ATOMIC: Cooling due to collisional ionisation of neutral H (Black 1982, Cen 1992)
 !+
 !-----------------------------------------------------------------------
 real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
@@ -1379,7 +1394,7 @@ end function cool_H_ionisation
 
 !-----------------------------------------------------------------------
 !+
-!  ATOMIC: Cooling due to collisional ionisation of neutral He
+!  ATOMIC: Cooling due to collisional ionisation of neutral He (Black 1982, Cen 1992)
 !+
 !-----------------------------------------------------------------------
 real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
@@ -1401,7 +1416,7 @@ end function cool_He_ionisation
 
 !-----------------------------------------------------------------------
 !+
-!  CHEMICAL: Cooling due to ro-vibrational excitation of H2
+!  CHEMICAL: Cooling due to ro-vibrational excitation of H2 (Lepp & Shull 1983)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_rovib(T_gas, nH, nH2)
@@ -1441,7 +1456,7 @@ end function cool_H2_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  CHEMICAL: H2 dissociation cooling
+!  CHEMICAL: H2 dissociation cooling (Shapiro & Kang 1987)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
@@ -1468,7 +1483,7 @@ end function cool_H2_dissociation
 
 !-----------------------------------------------------------------------
 !+
-!  CHEMICAL: H2 recombination heating
+!  CHEMICAL: H2 recombination heating (Hollenbach & Mckee 1979)
 !+
 !-----------------------------------------------------------------------
 real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
@@ -1496,7 +1511,7 @@ end function heat_H2_recombination
 
 !-----------------------------------------------------------------------
 !+
-!  RADIATIVE: CO ro-vibrational cooling
+!  RADIATIVE: optically thin CO ro-vibrational cooling (Hollenbach & McKee 1979, McKee et al. 1982)
 !+
 !-----------------------------------------------------------------------
 real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
@@ -1530,7 +1545,7 @@ end function cool_CO_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  RADIATIVE: H20 ro-vibrational cooling
+!  RADIATIVE: H20 ro-vibrational cooling (Hollenbach & McKee 1989, Neufeld & Kaufman 1993)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
@@ -1563,7 +1578,7 @@ end function cool_H2O_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  RADIATIVE: OH rotational cooling
+!  RADIATIVE: OH rotational cooling (Hollenbach & McKee 1979)
 !+
 !-----------------------------------------------------------------------
 real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
@@ -1614,7 +1629,8 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
     + cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O) &
     + cool_OH_rot(T_gas, rho_gas, mu, nOH) &
     - heat_dust_friction(rho_gas) &
-    - heat_dust_photovoltaic(T_gas, rho_gas, mu, nH, nHe) &
+    - heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe) &
+    - heat_dust_photovoltaic_hard(T_gas, nH) &
     - heat_CosmicRays(nH, nH2) &
     - heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
 
