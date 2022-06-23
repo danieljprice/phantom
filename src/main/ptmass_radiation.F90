@@ -94,6 +94,7 @@ subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
        if (xyzmh_ptmass(4,j) < 0.) cycle
        Mstar_cgs  = xyzmh_ptmass(4,j)*umass
        Lstar_cgs  = xyzmh_ptmass(ilum,j)*unit_energ/utime
+       Rstar_cgs  = xyzmh_ptmass(iReff,j)*udist
        !compute radiative acceleration if sink particle is assigned a non-zero luminosity
        if (Lstar_cgs > 0.d0) then
           xa = xyzmh_ptmass(1,j)
@@ -169,7 +170,7 @@ end subroutine calc_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Rstar_cgs,Mstar_cgs,Lstar_cgs,&
      kappa,ax,ay,az,alpha,tau)
- use units,          only:umass
+ use units,          only:umass,udist
  use dust_formation, only:calc_Eddington_factor
  real, intent(in)            :: r,dx,dy,dz,Rstar_cgs,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau
@@ -180,6 +181,7 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Rstar_cgs,Mstar_cgs,L
  !    + reduction of radial component of acceleration
  if (r > Rstar_cgs) then
     PF = (1./asin(Rstar_cgs/r))*(Rstar_cgs/r)*(1.-(Rstar_cgs/r)**2.)
+    print*, r, Rstar_cgs, PF
  else
     PF = 1.0
  endif
