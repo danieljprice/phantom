@@ -166,13 +166,13 @@ end subroutine calc_rad_accel_from_ptmass
 !+
 !-----------------------------------------------------------------------
 subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
-     kappa,ax,ay,az,alpha,tau)
+     kappa,ax,ay,az,alpha,tau,R_star)
  use units,          only:umass
  use dust_formation, only:calc_Eddington_factor
  real, intent(in)            :: r,dx,dy,dz,Mstar_cgs,Lstar_cgs,kappa
- real, intent(in), optional  :: tau
+ real, intent(in), optional  :: tau, R_star
  real, intent(out)           :: ax,ay,az,alpha
- real :: fac
+ real :: fac, x ! x = R_star/r
 
  select case (isink_radiation)
  case (1)
@@ -180,10 +180,12 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
     alpha = alpha_rad
  case (2)
     ! radiation pressure on dust
-    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau)
+    x = R_star/r
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) / asin(x) * x * (1 - x**2)
  case (3)
     ! radiation pressure on dust + alpha_rad (=1+2)
-    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) + alpha_rad
+    x = R_star/r
+    alpha = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa, tau) / asin(x) * x * (1 - x**2) + alpha_rad
  case default
     ! no radiation pressure
     alpha = 0.
