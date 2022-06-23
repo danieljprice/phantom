@@ -1137,64 +1137,6 @@ end subroutine testfunc
 
 
 
-
-
-!-----------------------------------------------------------------------
-!+
-!  ADDITIONAL PHYSICS: compute electron equilibrium abundance using LTE network
-!                      Warning: Unable to re-derive p and q factors used below,
-!                      use with caution!
-!+
-!-----------------------------------------------------------------------
-real function n_e_old(T_gas, rho_gas, mu, nH, nHe)
-
- real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
- 
- real             :: n_gas, Te, k1, k2, k3, k8, k9, p, q
- 
- ! An up-to-date summary of the relevant electron reations can be found in Vorobyov et al. (2020)
- ! Additionally, a significant overview of primordial reactions, including a large amount of
- ! electron reactions can be found in Glover & Abel (2008)
-
- n_gas  = rho_gas/(mu*mass_proton_cgs)
- 
-!  k1 = 2.753d-14*(315614/T_gas)**1.5*(1.0+(115188/T_gas))**(-2.242)  ! Ferland et al (1992)
-!  if (T_gas < 6000.) then                                            ! Wishart (1979)
-!     k2 = 10**(-17.845+0.762*log10(T_gas)+0.1523*log10(T_gas)**2 &
-!               -0.03274*log10(T_gas)**3)
-!  else
-!     k2 = 10**(-16.4199+0.1998*log10(T_gas)**2 &
-!               -5.447d-3*log10(T_gas)**4+415d-5*log10(T_gas)**6)
-!  endif
-!  k3 = 1.35d-9*(T_gas**9.8493d-2+3.2852d-1*T_gas**5.561d-1&         ! Kreckel et al. (2010)
-!                +2.771d-7*T_gas**2.1826) / (1.0 &
-!                +6.191d-3*T_gas**1.0461+8.9712d-11*T_gas**3.0424 &
-!                +3.2576d-14*T_gas**3.7741)
-!  Te = T_gas*8.617333262d-5                                         ! gas temperature in eV
-!  k8 = exp(-3.271396786d1 +1.35365560d+1*log(Te)    &               ! Janev et al. (1987)
-!                          -5.73932875d+0*log(Te)**2 &
-!                          +1.56315498d+0*log(Te)**3 &
-!                          -2.87705600d-1*log(Te)**4 &
-!                          +3.48255977d-2*log(Te)**5 &
-!                          -2.63197617d-3*log(Te)**6 &
-!                          +1.11954395d-4*log(Te)**7 &
-!                          -2.03914985d-6*log(Te)**8)
-!  k9 = 1.27d-17*sqrt(T_gas)*exp(-15800/T_gas)                       ! Black (1981)
-
-! original rates from Palla et al. 1983
- k1 = 1.88d-10 * T_gas**(-0.644)
- k2 = 1.83d-18 * T_gas
- k3 = 1.35d-9
- k8 = 5.80d-11 * sqrt(T_gas) * exp(-158000/T_gas)
- k9 = 1.7d-4 * k8
- 
- p = .5*k8/k9
- q = k1*(k2+k3)/(k3*k9)
- 
- n_e_old = ((p + sqrt(q+p**2))/q)*n_gas
- 
-end function n_e_old
-
 !-----------------------------------------------------------------------
 !+
 !  ADDITIONAL PHYSICS: compute LTE electron density from SAHA equations
