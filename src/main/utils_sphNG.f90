@@ -21,7 +21,8 @@ module sphNGutils
  ! labels for sphNG types, used when converting dumps (these cannot duplicate current itypes)
  integer, parameter :: isphNG_accreted  = 18
  integer, parameter :: isphNG_sink_temp = 19
-
+ real,allocatable,public :: mass_sphng(:),spin_sphng(:,:)
+ logical,public :: got_mass=.false.,got_spin(3)=.false.
 
  public
 
@@ -86,7 +87,7 @@ end function is_sphNG_sink
 !+
 !--------------------------------------------------------------
 subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
- use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle
+ use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz
  integer :: i,nsink
  integer, intent(in)    :: npart
  integer, intent(inout) :: nptmass
@@ -96,6 +97,8 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
 
  nsink = 0
  ierr = 0
+ print *, "spin_sphng array"
+ print *, spin_sphng
  do i=1,npart
     if (iamtype(iphase(i))==isphNG_sink_temp) then
        nsink = nsink + 1
@@ -106,14 +109,18 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
           xyzmh_ptmass(1,nsink) = xyzh(1,i)
           xyzmh_ptmass(2,nsink) = xyzh(2,i)
           xyzmh_ptmass(3,nsink) = xyzh(3,i)
+          xyzmh_ptmass(4,nsink) = mass_sphng(i)
           xyzmh_ptmass(ihacc,nsink) = xyzh(4,i)
           xyzmh_ptmass(ihsoft,nsink) = xyzh(4,i)
           vxyz_ptmass(1,nsink) = vxyzu(1,i)
           vxyz_ptmass(2,nsink) = vxyzu(2,i)
           vxyz_ptmass(3,nsink) = vxyzu(3,i)
+          xyzmh_ptmass(ispinx,nsink) = spin_sphng(1,nsink)
+          xyzmh_ptmass(ispiny,nsink) = spin_sphng(2,nsink)
+          xyzmh_ptmass(ispinz,nsink) = spin_sphng(3,nsink)
           if (nptmass < 100) then
              print "(1x,a,i2,a,es13.6,a,es10.3,a)",'[CONVERTING SINK #',nsink,' sphNG->Phantom, M=',&
-                   xyzmh_ptmass(4,nsink),' h= ',xyzmh_ptmass(ihacc,nsink),']'
+                   xyzmh_ptmass(4,nsink),' h= ',xyzmh_ptmass(ihacc,nsink),' spinx= ',xyzmh_ptmass(ispinx,nsink),']'
           endif
        endif
        !
