@@ -178,7 +178,11 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Rstar_cgs,Mstar_cgs,L
  
  ! Proximity factor (PF) reducing total luminosity due to proximity to star 
  !    + reduction of radial component of acceleration
- PF = (1./asin(Rstar_cgs/r))*(Rstar_cgs/r)*(1.-(Rstar_cgs/r)**2.)
+ if (r > Rstar_cgs) then
+    PF = (1./asin(Rstar_cgs/r))*(Rstar_cgs/r)*(1.-(Rstar_cgs/r)**2.)
+ else
+    PF = 1.0
+ endif
  
  select case (isink_radiation)
  case (1)
