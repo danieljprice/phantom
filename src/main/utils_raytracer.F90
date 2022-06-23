@@ -332,7 +332,7 @@ module raytracer
       if (distance .lt. dist_along_ray(1)) then
          tau = 0.
       else if (distance .gt. dist_along_ray(len)) then
-         tau = 99.
+         tau = tau_along_ray(len)
       else
          L = 2
          R = len-1
@@ -375,6 +375,7 @@ module raytracer
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
+      real, parameter :: tau_max = 99.
 
       real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
       integer :: inext, i
@@ -402,6 +403,12 @@ module raytracer
          dist_along_ray(i) = distance
          dr                = next_dr
       enddo
+      if (present(maxDistance)) then
+         i = i + 1
+         tau_along_ray(i)  = tau_max
+         dist_along_ray(i) = maxDistance
+         print*,i
+      endif
       len = i
    end subroutine ray_tracer
 
