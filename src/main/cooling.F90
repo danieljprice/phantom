@@ -70,6 +70,7 @@ module cooling
  real    :: KI02_rho_min_cgs = 1.0d-30              ! minimum density of the KI02 cooling curve
  real    :: KI02_rho_max_cgs = 1.0d-14              ! maximum density of the KI02 cooling curve
  real    :: KI02_rho_min,KI02_rho_max
+ real    :: kappa_dust_min = 1e-3                   ! dust opacity value below which dust cooling is not calculated
  integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
  integer :: icool_method  = 0
  character(len=120) :: cooltable = 'cooltable.dat'
@@ -347,18 +348,10 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  !limit exponent to prevent overflow
  dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
  Q         = Q_cgs/unit_ergg
- print*, ' '
- print*, ' '
- print*, '---------------------------------------------------'
- print*, ' '
- print*, ' '
+
  call testfunc()
- print*, ' '
- print*, ' '
- print*, '---------------------------------------------------'
- print*, ' '
- print*, ' '
  call exit
+ 
 end subroutine calc_cooling_rate
 
 
@@ -1022,7 +1015,7 @@ end subroutine read_options_cooling
 !=======================================================================
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !
-!  Test program for cooling functions
+!  Test routine for cooling functions
 !
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !=======================================================================
@@ -1037,11 +1030,11 @@ subroutine testfunc()
  real :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
  real :: JL
  real :: n_gas
- real :: Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16, Q17, Qtot
+ real :: Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16, Q17, Qtot, dlnQ_dlnT
   
  ! evaluate parameters using plausible values to test the cooling functions
  
- T_gas      = 2000. 
+ T_gas      = 4000. 
  rho_gas    = 2.d-16
  mu         = 1.78
 
@@ -1060,52 +1053,65 @@ subroutine testfunc()
  d2g        = 1./200.
  a          = 1.d-5
  rho_grain  = 2.
- kappa_dust = 6.
+ kappa_dust = 1.d-4
  
  JL = 2.5d-12     ! Value taken from Barstow et al. 1997
  
- Q1  = cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain)
- print*, 'Q1  = ', Q1
- Q2  = cool_dust_full_contact(T_gas, rho_gas, mu, T_dust)
- print*, 'Q2  = ', Q2
+ print*, ' '
+ print*, ' '
+ print*, '-----------------------------------------------------------------------------'
+ print*, ' '
+ print*, ' '
+ Q1  = cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust)
+ print*, 'Q1   = ', Q1
+ Q2  = cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust)
+ print*, 'Q2   = ', Q2
  Q3  = cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
- print*, 'Q3  = ', Q3
+ print*, 'Q3   = ', Q3
  Q4  = cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q4  = ', Q4
+ print*, 'Q4   = ', Q4
  Q5  = cool_HI(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q5  = ', Q5
+ print*, 'Q5   = ', Q5
  Q6  = cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q6  = ', Q6
+ print*, 'Q6   = ', Q6
  Q7  = cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q7  = ', Q7
+ print*, 'Q7   = ', Q7
  Q8  = cool_H2_rovib(T_gas, nH, nH2)
- print*, 'Q8  = ', Q8
+ print*, 'Q8   = ', Q8
  Q9  = cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
- print*, 'Q9  = ', Q9
+ print*, 'Q9   = ', Q9
  Q10 = cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
- print*, 'Q10 = ', Q10
+ print*, 'Q10  = ', Q10
  Q11 = cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
- print*, 'Q11 = ', Q11
+ print*, 'Q11  = ', Q11
  Q12 = cool_OH_rot(T_gas, rho_gas, mu, nOH)
- print*, 'Q12 = ', Q12
- Q13 = heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain)
- print*, 'Q13 = ', Q13
- Q14 = heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q14 = ', Q14
- Q15 = heat_dust_photovoltaic_hard(T_gas, nH, d2g, JL)
- print*, 'Q15 = ', Q15
+ print*, 'Q12  = ', Q12
+ Q13 = heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust)
+ print*, 'Q13  = ', Q13
+ Q14 = heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust)
+ print*, 'Q14  = ', Q14
+ Q15 = heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL)
+ print*, 'Q15  = ', Q15
  Q16 = heat_CosmicRays(nH, nH2)
- print*, 'Q16 = ', Q16
+ print*, 'Q16  = ', Q16
  Q17 = heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
- print*, 'Q17 = ', Q17
+ print*, 'Q17  = ', Q17
  
  Qtot = calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, & 
-               T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
+                     T_dust, v_drift, d2g, a, rho_grain, kappa_dust, &
+                     JL)
  print*, 'Qtot = ', Qtot
-
- print*,'+++++++++++++++++++++++'
- print*,'status of testfunc = OK'
- print*,'+++++++++++++++++++++++'
+                     
+ dlnQ_dlnT = calc_dlnQdlnT(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, & 
+                            T_dust, v_drift, d2g, a, rho_grain, kappa_dust, &
+                            JL)
+ print*, 'dlnQdlnT = ', dlnQ_dlnT 
+ 
+ print*, ' '
+ print*, ' '
+ print*, '------------------- exit in calc_cooling_rate --------------------------------'
+ print*, ' '
+ print*, ' '
 
 end subroutine testfunc
 
@@ -1310,15 +1316,18 @@ end function n_dust
 !  DUST:  Full contact cooling (Bowen 1988)
 !+
 !-----------------------------------------------------------------------
-real function cool_dust_full_contact(T_gas, rho_gas, mu, T_dust)
+real function cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust)
 
  use physcon, only:Rg
  
  real, intent(in)  :: T_gas, rho_gas, mu
- real, intent(in)  :: T_dust
+ real, intent(in)  :: T_dust, kappa_dust
  
- cool_dust_full_contact = (3.*Rg*bowen_Cprime)/(2.*mu)*rho_gas*(T_dust-T_gas)
-
+ if (kappa_dust > kappa_dust_min) then
+    cool_dust_full_contact = (3.*Rg)/(2.*mu*bowen_Cprime)*rho_gas*(T_dust-T_gas)
+ else
+    cool_dust_full_contact = 0.0
+ endif
 end function cool_dust_full_contact
 
 !-----------------------------------------------------------------------
@@ -1326,20 +1335,23 @@ end function cool_dust_full_contact
 !  DUST: Discrete contact cooling (Hollenbach & McKee 1979)
 !+
 !-----------------------------------------------------------------------
-real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain)
+real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust)
 
  use physcon, only: kboltz, mass_proton_cgs, pi
  
  real, intent(in)  :: T_gas, rho_gas, mu
- real, intent(in)  :: T_dust, d2g, a, rho_grain
+ real, intent(in)  :: T_dust, d2g, a, rho_grain, kappa_dust
  
  real, parameter   :: alpha = 0.33  ! See Burke & Hollenbach 1983
  real              :: n_gas, sigma_dust
  
- sigma_dust                 = 2.*pi*a**2.
- n_gas                      = rho_gas/(mu*mass_proton_cgs)
- cool_dust_discrete_contact = alpha*n_gas*n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_th(T_gas,mu)*kboltz*(T_dust-T_gas)
- 
+ if (kappa_dust > kappa_dust_min) then
+    sigma_dust                 = 2.*pi*a**2.
+    n_gas                      = rho_gas/(mu*mass_proton_cgs)
+    cool_dust_discrete_contact = alpha*n_gas*n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_th(T_gas,mu)*kboltz*(T_dust-T_gas)
+ else
+    cool_dust_discrete_contact = 0.0
+ endif
 end function cool_dust_discrete_contact
 
 !-----------------------------------------------------------------------
@@ -1353,9 +1365,12 @@ real function cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
  
  real, intent(in)  :: T_gas, kappa_gas
  real, intent(in)  :: T_dust, kappa_dust
-
- cool_dust_radiation = 4.*steboltz*(kappa_dust*T_dust**4-kappa_gas*T_gas**4)
-
+ 
+ if (kappa_dust > kappa_dust_min) then
+    cool_dust_radiation = 4.*steboltz*(kappa_dust*T_dust**4-kappa_gas*T_gas**4)
+ else
+    cool_dust_radiation = 0.0
+ endif
 end function cool_dust_radiation
 
 !-----------------------------------------------------------------------
@@ -1363,19 +1378,22 @@ end function cool_dust_radiation
 !  DUST: Friction heating caused by dust-drift through gas (Golreich & Scoville 1976)
 !+
 !-----------------------------------------------------------------------
-real function heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain)
+real function heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust)
 
  real, intent(in)  :: rho_gas
- real, intent(in)  :: v_drift, d2g, a, rho_grain
+ real, intent(in)  :: v_drift, d2g, a, rho_grain, kappa_dust
  
  real              :: sigma_dust
  real, parameter   :: alpha = 0.33                            ! see Burke & Hollenbach 1983
  
  ! Warning, alpha depends on the type of dust 
+ if (kappa_dust > kappa_dust_min) then 
+    sigma_dust         = 2.*pi*a**2.
+    heat_dust_friction = n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_drift*alpha*0.5*rho_gas*v_drift**2.
+ else
+    heat_dust_friction = 0.0
+ endif
  
- sigma_dust         = 2.*pi*a**2.
- heat_dust_friction = n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_drift*alpha*0.5*rho_gas*v_drift**2
-
 end function heat_dust_friction
 
 !-----------------------------------------------------------------------
@@ -1383,17 +1401,22 @@ end function heat_dust_friction
 !  DUST: photovoltaic heating by soft UV field (Weingartner & Draine 2001)
 !+
 !-----------------------------------------------------------------------
-real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe)
+real function heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust)
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real, intent(in)  :: kappa_dust
  
  real              :: n_gas, x
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: C0=5.45, C1=2.50, C2=0.00945, C3=0.01453, C4=0.147, C5=0.623, C6=0.511 ! see Table 2 in Weingartner & Draine 2001, last line
- 
- x                           = G*sqrt(T_gas)/n_e(T_gas, rho_gas, mu, nH, nHe)
- heat_dust_photovoltaic_soft = 1d-26*G*nH*(C0+C1*T_gas**C4)/(1+C2*x**C5*(1+C3*x**C6))
 
+ if (kappa_dust > kappa_dust_min) then  
+    x                           = G*sqrt(T_gas)/n_e(T_gas, rho_gas, mu, nH, nHe)
+    heat_dust_photovoltaic_soft = 1.d-26*G*nH*(C0+C1*T_gas**C4)/(1.+C2*x**C5*(1.+C3*x**C6))
+ else
+    heat_dust_photovoltaic_soft = 0.0
+ endif
+ 
 end function heat_dust_photovoltaic_soft
 
 !-----------------------------------------------------------------------
@@ -1401,17 +1424,21 @@ end function heat_dust_photovoltaic_soft
 !  DUST: photovoltaic heating by hard UV field (Inoue & Kamaya 2010)
 !+
 !-----------------------------------------------------------------------
-real function heat_dust_photovoltaic_hard(T_gas, nH, d2g, JL)
+real function heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL)
 
  real, intent(in)  :: T_gas, nH
- real, intent(in)  :: d2g
+ real, intent(in)  :: d2g, kappa_dust
  real, intent(in)  :: JL       ! mean intensity of background UV radiation at hydrogen Lyman limit (91.2 nm)
  
- heat_dust_photovoltaic_hard = 1.2d-34*(d2g   /1.d-4) &
-                                      *(nH   /1.d-5 )**(4. /3.) &
-                                      *(T_gas/1.d4  )**(-1./6.) &
-                                      *(JL   /1.d-21)**(2. /3.)
-
+ if (kappa_dust > kappa_dust_min) then
+    heat_dust_photovoltaic_hard = 1.2d-34*(d2g   /1.d-4) &
+                                         *(nH   /1.d-5 )**(4. /3.) &
+                                         *(T_gas/1.d4  )**(-1./6.) &
+                                         *(JL   /1.d-21)**(2. /3.)
+ else
+    heat_dust_photovoltaic_hard = 0.0
+ endif
+ 
 end function heat_dust_photovoltaic_hard
 
 !-----------------------------------------------------------------------
@@ -1468,9 +1495,10 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  
  ! all hydrogen atomic, so nH = n_gas
  ! Dalgarno & McCray (1972) provide data starting at 3000K
+ ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 3000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
-    cool_HI = 7.3d-19*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*exp(-118400./T_gas)
+    cool_HI = 7.3d-19*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*(1+sqrt(T_gas/1.d5))**(-1)*exp(-118400./T_gas)
  else
     cool_HI = 0.0
  endif
@@ -1491,9 +1519,10 @@ real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
+ ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then    
     n_gas             = rho_gas/(mu*mass_proton_cgs) 
-    cool_H_ionisation = 1.27d-21*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*sqrt(T_gas)*exp(-157809./T_gas)
+    cool_H_ionisation = 1.27d-21*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-157809./T_gas)
  else
     cool_H_ionisation = 0.0
  endif
@@ -1512,9 +1541,10 @@ real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
+ ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
     n_gas              = rho_gas/(mu*mass_proton_cgs) 
-    cool_He_ionisation = 9.38d-22*n_e(T_gas, rho_gas, mu, nH, nHe)*nHe*sqrt(T_gas)*exp(-285335./T_gas)
+    cool_He_ionisation = 9.38d-22*n_e(T_gas, rho_gas, mu, nH, nHe)*nHe*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-285335./T_gas)
  else
     cool_He_ionisation = 0.0
  endif
@@ -1535,29 +1565,29 @@ real function cool_H2_rovib(T_gas, nH, nH2)
  real              :: x, Qn
  
  if (T_gas < 1635.) then
-    kH_01 = 1.4d-13*exp((T_gas/125)-(T_gas/577)**2)
+    kH_01 = 1.4d-13*exp((T_gas/125.)-(T_gas/577.)**2)
  else
-    kH_01 = 1.2d-12*sqrt(T_gas)*exp(-1000/T_gas)
+    kH_01 = 1.0d-12*sqrt(T_gas)*exp(-1000./T_gas)
  endif
- kH2_01 = 1.45d-12*sqrt(T_gas)*exp(-28728/(T_gas+1190.))
- Lvh    = 1.1d-18*exp(-6744/T_gas)
- Lvl    = 8.18d-13*exp(-6840/T_gas)*(nH*kH_01+nH2*kH2_01)
+ kH2_01 = 1.45d-12*sqrt(T_gas)*exp(-28728./(T_gas+1190.))
+ Lvh    = 1.1d-13*exp(-6744./T_gas)
+ Lvl    = 8.18d-13*(nH*kH_01+nH2*kH2_01)
  
  x   = log10(T_gas/1.0d4)
  if (T_gas < 1087.) then
     Lrh = 10**(-19.24+0.474*x-1.247*x**2)
  else
-    Lrh = 3.9d-19*exp(-6118/T_gas)
+    Lrh = 3.9d-19*exp(-6118./T_gas)
  endif
  
  Qn = nH2**0.77+1.2*nH**0.77
  if (T_gas > 4031.) then
     Lrl = 10**(-22.9-0.553*x-1.148*x**2)*Qn
  else
-    Lrl = 1.38d-22*exp(-9243/T_gas)*Qn
+    Lrl = 1.38d-22*exp(-9243./T_gas)*Qn
  endif
  
- cool_H2_rovib = nH2*( Lvh/(1+Lvh/Lvl) + Lrh/(1+Lrh/Lrl) )
+ cool_H2_rovib = nH2*( Lvh/(1.+(Lvh/Lvl)) + Lrh/(1.+(Lrh/Lrl)) )
  
 end function cool_H2_rovib
 
@@ -1580,9 +1610,9 @@ real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
  x     = log10(T_gas/1.0d4)
  n1    = 10**(4.0   -0.416*x -0.327*x**2)
  n2    = 10**(4.845 -1.3*x   +1.62*x**2)
- beta  = (1+n_gas*(2*nH2/n_gas*((1/n2)-(1/n1))+1/n1))**(-1)
- kD_H  = 1.2d-9*exp(-52400/T_gas)*(0.0933*exp(-17950/T_gas))**beta
- kD_H2 = 1.3d-9*exp(-53300/T_gas)*(0.0908*exp(-16200/T_gas))**beta
+ beta  = (1.+n_gas*(2.*nH2/n_gas*((1./n2)-(1./n1))+1./n1))**(-1.)
+ kD_H  = 1.2d-9*exp(-52400/T_gas)*(0.0933*exp(-17950./T_gas))**beta
+ kD_H2 = 1.3d-9*exp(-53300/T_gas)*(0.0908*exp(-16200./T_gas))**beta
  
  cool_H2_dissociation = 7.18d-12*(nH2**2*kD_H2+nH*nH2*kD_H)
 
@@ -1607,11 +1637,11 @@ real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
  x      = log10(T_gas/1.0d4)
  n1     = 10**(4.0   -0.416*x -0.327*x**2)
  n2     = 10**(4.845 -1.3*x   +1.62*x**2)
- beta   = (1+n_gas*(2*nH2/n_gas*((1/n2)-(1/n1))+1/n1))**(-1)
- xi     = 7.18d-12*n_gas*nH*(1-beta)
+ beta   = (1.+n_gas*(2.*nH2/n_gas*((1./n2)-(1./n1))+1./n1))**(-1.)
+ xi     = 7.18d-12*n_gas*nH*(1.-beta)
  
- fa     = (1+1.0d4*exp(-600/T_dust))**(-1)
- k_rec  = 3.0d-18*(sqrt(T_gas)*fa)/(1+0.04*sqrt(T_gas+T_dust)+2.0d-3*T_gas+8.0d-6*T_gas**2) 
+ fa     = (1+1.0d4*exp(-600./T_dust))**(-1.)    ! eq 3.4
+ k_rec  = 3.0d-1*(sqrt(T_gas)*fa)/(1.+0.04*sqrt(T_gas+T_dust)+2.0d-3*T_gas+8.0d-6*T_gas**2) ! eq 3.8
  
  heat_H2_recombination = k_rec*xi
 
@@ -1640,12 +1670,12 @@ real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
  nfCO   = MaxBol_cumul(T_gas, mu,  v_crit) * nCO
  
  n_gas  = rho_gas/(mu*mass_proton_cgs)
- n_crit = 3.3d6*(T_gas/1000.)**0.75
- sigma  = 3.0d-16*(T_gas/1000.)**(-1./4.)
- Qrot   = n_gas*nfCO*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))
+ n_crit = 3.3d6*(T_gas/1000.)**0.75                                                                             !McKee et al. 1982 eq. 5.3
+ sigma  = 3.0d-16*(T_gas/1000.)**(-1./4.)                                                                       !McKee et al. 1982 eq. 5.4
+ Qrot   = n_gas*nfCO*0.5*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1. + (n_gas/n_crit) + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
  
- QvibH2 = 1.83d-26*nH2*nfCO*exp(-3080./T_gas)*exp(-68./T_gas**(1./3.))
- QvibH  = 1.28d-24*nH *nfCO*exp(-3080./T_gas)*exp(-(2000/T_gas)**3.43)
+ QvibH2 = 1.83d-26*nH2*nfCO*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.))) !Neufeld & Kaufman 1993
+ QvibH  = 1.28d-24*nH *nfCO*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43)  !Neufeld & Kaufman 1993
  
  cool_CO_rovib = Qrot+QvibH+QvibH2
 
@@ -1673,12 +1703,12 @@ real function cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
  v_crit = sqrt( 2.*8.25d-12/(mu*mass_proton_cgs) )  ! kinetic energy
  nfH2O  = MaxBol_cumul(T_gas, mu,  v_crit) * nH2O
  
- alpha     = 1.35 - 0.3*log10(T_gas/1000.)
+ alpha     = 1.35 - 0.3*log10(T_gas/1000.)          ! Neufeld & Kaufmann 1993
  lambdaH2O = 1.32d-23*(T_gas/1000.)**alpha
  Qrot      = (nH2+1.39*nH)*nfH2O*LambdaH2O
  
- QvibH2    = 1.03d-26*nH2*nfH2O*T_gas*exp(-2352/T_gas)*exp(-47.5/(T_gas**(1./3.)))
- QvibH     = 7.40d-27*nH *nfH2O*lambdaH2O*T_gas*exp(-2352/T_gas)*exp(-34.5/(T_gas**(1./3.)))
+ QvibH2    = 1.03d-26*nH2*nfH2O*T_gas*exp(-2352./T_gas)*exp(-47.5/(T_gas**(1./3.)))            !Hollenbach & McKee 1989 eq 2.14b
+ QvibH     = 7.40d-27*nH *nfH2O*lambdaH2O*T_gas*exp(-2352./T_gas)*exp(-34.5/(T_gas**(1./3.)))  !Hollenbach & McKee 1989 eq 2.14a
  
  cool_H2O_rovib = Qrot+QvibH+QvibH2
 
@@ -1686,7 +1716,7 @@ end function cool_H2O_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  RADIATIVE: OH rotational cooling (Hollenbach & McKee 1979)
+!  RADIATIVE: OH rotational cooling (Hollenbach & McKee 1979, McKee et al. 1982)
 !+
 !-----------------------------------------------------------------------
 real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
@@ -1710,7 +1740,7 @@ real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
  sigma     = 2.0d-16
  n_crit    = 1.33d7*sqrt(T_gas) 
  
- cool_OH_rot = n_gas*nfOH*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))
+ cool_OH_rot = n_gas*nfOH*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
 
 end function cool_OH_rot
 
@@ -1727,8 +1757,8 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
  real, intent(in)  :: JL
  
-  calc_Q =  cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain) &
-!     + cool_dust_full_contact(T_gas, rho_gas, mu, T_dust) &
+  calc_Q =  cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust) &
+!     + cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust) &
 !     + cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust) &
     + cool_coulomb(T_gas, rho_gas, mu, nH, nHe) &
     + cool_HI(T_gas, rho_gas, mu, nH, nHe) &
@@ -1739,9 +1769,9 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
     + cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO) &
     + cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O) &
     + cool_OH_rot(T_gas, rho_gas, mu, nOH) &
-    - heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain) &
-    - heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe) &
-    - heat_dust_photovoltaic_hard(T_gas, nH, d2g, JL) &
+    - heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust) &
+    - heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust) &
+!     - heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL) &
     - heat_CosmicRays(nH, nH2) &
     - heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
 
