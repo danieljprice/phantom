@@ -175,15 +175,15 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Rstar_cgs,Mstar_cgs,L
  real, intent(in)            :: r,dx,dy,dz,Rstar_cgs,Mstar_cgs,Lstar_cgs,kappa
  real, intent(in), optional  :: tau
  real, intent(out)           :: ax,ay,az,alpha
- real :: fac, PF
+ real :: fac, PF, Rstar
  
+ Rstar = Rstar_cgs/udist
  ! Proximity factor (PF) reducing total luminosity due to proximity to star 
  !    + reduction of radial component of acceleration
- if (r > Rstar_cgs) then
-    PF = (1./asin(Rstar_cgs/r))*(Rstar_cgs/r)*(1.-(Rstar_cgs/r)**2.)
-    print*, r, Rstar_cgs, PF
+ if (r > Rstar) then
+    PF = (1./asin(Rstar/r))*(Rstar/r)*(1.-(Rstar/r)**2.)
  else
-    PF = 1.0
+    PF = 0.0
  endif
  
  select case (isink_radiation)
