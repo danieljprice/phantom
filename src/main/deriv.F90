@@ -39,7 +39,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,do_radiation
- use io,             only:iprint,fatal
+ use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass
@@ -101,6 +101,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
  real,         intent(inout) :: metrics(:,:,:,:)
+ integer                     :: ierr
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
  t1    = 0.
@@ -177,7 +178,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  !
  if (do_radiation) then
-    call do_radiation_implicit(dt,dtmax,npart,rad,xyzh,vxyzu,drad)
+    call do_radiation_implicit(dt,dtmax,npart,rad,xyzh,vxyzu,drad,ierr)
+    if (ierr /= 0) call error('radiation','Failed to converge')
  endif
 
 !
