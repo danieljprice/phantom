@@ -38,7 +38,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,do_radiation
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -77,6 +77,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
+ use radiation_implicit, only:do_radiation_implicit
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -171,6 +172,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
 #endif
  call do_timing('cons2prim',tlast,tcpulast)
+
+ !
+ !
+ !
+ if (do_radiation) then
+    call do_radiation_implicit(dt,dtmax,npart,rad,xyzh,vxyzu,drad)
+ endif
+
 !
 ! compute forces
 !
