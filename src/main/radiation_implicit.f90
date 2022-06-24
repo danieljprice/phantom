@@ -21,7 +21,6 @@ contains
      if (failed) ierr = ierr_failed_to_converge
   enddo
 
-
  end subroutine do_radiation_implicit
 
 
@@ -33,6 +32,9 @@ contains
   integer, intent(out) :: nit
   real, intent(out) :: errorE,errorU
   real :: ccode,acode
+  integer, allocatable :: ivar(:,:),ijvar(:)
+  integer :: ncompact
+  real, allocatable :: varij(:,:),varij2(:,:)
 
   failed = .false.
   nit = 0
@@ -43,9 +45,32 @@ contains
   acode = get_radconst_code()
   !dtimax = dt/imaxstep
 
-  print*,"dt=",dt
+  call get_compacted_neighbour_list(ivar,ijvar,ncompact)
+  call fill_pairwise_arrays(varij,varij2)
+  call compute_drad(varij,varij2,drad)
 
  end subroutine do_radiation_onestep
 
+
+ subroutine fill_pairwise_arrays(varij,varij2)
+  real, allocatable, intent(out) :: varij(:,:),varij2(:,:)
+
+
+ end subroutine fill_pairwise_arrays
+
+
+ subroutine get_compacted_neighbour_list(ivar,ijvar,ncompact)
+  integer, allocatable, intent(out) :: ivar(:,:),ijvar(:)
+  integer, intent(out) :: ncompact 
+
+
+ end subroutine get_compacted_neighbour_list
+
+
+ subroutine compute_drad(varij,varij2,drad)
+  real, intent(in) :: varij(:,:),varij2(:,:)
+  real, intent(out) :: drad(:,:)
+
+ end subroutine compute_drad
 
 end module radiation_implicit
