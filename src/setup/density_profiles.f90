@@ -716,8 +716,9 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Determine scaling factors for the BE
  fac_close = 1000.
- if (iBEparam==4 .or. iBEparam==6) central_density = (csBE*xBE/rBE)**2/fourpi
- if (iBEparam==5) then
+ if (iBEparam==4) then
+    central_density = (csBE*xBE/rBE)**2/fourpi
+ elseif (iBEparam==5 .or. iBEparam==6) then
     do j = 1, npts
        if (rtab(j) < xBE) iBElast = j
     enddo
