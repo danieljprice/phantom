@@ -823,9 +823,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  enddo overblocks
 
  !
- ! check npartoftype
+ ! check npartoftype- breaks for sphng "type19" sinks
+ ! post-itype conversion
  !
- if (maxphase==maxp) then
+ if (maxphase==maxp .and. phantomdump) then
     npartoftypetot = npartoftype
     call count_particle_types(npartoftype)
     npartoftypetotact = reduceall_mpi('+',npartoftype)
@@ -1910,6 +1911,10 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
+    if (itype .gt. 8) then
+       print *, "particle i=", i,"is type", itype
+       cycle
+    end if
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 
