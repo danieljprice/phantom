@@ -119,7 +119,7 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
           xyzmh_ptmass(ispiny,nsink) = spin_sphng(2,nsink)
           xyzmh_ptmass(ispinz,nsink) = spin_sphng(3,nsink)
           if (nptmass < 100) then
-             print "(1x,a,i2,a,es13.6,a,es10.3,a)",'[CONVERTING SINK #',nsink,' sphNG->Phantom, M=',&
+             print "(1x,a,i2,a,es13.6,a,es10.3,a,es13.6,a)",'[CONVERTING SINK #',nsink,' sphNG->Phantom, M=',&
                    xyzmh_ptmass(4,nsink),' h= ',xyzmh_ptmass(ihacc,nsink),' spinx= ',xyzmh_ptmass(ispinx,nsink),']'
           endif
        endif
@@ -136,7 +136,7 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
     nptmass = nsink
     ierr = 67
  endif
-
+ deallocate(spin_sphng,mass_sphng)
 end subroutine convert_sinks_sphNG
 
 end module sphNGutils
