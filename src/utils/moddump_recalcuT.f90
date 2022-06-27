@@ -23,7 +23,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
-                         gmw,X_in,Z_in,gamma,eosinfo
+                         gmw,X_in,Z_in,gamma,eosinfo,equationofstate
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
  use part,          only:rhoh,eos_vars,itemp,igasP,igas
@@ -55,20 +55,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  dum2 = 0.
  dum3 = 0.
  dum4 = 0.
-
+ tempi = 0.
  do i = 1,npart
     densi = rhoh(xyzh(4,i),massoftype(igas))
-
     ! Get pressure
-    call equationofstate(ieos,ponrhoi,dum1,densi,dum2,dum3,dum4,vxyzu(4,i))
+    call equationofstate(ieos,ponrhoi,dum1,densi,dum2,dum3,dum4,tempi,vxyzu(4,i))
     eos_vars(igasP,i) = ponrhoi * densi
  enddo
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
  ! Comment out to leave quantity unchanged
- ieos = 20
+ ieos = 12
  gamma = 5./3.
- gmw = 0.60319
+ gmw = 0.6175
  irecomb = 3
  X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
  Z_in = 0.01426

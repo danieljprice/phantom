@@ -121,8 +121,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
- integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
- !       treat with caution
+ integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous; treat with caution!
  real            :: r2,dr,dr3,r,d2,f2i
  real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
  real            :: phii,gcode,R_g,factor,rhoi

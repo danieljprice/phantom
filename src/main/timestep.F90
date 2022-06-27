@@ -132,6 +132,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  else
     dtmax_global = dtmax0 ! dtmax never be the default negative value
  endif
+ dtmax_global = dtmax_global - epsilon(dtmax_global) ! just to be sure that we are not accidentally increasing dtmax
 
  ! modify dtmax based upon wall time constraint, if requested
  if ( dtwallmax > 0.0 ) then
