@@ -24,6 +24,7 @@ module eos
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
 !    19 = Variable gamma (requires KROME)
+!    20 = Locally isothermal like 3 but with semi-major axis
 !
 ! :References: None
 !
@@ -414,7 +415,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
     if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     call fatal('eos','unknown equation of state')
  end select
-! print*,spsoundi,r,entoti,ai
  return
 end subroutine equationofstate
 

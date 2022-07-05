@@ -2369,7 +2369,8 @@ subroutine write_setupfile(filename)
           call write_inopt(e0(i),'e0'//trim(disclabel),'eccentricity at disc edge',iunit)
           call write_inopt(eindex(i),'eindex'//trim(disclabel),'power of eccentricity profile',iunit)
           call write_inopt(phiperi(i),'phiperi'//trim(disclabel),'longitude of pericentre',iunit)
-          call write_inopt(eccprofile(i),'eccprofile'//trim(disclabel),'type of eccentricity profile',iunit)
+          call write_inopt(eccprofile(i),'eccprofile'//trim(disclabel),'type of eccentricity profile'// &
+                           '(0=circ,1=power-law,4=from file ecc_grid.dat)',iunit)
 
        endif
        if (.not.done_alpha) then
