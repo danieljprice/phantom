@@ -22,8 +22,7 @@ Show available software
 
    $ module avail
 
-Load intel compiler and SPLASH (currently Phantom works best with this
-compiler)
+Load intel compiler and SPLASH (currently Phantom works best with this compiler)
 
 ::
 
@@ -39,22 +38,30 @@ Add the above two commands and the following three commands to your
    ulimit -s unlimited
    export OMP_STACKSIZE=512M
 
-Now, when you login again, all these should be set automatically.
+Now, when you login again, all these should be set automatically.  To load these settings for this current session, use
+
+::
+
+   source ~/.bashrc
+
+This command is only required when you modify your bashrc.
 
 Get Phantom
 ~~~~~~~~~~~
 
-Clone a copy of Phantom into your home directory:
+Clone a copy of Phantom into your HOME directory:
 
 ::
 
    $ cd ~
    $ git clone https://github.com/danieljprice/phantom
 
+Your home directory has a 10Gb quota.  Do NOT run simulations in your home directory.
+
 Performing a calculation
 ------------------------
 
-Make a directory (within your user folder) for runs:
+All calculations must be performed in your SCRATCH or DATA directory.  Make a directory (within your user folder) for runs:
 
 ::
 
@@ -62,32 +69,32 @@ Make a directory (within your user folder) for runs:
    $ mkdir runs
    $ cd runs
 
-then make a subdirectory for the name of the calculation you want to run
-(e.g. shock)
+Next, make a subdirectory for the name of the calculation you want to run (e.g. shock)
 
 ::
 
    $ mkdir shock
    $ cd shock
    $ ~/phantom/scripts/writemake.sh shock > Makefile
-   $ make setup
-   $ make
+   $ make ; make setup
 
-then run phantomsetup to create your initial conditions
+Run phantomsetup twice to create your initial conditions:
 
 ::
 
    $ ./phantomsetup shock
    (just press enter to all the questions to get the default)
+   $ ./phantomsetup shock
 
-To run the code, you need to write a submission script. You can get an
-example by typing “make qscript”:
+The first instance of phantomsetup will generate shock.setup.  The second instance of phantomsetup will read shock.setup and generate the initial dump file, shock_00000.tmp, and input file, shock.in.
+
+To run the code, you need to write a submission script. Do NOT run phantom on the head node.  You can get an example by typing “make qscript”:
 
 ::
 
    $ make qscript INFILE=shock.in > run.qscript
 
-should produce something like
+The resulting submission script should look something like
 
 ::
 
@@ -97,7 +104,7 @@ should produce something like
    #PBS -l nodes=1:ppn=36
    #PBS -N [enter a job name here]
    #PBS -A [enter an account number here]
-   #PBS -o disc.in.pbsout
+   #PBS -o shock.in.pbsout
    #PBS -j oe
    #PBS -m ea
    #PBS -M [enter your email here]
@@ -125,13 +132,21 @@ should produce something like
 
 
    echo "starting phantom run..."
-   export outfile=`grep logfile "disc.in" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`
+   export outfile=`grep logfile "shock.in" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`
    echo "writing output to $outfile"
-   ./phantom disc.in >& $outfile
+   ./phantom shock.in >& $outfile
 
 You will need to enter the email destination, job name and account
-number as required (without the brackets). You can then submit this to
-the queue using
+number as required (without the brackets).
+
+For short jobs or for testing, you can submit your script to the development queue.  Do this by resetting the wall time to a maximum of two hours and selecting the queue:
+
+::
+
+   #PBS -l walltime=2:00:00
+   #PBS -q devel
+
+You can then submit this to the queue using
 
 ::
 
@@ -146,7 +161,19 @@ and check status using the qstat command and your username, e.g.
    Job ID                  Username  Queue    Jobname  SessID  NDS   TSK   Memory      Time  S  Time
    22054.master.cm.cluste  [......]  dirac25x dp005    6678     1     36     16gb  01:00:00  Q
 
-When it has started, you can follow what the calculation is doing by
+If your simulation has not yet started, you can see when it is predicted to start by
+
+::
+
+   $ showstart [Job ID]
+
+You can cancel a run (before or during execution) by
+
+::
+
+   $ qdel [Job ID]
+
+When the job has started, you can follow what the calculation is doing by
 looking at the .log file:
 
 ::
@@ -178,11 +205,24 @@ file. The first line of the file shows you what each column is:
    $ head shock01.ev
 
 and you can plot these columns using “asplash -ev” or any other program
-for plotting ascii files, like gnu plot:
+for plotting ascii files, like gnuplot:
 
 ::
 
    $ asplash -ev *.ev
+
+
+Model names
+-----------
+
+When running your own simulation, use the name of the relevant setup block when making the Makefile:
+
+::
+
+   $ ~/phantom/scripts/writemake.sh [setup block name] > Makefile
+
+The setup blocks are listed in /build/Makefile_setups.  The model name can be anything you choose; in the above example, the model name is 'shock'.  Naturally, the name you choose will replace all instances of 'shock' above (except when generating the local Makefile).
+
 
 Acknowledgements
 ----------------
@@ -200,5 +240,7 @@ ST/R001014/1. DiRAC is part of the National e-Infrastructure.
 More info
 ---------
 
-More info is available on the DiAL website:
-https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/dirac
+More info is available on the following websites:
+https://dirac.ac.uk/
+https://dirac.ac.uk/resources/#DataIntensive1
+https://www630.lamp.le.ac.uk/Getting_started/connecting_dial3/
