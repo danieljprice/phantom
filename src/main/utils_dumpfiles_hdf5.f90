@@ -150,6 +150,9 @@ module utils_dumpfiles_hdf5
                got_krome_gamma,                      &
                got_krome_mu,                         &
                got_krome_T,                          &
+               got_x,                                &
+               got_z,                                &
+               got_mu,                               &
                got_orig
  end type got_arrays_hdf5
 
@@ -862,6 +865,10 @@ subroutine read_hdf5_arrays( &
  got_arrays%got_krome_gamma = .false.
  got_arrays%got_krome_mu    = .false.
  got_arrays%got_krome_T     = .false.
+ got_arrays%got_x           = .false.
+ got_arrays%got_z           = .false.
+ got_arrays%got_mu          = .false.
+
 
  ! Open particles group
  call open_hdf5group(file_id, 'particles', group_id, error)
