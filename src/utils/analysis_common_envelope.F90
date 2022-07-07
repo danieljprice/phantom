@@ -467,9 +467,9 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
  real, intent(in)               :: time,particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  real                           :: etoti,ekini,epoti,phii,einti,ethi
- real                           :: E_H2,E_HI,E_HeI,E_HeII,Zfrac
- real, save                     :: Xfrac,Yfrac
- real                           :: rhopart,ponrhoi,spsoundi,dum1,dum2,dum3,tempi
+ real                           :: E_H2,E_HI,E_HeI,E_HeII
+ real, save                     :: Xfrac,Yfrac,Zfrac
+ real                           :: rhopart,ponrhoi,spsoundi,dum1,dum2,dum3
  real, dimension(3)             :: rcrossmv
  real, dimension(28)            :: bound
  integer                        :: i,bound_i,ncols
@@ -515,14 +515,12 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
     if (ieos /= 10 .and. ieos /= 20) then ! For MESA EoS, just use X_in and Z_in from eos module
        call prompt('Enter hydrogen mass fraction to assume for recombination:',Xfrac,0.,1.)
        call prompt('Enter metallicity to assume for recombination:',Zfrac,0.,1.)
-       Yfrac = 1. - Xfrac - Zfrac
     else
        Xfrac = X_in
        Zfrac = Z_in
     endif
+    Yfrac = 1. - Xfrac - Zfrac
  endif
-
- Yfrac = 1. - Xfrac - Zfrac
 
  ! Ionisation energies per particle (in code units)
  E_H2   = 0.5*Xfrac*0.0022866 * particlemass
@@ -1251,22 +1249,17 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
  ! Calculations performed outside loop over particles
  call compute_energies(time)
+ omega_orb = 0.
  com_xyz = 0.
  com_vxyz = 0.
- omega_orb = 0.
  do k=1,4
     select case (quantities_to_calculate(k))
     case(1,2,3,6,8,9) ! Nothing to do
-    case(4,5,11,12) ! Fractional difference between gas and orbital omega
-       if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
-          com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
-                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-          com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
-                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       elseif (quantities_to_calculate(k) == 12) then
-          com_xyz = xyzmh_ptmass(1:3,i)
-          com_vxyz = vxyz_ptmass(1:3,i)
-       endif
+    case(4,5) ! Fractional difference between gas and orbital omega
+       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
           vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
@@ -2759,6 +2752,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     vel_contrast_vec = 0.
     racc             = 0.
     cs               = 0.
+    vol_mass         = 0.
+    omega            = 0.
 
     ! Calculate unit vectors
     call unit_vector(vxyz_ptmass(1:3,i), unit_vel)
@@ -3480,6 +3475,11 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  omega = 0.
 
  ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
+ dr = 0.
+ dz = 0.
+ Rsinksink = 0.
+ vol_npart = 0
+ Rsphere = 0.
  if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
     select case (iavgopt)
     case(1) ! Use companion position
