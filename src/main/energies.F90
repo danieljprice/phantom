@@ -327,7 +327,7 @@ subroutine compute_energies(t)
        ecci = sqrt(1.-angzi**2/(Mbin*ai))
        phasei=atan2((-angzi/Mbin*vxi-yi/ri),(angzi/Mbin*vyi-xi/ri))
 
-       if(ecci>0.5)  print*,'e,a,ri,En,phase:',ecci,ai,ri,Eni,phasei
+!       if(ecci>0.5)  print*,'e,a,ri,En,phase:',ecci,ai,ri,Eni,phasei
        psiR = ri*cos(phii)
        psiI = ri*sin(phii)
        eccx = ecci*cos(phasei)
