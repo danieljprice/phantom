@@ -29,7 +29,9 @@ module setup
 !   - accr2a        : *tight binary primary accretion radius*
 !   - accr2b        : *tight binary secondary accretion radius*
 !   - alphaSS       : *desired alphaSS*
+!   - alpha_z       : *height of transition in tanh vertical temperature profile*
 !   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
+!   - beta_z        : *variation in transition height over radius*
 !   - bhspin        : *black hole spin*
 !   - bhspinangle   : *black hole spin angle (deg)*
 !   - binary2_O     : *tight binary Omega, PA of ascending node (deg)*
@@ -45,6 +47,7 @@ module setup
 !   - binary_i      : *wide binary i, inclination (deg)*
 !   - binary_w      : *wide binary w, argument of periapsis (deg)*
 !   - deltat        : *output interval as fraction of orbital period*
+!   - discstrat     : *stratify disc? (0=no,1=yes)*
 !   - dist_unit     : *distance unit (e.g. au,pc,kpc,0.1pc)*
 !   - einst_prec    : *include Einstein precession*
 !   - flyby_O       : *position angle of ascending node (deg)*
@@ -61,14 +64,16 @@ module setup
 !   - nplanets      : *number of planets*
 !   - nsinks        : *number of sinks*
 !   - q2            : *tight binary mass ratio*
+!   - qatm          : *sound speed power law index of atmosphere*
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
-!   - setplanets    : *add planets? (0=no,1=yes)*
 !   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
+!   - temp_atm0     : *atmosphere temperature scaling factor*
+!   - temp_mid0     : *midplane temperature scaling factor*
 !   - use_mcfost    : *use the mcfost library*
-!   - discstrat     : *stratify disc? (0=no,1=yes)*
+!   - z0            : *z scaling factor*
 !
 ! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
@@ -177,8 +182,8 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: questplanets,istratify
- integer :: nplanets,setplanets, discstrat
+ logical :: istratify
+ integer :: nplanets,discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
  real    :: period_planet_longest
@@ -422,8 +427,6 @@ subroutine set_default_options()
  np_dust = np/maxdustlarge/5
 
  !--planets
- questplanets  = .false.
- setplanets    = 0
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
@@ -623,16 +626,16 @@ subroutine equation_of_state(gamma)
              print "(/,a)",' setting ieos=6 for locally isothermal disc around sink'
           else
              if (discstrat > 0) then
-               ieos = 7
-               print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
-               call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
-               call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
-               polyk2 = (cs*(1./R_ref(onlydisc))**qfacdisc2)**2
-               z0 = z0_ref/R_ref(onlydisc)**beta_z
+                ieos = 7
+                print "(/,a)",' setting ieos=7 for locally isothermal disc with stratification'
+                call temp_to_HR(temp_mid0,H_R(onlydisc),R_ref(onlydisc),mcentral,cs)
+                call temp_to_HR(temp_atm0,H_R_atm,R_ref(onlydisc),mcentral,cs)
+                polyk2 = (cs*(1./R_ref(onlydisc))**(-qfacdisc2))**2
+                z0 = z0_ref/R_ref(onlydisc)**beta_z
              else
-               ieos = 3
-               print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
-             end if
+                ieos = 3
+                print "(/,a)",' setting ieos=3 for locally isothermal disc around origin'
+             endif
              isink = 0 ! In the case isink==3, to be generalized
           endif
           qfacdisc = qindex(onlydisc)
@@ -1540,7 +1543,7 @@ subroutine set_planets(npart,massoftype,xyzh)
  real    :: u(3)
 
  period_planet_longest = 0.
- if (setplanets==1) then
+ if (nplanets > 0) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
 
@@ -1676,7 +1679,7 @@ subroutine set_tmax_dtmax()
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
- elseif (setplanets==1) then
+ elseif (nplanets > 0) then
     !--outer planet orbital period
     period = period_planet_longest
  elseif (iwarp(onlydisc)) then
@@ -2035,18 +2038,13 @@ subroutine setup_interactive()
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
  print "(a)",  '================='
- call prompt('Do you want to add planets?',questplanets)
- if (questplanets) then
-    setplanets = 1
-    nplanets   = 1
-    call prompt('Enter the number of planets',nplanets,1,maxplanets)
- endif
+ call prompt('How many planets?',nplanets,0,maxplanets)
 
  !--simulation time
  print "(/,a)",'================'
  print "(a)",  '+++  OUTPUT  +++'
  print "(a)",  '================'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
@@ -2355,9 +2353,8 @@ subroutine write_setupfile(filename)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
- call write_inopt(setplanets,'setplanets','add planets? (0=no,1=yes)',iunit)
- if (setplanets==1) then
-    call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ if (nplanets > 0) then
     do i=1,nplanets
        write(iunit,"(/,a)") '# planet:'//trim(planets(i))
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
@@ -2370,17 +2367,17 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
-   call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
-   call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
-   call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
-   call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
-   call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
-   call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
+    call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
+    call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
+    call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
+    call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
+    call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
+    call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
 
  endif
  !--timestepping
  write(iunit,"(/,a)") '# timestepping'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
  elseif (icentral==1 .and. nsinks>=2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
@@ -2696,16 +2693,13 @@ subroutine read_setupfile(filename,ierr)
  enddo
  if (maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  !--planets
- call read_inopt(setplanets,'setplanets',db,min=0,max=1,errcount=nerr)
- if (setplanets==1) then
-    call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
-    do i=1,nplanets
-       call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
-       call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-    enddo
- endif
+ call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
+ do i=1,nplanets
+    call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
+    call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+ enddo
  !--timestepping
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
@@ -2743,12 +2737,16 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
 
  integer :: i,j
  real    :: R,z
- real    :: dust_to_gas(maxdusttypes)
+ real    :: dust_to_gasi(maxdusttypes)
+ real    :: dust_to_gas_disc
  real    :: Hg,Hd
- real    :: sigma_gas
- real    :: sigma_dust
+ real    :: sigma_gas,sigma_gas_sum
+ real    :: sigma_dust,sigma_dust_sum
+ real, parameter :: tol = 1.e-10
 
- dust_to_gas = 0.
+ dust_to_gasi   = 0.
+ sigma_gas_sum  = 0.
+ sigma_dust_sum = 0.
  do i=ipart_start,ipart_end
 
     R = sqrt(dot_product(xyzh(1:2,i)-xorigini(1:2),xyzh(1:2,i)-xorigini(1:2)))
@@ -2762,10 +2760,15 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                                     R_in(disc_index),&
                                                     R_out(disc_index),&
                                                     R_c(disc_index))
+    !--Sum the gas masses
+    if ((sigma_gas < huge(sigma_gas)) .and. (sigma_gas == sigma_gas)) then
+       sigma_gas_sum = sigma_gas_sum + sigma_gas
+    endif
 
     do j=1,ndustsmall
        if (isetdust > 0 .and. (R<R_indust(disc_index,j) .or. R>R_outdust(disc_index,j))) then
-          dust_to_gas(j) = tiny(dust_to_gas(j))
+          dust_to_gasi(j) = tiny(dust_to_gasi(j))
+          sigma_dust = 0.
        else
           Hd = get_H(H_R_dust(disc_index,j)*R_ref(disc_index),qindex_dust(disc_index,j),R/R_ref(disc_index))
           sigma_dust = sig_normdust(disc_index,j) * scaled_sigma(R,&
@@ -2775,15 +2778,28 @@ subroutine set_dustfrac(disc_index,ipart_start,ipart_end,xyzh,xorigini)
                                            R_indust(disc_index,j),&
                                            R_outdust(disc_index,j),&
                                            R_c_dust(disc_index,j))
-          dust_to_gas(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
+
+          dust_to_gasi(j) = (sigma_dust/sigma_gas) * (Hg/Hd) * exp(-0.5d0*((z/Hd)**2.-(z/Hg)**2.))
+       endif
+       !--Sum the dust masses
+       if ((sigma_dust < huge(sigma_dust)) .and. (sigma_dust == sigma_dust)) then
+          sigma_dust_sum = sigma_dust_sum + sigma_dust
        endif
     enddo
-    dustfrac(1:ndustsmall,i) = (dust_to_gas/(1.+sum(dust_to_gas)))*dustbinfrac(1:ndustsmall)
-
+    !--Calculate the final dustfrac that will be output to the dump file
+    !  Note: dust density and dust fraction have the same dependence on grain size
+    !  ===>  dustfrac(:) = sum(dustfrac)*rhodust(:)/sum(rhodust)
+    dustfrac(1:ndustsmall,i) = (sum(dust_to_gasi)/(1.+sum(dust_to_gasi)))*dustbinfrac(1:ndustsmall)
  enddo
+ !--Check if the total dust-to-gas ratio is equal to the requested ratio in the setup file
+ dust_to_gas_disc = sigma_dust_sum/sigma_gas_sum
+ if (abs(dust_to_gas_disc-dust_to_gas)/dust_to_gas > tol) then
+    write(*,"(a,es15.8)") ' Requested dust-to-gas ratio is ',dust_to_gas
+    write(*,"(a,es15.8)") '    Actual dust-to-gas ratio is ',dust_to_gas_disc
+    call fatal('setup_disc','dust-to-gas ratio is not correct')
+ endif
 
 end subroutine set_dustfrac
-
 !--------------------------------------------------------------------------
 !
 ! Scale height as a function of radius
@@ -2878,15 +2894,15 @@ end subroutine make_corotate
 
 
 subroutine temp_to_HR(temp,H_R,radius,M,cs)
-  use units,  only:get_kbmh_code
-  use eos,    only:gmw
-  real,    intent(in)    :: temp,radius,M
-  real,    intent(out)   :: H_R,cs
-  real                   :: omega
+ use units,  only:get_kbmh_code
+ use eos,    only:gmw
+ real,    intent(in)    :: temp,radius,M
+ real,    intent(out)   :: H_R,cs
+ real                   :: omega
 
-  cs = sqrt(temp*get_kbmh_code()/gmw)
-  omega = sqrt(M/radius**3)
-  H_R = cs/(omega*radius)
+ cs = sqrt(temp*get_kbmh_code()/gmw)
+ omega = sqrt(M/radius**3)
+ H_R = cs/(omega*radius)
 
 
 end subroutine temp_to_HR

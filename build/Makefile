@@ -177,10 +177,6 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
-ifeq ($(STORE_TEMP), yes)
-    FPPFLAGS += -DSTORE_TEMPERATURE
-endif
-
 ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
@@ -468,7 +464,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
+SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
 #
 # chemistry
 #
@@ -498,16 +494,17 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
-         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR}\
-         checkoptions.F90 viscosity.f90 options.f90 radiation_utils.f90 cons2prim.f90 \
+         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
+			checkoptions.F90 viscosity.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
          partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM}\
          ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
-         mpi_dens.F90 mpi_force.F90 mpi_stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
+         mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
-         evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
+         evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         mf_write.f90 evolve.F90 \
          checksetup.F90 initial.F90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
@@ -576,7 +573,7 @@ edit: checksetup
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
          mpi_dens.F90 mpi_force.F90 \
-         mpi_balance.F90 mpi_stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
@@ -1018,7 +1015,7 @@ SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 utils_timing.f
           utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 utils_infiles.f90 \
           ${SRCEOS} viscosity.f90 options.f90 damping.f90 utils_gravwave.f90 \
           utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
-          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_stack.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
+          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_memory.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
           checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
