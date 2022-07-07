@@ -16,7 +16,7 @@ module derivutils
 !
 ! :Dependencies: io, mpiutils, timing
 !
- use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_extf,itimer_balance
+ use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_extf,itimer_balance,itimer_cons2prim
 
  implicit none
 
@@ -51,6 +51,8 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
     call increment_timer(itimer_force,t2-tlast,tcpu2-tcpulast)
  elseif (label=='link') then
     call increment_timer(itimer_link,t2-tlast,tcpu2-tcpulast)
+ elseif (label=='cons2prim') then
+    call increment_timer(itimer_cons2prim,t2-tlast,tcpu2-tcpulast)
  endif
 
  if (iverbose >= 2 .and. id==master) then

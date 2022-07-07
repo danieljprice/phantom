@@ -14,7 +14,7 @@ module eos_gasradrec
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He*
+!   - irecomb : *recombination energy to include. 0=H2+H+He, 1=H+He, 2=He, 3=none*
 !
 ! :Dependencies: infile_utils, io, ionization_mod, physcon
 !
@@ -33,15 +33,16 @@ contains
 subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  use ionization_mod, only:get_erec_imurec
  use physcon,        only:radconst,Rg
+ use io,             only:fatal
  real, intent(in)    :: d,eint
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
  real, intent(out)   :: p,cf
- real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,gamma_eff
+ real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,gamma_eff,Tguess
  real, parameter     :: W4err=1.e-2,eoserr=1.e-13
  integer n
 
- corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9
+ corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9; Tguess=T
  do n = 1,500
     call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
     if (d*erec>=eint) then ! avoid negative thermal energy
@@ -49,7 +50,10 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     endif
     corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
            / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
-    if (abs(corr) > W4err*T) then
+    if (-corr > 10.*T) then  ! do not let temperature guess increase by more than a factor of 1000
+       T = 10.*T
+       Tdot = 0.
+    elseif (abs(corr) > W4err*T) then
        T = T + Tdot*dt
        Tdot = (1.-2.*dt)*Tdot - dt*corr
     else
@@ -60,9 +64,8 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if (n>50) dt=0.5
  enddo
  if (n > 500) then
-    print*,'Error in equationofstate_gasradrec'
-    print*,'d=',d,'eint=',eint,'mu=',1./imu
-    stop
+    print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec
+    call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  p = ( Rg*imu*d + radconst*T**3/3. )*T
  gamma_eff = 1.+p/(eint-d*erec)

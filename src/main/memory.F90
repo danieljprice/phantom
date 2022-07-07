@@ -14,7 +14,8 @@ module memory
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, io, linklist, part, photoevap
+! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
+!   mpimemory, part, photoevap
 !
  implicit none
 
@@ -23,19 +24,23 @@ contains
  !
  !--Allocate all allocatable arrays: mostly part arrays, and tree structures
  !
-subroutine allocate_memory(n, part_only)
- use io, only:iprint,warning,nprocs,id,master
- use dim, only:update_max_sizes,maxp
+subroutine allocate_memory(ntot, part_only)
+ use io,         only:iprint,warning,nprocs,id,master
+ use dim,        only:update_max_sizes,maxp,mpi
  use allocutils, only:nbytes_allocated,bytes2human
- use part, only:allocate_part
- use linklist, only:allocate_linklist,ifirstincell
+ use part,       only:allocate_part
+ use linklist,   only:allocate_linklist,ifirstincell
+ use mpimemory,  only:allocate_mpi_memory
+ use mpibalance, only:allocate_balance_arrays
+ use mpiderivs,  only:allocate_comms_arrays
 #ifdef PHOTO
- use photoevap, only:allocate_photoevap
+ use photoevap,  only:allocate_photoevap
 #endif
 
- integer,           intent(in) :: n
+ integer(kind=8),   intent(in) :: ntot
  logical, optional, intent(in) :: part_only
 
+ integer :: n
  logical :: part_only_
  character(len=11) :: sizestring
 
@@ -44,6 +49,9 @@ subroutine allocate_memory(n, part_only)
  else
     part_only_ = .false.
  endif
+
+ n = int(min(nprocs,4) * ntot / nprocs)
+
  if (nbytes_allocated > 0.0 .and. n <= maxp) then
     !
     ! just silently skip if arrays are already large enough
@@ -57,7 +65,6 @@ subroutine allocate_memory(n, part_only)
     ! skip remaining memory allocation (arrays already big enough)
     return
  endif
- call update_max_sizes(n)
 
  if (nprocs == 1) then
     write(iprint, *)
@@ -72,15 +79,20 @@ subroutine allocate_memory(n, part_only)
     call warning('memory', 'Attempting to allocate memory, but memory is already allocated. &
     & Deallocating and then allocating again.')
     call deallocate_memory(part_only=part_only_)
-    call update_max_sizes(n)
  endif
 
+ call update_max_sizes(n,ntot)
  call allocate_part
  if (.not. part_only_) then
     call allocate_linklist
 #ifdef PHOTO
     call allocate_photoevap
 #endif
+    if (mpi) then
+       call allocate_mpi_memory(npart=n)
+       call allocate_balance_arrays
+       call allocate_comms_arrays
+    endif
  endif
 
  call bytes2human(nbytes_allocated, sizestring)
@@ -95,12 +107,15 @@ subroutine allocate_memory(n, part_only)
 end subroutine allocate_memory
 
 subroutine deallocate_memory(part_only)
- use dim, only:update_max_sizes
+ use dim, only:update_max_sizes,mpi
  use part, only:deallocate_part
  use linklist, only:deallocate_linklist
 #ifdef PHOTO
  use photoevap, only:deallocate_photoevap
 #endif
+ use mpimemory,  only:deallocate_mpi_memory
+ use mpibalance, only:deallocate_balance_arrays
+ use mpiderivs,  only:deallocate_comms_arrays
  use allocutils, only:nbytes_allocated
 
  logical, optional, intent(in) :: part_only
@@ -118,6 +133,12 @@ subroutine deallocate_memory(part_only)
 #ifdef PHOTO
     call deallocate_photoevap
 #endif
+ endif
+
+ if (mpi) then
+    call deallocate_mpi_memory
+    call deallocate_balance_arrays
+    call deallocate_comms_arrays
  endif
 
  nbytes_allocated = 0

@@ -41,9 +41,9 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpistack, mpiutils, nicil, options, part, physcon,
-!   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
-!   timestep_sts, units, utils_gr, viscosity
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
+!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -56,7 +56,7 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 50000
+ integer, parameter :: maxcellcache = 10000
 
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
@@ -220,10 +220,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters
- use mpistack,     only:reserve_stack,reset_stacks
- use mpistack,     only:stack_remote  => force_stack_1
- use mpistack,     only:stack_waiting => force_stack_2
+ use mpimemory,    only:reserve_stack,reset_stacks
+ use mpimemory,    only:stack_remote  => force_stack_1
+ use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
+ use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -278,6 +279,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  logical                   :: remote_export(nprocs), do_export
  type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+
+ real(kind=4)              :: t1,t2,tcpu1,tcpu2
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -431,9 +434,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dustfrac) &
 !$omp shared(ddustevol) &
 !$omp shared(deltav) &
-!$omp shared(ibin_wake,ibinnow_m1)
+!$omp shared(ibin_wake,ibinnow_m1) &
+!$omp shared(t1) &
+!$omp shared(t2) &
+!$omp shared(tcpu1) &
+!$omp shared(tcpu2)
 
-!$omp do schedule(runtime)
+ !$omp single
+ call get_timings(t1,tcpu1)
+ !$omp end single
+
+ !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
 
@@ -452,14 +463,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !--get the neighbour list and fill the cell cache
     !
 
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
-#ifdef GRAVITY
-                           f=cell%fgrav, &
-#endif
-                           remote_export=remote_export)
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
+                           getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
     cell%owner                   = id
-    cell%remote_export(1:nprocs) = remote_export
+
     do_export = any(remote_export)
 
     if (mpi) then
@@ -468,7 +476,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        if (do_export) then
           if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,0,irequestsend,xsendbuf)  ! export the cell: direction 0 for exporting
+          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send to remote
        endif
        !$omp end critical (send_and_recv_remote)
     endif
@@ -501,38 +509,42 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     endif
 
  enddo over_cells
-!$omp enddo
+ !$omp enddo
 
-!$omp barrier
+ !$omp barrier
 
-!$omp single
+ !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
  call reset_cell_counters
-!$omp end single
+ !$omp end single
+
+ !$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
+ call get_timings(t1,tcpu1)
+ !$omp end single
 
  igot_remote: if (stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = stack_remote%cells(i)
 
-       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true., &
-#ifdef GRAVITY
-                         f=cell%fgrav, &
-#endif
-                         cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
+       call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
+                               getj=.true.,f=cell%fgrav,&
+                               cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                          rad,radprop,dens,metrics)
 
-       cell%remote_export(id+1) = .false.
-
+       remote_export = .false.
+       remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
        !$omp critical (send_and_recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
        call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-       call send_cell(cell,1,irequestsend,xsendbuf)
+       call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
        !$omp end critical (send_and_recv_waiting)
 
     enddo over_remote
@@ -547,20 +559,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif igot_remote
 
-!$omp barrier
+ !$omp barrier
 
-!$omp single
+ !$omp single
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
-!$omp end single
+ !$omp end single
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
-
-       if (any(cell%remote_export(1:nprocs))) then
-          call fatal('force', 'not all results returned from remote processor')
-       endif
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -592,6 +600,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 !$omp single
  call finish_cell_exchange(irequestrecv,xsendbuf)
+!$omp end single
+
+!$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
 !$omp end single
 
 #ifdef GRAVITY
@@ -846,7 +859,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,         only:use_dust,use_dustgrowth,store_temperature
+ use dim,         only:use_dust,use_dustgrowth
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
@@ -860,7 +873,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac
+ use options,     only:overcleanfac,use_dustfrac,ien_type,ien_entropy,ien_etotal
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -955,7 +968,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
- real    :: vxi,vyi,vzi,vxj,vyj,vzj
+ real    :: vxi,vyi,vzi,vxj,vyj,vzj,projvi,projvj
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
  real    :: densj
@@ -1269,6 +1282,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        vxj = vxyzu(1,j)
        vyj = vxyzu(2,j)
        vzj = vxyzu(3,j)
+       projvi = vxi*runix + vyi*runiy + vzi*runiz
+       projvj = vxj*runix + vyj*runiy + vzj*runiz
        dvx = vxi - vxj
        dvy = vyi - vyj
        dvz = vzi - vzj
@@ -1276,8 +1291,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
        if (iamgasj .and. maxvxyzu >= 4) then
-          enj   = vxyzu(4,j)
-          if (store_temperature .and. eos_is_non_ideal(ieos)) then
+          enj = vxyzu(4,j)
+          if (eos_is_non_ideal(ieos)) then  ! Is this condition required, or should this be always true?
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
           else
@@ -1440,6 +1455,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           qrho2i = 0.
           qrho2j = 0.
+#ifdef GR
+          enthi  = 1.+eni+pri/densi
+          enthj  = 1.+enj+prj/densj
+#endif
 
 !------------------
 #ifdef DISC_VISCOSITY
@@ -1451,15 +1470,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !   with beta viscosity only applied to approaching pairs)
           !
 #ifdef GR
-          enthi  = 1.+eni+pri/densi
-          enthj  = 1.+enj+prj/densj
-#ifdef FINVSQRT
-          lorentzi_star = finvsqrt(1.-projbigvi**2)
-          lorentzj_star = finvsqrt(1.-projbigvj**2)
-#else
           lorentzi_star = 1./sqrt(1.-projbigvi**2)
           lorentzj_star = 1./sqrt(1.-projbigvj**2)
-#endif
           dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
           if (projv < 0.) then
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
@@ -1468,7 +1480,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
              if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
           endif
-          dudtdissi = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+                                 (pro2j + qrho2j)*projvi*grkernj)
+          else
+             dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+          endif
 #else
           if (projv < 0.) then
              qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
@@ -1483,12 +1500,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 !--DISC_VISCOSITY--
 #else
 !------------------
-
-#ifdef GR
-          enthi  = 1.+eni+pri/densi
-          enthj  = 1.+enj+prj/densj
-#endif
-
           if (projv < 0.) then
 #ifdef GR
              lorentzi_star = 1./sqrt(1.-projbigvi**2)
@@ -1502,7 +1513,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
           endif
           !--energy conservation from artificial viscosity (don't need j term)
-          dudtdissi = pmassj*qrho2i*projv*grkerni
+          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+                                 (pro2j + qrho2j)*projvi*grkernj)
+          else
+             dudtdissi = pmassj*qrho2i*projv*grkerni
+          endif
 !--DISC_VISCOSITY--
 #endif
 !------------------
@@ -2386,7 +2402,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos,iopacity_type
- use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max,use_dustfrac,damp
+ use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
+                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
@@ -2686,7 +2703,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                            + straini(4)**2 + straini(6)**2)
           endif
           fxyz4 = 0.
-          if (use_entropy .or. gr) then ! here eni is the entropy
+          if (ien_type == ien_etotal) then
+             fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
+          elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
              elseif (ishock_heating > 0) then
@@ -3003,24 +3022,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  enddo over_parts
 end subroutine finish_cell_and_store_results
-
-pure subroutine combine_cells(cella, cellb)
- type(cellforce),   intent(inout)        :: cella
- type(cellforce),   intent(in)           :: cellb
-
- integer                                 :: i
-
- do i = 1,cella%npcell
-    cella%fsums(:,i) = cella%fsums(:,i) + cellb%fsums(:,i)
- enddo
-
- cella%ndrag   = cella%ndrag     + cellb%ndrag
- cella%nstokes = cella%nstokes   + cellb%nstokes
- cella%nsuper  = cella%nsuper    + cellb%nsuper
-
- cella%remote_export = (cella%remote_export .and. cellb%remote_export)
-
-end subroutine combine_cells
 
 !-----------------------------------------------------------------------------
 !+
