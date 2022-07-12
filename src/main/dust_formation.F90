@@ -94,6 +94,7 @@ subroutine init_nucleation
  use eos,   only:gamma,gmw
  integer :: i
  real :: JKmuS(n_nucleation)
+ real :: mass_per_H
 
  call set_abundances
 
@@ -357,7 +358,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
- real, intent(out) :: pH, pH_tot
+ real, intent(out)   :: pH, pH_tot
  real :: KH2, pH2
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
@@ -421,11 +422,13 @@ end subroutine calc_muGamma
 !  Initialise mean molecular weight and gamma
 !
 !--------------------------------------------
-subroutine init_muGamma(rho_cgs, T, mu, gamma)
+subroutine init_muGamma(rho_cgs, T, mu, gamma, pH, pH2)
 ! all quantities are in cgs
- real, intent(in) :: rho_cgs
- real, intent(out) :: T, mu, gamma
- real :: KH2, pH_tot, pH, pH2
+ real, intent(in)              :: rho_cgs
+ real, intent(inout)           :: T
+ real, intent(out)             :: mu, gamma
+ real, intent(out), optional   :: pH, pH2
+ real :: KH2, pH_tot
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
  if (T > 1.d5) then

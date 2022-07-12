@@ -881,7 +881,7 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= analysis_dustywind.F90 dust_formation.F90
+    ANALYSIS= analysis_cooling.F90
     WIND=yes
 endif
 ifeq ($(SETUP), radwind)

@@ -52,6 +52,14 @@ module cooling
  public :: init_cooling,calc_cooling_rate,energ_cooling
  public :: write_options_cooling, read_options_cooling
  public :: find_in_table, implicit_cooling, exact_cooling
+ public :: cool_dust_discrete_contact, cool_coulomb, &
+           cool_HI, cool_H_ionisation, cool_He_ionisation, &
+           cool_H2_rovib, cool_H2_dissociation, cool_CO_rovib, &
+           cool_H2O_rovib, cool_OH_rot, heat_dust_friction, &
+           heat_dust_photovoltaic_soft, heat_CosmicRays, &
+           heat_H2_recombination, calc_Q, calc_dlnQdlnT, &
+           cool_dust_full_contact, cool_dust_radiation, &
+           heat_dust_photovoltaic_hard
  logical, public :: cooling_in_step = .true.
  real,    public :: bowen_Cprime    = 3.000d-5
  real,    public :: GammaKI_cgs     = 2.d-26        ! [erg/s] heating rate for Koyama & Inutuska cooling
@@ -1223,7 +1231,7 @@ real function n_dust(rho_gas, d2g, a, rho_grain)
 
  real, intent(in) ::rho_gas,d2g,a,rho_grain
  
- n_dust = ( rho_gas*d2g ) / ( (4./3.)*pi*a**3*rho_grain )
+ n_dust = ( rho_gas*d2g ) / ( (4./3.)*pi*a**3.*rho_grain )
  
 end function n_dust
 
@@ -1266,7 +1274,7 @@ real function cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust)
  real, intent(in)  :: T_dust, kappa_dust
  
  if (kappa_dust > kappa_dust_min) then
-    cool_dust_full_contact = (3.*Rg)/(2.*mu*bowen_Cprime)*rho_gas*(T_dust-T_gas)
+    cool_dust_full_contact = (3.*Rg)/(2.*mu*bowen_Cprime)*rho_gas*(T_gas-T_dust)
  else
     cool_dust_full_contact = 0.0
  endif
@@ -1290,7 +1298,7 @@ real function cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho
  if (kappa_dust > kappa_dust_min) then
     sigma_dust                 = 2.*pi*a**2.
     n_gas                      = rho_gas/(mu*mass_proton_cgs)
-    cool_dust_discrete_contact = alpha*n_gas*n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_th(T_gas,mu)*kboltz*(T_dust-T_gas)
+    cool_dust_discrete_contact = alpha*n_gas*n_dust(rho_gas,d2g,a,rho_grain)*sigma_dust*v_th(T_gas,mu)*kboltz*(T_gas-T_dust)
  else
     cool_dust_discrete_contact = 0.0
  endif
@@ -1309,7 +1317,7 @@ real function cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
  real, intent(in)  :: T_dust, kappa_dust
  
  if (kappa_dust > kappa_dust_min) then
-    cool_dust_radiation = 4.*steboltz*(kappa_dust*T_dust**4-kappa_gas*T_gas**4)
+    cool_dust_radiation = 4.*steboltz*(kappa_gas*T_gas**4.-kappa_dust*T_dust**4.)
  else
     cool_dust_radiation = 0.0
  endif
@@ -1563,6 +1571,7 @@ end function cool_H2_dissociation
 !-----------------------------------------------------------------------
 !+
 !  CHEMICAL: H2 recombination heating (Hollenbach & Mckee 1979)
+!            for an overview, see Valentine Wakelama et al. 2017
 !+
 !-----------------------------------------------------------------------
 real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
@@ -1714,8 +1723,8 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
     - heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust) &
     - heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust) &
 !     - heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL) &
-    - heat_CosmicRays(nH, nH2) &
-    - heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
+    - heat_CosmicRays(nH, nH2)
+!     - heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
 
 end function calc_Q
 
