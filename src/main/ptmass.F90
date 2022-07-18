@@ -84,7 +84,7 @@ module ptmass
  real, parameter :: dtfacphi2 = dtfacphi*dtfacphi
 
  ! parameters to control output regarding sink particles
- logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
+ logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
  logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
  logical, private            :: l_crit_override  = .false. ! logical to determine the printing of f_crit_override to the .in file
  character(len=50), private  :: pt_prefix = 'Sink'
@@ -917,7 +917,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     rhomax  = rhoh(xyzh(4,itest),massoftype(itype))
  endif
  call reduceloc_mpi('max',rhomax,id_rhomax)
- ForceCreation = (rhomax > f_crit_override*rho_crit)
+ ForceCreation = (f_crit_override > 0. .and. rhomax > f_crit_override*rho_crit)
 !
 ! get properties of particle on the thread
 ! where it belongs
