@@ -6,16 +6,8 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! This module sets up sphere(s).  There are multiple options, including
-!    1) uniform unit sphere
-!    2) single polytrope
-!    3) binary polytrope (decommissioned)
-!    4) neutron star from file
-!    5) red giant (Macquarie)
-!    6) neutron star using a piecewise polytrope EOS
-!    7) Evrard sphere
-!    8) KEPLER star from file
-!    9) Helmholtz Equation of state
+! This module sets up sphere(s).  There are multiple options,
+! as listed in set_sphere.
 !
 ! :References: None
 !
