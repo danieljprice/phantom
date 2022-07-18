@@ -142,17 +142,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Z_in        = 0.02
  isoftcore   = 0
  isinkcore   = .false.
- hsoft         = 0.
- rcore         = 0.
- mcore         = 0.
- isofteningopt = 1 ! By default, specify rcore
- input_profile = 'P12_Phantom_Profile.data'
+ hsoft          = 0.
+ rcore          = 0.
+ mcore          = 0.
+ isofteningopt  = 1 ! By default, specify rcore
+ input_profile  = 'P12_Phantom_Profile.data'
  outputfilename = 'mysoftenedstar.dat'
- dens_profile = 'density-profile.tab'
+ dens_profile   = 'density-profile.tab'
  !
  ! defaults needed for error checking
  !
- need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
+ need_iso = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
  ! determine if an .in file exists
  !
