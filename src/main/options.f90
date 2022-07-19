@@ -38,12 +38,6 @@ module options
  real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
 
-! gr
- integer, public :: ien_type
- integer, public, parameter :: &
-      ien_entropy = 1, &
-      ien_etotal  = 2
-
 ! additional .ev data
  logical, public :: calc_erot
 ! final maximum density
@@ -70,7 +64,7 @@ contains
 
 subroutine set_default_options
  use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
+ use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
  use kernel,    only:hfact_default
