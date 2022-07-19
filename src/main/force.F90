@@ -50,7 +50,7 @@ module forces
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
  use kdtree,   only:inodeparts,inoderange
- use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa
+ use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_etotal
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -829,7 +829,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
- use eos,         only:ieos,eos_is_non_ideal
+ use eos,         only:ieos,eos_is_non_ideal,gamma,utherm
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -851,7 +851,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ien_type,ien_entropy,ien_etotal
+ use options,     only:overcleanfac,use_dustfrac
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -956,7 +956,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthdensav,enthi,enthj,dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2)
 #endif
- real    :: radPj
+ real    :: radPj,fgravxi,fgravyi,fgravzi
 
  ! unpack
  vwavei        = xpartveci(ivwavei)
@@ -1117,6 +1117,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  psij = 0.
  visctermisoj = 0.
  visctermanisoj = 0.
+ fgravxi = 0.
+ fgravyi = 0.
+ fgravzi = 0.
 
  loop_over_neighbours2: do n = 1,nneigh
 
@@ -1269,7 +1272,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
        if (iamgasj .and. maxvxyzu >= 4) then
-          enj = vxyzu(4,j)
+          enj = utherm(vxyzu(:,j),rhoj,gamma)
           if (eos_is_non_ideal(ieos)) then  ! Is this condition required, or should this be always true?
              tempj = eos_vars(itemp,j)
              denij = 0.5*(eni/tempi + enj/tempj)*(tempi - tempj)  ! dU = c_V * dT
@@ -1441,7 +1444,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 !------------------
 #ifdef DISC_VISCOSITY
 !------------------
-
           !
           !--This is for "physical" disc viscosity
           !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
@@ -1460,7 +1462,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
           if (ien_type == ien_etotal) then ! total energy for idealplusrad
              dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
-                                 (pro2j + qrho2j)*projvi*grkernj)
+                                   (pro2j + qrho2j)*projvi*grkernj)
           else
              dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
           endif
@@ -1490,10 +1492,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
 #endif
           endif
-          !--energy conservation from artificial viscosity (don't need j term)
+          !--energy conservation from artificial viscosity
           if (ien_type == ien_etotal) then ! total energy for idealplusrad
              dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
-                                 (pro2j + qrho2j)*projvi*grkernj)
+                                   (pro2j + qrho2j)*projvi*grkernj)
           else
              dudtdissi = pmassj*qrho2i*projv*grkerni
           endif
@@ -1811,6 +1813,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 #endif
        endif ifgas
+
+       !--self gravity contribution to total energy equation
+       if (gr .and. gravity .and. ien_type == ien_etotal) then
+          fgravxi = fgravxi - runix*fgrav!*lorentzi/alphagri
+          fgravyi = fgravyi - runiy*fgrav!*lorentzi/alphagri
+          fgravzi = fgravzi - runiz*fgrav!*lorentzi/alphagri
+       endif
+
 #ifdef GRAVITY
     else !is_sph_neighbour
        !
@@ -1835,9 +1845,21 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifyi) = fsum(ifyi) - dy*fgravj
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
+
+       !--self gravity contribution to total energy equation
+       if (gr .and. gravity .and. ien_type == ien_etotal) then
+          fgravxi = fgravxi - dx*fgravj!*lorentzi/alphagri
+          fgravyi = fgravyi - dy*fgravj!*lorentzi/alphagri
+          fgravzi = fgravzi - dz*fgravj!*lorentzi/alphagri
+       endif
 #endif
     endif is_sph_neighbour
+
  enddo loop_over_neighbours2
+
+ if (gr .and. gravity .and. ien_type == ien_etotal) then
+   fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
+ endif
 
  return
 end subroutine compute_forces
@@ -1966,6 +1988,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #endif
  use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
+ use eos,       only:gamma,utherm
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
@@ -2045,6 +2068,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     if (iamgasi) then
        if (ndivcurlv >= 1) divcurlvi(:) = real(divcurlv(:,i),kind=kind(divcurlvi))
        if (maxvxyzu >= 4) then
+          !eni   = utherm(vxyzu(:,i),rhoi,gamma)
           eni   = vxyzu(4,i)
        else
           eni   = 0.0
@@ -2379,9 +2403,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use fastmath,       only:finvsqrt
 #endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
- use eos,            only:use_entropy,gamma,ieos,iopacity_type
+ use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
+                          use_dustfrac,damp
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
@@ -2622,6 +2646,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
+    if (gr .and. ien_type == ien_etotal) then
+      fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
+    endif
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
 #endif
