@@ -472,7 +472,7 @@ end subroutine test_metric_derivs_i
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
- use options,         only:ien_entropy,ien_etotal
+ use part,            only:ien_entropy,ien_etotal
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
  use physcon,         only:radconst,kb_on_mh
