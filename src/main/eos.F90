@@ -40,11 +40,12 @@ module eos
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   infile_utils, io, mesa_microphysics, part, physcon, units
 !
+ use part, only:ien_etotal,ien_entropy,ien_type
+ use dim, only:gr
  implicit none
  integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
- logical, parameter, public :: use_entropy = .false.
  logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0.
 
@@ -171,9 +172,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
           !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
           call fatal('eos','utherm < 0',var='u',val=eni)
        endif
-       if (use_entropy) then
-          ponrhoi = eni*rhoi**(gammai-1.)  ! use this if en is entropy
-       elseif (gammai > 1.0001) then
+       if (gammai > 1.0001) then
           ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
@@ -616,17 +615,21 @@ end function get_local_u_internal
 !  of the entropy instead of the thermal energy
 !+
 !-----------------------------------------------------------------------
-real function utherm(en,rho)
- real, intent(in) :: en, rho
- real             :: gamm1
+real function utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,en
 
- if (use_entropy) then
-    gamm1 = gamma - 1.
+ en = vxyzui(4)
+ if (gr) then
+    utherm = en
+ elseif (ien_type == ien_entropy) then
     if (gamm1 > tiny(gamm1)) then
        utherm = (en/gamm1)*rho**gamm1
     else
        stop 'gamma=1 using entropy evolution'
     endif
+ else if (ien_type == ien_etotal) then
+    utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     utherm = en
  endif
@@ -639,17 +642,22 @@ end function utherm
 !  instead of the thermal energy
 !+
 !-----------------------------------------------------------------------
-real function en_from_utherm(utherm,rho)
- real, intent(in) :: utherm, rho
- real             :: gamm1
+real function en_from_utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,utherm
 
- if (use_entropy) then
-    gamm1 = gamma - 1.
+ utherm = vxyzui(4)
+ if (gr) then
+    en_from_utherm = utherm
+ elseif (ien_type == ien_entropy) then
+    gamm1 = gammai - 1.
     if (gamm1 > tiny(gamm1)) then
        en_from_utherm = gamm1*utherm*rho**(1.-gamma)
     else
        stop 'gamma=1 using entropy evolution'
     endif
+ elseif (ien_type == ien_etotal) then
+    en_from_utherm = utherm + 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     en_from_utherm = utherm
  endif
@@ -990,14 +998,13 @@ end function eos_outputs_gasP
 !+
 !-----------------------------------------------------------------------
 subroutine eosinfo(eos_type,iprint)
- use dim,            only:maxvxyzu,gr
+ use dim,            only:maxvxyzu
  use io,             only:fatal,id,master
  use eos_helmholtz,  only:eos_helmholtz_eosinfo
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
  integer, intent(in) :: eos_type,iprint
- real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
 
  if (id/=master) return
 
@@ -1010,27 +1017,9 @@ subroutine eosinfo(eos_type,iprint)
     endif
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
-    if (use_entropy) then
-       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,&
-                                                   ' gamma = ',gamma,' gmw = ',gmw
-!
-!--run a unit test on the en-> utherm and utherm-> en conversion utilities
-!
-       write(iprint,"(a)",ADVANCE='NO') ' checking utherm -> entropy -> utherm conversion ...'
-       if (abs(utherm(en_from_utherm(uthermcheck,rhocheck),rhocheck)-uthermcheck) > epsilon(uthermcheck)) then
-          call fatal('eosinfo','failed consistency check in eos: utherm0 -> entropy -> utherm  /=  utherm0')
-       elseif (abs(en_from_utherm(utherm(uthermcheck,rhocheck),rhocheck)-uthermcheck) > epsilon(uthermcheck)) then
-          call fatal('eosinfo','failed consistency check in eos: entropy0 -> utherm -> entropy  /=  entropy0')
-       else
-          write(iprint,*) 'OK'
-       endif
-    elseif (maxvxyzu >= 4) then
-       if (gr) then
-          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma,' gmw = ',gmw
-       else
-          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',&
+    if (maxvxyzu >= 4) then
+       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state: P = (gamma-1)*rho*u, gamma = ',&
                                               gamma,' gmw = ',gmw
-       endif
     else
        write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma,' gmw = ',gmw
     endif
