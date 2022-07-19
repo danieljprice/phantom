@@ -129,6 +129,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
+
+ use cons2primsolver, only:conservative2primitive,primitive2conservative
+ use eos, only:equationofstate
+
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -688,13 +692,12 @@ end subroutine step
 
 #ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
- use part,            only:isdead_or_accreted,igas,massoftype,rhoh
+ use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,ien_type
  use cons2primsolver, only:conservative2primitive
  use eos,             only:ieos,get_pressure
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
- use options,         only:ien_type
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:),dens(:),metrics(:,:,:,:)
@@ -708,14 +711,14 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,dens,dt,xtol) &
- !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type) &
+ !$omp shared(pxyzu,metrics,ieos,massoftype,ien_type,eos_vars) &
  !$omp private(i,niter,diff,xpred,vold,converged,ierr) &
  !$omp private(pri,rhoi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
 
        !-- Compute pressure for the first guess in cons2prim
-       pri  = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
+       pri = eos_vars(igasP,i)
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,rhoi,&
                                    pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -751,7 +754,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce,idamp
- use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh
+ use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
+                          massoftype,rhoh,ien_type
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
@@ -759,7 +763,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
  use damping,        only:calc_damp,apply_damp
- use options,        only:ien_type
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
