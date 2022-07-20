@@ -35,7 +35,7 @@ subroutine test_step(ntests,npass)
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,periodic
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,      only:polyk,gamma,use_entropy,init_eos
+ use eos,      only:polyk,gamma,init_eos
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &

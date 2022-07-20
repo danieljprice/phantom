@@ -69,11 +69,10 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc, &
-                     ien_type
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
- use part,      only:hfact
+ use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation
  implicit none
@@ -304,7 +303,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
- use eos,             only:use_entropy,read_options_eos,ieos
+ use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
@@ -645,8 +644,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     !if (damp > 1.)     call warn(label,'damping ridiculously big')
     if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
     if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
-    if (alphau > tiny(alphau) .and. use_entropy) &
-                        call fatal(label,'cannot use thermal conductivity if evolving entropy')
     if (alpha > 10.)   call warn(label,'very large alpha, need to change timestep',2)
     if (alphau > 10.)  call warn(label,'very large alphau, check timestep',3)
     if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity',2)
