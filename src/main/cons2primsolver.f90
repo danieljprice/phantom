@@ -10,14 +10,14 @@ module cons2primsolver
 !
 ! :References: None
 !
-! :Owner: Fitz) Hu
+! :Owner: Fitz Hu
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: eos, io, metric_tools, options, units, utils_gr
 !
  use eos, only:ieos,polyk
- use options, only:ien_etotal,ien_entropy
+ use part, only:ien_etotal,ien_entropy
  implicit none
 
  public :: conservative2primitive,primitive2conservative

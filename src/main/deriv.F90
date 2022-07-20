@@ -70,7 +70,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
 #endif
- use part,           only:mhd,gradh,alphaind,igas
+ use part,           only:mhd,gradh,alphaind,igas,igasP
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick

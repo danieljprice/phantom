@@ -133,6 +133,12 @@ module part
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
     (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
 !
+!--energy_variables
+!
+ integer, public :: ien_type
+ integer, public, parameter :: ien_entropy = 1, &
+                               ien_etotal  = 2
+!
 !--one-fluid dust (small grains)
 !
  real, allocatable :: dustfrac(:,:)
