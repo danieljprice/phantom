@@ -636,7 +636,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
- use sphNGutils, only:convert_sinks_sphNG,mass_sphng,spin_sphng
+ use sphNGutils, only:convert_sinks_sphNG,mass_sphng
  use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
@@ -811,7 +811,6 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     if (.not. phantomdump) then
        print *, "allocating arrays for nptmass=", nptmass
        allocate(mass_sphng(maxp_hard))
-       allocate(spin_sphng(3,nptmass))
     end if
     
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
@@ -848,6 +847,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  endif
 
  call check_npartoftype(npartoftype,npart)
+ if (.not. phantomdump) then
+    deallocate(mass_sphng)
+ endif
+
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -1118,7 +1121,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
                       nucleation,nucleation_label,n_nucleation,ikappa,ithick,itemp,igasP,iorig
- use sphNGutils, only:mass_sphng,got_mass,spin_sphng,got_spin
+ use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1269,12 +1272,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              print *, "case 2. Tag:", tag
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-             if (.not. phantomdump) then
-                 call read_array(spin_sphng(1,:),'spinx',got_spin(1),ik,1,nptmass,0,idisk1,tag,match,ierr)
-                 print *, "gotspinx?", got_spin(1)
-                 call read_array(spin_sphng(2,:),'spiny',got_spin(2),ik,1,nptmass,0,idisk1,tag,match,ierr)
-                 call read_array(spin_sphng(3,:),'spinz',got_spin(3),ik,1,nptmass,0,idisk1,tag,match,ierr)
-              end if
           case(4)
              call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1296,7 +1293,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                    got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
                    xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
-
+ if (.not. phantomdump) then
+   print *, "Calling set_gas_particle_mass"
+   call set_gas_particle_mass(mass_sphng)
+ endif
  return
 100 continue
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
