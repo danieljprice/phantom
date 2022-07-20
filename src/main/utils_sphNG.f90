@@ -87,18 +87,17 @@ end function is_sphNG_sink
 !+
 !--------------------------------------------------------------
 subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
- use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz
+ use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz,npartoftype,iunknown,isdead,shuffle_part
  integer :: i,nsink
- integer, intent(in)    :: npart
+ integer, intent(inout)    :: npart
  integer, intent(inout) :: nptmass
  integer(kind=1), intent(inout) :: iphase(:)
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,         intent(out)   :: ierr
-
+ integer :: gascount,unkncount,othercount
+ 
  nsink = 0
  ierr = 0
- print *, "spin_sphng array"
- print *, spin_sphng
  do i=1,npart
     if (iamtype(iphase(i))==isphNG_sink_temp) then
        nsink = nsink + 1
@@ -115,9 +114,6 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
           vxyz_ptmass(1,nsink) = vxyzu(1,i)
           vxyz_ptmass(2,nsink) = vxyzu(2,i)
           vxyz_ptmass(3,nsink) = vxyzu(3,i)
-          xyzmh_ptmass(ispinx,nsink) = spin_sphng(1,nsink)
-          xyzmh_ptmass(ispiny,nsink) = spin_sphng(2,nsink)
-          xyzmh_ptmass(ispinz,nsink) = spin_sphng(3,nsink)
           if (nptmass < 100) then
              print "(1x,a,i2,a,es13.6,a,es10.3,a,es13.6,a)",'[CONVERTING SINK #',nsink,' sphNG->Phantom, M=',&
                    xyzmh_ptmass(4,nsink),' h= ',xyzmh_ptmass(ihacc,nsink),' spinx= ',xyzmh_ptmass(ispinx,nsink),']'
@@ -128,6 +124,9 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
        !
        call set_particle_type(i,igas) ! Phantom will not run if any particles have iphase=iunknown
        call kill_particle(i)          ! particle is killed, so iphase is irrelevant
+       print *, "npartoftype 1",npartoftype(1)
+       print *, "killed",i,iamtype(iphase(i)),xyzh(4,i)
+       print *, "npartoftype 1",npartoftype(1)
     endif
  enddo
  if (nsink < nptmass) then
@@ -136,7 +135,66 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
     nptmass = nsink
     ierr = 67
  endif
- deallocate(spin_sphng,mass_sphng)
+
+ gascount = 0
+ unkncount = 0
+ othercount = 0
+ do i=1,npart
+    if (iamtype(iphase(i)) .eq. igas) then
+       gascount = gascount+1
+    elseif (iamtype(iphase(i)) .eq. iunknown) then
+       unkncount = unkncount + 1
+    else
+       othercount = othercount + 1
+    endif
+    if (isdead(i)) then
+       print *, i," is dead"
+    endif
+ enddo
+
+  call shuffle_part(npart) !to remove killed particles                           
+ gascount = 0
+ unkncount = 0
+ othercount = 0
+ do i=1,npart
+    if (iamtype(iphase(i)) .eq. igas) then
+       gascount = gascount+1
+    elseif (iamtype(iphase(i)) .eq. iunknown) then
+       unkncount = unkncount + 1
+    else
+       othercount = othercount + 1
+    endif
+    if (isdead(i)) then
+       print *, i," is dead"
+    endif
+ enddo
+ print *, "gas:",gascount,"unkncount:",unkncount,"othercount:",&
+      othercount, "total=", gascount+unkncount+othercount
 end subroutine convert_sinks_sphNG
+
+subroutine set_gas_particle_mass(mass_sphng)
+ use part, only: massoftype,igas,iphase,iamtype,hfact
+ use dim, only: maxp
+ real,intent(in) :: mass_sphng(maxp)
+ integer :: i   
+
+ if (hfact < 1) then
+    hfact = 1.2
+    print *, "Set hfact=1.2"
+ endif
+ print *, "Setting gas particle mass"
+ do i=1,maxp
+    if (iamtype(iphase(i)) .eq. igas) then
+       massoftype(igas) = mass_sphng(i)
+       print *, "Mass of gas particles =", massoftype(igas)
+       exit
+    end if
+ end do
+ if (i .eq. maxp) then
+    print *, "gas part mass not set!"
+ else
+    print *, "in set_gas...: i= ",i
+ end if
+end subroutine set_gas_particle_mass
 
 end module sphNGutils
