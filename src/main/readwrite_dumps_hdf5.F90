@@ -36,7 +36,7 @@ module readwrite_dumps_hdf5
 
  implicit none
  character(len=80), parameter, public :: &    ! module version
-   modid="$Id: 8606a6c35a6fd309c2822227d547da960496083c $"
+   modid="$Id$"
 
  public :: read_dump_hdf5,read_smalldump_hdf5
  public :: write_smalldump_hdf5,write_fulldump_hdf5,write_dump_hdf5
