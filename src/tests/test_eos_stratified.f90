@@ -93,6 +93,8 @@ subroutine test_stratified_midplane(ntests, npass)
  ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
  polyk = 0.1
  polyk2 = 0.1
+ tempi = -1
+ tempi_ref = -1
 
 
  call init_eos(ieos, ierr)
@@ -161,6 +163,7 @@ subroutine test_stratified_temps(ntests, npass)
  ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
  polyk = 0.1
  polyk2 = 0.1
+ tempi = -1
 
 
  call set_units(mass=solarm,dist=au,G=1.d0)
@@ -229,6 +232,7 @@ subroutine test_stratified_temps_dartois(ntests, npass)
  ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
  polyk = 0.1
  polyk2 = 0.1
+ tempi = -1
 
 
  call set_units(mass=solarm,dist=au,G=1.d0)
@@ -324,6 +328,7 @@ subroutine map_stratified_temps(ntests, npass)
        do k=1,nr
           xi = k
           yi = 0
+          tempi = -1
           call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
           radius(k) = tempi
        enddo
