@@ -552,7 +552,7 @@ subroutine test_createsink(ntests,npass)
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
  use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
-                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc
+                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
@@ -565,8 +565,9 @@ subroutine test_createsink(ntests,npass)
  procedure(rho_func), pointer :: density_func
 
  density_func => gaussianr
- t = 0.
+ t        = 0.
  iverbose = 1
+ rho_crit = rho_crit_cgs
 
  do itest=1,2
     select case(itest)
