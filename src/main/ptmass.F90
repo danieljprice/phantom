@@ -62,6 +62,9 @@ module ptmass
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
+ real,    public :: f_crit_override = 0.0    ! 1000. ! if > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
+                                                     ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.§
+                                                     ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
@@ -81,8 +84,9 @@ module ptmass
  real, parameter :: dtfacphi2 = dtfacphi*dtfacphi
 
  ! parameters to control output regarding sink particles
- logical, private, parameter :: record_created  = .false.  ! verbose tracking of why sinks are not created
+ logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
  logical, private            :: write_one_ptfile = .true.  ! default logical to determine if we are writing one or nptmass data files
+ logical, private            :: l_crit_override  = .false. ! logical to determine the printing of f_crit_override to the .in file
  character(len=50), private  :: pt_prefix = 'Sink'
  character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
 
@@ -860,6 +864,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #endif
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
  use eos,           only:gamma,utherm
+ use eos_barotropic,only:gamma_barotropic
  use eos_piecewise, only:gamma_pwp
  use options,  only:ieos
  use units,    only:unit_density
@@ -895,7 +900,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
  integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
- logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot
+ logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot,ForceCreation
 
  ifail       = 0
  ifail_array = 0
@@ -912,12 +917,18 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     rhomax  = rhoh(xyzh(4,itest),massoftype(itype))
  endif
  call reduceloc_mpi('max',rhomax,id_rhomax)
+ ForceCreation = (f_crit_override > 0. .and. rhomax > f_crit_override*rho_crit)
 !
 ! get properties of particle on the thread
 ! where it belongs
 !
  if (id == id_rhomax) then
     if (itest < 0 .or. itest > npart) call fatal('ptmass','index out of range testing for sink creation')
+    if (ForceCreation) then
+       write(iprint,"(/,1x,a,2(Es18.6,a))") 'ptmass_create: WARNING! rhomax = ',rhomax*unit_density,' > ', &
+                                             f_crit_override*rho_crit_cgs,' = f_crit_override*rho_crit  (cgs units)'
+       write(iprint,"(/,1x,a)")             'ptmass_create: WARNING! Forcing sink formation despite tests not passing!'
+    endif
     xi = xyzh(1,itest)
     yi = xyzh(2,itest)
     zi = xyzh(3,itest)
@@ -990,7 +1001,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  if (divvi > 0._4) then
     if (iverbose >= 1) write(iprint,"(/,1x,a)") 'ptmass_create: FAILED because div v > 0'
     call summary_ptmass_fail(inosink_divv)
-    if (.not. record_created) return
+    if (.not. record_created .and. .not.ForceCreation) return
     ifail_array(inosink_divv) = 1
  endif
 
@@ -1106,6 +1117,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           else
              if (ieos==2 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
+             elseif (ieos==8) then
+                etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma_barotropic(rhoj) - 1.)
              elseif (ieos==9) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma_pwp(rhoj) - 1.)
              else
@@ -1203,7 +1216,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  !--Update tracking array & reset ifail if required
  !  Note that if ifail_array(inosink_notgas,inosink_divv,inosink_h)==1 and record_created==.false.,
  !  this subroutine will already have been exited, and this loop will never be reached
- if ( record_created ) then
+ if ( record_created .or. ForceCreation) then
     if ( ifail==inosink_active ) then
        ifail_array(inosink_active) = 1
     elseif (ifail_array(inosink_notgas)==1) then
@@ -1218,10 +1231,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  ! communicate failure on any MPI thread to all threads
  !
  ifail = int(reduceall_mpi('max',ifail))
+ ifail_array = int(reduceall_mpi('max',ifail_array))
  !
  ! Continue checks (non-sensical for ifail==1 since energies not completely calculated)
  !
- if (ifail==0 .or. (record_created .and. ifail /= inosink_active)) then
+ if (ifail==0 .or. ((ForceCreation .or. record_created) .and. ifail_array(inosink_active) == 0) ) then
     ! finish computing energies
     ekin  = 0.5*ekin
     erotx = 0.5*erotx
@@ -1277,8 +1291,41 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     alphabeta_grav = 0.0
     etot           = 0.0
  endif
+
  ! communicate failure to all MPI threads
  ifail = int(reduceall_mpi('max',ifail))
+ ifail_array = int(reduceall_mpi('max',ifail_array))
+
+ ! override failure if the candidate particle is too dense! (some critera still apply)
+ if (ForceCreation) then
+    if (ifail > 0 .and. is_accretable(itype) .and. hi < 0.5*h_acc) then
+       if (id==id_rhomax) then
+          write(iprint,"(/,1x,a)")'ptmass_create: OVERRIDING sink failure creation given high density'
+          ! list all failure modes that are overridden
+          if (ifail_array(inosink_therm)==1) then
+             write(iprint,"(/,1x,a,es10.3)") &
+             'ptmass_create: FAILURE OVERRIDED when thermal energy/grav energy > 0.5: alpha_grav = ',alpha_grav
+          endif
+          if (ifail_array(inosink_grav)==1) then
+             write(iprint,"(/,1x,a,2es10.3)") &
+             'ptmass_create: FAILURE OVERRIDED when alpha_grav + beta_grav > 1, alpha, beta = ',alpha_grav, abs(erot/epot)
+          endif
+          if (ifail_array(inosink_Etot)==1) then
+             write(iprint,"(/,1x,a,es10.3)") &
+            'ptmass_create: FAILURE OVERRIDED when total energy > 0, etot = ',etot
+          endif
+          if (ifail_array(inosink_poten)==1) then
+             write(iprint,"(/,1x,a,'phi = ',es10.3,' min =',es10.3)") &
+             'ptmass_create: FAILURE OVERRIDED when not at potential minimum ',poteni,potenj_min
+          endif
+          if (ifail_array(inosink_divv)==1) then
+             write(iprint,"(/,1x,a,es10.3)") 'ptmass_create: FAILURE OVERRIDED when  div v > 0', divvi
+          endif
+       endif
+       ifail       = 0
+       ifail_array = 0
+    endif
+ endif
 
  if (iverbose >= 1 .and. id==id_rhomax) then
     select case(ifail)
@@ -1294,7 +1341,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        write(iprint,"(/,1x,a,2es10.3)") &
        'ptmass_create: FAILED because alpha_grav + beta_grav > 1, alpha, beta = ',alpha_grav, abs(erot/epot)
     case(inosink_Etot)
-       write(iprint,"(/,1x,a,es10.3)") &
+       write(iprint,"(/,1x,a,es11.3)") &
        'ptmass_create: FAILED because total energy > 0, etot = ',etot
     case(inosink_poten)
        write(iprint,"(/,1x,a,'phi = ',es10.3,' min =',es10.3)") &
@@ -1303,11 +1350,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        write(iprint,"(/,1x,a)") 'ptmass_create: FAILED (unknown reason)'
     end select
  endif
-
  !
- ! create new point mass, at position of original
- ! particle but with zero mass. Then accrete particles
- ! within hacc to form sink
+ ! create new point mass, at position of original particle but with zero mass. Then accrete particles within hacc to form sink
  !
  if (ifail==0) then
     nptmass = nptmass + 1
@@ -1718,8 +1762,13 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
        call write_inopt(rho_crit_cgs,'rho_crit_cgs','density above which sink particles are created (g/cm^3)',iunit)
-       call write_inopt(r_crit,'r_crit','critical radius for point mass creation (no new sinks < r_crit from existing sink)',iunit)
+       call write_inopt(r_crit,'r_crit','critical radius for point mass creation (no new sinks < r_crit from existing sink)', &
+                        iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
+       if (f_crit_override > 0. .or. l_crit_override) then
+          call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
+                           iunit)
+       endif
        call write_inopt(h_soft_sinkgas,'h_soft_sinkgas','softening length for new sink particles', iunit)
     endif
  endif
@@ -1770,6 +1819,11 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) h_acc
     if (h_acc <= 0.) call fatal(label,'h_acc < 0')
     ngot = ngot + 1
+ case('f_crit_override')
+    read(valstring,*,iostat=ierr) f_crit_override
+    if (f_crit_override < 0.) f_crit_override = 0.  ! reset to zero since a negative value does not make sense
+    if (f_crit_override > 0. .and. f_crit_override < 100. ) call fatal(label,'Give star formation a chance! Reset to > 100')
+    l_crit_override = .true.
  case('h_soft')  ! to ensure backwards compatibility
     read(valstring,*,iostat=ierr) h_soft
     if (h_soft > 0.) call fatal(label,'h_soft has been renamed to h_soft_sinkgas.  Please modify in-file before retrying')
