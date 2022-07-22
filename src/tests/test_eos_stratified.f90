@@ -90,6 +90,11 @@ subroutine test_stratified_midplane(ntests, npass)
  ieos = 7
  istrat = 1
 
+ ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
+ polyk = 0.1
+ polyk2 = 0.1
+
+
  call init_eos(ieos, ierr)
  if (ierr /= 0) then
     write(*,"(/,a)") '--> skipping stratified disc eos test due to init_eos() fail'
@@ -153,6 +158,11 @@ subroutine test_stratified_temps(ntests, npass)
  ieos = 7
  istrat = 0
 
+ ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
+ polyk = 0.1
+ polyk2 = 0.1
+
+
  call set_units(mass=solarm,dist=au,G=1.d0)
 
  call init_eos(ieos, ierr)
@@ -215,6 +225,11 @@ subroutine test_stratified_temps_dartois(ntests, npass)
  real, parameter :: pi = 4.*atan(1.0)
 
  ieos = 7
+
+ ! ieos=7, stratified eos, requires polyk to be set to avoid undefined
+ polyk = 0.1
+ polyk2 = 0.1
+
 
  call set_units(mass=solarm,dist=au,G=1.d0)
 
