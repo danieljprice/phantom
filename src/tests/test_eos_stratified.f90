@@ -105,6 +105,7 @@ subroutine test_stratified_midplane(ntests, npass)
 
  nfailed = 0
  ncheck  = 0
+ errmax = 0
 
  call eosinfo(ieos,stdout)
 
