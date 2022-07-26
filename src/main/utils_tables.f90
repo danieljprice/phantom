@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -66,19 +66,24 @@ end function yinterp
 !--------------------------------------------------------
 !+
 !  Function to fill an array with equally spaced points
+!  e.g. call linspace(rgrid,rmin,rmax)
+!
+!  the argument dx is optional giving the grid spacing
 !+
 !--------------------------------------------------------
-pure subroutine linspace(x,xmin,xmax)
+pure subroutine linspace(x,xmin,xmax,dx)
  real, intent(out) :: x(:)
  real, intent(in)  :: xmin,xmax
+ real, intent(out), optional :: dx
  integer :: i, n
- real    :: dx
+ real    :: dxi
 
  n  = size(x)
- dx = (xmax - xmin)/real(n-1)
+ dxi = (xmax - xmin)/real(n-1)
  do i=1,n
-    x(i) = xmin + (i-1)*dx
+    x(i) = xmin + (i-1)*dxi
  enddo
+ if (present(dx)) dx = dxi
 
 end subroutine linspace
 
@@ -110,7 +115,7 @@ end subroutine logspace
 !  ordered array
 !+
 !----------------------------------------------------------------
-subroutine interpolator(array, value, valueidx)
+subroutine interpolator(array,value,valueidx)
  real, intent(in)     :: array(:)
  real, intent(in)     :: value
  integer, intent(out) :: valueidx

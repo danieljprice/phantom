@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -164,7 +164,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                vxyzu         = vxyzu,                &
                polyk         = cs2,                  &
                particle_mass = massoftype(igas),     &
-               ! star_mass     = 1.0,                &
+ ! star_mass     = 1.0,                &
                disc_mass     = mdisc,                &
                inclination   = theta,                &
                bh_spin       = spin,                 &

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -592,7 +592,7 @@ subroutine find_another_face(vector,R,face)
  ! by adding a bunch of if-statements, to avoid looping
  ! over more than a few faces.
  real,    intent(in)  :: vector(3), R(0:19,3,3)
- integer, intent(out) :: face
+ integer, intent(inout) :: face
  real    :: dot, max
  integer :: n,facetoavoid,i
 

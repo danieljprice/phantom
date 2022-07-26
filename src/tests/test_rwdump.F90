@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -37,7 +37,7 @@ subroutine test_rwdump(ntests,npass)
                            dustfrac_label,vxyz_ptmass,vxyz_ptmass_label,&
                            vxyzu_label,set_particle_type,iphase,ndustsmall,ndustlarge,ndusttypes,&
                            iorig,copy_particle_all,norig
- use dim,             only:maxp,maxdustsmall
+ use dim,             only:maxp,maxdustsmall,mpi
  use memory,          only:allocate_memory,deallocate_memory
  use testutils,       only:checkval,update_test_scores
  use io,              only:idisk1,id,master,iprint,nprocs
@@ -244,9 +244,9 @@ subroutine test_rwdump(ntests,npass)
        call checkval(Bextz,Bextzwas,tiny(Bextz),nfailed(20),'Bextz')
     endif
     if (itest==1) then  ! iorig is not dumped to small dumps
-       call checkval(iorig(2),    ngas,    0,nfailed(65),'iorig(2)')
-       call checkval(iorig(ngas), npart+1, 0,nfailed(66),'iorig(ngas)')
-       call checkval(iorig(npart),npart,   0,nfailed(67),'iorig(N)')
+       call checkval(iorig(2),    int(ngas   ,kind=8), 0,nfailed(65),'iorig(2)')
+       call checkval(iorig(ngas), int(npart+1,kind=8), 0,nfailed(66),'iorig(ngas)')
+       call checkval(iorig(npart),int(npart  ,kind=8), 0,nfailed(67),'iorig(N)')
     endif
 
     call update_test_scores(ntests,nfailed,npass)
@@ -311,9 +311,8 @@ subroutine test_rwdump(ntests,npass)
     vxyz_ptmass = 0.
 
 #ifndef HDF5
-#ifndef MPI
     ! test read of a single array from the file
-    if (itest==1) then
+    if (.not. mpi .and. itest==1) then
        if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
        xyzh(2,:) = 0.
        nfailed = 0
@@ -323,7 +322,6 @@ subroutine test_rwdump(ntests,npass)
        ntests = ntests + 1
        if (all(nfailed==0)) npass = npass + 1
     endif
-#endif
 #endif
 
     if (id==master) then
@@ -337,7 +335,7 @@ subroutine test_rwdump(ntests,npass)
  enddo over_tests
 
  call deallocate_memory
- call allocate_memory(maxp_old)
+ call allocate_memory(int(maxp_old,kind=8))
  if (id==master) write(*,"(/,a)") '<-- READ/WRITE TEST COMPLETE'
 
 end subroutine test_rwdump

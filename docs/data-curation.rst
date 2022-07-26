@@ -54,15 +54,19 @@ Check the above was successful by listing files on your remote drive using::
 
     $ rclone ls dan-google-drive:
 
-To copy files to your google drive you can then use::
+To COPY files to your google drive, LEAVING a copy on the local machine, you can then use::
 
     $ rclone copy local_path remote_path
 
 For example::
 
     $ rclone copy $HOME/runs/phantom/disc-test1 dan-google-drive:phantom/disc-test1
+    
+To MOVE files to your google drive and DELETE them from the cluster (e.g. to clear disc space)::
 
-To sync/update an entire directory tree onto your google drive you can then use::
+    $ rclone move $HOME/runs/phantom/disc-test1 dan-google-drive:phantom/disc-test1
+
+To SYNC an entire directory tree onto your google drive, DELETING files ALSO ON THE DRIVE you can then use::
 
     $ rclone sync -i $HOME/runs dan-google-drive:runs
 

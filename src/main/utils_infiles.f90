@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,20 +26,20 @@ module infile_utils
 !
  interface write_inopt
   module procedure write_inopt_int,write_inopt_real4,write_inopt_real8,write_inopt_string,write_inopt_logical
- end interface
+ end interface write_inopt
 !
 ! generic interface read_inopt to read an input option of any type
 !
  interface read_inopt
   module procedure read_inopt_int,read_inopt_real,read_inopt_string,read_inopt_logical
- end interface
+ end interface read_inopt
 
 !
 ! generic interface get_inopt to read a specific input variable
 !
  interface get_inopt
   module procedure get_inopt_int,get_inopt_real,get_inopt_string,get_inopt_logical
- end interface
+ end interface get_inopt
 !
 ! maximum length for input strings
 ! (if you change this, must also change format statements below)
@@ -55,7 +55,7 @@ module infile_utils
     character(len=maxlen)    :: tag
     character(len=maxlenval) :: val
     logical :: retrieved
- end type
+ end type inopts
 
  public :: inopts,open_db_from_file,close_db,errtext
 

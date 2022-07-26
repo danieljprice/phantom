@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,7 +44,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 17
+ integer, parameter :: nsinkproperties = 18
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -53,21 +53,12 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
- ! storage of temperature
- integer :: maxtemp = 0
-#ifdef STORE_TEMPERATURE
- logical, parameter :: store_temperature = .true.
-#else
- logical, parameter :: store_temperature = .false.
-#endif
-
  integer :: maxTdust = 0
+ logical :: store_dust_temperature = .false.
 #ifdef SINK_RADIATION
  logical, parameter :: sink_radiation = .true.
- logical, parameter :: store_dust_temperature = .true.
 #else
  logical, parameter :: sink_radiation = .false.
- logical, parameter :: store_dust_temperature = .false.
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
@@ -78,7 +69,8 @@ module dim
 #endif
 
 ! maxmimum storage in linklist
- integer :: ncellsmax
+ integer         :: ncellsmax
+ integer(kind=8) :: ncellsmaxglobal
 
 !------
 ! Dust
@@ -153,12 +145,10 @@ module dim
                                            radenxpartvecforce + &
                                            maxxpartvecGR
 
- ! cell storage
- integer, parameter :: maxprocs = 32
-#ifdef STACKSIZE
- integer, parameter :: stacksize = STACKSIZE
+#ifdef MPI
+ logical, parameter :: mpi = .true.
 #else
- integer, parameter :: stacksize = 200000
+ logical, parameter :: mpi = .false.
 #endif
 
  ! storage for artificial viscosity switch
@@ -212,11 +202,10 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
+ logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
- logical, parameter :: store_gamma = .true.
 #else
- logical, parameter :: store_gamma = .false.
  logical, parameter :: use_krome = .false.
 #endif
 
@@ -232,17 +221,22 @@ module dim
  integer, parameter :: maxBevol  = 4  ! size of B-arrays (Bx,By,Bz,psi)
  integer, parameter :: ndivcurlB = 4
 
-! non-ideal MHD
+! Non-ideal MHD
+! if fast_divcurlB=true, then divcurlB is calculated simultaneous with density which leads to a race condition and errors (typically less than a percent)
+! divcurlB is only used as diagnostics & divergence cleaning in ideal MHD, so fast_divcurlB=true is reasonable
+! divcurlB is used to update the non-ideal terms, so fast_divcurlB=false is required for accuracy (especially if there will be jumps in density)
  integer :: maxmhdni = 0
-#ifdef MHD
 #ifdef NONIDEALMHD
- logical, parameter :: mhd_nonideal = .true.
+ logical, parameter :: mhd_nonideal    = .true.
+ logical, parameter :: fast_divcurlB   = .false.
+ integer, parameter :: n_nden_phantom  = 13      ! number density of chemical species, electrons & n_grains; defined in nicil == 11+2*na
 #else
- logical, parameter :: mhd_nonideal = .false.
+ logical, parameter :: mhd_nonideal    = .false.
+ logical, parameter :: fast_divcurlB   = .true.
+ integer, parameter :: n_nden_phantom  = 0
 #endif
-#else
- logical, parameter :: mhd_nonideal = .false.
-#endif
+ logical            :: calculate_density  = .true.  ! do not toggle; initialised for efficiency
+ logical            :: calculate_divcurlB = .true.  ! do not toggle; initialised for efficiency
 
 !--------------------
 ! H2 Chemistry
@@ -278,15 +272,6 @@ module dim
 #endif
 
 !--------------------
-! Gravitational wave strain
-!--------------------
-#ifdef GWS
- logical, parameter :: gws = .true.
-#else
- logical, parameter :: gws = .false.
-#endif
-
-!--------------------
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1
@@ -303,10 +288,29 @@ module dim
 !--------------------
 ! Dust formation
 !--------------------
-#ifdef NUCLEATION
+ logical :: do_nucleation = .false.
+ integer :: inucleation = 0
+#ifdef DUST_NUCLEATION
+#ifdef STAR
+ logical :: star_radiation = .true.
+#else
+ logical :: star_radiation = .false.
+#endif
+ logical :: nucleation = .true.
  integer :: maxsp = maxp_hard
 #else
+ logical :: star_radiation = .false.
+ logical :: nucleation = .false.
  integer :: maxsp = 0
+#endif
+
+!--------------------
+! MCFOST library
+!--------------------
+#ifdef MCFOST
+ logical, parameter :: compiled_with_mcfost = .true.
+#else
+ logical, parameter :: compiled_with_mcfost = .false.
 #endif
 
 !--------------------
@@ -320,23 +324,21 @@ module dim
 #endif
 
 !--------------------
-! Electron number densities .or. ionisation fractions
-!--------------------
- integer :: maxne = 0
-
-#ifdef CMACIONIZE
- logical, parameter :: use_CMacIonize = .true.
-#else
- logical, parameter :: use_CMacIonize = .false.
-#endif
-
-!--------------------
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
  logical, parameter :: particles_are_injected = .true.
 #else
  logical, parameter :: particles_are_injected = .false.
+#endif
+
+!--------------------
+! individual timesteps
+!--------------------
+#ifdef IND_TIMESTEPS
+ logical, parameter :: ind_timesteps = .true.
+#else
+ logical, parameter :: ind_timesteps = .false.
 #endif
 
  !--------------------
@@ -355,8 +357,9 @@ module dim
 
 contains
 
-subroutine update_max_sizes(n)
- integer, intent(in) :: n
+subroutine update_max_sizes(n,ntot)
+ integer,                   intent(in) :: n
+ integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
 
@@ -368,14 +371,16 @@ subroutine update_max_sizes(n)
  maxTdust = maxp
 #endif
 
-#ifdef STORE_TEMPERATURE
- maxtemp = maxp
-#endif
-
 #ifdef NCELLSMAX
- ncellsmax = NCELLSMAX
+ ncellsmax       = NCELLSMAX
+ ncellsmaxglobal = NCELLSMAX
 #else
  ncellsmax = 2*maxp
+ if (present(ntot)) then
+    ncellsmaxglobal = 2*ntot
+ else
+    ncellsmaxglobal = ncellsmax
+ endif
 #endif
 
 #ifdef DUST
@@ -426,14 +431,6 @@ subroutine update_max_sizes(n)
 
 #if LIGHTCURVE
  maxlum = maxp
-#endif
-
-#ifdef NONIDEALMHD
- maxne = maxp
-#else
-#ifdef CMACIONIZE
- maxne = maxp
-#endif
 #endif
 
 #ifndef ANALYSIS

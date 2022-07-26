@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,13 +26,13 @@ module part
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
-               maxp_h2,nabundances,maxtemp,periodic,&
+               maxp_h2,nabundances,periodic,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
-               use_dust,store_temperature,lightcurve,maxlum,nalpha,maxmhdni, &
-               maxne,maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
+               use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
+               maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -55,11 +55,12 @@ module part
  character(len=*), parameter :: xyzh_label(4) = (/'x','y','z','h'/)
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
+ character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
 !
 !--tracking particle IDs
 !
- integer              :: norig
- integer, allocatable :: iorig(:)
+ integer(kind=8)              :: norig
+ integer(kind=8), allocatable :: iorig(:)
 !
 !--storage of dust properties
 !
@@ -126,9 +127,11 @@ module part
                        ics   = 2, &
                        itemp = 3, &
                        imu   = 4, &
-                       maxeosvars = 4
+                       iX    = 5, &
+                       iZ    = 6, &
+                       maxeosvars = 6
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed', 'temperature', 'mu         '/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
 !
 !--one-fluid dust (small grains)
 !
@@ -163,6 +166,7 @@ module part
  integer, parameter :: imloss = 15 ! mass loss rate
  integer, parameter :: imdotav = 16 ! accretion rate average
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
+ integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
@@ -172,7 +176,7 @@ module part
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    '/)
+    'mdotav   ','mprev    ','massenc  '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -181,8 +185,7 @@ module part
 !
 !--Non-ideal MHD
 !
- real, allocatable :: n_R(:,:)
- real, allocatable :: n_electronT(:)
+ real, allocatable :: nden_nimhd(:,:)
  real, allocatable :: eta_nimhd(:,:)
  integer, parameter :: iohm  = 1 ! eta_ohm
  integer, parameter :: ihall = 2 ! eta_hall
@@ -195,17 +198,28 @@ module part
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
- integer, parameter :: n_nucleation = 8
-#ifdef NUCLEATION
+ integer, parameter :: n_nucleation = 10
  real, allocatable :: nucleation(:,:)
- character(len=*), parameter :: nucleation_label(n_nucleation) = (/'Jstar','K0   ','K1   ','K2   ','K3   ','mu   ','S    ','kappa'/)
-#endif
+ ! please note that in nucleation, we save the *normalized* moments, i.e. \hat{K}_i = K_i/n<H>
+ character(len=*), parameter :: nucleation_label(n_nucleation) = &
+       (/'Jstar','K0   ','K1   ','K2   ','K3   ',&
+         'mu   ','gamma','S    ','kappa','alphw'/)
+ integer, parameter :: idJstar = 1, &
+                       idK0    = 2, &
+                       idK1    = 3, &
+                       idK2    = 4, &
+                       idK3    = 5, &
+                       idmu    = 6, &
+                       idgamma = 7, &
+                       idsat   = 8, & !for logging
+                       idkappa = 9, & !for logging
+                       idalpha = 10   !for logging
 !
 !--KROME variables
 !
  real, allocatable :: gamma_chem(:)
  real, allocatable :: mu_chem(:)
- real, allocatable :: T_chem(:)
+ real, allocatable :: T_gas_cool(:)
  real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
@@ -225,7 +239,7 @@ module part
                        ithick = 5, &
                        inumph = 6, &
                        ivorcl = 7, &
-                       iradP = 8, &
+                       iradP  = 8, &
                        maxradprop = 8
  character(len=*), parameter :: radprop_label(maxradprop) = &
     (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
@@ -285,18 +299,23 @@ module part
  integer(kind=1), allocatable :: istsactive(:)
  integer(kind=1), allocatable :: ibin_sts(:)
 !
-!--size of the buffer required for transferring particle <<<< FIX THIS FOR GR MPI
+!--size of the buffer required for transferring particle
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 4 &  ! xyzh
    +maxvxyzu                            &  ! vxyzu
    +maxvxyzu                            &  ! vpred
+#ifdef GR
+   +maxvxyzu                            &  ! pxyzu
+   +maxvxyzu                            &  ! ppred
+   +1                                   &  ! dens
+#endif
    +maxvxyzu                            &  ! fxyzu
    +3                                   &  ! fext
    +usedivcurlv                         &  ! divcurlv
-#ifndef CONST_AV
-   +nalpha                              &  ! alphaind
+#if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
+ +nalpha                              &  ! alphaind
 #endif
 #ifndef ANALYSIS
  +ngradh                              &  ! gradh
@@ -306,7 +325,7 @@ module part
    +maxBevol                            &  ! Bpred
 #endif
 #ifdef RADIATION
-   +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
+ +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
 #endif
 #ifndef ANALYSIS
  +1                                   &  ! iphase
@@ -316,17 +335,22 @@ module part
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
-   +1                                   &  ! dustproppred
-   +1                                   &  ! ddustprop
+   +2                                   &  ! dustprop
+   +2                                   &  ! dustproppred
+   +4                                   &  ! dustgasprop
 #endif
 #endif
 #ifdef H2CHEM
  +nabundances                         &  ! abundance
 #endif
-#ifdef NUCLEATION
+#ifdef DUST_NUCLEATION
  +1                                   &  ! nucleation rate
-   +4                                   &  ! moments
-   +1                                   &  ! mean molecular weight
+ +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
+ +1                                   &  ! mean molecular weight
+ +1                                   &  ! gamma
+ +1                                   &  ! super saturation ratio
+ +1                                   &  ! kappa dust
+ +1                                   &  ! alpha
 #endif
 #ifdef KROME
  +krome_nmols                         &  ! abundance
@@ -336,11 +360,11 @@ module part
    +1                                   &  ! cooling rate
 #endif
    +maxeosvars                          &  ! eos_vars
+#ifdef SINK_RADIATION
+   +1                                   &  ! dust temperature
+#endif
 #ifdef GRAVITY
  +1                                   &  ! poten
-#endif
-#ifdef SINK_RADIATION
- +1                                   &  ! dust temperature
 #endif
 #ifdef IND_TIMESTEPS
  +1                                   &  ! ibin
@@ -349,6 +373,7 @@ module part
    +1                                   &  ! dt_in
    +1                                   &  ! twas
 #endif
+ +1                                   &  ! iorig
  +0
 
  real            :: hfact,Bextx,Bexty,Bextz
@@ -356,8 +381,9 @@ module part
  integer(kind=8) :: ntot
  integer         :: ideadhead = 0
 
- integer :: npartoftype(maxtypes)
- real    :: massoftype(maxtypes)
+ integer         :: npartoftype(maxtypes)
+ integer(kind=8) :: npartoftypetot(maxtypes)
+ real            :: massoftype(maxtypes)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -390,9 +416,12 @@ module part
  interface hrho
   module procedure hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
  end interface hrho
+ interface get_ntypes
+  module procedure get_ntypes_i4, get_ntypes_i8
+ end interface get_ntypes
 
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
-
+ private :: get_ntypes_i4,get_ntypes_i8
 contains
 
 subroutine allocate_part
@@ -426,8 +455,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('poten', poten, maxgrav)
- call allocate_array('n_R', n_R, 4, maxmhdni)
- call allocate_array('n_electronT', n_electronT, maxne)
+ call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
@@ -459,9 +487,7 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
-#ifdef NUCLEATION
- call allocate_array('nucleation', nucleation, n_nucleation, maxsp)
-#endif
+ call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -469,7 +495,7 @@ subroutine allocate_part
 #endif
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
- call allocate_array('T_chem', T_chem, maxp_krome)
+ call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('dudt_chem', dudt_chem, maxp_krome)
 
 
@@ -506,8 +532,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
- if (allocated(n_R))          deallocate(n_R)
- if (allocated(n_electronT))  deallocate(n_electronT)
+ if (allocated(nden_nimhd))   deallocate(nden_nimhd)
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
@@ -526,12 +551,10 @@ subroutine deallocate_part
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
 #endif
-#ifdef NUCLEATION
  if (allocated(nucleation))   deallocate(nucleation)
-#endif
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
- if (allocated(T_chem))       deallocate(T_chem)
+ if (allocated(T_gas_cool))   deallocate(T_gas_cool)
  if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
@@ -558,6 +581,7 @@ subroutine init_part
  npart = 0
  nptmass = 0
  npartoftype(:) = 0
+ npartoftypetot(:) = 0
  massoftype(:)  = 0.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
@@ -609,6 +633,8 @@ subroutine init_part
  ibin(:)       = 0
  ibin_old(:)   = 0
  ibin_wake(:)  = 0
+ dt_in(:)      = 0.
+ twas(:)       = 0.
 #endif
 
  ideadhead = 0
@@ -747,9 +773,23 @@ logical function sinks_have_luminosity(nptmass,xyzmh_ptmass)
  real, intent(in) :: xyzmh_ptmass(:,:)
 
  sinks_have_luminosity = any(xyzmh_ptmass(iTeff,1:nptmass) > 0. .and. &
-                              xyzmh_ptmass(iLum,1:nptmass) > 0.)
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
 
 end function sinks_have_luminosity
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sinks_have_heating(nptmass,xyzmh_ptmass)
+ integer, intent(in) :: nptmass
+ real, intent(in) :: xyzmh_ptmass(:,:)
+
+ sinks_have_heating = any(xyzmh_ptmass(iTeff,1:nptmass) <= 0. .and. &
+                              xyzmh_ptmass(ilum,1:nptmass) > 0.)
+
+end function sinks_have_heating
 
 !----------------------------------------------------------------
 !+
@@ -838,6 +878,23 @@ subroutine remove_particle_from_npartoftype(i,npoftype)
  npoftype(itype) = npoftype(itype) - 1
 
 end subroutine remove_particle_from_npartoftype
+
+!----------------------------------------------------------------
+!+
+!  recount particle types, useful after particles have moved
+!  between MPI tasks
+!+
+!----------------------------------------------------------------
+subroutine recount_npartoftype
+ integer :: itype
+
+ npartoftype(:) = 0
+ do i=1,npart
+    itype = iamtype(iphase(i))
+    npartoftype(itype) = npartoftype(itype) + 1
+ enddo
+
+end subroutine recount_npartoftype
 
 !----------------------------------------------
 !+
@@ -976,8 +1033,20 @@ pure elemental logical function iamdust(iphasei)
 
 end function iamdust
 
-pure integer function get_ntypes(noftype)
+pure elemental integer function idusttype(iphasei)
+ integer(kind=1), intent(in) :: iphasei
+
+ if (iamdust(iphasei)) then
+    idusttype = iamtype(iphasei) - idust + 1
+ else
+    idusttype = 1
+ endif
+
+end function idusttype
+
+pure function get_ntypes_i4(noftype) result(get_ntypes)
  integer, intent(in) :: noftype(:)
+ integer :: get_ntypes
  integer :: i
 
  get_ntypes = 0
@@ -985,7 +1054,19 @@ pure integer function get_ntypes(noftype)
     if (noftype(i) > 0) get_ntypes = i
  enddo
 
-end function get_ntypes
+end function get_ntypes_i4
+
+pure function get_ntypes_i8(noftype) result(get_ntypes)
+ integer(kind=8), intent(in) :: noftype(:)
+ integer :: get_ntypes
+ integer :: i
+
+ get_ntypes = 0
+ do i=1,size(noftype)
+    if (noftype(i) > 0) get_ntypes = i
+ enddo
+
+end function get_ntypes_i8
 
 !-----------------------------------------------------------------------
 !+
@@ -1056,7 +1137,7 @@ subroutine copy_particle(src,dst,new_part)
  fext(:,dst)  = fext(:,src)
  if (mhd) then
     Bevol(:,dst) = Bevol(:,src)
-    Bxyz(:,dst)  = Bxyz(:,dst)
+    Bxyz(:,dst)  = Bxyz(:,src)
  endif
  if (do_radiation) then
     rad(:,dst) = rad(:,src)
@@ -1123,9 +1204,8 @@ subroutine copy_particle_all(src,dst,new_part)
     endif
     Bxyz(:,dst)   = Bxyz(:,src)
     if (maxmhdni==maxp) then
-       n_R(:,dst)       = n_R(:,src)
-       n_electronT(dst) = n_electronT(src)
-       eta_nimhd(:,dst) = eta_nimhd(:,src)
+       nden_nimhd(:,dst) = nden_nimhd(:,src)
+       eta_nimhd(:,dst)  = eta_nimhd(:,src)
     endif
  endif
  if (do_radiation) then
@@ -1134,7 +1214,14 @@ subroutine copy_particle_all(src,dst,new_part)
     radprop(:,dst) = radprop(:,src)
     drad(:,dst) = drad(:,src)
  endif
- if (gr) pxyzu(:,dst) = pxyzu(:,src)
+ if (gr) then
+    pxyzu(:,dst) = pxyzu(:,src)
+    if (maxgran==maxp) then
+       ppred(:,dst) = ppred(:,src)
+    endif
+    dens(dst) = dens(src)
+ endif
+
  if (ndivcurlv > 0) divcurlv(:,dst) = divcurlv(:,src)
  if (ndivcurlB > 0) divcurlB(:,dst) = divcurlB(:,src)
  if (maxdvdx ==maxp)  dvdx(:,dst) = dvdx(:,src)
@@ -1173,13 +1260,12 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
-#ifdef NUCLEATION
- nucleation(:,dst) = nucleation(:,src)
-#endif
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
     mu_chem(dst)          = mu_chem(src)
-    T_chem(dst)           = T_chem(src)
+    T_gas_cool(dst)       = T_gas_cool(src)
     dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
@@ -1201,36 +1287,30 @@ end subroutine copy_particle_all
 !------------------------------------------------------------------
 !+
 ! routine which reorders the particles according to an input list
-! (prior to a derivs evaluation - so no derivs required)
-! (allocates temporary arrays for each variable, so use with caution)
-! THIS ROUTINE IS OBSOLETE AND IS SCHEDULED FOR DELETION
 !+
 !------------------------------------------------------------------
 subroutine reorder_particles(iorder,np)
  integer, intent(in) :: iorder(:)
  integer, intent(in) :: np
 
- call copy_array(xyzh(:,1:np), iorder(1:np))
- call copy_array(vxyzu(:,1:np),iorder(1:np))
- call copy_array(fext(:,1:np), iorder(1:np))
- if (mhd) then
-    call copy_array(Bevol(:,1:np),iorder(1:np))
-    !--also copy the Bfield here, as this routine is used in setup routines
-    call copy_array(Bxyz(:,1:np), iorder(1:np))
- endif
- if (ndivcurlv > 0)   call copy_arrayr4(divcurlv(:,1:np),iorder(1:np))
- if (maxalpha ==maxp) call copy_arrayr4(alphaind(:,1:np),iorder(1:np))
- if (maxgradh ==maxp) call copy_arrayr4(gradh(:,1:np),   iorder(1:np))
- if (maxphase ==maxp) call copy_arrayint1(iphase(1:np),  iorder(1:np))
- if (maxgrav  ==maxp) call copy_array1(poten(1:np),      iorder(1:np))
-#ifdef IND_TIMESTEPS
- call copy_arrayint1(ibin(1:np),      iorder(1:np))
- call copy_arrayint1(ibin_old(1:np),  iorder(1:np))
- call copy_arrayint1(ibin_wake(1:np), iorder(1:np))
- !call copy_array1(twas(1:np),          iorder(1:np))
-#endif
+ integer :: isrc
+ real    :: xtemp(ipartbufsize)
 
- return
+ do i=1,np
+    isrc = iorder(i)
+
+    ! If particle has already been moved
+    do while (isrc < i)
+       isrc = iorder(isrc)
+    enddo
+
+    ! Swap particles around
+    call fill_sendbuf(i,xtemp)
+    call copy_particle_all(isrc,i,.false.)
+    call unfill_buffer(isrc,xtemp)
+
+ enddo
+
 end subroutine reorder_particles
 
 !-----------------------------------------------------------------------
@@ -1241,7 +1321,8 @@ end subroutine reorder_particles
 !+
 !-----------------------------------------------------------------------
 subroutine shuffle_part(np)
- use io, only:fatal
+ use io,  only:fatal
+ use dim, only: mpi
  integer, intent(inout) :: np
  integer :: newpart
 
@@ -1252,9 +1333,7 @@ subroutine shuffle_part(np)
           ! move particle to new position
           call copy_particle_all(np,newpart,.false.)
           ! move ibelong to new position
-#ifdef MPI
-          ibelong(newpart) = ibelong(np)
-#endif
+          if (mpi) ibelong(newpart) = ibelong(np)
           ! update deadhead
           ideadhead = ll(newpart)
        endif
@@ -1347,6 +1426,11 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,xyzh(:,i),nbuf)
     call fill_buffer(xtemp,vxyzu(:,i),nbuf)
     call fill_buffer(xtemp,vpred(:,i),nbuf)
+    if (gr) then
+       call fill_buffer(xtemp,pxyzu(:,i),nbuf)
+       call fill_buffer(xtemp,ppred(:,i),nbuf)
+       call fill_buffer(xtemp,dens(i),nbuf)
+    endif
     call fill_buffer(xtemp,fxyzu(:,i),nbuf)
     call fill_buffer(xtemp,fext(:,i),nbuf)
     if (ndivcurlv > 0) then
@@ -1375,6 +1459,11 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, dustfrac(:,i),nbuf)
        call fill_buffer(xtemp, dustevol(:,i),nbuf)
        call fill_buffer(xtemp, dustpred(:,i),nbuf)
+       if (use_dustgrowth) then
+          call fill_buffer(xtemp, dustprop(:,i),nbuf)
+          call fill_buffer(xtemp, dustproppred(:,i),nbuf)
+          call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
+       endif
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1393,6 +1482,7 @@ subroutine fill_sendbuf(i,xtemp)
     call fill_buffer(xtemp,dt_in(i),nbuf)
     call fill_buffer(xtemp,twas(i),nbuf)
 #endif
+    call fill_buffer(xtemp,iorig(i),nbuf)
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
 
@@ -1415,6 +1505,11 @@ subroutine unfill_buffer(ipart,xbuf)
  xyzh(:,ipart)          = unfill_buf(xbuf,j,4)
  vxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  vpred(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
+ if (gr) then
+    pxyzu(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    ppred(:,ipart)       = unfill_buf(xbuf,j,maxvxyzu)
+    dens(ipart)          = unfill_buf(xbuf,j)
+ endif
  fxyzu(:,ipart)         = unfill_buf(xbuf,j,maxvxyzu)
  fext(:,ipart)          = unfill_buf(xbuf,j,3)
  if (ndivcurlv > 0) then
@@ -1443,6 +1538,11 @@ subroutine unfill_buffer(ipart,xbuf)
     dustfrac(:,ipart)   = unfill_buf(xbuf,j,maxdusttypes)
     dustevol(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
     dustpred(:,ipart)   = unfill_buf(xbuf,j,maxdustsmall)
+    if (use_dustgrowth) then
+       dustprop(:,ipart)       = unfill_buf(xbuf,j,2)
+       dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
+       dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
+    endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
@@ -1461,6 +1561,7 @@ subroutine unfill_buffer(ipart,xbuf)
  dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
  twas(ipart)            = unfill_buf(xbuf,j)
 #endif
+ iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then
@@ -1533,7 +1634,7 @@ end subroutine copy_array1
 !----------------------------------------------------------------
 !+
 !  utility to reorder an array
-!  (real4, rank 1 arrays)
+!  (int1, rank 1 arrays)
 !+
 !----------------------------------------------------------------
 
@@ -1547,6 +1648,24 @@ subroutine copy_arrayint1(iarray,ilist)
 
  return
 end subroutine copy_arrayint1
+
+!----------------------------------------------------------------
+!+
+!  utility to reorder an array
+!  (int8, rank 1 arrays)
+!+
+!----------------------------------------------------------------
+
+subroutine copy_arrayint8(iarray,ilist)
+ integer(kind=8), intent(inout) :: iarray(:)
+ integer,         intent(in)    :: ilist(:)
+ integer(kind=8) :: iarraytemp(size(iarray(:)))
+
+ iarraytemp(:) = iarray(ilist(:))
+ iarray = iarraytemp
+
+ return
+end subroutine copy_arrayint8
 
 !----------------------------------------------------------------
 !+
@@ -1679,7 +1798,7 @@ subroutine accrete_particles_outside_sphere(radius)
  enddo
  !$omp end parallel do
 
-end subroutine
+end subroutine accrete_particles_outside_sphere
 
 !----------------------------------------------------------------
 !+
@@ -1705,7 +1824,7 @@ real function Omega_k(i)
     m_star = xyzmh_ptmass(4,1)
  else
     do j=1,nptmass
-       m_star = m_star + xyzmh_ptmass(4,j)
+       if (xyzmh_ptmass(4,j) > 0.) m_star = m_star + xyzmh_ptmass(4,j)
     enddo
  endif
 
@@ -1718,5 +1837,12 @@ real function Omega_k(i)
  endif
 
 end function Omega_k
+
+subroutine update_npartoftypetot
+ use mpiutils, only:reduceall_mpi
+
+ npartoftypetot = reduceall_mpi('+',npartoftype)
+
+end subroutine update_npartoftypetot
 
 end module part

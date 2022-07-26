@@ -7,12 +7,44 @@ Visualisation of Phantom output
 Dump files
 ~~~~~~~~~~
 
-That's what splash is for! Use ssplash to look at the dump
+That's what `splash <https://users.monash.edu.au/~splash>`_ is for! Use splash to interactively inspect the dump
 files produced by phantom, e.g.:
 
 .. code-block:: bash
 
-   ssplash dump_0*
+   splash dump_0*
+
+or for a column density rendering:
+
+.. code-block:: bash
+
+   splash -r 6 dump_0*
+
+and press Enter for "Hollywood mode". You can also use splash to convert to ascii:
+
+.. code-block:: bash
+
+   splash to ascii dump_0*
+
+or to interpolate to a 3D grid:
+
+.. code-block:: bash
+
+   splash to grid dump_0*
+
+To make a movie, just give "/png" as the output:
+
+.. code-block:: bash
+
+   splash -r 6 dump_0* -dev /png
+
+Then use the ffmpeg script in the splash/scripts directory to convert the png files into an mp4 movie:
+
+.. code-block:: bash
+
+   ~/splash/scripts/movie.sh mymovie.mp4 splash
+
+More details in the `splash documentation <https://splash-viz.readthedocs.io>`_
 
 For more detailed analysis of Phantom dump files, write yourself an
 analysis module for the phantomanalysis utility as described below.
@@ -20,6 +52,10 @@ Analysis modules exist for many common tasks, including interpolating to
 a 3D grid (both fixed and AMR), computing PDFs, structure functions and
 power spectra, getting disc surface density profiles, and converting to
 other formats, and it is simple to write your own.
+
+The data format
+~~~~~~~~~~~~~~~
+A fuller description of the data format can be found :doc:`here <dumpfile>`.
 
 Global quantities
 ~~~~~~~~~~~~~~~~~
@@ -30,21 +66,14 @@ with the -ev (or -e) option:
 
 .. code-block:: bash
 
-   asplash -e dump*.ev
-
-where to label the columns properly, set the following environment
-variable:
-
-.. code-block:: bash
-
-   export ASPLASH_COLUMNSFILE=~/phantom/scripts/columns
+   splash -ev dump*.ev
 
 Global quantities not in the .ev file can also be obtained using the
 splash calc utility, e.g.:
 
 .. code-block:: bash
 
-   ssplash calc max dump_0*
+   splash calc max dump_0*
 
 which produces a file containing the maximum of each quantity in the
 dump files as a function of time.
@@ -71,7 +100,7 @@ Compile the phantomanalysis utility using:
    make analysis
 
 which compiles the phantomanalysis binary using the analysis module you
-specified in phantom/build/Makefile:
+specified in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/master/build/Makefile_setups>`__:
 
 .. code-block:: make
 
@@ -89,21 +118,28 @@ giving
    $ ls
    phantomanalysis*
 
-Phantomanalysis is a simple wrapper that reads all of the dump files on
-the command line in sequence and calls the analysis routine specified in
-the analysis_blah.f90 module.
+Phantomanalysis is a simple wrapper that reads all of the dump files on the command line in sequence and calls the analysis routine specified in the ANALYSIS variable, in this case analysis_disc.f90. For a list of pre-built analysis tools, see the :doc:`list of Phantom
+utilities <utils>`.
+
+Compiling your own phantomanalysis module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also select the module on the command line using, for example
+
+.. code-block:: bash
+
+   make analysis ANALYSIS=analysis_blah.f90
 
 You can then write an analysis_blah.f90 to do whatever it is you want,
-even if you what you want is: \* something completely trivial (see for
-example analysis_dtheader.f90 which just compares the time from each
-dump file with the time in the previous dump file); or \* conversion to
-another format; or \* actually performing some analysis
-(e.g. analysis_disc.f90 which bins particles into rings for comparison
-with 1D alpha-disc evolution calculations).
+even if you what you want is: 
+
+- something completely trivial (see for example `analysis_dtheader.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_dtheader.f90>`__ which just compares the time from each dump file with the time in the previous dump file); or
+- conversion to another format; or
+- actually performing some analysis (e.g. `analysis_disc.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_disc.f90>`__ which bins particles into rings for comparison with 1D alpha-disc evolution calculations).
 
 The call to analysis passes the most useful information on the particles
 (positions, velocities, thermal energy, particle masses and numbers of
-particles). \**Any remaining information can also be accessed via the
+particles). **Any remaining information can also be accessed via the
 usual phantom modules**. For example, you can access sink particle
 arrays using:
 
@@ -111,8 +147,6 @@ arrays using:
 
    use part, only:xyzmh_ptmass,vxyz_ptmass
 
-For a list of pre-built analysis tools, see the list of Phantom
-utilities :doc:`utils`.
 
 Converting to another format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -123,7 +157,7 @@ utility in splash. For example, to convert all files to ascii format
 
 .. code-block:: bash
 
-   ssplash to ascii blast_0*
+   splash to ascii blast_0*
 
 To avoid precision loss, you will need to ensure that splash is compiled
 in double precision (use make DOUBLEPRECISION=yes when compiling splash)

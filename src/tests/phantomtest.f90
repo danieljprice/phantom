@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -24,7 +24,7 @@ program phantomtest
  implicit none
  integer :: nargs,i,ntests,npass,nfail
  character(len=120) :: string
- integer, parameter :: maxp_test = 1000000
+ integer(kind=8), parameter :: maxp_test = 1000000
 
  ntests = 0
  npass  = 0
