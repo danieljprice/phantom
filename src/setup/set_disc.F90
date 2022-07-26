@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -8,7 +8,10 @@ module setdisc
 !
 ! This module contains utility routines for accretion disc setups
 !
-! :References: None
+! :References:
+!   Lodato & Pringle (2007), MNRAS 381, 1287-1300
+!   Lodato & Price (2010), MNRAS 405, 1212-1226
+!   Meru & Bate (2012), MNRAS 427, 2022-2046
 !
 ! :Owner: Daniel Mentiplay
 !
@@ -41,12 +44,11 @@ module setdisc
 !   - umass       : *mass units (cgs)*
 !   - utime       : *time units (cgs)*
 !
-! :Dependencies: centreofmass, dim, domain, eos, externalforces,
-!   infile_utils, io, mpiutils, options, part, physcon, random, units,
-!   vectorutils
+! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, random, units, vectorutils
 !
  use dim,      only:maxvxyzu
- use domain,   only:i_belong_i4
+ use mpidomain,only:i_belong_i4
  use io,       only:warning,error,fatal
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
@@ -199,6 +201,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     itype = igas
  endif
  do_mixture = .false.
+ q_inddust = 0.  ! avoid compiler warning if not set
  if (present(mixture)) then
     do_mixture = mixture
     if (do_mixture) then
@@ -299,6 +302,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
     call get_disc_mass(disc_m,enc_m,rad,Q,sigmaprofile,sigma_norm, &
                        star_m,p_index,q_index,R_in,R_out,R_ref,R_c,H_R)
  else
+    disc_m = 0.
+    sigma_norm = 0.
     call fatal('set_disc','need to set disc mass directly or via sigma normalisation')
  endif
  !
@@ -335,7 +340,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  npart_tot = npart_start_count + npart_set - 1
  if (npart_tot > maxp) call fatal('set_disc', &
-    'number of particles > array size, use e.g. "make setup MAXP=10000000"')
+    'number of particles > array size, use e.g. "./phantomsetup --maxp=10000000"')
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
@@ -932,7 +937,13 @@ subroutine write_discinfo(iunit,R_in,R_out,R_ref,Q,npart,sigmaprofile, &
  write(iunit,"(a)")
 
  !--print some of these diagnostics in more useful form
- if (itype == igas) write(iunit,"(a,f5.1,a,f5.1,a,f4.1,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+ if (itype == igas) then
+    if (T_ref < 1.0d3) then
+       write(iunit,"(a,f5.1,a,f5.1,a,f5.2,a,/)")  '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+    else
+       write(iunit,"(a,es9.2,a,f5.1,a,f5.2,a,/)") '# Temperature profile  = ',T_ref,'K (R/',R_ref,')^(',-2.*q_index,')'
+    endif
+ endif
  if (sigmaprofile==0) then
     write(iunit,"(a,es9.2,a,f5.1,a,f4.1,a,/)") '# Surface density      = ',&
          sigma_norm*umass/udist**2,' g/cm^2 (R/',R_ref,')^(',-p_index,')'

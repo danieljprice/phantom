@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -55,10 +55,6 @@ subroutine check_compile_time_settings(ierr)
     if (id==master) call error(string,'-DNONIDEALMHD requires -DMHD')
     ierr = 1
  endif
-#ifdef USE_CMAC_IONISE
- if (id==master) call error(string,'can not use both -DNONIDEALMHD and -DUSE_CMAC_IONISE')
- ierr = 1
-#endif
 #endif
 !
 !--check additional dimension settings are OK

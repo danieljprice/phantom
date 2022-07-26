@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -75,6 +75,7 @@ subroutine eos_shen_NL3(rin_cgs,tin_cgs,yin,p,spsound)
  rin=rin_cgs/(amu/(fmtocm**3))
  tin=tin_cgs/MevtoK
 
+ p = 0.
  if (rin>1.e-8) then
     !the value is inside shen
     call cubic_readeos_simp(tin,yin,rin,p)

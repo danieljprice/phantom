@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,9 +28,10 @@ module setup
 !   - smincgs           : *minimum grain size [cm]*
 !   - stellar_mass      : *mass of the central star [Msun]*
 !
-! :Dependencies: boundary, dim, domain, dust, externalforces, infile_utils,
-!   io, mpiutils, options, part, physcon, prompting, set_dust,
-!   setup_params, table_utils, timestep, unifdis, units
+! :Dependencies: boundary, dim, dust, externalforces, infile_utils, io,
+!   mpidomain, mpiutils, options, part, physcon, prompting,
+!   radiation_utils, set_dust, setup_params, table_utils, timestep,
+!   unifdis, units
 !
  use part,           only:ndusttypes,ndustsmall
  use dust,           only:grainsizecgs,graindenscgs
@@ -55,7 +56,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params,   only:npart_total
  use io,             only:master
- use unifdis,        only:set_unifdis
+ use unifdis,        only:set_unifdis,rho_func
  use boundary,       only:set_boundary,xmin,xmax,zmin,zmax,dxbound,dzbound
  use mpiutils,       only:bcast_mpi
  use part,           only:labeltype,set_particle_type,igas,dustfrac,&
@@ -70,7 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,           only:init_drag,idrag,get_ts
  use set_dust,       only:set_dustfrac,set_dustbinfrac
  use table_utils,    only:logspace
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use radiation_utils,only:set_radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
@@ -89,6 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real               :: xmini,xmaxi,ymaxdisc,cs,t_orb,Rmax
  logical            :: iexist
  character(len=100) :: filename
+ procedure(rho_func), pointer :: density_func
 !
 !--default options
 !
@@ -231,9 +233,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ymaxdisc = 3.*H0
  totmass  = 2.*rhozero*sqrt(0.5*pi)*H0*erf(ymaxdisc/(sqrt(2.)*H0))*dxbound*dzbound
  npart_previous = npart
+ density_func => rhofunc
  call set_unifdis('closepacked',id,master,xmin,xmax,-ymaxdisc,ymaxdisc,zmin,zmax,deltax, &
                    hfact,npart,xyzh,periodic,nptot=npart_total,&
-                   rhofunc=rhofunc,dir=2,mask=i_belong)
+                   rhofunc=density_func,dir=2,mask=i_belong)
 
  !--set which type of particle it is
  do i=npart_previous+1,npart

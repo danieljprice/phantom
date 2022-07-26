@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -127,7 +127,7 @@ end subroutine get_eos_pressure_temp_mesa
 !  density and internal energy using bisection method
 !+
 !----------------------------------------------------------------
-subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
+pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
  real, intent(in)           :: rho,pres
  real, intent(out)          :: eint,temp
  real, intent(in), optional :: guesseint

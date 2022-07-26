@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module dtypekdtree
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi, mpiutils
+! :Dependencies: io, mpi, mpiutils
 !
  implicit none
 
@@ -45,9 +45,7 @@ module dtypekdtree
  public :: ndimtree
  public :: kdnode
  public :: kdnode_bytes
-#ifdef MPI
  public :: get_mpitype_of_kdnode
-#endif
  type kdnode
     sequence
     real :: xcen(ndimtree)
@@ -64,7 +62,7 @@ module dtypekdtree
     real :: xmin(ndimtree)
     real :: xmax(ndimtree)
 #endif
- end type
+ end type kdnode
 
 contains
 
@@ -75,18 +73,16 @@ contains
 !  - MPI commit the datatype just once, rather than rebuilding it every time
 !+
 !----------------------------------------------------------------
-#ifdef MPI
 subroutine get_mpitype_of_kdnode(dtype)
+#ifdef MPI
  use mpi
  use mpiutils, only:mpierr
+ use io,       only:error
 
  integer, parameter              :: ndata = 20
-
  integer, intent(out)            :: dtype
- integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
- integer(kind=4)                 :: disp(ndata)
-
+ integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
  type(kdnode)                    :: node
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
 
@@ -157,21 +153,19 @@ subroutine get_mpitype_of_kdnode(dtype)
  disp(nblock) = addr - start
 #endif
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(node)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(node)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+    call error('dtype_kdtree','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_kdnode
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+end subroutine get_mpitype_of_kdnode
 
 end module dtypekdtree
