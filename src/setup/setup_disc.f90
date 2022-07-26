@@ -576,9 +576,14 @@ subroutine equation_of_state(gamma)
  integer :: i
 
  is_isothermal = (maxvxyzu==3)
- if (use_mcfost) then
-    is_isothermal = .false.
-    nfulldump = 1
+
+ if (compiled_with_mcfost) then
+    if (use_mcfost) then
+       is_isothermal = .false.
+       nfulldump = 1
+    else
+       is_isothermal = .true.
+    endif
  endif
 
  if (is_isothermal) then
