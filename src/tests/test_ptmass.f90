@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -290,7 +290,7 @@ subroutine test_binary(ntests,npass)
        endif
        call checkval(etotin+errmax,etotin,1.2e-2,nfailed(1),'total energy')
     case(2)
-       call checkval(angtot,angmomin,3.e-7,nfailed(3),'angular momentum')
+       call checkval(angtot,angmomin,4.e-7,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,6.e-14,nfailed(2),'linear momentum')
        tolen = 2.e-3
        if (gravity) tolen = 3.1e-3
@@ -552,21 +552,22 @@ subroutine test_createsink(ntests,npass)
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
  use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
-                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc
+                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
  use energies,   only:compute_energies,angtot,etot,totmom
- use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi
+ use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
  use stretchmap, only:rho_func
  integer, intent(inout) :: ntests,npass
  integer :: i,itest,itestp,nfailed(3),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
- real :: psep,totmass,r2min,r2,xcofm(3),t
+ real :: psep,totmass,r2min,r2,t
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
  procedure(rho_func), pointer :: density_func
 
  density_func => gaussianr
- t = 0.
+ t        = 0.
  iverbose = 1
+ rho_crit = rho_crit_cgs
 
  do itest=1,2
     select case(itest)
@@ -590,31 +591,20 @@ subroutine test_createsink(ntests,npass)
     ! set up gas particles in a uniform sphere with radius R=0.2
     !
     psep = 0.05  ! required as a variable since this may change under conditions not requested here
-    if (itest==2) then
-       ! use random so particle with maximum density is unique
-       call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
+    if (id == master) then
+       if (itest==2) then
+          ! use random so particle with maximum density is unique
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh,rhofunc=density_func)
+       else
+          call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
+       endif
     else
-       call set_sphere('cubic',id,master,0.,0.2,psep,hfact,npartoftype(igas),xyzh)
+       npartoftype(igas) = 0
     endif
     totmass = 1.0
-    massoftype(igas) = totmass/real(npartoftype(igas))
+    massoftype(igas) = totmass/real(reduceall_mpi('+',npartoftype(igas)))
     npart = npartoftype(igas)
-    !
-    ! give inward radial velocities
-    !
-    itestp = npart
-    r2min = huge(r2min)
-    xcofm(:) = 0.
-    do i=1,npart
-       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-       if (r2 < r2min) then
-          itestp = i
-          r2min = r2
-       endif
-       xcofm = xcofm + xyzh(1:3,i)
-    enddo
 
-    xcofm = massoftype(igas)*xcofm/totmass
     if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
     !
     ! set up tree for neighbour finding
@@ -622,7 +612,23 @@ subroutine test_createsink(ntests,npass)
     !
     tree_accuracy = 0.
     icreate_sinks = 1
+
     call get_derivs_global()
+
+    !
+    ! calculate itest after calling derivs because particles will
+    ! rebalance across tasks
+    !
+    r2min = huge(r2min)
+    itestp = npart
+    do i=1,npart
+       r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+       if (r2 < r2min) then
+          itestp = i
+          r2min = r2
+       endif
+    enddo
+
     !
     ! check that particle being tested is at the maximum density
     !

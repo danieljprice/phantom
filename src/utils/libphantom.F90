@@ -674,10 +674,10 @@ subroutine get_part_u(npart_in, part_u, nodisabled, ierr)
 end subroutine get_part_u
 
 !
-! Get temperature, if stored
+! Get temperature
 !
 subroutine get_part_temp(npart_in, part_temp, nodisabled, ierr)
- use part,  only:npart,xyzh,temperature,store_temperature
+ use part,  only:npart,xyzh,eos_vars,itemp
  implicit none
  integer, intent(in) :: npart_in
  double precision, dimension(npart_in), intent(out) :: part_temp
@@ -685,28 +685,24 @@ subroutine get_part_temp(npart_in, part_temp, nodisabled, ierr)
  integer, intent(out) :: ierr
  integer :: i, n
 
- if (store_temperature) then
-    if (nodisabled) then
-       n = 0
-       do i = 1, npart
-          if (xyzh(4,i) > 0.) then
-             n = n + 1
-             if (n > npart_in) then
-                ierr = 1
-                exit
-             endif
-             part_temp(n) = temperature(i)
+ if (nodisabled) then
+    n = 0
+    do i = 1, npart
+       if (xyzh(4,i) > 0.) then
+          n = n + 1
+          if (n > npart_in) then
+             ierr = 1
+             exit
           endif
-       enddo
-    else
-       if (npart_in == npart) then
-          part_temp(1:npart) = dble(temperature(1:npart))
-       else
-          ierr = 1
+          part_temp(n) = eos_vars(itemp,i)
        endif
-    endif
+    enddo
  else
-    ierr = 2
+    if (npart_in == npart) then
+       part_temp(1:npart) = dble(eos_vars(itemp,1:npart))
+    else
+       ierr = 1
+    endif
  endif
 end subroutine get_part_temp
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  use eos,         only:ieos
- use physcon,     only:pi,gg,solarm,solarr,kb_on_mh
+ use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
  real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
@@ -45,17 +45,19 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  mc = mcore*solarm  ! convert to g
  call interpolator(r,rc,icore)  ! find index in r closest to rc
  msoft = m(icore) - mc
- if (msoft<0.) call fatal('setup','mcore cannot exceed m(r=h)')
+ if (msoft<0.) then
+    print *,'mcore=',mcore,', rcore=',rcore,', icore=',icore,', m(icore) =',m(icore)/solarm
+    call fatal('setup','mcore cannot exceed m(r=h)')
+ endif
 
  select case(ieos)
  case(2)
     ientropy = 1
- case(12)
-    ientropy = 2
- case(10)
+ case(10,12,20)
     ientropy = 2
  case default
-    call fatal('setfixedentropycore','ieos not one of 2 (adiabatic), 12 (ideal plus rad.), or 10 (MESA)')
+    call fatal('setfixedentropycore',&
+               'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
  end select
 
  ! Make allocatable copies, see instructions of calc_rho_and_pres

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -33,7 +33,8 @@ module readwrite_infile
 !   - flux_limiter       : *limit radiation flux*
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
-!   - iopacity_type      : *opacity method (0=inf,1=mesa)*
+!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
@@ -68,7 +69,8 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc, &
+                     ien_type
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -107,6 +109,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
+#endif
+#ifdef DUST_NUCLEATION
  use dust_formation,  only:write_options_dust_formation
 #endif
 #ifdef NONIDEALMHD
@@ -215,6 +219,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     if (mhd) then
        call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
     endif
+    if (gr) then
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy)',iwritein)
+    endif
  endif
 
  if (maxvxyzu >= 4) call write_options_cooling(iwritein)
@@ -256,6 +263,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
+#endif
+#ifdef DUST_NUCLEATION
  call write_options_dust_formation(iwritein)
 #endif
 
@@ -274,7 +283,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     write(iwritein,"(/,a)") '# options for radiation'
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
-    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa)',iwritein)
+    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,-1=preserve)',iwritein)
  endif
 #ifdef GR
  call write_options_metric(iwritein)
@@ -310,13 +319,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef GR
- use metric,        only:read_options_metric
+ use metric,          only:read_options_metric
 #endif
 #ifdef PHOTO
  use photoevap,       only:read_options_photoevap
 #endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
+#endif
+#ifdef DUST_NUCLEATION
  use dust_formation,  only:read_options_dust_formation,idust_opacity
 #endif
 #ifdef NONIDEALMHD
@@ -472,6 +483,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) ishock_heating
     case('iresistive_heating')
        read(valstring,*,iostat=ierr) iresistive_heating
+    case('ien_type')
+       read(valstring,*,iostat=ierr) ien_type
     case('irealvisc')
        read(valstring,*,iostat=ierr) irealvisc
     case('shearparam')
@@ -517,6 +530,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
+#endif
+#ifdef DUST_NUCLEATION
        if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
 #endif
        if (.not.imatch .and. sink_radiation) then
@@ -653,7 +668,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. &
-                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16)) &
+                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
@@ -666,6 +681,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef WIND
     if (((isink_radiation == 1 .and. idust_opacity == 0 ) .or. isink_radiation == 3 ) .and. alpha_rad < 1.d-10) &
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
+    if (isink_radiation > 1 .and. idust_opacity == 0 ) &
+         call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
 #endif
  endif
  return

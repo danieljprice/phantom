@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -104,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ctrg = 0
  if (npart > maxp) then
     close(lu)
-    call fatal('setup','maxp too small.  Make bigger than ',ival=npart)
+    call fatal('setup','maxp too small.  Use ./phantomsetup --maxp=',ival=npart)
  endif
  i  = 1
  ro = 0

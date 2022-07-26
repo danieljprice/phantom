@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                              grainsize,graindens,ndusttypes,rad,radprop,&
                              rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
- use units,          only:umass,utime,udist,get_c_code,get_steboltz_code
+ use units,          only:umass,utime,udist
  use io,             only:fatal,iprint
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
@@ -65,7 +65,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
- real :: a_code,c_code,rhoi,steboltz_code,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
+ real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
 
 
  if (.not. use_mcfost) return
@@ -136,10 +136,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
 
  if (do_radiation) then
-    c_code        = get_c_code()
-    steboltz_code = get_steboltz_code()
-    a_code        = 4.*steboltz_code/c_code
-    pmassi        = massoftype(igas)
+    a_code = get_radconst_code()
+    pmassi = massoftype(igas)
 
     radprop(inumph,:) = 0.
     if (isinitial) then
