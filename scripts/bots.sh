@@ -15,18 +15,15 @@
 #
 # Written by Daniel Price 2014-
 #
+cd "${0%/*}"
 tmpdir="/tmp/";
 pwd=$PWD;
 phantomdir="$pwd/../";
-if [ ! -s $phantomdir/scripts/$0 ]; then
-   echo "Error: This script needs to be run from the phantom/scripts directory";
-   exit;
-fi
 scriptdir="$phantomdir/scripts";
 codedir="../";
 if [ ! -d $codedir ]; then
    echo "Error running bots: $codedir does not exist";
-   exit;
+   exit 100;
 fi
 headerfile="$scriptdir/HEADER-module";
 programfile="$scriptdir/HEADER-program";
@@ -43,12 +40,61 @@ if [ ! -s $codedir/$authorsfile ]; then
 fi
 docommit=0;
 applychanges=0;
-if [[ "$1" == "--apply" ]]; then
-   applychanges=1;
+doindent=1;
+gitstaged=0;
+input_file='';
+
+while [[ "$1" == --* ]]; do
+  case $1 in
+    --apply)
+      applychanges=1;
+      ;;
+
+    --commit)
+      docommit=1;
+      applychanges=1;
+      ;;
+
+    --no-indent)
+      doindent=0;
+      ;;
+
+   --staged-files-only)
+      gitstaged=1;
+      ;;
+
+   --file)
+      shift
+      input_file=$1
+      break;
+      ;;
+
+    *)
+      badflag=$1
+      ;;
+  esac
+  shift
+done
+
+if [[ "$badflag" != "" ]]; then
+   echo "ERROR: Unknown flag $badflag"
+   exit
 fi
-if [[ "$1" == "--commit" ]]; then
-   docommit=1;
-   applychanges=1;
+
+if [[ $gitstaged == 1 && $docommit == 1 ]]; then
+   echo "--staged-files-only and --commit cannot both be used because "
+   echo "this will commit your git changes with the automated commit message"
+   exit
+fi
+
+if [[ $doindent == 1 ]]; then
+   if ! command -v findent > /dev/null; then
+      echo "ERROR: findent not found, please install:                   ";
+      echo "       https://www.ratrabbit.nl/ratrabbit/findent/index.html";
+      echo "                                                            ";
+      echo "       or disable indent-bot using --no-indent              ";
+      exit
+   fi
 fi
 cd $codedir;
 if [[ $docommit == 1 ]]; then
@@ -69,24 +115,42 @@ get_only_files_in_git()
    fi
 }
 allfiles='';
-bots_to_run='tabs gt shout header whitespace authors endif indent';
+bots_to_run='tabs gt shout header whitespace authors endif';
+if [[ $doindent == 1 ]]; then
+   bots_to_run="${bots_to_run} indent";
+fi
 #bots_to_run='shout';
+modified=0
 for edittype in $bots_to_run; do
     filelist='';
     case $edittype in
     'authors' )
        dirlist=".";
        goback='-';
-       listoffiles="$authorsfile";;
+       filenamepattern="$authorsfile";;
     * )
        dirlist="src/*";
        goback="../../";
-       listoffiles="*.*90";;
+       filenamepattern="*.*90";;
     esac
     for dir in $dirlist; do
         if [ -d $dir ]; then
            cd $dir;
-           myfiles=`get_only_files_in_git "$listoffiles"`
+           if [[ $gitstaged == 1 && "$filenamepattern" == "*.*90" ]]; then
+             files=`git diff --name-only --cached --relative -- "./*.*90" | tr '\n' ' '`;
+           else
+             files=$filenamepattern
+           fi
+           if [[ "$input_file" != "" && "$edittype" != "authors" ]]; then
+           # Only process the input file
+             if [[ "$dir" == "$(dirname $input_file)" ]]; then
+               myfiles=$(basename $input_file)
+             else
+               myfiles=""
+             fi
+           else
+             myfiles=`get_only_files_in_git "$files"`
+           fi
            for file in $myfiles; do
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
@@ -212,6 +276,7 @@ for edittype in $bots_to_run; do
           echo "$msg";
        fi
        echo "Modified files = $filelist";
+       modified=$((modified + 1))
     fi
     if [[ $docommit == 1 ]]; then
        git commit -m "$msg" $filelist;
@@ -232,3 +297,4 @@ else
       echo "No changes";
    fi
 fi
+exit $modified

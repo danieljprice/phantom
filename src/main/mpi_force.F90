@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,18 +17,14 @@ module mpiforce
 ! :Dependencies: dim, io, mpi, mpiutils
 !
  use io,       only:nprocs,fatal
- use dim,      only:minpart,maxfsum,maxprocs,stacksize,maxxpartveciforce
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+ use dim,      only:minpart,maxfsum,maxxpartveciforce
+
  implicit none
  private
 
  public :: cellforce
  public :: stackforce
-#ifdef MPI
  public :: get_mpitype_of_cellforce
-#endif
 
  type cellforce
     sequence
@@ -48,33 +44,32 @@ module mpiforce
     integer          :: nsuper
     integer          :: owner                                  ! id of the process that owns this
     integer          :: waiting_index
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)) !padding to maintain alignment of elements
- endtype
+    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart) + 2*minpart, 8)) !padding to maintain alignment of elements
+ end type cellforce
 
  type stackforce
     sequence
     type(cellforce), pointer  :: cells(:)
     integer                   :: maxlength = 0
     integer                   :: n = 0
-    integer                   :: mem_start
-    integer                   :: mem_end
- endtype
+    integer                   :: number
+ end type stackforce
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_cellforce(dtype)
+#ifdef MPI
  use mpi
+ use mpiutils, only:mpierr
+ use io,       only:error
 
- integer, parameter              :: ndata = 20
+ integer, parameter              :: ndata = 19
 
  integer, intent(out)            :: dtype
- integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
- integer(kind=4)                 :: disp(ndata)
+ integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
  type(cellforce)                 :: cell
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
@@ -180,12 +175,6 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%remote_export)
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%iphase)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
@@ -198,26 +187,25 @@ subroutine get_mpitype_of_cellforce(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (7 + minpart + maxprocs) + 2*minpart, 8)
+ blens(nblock) = 8 - mod(4 * (7 + minpart) + 2*minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(cell)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+    call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_cellforce
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+
+end subroutine get_mpitype_of_cellforce
 
 end module mpiforce

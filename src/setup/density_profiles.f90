@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -313,19 +313,19 @@ end subroutine rho_evrard
 !+
 !-----------------------------------------------------------------------
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
- use physcon,   only:solarm
+ use physcon,   only:solarm,solarr
  use eos,       only:X_in,Z_in
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- integer                                    :: lines,rows,i,ncols,nheaderlines
+ integer                                    :: lines,rows,i,ncols,nheaderlines,iu
  character(len=*), intent(in)               :: filepath
  logical, intent(in), optional              :: cgsunits
  integer, intent(out)                       :: ierr
  character(len=10000)                       :: dumc
  character(len=120)                         :: fullfilepath
  character(len=24),allocatable              :: header(:),dum(:)
- logical                                    :: iexist,usecgs
+ logical                                    :: iexist,usecgs,ismesafile,got_column
  real,allocatable,dimension(:,:)            :: dat
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
@@ -345,18 +345,21 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
- open(unit=40,file=fullfilepath,status='old')
- call get_ncolumns(40,ncols,nheaderlines)
+ print "(1x,a)",trim(fullfilepath)
+ open(newunit=iu,file=fullfilepath,status='old')
+ call get_ncolumns(iu,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
-    read(40,'()')
-    read(40,'()')
-    read(40,*) lines,lines
-    read(40,'()')
-    read(40,'()')
+    read(iu,'()')
+    read(iu,'()')
+    read(iu,*) lines,lines
+    read(iu,'()')
+    read(iu,'()')
+    ismesafile = .true.
  else
+    ismesafile = .false.
     lines = lines - nheaderlines
-    do i=1,nheaderlines-1
-       read(40,'()')
+    do i = 1,nheaderlines-1
+       read(iu,'()')
     enddo
  endif
  if (lines <= 0) then ! file not found
@@ -364,45 +367,58 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
     return
  endif
 
- read(40,'(a)') dumc! counting rows
+ read(iu,'(a)') dumc! counting rows
  call string_delete(dumc,'[')
  call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
-101 do i = 1,500
+101 continue
+ do i = 1,500
     if (dum(i)=='aaa') then
        rows = i-1
        exit
     endif
  enddo
-
  allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
  do i = 1,lines
-    read(40,*) dat(lines-i+1,1:rows)
+    read(iu,*) dat(lines-i+1,1:rows)
  enddo
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
              temp(lines),Xfrac(lines),Yfrac(lines))
 
- close(40)
+ close(iu)
  ! Set mass fractions to default in eos module if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
+       print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
+       ierr = 2
+       return
+    endif
+    got_column = .true.
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
-    case('mass')
+    case('mass','#mass')
        m = dat(1:lines,i)
-       if (nheaderlines == 6) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
+       if (ismesafile) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
-    case('energy','e_int')
+    case('logrho')
+       rho = 10**(dat(1:lines,i))
+    case('energy','e_int','e_internal')
        ene = dat(1:lines,i)
-    case('radius','radius_cm')
+    case('radius_cm')
        r = dat(1:lines,i)
+    case('radius')
+       r = dat(1:lines,i)
+       if (ismesafile) r = r * solarr
+    case('logr')
+       r = (10**dat(1:lines,i)) * solarr
     case('pressure')
        pres = dat(1:lines,i)
     case('temperature')
@@ -411,8 +427,12 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        Xfrac = dat(1:lines,i)
     case('y_mass_fraction_he','yfrac')
        Yfrac = dat(1:lines,i)
+    case default
+       got_column = .false.
     end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
  enddo
+ print "(a)"
 
  if (.not. usecgs) then
     m = m / umass
@@ -432,31 +452,58 @@ end subroutine read_mesa
 !  used in star setup to write softened stellar profile.
 !+
 !----------------------------------------------------------------
-subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound)
+subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
- real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:)
+ real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
- integer                         :: i
+ character(len=200)              :: headers
+ integer                         :: i,noptionalcols,j,iu
+ real, allocatable               :: optionalcols(:,:)
 
- open(1, file = outputpath, status = 'new')
+ headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
 
- if (present(Xfrac) .and. present(Yfrac)) then
-    if (present(csound)) then
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  '// &
-                      '[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]  [Sound speed]'
-       write(1,"(9(es13.6,2x))") (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),csound(i),i=1,size(r))
-    else
-       write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  '// &
-                      '[  Density  ]  [   E_int   ]  [   Xfrac   ]  [   Yfrac   ]'
-       write(1,"(8(es13.6,2x))") (m(i),pres(i),temp(i),r(i),rho(i),ene(i),Xfrac(i),Yfrac(i),i=1,size(r))
-    endif
- else
-    write(1,'(a)') '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  '// &
-                   '[  Density  ]  [   E_int   ]'
-    write(1,"(6(es13.6,2x))") (m(i),pres(i),temp(i),r(i),rho(i),ene(i),i=1,size(r))
+ ! Add optional columns
+ allocate(optionalcols(size(r),10))
+ noptionalcols = 0
+ if (present(Xfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Xfrac   ]'
+    optionalcols(:,noptionalcols) = Xfrac
+ endif
+ if (present(Yfrac)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [   Yfrac   ]'
+    optionalcols(:,noptionalcols) = Yfrac
+ endif
+ if (present(mu)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [    mu     ]'
+    optionalcols(:,noptionalcols) = mu
+ endif
+ if (present(csound)) then
+    noptionalcols = noptionalcols + 1
+    headers = trim(headers) // '  [Sound speed]'
+    optionalcols(:,noptionalcols) = csound
  endif
 
- close(1)
+ open(newunit=iu, file = outputpath, status = 'replace')
+ write(iu,'(a)') headers
+101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+ do i=1,size(r)
+    if (noptionalcols <= 0) then
+       write(iu,101) m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+    else
+       write(iu,101,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
+       do j=1,noptionalcols
+          if (j==noptionalcols) then
+             write(iu,'(2x,es13.6)') optionalcols(i,j)
+          else
+             write(iu,'(2x,es13.6)',advance="no") optionalcols(i,j)
+          endif
+       enddo
+    endif
+ enddo
+ close(iu)
 
 end subroutine write_profile
 
@@ -626,7 +673,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
  integer                :: j,iu
  real                   :: xi,phi,func,containedmass,dxi,dfunc,rho,dphi
- real                   :: rBE0,fac_close
+ real                   :: rBE0,fac_close,facBEm,facBEr
  real                   :: mtab(npts)
  logical                :: write_BE_profile = .true.
  logical                :: override_critical = .false.  ! if true, will not error out if the density ratio is too small
@@ -669,8 +716,9 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Determine scaling factors for the BE
  fac_close = 1000.
- if (iBEparam==4 .or. iBEparam==6) central_density = (csBE*xBE/rBE)**2/fourpi
- if (iBEparam==5) then
+ if (iBEparam==4) then
+    central_density = (csBE*xBE/rBE)**2/fourpi
+ elseif (iBEparam==5 .or. iBEparam==6) then
     do j = 1, npts
        if (rtab(j) < xBE) iBElast = j
     enddo
@@ -686,7 +734,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     mtab(j)   = mtab(j) * central_density*rBE0**3
     rhotab(j) = central_density * rhotab(j)
 
-    if ((iBEparam == 1 .or. iBEparam==6 .or. iBEparam == 4) .and. rtab(j) < rBE) then
+    if ((iBEparam == 1 .or. iBEparam == 4) .and. rtab(j) < rBE) then
        iBElast = j
     elseif (iBEparam == 3 .and. mtab(j) < mBE) then
        iBElast = j
@@ -695,19 +743,22 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  !--Set the remaining properties
  if (iBEparam==4) then
     central_density = central_density*facBE
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab*facBE
  endif
  if (iBEparam==5) then
     central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab/sqrt(facBE)
  endif
  if (iBEparam==6) then
-    facBE           = mBE/mtab(iBElast)
-    central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
-    rhotab          = rhotab/sqrt(facBE)
+    facBEr          = rBE/rtab(iBElast)
+    facBEm          = mBE/mtab(iBElast)
+    rtab            = rtab*facBEr
+    mtab            = mtab*facBEm
+    facBE           = facBEm/facBEr**3
+    rhotab          = rhotab*facBE
+    central_density = central_density*facBE
  endif
  mBE = mtab(iBElast)
  rBE = rtab(iBElast)
@@ -737,6 +788,21 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
        ierr = 1
        return
     endif
+ endif
+ !--Sanity check on enclosed mass
+ containedmass = 0.
+ do j = 1,iBElast
+    if (j == 1) then
+       containedmass = containedmass + 4.0*pi/3.0*rhotab(j)*rtab(j)**3
+    else
+       containedmass = containedmass + 4.0*pi*rhotab(j)*rtab(j)**2*(rtab(j)-rtab(j-1))
+    endif
+ enddo
+ print*, 'By density, the contained mass is ',containedmass
+ if (abs(containedmass-mBE)/mBE > 0.05) then
+    print*, 'WARNING! The defined mass and input mass are not the same! Aborting.'
+    ierr = 1
+    return
  endif
 
  !--Write the scaled BE profile that is to be used

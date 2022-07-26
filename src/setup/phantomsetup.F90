@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -12,15 +12,15 @@ program phantomsetup
 !
 ! :Owner: Daniel Price
 !
-! :Usage: phantomsetup fileprefix [nprocsfake]
+! :Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1
 !
-! :Dependencies: boundary, checksetup, dim, domain, eos, fileutils,
-!   gravwaveutils, io, krome_interface, memory, mpiutils, options, part,
+! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
+!   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
-!   setup_params, units
+!   setup_params, systemutils, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxp,maxvxyzu,&
+ use dim,             only:tagline,maxp,maxvxyzu,mpi,&
                            ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
                            Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
@@ -36,11 +36,12 @@ program phantomsetup
  use checksetup,      only:check_setup
  use physcon,         only:pi
  use units,           only:set_units,print_units,c_is_unity
- use mpiutils,        only:init_mpi,finalise_mpi,use_mpi,reduceall_mpi
- use domain,          only:init_domains
+ use mpiutils,        only:init_mpi,finalise_mpi,reduceall_mpi
+ use mpidomain,       only:init_domains
  use boundary,        only:set_boundary
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
+ use systemutils,     only:get_command_option
 #ifdef LIGHTCURVE
  use part,            only:luminosity,maxlum,lightcurve
 #endif
@@ -49,10 +50,10 @@ program phantomsetup
 #endif
  implicit none
  integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
- integer(kind=8)             :: ntotal
+ integer(kind=8)             :: ntotal,n_alloc
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
- character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile,string
+ character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
  real                        :: time,pmassi
  logical                     :: iexist
 
@@ -65,7 +66,7 @@ program phantomsetup
  nargs = command_argument_count()
  if (nargs < 1) then
     print "(a,/)",trim(tagline)
-    print "(a)",' Usage: phantomsetup fileprefix [nprocsfake]'
+    print "(a)",' Usage: phantomsetup fileprefix --maxp=10000000 --nprocsfake=1'
     print "(/,a)",' e.g. "phantomsetup mysim"'
     stop
  endif
@@ -93,7 +94,8 @@ program phantomsetup
 !  also rely on maxp being set to the number of desired particles. Allocate only
 !  part, not kdtree or linklist
 !
- call allocate_memory(maxp_hard, part_only=.true.)
+ n_alloc = get_command_option('maxp',default=maxp_hard)
+ call allocate_memory(n_alloc, part_only=.true.)
 
  call set_default_options
 !
@@ -111,17 +113,12 @@ program phantomsetup
  time = 0.
  call init_part
 
- if (use_mpi) then
+ if (mpi) then
     call init_mpi(id,nprocs)
     call init_domains(nprocs)
     nprocsfake = 1
  else ! non-mpi
-    if (nargs >= 3) then
-       call get_command_argument(3,string)
-       read(string,*) nprocsfake
-    else
-       nprocsfake = 1
-    endif
+    nprocsfake = get_command_option('nprocsfake',default=1)
     nprocs= nprocsfake
     print*,' nprocs = ',nprocs
     call init_domains(nprocs)
@@ -131,14 +128,13 @@ program phantomsetup
  do myid=0,nprocsfake-1
 
     myid1 = myid
-    if (use_mpi) myid1 = id
+    if (mpi) myid1 = id
     call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
 !
 !--setup magnetic field if code compiled with MHD
 !
     if (mhd .and. .not.ihavesetupB) then
-       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
-                       Bxyz,Bextx,Bexty,Bextz)
+       call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,Bxyz,Bextx,Bexty,Bextz)
     endif
 !
 !--perform sanity checks on the output of setpart routine
