@@ -277,7 +277,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  integer(kind=1)           :: ibinnow_m1
  logical                   :: remote_export(nprocs), do_export
- type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
+
+ type(cellforce)           :: cell,xrecvbuf(nprocs)
+ type(cellforce), save     :: xsendbuf
+ !$omp threadprivate(xsendbuf)
+
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
@@ -413,7 +417,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(do_export) &
 !$omp shared(irequestrecv,irequestsend) &
 !$omp shared(stack_remote,stack_waiting) &
-!$omp shared(xsendbuf,xrecvbuf) &
+!$omp shared(xrecvbuf) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
