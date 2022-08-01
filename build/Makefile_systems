@@ -140,7 +140,7 @@ endif
 ifeq ($(SYSTEM), gfortran)
     include Makefile_defaults_gfortran
 ifneq ($(UNAME), Darwin)
-    FFLAGS+= -mcmodel=medium
+    # FFLAGS+= -mcmodel=medium
 endif
 endif
 
