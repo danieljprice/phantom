@@ -278,9 +278,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer(kind=1)           :: ibinnow_m1
  logical                   :: remote_export(nprocs), do_export
 
- type(cellforce)           :: cell,xrecvbuf(nprocs)
- type(cellforce), save     :: xsendbuf
- !$omp threadprivate(xsendbuf)
+ type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
@@ -415,9 +413,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp shared(irequestrecv,irequestsend) &
+!$omp shared(irequestrecv) &
+!$omp private(irequestsend) &
 !$omp shared(stack_remote,stack_waiting) &
 !$omp shared(xrecvbuf) &
+!$omp private(xsendbuf) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -447,6 +447,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp single
  call get_timings(t1,tcpu1)
  !$omp end single
+
+ !--initialise send requests to 0
+ irequestsend = 0
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -515,10 +518,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  enddo over_cells
  !$omp enddo
 
+ !$omp critical (send_and_recv_remote)
+ if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
+ !$omp end critical (send_and_recv_remote)
+
  !$omp barrier
 
  !$omp single
- if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
  call reset_cell_counters
  !$omp end single
@@ -558,8 +564,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     !$omp single
     stack_remote%n = 0
-    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
     !$omp end single
+
+    !$omp critical (send_and_recv_waiting)
+    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
+    !$omp end critical (send_and_recv_waiting)
 
  endif igot_remote
 
