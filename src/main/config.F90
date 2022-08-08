@@ -202,7 +202,6 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
- logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -361,8 +360,12 @@ subroutine update_max_sizes(n,ntot)
 #endif
 
 #ifdef SINK_RADIATION
- maxTdust = maxp
+ store_dust_temperature = .true.
 #endif
+
+ if (store_dust_temperature) then
+    maxTdust = maxp
+ endif
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX
