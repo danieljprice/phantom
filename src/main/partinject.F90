@@ -39,7 +39,6 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use dim,  only:do_nucleation
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp

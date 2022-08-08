@@ -32,7 +32,8 @@ module dust_formation
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation
+      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
+      write_headeropts_dust_formation,read_headeropts_dust_formation
 !
 !--runtime settings for this module
 !
@@ -609,6 +610,41 @@ pure real function calc_Kd_TiS(T)
  logKd = a+(b+(c+(d+e*theta)*theta)*theta)*theta
  calc_Kd_TiS = 10.**(-logKd)*patm
 end function calc_Kd_TiS
+
+!-----------------------------------------------------------------------
+!+
+!  write relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_dust_formation(hdr,ierr)
+ use dump_utils,        only:dump_h,add_to_rheader
+ type(dump_h), intent(inout) :: hdr
+ integer,      intent(out)   :: ierr
+
+! initial gas composition for dust formation
+ call set_abundances
+ call add_to_rheader(eps,'epsilon',hdr,ierr) ! array
+ call add_to_rheader(Aw,'Amean',hdr,ierr) ! array
+ call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! array
+
+end subroutine write_headeropts_dust_formation
+
+!-----------------------------------------------------------------------
+!+
+!  read relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_dust_formation(hdr,ierr)
+ use dump_utils, only:dump_h,extract
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr = 0
+ call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
+ call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
+ call extract('mass_per_H',mass_per_H,hdr,ierr) ! array
+
+end subroutine read_headeropts_dust_formation
 
 !-----------------------------------------------------------------------
 !+
