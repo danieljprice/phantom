@@ -172,9 +172,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: j,k,l
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
- type(celldens)            :: xrecvbuf(nprocs)
- type(celldens), save      :: xsendbuf
-!$omp threadprivate(xsendbuf)
+ type(celldens)            :: xsendbuf,xrecvbuf(nprocs)
 
  integer                   :: n_remote_its,nlocal
  real                      :: ntotal
@@ -284,6 +282,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(iamdusti) &
 !$omp private(converged) &
 !$omp private(redo_neighbours) &
+!$omp private(xsendbuf) &
 !$omp reduction(+:ncalc) &
 !$omp reduction(+:np) &
 !$omp reduction(max:maxneighact) &
