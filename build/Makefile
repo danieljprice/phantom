@@ -266,6 +266,14 @@ ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
 endif
 
+ifeq ($(DUST_NUCLEATION), yes)
+    FPPFLAGS += -DDUST_NUCLEATION
+endif
+
+ifeq ($(SINK_RADIATION), yes)
+    FPPFLAGS += -DSINK_RADIATION
+endif
+
 ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
