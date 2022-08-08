@@ -75,7 +75,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
  use io,        only:iverbose
- use dim,       only:do_radiation
+ use dim,       only:do_radiation,nucleation
  implicit none
  logical :: incl_runtime2 = .false.
  character(len=80), parameter, public :: &
@@ -110,9 +110,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
 #endif
-#ifdef DUST_NUCLEATION
  use dust_formation,  only:write_options_dust_formation
-#endif
 #ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
 #endif
@@ -264,9 +262,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
-#ifdef DUST_NUCLEATION
- call write_options_dust_formation(iwritein)
-#endif
+ if (nucleation) call write_options_dust_formation(iwritein)
 
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
@@ -302,7 +298,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:use_entropy,read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -327,19 +323,14 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
-#ifdef DUST_NUCLEATION
  use dust_formation,  only:read_options_dust_formation,idust_opacity
-#endif
 #ifdef NONIDEALMHD
  use nicil_sup,       only:read_options_nicil
 #endif
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation
-#ifdef WIND
- use ptmass_radiation,only:isink_radiation,alpha_rad
-#endif
+ use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  character(len=*), parameter   :: label = 'read_infile'
@@ -531,9 +522,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
-#ifdef DUST_NUCLEATION
-       if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
-#endif
+       if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
@@ -678,12 +667,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (icooling > 0 .and. ieos /= 2) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
-#ifdef WIND
     if (((isink_radiation == 1 .and. idust_opacity == 0 ) .or. isink_radiation == 3 ) .and. alpha_rad < 1.d-10) &
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
-#endif
  endif
  return
 
