@@ -589,7 +589,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
-         centreofmass.f90 \
+         centreofmass.f90 dust_formation.F90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 \
          ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
