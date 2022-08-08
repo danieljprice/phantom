@@ -126,10 +126,13 @@ subroutine init_mpi(id,nprocs)
  integer, intent(out) :: id,nprocs
 #ifdef MPI
  real :: xtemp
+ integer :: provided
 !
 !--initialise MPI - get number of threads and id of current processor
 !
- call MPI_INIT(mpierr)
+ call MPI_INIT_THread(MPI_THREAD_MULTIPLE,provided,mpierr)
+ if (provided /= MPI_THREAD_MULTIPLE) call fatal('init_mpi','error initialising threaded MPI')
+
  call MPI_COMM_SIZE(MPI_COMM_WORLD,nprocs,mpierr)
  call MPI_COMM_RANK(MPI_COMM_WORLD,id,mpierr)
  if (mpierr /= 0) call fatal('init_mpi','error starting mpi')
