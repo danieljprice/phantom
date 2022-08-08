@@ -277,19 +277,12 @@ module dim
  integer :: maxsts = 1
 
 !--------------------
-! Wind cooling
-!--------------------
-#if defined(WIND) || !defined (ISOTHERMAL)
- logical :: windcooling = .true.
-#else
- logical :: windcooling = .false.
-#endif
-
-!--------------------
 ! Dust formation
 !--------------------
  logical :: do_nucleation = .false.
  integer :: inucleation = 0
+ !number of elements considered in the nucleation chemical network
+ integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
 #ifdef STAR
  logical :: star_radiation = .true.

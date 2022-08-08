@@ -25,13 +25,14 @@ module dust_formation
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
  use physcon, only:kboltz,pi,atomic_mass_unit
+ use dim,     only:nElements
 
  implicit none
  integer, public :: idust_opacity = 0
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_Eddington_factor,calc_muGamma,init_muGamma
+      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation
 !
 !--runtime settings for this module
 !
@@ -47,7 +48,7 @@ module dust_formation
  real :: bowen_delta = 60.
 
 ! Indices for elements and molecules:
- integer, parameter :: nElements = 10, nMolecules = 25
+ integer, parameter :: nMolecules = 25
  integer, parameter :: iH = 1, iHe=2, iC=3, iOx=4, iN=5, iNe=6, iSi=7, iS=8, iFe=9, iTi=10
  integer, parameter :: iH2=1, iOH=2, iH2O=3, iCO=4, iCO2=5, iCH4=6, iC2H=7, iC2H2=8, iN2=9, iNH3=10, iCN=11, &
        iHCN=12, iSi2=13, iSi3=14, iSiO=15, iSi2C=16, iSiH4=17, iS2=18, iHS=19, iH2S=20, iSiS=21, &
@@ -78,15 +79,34 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867] ! Atomic weight for S and Ti missing
  real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
- real :: mass_per_H, eps(nElements)
+ real, public :: mass_per_H, eps(nElements)
+ real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
 contains
+
+subroutine init_nucleation
+ use part,  only:npart,nucleation,n_nucleation
+ use eos,   only:gamma,gmw
+ integer :: i
+ real :: JKmuS(n_nucleation)
+
+ call set_abundances
+
+ !initialize nucleation array
+ gamma = 5./3.
+ JKmuS = 0.
+ jKmuS(idmu)    = gmw
+ jKmuS(idgamma) = gamma
+ do i=1,npart
+    nucleation(:,i) = JKmuS(:)
+ enddo
+
+end subroutine init_nucleation
 
 subroutine set_abundances
 ! all quantities in cgs
@@ -147,11 +167,16 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
 
  nH_tot = rho_cgs/mass_per_H
  epsC   = eps(iC) - JKmuS(idK3)
- if (epsC < 0.) stop '[S-dust_formation] epsC < 0!'
+ if (epsC < 0.) then
+    print *,'eps(C) =',eps(iC),', K3=',JKmuS(idK3),', epsC=',epsC,', T=',T,' rho=',rho_cgs
+    print *,'JKmuS=',JKmuS
+    stop '[S-dust_formation] epsC < 0!'
+ endif
  if (T > 450.) then
     call chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, JKmuS(idmu), JKmuS(idgamma))
     S = pC/psat_C(T)
     if (S > Scrit) then
+       !call nucleation(T, pC, pC2, 0., pC2H, pC2H2, S, JstarS, taustar, taugr)
        call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
        JstarS = JstarS/ nH_tot
        call evol_K(JKmuS(idJstar), JKmuS(idK0:idK3), JstarS, taustar, taugr, dt, Jstar_new, K_new)
@@ -183,11 +208,17 @@ end subroutine evolve_chem
 !  Bowen dust opacity formula
 !
 !------------------------------------
-pure real function calc_kappa_bowen(Teq)
+pure elemental real function calc_kappa_bowen(Teq)
 !all quantities in cgs
  real,    intent(in)  :: Teq
+ real :: dlnT
 
- calc_kappa_bowen = bowen_kmax/(1.d0 + exp((Teq-bowen_Tcond)/bowen_delta)) + kappa_gas
+ dlnT = (Teq-bowen_Tcond)/bowen_delta
+ if (dlnT > 50.) then
+    calc_kappa_bowen = 0.
+ else
+    calc_kappa_bowen = bowen_kmax/(1.d0 + exp(dlnT)) + kappa_gas
+ endif
 
 end function calc_kappa_bowen
 
@@ -221,12 +252,17 @@ end function calc_kappa_dust
 !  calculate alpha, reduced gravity factor
 !
 !-----------------------------------------------------------------------
-pure real function calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa_cgs)
+pure real function calc_Eddington_factor(Mstar_cgs, Lstar_cgs, kappa_cgs, tau)
 !all quantities in cgs
  use physcon, only:c,Gg
  real, intent(in) :: Mstar_cgs,Lstar_cgs,kappa_cgs
+ real, intent(in), optional :: tau
 
- calc_Eddington_factor = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ if (present(tau)) then
+    calc_Eddington_factor = Lstar_cgs*exp(-tau)/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ else
+    calc_Eddington_factor = Lstar_cgs/(4.*pi*c*Gg*Mstar_cgs) * kappa_cgs
+ endif
 end function calc_Eddington_factor
 
 !----------------------------
@@ -234,10 +270,10 @@ end function calc_Eddington_factor
 !  Compute nucleation rate
 !
 !----------------------------
-subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
+subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
 ! all quantities are in cgs
  real, intent(in)  :: T, pC, pC2, pC3, pC2H, pC2H2, S
- real, intent(out) :: Jstar, taustar, taugr
+ real, intent(out) :: JstarS, taustar, taugr
  real, parameter   :: A0 = 20.7d-16
  real, parameter   :: sigma = 1400.
  real, parameter   :: theta_inf = A0*sigma/kboltz
@@ -268,7 +304,7 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, Jstar, taustar, taugr)
  else
     c_star = pC/(kboltz*T) * exp(expon)
  endif
- Jstar   = beta * A_Nstar * Z * c_star
+ JstarS  = beta * A_Nstar * Z * c_star
  taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
  taugr   = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
@@ -307,6 +343,7 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
+ !if (K_new(3).gt.1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
 end subroutine evol_K
 
 !----------------------------------------

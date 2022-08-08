@@ -1498,9 +1498,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dim,            only:use_dust,maxtypes,use_dustgrowth, &
+ use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
  use units,          only:udist,umass,utime,unit_Bfield
+ use dust_formation, only:mass_per_H,Aw,eps,set_abundances
+
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
  integer(kind=8), intent(in)    :: nparttot,npartoftypetot(:)
@@ -1570,6 +1572,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(alphau,'alphau',hdr,ierr)
     call add_to_rheader(alphaB,'alphaB',hdr,ierr)
     call add_to_rheader(massoftype,'massoftype',hdr,ierr) ! array
+    if (do_nucleation) then
+! initial gas composition for dust formation
+       call set_abundances
+       call add_to_rheader(eps,'epsilon',hdr,ierr) ! array
+       call add_to_rheader(Aw,'Amean',hdr,ierr) ! array
+       call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! array
+    endif
     call add_to_rheader(Bextx,'Bextx',hdr,ierr)
     call add_to_rheader(Bexty,'Bexty',hdr,ierr)
     call add_to_rheader(Bextz,'Bextz',hdr,ierr)
@@ -1617,7 +1626,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxvxyzu,use_dust,use_dustgrowth,use_krome
+ use dim,            only:maxvxyzu,nElements,use_dust,use_dustgrowth,use_krome,do_nucleation
  use eos,            only:extract_eos_from_hdr, read_headeropts_eos
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -1630,6 +1639,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
  use timestep,       only:dtmax0
+ use dust_formation, only:mass_per_H,Aw,eps
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile,nptmass
@@ -1669,6 +1679,11 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
 
     call extract('massoftype',massoftype(1:ntypesinfile),hdr,ierr)
+    if (do_nucleation) then
+       call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
+       call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
+       call extract('mass_per_H',mass_per_H,hdr,ierr) ! array
+    endif
     if (ierr /= 0) then
        write(*,*) '*** ERROR reading massoftype from dump header ***'
        ierr = 4
