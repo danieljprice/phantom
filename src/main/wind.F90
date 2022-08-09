@@ -246,9 +246,9 @@ subroutine wind_step(state)
     Q_old = state%Q
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
+            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
     else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
+       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
@@ -352,9 +352,9 @@ subroutine wind_step(state)
     Q_old = state%Q
     if (idust_opacity == 2) then
        call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idK2),state%kappa)
+            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
     else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu)
+       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
     endif
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
@@ -388,7 +388,8 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
  call init_wind(r0, v0, T0, time_end, state)
 
  if (state%v > state%c .and. state%find_sonic_solution) then
-    print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed'
+    print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed : v0=',&
+         state%v,', cs=',state%c
     return
  endif
 
@@ -400,6 +401,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
     !if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     if (state%r == state%r_old) state%error = .true.
+    !print *,state%time,state%r,state%v/state%c,state%dt,dtmin,state%Tg,Tdust_stop,state%error,state%spcode
  enddo
 
 end subroutine calc_wind_profile
@@ -472,7 +474,8 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  type(wind_state) :: state
 
  real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin, gmax
- integer, parameter :: ncount_max = 10
+ real, parameter :: v_over_cs_min = 1.d-4
+ integer, parameter :: ncount_max = 20
  integer :: icount
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
@@ -500,7 +503,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     print *, ' * cs  (km/s) = ',cs/1e5
     print *, ' * vesc(km/s) = ',vesc/1e5
     if (stype == 1) then
-       print *, ' * v0  (km/s) = ',vin/1e5
+       print *, ' * vin/cs     = ',vin/cs
     else
        print *, ' * v0  (km/s) = ',v0/1e5
     endif
@@ -516,11 +519,11 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     ! Find lower bound for initial velocity
     v0     = cs*0.991
     v0max  = v0
-    v0min  = 0.
+    v0min  = v_over_cs_min*cs
     icount = 0
-    do while (icount < ncount_max)
+    do while (icount < ncount_max .and. v0/cs > v_over_cs_min)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *,'< v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
           exit
@@ -530,8 +533,9 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        endif
        icount = icount+1
     enddo
-    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs
-    if (icount == ncount_max) call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
+    if (iverbose>1) print *, 'Lower bound found for v0/cs :',v0min/cs,', icount=',icount
+    if (icount == ncount_max .or. v0/cs < v_over_cs_min) &
+         call fatal(label,'cannot find v0min, change wind_temperature or wind_injection_radius ?')
     if (v0min/cs > 0.99) call fatal(label,'supersonic wind, set sonic_type = 0 and provide wind_velocity or change alpha_rad')
 
     ! Find upper bound for initial velocity
@@ -539,7 +543,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     icount = 0
     do while (icount < ncount_max)
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *,' v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *,'> v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == 1) then
           v0max = v0
           exit
@@ -551,15 +555,15 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
        endif
        icount = icount+1
     enddo
+    if (iverbose>1) print *, 'Upper bound found for v0/cs :',v0max/cs,', icount=',icount
     if (icount == ncount_max) call fatal(label,'cannot find v0max, change wind_temperature or wind_injection_radius ?')
-    if (iverbose>1) print *, 'Upper bound found for v0/cs :', v0max/cs,', spcode = ',state%spcode
 
     ! Find sonic point by dichotomy between v0min and v0max
     do
        v0last = v0
        v0 = (v0min+v0max)/2.
        call calc_wind_profile(r0, v0, T0, 0., state)
-       if (iverbose>1) print *, 'v0/cs = ',v0/cs,', spcode = ',state%spcode
+       if (iverbose>1) print *, '= v0/cs = ',v0/cs,', spcode = ',state%spcode
        if (state%spcode == -1) then
           v0min = v0
        elseif (state%spcode == 1) then
@@ -734,7 +738,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
  integer :: indx,j
 
  ltime = local_time*utime
- call find_near_index(trvurho_1D(1,:),ltime,indx)
+ call find_nearest_index(trvurho_1D(1,:),ltime,indx)
 
  r   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(2,indx),trvurho_1D(2,indx+1))/udist
  v   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(3,indx),trvurho_1D(3,indx+1))/unit_velocity
@@ -768,7 +772,7 @@ end subroutine interp_wind_profile
 !  Find index of nearest lower value in array
 !+
 !-----------------------------------------------------------------------
-subroutine find_near_index(arr,val,indx)
+subroutine find_nearest_index(arr,val,indx)
  real, intent(in)     :: arr(:), val
  integer, intent(out) :: indx
  integer              :: istart,istop,i
@@ -776,7 +780,7 @@ subroutine find_near_index(arr,val,indx)
  istart = 1
  istop  = size(arr)
  if (val >= arr(istop)) then
-    indx = istop
+    indx = istop-1   ! -1 to avoid array index overflow
  elseif (val <= arr(istart)) then
     indx = istart
  else
@@ -789,7 +793,7 @@ subroutine find_near_index(arr,val,indx)
        i = i+1
     enddo
  endif
-end subroutine find_near_index
+end subroutine find_nearest_index
 
 !-----------------------------------------------------------------------
 !+
@@ -810,12 +814,12 @@ end function interp_1d
 subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  use physcon,  only:au
  use units,    only:utime
- use timestep, only:tmax
  use dust_formation, only:idust_opacity
  real, intent(in) :: r0, v0, T0, tend, rout
- real, intent(out) :: tcross
+ real, intent(out) :: tcross          !time to cross the entire integration domain
  character(*), intent(in) :: filename
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
+ integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  real :: time_end
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
  real, allocatable :: trvurho_temp(:,:)
@@ -823,11 +827,12 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  type(wind_state) :: state
  integer ::iter,itermax,nwrite,writeline
 
- if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,8192))
- if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,8192))
+ if (.not. allocated(trvurho_temp)) allocate (trvurho_temp(5,nlmax))
+ if (idust_opacity == 2 .and. .not. allocated(JKmuS_temp)) allocate (JKmuS_temp(n_nucleation,nlmax))
 
  write (*,'("Saving 1D model to ",A)') trim(filename)
- time_end = tmax*utime
+ !time_end = tmax*utime
+ time_end = tend
  call init_wind(r0, v0, T0, tend, state)
 
  open(unit=1337,file=filename)
@@ -846,7 +851,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  mu_base    = state%mu
  gamma_base = state%gamma
 
- do while(state%time < time_end .and. iter < itermax .and. state%Tg > Tdust_stop)
+ do while(state%time < time_end .and. iter < itermax .and. state%Tg > Tdust_stop .and. writeline < nlmax)
     iter = iter+1
     call wind_step(state)
 
@@ -870,7 +875,6 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
        T_base     = state%Tg
        mu_base    = state%mu
        gamma_base = state%gamma
-
        trvurho_temp(:,writeline) = (/state%time,state%r,state%v,state%u,state%rho/)
        if (idust_opacity == 2) JKmuS_temp(:,writeline) = (/state%JKmuS(1:n_nucleation)/)
 
@@ -904,24 +908,29 @@ subroutine filewrite_header(iunit,nwrite)
  use dust_formation, only:idust_opacity
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
+ character (len=20):: fmt
 
  if (idust_opacity == 2) then
     if (icooling > 0) then
        nwrite = 22
-       write(iunit,'(22(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','Q','gamma'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma','Q'
     else
        nwrite = 21
-       write(iunit,'(21(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
             'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
     endif
  else
     if (icooling > 0) then
        nwrite = 14
-       write(iunit,'(14(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
     else
        nwrite = 13
-       write(iunit,'(13(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
+       write(fmt,*) nwrite
+       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
     endif
  endif
 end subroutine filewrite_header
@@ -954,7 +963,7 @@ subroutine state_to_array(state,nwrite, array)
     array(18) = state%tau_lucy
     array(19) = state%kappa
     array(20) = state%Tdust
-    array(21) = state%gamma
+    array(21) = state%JKmuS(idgamma)
  else
     array(11) = state%mu
     array(12) = state%kappa
@@ -968,9 +977,12 @@ subroutine filewrite_state(iunit,nwrite, state)
  type(wind_state), intent(in) :: state
 
  real :: array(nwrite)
+ character (len=20):: fmt
 
  call state_to_array(state,nwrite, array)
- write(iunit, '(21(1x,es11.3E3:))') array(1:nwrite)
+ write(fmt,*) nwrite
+ write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
+!  write(iunit, '(22(1x,es11.3E3:))') array(1:nwrite)
 end subroutine filewrite_state
 
 
