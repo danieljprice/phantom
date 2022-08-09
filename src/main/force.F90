@@ -50,7 +50,7 @@ module forces
  use mpiforce, only:cellforce,stackforce
  use linklist, only:ifirstincell
  use kdtree,   only:inodeparts,inoderange
- use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_etotal
+ use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_etotal,ien_entropy_s
 
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -1482,7 +1482,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
              if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
           endif
-          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+          if (ien_type == ien_etotal) then ! total energy
              dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
                                    (pro2j + qrho2j)*projvi*grkernj)
           else
@@ -1515,7 +1515,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
           endif
           !--energy conservation from artificial viscosity
-          if (ien_type == ien_etotal) then ! total energy for idealplusrad
+          if (ien_type == ien_etotal) then ! total energy
              dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
                                    (pro2j + qrho2j)*projvi*grkernj)
           else
@@ -1838,9 +1838,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
-          fgravxi = fgravxi - runix*fgrav!*lorentzi/alphagri
-          fgravyi = fgravyi - runiy*fgrav!*lorentzi/alphagri
-          fgravzi = fgravzi - runiz*fgrav!*lorentzi/alphagri
+          fgravxi = fgravxi - runix*fgrav
+          fgravyi = fgravyi - runiy*fgrav
+          fgravzi = fgravzi - runiz*fgrav
        endif
 
 #ifdef GRAVITY
@@ -1870,9 +1870,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
-          fgravxi = fgravxi - dx*fgravj!*lorentzi/alphagri
-          fgravyi = fgravyi - dy*fgravj!*lorentzi/alphagri
-          fgravzi = fgravzi - dz*fgravj!*lorentzi/alphagri
+          fgravxi = fgravxi - dx*fgravj
+          fgravyi = fgravyi - dy*fgravj
+          fgravzi = fgravzi - dz*fgravj
        endif
 #endif
     endif is_sph_neighbour
@@ -2732,6 +2732,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           fxyz4 = 0.
           if (ien_type == ien_etotal) then
              fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
+          elseif (ien_type == ien_entropy_s) then
+             fxyz4 = fxyz4 + u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
