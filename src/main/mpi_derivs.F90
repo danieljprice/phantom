@@ -282,27 +282,22 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
 
 end subroutine check_send_finished_dens
 
-subroutine check_send_finished_force(stack,irequestsend,irequestrecv,xrecvbuf)
+subroutine check_send_finished_force(irequestsend,irequestrecv,xrecvbuf,idone)
  use mpiforce, only:stackforce,cellforce
- type(stackforce),   intent(inout)  :: stack
  integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
  type(cellforce),    intent(inout)  :: xrecvbuf(nprocs)
+ logical,            intent(out)    :: idone(nprocs)
 
 #ifdef MPI
- logical :: idone(nprocs)
  integer :: newproc
- !
- !--wait for broadcast to complete, continue to receive whilst doing so
- !
- idone(:) = .false.
- idone(id+1) = .true.
- do while(.not.all(idone))
-    do newproc=0,nprocs-1
-       if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
-    enddo
-    !--post receives
-    call recv_cellforce(stack,xrecvbuf,irequestrecv)
+
+ do newproc=0,nprocs-1
+   if (newproc /= id) then
+      call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
+   endif
  enddo
+ !--never test self; always set to true
+ idone(id+1) = .true.
 #endif
 
 end subroutine check_send_finished_force
