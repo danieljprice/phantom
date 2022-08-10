@@ -33,7 +33,7 @@ module readwrite_infile
 !   - flux_limiter       : *limit radiation flux*
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
-!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy)*
+!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
 !   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
@@ -219,7 +219,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
     endif
     if (gr) then
-       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy)',iwritein)
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iwritein)
     endif
  endif
 
