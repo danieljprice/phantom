@@ -86,7 +86,7 @@ module mpiderivs
  integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
  integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
 
- integer,allocatable :: nsent(:)     ! counter for number of cells sent to i
+ integer,allocatable,public :: nsent(:)     ! counter for number of cells sent to i
  integer,allocatable :: nexpect(:)   ! counter for number of cells expecting from i
  integer,allocatable :: nrecv(:)     ! counter for number of cells received from i
 
@@ -225,13 +225,14 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
 
 end subroutine send_celldens
 
-subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
+subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,nsent_thread)
  use mpiforce, only:cellforce
 
  type(cellforce),    intent(in)     :: cell
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(cellforce),    intent(out)    :: xsendbuf
+ integer,            intent(inout)  :: nsent_thread(nprocs)
 #ifdef MPI
  integer                            :: newproc
  integer                            :: tag
@@ -249,7 +250,8 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
-       nsent(newproc+1) = nsent(newproc+1) + 1
+       !$omp atomic
+       nsent_thread(newproc+1) = nsent_thread(newproc+1) + 1
     endif
  enddo
 #endif
@@ -349,6 +351,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  integer             :: newproc
  integer             :: mpierr
 
+ !$omp flush(nsent)
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
@@ -430,7 +433,6 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
  do iproc=1,nprocs
     call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
-
     ! unpack results
     if (igot) then
        if (status(MPI_TAG) == 2) then
@@ -766,13 +768,14 @@ end subroutine check_complete
 !  reset counters for checking arrival of all cells
 !+
 !----------------------------------------------------------------
-subroutine reset_cell_counters
+subroutine reset_cell_counters(nsent_thread)
 #ifdef MPI
  use io, only:fatal
+ integer, intent(inout) :: nsent_thread(nprocs)
  integer :: iproc
  integer :: mpierr
 
- nsent(:) = 0
+ nsent_thread(:) = 0
  nexpect(:) = -1
  nrecv(:) = 0
 
