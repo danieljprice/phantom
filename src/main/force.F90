@@ -219,12 +219,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use part,         only:luminosity
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,nsent
  use mpimemory,    only:reserve_stack,reset_stacks
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
+
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -360,7 +361,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     call reset_stacks
-    call reset_cell_counters
+    call reset_cell_counters(nsent)
     call init_cell_exchange(xrecvbuf,irequestrecv)
  endif
 
@@ -419,6 +420,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(stack_remote,stack_waiting) &
 !$omp shared(xrecvbuf) &
 !$omp private(xsendbuf) &
+!$omp shared(nsent) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -479,21 +481,22 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do_export = any(remote_export)
 
     if (mpi) then
-       !$omp critical (send_and_recv_remote)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
        if (do_export) then
           if (stack_waiting%n > 0) then
              !--wait for broadcast to complete, continue to receive whilst doing so
              idone(:) = .false.
              do while(.not.all(idone))
                 call check_send_finished(irequestsend,irequestrecv,xrecvbuf,idone)
+                !$omp critical (recv_remote)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+                !$omp end critical (recv_remote)
              enddo
           endif
+          !$omp critical (stack_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send to remote
+          !$omp end critical (stack_waiting)
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,nsent)  ! send to remote
        endif
-       !$omp end critical (send_and_recv_remote)
     endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
@@ -526,21 +529,25 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  enddo over_cells
  !$omp enddo
 
- !$omp critical (send_and_recv_remote_x)
  if (stack_waiting%n > 0) then
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,irequestrecv,xrecvbuf,idone)
+       !$omp critical (recv_remote)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       !$omp end critical (recv_remote)
     enddo
  endif
- !$omp end critical (send_and_recv_remote_x)
+
+ !$omp critical (recv_remote)
+ !$omp master
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
+ !$omp end master
+ !$omp end critical (recv_remote)
 
  !$omp barrier
-
  !$omp single
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
- call reset_cell_counters
+ call reset_cell_counters(nsent)
  !$omp end single
 
  !$omp single
@@ -565,42 +572,41 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
-       !$omp critical (send_and_recv_waiting)
-       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
 
        idone(:) = .false.
        do while(.not.all(idone))
           call check_send_finished(irequestsend,irequestrecv,xrecvbuf,idone)
+          !$omp critical (recv_waiting)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
+          !$omp end critical (recv_waiting)
        enddo
 
-       call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
-       !$omp end critical (send_and_recv_waiting)
+       call send_cell(cell,remote_export,irequestsend,xsendbuf,nsent) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
-
-    !$omp barrier
 
     !$omp single
     stack_remote%n = 0
     !$omp end single
 
-    !$omp critical (send_and_recv_waiting)
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,irequestrecv,xrecvbuf,idone)
+       !$omp critical (recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
+       !$omp end critical (recv_waiting)
     enddo
-    !$omp end critical (send_and_recv_waiting)
 
  endif igot_remote
 
  !$omp barrier
 
- !$omp single
+ !$omp critical (recv_waiting)
+ !$omp master
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
- !$omp end single
+ !$omp end master
+ !$omp end critical (recv_waiting)
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
@@ -627,8 +633,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     enddo over_waiting
     !$omp enddo
-
-    !$omp barrier
 
     !$omp single
     stack_waiting%n = 0

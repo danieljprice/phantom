@@ -132,7 +132,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use mpimemory, only:stack_waiting => dens_stack_2
  use mpimemory, only:stack_redo    => dens_stack_3
  use mpiderivs, only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                     finish_cell_exchange,recv_while_wait,reset_cell_counters
+                     finish_cell_exchange,recv_while_wait,reset_cell_counters,nsent
  use timestep,  only:rhomaxnow
  use part,      only:ngradh
  use viscosity, only:irealvisc
@@ -225,7 +225,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  ! number of cells that only have neighbours on this MPI task
  nlocal = 0
 
- call reset_cell_counters
+ call reset_cell_counters(nsent)
 
  rhomax = 0.0
 !$omp parallel default(none) &
@@ -265,6 +265,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2) &
+!$omp shared(nsent) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(j) &
@@ -416,7 +417,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     !$omp single
     n_remote_its = n_remote_its + 1
-    call reset_cell_counters
+    call reset_cell_counters(nsent)
     !$omp end single
 
     igot_remote: if (stack_remote%n > 0) then
@@ -459,7 +460,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     !$omp single
     call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
-    call reset_cell_counters
+    call reset_cell_counters(nsent)
     !$omp end single
 
     iam_waiting: if (stack_waiting%n > 0) then
