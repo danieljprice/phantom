@@ -56,7 +56,7 @@ module eos
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
+ public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
 
@@ -746,13 +746,13 @@ end subroutine calc_temp_and_ene
 !+
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
- use io,                only:fatal
+ use io,                only:fatal,warning
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
- real,    intent(in)            :: rho,pres
- real,    intent(in),  optional :: mu_in,eint_in
+ real,    intent(in)            :: rho,pres,mu_in
+ real,    intent(in),  optional :: eint_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
  real                           :: mu,entropy,logentropy,temp,eint
@@ -763,11 +763,13 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  select case(ientropy)
  case(1) ! Include only gas entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh)
+    if (temp <= 0.) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh) ! Guess for temp
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
+    if (temp <= 0.) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
     entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
@@ -793,6 +795,25 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  end select
 
 end function entropy
+
+real function get_entropy(rho,pres,mu_in,ieos)
+   use units, only:unit_density,unit_pressure
+   integer, intent(in) :: ieos
+   real, intent(in)    :: rho,pres,mu_in
+   real                :: cgsrho,cgspres
+
+   cgsrho = rho * unit_density
+   cgspres = pres * unit_pressure
+   select case (ieos)
+   case (12)
+      get_entropy = entropy(cgsrho,cgspres,mu_in,2)
+   case (10, 20)
+      get_entropy = entropy(cgsrho,cgspres,mu_in,3)
+   case default
+      get_entropy = entropy(cgsrho,cgspres,mu_in,1)
+   end select
+
+ end function get_entropy
 
 !-----------------------------------------------------------------------
 !+
@@ -824,6 +845,61 @@ subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
  rho = srho**2
 
 end subroutine get_rho_from_p_s
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate temperature given density and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
+ use physcon, only:kb_on_mh,radconst,rg
+ use io,      only:fatal
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
+ use units,   only:unit_density,unit_pressure
+ real, intent(in)    :: S,mu,rho
+ real, intent(inout) :: temp
+ real, intent(out)   :: P
+ integer, intent(in) :: ieos
+ real                :: corr,df,f,temp_new,cgsrho,cgsp
+ real,    parameter  :: eoserr=1d-12
+ integer             :: niter
+ integer, parameter  :: nitermax = 1000
+
+ ! change to cgs unit
+ cgsrho = rho*unit_density
+
+ niter = 0
+ select case (ieos)
+ case (2)
+    temp = (cgsrho * exp(mu*S/kb_on_mh))**(2./3.)
+    cgsP = cgsrho*kb_on_mh*temp / mu
+ case (12)
+    corr = huge(corr)
+    do while (abs(corr) > eoserr .and. niter < nitermax)
+       f = kb_on_mh / mu * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho) - s
+       df = 1.5*kb_on_mh / (mu*temp) + 4.*radconst*temp**2 / cgsrho
+       corr = f/df
+       temp_new = temp - corr
+       if (temp_new > 1.2 * temp) then
+          temp = 1.2 * temp
+       elseif (temp_new < 0.8 * temp) then
+          temp = 0.8 * temp
+       else
+          temp = temp_new
+       endif
+       niter = niter + 1
+    enddo
+    call get_idealplusrad_pres(cgsrho,temp,mu,cgsP)
+ case default
+    cgsP = 0.
+    call fatal('eos','[get_p_from_rho_s] only implemented for eos 2 and 12')
+ end select
+
+ ! change back to code unit
+ P = cgsP / unit_pressure
+
+end subroutine get_p_from_rho_s
 
 !-----------------------------------------------------------------------
 !+
