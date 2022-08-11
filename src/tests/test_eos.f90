@@ -15,8 +15,8 @@ module testeos
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, eos, eos_barotropic, eos_gasradrec, eos_helmholtz,
-!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon, testutils,
-!   units
+!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon,
+!   testeos_stratified, testutils, units
 !
  implicit none
  public :: test_eos
