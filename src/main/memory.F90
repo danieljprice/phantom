@@ -138,8 +138,8 @@ subroutine deallocate_memory(part_only)
  if (mpi) then
     call deallocate_mpi_memory
     call deallocate_balance_arrays
-    call deallocate_comms_arrays
  endif
+ call deallocate_comms_arrays
 
  nbytes_allocated = 0
  call update_max_sizes(0)
