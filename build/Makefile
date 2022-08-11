@@ -120,10 +120,16 @@ ifeq ($(MCFOST), yes)
     MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
+    ifeq ($(MCFOST_NO_XGBOOST), yes)
+        LXGBOOST=""
+    else
+        LXGBOOST= -lxgboost -ldmlc -lrabit
+    endif
+
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 -lz -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
+	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5_fortran -lhdf5 -lz $(LXGBOOST)
 endif
 
 include Makefile_systems
@@ -258,6 +264,14 @@ endif
 
 ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
+endif
+
+ifeq ($(DUST_NUCLEATION), yes)
+    FPPFLAGS += -DDUST_NUCLEATION
+endif
+
+ifeq ($(SINK_RADIATION), yes)
+    FPPFLAGS += -DSINK_RADIATION
 endif
 
 ifdef SRCTURB
@@ -472,7 +486,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 cooling_molecul
 # equations of state
 #
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = eos_barotropic.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.F90
+SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.F90
 
 ifeq ($(HDF5), yes)
     SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
@@ -576,7 +590,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
          ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
@@ -640,7 +654,8 @@ cleansetup:
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
-         test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
+         test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
+				 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \

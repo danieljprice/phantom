@@ -496,6 +496,7 @@ subroutine read_any_dump_hdf5(                                                  
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
  integer,           intent(out) :: ierr
+ integer(kind=8)                :: nparttot
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
  logical, optional, intent(in)  :: acceptsmall
@@ -603,7 +604,7 @@ subroutine read_any_dump_hdf5(                                                  
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(min(nprocs,4)*nparttot/nprocs))
+ call allocate_memory(int(min(nprocs,4)*nparttot/nprocs,8))
 #endif
 
  if (periodic) then
@@ -703,6 +704,9 @@ subroutine read_any_dump_hdf5(                                                  
                       got_arrays%got_krome_gamma, &
                       got_arrays%got_krome_mu,    &
                       got_arrays%got_krome_T,     &
+                      .false.,                    &
+                      .false.,                    &
+                      .false.,                    &
                       got_arrays%got_abund,       &
                       got_arrays%got_dustfrac,    &
                       got_arrays%got_sink_data,   &
