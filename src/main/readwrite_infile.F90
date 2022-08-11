@@ -88,7 +88,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -117,7 +117,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 #ifdef GR
  use metric,          only:write_options_metric
- use timestep,        only:C_ent
 #endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
