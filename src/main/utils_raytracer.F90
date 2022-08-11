@@ -375,7 +375,7 @@ module raytracer
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
-      real, parameter :: tau_max = 99.
+      real, parameter      :: tau_max = 99.
 
       real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
       integer :: inext, i
@@ -407,7 +407,7 @@ module raytracer
          i = i + 1
          tau_along_ray(i)  = tau_max
          dist_along_ray(i) = maxDistance
-         print*,i
+         !print*,'ray_tracer - maxdistance',i
       endif
       len = i
    end subroutine ray_tracer
