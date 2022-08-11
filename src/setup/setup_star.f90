@@ -6,16 +6,8 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! This module sets up sphere(s).  There are multiple options, including
-!    1) uniform unit sphere
-!    2) single polytrope
-!    3) binary polytrope (decommissioned)
-!    4) neutron star from file
-!    5) red giant (Macquarie)
-!    6) neutron star using a piecewise polytrope EOS
-!    7) Evrard sphere
-!    8) KEPLER star from file
-!    9) Helmholtz Equation of state
+! This module sets up sphere(s).  There are multiple options,
+! as listed in set_sphere.
 !
 ! :References: None
 !
@@ -150,17 +142,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Z_in        = 0.02
  isoftcore   = 0
  isinkcore   = .false.
- hsoft         = 0.
- rcore         = 0.
- mcore         = 0.
- isofteningopt = 1 ! By default, specify rcore
- input_profile = 'P12_Phantom_Profile.data'
+ hsoft          = 0.
+ rcore          = 0.
+ mcore          = 0.
+ isofteningopt  = 1 ! By default, specify rcore
+ input_profile  = 'P12_Phantom_Profile.data'
  outputfilename = 'mysoftenedstar.dat'
- dens_profile = 'density-profile.tab'
+ dens_profile   = 'density-profile.tab'
  !
  ! defaults needed for error checking
  !
- need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
+ need_iso = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
  ! determine if an .in file exists
  !

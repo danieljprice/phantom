@@ -202,7 +202,6 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
- logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -277,19 +276,12 @@ module dim
  integer :: maxsts = 1
 
 !--------------------
-! Wind cooling
-!--------------------
-#if defined(WIND) || !defined (ISOTHERMAL)
- logical :: windcooling = .true.
-#else
- logical :: windcooling = .false.
-#endif
-
-!--------------------
 ! Dust formation
 !--------------------
  logical :: do_nucleation = .false.
  integer :: inucleation = 0
+ !number of elements considered in the nucleation chemical network
+ integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
 #ifdef STAR
  logical :: star_radiation = .true.
@@ -368,8 +360,12 @@ subroutine update_max_sizes(n,ntot)
 #endif
 
 #ifdef SINK_RADIATION
- maxTdust = maxp
+ store_dust_temperature = .true.
 #endif
+
+ if (store_dust_temperature) then
+    maxTdust = maxp
+ endif
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX
