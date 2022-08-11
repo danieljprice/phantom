@@ -117,6 +117,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 #ifdef GR
  use metric,          only:write_options_metric
+ use timestep,        only:C_ent
 #endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
@@ -181,6 +182,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
  if (gr) then
+    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iwritein)
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
  endif
