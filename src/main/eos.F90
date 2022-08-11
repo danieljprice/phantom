@@ -763,13 +763,11 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
  select case(ientropy)
  case(1) ! Include only gas entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh)
-    if (temp <= 0.) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh) ! Guess for temp
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
-    if (temp <= 0.) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
     entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
@@ -794,24 +792,28 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
 
+ ! check time
+ if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
+
 end function entropy
 
 real function get_entropy(rho,pres,mu_in,ieos)
-   use units, only:unit_density,unit_pressure
+   use units, only:unit_density,unit_pressure,unit_ergg
    integer, intent(in) :: ieos
    real, intent(in)    :: rho,pres,mu_in
-   real                :: cgsrho,cgspres
+   real                :: cgsrho,cgspres,cgss
 
    cgsrho = rho * unit_density
    cgspres = pres * unit_pressure
    select case (ieos)
    case (12)
-      get_entropy = entropy(cgsrho,cgspres,mu_in,2)
+      cgss = entropy(cgsrho,cgspres,mu_in,2)
    case (10, 20)
-      get_entropy = entropy(cgsrho,cgspres,mu_in,3)
+      cgss = entropy(cgsrho,cgspres,mu_in,3)
    case default
-      get_entropy = entropy(cgsrho,cgspres,mu_in,1)
+      cgss = entropy(cgsrho,cgspres,mu_in,1)
    end select
+   get_entropy = cgss/unit_ergg
 
  end function get_entropy
 
@@ -856,28 +858,29 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  use physcon, only:kb_on_mh,radconst,rg
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
- use units,   only:unit_density,unit_pressure
+ use units,   only:unit_density,unit_pressure,unit_ergg
  real, intent(in)    :: S,mu,rho
  real, intent(inout) :: temp
  real, intent(out)   :: P
  integer, intent(in) :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp
+ real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss,temp_old
  real,    parameter  :: eoserr=1d-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
 
  ! change to cgs unit
  cgsrho = rho*unit_density
+ cgss   = s*unit_ergg
 
  niter = 0
  select case (ieos)
  case (2)
-    temp = (cgsrho * exp(mu*S/kb_on_mh))**(2./3.)
+    temp = (cgsrho * exp(mu*cgss/kb_on_mh))**(2./3.)
     cgsP = cgsrho*kb_on_mh*temp / mu
  case (12)
     corr = huge(corr)
     do while (abs(corr) > eoserr .and. niter < nitermax)
-       f = kb_on_mh / mu * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho) - s
+       f = kb_on_mh / mu * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho) - cgss
        df = 1.5*kb_on_mh / (mu*temp) + 4.*radconst*temp**2 / cgsrho
        corr = f/df
        temp_new = temp - corr
@@ -895,6 +898,10 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
     cgsP = 0.
     call fatal('eos','[get_p_from_rho_s] only implemented for eos 2 and 12')
  end select
+
+ ! check temp
+ if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
+                           considering reducing entropy factor C_ent')
 
  ! change back to code unit
  P = cgsP / unit_pressure
