@@ -73,6 +73,15 @@ module mpiderivs
  public :: reset_cell_counters
  public :: check_complete
 
+ !
+ !--the counters are module variables, but must be passed through as arguments
+ !  in order to be threadsafe
+ !
+ integer, public, allocatable :: cell_counters(:,:)
+ integer, parameter :: isent   = 1 ! counter for number of cells sent to i
+ integer, parameter :: iexpect = 2 ! counter for number of cells expecting from i
+ integer, parameter :: irecv   = 3 ! counter for number of cells received from i
+
  private
 
 #ifdef MPI
@@ -86,33 +95,25 @@ module mpiderivs
  integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
  integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
 
- integer,allocatable,public :: nsent(:)     ! counter for number of cells sent to i
- integer,allocatable :: nexpect(:)   ! counter for number of cells expecting from i
- integer,allocatable :: nrecv(:)     ! counter for number of cells received from i
-
  integer,allocatable :: countrequest(:)
 
 contains
 
 subroutine allocate_comms_arrays
  use allocutils, only:allocate_array
- call allocate_array('nsent',       nsent,       nprocs)
- call allocate_array('nexpect',     nexpect,     nprocs)
- call allocate_array('nrecv',       nrecv,       nprocs)
- call allocate_array('countrequest',countrequest,nprocs)
- call allocate_array('comm_cofm',   comm_cofm,   nprocs)
- call allocate_array('comm_owner',  comm_owner,  nprocs)
+ call allocate_array('cell_counters', cell_counters, nprocs, 3)
+ call allocate_array('countrequest',  countrequest,  nprocs)
+ call allocate_array('comm_cofm',     comm_cofm,     nprocs)
+ call allocate_array('comm_owner',    comm_owner,    nprocs)
 
  call init_tree_comms
 end subroutine allocate_comms_arrays
 
 subroutine deallocate_comms_arrays
- if (allocated(nsent       )) deallocate(nsent       )
- if (allocated(nexpect     )) deallocate(nexpect     )
- if (allocated(nrecv       )) deallocate(nrecv       )
- if (allocated(countrequest)) deallocate(countrequest)
- if (allocated(comm_cofm   )) deallocate(comm_cofm   )
- if (allocated(comm_owner  )) deallocate(comm_owner  )
+ if (allocated(cell_counters)) deallocate(cell_counters)
+ if (allocated(countrequest )) deallocate(countrequest )
+ if (allocated(comm_cofm    )) deallocate(comm_cofm    )
+ if (allocated(comm_owner   )) deallocate(comm_owner   )
 end subroutine deallocate_comms_arrays
 
 !----------------------------------------------------------------
@@ -218,21 +219,21 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
-       nsent(newproc+1) = nsent(newproc+1) + 1
+       cell_counters(newproc+1,isent) = cell_counters(newproc+1,isent) + 1
     endif
  enddo
 #endif
 
 end subroutine send_celldens
 
-subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,nsent_thread)
+subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
  use mpiforce, only:cellforce
 
  type(cellforce),    intent(in)     :: cell
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(cellforce),    intent(out)    :: xsendbuf
- integer,            intent(inout)  :: nsent_thread(nprocs)
+ integer,            intent(inout)  :: counters(:,:)
 #ifdef MPI
  integer                            :: newproc
  integer                            :: tag
@@ -251,7 +252,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,nsent_thread)
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
        !$omp atomic
-       nsent_thread(newproc+1) = nsent_thread(newproc+1) + 1
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
 #endif
@@ -325,7 +326,7 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
-       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(cell_counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -351,11 +352,10 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  integer             :: newproc
  integer             :: mpierr
 
- !$omp flush(nsent)
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
-       call MPI_ISEND(nsent(newproc+1),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(cell_counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
     endif
  enddo
 
@@ -404,10 +404,10 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
              target_stack%cells(iwait)%nneigh(k) = target_stack%cells(iwait)%nneigh(k) + xbuf(iproc)%nneigh(k)
           enddo
           target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
-          nrecv(iproc) = nrecv(iproc) + 1
+          cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        elseif (status(MPI_TAG) == 1) then
           call push_onto_stack(target_stack, xbuf(iproc))
-          nrecv(iproc) = nrecv(iproc) + 1
+          cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        endif
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
@@ -453,10 +453,10 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
           target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
-          nrecv(iproc) = nrecv(iproc) + 1
+          cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        elseif (status(MPI_TAG) == 1) then
           call push_onto_stack(target_stack, xbuf(iproc))
-          nrecv(iproc) = nrecv(iproc) + 1
+          cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        endif
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
@@ -749,12 +749,12 @@ subroutine check_complete
     if (i /= id + 1) then
        call MPI_TEST(countrequest(i),countreceived,status,mpierr)
        if (countreceived) then
-          if (nrecv(i) == nexpect(i)) then
+          if (cell_counters(i,irecv) == cell_counters(i,iexpect)) then
              ncomplete = ncomplete + 1
-          elseif (nrecv(i) > nexpect(i)) then
+          elseif (cell_counters(i,irecv) > cell_counters(i,iexpect)) then
              print*,'on',id,'from',i-1
-             print*,'nrecv',nrecv(i)
-             print*,'nexpect',nexpect(i)
+             print*,'nrecv',cell_counters(i,irecv)
+             print*,'nexpect',cell_counters(i,iexpect)
              call fatal('mpiderivs', 'received more cells than expected')
           endif
        endif
@@ -768,20 +768,20 @@ end subroutine check_complete
 !  reset counters for checking arrival of all cells
 !+
 !----------------------------------------------------------------
-subroutine reset_cell_counters(nsent_thread)
+subroutine reset_cell_counters(counters)
 #ifdef MPI
  use io, only:fatal
- integer, intent(inout) :: nsent_thread(nprocs)
+ integer, intent(inout) :: counters(:,:)
  integer :: iproc
  integer :: mpierr
 
- nsent_thread(:) = 0
- nexpect(:) = -1
- nrecv(:) = 0
+ counters(:,isent)   = 0
+ counters(:,iexpect) = -1
+ counters(:,irecv)   = 0
 
  do iproc=1,nprocs
     if (iproc /= id + 1) then
-       call MPI_IRECV(nexpect(iproc),1,MPI_INTEGER4,iproc-1, &
+       call MPI_IRECV(counters(iproc,iexpect),1,MPI_INTEGER4,iproc-1, &
        MPI_ANY_TAG,comm_cellcount,countrequest(iproc),mpierr)
        if (mpierr /= 0) call fatal('reset_cell_counters','error in MPI_IRECV')
     endif

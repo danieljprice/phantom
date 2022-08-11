@@ -219,7 +219,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use part,         only:luminosity
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters,nsent
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
  use mpimemory,    only:reserve_stack,reset_stacks
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
@@ -361,7 +361,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     call reset_stacks
-    call reset_cell_counters(nsent)
+    call reset_cell_counters(cell_counters)
     call init_cell_exchange(xrecvbuf,irequestrecv)
  endif
 
@@ -420,7 +420,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(stack_remote,stack_waiting) &
 !$omp shared(xrecvbuf) &
 !$omp private(xsendbuf) &
-!$omp shared(nsent) &
+!$omp shared(cell_counters) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -495,7 +495,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           !$omp critical (stack_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)
           !$omp end critical (stack_waiting)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf,nsent)  ! send to remote
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
        endif
     endif
 
@@ -547,7 +547,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  !$omp barrier
  !$omp single
- call reset_cell_counters(nsent)
+ call reset_cell_counters(cell_counters)
  !$omp end single
 
  !$omp single
@@ -581,7 +581,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           !$omp end critical (recv_waiting)
        enddo
 
-       call send_cell(cell,remote_export,irequestsend,xsendbuf,nsent) ! send the cell back to owner
+       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
