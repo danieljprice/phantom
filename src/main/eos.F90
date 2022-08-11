@@ -81,6 +81,10 @@ module eos
     ierr_isink_not_set   = 4
 
 !
+! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
+!
+ integer, public:: istrat = 0.
+!
 ! 2D temperature structure fit parameters for HD 163296
 !
  real, public :: z0      = 1.
@@ -106,6 +110,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
  use eos_gasradrec, only:equationofstate_gasradrec
+ use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
  integer, intent(in)    :: eos_type
@@ -120,7 +125,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
- real    :: zq,cs2atm,cs2mid,cs2
 #ifdef GR
  real    :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
@@ -216,15 +220,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !-- z-dependent locally isothermal eos
 !
-    r2 = xi**2 + yi**2
-    cs2mid = polyk * r2**(-qfacdisc)
-    cs2atm = polyk2 * r2**(-qfacdisc2)
-    zq = z0 * r2**(0.5*beta_z)
-
-    ! modified equation 6 from Law et al. (2021)
-    cs2      = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
-    ponrhoi  = cs2
-    spsoundi = sqrt(cs2)
+    call get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
     tempi    = temperature_coef*mui*ponrhoi
 
  case(8)
@@ -1151,6 +1147,7 @@ subroutine write_headeropts_eos(ieos,hdr,ierr)
  call add_to_rheader(qfacdisc2,'qfacdisc2',hdr,ierr)
 
  if (ieos==7) then
+    call add_to_iheader(istrat,'istrat',hdr,ierr)
     call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
     call add_to_rheader(beta_z,'beta_z',hdr,ierr)
     call add_to_rheader(z0,'z0',hdr,ierr)
@@ -1209,11 +1206,12 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  endif
 
  if (ieos==7) then
+    call extract('istrat',istrat,hdr,ierr)
     call extract('alpha_z',alpha_z,hdr,ierr)
     call extract('beta_z', beta_z, hdr,ierr)
     call extract('z0',z0,hdr,ierr)
-    if (qfacdisc2 <= tiny(qfacdisc2)) then
-       if (id==master) write(iprint,*) 'ERROR: qfacdisc2 <= 0'
+    if (abs(qfacdisc2) <= tiny(qfacdisc2)) then
+       if (id==master) write(iprint,*) 'ERROR: qfacdisc2 == 0'
        ierr = 2
     else
        if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2

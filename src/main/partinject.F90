@@ -39,13 +39,10 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary
+ use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
-#ifdef DUST_NUCLEATION
- use part, only:nucleation
-#endif
  use io,   only:fatal
 #ifdef IND_TIMESTEPS
  use part,         only:ibin
@@ -104,9 +101,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 #ifdef IND_TIMESTEPS
  ibin(particle_number) = nbinmax
 #endif
-#ifdef DUST_NUCLEATION
- if (present(JKmus)) nucleation(:,particle_number) = JKmuS(:)
-#endif
+ if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
+
 end subroutine add_or_update_particle
 
 !-----------------------------------------------------------------------

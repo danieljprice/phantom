@@ -35,6 +35,7 @@ subroutine test_eos(ntests,npass)
  use physcon,       only:solarm
  use units,         only:set_units
  use eos_gasradrec, only:irecomb
+ use testeos_stratified, only:test_eos_stratified
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -49,6 +50,8 @@ subroutine test_eos(ntests,npass)
  do irecomb = 0,3
     call test_hormone(ntests,npass)
  enddo
+
+ call test_eos_stratified(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
