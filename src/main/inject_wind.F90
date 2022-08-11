@@ -106,7 +106,7 @@ subroutine init_inject(ierr)
  integer, intent(out) :: ierr
  integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
- real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject
+ real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject,tboundary
  real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
 
  if (icooling > 0) nwrite = nwrite+1
@@ -252,10 +252,11 @@ subroutine init_inject(ierr)
 
 !compute full evolution (to get tcross) and save 1D profile for comparison
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
-    tend = max(tmax,(iboundary_spheres+nfill_domain)*time_between_spheres)*utime
+    tboundary = (iboundary_spheres+nfill_domain)*time_between_spheres
+    tend      = max(tmax,tboundary)*utime
     call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
          wind_temperature, outer_boundary_au*au, tend, tcross, 'wind_profile1D.dat')
-    if ((iboundary_spheres+nfill_domain)*time_between_spheres > tmax) then
+    if (tboundary > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
     if (tcross < 1.d98) then
@@ -293,6 +294,7 @@ subroutine init_inject(ierr)
     print*,'sonic radius               = ',rsonic/udist,rsonic
     print*,'number of shells to sonic  = ',(rsonic/udist-Rinject)/(wind_shell_spacing*neighbour_distance)
     print*,'time_to_sonic_point        = ',tsonic/utime
+    print*,'time_boundary              = ',tboundary
  endif
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'wind_temperature           = ',wind_temperature
@@ -422,7 +424,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  do i=inner_boundary_sphere,outer_sphere,-1
     local_time = time + (iboundary_spheres+nfill_domain-i) * time_between_spheres
-
     !compute the radius, velocity, temperature, chemistry of a sphere at the current local time
     v = wind_injection_speed
     r = Rinject

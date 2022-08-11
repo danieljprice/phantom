@@ -576,9 +576,14 @@ subroutine equation_of_state(gamma)
  integer :: i
 
  is_isothermal = (maxvxyzu==3)
- if (use_mcfost) then
-    is_isothermal = .false.
-    nfulldump = 1
+
+ if (compiled_with_mcfost) then
+    if (use_mcfost) then
+       is_isothermal = .false.
+       nfulldump = 1
+    else
+       is_isothermal = .true.
+    endif
  endif
 
  if (is_isothermal) then
@@ -2075,7 +2080,7 @@ end subroutine setup_interactive
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
@@ -2367,12 +2372,13 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
-    call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
-    call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
-    call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
-    call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
-    call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
-    call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
+   call write_inopt(istrat,'istrat','temperature prescription (0=MAPS, 1=Dartois)',iunit)
+   call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
+   call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
+   call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
+   call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
+   call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
+   call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
 
  endif
  !--timestepping
@@ -2408,7 +2414,7 @@ end subroutine write_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
@@ -2544,6 +2550,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  if (discstrat==1) then
+    call read_inopt(istrat,'istrat',db,errcount=nerr)
     call read_inopt(z0_ref,'z0',db,errcount=nerr)
     call read_inopt(alpha_z,'alpha_z',db,errcount=nerr)
     call read_inopt(beta_z,'beta_z',db,errcount=nerr)
