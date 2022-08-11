@@ -91,8 +91,8 @@ subroutine allocate_memory(ntot, part_only)
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
-       call allocate_comms_arrays
     endif
+    call allocate_comms_arrays ! some dummy arrays need to be allocated when mpi=.false.
  endif
 
  call bytes2human(nbytes_allocated, sizestring)
