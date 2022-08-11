@@ -291,10 +291,9 @@ subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
 
 end subroutine check_send_finished_dens
 
-subroutine check_send_finished_force(irequestsend,irequestrecv,xrecvbuf,idone)
+subroutine check_send_finished_force(irequestsend,idone)
  use mpiforce, only:stackforce,cellforce
- integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
- type(cellforce),    intent(inout)  :: xrecvbuf(nprocs)
+ integer,            intent(inout)  :: irequestsend(nprocs)
  logical,            intent(out)    :: idone(nprocs)
 
 #ifdef MPI
