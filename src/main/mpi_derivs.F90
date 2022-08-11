@@ -15,7 +15,7 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dtypekdtree, io, mpi, mpidens, mpiforce,
+! :Dependencies: allocutils, dim, dtypekdtree, io, mpi, mpidens, mpiforce,
 !   mpimemory, mpiutils
 !
 #ifdef MPI
@@ -98,15 +98,15 @@ subroutine allocate_comms_arrays
  use allocutils, only:allocate_array
  use dim,        only:mpi
  if (mpi) then
-   call allocate_array('cell_counters', cell_counters, nprocs, 3)
-   call allocate_array('countrequest',  countrequest,  nprocs)
-   call allocate_array('comm_cofm',     comm_cofm,     nprocs)
-   call allocate_array('comm_owner',    comm_owner,    nprocs)
-   call init_tree_comms
+    call allocate_array('cell_counters', cell_counters, nprocs, 3)
+    call allocate_array('countrequest',  countrequest,  nprocs)
+    call allocate_array('comm_cofm',     comm_cofm,     nprocs)
+    call allocate_array('comm_owner',    comm_owner,    nprocs)
+    call init_tree_comms
  else
-   ! dummy cell counters that are required to prevent runtime errors
-   ! in dens and force
-   call allocate_array('cell_counters', cell_counters, 0, 0)
+    ! dummy cell counters that are required to prevent runtime errors
+    ! in dens and force
+    call allocate_array('cell_counters', cell_counters, 0, 0)
  endif
 end subroutine allocate_comms_arrays
 
