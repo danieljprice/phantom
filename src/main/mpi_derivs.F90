@@ -770,7 +770,9 @@ end subroutine check_complete
 subroutine reset_cell_counters(counters)
 #ifdef MPI
  use io, only:fatal
+#endif
  integer, intent(inout) :: counters(:,:)
+#ifdef MPI
  integer :: iproc
  integer :: mpierr
 
