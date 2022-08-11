@@ -11,7 +11,7 @@ module densityforce
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Conrad Chan
 !
 ! :Runtime parameters: None
 !
@@ -337,9 +337,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 !$omp end critical (recv_remote)
              enddo
           endif
-          !$omp critical (stack_waiting)
+          !$omp critical (reserve_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
-          !$omp end critical (stack_waiting)
+          !$omp end critical (reserve_waiting)
           call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send the cell to remote
        endif
     endif
@@ -374,9 +374,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                          !$omp end critical (recv_remote)
                       enddo
                    endif
-                   !$omp critical (stack_waiting)
+                   !$omp critical (reserve_waiting)
                    call reserve_stack(stack_waiting,cell%waiting_index)
-                   !$omp end critical (stack_waiting)
+                   !$omp end critical (reserve_waiting)
                    call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
                 endif
                 nrelink = nrelink + 1
@@ -517,9 +517,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv)
                 !$omp end critical (recv_remote)
              enddo
-             !$omp critical (stack_redo)
+             !$omp critical (reserve_redo)
              call reserve_stack(stack_redo,cell%waiting_index)
-             !$omp end critical (stack_redo)
+             !$omp end critical (reserve_redo)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)

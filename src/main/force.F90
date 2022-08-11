@@ -492,9 +492,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                 !$omp end critical (recv_remote)
              enddo
           endif
-          !$omp critical (stack_waiting)
+          !$omp critical (reserve_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          !$omp end critical (stack_waiting)
+          !$omp end critical (reserve_waiting)
           call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
        endif
     endif
