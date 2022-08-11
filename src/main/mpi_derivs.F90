@@ -34,11 +34,6 @@ module mpiderivs
  interface send_cell
   module procedure send_celldens,send_cellforce
  end interface send_cell
-
- interface check_send_finished
-  module procedure check_send_finished_dens,check_send_finished_force
- end interface check_send_finished
-
  interface recv_cells
   module procedure recv_celldens,recv_cellforce
  end interface recv_cells
@@ -195,17 +190,18 @@ end subroutine init_cellforce_exchange
 !  Subroutine to broadcast particle buffer to a bunch of processors
 !+
 !-----------------------------------------------------------------------
-subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
+subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
  use mpidens,  only:celldens
 
  type(celldens),     intent(in)     :: cell
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(celldens),     intent(out)    :: xsendbuf
+ integer,            intent(inout)  :: counters(:,:)
 #ifdef MPI
  integer                            :: newproc
  integer                            :: tag
- integer                           :: mpierr
+ integer                            :: mpierr
 
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
@@ -219,7 +215,8 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
-       cell_counters(newproc+1,isent) = cell_counters(newproc+1,isent) + 1
+       !$omp atomic
+       counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
 #endif
@@ -264,37 +261,9 @@ end subroutine send_cellforce
 !  Subroutine to check that non-blocking send has completed
 !+
 !-----------------------------------------------------------------------
-subroutine check_send_finished_dens(stack,irequestsend,irequestrecv,xrecvbuf)
- use mpidens,  only:stackdens,celldens
- type(stackdens),    intent(inout)  :: stack
- integer,            intent(inout)  :: irequestsend(nprocs),irequestrecv(nprocs)
- type(celldens),     intent(inout)  :: xrecvbuf(nprocs)
-
-#ifdef MPI
- logical :: idone(nprocs)
- integer :: newproc
- integer :: mpierr
- integer :: status(MPI_STATUS_SIZE)
- !
- !--wait for broadcast to complete, continue to receive whilst doing so
- !
- idone(:) = .false.
- idone(id+1) = .true.
- do while(.not.all(idone))
-    do newproc=0,nprocs-1
-       if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
-    enddo
-    !--post receives
-    call recv_celldens(stack,xrecvbuf,irequestrecv)
- enddo
-#endif
-
-end subroutine check_send_finished_dens
-
-subroutine check_send_finished_force(irequestsend,idone)
- use mpiforce, only:stackforce,cellforce
- integer,            intent(inout)  :: irequestsend(nprocs)
- logical,            intent(out)    :: idone(nprocs)
+subroutine check_send_finished(irequestsend,idone)
+ integer, intent(inout) :: irequestsend(nprocs)
+ logical, intent(out)   :: idone(nprocs)
 
 #ifdef MPI
  integer :: newproc
@@ -302,15 +271,13 @@ subroutine check_send_finished_force(irequestsend,idone)
  integer :: status(MPI_STATUS_SIZE)
 
  do newproc=0,nprocs-1
-    if (newproc /= id) then
-       call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
-    endif
+    if (newproc /= id) call MPI_TEST(irequestsend(newproc+1),idone(newproc+1),status,mpierr)
  enddo
  !--never test self; always set to true
  idone(id+1) = .true.
 #endif
 
-end subroutine check_send_finished_force
+end subroutine check_send_finished
 
 subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
  use mpidens,  only:stackdens,celldens
