@@ -45,16 +45,16 @@ subroutine get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,al
 
  ! if istrat == 0 we use the MAPS prescription
  if (istrat==0) then
-   ! modified equation 6 from Law et al. (2021)
-   cs2 = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
+    ! modified equation 6 from Law et al. (2021)
+    cs2 = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
 
- ! if istrat == 1 we use the Dartois et al. (2003) prescription
+    ! if istrat == 1 we use the Dartois et al. (2003) prescription
  elseif (istrat==1) then
-   if (zi<zq) then
-     cs2 = cs2atm + (cs2mid-cs2atm)*(cos((pi/2)*(zi/zq))**2)
-   else
-     cs2 = cs2atm
-   endif
+    if (zi<zq) then
+       cs2 = cs2atm + (cs2mid-cs2atm)*(cos((pi/2)*(zi/zq))**2)
+    else
+       cs2 = cs2atm
+    endif
  endif
 
  ponrhoi = cs2
