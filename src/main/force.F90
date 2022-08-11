@@ -2444,7 +2444,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
  use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
  use timestep_sts,   only:use_sts
- use units,          only:unit_ergg,unit_density
+ use units,          only:unit_ergg,unit_density,unit_velocity
  use eos_shen,       only:eos_shen_get_dTdu
 #ifdef LIGHTCURVE
  use part,           only:luminosity
@@ -2462,8 +2462,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use io,             only:warning
  use physcon,        only:c
- use units,          only:unit_velocity
  use timestep,       only:C_rad
+#ifdef GR
+ use part,           only:pxyzu
+ use timestep,       only:C_ent
+#endif
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
@@ -2516,7 +2519,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
 #endif
- real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min
+ real    :: vsigdtc,dtc,dtf,dti,dtcool,dtdiffi,ts_min,dtent
  real    :: dtohmi,dtambii,dthalli,dtvisci,dtdrag,dtdusti,dtclean
  integer :: iamtypei
  logical :: iactivei,iamgasi,iamdusti,realviscosity
@@ -2876,6 +2879,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
+       ! s entropy timestep to avoid too large s entropy leads to infinite temperature
+       if (ien_type == ien_entropy_s .and. gr) then
+          dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
+       endif
+
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
           call nicil_get_dt_nimhd(dtohmi,dthalli,dtambii,hi,etaohmi,etahalli,etaambii)
@@ -3038,7 +3046,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     ! global timestep needs to be minimum over all particles
 
     dtcourant = min(dtcourant,dtc)
-    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean)
+    dtforce   = min(dtforce,dtf,dtcool,dtdrag,dtdusti,dtclean,dtent)
     dtvisc    = min(dtvisc,dtvisci)
     if (mhd_nonideal .and. iamgasi) then
        dtohm  = min(dtohm,  dtohmi  )
