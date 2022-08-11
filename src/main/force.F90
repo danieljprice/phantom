@@ -2880,10 +2880,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
+#ifdef GR
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature
        if (ien_type == ien_entropy_s .and. gr) then
           dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
        endif
+#endif
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
