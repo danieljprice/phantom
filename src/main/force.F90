@@ -487,14 +487,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              idone(:) = .false.
              do while(.not.all(idone))
                 call check_send_finished(irequestsend,idone)
-                !$omp critical (recv_remote)
+                !$omp critical (crit_recv_remote)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-                !$omp end critical (recv_remote)
+                !$omp end critical (crit_recv_remote)
              enddo
           endif
-          !$omp critical (reserve_waiting)
+          !$omp critical (crit_reserve_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          !$omp end critical (reserve_waiting)
+          !$omp end critical (crit_reserve_waiting)
           call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
        endif
     endif
@@ -573,9 +573,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        idone(:) = .false.
        do while(.not.all(idone))
           call check_send_finished(irequestsend,idone)
-          !$omp critical (recv_waiting)
+          !$omp critical (crit_recv_waiting)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
-          !$omp end critical (recv_waiting)
+          !$omp end critical (crit_recv_waiting)
        enddo
 
        call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner

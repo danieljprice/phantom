@@ -299,9 +299,9 @@ subroutine buffer_warning(wherefrom,string,ncount,level)
         .and. warningdb(j)%message(1:ls) == string(1:ls)) then
        !--if warning matches an existing warning in the database
        !  just increase the reference count
-!$omp critical (warning_count)
+!$omp critical (crit_warning_count)
        warningdb(j)%ncount = warningdb(j)%ncount + 1_8
-!$omp end critical (warning_count)
+!$omp end critical (crit_warning_count)
        ncount = warningdb(j)%ncount
        exit over_db
     elseif (len_trim(warningdb(j)%message)==0) then
