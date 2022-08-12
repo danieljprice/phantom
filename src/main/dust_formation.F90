@@ -138,13 +138,13 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  real,    intent(inout) :: JKmuS(:)
 
  integer, parameter :: wind_emitting_sink = 1
- real :: dt, T, rho_cgs, vxyzui(4)
+ real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
- dt        = dtsph* utime
+ dt_cgs    = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
  T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
- call evolve_chem(dt, T, rho_cgs, JKmuS)
+ call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
 end subroutine evolve_dust
@@ -358,7 +358,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
- real, intent(out) :: pH, pH_tot
+ real, intent(out)   :: pH, pH_tot
  real :: KH2, pH2
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
@@ -393,19 +393,19 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        !T        = T_old    !uncomment this line to cancel iterations
        converged = (abs(T-T_old)/T_old) < tol
        !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
-    enddo
-    if (i>=itermax .and. .not.converged) then
-       if (isolve==0) then
-          isolve = isolve+1
-          i      = 0
-          tol    = 1.d-2
-          print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
-       else
-          print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
-                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
-          call fatal(label,'cannot converge on T(mu,gamma)')
+       if (i>=itermax .and. .not.converged) then
+          if (isolve==0) then
+             isolve = isolve+1
+             i      = 0
+             tol    = 1.d-2
+             print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
+          else
+             print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
+                  mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
+             call fatal(label,'cannot converge on T(mu,gamma)')
+          endif
        endif
-    endif
+    enddo
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
     pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
@@ -424,8 +424,9 @@ end subroutine calc_muGamma
 !--------------------------------------------
 subroutine init_muGamma(rho_cgs, T, mu, gamma)
 ! all quantities are in cgs
- real, intent(in) :: rho_cgs
- real, intent(out) :: T, mu, gamma
+ real, intent(in)    :: rho_cgs
+ real, intent(inout) :: T
+ real, intent(out)   :: mu, gamma
  real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
