@@ -1189,7 +1189,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
-    !$omp shared(nptmass,f_acc,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
+    !$omp shared(nptmass,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
     !$omp shared(nucleation,do_nucleation) &
 #ifdef KROME

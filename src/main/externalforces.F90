@@ -121,8 +121,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  real,    intent(in)  :: xi,yi,zi,hi,ti
  real,    intent(out) :: fextxi,fextyi,fextzi,phi
  real,    intent(out), optional :: dtf
- integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous;
- !       treat with caution
+ integer, intent(in),  optional :: ii ! NOTE: index-base physics can be dangerous; treat with caution!
  real            :: r2,dr,dr3,r,d2,f2i
  real            :: rcyl2,rcyl,rsph,rsph3,v2onr,dtf1,dtf2
  real            :: phii,gcode,R_g,factor,rhoi
@@ -577,8 +576,6 @@ end subroutine update_externalforce
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  use extern_binary, only:binary_accreted,accradius1
- use part,          only:set_particle_type,iboundary,maxphase,maxp,igas
- !use part,          only:npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi

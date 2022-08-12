@@ -10,7 +10,7 @@ module set_dust_options
 !
 ! :References:
 !
-! :Owner: Arnaud Vericel
+! :Owner: Mark Hutchison
 !
 ! :Runtime parameters:
 !   - dust_method       : *dust method (1=one fluid,2=two fluid,3=Hybrid)*
@@ -25,15 +25,6 @@ module set_dust_options
 !   - ndustlargeinp     : *number of large grain sizes*
 !   - ndustsmallinp     : *number of small grain sizes*
 !   - ndusttypesinp     : *number of grain sizes*
-!   - sindex            : *grain size power-law index (e.g. MRN = 3.5)*
-!   - sindexlarge       : *large grain size power-law index (e.g. MRN = 3.5)*
-!   - sindexsmall       : *small grain size power-law index (e.g. MRN = 3.5)*
-!   - smaxcgs           : *max grain size (in cm)*
-!   - smaxlargecgs      : *max large grain size (in cm)*
-!   - smaxsmallcgs      : *max small grain size (in cm)*
-!   - smincgs           : *min grain size (in cm)*
-!   - sminlargecgs      : *min large grain size (in cm)*
-!   - sminsmallcgs      : *min small grain size (in cm)*
 !
 ! :Dependencies: dim, dust, eos, fileutils, growth, infile_utils, io,
 !   options, part, prompting
@@ -762,7 +753,7 @@ subroutine write_log_dist_options(igsizelog,igsizelogtag,smin,smintag,smax,smaxt
  end select
  call write_inopt(sind ,sindtag ,'grain size power-law index (e.g. MRN = 3.5)',iunit)
 
- end subroutine write_log_dist_options
+end subroutine write_log_dist_options
 
 !--------------------------------------------------------------------------
 !+
