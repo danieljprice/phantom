@@ -32,7 +32,8 @@ module dust_formation
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       read_options_dust_formation,write_options_dust_formation,&
-      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation
+      calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
+      write_headeropts_dust_formation,read_headeropts_dust_formation
 !
 !--runtime settings for this module
 !
@@ -393,19 +394,19 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        !T        = T_old    !uncomment this line to cancel iterations
        converged = (abs(T-T_old)/T_old) < tol
        !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
-    enddo
-    if (i>=itermax .and. .not.converged) then
-       if (isolve==0) then
-          isolve = isolve+1
-          i      = 0
-          tol    = 1.d-2
-          print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
-       else
-          print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
-                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
-          call fatal(label,'cannot converge on T(mu,gamma)')
+       if (i>=itermax .and. .not.converged) then
+          if (isolve==0) then
+             isolve = isolve+1
+             i      = 0
+             tol    = 1.d-2
+             print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
+          else
+             print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
+                  mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
+             call fatal(label,'cannot converge on T(mu,gamma)')
+          endif
        endif
-    endif
+    enddo
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
     pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
@@ -548,13 +549,13 @@ end subroutine chemical_equilibrium_light
 
 !-----------------------------
 !
-!  solve 2nd order polynomical
+!  solve 2nd order polynomial
 !
 !-----------------------------
 pure real function solve_q(a, b, c)
  real, intent(in) :: a, b, c
  real :: delta
- if (-4.*a*c/b**2 > 1.d-8) then
+ if (-4.*a*c/b**2 > epsilon(0.)) then
     delta = max(b**2-4.*a*c, 0.)
     solve_q = (-b+sqrt(delta))/(2.*a)
  else
@@ -615,12 +616,47 @@ end function calc_Kd_TiS
 
 !-----------------------------------------------------------------------
 !+
+!  write relevant options to the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine write_headeropts_dust_formation(hdr,ierr)
+ use dump_utils,        only:dump_h,add_to_rheader
+ type(dump_h), intent(inout) :: hdr
+ integer,      intent(out)   :: ierr
+
+! initial gas composition for dust formation
+ call set_abundances
+ call add_to_rheader(eps,'epsilon',hdr,ierr) ! array
+ call add_to_rheader(Aw,'Amean',hdr,ierr) ! array
+ call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! array
+
+end subroutine write_headeropts_dust_formation
+
+!-----------------------------------------------------------------------
+!+
+!  read relevant options from the header of the dump file
+!+
+!-----------------------------------------------------------------------
+subroutine read_headeropts_dust_formation(hdr,ierr)
+ use dump_utils, only:dump_h,extract
+ type(dump_h), intent(in)  :: hdr
+ integer,      intent(out) :: ierr
+
+ ierr = 0
+ call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
+ call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
+ call extract('mass_per_H',mass_per_H,hdr,ierr) ! array
+
+end subroutine read_headeropts_dust_formation
+
+!-----------------------------------------------------------------------
+!+
 !  Writes input options to the input file
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_dust_formation(iunit)
- use dim,          only: store_dust_temperature,maxvxyzu,nucleation,store_gamma
- use infile_utils, only: write_inopt
+ use dim,          only:nucleation
+ use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling dust'
@@ -639,8 +675,7 @@ subroutine write_options_dust_formation(iunit)
     call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)
     call write_inopt(wind_CO_ratio ,'wind_CO_ratio','wind initial C/O ratio (> 1)',iunit)
  endif
- if (idust_opacity > 0) store_dust_temperature = .true.
- if (idust_opacity == 2) store_gamma = .true.
+
 end subroutine write_options_dust_formation
 
 !-----------------------------------------------------------------------
@@ -650,7 +685,7 @@ end subroutine write_options_dust_formation
 !-----------------------------------------------------------------------
 subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  use io,      only:fatal
- use dim,     only:do_nucleation,inucleation
+ use dim,     only:do_nucleation,inucleation,store_dust_temperature
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
@@ -695,6 +730,7 @@ subroutine read_options_dust_formation(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 1)
  if (idust_opacity == 1) igotall = (ngot >= 5)
  if (idust_opacity == 2) igotall = (ngot >= 3)
+ if (idust_opacity > 0) store_dust_temperature = .true.
 
 end subroutine read_options_dust_formation
 

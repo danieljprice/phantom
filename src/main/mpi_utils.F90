@@ -109,6 +109,7 @@ module mpiutils
  public :: barrier_mpi
  public :: fill_buffer, unfill_buf
  public :: reduceloc_mpi
+ public :: waitmyturn,endmyturn
 
  private
 

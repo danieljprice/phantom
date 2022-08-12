@@ -7,8 +7,8 @@ This section contains the basic user guide for Phantom.
    :maxdepth: 1
 
    config
+   setups
    infile
-   setup
    qscript
    sweeps
    analysis
@@ -16,3 +16,4 @@ This section contains the basic user guide for Phantom.
    utils
    dumpfile
    hdf5
+   sinks
