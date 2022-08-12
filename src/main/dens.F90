@@ -326,6 +326,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     call get_hmaxcell(icell,cell%hmax)
 
     if (mpi) then
+       !$omp critical (crit_recv_remote)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       !$omp end critical (crit_recv_remote)
        if (do_export) then
           if (stack_waiting%n > 0) then
              !--wait for broadcast to complete, continue to receive whilst doing so

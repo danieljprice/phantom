@@ -481,6 +481,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do_export = any(remote_export)
 
     if (mpi) then
+       !$omp critical (crit_recv_remote)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       !$omp end critical (crit_recv_remote)
        if (do_export) then
           if (stack_waiting%n > 0) then
              !--wait for broadcast to complete, continue to receive whilst doing so
