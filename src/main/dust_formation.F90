@@ -398,7 +398,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
              isolve = isolve+1
              i      = 0
              tol    = 1.d-2
-             print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
+             print *,'[dust_formation] cannot converge on T(mu,gamma). Trying with lower tolerance'
           else
              print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
@@ -465,8 +465,8 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
 
  call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  if (T > 1.d5) then
-    pC    = 1.d-50
-    pC2   = 1.d-50
+    pC    = eps(iC)*pH_tot
+    pC2   = 0.
     pC2H  = 0.
     pC2H2 = 0.
     return
@@ -598,7 +598,7 @@ pure real function calc_Kd(coefs, T)
  real, parameter :: R = 1.987165
  real :: G, d
  G = coefs(1)/T + coefs(2) + (coefs(3)+(coefs(4)+coefs(5)*T)*T)*T
- d = -G/(R*T)
+ d = min(-G/(R*T),222.d0)
  calc_Kd = exp(d)
 end function calc_Kd
 
