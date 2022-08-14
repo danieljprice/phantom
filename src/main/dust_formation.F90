@@ -24,13 +24,14 @@ module dust_formation
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
- use physcon, only:kboltz,pi,atomic_mass_unit
+ use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs
  use dim,     only:nElements
 
  implicit none
  integer, public :: idust_opacity = 0
 
- public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
+ public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,&
+      calc_kappa_bowen,chemical_equilibrium_light,&
       read_options_dust_formation,write_options_dust_formation,&
       calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
       write_headeropts_dust_formation,read_headeropts_dust_formation
@@ -95,7 +96,6 @@ subroutine init_nucleation
  use eos,   only:gamma,gmw
  integer :: i
  real :: JKmuS(n_nucleation)
- real :: mass_per_H
 
  call set_abundances
 
@@ -399,7 +399,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
              isolve = isolve+1
              i      = 0
              tol    = 1.d-2
-             print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
+             print *,'[dust_formation] cannot converge on T(mu,gamma). Trying with lower tolerance'
           else
              print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
@@ -423,13 +423,13 @@ end subroutine calc_muGamma
 !  Initialise mean molecular weight and gamma
 !
 !--------------------------------------------
-subroutine init_muGamma(rho_cgs, T, mu, gamma, pH, pH2)
+subroutine init_muGamma(rho_cgs, T, mu, gamma, ppH, ppH2)
 ! all quantities are in cgs
  real, intent(in)              :: rho_cgs
  real, intent(inout)           :: T
  real, intent(out)             :: mu, gamma
- real, intent(out), optional   :: pH, pH2
- real :: KH2, pH_tot
+ real, intent(out), optional   :: ppH, ppH2
+ real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
  if (T > 1.d5) then
@@ -447,6 +447,8 @@ subroutine init_muGamma(rho_cgs, T, mu, gamma, pH, pH2)
  mu    = (1.+4.*eps(iHe))*pH_tot/(pH+pH2+eps(iHe)*pH_tot)
  gamma = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
  call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
+ if (present(ppH))  ppH = pH
+ if (present(ppH2)) ppH2 = pH2
 
 end subroutine init_muGamma
 
@@ -455,22 +457,32 @@ end subroutine init_muGamma
 !  Compute carbon chemical equilibrum abundance in the gas phase
 !
 !---------------------------------------------------------------
-subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu, gamma)
+subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu, gamma,&
+     nH, nH2, nHe, nCO, nH2O, nOH)
 ! all quantities are in cgs
  real, intent(in)    :: rho_cgs, epsC
  real, intent(inout) :: T, mu, gamma
  real, intent(out)   :: pC, pC2, pC2H, pC2H2
+ real, intent(out), optional :: nH, nH2, nHe, nCO, nH2O, nOH
  real    :: pH_tot, Kd(nMolecules+1), err, a, b, c, d
  real    :: pH, pCO, pO, pSi, pS, pTi, pN
- real    :: pC_old, pO_old, pSi_old, pS_old, pTi_old
+ real    :: pC_old, pO_old, pSi_old, pS_old, pTi_old, cst
  integer :: i, nit
 
  call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
- if (T > 1.d5) then
-    pC    = 1.d-50
-    pC2   = 1.d-50
+ if (T > 1.d4) then
+    pC    = eps(iC)*pH_tot
+    pC2   = 0.
     pC2H  = 0.
     pC2H2 = 0.
+    if (present(nH)) then
+       nH   = pH  *(patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+       nH2  = 1.d-50
+       nHe  = eps(ihe)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+       nCO  = 1.d-50
+       nH2O = 1.d-50
+       nOH  = 1.d-50
+    endif
     return
  endif
 
@@ -527,7 +539,7 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
     if (pTi > 1.e-50) err = err + abs((pTi-pTi_old)/pTi)
 
     nit = nit + 1
-    if (nit == 2000) exit
+    if (nit == 200) exit
 
     pC_old  = pC
     pO_old  = pO
@@ -545,6 +557,20 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
  pC2   = pC2*patm
  pC2H  = pC2H*patm
  pC2H2 = pC2H2*patm
+ if (present(nH)) then
+    cst  = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
+    if (T < 450.) then
+       nH2 = pH_tot/2.      *patm*cst
+       nH  = 1.d-99
+    else
+       nH   = pH            *patm*cst
+       nH2  = Kd(iH2)*pH**2 *patm*cst
+    endif
+    nHe  = eps(ihe)*pH_tot  *patm*cst
+    nCO  = Kd(iCO) *pC*pO   *patm*cst
+    nH2O = Kd(iH2O)*pH**2*pO*patm*cst
+    nOH  = Kd(iOH) *pH*pO   *patm*cst
+ endif
 end subroutine chemical_equilibrium_light
 
 !-----------------------------
@@ -600,7 +626,7 @@ pure real function calc_Kd(coefs, T)
  real, parameter :: R = 1.987165
  real :: G, d
  G = coefs(1)/T + coefs(2) + (coefs(3)+(coefs(4)+coefs(5)*T)*T)*T
- d = -G/(R*T)
+ d = min(-G/(R*T),222.d0)
  calc_Kd = exp(d)
 end function calc_Kd
 
