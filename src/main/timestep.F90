@@ -14,7 +14,7 @@ module timestep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io
 !
  implicit none
  real    :: tmax,dtmax
