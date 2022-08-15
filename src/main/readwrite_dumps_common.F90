@@ -14,8 +14,8 @@ module readwrite_dumps_common
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dump_utils, eos, gitinfo, io, options, part,
-!   sphNGutils
+! :Dependencies: dim, dump_utils, dust_formation, eos, gitinfo, io,
+!   options, part, sphNGutils
 !
  use dump_utils, only:lenid
  implicit none

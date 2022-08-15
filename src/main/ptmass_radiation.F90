@@ -15,15 +15,12 @@ module ptmass_radiation
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
-!   - Lstar           : *Stellar luminosity (for radiation pressure, in Lsun)*
-!   - Mstar           : *Stellar mass (in Msun)*
 !   - alpha_rad       : *fraction of the gravitational acceleration imparted to the gas*
 !   - iget_tdust      : *dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))*
 !   - isink_radiation : *sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)*
 !   - tdust_exp       : *exponent of the dust temperature profile*
 !
-! :Dependencies: dim, dust_formation, eos, infile_utils, io, kernel, part,
-!   physcon, units
+! :Dependencies: dim, dust_formation, infile_utils, io, part, units
 !
 
 
