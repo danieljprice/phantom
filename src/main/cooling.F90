@@ -50,7 +50,7 @@ module cooling
  character(len=*), parameter :: label = 'cooling'
 
  public :: init_cooling,calc_cooling_rate,energ_cooling
- public :: write_options_cooling, read_options_cooling
+ public :: write_options_cooling, read_options_cooling, print_cooling_rates
  public :: find_in_table, implicit_cooling, exact_cooling
  public :: cool_dust_discrete_contact, cool_coulomb, &
            cool_HI, cool_H_ionisation, cool_He_ionisation, &
@@ -357,8 +357,8 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
  Q         = Q_cgs/unit_ergg
 
- call testfunc()
- call exit
+ !call testfunc()
+ !call exit
 
 end subroutine calc_cooling_rate
 
@@ -1074,53 +1074,53 @@ subroutine print_cooling_rates(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH,
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust
  real, intent(in)  :: JL
- real :: Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16, Q17, Qtot, dlnQ_dlnT
+ real :: Q1, Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10, Q11, Q12, Q13, Q14, Q15, Q16, Q17, Qtot, dlnQ_dlnT, nH_tot
 
-
+ !nH_tot = nH+2.*nH2
+ nH_tot = 1.
  print*, ' '
  print*, ' '
  print*, '-----------------------------------------------------------------------------'
  print*, ' '
  print*, ' '
  Q1  = cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust)
- print*, 'Q1   = ', Q1
+ print*, 'Q1   = ', Q1/nH_tot
  Q2  = cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust)
- print*, 'Q2   = ', Q2
+ print*, 'Q2   = ', Q2/nH_tot
  Q3  = cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust)
- print*, 'Q3   = ', Q3
+ print*, 'Q3   = ', Q3/nH_tot
  Q4  = cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q4   = ', Q4
+ print*, 'Q4   = ', Q4/nH_tot
  Q5  = cool_HI(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q5   = ', Q5
+ print*, 'Q5   = ', Q5/nH_tot
  Q6  = cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q6   = ', Q6
+ print*, 'Q6   = ', Q6/nH_tot
  Q7  = cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
- print*, 'Q7   = ', Q7
+ print*, 'Q7   = ', Q7/nH_tot
  Q8  = cool_H2_rovib(T_gas, nH, nH2)
- print*, 'Q8   = ', Q8
+ print*, 'Q8   = ', Q8/nH_tot
  Q9  = cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
- print*, 'Q9   = ', Q9
+ print*, 'Q9   = ', Q9/nH_tot
  Q10 = cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
- print*, 'Q10  = ', Q10
+ print*, 'Q10  = ', Q10/nH_tot
  Q11 = cool_H2O_rovib(T_gas, rho_gas, mu, nH, nH2, nH2O)
- print*, 'Q11  = ', Q11
+ print*, 'Q11  = ', Q11/nH_tot
  Q12 = cool_OH_rot(T_gas, rho_gas, mu, nOH)
- print*, 'Q12  = ', Q12
+ print*, 'Q12  = ', Q12/nH_tot
  Q13 = heat_dust_friction(rho_gas, v_drift, d2g, a, rho_grain, kappa_dust)
- print*, 'Q13  = ', Q13
+ print*, 'Q13  = ', Q13/nH_tot
  Q14 = heat_dust_photovoltaic_soft(T_gas, rho_gas, mu, nH, nHe, kappa_dust)
- print*, 'Q14  = ', Q14
+ print*, 'Q14  = ', Q14/nH_tot
  Q15 = heat_dust_photovoltaic_hard(T_gas, nH, d2g, kappa_dust, JL)
- print*, 'Q15  = ', Q15
+ print*, 'Q15  = ', Q15/nH_tot
  Q16 = heat_CosmicRays(nH, nH2)
- print*, 'Q16  = ', Q16
+ print*, 'Q16  = ', Q16/nH_tot
  Q17 = heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
- print*, 'Q17  = ', Q17
+ print*, 'Q17  = ', Q17/nH_tot
 
  Qtot = calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, &
-                     T_dust, v_drift, d2g, a, rho_grain, kappa_dust, &
-                     JL)
- print*, 'Qtot = ', Qtot
+                     T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
+ print*, 'Qtot = ', Qtot/nH_tot
 
  dlnQ_dlnT = calc_dlnQdlnT(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, &
                             T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
