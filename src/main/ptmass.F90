@@ -61,13 +61,14 @@ module ptmass
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
- real,    public :: f_crit_override = 0.0    ! 1000. ! if > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
- ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.§
- ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
+ real,    public :: f_crit_override = 0.0    ! 1000.
+ ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
+ ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
+ ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
 
  ! additional public variables
  integer, public :: ipart_rhomax
