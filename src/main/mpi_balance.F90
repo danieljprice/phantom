@@ -88,16 +88,14 @@ subroutine balancedomains(npart)
     ntot_start = reduceall_mpi('+',npart - count_dead_particles())
 
     do i=1,npart
-!
-!--attempt to receive particles
-!
-       call recv_part()
-!
-!--send particles which belong to other processors
-!
+       !
+       !--send particles which belong to other processors
+       !
        newproc = ibelong(i)
-       if (newproc /= id) call send_part(i,newproc)
-
+       if (newproc /= id) then
+          call recv_part()
+          call send_part(i,newproc)
+       endif
     enddo
 
     if (iverbose >= 5) then
