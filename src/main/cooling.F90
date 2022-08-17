@@ -60,9 +60,11 @@ module cooling
            heat_H2_recombination, calc_Q, calc_dlnQdlnT, &
            cool_dust_full_contact, cool_dust_radiation, &
            heat_dust_photovoltaic_hard
- logical, public :: cooling_in_step = .true.
- real,    public :: bowen_Cprime    = 3.000d-5
- real,    public :: GammaKI_cgs     = 2.d-26        ! [erg/s] heating rate for Koyama & Inutuska cooling
+ logical, public :: cooling_in_step  = .true.
+ real,    public :: bowen_Cprime     = 3.000d-5
+ real,    public :: GammaKI_cgs      = 2.d-26        ! [erg/s] heating rate for Koyama & Inutuska cooling
+ real,    public :: lambda_shock_cgs = 1.d0
+ real,    public :: T1_factor = 20.d0
 
  private
  integer, parameter :: nTg  = 64
@@ -79,8 +81,8 @@ module cooling
  real    :: KI02_rho_max_cgs = 1.0d-14              ! maximum density of the KI02 cooling curve
  real    :: KI02_rho_min,KI02_rho_max
  real    :: kappa_dust_min = 1e-3                   ! dust opacity value below which dust cooling is not calculated
- integer :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0
- integer :: icool_method  = 0
+ integer, public :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0, shock_problem = 0
+ integer, public :: icool_method  = 0
  character(len=120) :: cooltable = 'cooltable.dat'
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0.                     ! [K]; set in .in file.  On if Tfloor > 0.
@@ -304,6 +306,7 @@ subroutine init_hv4table(ierr)
  enddo
 
 end subroutine init_hv4table
+
 !-----------------------------------------------------------------------
 !
 !  calculate cooling rates
@@ -319,39 +322,41 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  real, intent(in), optional :: K2, kappa       !cgs
  real, intent(out)          :: Q, dlnQ_dlnT    !code units
 
- real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_molec, rho_cgs
- real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan, dlnQ_molec
+ real :: Q_cgs,Q_H0, Q_relax_Bowen, Q_col_dust, Q_relax_Stefan, Q_molec, Q_shock, rho_cgs
+ real :: dlnQ_H0, dlnQ_relax_Bowen, dlnQ_col_dust, dlnQ_relax_Stefan, dlnQ_molec, dlnQ_shock
+ real :: T0 ! this variable needs to be imported
 
  rho_cgs           = rho*unit_density
  Q_H0              = 0.
  Q_relax_Bowen     = 0.
  Q_col_dust        = 0.
  Q_relax_Stefan    = 0.
+ Q_shock           = 0.
  Q_molec           = 0.
 
  dlnQ_H0           = 0.
  dlnQ_relax_Bowen  = 0.
  dlnQ_col_dust     = 0.
  dlnQ_relax_Stefan = 0.
+ dlnQ_shock        = 0.
  dlnQ_molec        = 0.
 
- if (excitation_HI  == 1) &
-                    call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
+ if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
  if (relax_Bowen    == 1 ) &
                     call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, gamma, Q_relax_Bowen, dlnQ_relax_Bowen)
  if (dust_collision == 1 .and. present(K2)) &
                     call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1 .and. present(kappa)) &
                     call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
- !if (do_molecular_cooling) &
- !                   call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
+ if (shock_problem  == 1) call piecewise_law(T, T0, rho_cgs, Q_H0, dlnQ_H0)
+ !if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
- Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec
+ Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec + Q_shock
  if (Q_cgs == 0.) then
     dlnQ_dlnT = 0.
  else
     dlnQ_dlnT = (Q_H0*dlnQ_H0 + Q_relax_Bowen*dlnQ_relax_Bowen + Q_col_dust*dlnQ_col_dust&
-   + Q_relax_Stefan*dlnQ_relax_Stefan + Q_molec*dlnQ_molec)/Q_cgs
+   + Q_relax_Stefan*dlnQ_relax_Stefan + Q_molec*dlnQ_molec + Q_shock*dlnQ_shock)/Q_cgs
  endif
  !limit exponent to prevent overflow
  dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
@@ -362,6 +367,34 @@ subroutine calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
 
 end subroutine calc_cooling_rate
 
+subroutine piecewise_law(T, T0, rho_cgs, Q, dlnQ)
+
+ real, intent(in)  :: T, T0, rho_cgs
+ real, intent(out) :: Q,dlnQ
+ real :: T1,ndens,Tmid !,dlnT,fac
+
+ stop 'T0 and possibly T1 need to be deined!'
+ T1 = T1_factor*T0
+ Tmid = 0.5*(T0+T1)
+ ndens = rho_cgs/mass_proton_cgs
+ if (T < T0) then
+    Q    = 0.
+    dlnQ = 0.
+ elseif (T >= T0 .and. T <= Tmid) then
+    !dlnT = (T-T0)/(T0/100.)
+    Q = -lambda_shock_cgs*ndens**2*(T-T0)/T0
+    !fac = 2./(1.d0 + exp(dlnT))
+    dlnQ = 1./(T-T0+1.d-10)
+ elseif (T >= Tmid .and. T <= T1) then
+    Q = -lambda_shock_cgs*ndens**2*(T1-T)/T0
+    dlnQ = -1./(T1-T+1.d-10)
+ else
+    Q    = 0.
+    dlnQ = 0.
+ endif
+ !derivatives are discontinuous!
+
+end subroutine piecewise_law
 
 !-----------------------------------------------------------------------
 !+
@@ -430,11 +463,11 @@ end subroutine cooling_radiative_relaxation
 !  Cooling due to electron excitation of neutral H (Spitzer 1978)
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
+subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
 
  use physcon, only: mass_proton_cgs, pi
 
- real, intent(in)  :: T, rho
+ real, intent(in)  :: T, rho_cgs
  real, intent(out) :: Q,dlnQ_dlnT
 
  real, parameter   :: f = 1.0d0
@@ -442,7 +475,7 @@ subroutine cooling_neutral_hydrogen(T, rho, Q, dlnQ_dlnT)
 
  if (T > 3000.) then
     eps_e = calc_eps_e(T)
-    Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho/(1.4*mass_proton_cgs)**2
+    Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho_cgs/(1.4*mass_proton_cgs)**2
     dlnQ_dlnT = 118400.d0/T+log(calc_eps_e(1.001*T)/eps_e)/log(1.001)
  else
     Q = 0.
@@ -478,7 +511,6 @@ end function calc_eps_e
 !  Set Temperature grid
 !+
 !-----------------------------------------------------------------------
-
 subroutine set_Tgrid
 
  integer :: i
@@ -919,6 +951,11 @@ subroutine write_options_cooling(iunit)
        call write_inopt(relax_bowen,'relax_bowen','Bowen (diffusive) relaxation (1=on/0=off)',iunit)
        call write_inopt(relax_stefan,'relax_stefan','radiative relaxation (1=on/0=off)',iunit)
        call write_inopt(dust_collision,'dust_collision','dust collision (1=on/0=off)',iunit)
+       call write_inopt(shock_problem,'shock_problem','piecewise formulation for analytic shock solution (1=on/0=off)',iunit)
+       if (shock_problem == 1) then
+          call write_inopt(lambda_shock_cgs,'lambda_shock','Cooling rate parmaeter for analytic shock solution',iunit)
+          call write_inopt(T1_factor,'T1_factor','factor by which T0 is increased (T1= T1_factor*T0)',iunit)
+       endif
        call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
     case(3)
        call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
@@ -945,7 +982,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
- integer, save :: ngot = 0
+ integer, save :: ngot = 0, nn = 9
  logical :: igotallh2,igotallcf,igotallmol
 
  imatch     = .true.
@@ -972,6 +1009,15 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('dust_collision')
     read(valstring,*,iostat=ierr) dust_collision
+    ngot = ngot + 1
+ case('shock_problem')
+    read(valstring,*,iostat=ierr) shock_problem
+    ngot = ngot + 1
+ case('lambda_shock')
+    read(valstring,*,iostat=ierr) lambda_shock_cgs
+    ngot = ngot + 1
+ case('T1_factor')
+    read(valstring,*,iostat=ierr) T1_factor
     ngot = ngot + 1
  case('C_cool')
     read(valstring,*,iostat=ierr) C_cool
@@ -1002,10 +1048,15 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     endif
  end select
  ierr = 0
+ if (shock_problem == 1) then
+    nn = 11
+ else
+    nn = 9
+ endif
  !if (icooling > 0 .and. .not. imatch) call read_options_molecular_cooling(name,valstring,imatch,igotallmol,ierr)
  if (icooling == 0 .and. ngot >= 2) igotall = .true.
- if (icooling == 1 .and. ngot >= 8) igotall = .true.
- if (icooling == 2 .and. ngot >= 7) igotall = .true.
+ if (icooling == 1 .and. ngot >= nn) igotall = .true.
+ if (icooling == 2 .and. ngot >= 8) igotall = .true.
  if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 4 .and. ngot >= 3) igotall = .true.
  if (h2chemistry .and. igotallh2 .and. ngot >= 1) igotall = .true.
