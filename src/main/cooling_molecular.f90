@@ -14,7 +14,7 @@ module cooling_molecular
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, infile_utils, physcon
+! :Dependencies: datafiles, eos, infile_utils, physcon, units
 !
 
  implicit none
