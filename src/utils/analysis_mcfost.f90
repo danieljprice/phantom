@@ -38,7 +38,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                              massoftype,xyzmh_ptmass,vxyz_ptmass,luminosity,igas,&
                              grainsize,graindens,ndusttypes,rad,radprop,&
                              rhoh,ikappa,iradxi,ithick,inumph,drad,ivorcl,eos_vars,itemp
- use units,          only:umass,utime,udist
+ use units,          only:umass,utime,udist,get_radconst_code
  use io,             only:fatal,iprint
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
