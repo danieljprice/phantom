@@ -755,7 +755,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.f90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
 endif
 

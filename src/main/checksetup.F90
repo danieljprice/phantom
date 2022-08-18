@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -435,6 +435,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (use_dustgrowth) call check_setup_growth(npart,nerror)
 !
+!--check dust nucleation arrays
+!
+ if (do_nucleation) call check_setup_nucleation(npart,nerror)
+!
 !--check point mass setup
 !
  call check_setup_ptmass(nerror,nwarn,hmin)
@@ -577,6 +581,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
 
 end subroutine check_setup_ptmass
 
+!------------------------------------------------------------------
+!+
+! check dust growth arrays are sensible
+!+
+!------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
  use part, only:dustprop,dustprop_label
  integer, intent(in)    :: npart
@@ -597,12 +606,44 @@ subroutine check_setup_growth(npart,nerror)
 
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1
     endif
  enddo
 
 end subroutine check_setup_growth
+
+!------------------------------------------------------------------
+!+
+! check dust nucleation arrays are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_nucleation(npart,nerror)
+ use part, only:nucleation,nucleation_label,n_nucleation,idmu,idgamma
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ integer :: i,j,nbad(n_nucleation)
+
+ nbad = 0
+ !-- Check that all the parameters are > 0 when needed
+ do i=1,npart
+    if (nucleation(idmu,i) < 0.1) nbad(idmu) = nbad(idmu) + 1
+    if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
+
+    if (any(isnan(nucleation(:,i)))) then
+       print*,'NaNs in nucleation array'
+       nerror = nerror + 1
+    endif
+ enddo
+
+ do j=1,n_nucleation
+    if (nbad(j) > 0) then
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(nucleation_label(j))//' <= 0'
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_nucleation
 
 !------------------------------------------------------------------
 !+
