@@ -20,7 +20,8 @@ module dust_formation
 !   - kappa_gas     : *constant gas opacity (cm²/g)*
 !   - wind_CO_ratio : *wind initial C/O ratio (> 1)*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, physcon, units
+! :Dependencies: dim, dump_utils, eos, infile_utils, io, part, physcon,
+!   units
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
@@ -344,7 +345,7 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
- !if (K_new(3).gt.1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
+ !if (K_new(3) > 1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
 end subroutine evol_K
 
 !----------------------------------------
