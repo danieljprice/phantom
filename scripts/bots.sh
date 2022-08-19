@@ -69,6 +69,12 @@ while [[ "$1" == --* ]]; do
       break;
       ;;
 
+   --files)
+      shift
+      input_files="$*"
+      break;
+      ;;
+
     *)
       badflag=$1
       ;;
@@ -152,6 +158,9 @@ for edittype in $bots_to_run; do
              myfiles=`get_only_files_in_git "$files"`
            fi
            for file in $myfiles; do
+               if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* ]]; then
+                 continue
+               fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
