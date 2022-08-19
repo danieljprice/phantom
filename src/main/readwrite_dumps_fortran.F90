@@ -221,7 +221,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc
- use options,    only:use_dustfrac,use_var_comp
+ use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -373,7 +373,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature) then
+       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature .or. icooling > 0) then
           call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
