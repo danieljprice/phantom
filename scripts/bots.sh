@@ -69,6 +69,12 @@ while [[ "$1" == --* ]]; do
       break;
       ;;
 
+   --files)
+      shift
+      input_files="$*"
+      break;
+      ;;
+
     *)
       badflag=$1
       ;;
@@ -148,10 +154,17 @@ for edittype in $bots_to_run; do
              else
                myfiles=""
              fi
+           elif [[ "$input_files" != "" ]]; then
+             # if using pre-commit to pass in a list of files, then there is no need to check
+             # if these files are in git
+             myfiles="$files"
            else
              myfiles=`get_only_files_in_git "$files"`
            fi
            for file in $myfiles; do
+               if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
+                 continue
+               fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
