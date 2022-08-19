@@ -158,7 +158,7 @@ for edittype in $bots_to_run; do
              myfiles=`get_only_files_in_git "$files"`
            fi
            for file in $myfiles; do
-               if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* ]]; then
+               if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
                  continue
                fi
                out="$tmpdir/$file"
