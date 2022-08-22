@@ -76,10 +76,6 @@ module mpimemory
  type(celldens),  allocatable, target :: dens_cells(:,:)
  type(cellforce), allocatable, target :: force_cells(:,:)
 
- ! temporary memory for increasing stack sizes
- type(celldens),  allocatable, target :: dens_cells_tmp(:,:)
- type(cellforce), allocatable, target :: force_cells_tmp(:,:)
-
 contains
 
 subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
@@ -125,26 +121,26 @@ subroutine increase_mpi_memory
  integer         :: stacksize_new
  integer         :: allocstat
 
+ ! temporary memory for increasing stack sizes
+ type(celldens),  allocatable, target :: dens_cells_tmp(:,:)
+ type(cellforce), allocatable, target :: force_cells_tmp(:,:)
+
  stacksize_new = int(real(stacksize) * factor)
  write(iprint, *) 'MPI stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand density
- allocate(dens_cells_tmp(stacksize,3), stat=allocstat)
- if (allocstat /= 0) call fatal('stack','error increasing dens stack size')
- dens_cells_tmp(:,:) = dens_cells(:,:)
- deallocate(dens_cells)
+ move_alloc(dens_cells, dens_cells_tmp)
  allocate(dens_cells(stacksize_new,3), stat=allocstat)
+ if (allocstat /= 0) call fatal('stack', 'error increasing dens stack size')
  dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
  deallocate(dens_cells_tmp)
 
  ! Do these one at a time to minimise peak memory usage
 
  ! Expand force
- allocate(force_cells_tmp(stacksize,2), stat=allocstat)
- if (allocstat /= 0) call fatal('stack','error increasing force stack size')
- force_cells_tmp(:,:) = force_cells(:,:)
- deallocate(force_cells)
- allocate(force_cells(stacksize_new,2), stat=allocstat)
+ move_alloc(force_cells, force_cells_tmp)
+ allocate(force_cells(stacksize_new,3), stat=allocstat)
+ if (allocstat /= 0) call fatal('stack', 'error increasing force stack size')
  force_cells(1:stacksize,:) = force_cells_tmp(:,:)
  deallocate(force_cells_tmp)
 
