@@ -220,7 +220,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
- use mpimemory,    only:reserve_stack,reset_stacks
+ use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
@@ -508,7 +508,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                       rad,radprop,dens,metrics)
 
     if (do_export) then
-       stack_waiting%cells(cell%waiting_index) = cell
+       call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -559,7 +559,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  igot_remote: if (stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
-       cell = stack_remote%cells(i)
+       cell = get_cell(stack_remote,i)
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                                getj=.true.,f=cell%fgrav,&
@@ -607,7 +607,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
-       cell = stack_waiting%cells(i)
+       cell = get_cell(stack_waiting,i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
