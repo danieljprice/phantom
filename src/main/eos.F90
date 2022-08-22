@@ -55,7 +55,7 @@ module eos
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
+ public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
 
@@ -608,6 +608,33 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
+
+
+!-----------------------------------------------------------------------
+!+
+!  get u from rho, T
+!+
+!-----------------------------------------------------------------------
+real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
+ use eos_mesa, only:get_eos_u_from_rhoT_mesa
+ integer, intent(in)        :: eos_type
+ real, intent(in)           :: rho,temp
+ real, intent(in), optional :: uguess
+
+ select case (eos_type)
+ case(10) ! MESA EoS
+    if (present(uguess)) then
+       call get_eos_u_from_rhoT_mesa(rho,temp,u,uguess)
+    else
+       call get_eos_u_from_rhoT_mesa(rho,temp,u)
+    endif
+
+ case default
+    u = temp/(gmw*temperature_coef*(gamma-1.))
+ end select
+
+end function get_u_from_rhoT
+
 
 !-----------------------------------------------------------------------
 !+
