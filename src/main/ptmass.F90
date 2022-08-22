@@ -53,9 +53,7 @@ module ptmass
  public :: update_ptmass
  public :: calculate_mdot
  public :: ptmass_calc_enclosed_mass
-#ifdef PERIODIC
  public :: ptmass_boundary_crossing
-#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -424,10 +422,9 @@ end subroutine get_accel_sink_sink
 !  Update position of sink particles if they cross the periodic boundary
 !+
 !----------------------------------------------------------------
-#ifdef PERIODIC
 subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
- use boundary, only:cross_boundary
- use mpidomain,only:isperiodic
+ use boundary,  only:cross_boundary
+ use mpidomain, only:isperiodic
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  integer                :: i,ncross
@@ -438,7 +435,7 @@ subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  enddo
 
 end subroutine ptmass_boundary_crossing
-#endif
+
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses

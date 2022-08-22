@@ -14,8 +14,8 @@ module readwrite_dumps_common
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dump_utils, eos, gitinfo, io, options, part,
-!   sphNGutils
+! :Dependencies: dim, dump_utils, dust_formation, eos, gitinfo, io,
+!   options, part, sphNGutils
 !
  use dump_utils, only:lenid
  implicit none
@@ -120,22 +120,25 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                        got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
+                        got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_nucleation,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,do_radiation,store_dust_temperature
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
+                do_radiation,store_dust_temperature,do_nucleation
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
- use options,    only:alpha,use_dustfrac,use_var_comp
- use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
+ use options,        only:alpha,use_dustfrac,use_var_comp
+ use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
+ use dust_formation, only:init_nucleation
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
  logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
- logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:),got_raden(:),got_kappa,got_iorig
+ logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_nucleation(:),got_pxyzu(:),got_raden(:)
+ logical,         intent(in)    :: got_kappa,got_iorig
  integer(kind=1), intent(inout) :: iphase(:)
  integer(kind=8), intent(inout) :: iorig(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
@@ -172,7 +175,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        !
        !--iphase is required if there is more than one particle type
        !
-       write(*,*) 'error in rdump: need type information but iamtype not present in dump file'
+       write(*,"(/,a,/)") 'error in rdump: need type information but iamtype not present in dump file'
        ierr = 8
        return
     else
@@ -208,13 +211,13 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
           vxyzu(4,i) = 1.5*polyk
           !print*,'u = ',vxyzu(4,i)
        enddo
-       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: u not in file but setting u = 3/2 * cs^2'
     else
        do i=i1,i2
           vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
           !print*,'u = ',vxyzu(4,i)
        enddo
-       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
     endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
@@ -245,11 +248,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  endif
 #endif
  if (eos_is_non_ideal(ieos) .and. .not.got_temp) then
-    if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing temperature information from file'
  endif
  use_var_comp = (got_x .and. got_z .and. got_mu)
  if (store_dust_temperature .and. .not.got_Tdust) then
-    if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing dust temperature information from file'
  endif
  if (maxalpha==maxp) then
     if (got_alpha) then
@@ -260,7 +263,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
           endif
        endif
     else
-       if (id==master .and. i1==1) write(*,*) 'WARNING: alpha not found in file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: alpha not found in file'
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
@@ -315,7 +318,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        endif
     enddo
     if (.not.all(got_sink_vels(1:3))) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING! sink particle velocities not found'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
     endif
     if (id==master .and. i1==1) then
        print "(2(a,i4),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
@@ -337,7 +340,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        ierr = ierr + 1
     endif
     if (.not.got_kappa) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif
 
@@ -346,10 +349,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (mhd) then
     if (.not.all(got_Bxyz(1:3))) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (.not.got_psi) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") &
+          'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
  endif
@@ -359,8 +363,17 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (gr) then
     if (.not.all(got_pxyzu(1:3))) then
-       write(*,*) 'WARNING: GR but momentum arrays not found in Phantom dump file'
+       write(*,"(/,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
        pxyzu(:,i1:i2) = 0.
+    endif
+ endif
+ !
+ ! Dust nucleation arrays
+ !
+ if (do_nucleation) then
+    if (.not.all(got_nucleation)) then
+       write(*,"(/,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
+       call init_nucleation()
     endif
  endif
 
@@ -372,7 +385,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        iorig(i) = i + noffset
     enddo
     norig = i2
-    if (id==master .and. i1==1) write(*,*) 'WARNING: Particle IDs not in dump; resetting IDs'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  else
     norig = 0
     do i=i1,i2
