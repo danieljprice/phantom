@@ -202,6 +202,76 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
 
 end subroutine get_eos_eT_from_rhop_mesa
 
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy from density and internal
+!  energy using bisection method. Assumes cgs units
+!
+!  Note: Needs unit testing (test_eos)
+!+
+!----------------------------------------------------------------
+pure subroutine get_eos_u_from_rhoT_mesa(rho,temp,eint,guesseint)
+ use physcon, only:kb_on_mh
+ real, intent(in)           :: rho,temp
+ real, intent(out)          :: eint
+ real, intent(in), optional :: guesseint
+ real                       :: err,eintguess,eint1,eint2,&
+                               eint3,temp1,temp2,temp3,left,right,mid
+ real, parameter            :: tolerance = 1d-15
+ integer                    :: ierr
+
+ if (present(guesseint)) then
+    eintguess = guesseint
+    eint1 = 1.005 * eintguess  ! Tight lower bound
+    eint2 = 0.995 * eintguess  ! Tight upper bound
+ else
+    eintguess = 1.5*kb_on_mh*temp
+    eint1 = 10. * eintguess  ! Guess lower bound
+    eint2 = 0.1 * eintguess  ! Guess upper bound
+ endif
+
+ call getvalue_mesa(rho,eint1,4,temp1,ierr)
+ call getvalue_mesa(rho,eint2,4,temp2,ierr)
+ left  = temp - temp1
+ right = temp - temp2
+
+ ! If lower and upper bounds do not contain roots, extend them until they do
+ do while (left*right > 0.)
+    eint1 = 0.99 * eint1
+    eint2 = 1.01 * eint2
+    call getvalue_mesa(rho,eint1,4,temp1,ierr)
+    call getvalue_mesa(rho,eint2,4,temp2,ierr)
+    left  = temp - temp1
+    right = temp - temp2
+ enddo
+
+ ! Start bisecting
+ err = huge(1.)
+ do while (abs(err) > tolerance)
+    call getvalue_mesa(rho,eint1,4,temp1,ierr)
+    call getvalue_mesa(rho,eint2,4,temp2,ierr)
+    left  = temp - temp1
+    right = temp - temp2
+    eint3 = 0.5*(eint1+eint2)
+    call getvalue_mesa(rho,eint3,4,temp3,ierr)
+    mid = temp - temp3
+
+    if (left*mid < 0.) then
+       eint2 = eint3
+    elseif (right*mid < 0.) then
+       eint1 = eint3
+    elseif (mid == 0.) then
+       eint = eint3
+       exit
+    endif
+
+    eint = eint3
+    err = (eint2 - eint1)/eint1
+ enddo
+
+end subroutine get_eos_u_from_rhoT_mesa
+
 !----------------------------------------------------------------
 !+
 !  subroutine returns various quantities as
