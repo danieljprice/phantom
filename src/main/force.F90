@@ -362,7 +362,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (mpi) then
     call reset_stacks
     call reset_cell_counters(cell_counters)
-    call init_cell_exchange(xrecvbuf,irequestrecv)
  endif
 
 !
@@ -415,10 +414,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp shared(irequestrecv) &
+!$omp private(irequestrecv) &
 !$omp private(irequestsend) &
 !$omp shared(stack_remote,stack_waiting) &
-!$omp shared(xrecvbuf) &
+!$omp private(xrecvbuf) &
 !$omp private(xsendbuf) &
 !$omp shared(cell_counters) &
 #ifdef IND_TIMESTEPS
@@ -446,6 +445,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
+ if (mpi) call init_cell_exchange(xrecvbuf,irequestrecv)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -536,17 +536,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
-       !$omp master
+       !$omp critical (crit_recv_remote)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv)
-       !$omp end master
+       !$omp end critical (crit_recv_remote)
     enddo
  endif
 
  !$omp barrier
 
- !$omp master
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 
+ !$omp master
  call reset_cell_counters(cell_counters)
 
  call get_timings(t2,tcpu2)
@@ -593,20 +593,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
-       !$omp master
+       !$omp critical (crit_recv_waiting)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
-       !$omp end master
+       !$omp end critical (crit_recv_waiting)
     enddo
 
  endif igot_remote
 
  !$omp barrier
 
- !$omp master
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
- !$omp end master
-
- !$omp barrier
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
@@ -639,9 +635,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     !$omp end master
  endif iam_waiting
 
-!$omp master
  call finish_cell_exchange(irequestrecv,xsendbuf)
 
+!$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
 !$omp end master

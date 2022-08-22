@@ -41,7 +41,7 @@ module mpiutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpi
+! :Dependencies: io, mpi, mpiforce
 !
 #ifdef MPI
  use mpi
@@ -121,7 +121,8 @@ contains
 !--------------------------------------------------------------------
 subroutine init_mpi(id,nprocs)
 #ifdef MPI
- use io, only:fatal,master
+ use io,       only:fatal,master
+ use mpiforce, only:get_mpitype_of_cellforce
 #endif
  integer, intent(out) :: id,nprocs
 #ifdef MPI
@@ -154,6 +155,8 @@ subroutine init_mpi(id,nprocs)
  case default
     call fatal('init_mpi','cannot determine kind for default real')
  end select
+
+ call get_mpitype_of_cellforce
 #else
  id = 0
  nprocs = 1
@@ -233,8 +236,12 @@ subroutine barrier_mpi()
 #ifdef MPI
  use io, only:fatal
 
+ ! call MPI_BARRIER on the master task only, but also barrier the OMP threads
+ !$omp master
  call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
  if (mpierr /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
+ !$omp end master
+ !$omp barrier
 
 #endif
 
