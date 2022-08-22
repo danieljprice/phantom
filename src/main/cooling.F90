@@ -72,7 +72,6 @@ module cooling
  real,    parameter :: Tref = 1.d5, T_floor = 10.   ! required for exact_cooling
  integer :: nt
  real    :: temper(maxt),lambda(maxt),slope(maxt),yfunc(maxt),rhov4_KI02(2,maxt)
- real    :: beta_cool  = 3.
  real    :: habund     = 0.7
  real    :: temp_floor = 1.e4                       ! required for cooling_Townsend_table
  real    :: Tgrid(nTg)
@@ -102,7 +101,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use physcon,           only:mass_proton_cgs,kboltz
  use io,                only:fatal
  use eos,               only:gamma,gmw
- use h2cooling,         only:init_h2cooling
+ use cooling_ism,       only:init_cooling_ism
  use chem,              only:init_chem
  use cooling_molecular, only:do_molecular_cooling,init_cooling_molec
 
@@ -112,7 +111,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  if (h2chemistry) then
     if (id==master) write(iprint,*) 'initialising cooling function...'
     call init_chem()
-    call init_h2cooling()
+    call init_cooling_ism()
  else
     !you can't have cool_relaxation_Stefan and cool_relaxation_Bowen at the same time
     if (relax_Bowen == 1 .and. relax_Stefan == 1) then
@@ -526,24 +525,7 @@ subroutine set_Tgrid
 
 end subroutine set_Tgrid
 
-!-----------------------------------------------------------------------
-!+
-!   Gammie (2001) cooling
-!+
-!-----------------------------------------------------------------------
-subroutine cooling_Gammie(xi,yi,zi,ui,dudti)
 
- real, intent(in)    :: ui,xi,yi,zi
- real, intent(inout) :: dudti
-
- real :: omegai,r2,tcool1
-
- r2     = xi*xi + yi*yi + zi*zi
- Omegai = r2**(-0.75)
- tcool1 = Omegai/beta_cool
- dudti  = dudti - ui*tcool1
-
-end subroutine cooling_Gammie
 
 !-----------------------------------------------------------------------
 !+
@@ -713,6 +695,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad_in,mu_in,gamma_in,K2_in,ka
  use eos,     only:gmw,gamma
  use physcon, only:Rg
  use units,   only:unit_ergg
+ use cooling_gammie, only:cooling_Gammie_explicit
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
  real, intent(in), optional :: Tgas_in,Trad_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(out)          :: dudt                                ! in code units
@@ -743,7 +726,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad_in,mu_in,gamma_in,K2_in,ka
        call explicit_cooling(ui,dudt,rho,dt,mu,polyIndex,Trad,K2,kappa)
     endif
  case (3)
-    call cooling_Gammie(xi,yi,zi,ui,dudt)
+    call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case (4)
     call cooling_Townsend_table(ui,rho,dt,dudt,mu,polyIndex)
  case (5)
@@ -936,9 +919,10 @@ end function find_in_table
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_cooling(iunit)
- use infile_utils, only:write_inopt
- use h2cooling,    only:write_options_h2cooling
- use part,         only:h2chemistry
+ use infile_utils,   only:write_inopt
+ use part,           only:h2chemistry
+ use cooling_ism,    only:write_options_cooling_ism
+ use cooling_gammie, only:write_options_cooling_gammie
  use cooling_molecular, only: write_options_molecularcooling
  integer, intent(in) :: iunit
 
@@ -946,7 +930,7 @@ subroutine write_options_cooling(iunit)
  call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  if (h2chemistry) then
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
-    if (icooling > 0) call write_options_h2cooling(iunit)
+    if (icooling > 0) call write_options_cooling_ism(iunit)
  else
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling in substep, 2=cooling in force,'// &
                               '3=Gammie, 4=Townsend table, 5,6=KI02)',iunit)
@@ -967,7 +951,7 @@ subroutine write_options_cooling(iunit)
        endif
        call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
     case(3)
-       call write_inopt(beta_cool,'beta_cool','beta factor in Gammie (2001) cooling',iunit)
+       call write_options_cooling_gammie(iunit)
     case(4)
        call write_inopt(cooltable,'cooltable','data file containing cooling function',iunit)
        call write_inopt(habund,'habund','Hydrogen abundance assumed in cooling function',iunit)
@@ -985,20 +969,22 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use part,              only:h2chemistry
- use h2cooling,         only:read_options_h2cooling
  use io,                only:fatal
+ use cooling_gammie,    only:read_options_cooling_gammie
+ use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0, nn = 9
- logical :: igotallh2,igotallcf,igotallmol
+ logical :: igotallh2,igotallcf,igotallmol,igotallgammie
 
  imatch     = .true.
  igotall    = .false.  ! cooling options are compulsory
  igotallh2  = .true.
  igotallcf  = .true.
  igotallmol = .true.
+ igotallgammie = .true.
 
  select case(trim(name))
  case('icooling')
@@ -1046,17 +1032,14 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case('bowen_Cprime')
     read(valstring,*,iostat=ierr) bowen_Cprime
     ngot = ngot + 1
- case('beta_cool')
-    read(valstring,*,iostat=ierr) beta_cool
-    ngot = ngot + 1
-    if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
  case('Tfloor')
     ! not compulsory to read in
     read(valstring,*,iostat=ierr) Tfloor
  case default
     imatch = .false.
+    call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
     if (h2chemistry) then
-       call read_options_h2cooling(name,valstring,imatch,igotallh2,ierr)
+       call read_options_ism_cooling(name,valstring,imatch,igotallh2,ierr)
     endif
  end select
  ierr = 0
@@ -1069,9 +1052,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  if (icooling == 0 .and. ngot >= 2) igotall = .true.
  if (icooling == 1 .and. ngot >= nn) igotall = .true.
  if (icooling == 2 .and. ngot >= 8) igotall = .true.
- if (icooling == 3 .and. ngot >= 1) igotall = .true.
  if (icooling == 4 .and. ngot >= 3) igotall = .true.
- if (h2chemistry .and. igotallh2 .and. ngot >= 1) igotall = .true.
+ if (h2chemistry .and. igotallh2 .and. igotallgammie .and. ngot >= 1) igotall = .true.
 
 end subroutine read_options_cooling
 
