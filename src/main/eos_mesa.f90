@@ -108,6 +108,19 @@ end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
+!  subroutine returns kappa as a function of
+!  density, temperature and composition
+!+
+!----------------------------------------------------------------
+real function get_eos_1overmu_mesa(den,u,Rg) result(rmu)
+ real, intent(in) :: den,u,Rg
+
+ rmu = get_1overmu_mesa(den,u,Rg)
+
+end function get_eos_1overmu_mesa
+
+!----------------------------------------------------------------
+!+
 !  subroutine returns pressure and temperature as
 !  a function of density/internal energy
 !+
