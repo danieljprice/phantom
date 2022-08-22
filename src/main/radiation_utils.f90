@@ -28,6 +28,9 @@ module radiation_utils
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
+ public :: get_1overmu
+ public :: get_cv
+ public :: get_kappa
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps
  public :: solve_internal_energy_explicit
@@ -76,6 +79,24 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,r
  enddo
 
 end subroutine set_radiation_and_gas_temperature_equal
+
+!---------------------------------------------------------
+!+
+!  return cv from rho, u in code units
+!+
+!---------------------------------------------------------
+real function get_cv(rho,u) result(cv)
+ use mesa_microphysics, only:getvalue_mesa
+ use units,             only:unit_ergg,unit_density
+ real, intent(in) :: rho,u
+ real             :: rho_cgs,u_cgs,temp
+
+ rho_cgs = rho*unit_density
+ u_cgs = u*unit_ergg
+ call getvalue_mesa(rho_cgs,u_cgs,4,temp)
+ cv = u_cgs/temp / unit_ergg
+
+end function get_cv
 
 !-------------------------------------------------
 !+
@@ -379,6 +400,23 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
 
 end subroutine radiation_equation_of_state
 
+
+!--------------------------------------------------------------------
+!+
+!  get opacity from u and rho in code units (and precalculated cv)  
+!+
+!--------------------------------------------------------------------
+real function get_kappa(opacity_type,u,cv,rho) result(kappa)
+ integer, intent(in) :: opacity_type
+ real, intent(in)    :: u,cv,rho
+ real                :: temp
+
+ temp = u/cv
+ call get_opacity(opacity_type,rho,temp,kappa)
+
+end function get_kappa
+
+
 !--------------------------------------------------------------------
 !+
 !  calculate opacities
@@ -404,6 +442,25 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
  end select
 
 end subroutine get_opacity
+
+
+!--------------------------------------------------------------------
+!+
+!  get 1/mu from rho, u
+!+
+!--------------------------------------------------------------------
+real function get_1overmu(rho,u) result(rmu)
+ use mesa_microphysics, only:get_1overmu_mesa
+ use physcon,           only:Rg
+ use units,             only:unit_density,unit_ergg
+ real, intent(in) :: rho,u
+ real             :: rho_cgs,u_cgs
+
+ rho_cgs = rho*unit_density
+ u_cgs = u*unit_ergg
+ rmu = get_1overmu_mesa(rho_cgs,u_cgs,Rg)
+
+end function get_1overmu
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa
