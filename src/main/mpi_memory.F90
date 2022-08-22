@@ -38,6 +38,14 @@ module mpimemory
   module procedure pop_off_stack_dens,pop_off_stack_force
  end interface pop_off_stack
 
+ interface get_cell
+  module procedure get_cell_force
+ end interface get_cell
+
+ interface write_cell
+  module procedure write_cell_force
+ end interface write_cell
+
  interface reserve_stack
   module procedure reserve_stack_dens,reserve_stack_force
  end interface reserve_stack
@@ -48,6 +56,8 @@ module mpimemory
  public :: swap_stacks
  public :: push_onto_stack
  public :: pop_off_stack
+ public :: get_cell
+ public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
 
@@ -258,6 +268,23 @@ subroutine pop_off_stack_force(stack,cell)
  cell = stack%cells(stack%n)
  stack%n = stack%n - 1
 end subroutine pop_off_stack_force
+
+type(cellforce) function get_cell_force(stack,i)
+ type(stackforce),   intent(in)  :: stack
+ integer,            intent(in)  :: i
+
+ if (stack%n < i) call fatal('force','attempting to read invalid stack address')
+ get_cell_force = stack%cells(i)
+end function get_cell_force
+
+subroutine write_cell_force(stack,cell)
+ type(stackforce),   intent(inout)  :: stack
+ type(cellforce),    intent(inout)  :: cell
+
+ if (cell%waiting_index > stack%maxlength) call fatal('force','attempting to write to invalid stack address')
+ stack%cells(cell%waiting_index) = cell
+
+end subroutine write_cell_force
 
 subroutine reserve_stack_dens(stack,i)
  type(stackdens),    intent(inout) :: stack
