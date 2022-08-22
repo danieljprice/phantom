@@ -1070,7 +1070,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
  use chem,           only:update_abundances,get_dphot
- use h2cooling,      only:dphot0,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
+ use cooling_ism,    only:dphot0,energ_cooling_ism,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
  use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
@@ -1314,7 +1314,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    ! Call cooling routine, requiring total density, some distance measure and
                    ! abundances in the 'abund' format
                    !
-                   call energ_h2cooling(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
+                   call energ_cooling_ism(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
