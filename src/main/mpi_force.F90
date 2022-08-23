@@ -46,7 +46,7 @@ module mpiforce
                                           4                               + &  !  waiting_index
                                           1 * minpart                     + &  !  iphase(minpart)
                                           1 * minpart                     + &  !  ibinneigh(minpart)
-                                          1                                    !  owner_thread
+                                          4                                    !  owner_thread
 
  type cellforce
     sequence
@@ -68,7 +68,7 @@ module mpiforce
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: owner_thread                           ! omp thread that owns this cell
+    integer          :: owner_thread                           ! omp thread that owns this cell
     integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
@@ -210,7 +210,7 @@ subroutine get_mpitype_of_cellforce
 
  nblock = nblock + 1
  blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER1
+ mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(cell%owner_thread,addr,mpierr)
  disp(nblock) = addr - start
 
