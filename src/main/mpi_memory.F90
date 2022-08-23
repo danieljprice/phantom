@@ -129,7 +129,7 @@ subroutine increase_mpi_memory
  write(iprint, *) 'MPI stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand density
- move_alloc(dens_cells, dens_cells_tmp)
+ call move_alloc(dens_cells, dens_cells_tmp)
  allocate(dens_cells(stacksize_new,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack', 'error increasing dens stack size')
  dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
@@ -138,7 +138,7 @@ subroutine increase_mpi_memory
  ! Do these one at a time to minimise peak memory usage
 
  ! Expand force
- move_alloc(force_cells, force_cells_tmp)
+ call move_alloc(force_cells, force_cells_tmp)
  allocate(force_cells(stacksize_new,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack', 'error increasing force stack size')
  force_cells(1:stacksize,:) = force_cells_tmp(:,:)
