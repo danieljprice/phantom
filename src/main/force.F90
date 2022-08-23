@@ -446,7 +446,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
- if (mpi) call init_cell_exchange(xrecvbuf,irequestrecv)
+ call init_cell_exchange(xrecvbuf,irequestrecv)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -547,6 +547,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp barrier
 
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
+
+ ! restart cell exchange
+ call finish_cell_exchange(irequestrecv,xsendbuf)
+ call init_cell_exchange(xrecvbuf,irequestrecv)
 
  !$omp master
  call reset_cell_counters(cell_counters)
