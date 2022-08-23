@@ -28,24 +28,25 @@ module mpiforce
 
  integer, public :: dtype_cellforce
 
- integer, parameter :: nbits_cellforce = 8 * maxxpartveciforce * minpart + &
-                                         8 * maxfsum * minpart           + &
-                                         8 * 20                          + &
-                                         8 * 3                           + &
-                                         8                               + &
-                                         8                               + &
-                                         8 * minpart                     + &
-                                         8 * minpart                     + &
-                                         4                               + &
-                                         4                               + &
-                                         4 * minpart                     + &
-                                         4                               + &
-                                         4                               + &
-                                         4                               + &
-                                         4                               + &
-                                         4                               + &
-                                         1 * minpart                     + &
-                                         1 * minpart
+ integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
+                                          8 * maxfsum * minpart           + &  !  fsums(maxfsum,minpart)
+                                          8 * 20                          + &  !  fgrav(20)
+                                          8 * 3                           + &  !  xpos(3)
+                                          8                               + &  !  xsizei
+                                          8                               + &  !  rcuti
+                                          8 * minpart                     + &  !  tsmin(minpart)
+                                          8 * minpart                     + &  !  vsigmax(minpart)
+                                          4                               + &  !  icell
+                                          4                               + &  !  npcell
+                                          4 * minpart                     + &  !  arr_index(minpart)
+                                          4                               + &  !  ndrag
+                                          4                               + &  !  nstokes
+                                          4                               + &  !  nsuper
+                                          4                               + &  !  owner
+                                          4                               + &  !  waiting_index
+                                          1 * minpart                     + &  !  iphase(minpart)
+                                          1 * minpart                     + &  !  ibinneigh(minpart)
+                                          1                                    !  owner_thread
 
  type cellforce
     sequence
@@ -67,7 +68,8 @@ module mpiforce
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(nbits_cellforce, 8)) !padding to maintain alignment of elements
+    integer(kind=1)  :: owner_thread                           ! omp thread that owns this cell
+    integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
  type stackforce
@@ -207,7 +209,13 @@ subroutine get_mpitype_of_cellforce
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(nbits_cellforce, 8)
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%owner_thread,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 8 - mod(nbytes_cellforce, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
