@@ -236,7 +236,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,cell%owner_thread,comm_cellexchange,irequestsend(newproc+1),mpierr)
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
