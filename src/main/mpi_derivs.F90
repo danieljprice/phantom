@@ -203,21 +203,14 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
  integer,            intent(inout)  :: counters(:,:)
 #ifdef MPI
  integer                            :: newproc
- integer                            :: tag
  integer                            :: mpierr
 
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner+1)) then
-    tag = 2
- else
-    tag = 1
- endif
-
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
@@ -236,21 +229,14 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
  integer,            intent(inout)  :: counters(:,:)
 #ifdef MPI
  integer                            :: newproc
- integer                            :: tag
  integer                            :: mpierr
 
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner+1)) then
-    tag = 2
- else
-    tag = 1
- endif
-
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
@@ -374,7 +360,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
-       if (status(MPI_TAG) == 2) then
+       if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%rhosums(:,k) = target_stack%cells(iwait)%rhosums(:,k) + xbuf(iproc)%rhosums(:,k)
@@ -382,7 +368,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
           enddo
           target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
-       elseif (status(MPI_TAG) == 1) then
+       else
           call push_onto_stack(target_stack, xbuf(iproc))
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        endif
@@ -412,7 +398,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
-       if (status(MPI_TAG) == 2) then
+       if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
@@ -431,7 +417,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
           target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
-       elseif (status(MPI_TAG) == 1) then
+       else
           call push_onto_stack(target_stack, xbuf(iproc))
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        endif
