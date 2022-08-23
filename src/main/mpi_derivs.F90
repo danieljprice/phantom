@@ -16,7 +16,7 @@ module mpiderivs
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, dtypekdtree, io, mpi, mpidens, mpiforce,
-!   mpimemory, mpiutils
+!   mpimemory, mpiutils, omputils
 !
 #ifdef MPI
  use mpi
@@ -156,15 +156,17 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 #endif
 end subroutine init_celldens_exchange
 
-subroutine init_cellforce_exchange(xbufrecv,ireq)
+subroutine init_cellforce_exchange(xbufrecv,ireq,enforce_thread)
  use io,       only:fatal
  use mpiforce, only:dtype_cellforce,cellforce
+ use omputils, only:omp_thread_num
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ logical, optional,  intent(in)    :: enforce_thread
 #ifdef MPI
- integer                           :: iproc
- integer                           :: mpierr
+ integer :: iproc, mpierr, tag
+
 !
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destinations,
@@ -173,9 +175,15 @@ subroutine init_cellforce_exchange(xbufrecv,ireq)
 !  We post a receive for EACH processor, to match the number of sends
 !
 
+ if (present(enforce_thread) .and. enforce_thread) then
+    tag = omp_thread_num()
+ else
+    tag = MPI_ANY_TAG
+ endif
+
  do iproc=1,nprocs
     call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,iproc-1, &
-                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
+                       tag,comm_cellexchange,ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
 !--start the persistent communication channel
