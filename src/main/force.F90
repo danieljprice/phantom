@@ -41,8 +41,8 @@ module forces
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
-!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omputils, options,
+!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
 !   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
@@ -225,6 +225,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
+ use omputils,     only:omp_thread_num
 
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
@@ -477,6 +478,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
     cell%owner                   = id
+    cell%owner_thread            = omp_thread_num()
 
     do_export = any(remote_export)
 

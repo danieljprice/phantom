@@ -145,4 +145,13 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
 
 end subroutine limits_omp_work
 
+integer(kind=1) function omp_thread_num()
+#ifdef _OPENMP
+ integer(kind=1) :: omp_get_thread_num
+ omp_thread_num = omp_get_thread_num()
+#else
+ omp_thread_num = 0
+#endif
+end function omp_thread_num
+
 end module omputils
