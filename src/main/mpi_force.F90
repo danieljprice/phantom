@@ -14,7 +14,7 @@ module mpiforce
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpi, mpiutils
+! :Dependencies: dim, io, mpi
 !
  use io,       only:nprocs,fatal
  use dim,      only:minpart,maxfsum,maxxpartveciforce
@@ -27,6 +27,25 @@ module mpiforce
  public :: get_mpitype_of_cellforce
 
  integer, public :: dtype_cellforce
+
+ integer, parameter :: nbits_cellforce = 8 * maxxpartveciforce * minpart + &
+                                         8 * maxfsum * minpart           + &
+                                         8 * 20                          + &
+                                         8 * 3                           + &
+                                         8                               + &
+                                         8                               + &
+                                         8 * minpart                     + &
+                                         8 * minpart                     + &
+                                         4                               + &
+                                         4                               + &
+                                         4 * minpart                     + &
+                                         4                               + &
+                                         4                               + &
+                                         4                               + &
+                                         4                               + &
+                                         4                               + &
+                                         1 * minpart                     + &
+                                         1 * minpart
 
  type cellforce
     sequence
@@ -48,7 +67,7 @@ module mpiforce
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (7 + minpart) + 2*minpart, 8)) !padding to maintain alignment of elements
+    integer(kind=1)  :: pad(8 - mod(nbits_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
  type stackforce
@@ -188,7 +207,7 @@ subroutine get_mpitype_of_cellforce
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (7 + minpart) + 2*minpart, 8)
+ blens(nblock) = 8 - mod(nbits_cellforce, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
