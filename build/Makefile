@@ -120,10 +120,10 @@ ifeq ($(MCFOST), yes)
     MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
-    ifeq ($(MCFOST_NO_XGBOOST), yes)
-        LXGBOOST=""
-    else
+    ifeq ($(MCFOST_XGBOOST), yes)
         LXGBOOST= -lxgboost -ldmlc -lrabit
+    else
+        LXGBOOST=""
     endif
 
     FPPFLAGS+= -DMCFOST
