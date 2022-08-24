@@ -1518,8 +1518,11 @@ SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
 #
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
          cooling_gammie.f90 \
+         cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
          cooling_molecular.f90 \
+         cooling_functions.f90 \
+         cooling_solver.f90 \
          h2chem.f90 cooling.F90
 #
 # equations of state
