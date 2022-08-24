@@ -477,6 +477,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
  use mpiforce, only:cellforce,dtype_cellforce
  use mpiutils, only:barrier_mpi
+ use omputils, only:omp_thread_num
  integer,            intent(inout)  :: irequestrecv(nprocs)
  type(cellforce), intent(in)        :: xsendbuf
 #ifdef MPI
@@ -488,7 +489,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,omp_thread_num(),comm_cellexchange,mpierr)
  enddo
 
 !
