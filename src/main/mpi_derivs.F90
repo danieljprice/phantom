@@ -156,14 +156,14 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 #endif
 end subroutine init_celldens_exchange
 
-subroutine init_cellforce_exchange(xbufrecv,ireq,enforce_thread)
+subroutine init_cellforce_exchange(xbufrecv,ireq,any_tag)
  use io,       only:fatal
  use mpiforce, only:dtype_cellforce,cellforce
  use omputils, only:omp_thread_num
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
- logical, optional,  intent(in)    :: enforce_thread
+ logical,            intent(in)    :: any_tag
 #ifdef MPI
  integer :: iproc, mpierr, tag
 
@@ -174,11 +174,14 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,enforce_thread)
 !
 !  We post a receive for EACH processor, to match the number of sends
 !
+!  Optionally, we can also force each reciever to only accept messages with
+!  tags that match the omp thread id. By default they accept MPI messages with
+!  any tag.
 
- if (present(enforce_thread) .and. enforce_thread) then
-    tag = omp_thread_num()
+ if (any_tag) then
+   tag = MPI_ANY_TAG
  else
-    tag = MPI_ANY_TAG
+   tag = omp_thread_num()
  endif
 
  do iproc=1,nprocs
