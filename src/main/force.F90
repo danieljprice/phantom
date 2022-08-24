@@ -446,7 +446,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
- call init_cell_exchange(xrecvbuf,irequestrecv)
+ call init_cell_exchange(xrecvbuf,irequestrecv,any_tag=.true.)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -548,9 +548,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
 
- ! restart cell exchange
+ ! restart cell exchange but now only accept tags that match current omp thread
  call finish_cell_exchange(irequestrecv,xsendbuf)
- call init_cell_exchange(xrecvbuf,irequestrecv)
+ call init_cell_exchange(xrecvbuf,irequestrecv,any_tag=.false.)
 
  !$omp master
  call reset_cell_counters(cell_counters)
