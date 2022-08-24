@@ -35,8 +35,8 @@ contains
 !---------------------------------------------------------
 subroutine do_radiation_implicit(dt,dtmax,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  integer, intent(in)  :: npart
- real, intent(in)     :: dt,dtmax,rad(:,:),xyzh(:,:),vxyzu(:,:),drad(:,:)
- real, intent(inout)  :: radprop(:,:)
+ real, intent(in)     :: dt,dtmax,rad(:,:),xyzh(:,:),vxyzu(:,:)
+ real, intent(inout)  :: radprop(:,:),drad(:,:)
  integer, intent(out) :: ierr
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
@@ -96,8 +96,8 @@ end subroutine save_radiation_energies
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,dtmax,npart,rad,xyzh,vxyzu,radprop,drad,failed,nit,errorE,errorU,moresweep,ierr)
  integer, intent(in)  :: npart
- real, intent(in)     :: dt,dtmax,rad(:,:),xyzh(:,:),vxyzu(:,:),drad(:,:)
- real, intent(inout)  :: radprop(:,:)
+ real, intent(in)     :: dt,dtmax,rad(:,:),xyzh(:,:),vxyzu(:,:)
+ real, intent(inout)  :: radprop(:,:),drad(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: errorE,errorU
@@ -115,10 +115,11 @@ subroutine do_radiation_onestep(dt,dtmax,npart,rad,xyzh,vxyzu,radprop,drad,faile
  call get_compacted_neighbour_list(ivar,ijvar,ncompact,ncompactlocal)
  call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,vari,varij,varij2,origEU,EU0)
  call compute_drad(varij,varij2,drad)
- call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop,ierr)
+ call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
  call calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
  call calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varinew,ierr)
-!  call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,radprop,rad,origEU,varinew,EU0,moresweep)
+ call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vxyzu,radprop,rad,origEU,varinew,EU0,moresweep)
+
 !  call store_radiation_results(ncompactlocal,ivar,EU0,rad,vxyzu)
 
 end subroutine do_radiation_onestep
@@ -136,103 +137,106 @@ subroutine get_compacted_neighbour_list(ivar,ijvar,ncompact,ncompactlocal)
  real                              :: dx,dy,dz
  logical                           :: iactivei,iamtypei,iamdusti,iamgasi
 
- !$omp parallel do schedule(runtime)
- over_cells: do icell=1,int(ncells)
-    i = ifirstincell(icell)
+ ncompact = 0
+ ncompactlocal = 0
 
-    !--skip empty cells AND inactive cells
-    if (i <= 0) cycle over_cells
+!  !$omp parallel do schedule(runtime)
+!  over_cells: do icell=1,int(ncells)
+!     i = ifirstincell(icell)
 
-    !
-    !--get the neighbour list and fill the cell cache
-    !
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.true.)
+!     !--skip empty cells AND inactive cells
+!     if (i <= 0) cycle over_cells
 
-    over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
-       i = inodeparts(ip)
+!     !
+!     !--get the neighbour list and fill the cell cache
+!     !
+!     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.true.)
 
-       if (maxphase==maxp) then
-          call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
-       else
-          iactivei = .true.
-          iamtypei = igas
-          iamdusti = .false.
-          iamgasi  = .true.
-       endif
+!     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
+!        i = inodeparts(ip)
 
-       if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
-          cycle over_parts
-       endif
+!        if (maxphase==maxp) then
+!           call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
+!        else
+!           iactivei = .true.
+!           iamtypei = igas
+!           iamdusti = .false.
+!           iamgasi  = .true.
+!        endif
 
-       loop_over_neigh: do n = 1,nneigh
+!        if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
+!           cycle over_parts
+!        endif
 
-          j = listneigh(n)
-          !--do self contribution separately to avoid problems with 1/sqrt(0.)
-          if (j==i) cycle loop_over_neigh
+!        loop_over_neigh: do n = 1,nneigh
 
-          if (ifilledcellcache .and. n <= isizecellcache) then
-             ! positions from cache are already mod boundary
-             dx = xpartveci(ixi) - xyzcache(n,1)
-             dy = xpartveci(iyi) - xyzcache(n,2)
-             dz = xpartveci(izi) - xyzcache(n,3)
-          else
-             dx = xpartveci(ixi) - xyzh(1,j)
-             dy = xpartveci(iyi) - xyzh(2,j)
-             dz = xpartveci(izi) - xyzh(3,j)
-          endif
-#ifdef PERIODIC
-          if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-          if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-          if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
-          rij2 = dx*dx + dy*dy + dz*dz
-          q2i = rij2*hi21
-       !--hj is in the cell cache but not in the neighbour cache
-       !  as not accessed during the density summation
-          if (ifilledcellcache .and. n <= maxcellcache) then
-             hj1 = xyzcache(n,4)
-          else
-             hj1 = 1./xyzh(4,j)
-          endif
-          hj21 = hj1*hj1
-          q2j  = rij2*hj21
-!
-!--do interaction if r/h < compact support size
-!
-          is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+!           j = listneigh(n)
+!           !--do self contribution separately to avoid problems with 1/sqrt(0.)
+!           if (j==i) cycle loop_over_neigh
 
-!$omp critical(listcompact)
-             ncompact = ncompact + 1
-             ncompacthere = ncompact
-             icompacthere = icompact
-             icompact = icompact + nneighlocal
-!$omp end critical (listcompact)
-             if (icompacthere+nneighlocal > icompactmax) then
-                call fatal('radiation-implicit','not enough memory allocated for neighbour list')
-             endif
-             ivar(1,ncompacthere) = nneighlocal
-             ivar(2,ncompacthere) = icompacthere
-             ivar(3,ncompacthere) = ipart
+!           if (ifilledcellcache .and. n <= isizecellcache) then
+!              ! positions from cache are already mod boundary
+!              dx = xpartveci(ixi) - xyzcache(n,1)
+!              dy = xpartveci(iyi) - xyzcache(n,2)
+!              dz = xpartveci(izi) - xyzcache(n,3)
+!           else
+!              dx = xpartveci(ixi) - xyzh(1,j)
+!              dy = xpartveci(iyi) - xyzh(2,j)
+!              dz = xpartveci(izi) - xyzh(3,j)
+!           endif
+! #ifdef PERIODIC
+!           if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+!           if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+!           if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+! #endif
+!           rij2 = dx*dx + dy*dy + dz*dz
+!           q2i = rij2*hi21
+!        !--hj is in the cell cache but not in the neighbour cache
+!        !  as not accessed during the density summation
+!           if (ifilledcellcache .and. n <= maxcellcache) then
+!              hj1 = xyzcache(n,4)
+!           else
+!              hj1 = 1./xyzh(4,j)
+!           endif
+!           hj21 = hj1*hj1
+!           q2j  = rij2*hj21
+! !
+! !--do interaction if r/h < compact support size
+! !
+!           is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
 
-             do k = 1, nneighlocal
-                j = neighlist(k)
-                ijvar(icompacthere + k) = j
-             enddo
+! !$omp critical(listcompact)
+!              ncompact = ncompact + 1
+!              ncompacthere = ncompact
+!              icompacthere = icompact
+!              icompact = icompact + nneighlocal
+! !$omp end critical (listcompact)
+!              if (icompacthere+nneighlocal > icompactmax) then
+!                 call fatal('radiation-implicit','not enough memory allocated for neighbour list')
+!              endif
+!              ivar(1,ncompacthere) = nneighlocal
+!              ivar(2,ncompacthere) = icompacthere
+!              ivar(3,ncompacthere) = ipart
 
-          endif is_sph_neighbour
-       enddo loop_over_neigh
-    enddo over_parts
- enddo over_cells
- !$omp end parallel do
+!              do k = 1, nneighlocal
+!                 j = neighlist(k)
+!                 ijvar(icompacthere + k) = j
+!              enddo
 
- ncompactlocal = ncompact
+!           endif is_sph_neighbour
+!        enddo loop_over_neigh
+!     enddo over_parts
+!  enddo over_cells
+!  !$omp end parallel do
+
+!  ncompactlocal = ncompact
 
 end subroutine get_compacted_neighbour_list
 
 
 subroutine compute_drad(varij,varij2,drad)
  real, intent(in) :: varij(:,:),varij2(:,:)
- real, intent(out) :: drad(:,:)
+ real, intent(inout) :: drad(:,:)
 
 end subroutine compute_drad
 
@@ -281,7 +285,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     !--Diffuse ISM: Set dust temperature and opacity
     !
     if (dustRT .and. n<=ncompactlocal) then
-       dust_temp(i) = dust_temperature(i,rad(iradxi,i),vxyzu(4,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
+       dust_temp(i) = dust_temperature(rad(iradxi,i),vxyzu(4,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
        nucleation(idkappa,i) = dust_kappai
     endif
     !
@@ -417,11 +421,10 @@ end subroutine fill_arrays
 !  compute radiative flux
 !+
 !---------------------------------------------------------
-subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop,ierr)
+subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact
  real, intent(in)    :: varij(:,:),varij2(:,:),vari(:,:),EU0(:,:)
  real, intent(inout) :: radprop(:,:)
- integer, intent(out) :: ierr
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,Eij1
 
@@ -632,35 +635,38 @@ end subroutine calc_diffusion_coefficient
 !  update gas and radiation energy
 !+
 !---------------------------------------------------------
-subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,radprop,rad,origEU,varinew,EU0,moresweep)
+subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vxyzu,radprop,rad,origEU,varinew,EU0,moresweep)
  use io,    only:error
  use part,  only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars
  use units, only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
- use eos,   only:Z_in=>metallicity
+ use eos,   only:metallicity=>Z_in
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,ncompactlocal
- real, intent(in)    :: vari(:,:),varinew(:,:),EU0(:,:),rad(:,:),origEU(:,:)
- real, intent(inout) :: radprop(:,:)
+ real, intent(in)    :: vari(:,:),varinew(:,:),rad(:,:),origEU(:,:),vxyzu(:,:)
+ real, intent(inout) :: radprop(:,:),EU0(:,:)
  logical, intent(out):: moresweep
- integer             :: i,j,n,ieqtype
+ integer             :: i,j,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall,&
                         radpresdenom,stellarradiation,gas_temp,xnH2,betaval,gammaval,tfour,betaval_d,chival,&
                         gas_dust_val,dust_tempi,dust_kappai,a_code,c_code,dustgammaval,gas_dust_cooling,&
                         cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,e_planetesimali,&
-                        u4term,u1term,u0term,pcoleni,dust_cooling,heatingISRi,dust_gas,metallicity,&
-                        pres_numerator,pres_denominator,mui,U1i
+                        u4term,u1term,u0term,pcoleni,dust_cooling,heatingISRi,dust_gas,&
+                        pres_numerator,pres_denominator,mui,U1i,E1i,Tgas,dUcomb,dEcomb,maxerrE2,maxerrU2,&
+                        residualE,residualU,xchange,maxerrU2old
 
  a_code = get_radconst_code()
  c_code = get_c_code()
 
  !$omp parallel do default(none)&
- !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew,dvdx,origEU,metallicity,nucleation,dust_temp,eos_vars)&
- !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic)&
+ !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew,dvdx,origEU,nucleation,dust_temp,eos_vars)&
+ !$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type)&
+ !$omp private (i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb)&
  !$omp private (gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private (dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
- !$omp private (cooling_line,photoelectric,h2form,dust_heating,dust_term,a_code,c_code,betaval,chival,gammaval,tfour) &
- !$omp private (e_planetesimali,u4term,u1term,u0term,pcoleni,pres_numerator,pres_denominator,moresweep2,mui)
+ !$omp private (cooling_line,photoelectric,h2form,dust_heating,dust_term,a_code,c_code,betaval,chival,gammaval,betaval_d,tfour) &
+ !$omp private (e_planetesimali,u4term,u1term,u0term,pcoleni,pres_numerator,pres_denominator,moresweep2,mui,ierr) &
+ !$omp private (residualE,residualU,maxerrE2,maxerrU2,xchange,maxerrU2old,gas_temp,ieqtype,unit_density)
 
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
@@ -670,10 +676,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
    !  IF (.NOT.boundaryparticle(i,xyzmh,rhoi)) THEN
     diffusion_numerator = varinew(1,i)
     diffusion_denominator = varinew(2,i)
-! c            pres_numerator = varinew(3,i)
-! c            pres_numerator = 0.
     pres_numerator = pdvvisc(i)/dti
-! c            pres_denominator = varinew(4,i)
     pres_denominator = 0.
     !
     !--Radiation pressure...
@@ -709,7 +712,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
     !
     if (dustRT) then
        radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
-       dust_tempi = dust_temperature(i,rad(iradxi,i),EU0(2,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
+       dust_tempi = dust_temperature(rad(iradxi,i),EU0(2,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
        gas_temp = EU0(2,i)/radprop(icv,i)
        mui = eos_vars(imu,i)
        xnH2 = rhoi*unit_density/(mui*mass_proton_cgs)  ! Mike: Check units
@@ -731,10 +734,18 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
        !     the temperatures of the dust and local radiation field is small
        !     (<1 K), then we abandon the gas-dust coupling term.
        !
-       call set_heating_cooling_low_rhoT(i,EU0(1,i),dti,diffusion_denominator,radpresdenom,rhoi,xnH2,heatingISRi,&
+       call set_heating_cooling_low_rhoT(i,EU0(1,i),EU0(2,i),origEU(1,i),origEU(2,i),radprop(icv,i),dti,diffusion_denominator,&
+                                         pres_numerator,radpresdenom,rhoi,xnH2,heatingISRi,e_planetesimali,&
                                          metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
                                          chival,tfour,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
-                                         cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i)
+                                         cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
+       if (ierr > 0) then
+          !$omp critical (moresweepset)
+          moresweep = .true.
+          !$omp end critical (moresweepset)
+          cycle main_loop
+       endif
+
     elseif (dustRT) then
        !--Replaces the gas-dust coupling term in the u equation by the dust-radiation
        !     term and assumes that T_g=T_d so that the dust-radiation term is
@@ -785,17 +796,17 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
        u1term = u1term/u4term
        u0term = u0term/u4term
        moresweep2 = .false.
-       call solve_quartic(u1term,u0term,EU0(2,i),U1i,moresweep2,i) ! U1i is the quartic solution
+       call solve_quartic(u1term,u0term,EU0(2,i),U1i,moresweep)  ! U1i is the quartic solution
 
        if (moresweep2) then
 !$omp critical (moresweepset)
           moresweep = .true.
-          print*,"info: ",EU0(2,i)/radprop(icv,i),xyzh(1,i),xyzh(2,i),xyzh(3,i)
+          print*,"info: ",EU0(2,i)/radprop(icv,i)
           print*,"info2: ",u0term,u1term,u4term,gammaval,radprop(ikappa,i),radprop(icv,i)
           print*,"info3: ",chival,betaval,dti
           print*,"info4: ",pres_denominator,origeu(1,i),pres_numerator
           print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
-          print*,"info6: ",radpresdenom,eu0(1,i)
+          print*,"info6: ",radpresdenom,EU0(1,i)
           print*,"info7: ",cosmic_ray,heatingisri
           print*,"info8: ",cooling_line,photoelectric,h2form
 !$omp end critical (moresweepset)               
@@ -809,7 +820,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
                        + dti*gas_dust_val*(U1i/radprop(icv,i) - dust_tempi) &
                        + dti*dust_heating &
                        + stellarradiation)/(1.-chival)
-    dUcomb = pres_numerator + pres_denominator*EU0(2,I) + tfour &
+    dUcomb = pres_numerator + pres_denominator*EU0(2,i) + tfour &
            - gas_dust_cooling + cosmic_ray - cooling_line &
            + photoelectric + h2form + e_planetesimali + pcoleni
     dEcomb = diffusion_numerator + diffusion_denominator * EU0(1,i) &
@@ -820,20 +831,18 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
     if (U1i <= 0.) then
 !$omp critical (moresweepset)
        moresweep=.true.
-       print*, "gsimpl: u has gone negative ",i,xyzh(1,i),xyzh(2,i),xyzh(3,i)
+       print*, "gsimpl: u has gone negative ",i
 !$omp end critical (moresweepset)
     endif
     if (E1i <= 0.) then
 !$omp critical (moresweepset)
        moresweep=.true.
-       print*,"gsimpl: e has gone negative ",i,xyzh(1,i),xyzh(2,i),xyzh(3,i)
+       print*,"gsimpl: e has gone negative ",i
 !$omp end critical (moresweepset)
     endif
-    !
-    !--And the error is...
-    !
-    !            IF (EU0(2,I)/ekcle(3,i) >= 1.E+30) THEN
-    if (EU0(2,i)/radprop(icv,i) >= 0.) then
+
+    Tgas = EU0(2,i)/radprop(icv,i)
+    if (Tgas >= 0.) then
        maxerrE2 = max(maxerrE2, 1.*abs((EU0(1,i) - E1i)/E1i))
        residualE = 0.
     else
@@ -842,32 +851,12 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
        residualE = origEU(1,i) + (dEcomb)*dti - E1i
    endif
 
-! c            maxerrE2 = MAX(maxerrE2,ABS((origEU(1,i) + (dEcomb)*
-! c     &           dti - EU0(1,I)) /EU0(1,I)))
-
-! c            maxerrU2 = MAX(maxerrU2,ABS((origEU(2,i)+(dUcomb)* 
-! c     &           dti - EU0(2,I))/EU0(2,I)))
-
-    if (EU0(2,I)/ekcle(3,i) >= 2000.) then
-   ! c            IF (EU0(2,I)/ekcle(3,i) >= 1.0E+30) THEN
-       maxerrU2 = max(maxerrU2, 1.*abs((EU0(2,I) - U1i) /U1i))
+    if (Tgas >= 2000.) then
+       maxerrU2 = max(maxerrU2, 1.*abs((EU0(2,i) - U1i) /U1i))
        residualU = 0.
     else
        maxerrU2old = maxerrU2
        maxerrU2 = max(maxerrU2, abs((origEU(2,i)+(dUcomb)* dti - U1i)/U1i))
-       if (maxerrU2 /= maxerrU2old) then
-!$omp critical (storeUerror)
-         !  iiimax = i
-         !  xxmaxerrU2 = maxerrU2
-         !  xorigEU = origEU(2,i)
-         !  xdUcomb = dUcomb
-         !  xdti = dti
-         !  xU1i = U1i
-         !  xpres_numerator = pres_numerator
-         !  xpres_denominator = pres_denominator*EU0(2,i)
-         !  xtfour = tfour
-!$omp end critical (storeUerror)
-       endif
        residualU = origEU(2,i)+(dUcomb)*dti - U1i
     endif
     !
@@ -875,13 +864,11 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
     !
     EU0(1,i) = E1i
     EU0(2,i) = U1i
-    radprop(icv,i) = get_cv(rho(i),vxyzu(4,i))
+    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i))
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
-    if (idustRT >= 0) then
-       rhoi = rho(i)
-       dust_temp(i) = dust_temperature(i,a_code,ekcle(1,i),EU0(2,i),ekcle,rhoi,&
-                                         dust_kappai,dust_cooling,heatingISRi,dust_gas)
+    if (DUSTRT >= 0) then
+       dust_temp(i) = dust_temperature(rad(iradxi,i),EU0(2,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
        nucleation(idkappa,i) = dust_kappai
     endif
 
@@ -891,21 +878,29 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,ra
 end subroutine update_gas_radiation_energy
 
 
-subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,diffusion_denominator,radpresdenom,rhoi,&
-                                        xnH2,heatingISRi,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
+subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,dti,diffusion_denominator,pres_numerator,&
+                                        radpresdenom,rhoi,xnH2,heatingISRi,e_planetesimali,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
                                         chival,tfour,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
-                                        cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i)
+                                        cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
  use units,   only:unit_pressure,unit_ergg,utime
  use physcon, only:eV
- use eos,     only:get_u_from_rhoT
+ use eos,     only:get_u_from_rhoT,ieos
  integer, intent(in)  :: i
- real, intent(in)     :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi,heatingISRi,dti,diffusion_denominator,radpresdenom
+ real, intent(in)     :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi,heatingISRi,dti,diffusion_denominator,radpresdenom,&
+                         pres_numerator,e_planetesimali
+ real, intent(inout)  :: cvi
  logical, intent(out) :: skip_quartic
- integer, intent(out) :: ieqtype
- real, intent(out)    :: betaval,betaval_d,gammaval,tfour,dust_tempi,gas_dust_val,dustgammaval,chival,&
+ integer, intent(out) :: ieqtype,ierr
+ real, intent(inout)  :: dust_tempi
+ real, intent(out)    :: betaval,betaval_d,gammaval,tfour,gas_dust_val,dustgammaval,chival,&
                          gas_dust_cooling,cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,U1i
+ integer              :: itry,iterationloop
+ real                 :: u_found,t_found,t_orig,u_last,t_last,t_plus,u_plus,tdiff,cooling_line1,cooling_line2,dline_du,h2form1,h2form2,dh2form_dt,&
+                         photoelectric1,photoelectric2,dphoto_du,func,derivative,func_old,gas_dust_dustT,dust_tem,cv1,&
+                         h2fraci,dust_temp
 
  skip_quartic = .false.
+ ierr = 0
  U1i = 0.
  ieqtype = 3
  gammaval = 0.
@@ -958,7 +953,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
           u_last = u_found
           t_last = t_found
 
-          u_found = get_u_from_rhoT(rhoi,t_found)
+          u_found = get_u_from_rhoT(rhoi,t_found,ieos)
           cv1 = get_cv(rhoi,u_found)
           t_found = u_found/cv1
           !
@@ -971,7 +966,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
              t_plus = t_found * 1.01
           endif
           tdiff = t_plus - t_found
-          u_plus = get_u_from_rhoT(rhoi,t_plus)
+          u_plus = get_u_from_rhoT(rhoi,t_plus,ieos)
           !--Molecular line cooling.  NOTE that because cooling_line_rate() sets the
           !     abundances of carbon (in the chemistry() array) it it important that
           !     the t_found call is done after the t_plus call otherwise the carbon
@@ -985,7 +980,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
           !--H_2 formation heating
           !
           if (H2formation_heating) then
-             h2form1 = h2_formation(i,t_found,dust_tempi,xnH2) * 4.48*eV/rhoi/unit_pressure*utime
+             h2form1 = h2_formation(h2fraci,t_found,dust_tempi,xnH2,metallicity) * 4.48*eV/rhoi/unit_pressure*utime
              !
              !--Potentially add heating from UV destruction and pumping of H_2
              !     (see Bate 2015) for effect of this.
@@ -993,7 +988,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
              !     &                          + h2_destruction(i,xnH2,.FALSE.) *
              !     &               (0.4 + 2.0/(1.0+criticaln(i,t_found)/(2.0*xnH2)))*
              !     &                          eleccharge/rhoi/uergcc*utime
-             h2form2 = h2_formation(i,t_plus,dust_tempi,xnH2) * 4.48*eV/rhoi/unit_pressure*utime
+             h2form2 = h2_formation(h2fraci,t_plus,dust_tempi,xnH2,metallicity) * 4.48*eV/rhoi/unit_pressure*utime
              !
              !--Potentially add heating from UV destruction and pumping of H_2
              !     (see Bate 2015) for effect of this.
@@ -1017,7 +1012,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
           !--Now perform Newton-Raphson iteration
           !
           func = u_found + dti*gas_dust_val*(u_found/cv1 - dust_tempi) - orig_ugasi - dti*pres_numerator &  ! orig_ugasi = origEU(2,i)
-                           - dti*e_planetesimal(i) - dti*cosmic_ray + dti*cooling_line1 - dti*photoelectric1 &
+                           - dti*e_planetesimali - dti*cosmic_ray + dti*cooling_line1 - dti*photoelectric1 &
                            + dti*dust_term - dti*h2form1
 
           derivative = (u_plus - u_found)/tdiff + dti*gas_dust_val + dti*dline_du - dti*dphoto_du - dti*dh2form_dt
@@ -1046,50 +1041,40 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,dti,
           endif
           t_found = t_found - func/derivative
 
-          if (t_found < 1.) then
-             !cc$omp critical(nrprint)
-             !c                           write (81,*) 'T<1: ',i,t_found,
-             !c     &                          t_found+func/derivative,func,derivative,
-             !c     &                          func_old,- dti*h2form1,- dti*dh2form_dt
-             !cc$omp end critical(nrprint)
-             t_found = 1.
-          endif
+          if (t_found < 1.) t_found = 1.
 
-          u_found = get_u_from_rhoT(rhoi,t_found)
+          u_found = get_u_from_rhoT(rhoi,t_found,ieos)
           !
           !--Test for success
           !
           if (abs((t_found - t_last)/t_orig) < 1.e-3) then
-             U1i = get_u_from_rhoT(rhoi,t_found)
-             ekcle(3,i) = cv1
+             U1i = get_u_from_rhoT(rhoi,t_found,ieos)
+             cvi = cv1
              photoelectric = photoelectric1
              cooling_line = cooling_line1
              h2form = h2form1
-              GOTO 233 ! Mike replace "goto 233" with return and  skip_quartic = .true.
+             skip_quartic = .true.
+             return
           endif
        enddo
 !$omp critical(quart)
        print *,"N-R failed for ieqtype=3, try again"
-       print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
-       print *,"    ",ekcle(2,i),rhoi,dti
-       print *,"    ",diffusion_denominator,diffusion_numerator
-       print *,"    ",pres_denominator,pres_numerator,uradconst
-       print *,"    ",radpresdenom,EU0(1,I),EU0(2,I),ekcle(3,i)
-       print *,"    ",lightspeed,origEU(1,i),origEU(2,i)
-       print *,"    ",dti*gas_dust_val*dust_tempi
-       print *,"    ",dti*dust_heating,dti*gas_dust_val*dust_tempi
-       print *,"    ",dti*cosmic_ray,dti*cooling_line
-       print *,"    ",dti*photoelectric,dti*dust_term
-       print *,"    ",ieqtype,u_found,u_last,u_plus,cv1
-       print *,"    ",cooling_line1,cooling_line2,dline_du,func
-       print *,"    ",derivative,h2form1,h2form2,dh2form_dt
+      !  print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
+      !  print *,"    ",rhoi,dti
+      !  print *,"    ",diffusion_denominator,diffusion_numerator
+      !  print *,"    ",pres_denominator,pres_numerator,uradconst
+      !  print *,"    ",radpresdenom,eradi,egasi,cvi
+      !  print *,"    ",lightspeed,orig_eradi,orig_egasi
+      !  print *,"    ",dti*gas_dust_val*dust_tempi
+      !  print *,"    ",dti*dust_heating,dti*gas_dust_val*dust_tempi
+      !  print *,"    ",dti*cosmic_ray,dti*cooling_line
+      !  print *,"    ",dti*photoelectric,dti*dust_term
+      !  print *,"    ",ieqtype,u_found,u_last,u_plus,cv1
+      !  print *,"    ",cooling_line1,cooling_line2,dline_du,func
+      !  print *,"    ",derivative,h2form1,h2form2,dh2form_dt
 !$omp end critical(quart)
-!$omp critical (moresweepset)
-          moresweep = .true.
-!$omp end critical (moresweepset)
-          goto 200
-       endif
-    enddo
+       if (itry == 2) ierr = 1  ! if itry=1, try again, otherwise quit
+    enddo try_loop
  endif  !-turn on/off n-r solve
 
 end subroutine set_heating_cooling_low_rhoT
@@ -1097,14 +1082,15 @@ end subroutine set_heating_cooling_low_rhoT
 
 subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
                                cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
- use units, only:unit_ergg,utime,unit_pressure
- use physcon, only:eV
+ use units, only:unit_ergg,utime,unit_pressure,unit_density
+ use physcon, only:eV,mass_proton_cgs
  integer, intent(in)  :: i
  real, intent(in)     :: ugasi,rhoi,cvi,heatingISRi,metallicity,mui
  integer, intent(out) :: ieqtype
- real, intent(out)    :: dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
+ real, intent(inout)  :: dust_tempi
+ real, intent(out)    :: gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,&
                          photoelectric,h2form,dust_heating,dust_term
- real                 :: gas_temp,xnH2
+ real                 :: gas_temp,xnH2,h2fraci
 
  ieqtype = 2
  gas_temp = ugasi/cvi
@@ -1129,7 +1115,7 @@ subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqt
  !--H_2 formation heating
  !
  if (H2formation_heating) then
-    h2form = h2_formation(h2fraci,gas_temp,dust_temp,xnH2,metallicity)*4.48*eV / rhoi / unit_pressure*utime
+    h2form = h2_formation(h2fraci,gas_temp,dust_tempi,xnH2,metallicity)*4.48*eV / rhoi / unit_pressure*utime
     !
     !--Potentially add heating from UV destruction and pumping of H_2
     !     (see Bate 2015) for effect of this.
@@ -1194,12 +1180,15 @@ end subroutine turn_heating_cooling_off
 ! end subroutine store_radiation_results
 
 
-real function dust_temperature(i,xi,u,rho,dust_kappa,dust_cooling,heatingISR,dust_gas)
- integer, intent(in) :: i
+real function dust_temperature(xi,u,rho,dust_kappa,dust_cooling,heatingISR,dust_gas)
  real, intent(in)    :: xi,u,rho
  real, intent(out)   :: dust_kappa,dust_cooling,heatingISR,dust_gas
 
  dust_temperature = 0.
+ dust_cooling = 0.
+ heatingISR = 0.
+ dust_gas = 0.
+ dust_kappa = 0.
 
 end function dust_temperature
 
@@ -1304,13 +1293,19 @@ end function photoelectric_heating
 !  n(H2).
 !+
 !---------------------------------------------------------
-real function electron_fraction(xnH,phiPAH)
- real, intent(in) :: xnH,phiPAH
- real             :: xne_over_nH
- !--Need to set phiPAH (Wolfire et al. use 0.5, but I use 0.55 to get
- !     closer to 10^4 K at very low ISM densities (<1 cm^-3)
- phiPAH = 0.55
+real function electron_fraction(xnH,phiPAH_opt)
+ real, intent(in)           :: xnH
+ real, intent(in), optional :: phiPAH_opt
+ real                       :: xne_over_nH,phiPAH
 
+ if (present(phiPAH_opt)) then
+    phiPAH = phiPAH_opt
+ else
+    !--Need to set phiPAH (Wolfire et al. use 0.5, but I use 0.55 to get
+    !     closer to 10^4 K at very low ISM densities (<1 cm^-3)
+    phiPAH = 0.55
+ endif
+    
  xne_over_nH = 0.008/xnH
  if (xne_over_nH < 1.e-4) xne_over_nH = 1.e-4
  if (xne_over_nH > 1.) xne_over_nH = 1.
@@ -1361,275 +1356,267 @@ end function gas_dust_collisional_term
 !  (Should be split further and unit tested)
 !+
 !---------------------------------------------------------
-! subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ipartin)
-!  real, intent(in) :: u1term,u0term
-!  complex :: ca,cb,cc,cd,ce,cf,p1,p2,p3,y2,y3,y,t0,r3,t3,q3
-!  character :: yn
-!  integer :: sooty,im,pid,inpt,i,rtst
-!  logical :: moresweep
-!  real :: e,u,cv,dt,planck,rho,s5,s6,s7,y1,ua,ub1,uc1,ub2,uc2,kappa
-!  real :: a,b,d,f,ue0,lp,p,q,r,s,t,a0,a1,a2,a3,a4,ub,uc,t1,t2,yy
-!  real :: tmp,ueo,uen,tb,banana,gamma,c1,c2,soln,tst1,tst2,tst
-!  real :: tr,tm,tsoln1,tsoln2,tmin,tmax,y1a,fac,divv,c4
-!  real :: tsoln3,tsoln4,c3,c5,tsoln
-!  real :: d1,d2,d3,d4,d5,quantity1,biggest_term
-!  real :: la1,lg1,le1,vhgr,vlwr
-!  real, dimension(2) :: z1,z2,z3,z4
+subroutine solve_quartic(u1term,u0term,uold,soln,moresweep)
+ real, intent(in) :: u1term,u0term,uold
+ integer :: i,rtst
+ logical :: moresweep
+ real :: y1,ub1,uc1,ub2,uc2,a0,a1,a2,a3,a4,ub,uc
+ real :: soln,tsoln1,tsoln2,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
+ real, dimension(2) :: z1,z2,z3,z4
 
-!  a4 = 1.
-!  a3 = 0.
-!  a2 = 0.
-!  a1 = u1term
-!  a0 = u0term
+ a4 = 1.
+ a3 = 0.
+ a2 = 0.
+ a1 = u1term
+ a0 = u0term
            
-!  z1(2) = 0.
-!  z2(2) = 0.
-!  z3(2) = 0.
-!  z4(2) = 0.
+ z1(2) = 0.
+ z2(2) = 0.
+ z3(2) = 0.
+ z4(2) = 0.
 
 !  la1 = abs(log10(abs(a1))-10.)
 !  test1 = a1
 
-!  ! Real root of equation:
-!  ! y^3 -4 a0 y - a1^2 = 0
+ ! Real root of equation:
+ ! y^3 -4 a0 y - a1^2 = 0
     
-!  quantity1 = -54.*a2*a1**3*a3 + 12.*a3**2*a0*a2**3 - 3.*a1**2*a3**2*a2**2 - &
-!              432.*a2*a0*a1**2 + 18.*a1**2*a3**2*a0 + 576.*a1*a3*a0**2 - 432.*a2* &
-!              a0**2*a3**2 + 240.*a1*a3*a2**2*a0 - 54.*a2*a1*a3**3*a0 + 384.*a2**2* &
-!              a0**2-48.*a0*a2**4 + 12.*a1**2*a2**3 + 81.*a3**4*a0**2 - 768.*a0**3+ &
-!              81.*a1**4 + 12.*a1**3*a3**3
+ quantity1 = -54.*a2*a1**3*a3 + 12.*a3**2*a0*a2**3 - 3.*a1**2*a3**2*a2**2 - &
+             432.*a2*a0*a1**2 + 18.*a1**2*a3**2*a0 + 576.*a1*a3*a0**2 - 432.*a2* &
+             a0**2*a3**2 + 240.*a1*a3*a2**2*a0 - 54.*a2*a1*a3**3*a0 + 384.*a2**2* &
+             a0**2-48.*a0*a2**4 + 12.*a1**2*a2**3 + 81.*a3**4*a0**2 - 768.*a0**3+ &
+             81.*a1**4 + 12.*a1**3*a3**3
 
-!  biggest_term = max(abs(-54.*a2*a1**3*a3),abs(12.*a3**2*a0*a2**3) & 
-!                     abs(-3.*a1**2*a3**2*a2**2),abs(-432.*a2*a0*a1**2) & 
-!                     abs(18.*a1**2*a3**2*a0),abs(576.*a1*a3*a0**2) & 
-!                     abs(-432.*a2*a0**2*a3**2),abs(240.*a1*a3*a2**2*a0) & 
-!                     abs(-54.*a2*a1*a3**3*a0),abs(384.*a2**2*a0**2) & 
-!                     abs(-48.*a0*a2**4),abs(12.*a1**2*a2**3),abs(81.*a3**4*a0**2) & 
-!                     abs(-768.*a0**3),abs(81.*a1**4),abs(12.*a1**3*a3**3))
+ biggest_term = max(abs(-54.*a2*a1**3*a3),abs(12.*a3**2*a0*a2**3), & 
+                    abs(-3.*a1**2*a3**2*a2**2),abs(-432.*a2*a0*a1**2), & 
+                    abs(18.*a1**2*a3**2*a0),abs(576.*a1*a3*a0**2), & 
+                    abs(-432.*a2*a0**2*a3**2),abs(240.*a1*a3*a2**2*a0), & 
+                    abs(-54.*a2*a1*a3**3*a0),abs(384.*a2**2*a0**2), & 
+                    abs(-48.*a0*a2**4),abs(12.*a1**2*a2**3),abs(81.*a3**4*a0**2), & 
+                    abs(-768.*a0**3),abs(81.*a1**4),abs(12.*a1**3*a3**3))
 
-!  if (quantity1 < 0. .and. abs(quantity1)/biggest_term < 1.e-12) then
-!     quantity1 = 0.
-!     print *,"q1 ",quantity1
-!  elseif (quantity1 < 0.) then
-!     print *,"QUARTIC4: Quantity1 is negative. ",ipartin
-!     print *,"Quantity1:",quantity1,biggest_term
-!     print *,"Returning to TRAP with moresweep2=.TRUE."
-!     moresweep = .true.
-!     return
-!  endif
+ if (quantity1 < 0. .and. abs(quantity1)/biggest_term < 1.e-12) then
+    quantity1 = 0.
+    print *,"q1 ",quantity1
+ elseif (quantity1 < 0.) then
+    print *,"QUARTIC4: Quantity1 is negative. "
+    print *,"Quantity1:",quantity1,biggest_term
+    print *,"Returning to TRAP with moresweep2=.TRUE."
+    moresweep = .true.
+    return
+ endif
 
-!  y1 = (-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + 8.*a2**3 + 12.* & 
-!       sqrt(quantity1))**(1./3.)/6. - 6*(a1*a3/3.-4./3.*a0 - & 
-!       a2**2/9.)/(-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + & 
-!       8.*a2**3 + 12.*sqrt(quantity1))**(1./3.)+a2/3.
+ y1 = (-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + 8.*a2**3 + 12.* & 
+      sqrt(quantity1))**(1./3.)/6. - 6*(a1*a3/3.-4./3.*a0 - & 
+      a2**2/9.)/(-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + & 
+      8.*a2**3 + 12.*sqrt(quantity1))**(1./3.)+a2/3.
          
-!  z1(2) = 0.
-!  z2(2) = 0.
-!  z3(2) = 0.
-!  z4(2) = 0.
+ z1(2) = 0.
+ z2(2) = 0.
+ z3(2) = 0.
+ z4(2) = 0.
 
-!  z1(1) = 0.
-!  z2(1) = 0.
-!  z3(1) = 0.
-!  z4(1) = 0.
+ z1(1) = 0.
+ z2(1) = 0.
+ z3(1) = 0.
+ z4(1) = 0.
     
-!  ! Solution to quartic
-!  ! This is solution to two quadratics
-!  ! v^2+(a2/2... etc)
-!  ub = (a3**2/4. + y1 - a2)
-!  if (ub < 0.) then
-!     print*,"quartic4: error, imaginary co-eff b to quadratic"
-!     print*,test1,test2,test3
-!     print*,u1term,u0term
-!     print*,"returning to trapimpl with moresweep2=.true."
-!     moresweep=.true.
-!     return
-!  endif
+ ! Solution to quartic
+ ! This is solution to two quadratics
+ ! v^2+(a2/2... etc)
+ ub = (a3**2/4. + y1 - a2)
+ if (ub < 0.) then
+    print*,"quartic4: error, imaginary co-eff b to quadratic"
+   !  print*,test1,test2,test3
+    print*,u1term,u0term
+    print*,"returning to trapimpl with moresweep2=.true."
+    moresweep=.true.
+    return
+ endif
 
-!  uc = ((y1/2.)**2 - a0)
-!  if (uc < 0.) then
-!     print*,"QUARTIC4: Error, imaginary co-eff c to quadratic"
-!     return
-!  endif
+ uc = ((y1/2.)**2 - a0)
+ if (uc < 0.) then
+    print*,"QUARTIC4: Error, imaginary co-eff c to quadratic"
+    return
+ endif
 
-!  ub1 = a3/2. + sqrt(ub)
-!  ub2 = a3/2. - sqrt(ub)
-!  if (a1 < 0. .and. a0>0.) then
-!     uc1 = y1/2. + sqrt(uc)
-!     uc2 = y1/2. - sqrt(uc)
-!  else
-!     uc1 = y1/2. - sqrt(uc)
-!     uc2 = y1/2. + sqrt(uc)
-!  endif
+ ub1 = a3/2. + sqrt(ub)
+ ub2 = a3/2. - sqrt(ub)
+ if (a1 < 0. .and. a0>0.) then
+    uc1 = y1/2. + sqrt(uc)
+    uc2 = y1/2. - sqrt(uc)
+ else
+    uc1 = y1/2. - sqrt(uc)
+    uc2 = y1/2. + sqrt(uc)
+ endif
 
 
-!  if (ub2**2 - 4.*uc2 > 0. .and. ub1**2 - 4.*uc1 < 0.) then
-!     if (abs(a3) >= tiny(0.)) then
-!        if (abs((a3/2.) - sqrt(ub))/abs(a3/2.) < 1.-6) then
-!           print *,"quartic4: error, big - big / big too big for co-eff b"
-!           return
-!        endif
-!     endif
-!     z2(1)=0.5*((-ub2)-sqrt(ub2**2-4.0*uc2))
-!     z1(1)=0.5*((-ub2)+sqrt(ub2**2-4.0*uc2))
-!     z2(2)=1
-!     z1(2)=1
-!  elseif(ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 > 0.) then
-!     if (abs(2.*a0/(y1**2)) < 1.-6 .and. abs(a3) >= tiny(0.)) then
-!        if (abs((2.*a0/y1)/(((a3/2.) + sqrt((a3**2/4.) + y1 - a2))**2)) > 1.e-6) then
-!           print*,"quartic4: second taylor expansion no longer valid"
-!           print*,"quartic4: value is ",abs((a0/y1)/((a3/2.)+sqrt((a3**2/4.)+y1-a2)))
-!           return
-!        endif
-!        z4(1) = -1.*((a0/y1)/((a3/2.) + sqrt((a3**2/4.) + y1 - a2)))
-!     else
-!        z4(1) = 0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
-!     endif
-!        z3(1) = 0.5*((-ub1) - sqrt(ub1**2 - 4.*uc1))
-!        z3(2) = 1
-!        z4(2) = 1
-!  elseif (ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 < 0.) then
-!     !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE RETURNED ANALYTICALLY !!   
-!     print*,"QUARTIC4: All imaginary roots for quartic"
-!     return
-!  else
-!     if (abs(a3) >= tiny(0.)) then
-!        if (abs((a3/2.) - sqrt(ub)) / ans(a3/2.) < 1.e-6) then
-!           print *,"QUARTIC4: Error, big - big / big too big for co-eff b"
-!           return
-!        endif
-!     endif
+ if (ub2**2 - 4.*uc2 > 0. .and. ub1**2 - 4.*uc1 < 0.) then
+    if (abs(a3) >= tiny(0.)) then
+       if (abs((a3/2.) - sqrt(ub))/abs(a3/2.) < 1.-6) then
+          print *,"quartic4: error, big - big / big too big for co-eff b"
+          return
+       endif
+    endif
+    z2(1)=0.5*((-ub2)-sqrt(ub2**2-4.0*uc2))
+    z1(1)=0.5*((-ub2)+sqrt(ub2**2-4.0*uc2))
+    z2(2)=1
+    z1(2)=1
+ elseif(ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 > 0.) then
+    if (abs(2.*a0/(y1**2)) < 1.-6 .and. abs(a3) >= tiny(0.)) then
+       if (abs((2.*a0/y1)/(((a3/2.) + sqrt((a3**2/4.) + y1 - a2))**2)) > 1.e-6) then
+          print*,"quartic4: second taylor expansion no longer valid"
+          print*,"quartic4: value is ",abs((a0/y1)/((a3/2.)+sqrt((a3**2/4.)+y1-a2)))
+          return
+       endif
+       z4(1) = -1.*((a0/y1)/((a3/2.) + sqrt((a3**2/4.) + y1 - a2)))
+    else
+       z4(1) = 0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
+    endif
+       z3(1) = 0.5*((-ub1) - sqrt(ub1**2 - 4.*uc1))
+       z3(2) = 1
+       z4(2) = 1
+ elseif (ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 < 0.) then
+    !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE RETURNED ANALYTICALLY !!   
+    print*,"QUARTIC4: All imaginary roots for quartic"
+    return
+ else
+    if (abs(a3) >= tiny(0.)) then
+       if (abs((a3/2.) - sqrt(ub)) / abs(a3/2.) < 1.e-6) then
+          print *,"QUARTIC4: Error, big - big / big too big for co-eff b"
+          return
+       endif
+    endif
 
-!     if (abs(2.*a0/(y1**2)) < 1.e-6) then
-!        if (abs(a3) >= tiny(0.)) then
-!           if ((abs(2.*a0/y1)/(((a3/2.) + sqrt((a3**2/4.) + y1 - a2))**2)) > 1.e-6) then
-!              print*,"quartic4: second taylor expansion no longer valid"
-!              print*,"quartic4: value is ", abs((a0/y1)/((a3/2.) + sqrt((a3**2/4.)+y1-a2)))
-!              return
-!           endif
-!           z4(1) = -1.*((a0/y1)/((a3/2.) + sqrt((a3**2/4.) + y1 - a2)))
-!        else
-!           print *,"quartic4: a3<tiny at position 2 ",a3
-!        endif
-!     else
-!        z4(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
-!     endif
+    if (abs(2.*a0/(y1**2)) < 1.e-6) then
+       if (abs(a3) >= tiny(0.)) then
+          if ((abs(2.*a0/y1)/(((a3/2.) + sqrt((a3**2/4.) + y1 - a2))**2)) > 1.e-6) then
+             print*,"quartic4: second taylor expansion no longer valid"
+             print*,"quartic4: value is ", abs((a0/y1)/((a3/2.) + sqrt((a3**2/4.)+y1-a2)))
+             return
+          endif
+          z4(1) = -1.*((a0/y1)/((a3/2.) + sqrt((a3**2/4.) + y1 - a2)))
+       else
+          print *,"quartic4: a3<tiny at position 2 ",a3
+       endif
+    else
+       z4(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
+    endif
        
-!        z3(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
-!        z2(1)=0.5*((-ub2)-sqrt(ub2**2 - 4.*uc2))
-!        z1(1)=0.5*((-ub2)+sqrt(ub2**2 - 4.*uc2))
+       z3(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
+       z2(1)=0.5*((-ub2)-sqrt(ub2**2 - 4.*uc2))
+       z1(1)=0.5*((-ub2)+sqrt(ub2**2 - 4.*uc2))
 
-!        z4(2)=1
-!        z3(2)=1
-!        z2(2)=1
-!        z1(2)=1
-!  endif
+       z4(2)=1
+       z3(2)=1
+       z2(2)=1
+       z1(2)=1
+ endif
 
-!  if (z1(2) == 1. .and. z2(2) == 1. .and. z3(2) == 0. .and. z4(2) == 0.) then
-!     if (z1(1) > 0. .and. z2(1) <= 0.) then
-!        soln = z1(1)
-!     elseif (z1(1) <= 0. .and. z2(1) > 0.) then
-!       soln = z2(1)
-!     elseif (z1(1) <= 0. .and. z2(1) <= 0.) then
-!        print*,"failed 1 ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!        print*,u1term,u0term
-!        print*,"     ",quantity1,biggest_term
-!        print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!        return
-!     elseif (abs(z1(1)-uold) > abs(z2(1)-uold)) then
-!        soln = z2(1)
-!        if (abs((soln-uold)/uold) >= 1.0) then
-!           print*,"change big 1a ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!           print*,u1term,u0term
-!           print*,"     ",quantity1,biggest_term
-!           print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!           return
-!        endif
-!     else
-!        soln = z1(1)
-!        if (abs((soln-uold)/uold) > 1.) then
-!           print*,"change big 1b ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!           print*,u1term,u0term
-!           print*,"     ",quantity1,biggest_term
-!           print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!           return
-!        endif
-!     endif
+ if (z1(2) == 1. .and. z2(2) == 1. .and. z3(2) == 0. .and. z4(2) == 0.) then
+    if (z1(1) > 0. .and. z2(1) <= 0.) then
+       soln = z1(1)
+    elseif (z1(1) <= 0. .and. z2(1) > 0.) then
+      soln = z2(1)
+    elseif (z1(1) <= 0. .and. z2(1) <= 0.) then
+       print*,"failed 1 ",z1(1),z2(1),z3(1),z4(1)
+       print*,u1term,u0term
+       print*,"     ",quantity1,biggest_term
+       print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+       return
+    elseif (abs(z1(1)-uold) > abs(z2(1)-uold)) then
+       soln = z2(1)
+       if (abs((soln-uold)/uold) >= 1.0) then
+          print*,"change big 1a ",z1(1),z2(1),z3(1),z4(1),uold
+          print*,u1term,u0term
+          print*,"     ",quantity1,biggest_term
+          print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+          return
+       endif
+    else
+       soln = z1(1)
+       if (abs((soln-uold)/uold) > 1.) then
+          print*,"change big 1b ",z1(1),z2(1),z3(1),z4(1),uold
+          print*,u1term,u0term
+          print*,"     ",quantity1,biggest_term
+          print*,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+          return
+       endif
+    endif
 
-!  elseif (z3(2) == 1. .and. z4(2) == 1. .and. z1(2) == 0. .and. z2(2) == 0.) then
+ elseif (z3(2) == 1. .and. z4(2) == 1. .and. z1(2) == 0. .and. z2(2) == 0.) then
     
-!     if (z3(1) > 0. .and. z4(1) < 0.) then
-!        soln = z3(1)
-!     elseif (z3(1) <= 0. .and. z4(1) >= 0.) then
-!        soln = z4(1)
-!     elseif (z3(1) <= 0. .and. z4(1) <= 0.) then
-!        print *,"failed 2 ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!        print *,u1term,u0term
-!        print *,"     ",quantity1,biggest_term
-!        print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!        return
-!     elseif (abs(z3(1)-uold) >= abs(z4(1)-uold)) then
-!        soln = z4(1)
-!        if (abs((soln-uold)/uold) >= 1.) then
-!           print *,"change big 2a ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!           print *,u1term,u0term
-!           print *,"     ",quantity1,biggest_term
-!           print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!           return
-!        endif
-!     else
-!        soln = z3(1)
-!        if (abs((soln-uold)/uold) >= 1.) then
-!           print *,"change big 2b ",z1(1),z2(1),z3(1),z4(1),uold,ipartin
-!           print *,u1term,u0term
-!           print *,"     ",quantity1,biggest_term
-!           print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!           return
-!        endif
-!     endif
+    if (z3(1) > 0. .and. z4(1) < 0.) then
+       soln = z3(1)
+    elseif (z3(1) <= 0. .and. z4(1) >= 0.) then
+       soln = z4(1)
+    elseif (z3(1) <= 0. .and. z4(1) <= 0.) then
+       print *,"failed 2 ",z1(1),z2(1),z3(1),z4(1),uold
+       print *,u1term,u0term
+       print *,"     ",quantity1,biggest_term
+       print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+       return
+    elseif (abs(z3(1)-uold) >= abs(z4(1)-uold)) then
+       soln = z4(1)
+       if (abs((soln-uold)/uold) >= 1.) then
+          print *,"change big 2a ",z1(1),z2(1),z3(1),z4(1),uold
+          print *,u1term,u0term
+          print *,"     ",quantity1,biggest_term
+          print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+          return
+       endif
+    else
+       soln = z3(1)
+       if (abs((soln-uold)/uold) >= 1.) then
+          print *,"change big 2b ",z1(1),z2(1),z3(1),z4(1),uold
+          print *,u1term,u0term
+          print *,"     ",quantity1,biggest_term
+          print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+          return
+       endif
+    endif
 
-!  elseif (z3(2) == 0. .and. z4(2) == 0. .and. z1(2) == 0. .and. z2(2) == 0.) then
-!     print *,"quartic4: all imaginary in ",ipartin
-!     print *,"     ",u1term,u0term
-!     print *,"     ",quantity1,biggest_term
-!     print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
-!     return
-!  else                      !four solutions
-!     rtst = 0
-!     write (*,*) 'four solutions ',tsoln1,tsoln2,z1(1),z2(1),z3(1),&
-!                                   z4(1),u1term,u0term,uold,ipartin
-!     return
-!     if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-!        rtst = rtst + 1
-!        soln = z1(1)
-!     endif
-!     if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
-!        rtst = rtst + 1
-!        soln = z2(1)
-!     endif
-!     if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-!        rtst = rtst + 1
-!        soln = z3(1)
-!     endif
-!     if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-!        rtst = rtst + 1
-!        soln = z4(1)
-!     endif
+ elseif (z3(2) == 0. .and. z4(2) == 0. .and. z1(2) == 0. .and. z2(2) == 0.) then
+    print *,"quartic4: all imaginary in "
+    print *,"     ",u1term,u0term
+    print *,"     ",quantity1,biggest_term
+    print *,"     ",y1,ub,uc,ub1,ub2,uc1,uc2
+    return
+ else                      !four solutions
+    rtst = 0
+    write (*,*) 'four solutions ',tsoln1,tsoln2,z1(1),z2(1),z3(1),&
+                                  z4(1),u1term,u0term,uold
+    return
+    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+       rtst = rtst + 1
+       soln = z1(1)
+    endif
+    if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
+       rtst = rtst + 1
+       soln = z2(1)
+    endif
+    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+       rtst = rtst + 1
+       soln = z3(1)
+    endif
+    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+       rtst = rtst + 1
+       soln = z4(1)
+    endif
 
-!     if (rtst /= 1) then
-!        print*,"quartic4: there are four solutions and i'm incapable of"
-!        print*,"picking one. solns are: "
-!        print*,z1(1),z2(1),z3(1),z4(1),ipartin
-!        print*,tsoln1,tsoln2,tsoln3,tsoln4
-!        print*,"min..max t :",tmin,tmax
-!        print*,"i'm going back to trapimpl with moresweep2=.true."
-!        moresweep = .true.
-!     endif
-!  endif
+    if (rtst /= 1) then
+       print*,"quartic4: there are four solutions and i'm incapable of"
+       print*,"picking one. solns are: "
+       print*,z1(1),z2(1),z3(1),z4(1)
+       print*,tsoln1,tsoln2,tsoln3,tsoln4
+       print*,"min..max t :",tmin,tmax
+       print*,"i'm going back to trapimpl with moresweep2=.true."
+       moresweep = .true.
+    endif
+ endif
 
-! end subroutine solve_quartic
+end subroutine solve_quartic
 
 
 
 end module radiation_implicit
->>>>>>> Stashed changes
