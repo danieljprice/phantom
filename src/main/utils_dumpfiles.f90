@@ -72,7 +72,8 @@ module dump_utils
                                ierr_intsize   = 5,&
                                ierr_notags    = 6,&
                                ierr_unknown   = 7,&
-                               ierr_notenough = 8
+                               ierr_notenough = 8,&
+                               ierr_arraysize = 9
 
  type dump_h
     integer :: nums(ndatatypes)
@@ -1201,6 +1202,8 @@ character(len=60) function get_error_text(ierr)
     get_error_text = 'default int size wrong'
  case(ierr_notags)
     get_error_text = 'routine requires tagged format but not detected'
+ case(ierr_arraysize)
+    get_error_text = 'array size too small for requested data'
  case default
     get_error_text = 'unknown error'
  end select
@@ -2072,6 +2075,11 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
        matched    = .true.
        if (match_datatype) then
           got_arr(j) = .true.
+          if (i2 > size(arr)) then
+             print*,'ERROR: array size too small reading '//trim(tag)
+             ierr = ierr_arraysize
+             return
+          endif
           read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
@@ -2079,6 +2087,11 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
           nread = i2-i1+1
           allocate(dummyr8(nread))
           read(iunit,iostat=ierr) (dumr8,i=1,noffset),dummyr8(1:nread)
+          if (i2 > size(arr)) then
+             print*,'ERROR: array size too small reading '//trim(tag)
+             ierr = ierr_arraysize
+             return
+          endif
           arr(j,i1:i2) = real(dummyr8(:),kind=4)
           deallocate(dummyr8)
        else
@@ -2115,6 +2128,11 @@ subroutine read_array_real8(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
     matched    = .true.
     if (match_datatype) then
        got_arr = .true.
+       if (i2 > size(arr)) then
+          print*,'ERROR: array size too small reading '//trim(tag),i2,size(arr)
+          ierr = ierr_arraysize
+          return
+       endif
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     elseif (ikind==i_real4) then
        got_arr = .true.
