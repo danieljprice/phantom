@@ -23,6 +23,8 @@ module omputils
 !$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
 
+ integer :: omp_num_threads
+
 contains
 !----------------------------------------------------------------
 !+
@@ -53,11 +55,20 @@ end subroutine info_omp
 !+
 !----------------------------------------------------------------
 subroutine init_omp
+#ifdef _OPENMP
 !$ integer :: i
+ integer :: omp_get_num_threads
 
 !$ do i = 0, nlocks
 !$  call omp_init_lock(ipart_omp_lock(i))
 !$ enddo
+
+!$omp parallel
+ omp_num_threads = omp_get_num_threads()
+!$omp end parallel
+#else
+ omp_num_threads = 0
+#endif
 
 end subroutine init_omp
 
