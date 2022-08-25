@@ -484,7 +484,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     if (mpi) then
        !$omp critical (crit_recv_remote)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
        !$omp end critical (crit_recv_remote)
        if (do_export) then
           if (stack_waiting%n > 0) then
@@ -493,7 +493,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              do while(.not.all(idone))
                 call check_send_finished(irequestsend,idone)
                 !$omp critical (crit_recv_remote)
-                call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+                call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
                 !$omp end critical (crit_recv_remote)
              enddo
           endif
@@ -540,12 +540,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
        !$omp critical (crit_recv_remote)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
        !$omp end critical (crit_recv_remote)
     enddo
  endif
  print*,id,omp_thread_num(),'recv while wait 1'
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete)
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters)
  print*,id,omp_thread_num(),'restart cell exchange'
  ! restart cell exchange but now only accept tags that match current omp thread
  call finish_cell_exchange(irequestrecv,xsendbuf)
@@ -581,7 +581,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        do while(.not.all(idone))
           call check_send_finished(irequestsend,idone)
           !$omp critical (crit_recv_waiting)
-          call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
+          call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
           !$omp end critical (crit_recv_waiting)
        enddo
 
@@ -596,13 +596,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
        !$omp critical (crit_recv_waiting)
-       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
+       call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
        !$omp end critical (crit_recv_waiting)
     enddo
 
  endif igot_remote
  print*,id,omp_thread_num(),'recv while wait 2'
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete)
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters)
  print*,id,omp_thread_num(),'recv while wait 2 done'
  iam_waiting: if (stack_waiting%n > 0) then
     over_waiting: do i = 1, stack_waiting%n
