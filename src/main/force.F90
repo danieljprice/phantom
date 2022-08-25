@@ -225,7 +225,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
- use omputils,     only:omp_thread_num
+ use omputils,     only:omp_thread_num,omp_num_threads
 
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
@@ -278,7 +278,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
 #endif
  integer(kind=1)           :: ibinnow_m1
- logical                   :: remote_export(nprocs),do_export,idone(nprocs)
+ logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
 
  type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
 
@@ -420,6 +420,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(xrecvbuf) &
 !$omp private(xsendbuf) &
 !$omp shared(cell_counters) &
+!$omp shared(thread_complete) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -445,7 +446,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
- call init_cell_exchange(xrecvbuf,irequestrecv,any_tag=.true.)
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,any_tag=.true.)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -532,6 +533,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  enddo over_cells
  !$omp enddo
+ print*,id,omp_thread_num(),'loop 1 finished'
 
  if (stack_waiting%n > 0) then
     idone(:) = .false.
@@ -542,14 +544,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        !$omp end critical (crit_recv_remote)
     enddo
  endif
-
- !$omp barrier
-
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
-
+ print*,id,omp_thread_num(),'recv while wait 1'
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete)
+ print*,id,omp_thread_num(),'restart cell exchange'
  ! restart cell exchange but now only accept tags that match current omp thread
  call finish_cell_exchange(irequestrecv,xsendbuf)
- call init_cell_exchange(xrecvbuf,irequestrecv,any_tag=.false.)
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,any_tag=.false.)
 
  !$omp master
  call reset_cell_counters(cell_counters)
@@ -588,6 +588,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
 
     enddo over_remote
+    print*,id,omp_thread_num(),'loop 2 finished'
 
     stack_remote%n = 0
 
@@ -600,11 +601,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo
 
  endif igot_remote
-
- !$omp barrier
-
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
-
+ print*,id,omp_thread_num(),'recv while wait 2'
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete)
+ print*,id,omp_thread_num(),'recv while wait 2 done'
  iam_waiting: if (stack_waiting%n > 0) then
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
@@ -632,7 +631,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     stack_waiting%n = 0
 
  endif iam_waiting
-
+ print*,id,omp_thread_num(),'finish cell exchange'
  call finish_cell_exchange(irequestrecv,xsendbuf)
 
 !$omp master
@@ -696,6 +695,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 #endif
 !$omp end parallel
+ print*,id,'parallel done'
 
 #ifdef IND_TIMESTEPS
  ! check for nbinmaxnew = 0, can happen if all particles

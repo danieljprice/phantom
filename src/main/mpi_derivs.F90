@@ -156,13 +156,14 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 #endif
 end subroutine init_celldens_exchange
 
-subroutine init_cellforce_exchange(xbufrecv,ireq,any_tag)
+subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,any_tag)
  use io,       only:fatal
  use mpiforce, only:dtype_cellforce,cellforce
- use omputils, only:omp_thread_num
+ use omputils, only:omp_thread_num,omp_num_threads
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ logical,            intent(inout) :: thread_complete(omp_num_threads)
  logical,            intent(in)    :: any_tag
 #ifdef MPI
  integer :: iproc, mpierr, tag
@@ -179,9 +180,9 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,any_tag)
 !  any tag.
 
  if (any_tag) then
-   tag = MPI_ANY_TAG
+    tag = MPI_ANY_TAG
  else
-   tag = omp_thread_num()
+    tag = omp_thread_num()
  endif
 
  do iproc=1,nprocs
@@ -196,6 +197,7 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,any_tag)
  enddo
 
  ncomplete = 0
+ thread_complete(omp_thread_num()+1) = .false.
 #endif
 end subroutine init_cellforce_exchange
 
@@ -205,6 +207,7 @@ end subroutine init_cellforce_exchange
 !+
 !-----------------------------------------------------------------------
 subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
+ use io,       only:fatal
  use mpidens,  only:celldens
 
  type(celldens),     intent(in)     :: cell
@@ -222,6 +225,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       if (mpierr /= 0) call fatal('send_celldens','error in MPI_ISEND')
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
@@ -231,6 +235,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
 end subroutine send_celldens
 
 subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
+ use io,       only:fatal
  use mpiforce, only:cellforce,dtype_cellforce
 
  type(cellforce),    intent(in)     :: cell
@@ -248,6 +253,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
        call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,cell%owner_thread,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
@@ -309,39 +315,56 @@ subroutine recv_while_wait_dens(stack,xrecvbuf,irequestrecv,irequestsend)
 
 end subroutine recv_while_wait_dens
 
-subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
+subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread_complete)
  use mpiforce, only:stackforce,cellforce
  use mpiutils, only:barrier_mpi
+ use omputils, only:omp_num_threads,omp_thread_num
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+ logical,          intent(inout) :: thread_complete(omp_num_threads)
 #ifdef MPI
  integer             :: newproc
  integer             :: mpierr
 
+ !--signal to other OMP threads that this thread has finished sending
+ thread_complete(omp_thread_num()+1) = .true.
+ print*,id,omp_thread_num(),'waiting for other OMP threads'
+!--continue receiving cells until all OMP threads have finished sending
+ do while (.not. all(thread_complete))
+    !$omp critical (crit_recv_remote)
+    call recv_cellforce(stack,xrecvbuf,irequestrecv)
+    !$omp end critical (crit_recv_remote)
+ enddo
+
+ !--signal to other MPI tasks that this task has finished sending
  !$omp master
  do newproc=0,nprocs-1
     if (newproc /= id) then
-       !--tag=0 to signal done
        call MPI_ISEND(cell_counters(newproc+1,isent),1,MPI_INTEGER4,newproc,0,comm_cellcount,irequestsend(newproc+1),mpierr)
     endif
  enddo
  !$omp end master
-
- !--do not need to MPI_WAIT, because the following code requires the sends to go through
+ print*,id,omp_thread_num(),'waiting for other MPI tasks'
+ !--continue receiving cells until all MPI tasks have finished sending
  do while (ncomplete < nprocs)
     !$omp critical (crit_recv_remote)
     call recv_cellforce(stack,xrecvbuf,irequestrecv)
     !$omp end critical (crit_recv_remote)
+
     !$omp master
     call check_complete
     !$omp end master
  enddo
+ print*,id,omp_thread_num(),'check complete'
 
  call barrier_mpi
 
  !--reset counter for next round
  ncomplete = 0
+
+ !--reset thread completion
+ thread_complete(omp_thread_num()+1) = .false.
 #endif
 
 end subroutine recv_while_wait_force
@@ -427,9 +450,11 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
           target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
+          !$omp atomic
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        else
           call push_onto_stack(target_stack, xbuf(iproc))
+          !$omp atomic
           cell_counters(iproc,irecv) = cell_counters(iproc,irecv) + 1
        endif
        call MPI_START(irequestrecv(iproc),mpierr)
@@ -732,6 +757,8 @@ subroutine check_complete
              print*,'nrecv',cell_counters(i,irecv)
              print*,'nexpect',cell_counters(i,iexpect)
              call fatal('mpiderivs', 'received more cells than expected')
+          else
+             print*,id,'nexpect=',cell_counters(i,iexpect),'nrecv=',cell_counters(i,irecv)
           endif
        endif
     endif
