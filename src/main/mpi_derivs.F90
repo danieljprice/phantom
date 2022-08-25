@@ -71,6 +71,7 @@ module mpiderivs
  public :: tree_bcast
  public :: finish_tree_comms
  public :: reset_cell_counters
+ public :: check_complete
 
  private
 
@@ -198,23 +199,15 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf)
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(celldens),     intent(out)    :: xsendbuf
-
- integer                            :: newproc
- integer                            :: tag
-
 #ifdef MPI
+ integer                            :: newproc
+
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner+1)) then
-    tag = 2
- else
-    tag = 1
- endif
-
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_celldens,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
@@ -229,23 +222,15 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf)
  logical,            intent(in)     :: targets(nprocs)
  integer,            intent(inout)  :: irequestsend(nprocs)
  type(cellforce),    intent(out)    :: xsendbuf
-
- integer                            :: newproc
- integer                            :: tag
-
 #ifdef MPI
+ integer                            :: newproc
+
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
 
- if (targets(cell%owner+1)) then
-    tag = 2
- else
-    tag = 1
- endif
-
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,tag,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,1,comm_cellexchange,irequestsend(newproc+1),mpierr)
        nsent(newproc+1) = nsent(newproc+1) + 1
     endif
  enddo
@@ -342,9 +327,9 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend)
  type(stackforce), intent(inout) :: stack
  type(cellforce),  intent(inout) :: xrecvbuf(nprocs)
  integer,          intent(inout) :: irequestrecv(nprocs),irequestsend(nprocs)
+#ifdef MPI
  integer             :: newproc
 
-#ifdef MPI
  do newproc=0,nprocs-1
     if (newproc /= id) then
        !--tag=0 to signal done
@@ -388,7 +373,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
-       if (status(MPI_TAG) == 2) then
+       if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%rhosums(:,k) = target_stack%cells(iwait)%rhosums(:,k) + xbuf(iproc)%rhosums(:,k)
@@ -396,7 +381,7 @@ subroutine recv_celldens(target_stack,xbuf,irequestrecv)
           enddo
           target_stack%cells(iwait)%nneightry = target_stack%cells(iwait)%nneightry + xbuf(iproc)%nneightry
           nrecv(iproc) = nrecv(iproc) + 1
-       elseif (status(MPI_TAG) == 1) then
+       else
           call push_onto_stack(target_stack, xbuf(iproc))
           nrecv(iproc) = nrecv(iproc) + 1
        endif
@@ -425,7 +410,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
 
     ! unpack results
     if (igot) then
-       if (status(MPI_TAG) == 2) then
+       if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
           do k = 1,xbuf(iproc)%npcell
              target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
@@ -444,7 +429,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv)
           target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
           target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
           nrecv(iproc) = nrecv(iproc) + 1
-       elseif (status(MPI_TAG) == 1) then
+       else
           call push_onto_stack(target_stack, xbuf(iproc))
           nrecv(iproc) = nrecv(iproc) + 1
        endif
@@ -463,9 +448,9 @@ subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
  use mpidens,  only:celldens
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: newproc,iproc
  type(celldens), intent(in)         :: xsendbuf
 #ifdef MPI
+ integer                            :: newproc,iproc
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -491,9 +476,9 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
  use mpiforce, only:cellforce
  integer,            intent(inout)  :: irequestrecv(nprocs)
- integer                            :: newproc,iproc
  type(cellforce), intent(in)        :: xsendbuf
 #ifdef MPI
+ integer                            :: newproc,iproc
 !
 !--each processor do a dummy send to next processor to clear the last remaining receive
 !  (we know the receive has been posted for this, so use RSEND)
@@ -619,6 +604,8 @@ function reduce_group_real(x,string,level) result(xg)
  end select
 
  xg = ired
+#else
+ xg = x
 #endif
 
 end function reduce_group_real
@@ -647,6 +634,8 @@ function reduce_group_int(x,string,level) result(xg)
  end select
 
  xg = ired
+#else
+ xg = x
 #endif
 end function reduce_group_int
 

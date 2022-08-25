@@ -45,10 +45,8 @@ subroutine initialise_krome()
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
  use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
- use dim,        only:maxvxyzu,store_gamma
+ use dim,        only:maxvxyzu
  real :: wind_temperature
-
- store_gamma = .true.
 
  print *, ""
  print *, "==================================================="

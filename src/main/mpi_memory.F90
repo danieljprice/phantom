@@ -159,7 +159,7 @@ subroutine calculate_stacksize(npart)
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
     ! assume that every cell will be exported, with some safety factor
-    stacksize = (npart / minpart / nprocs) * 4
+    stacksize = (npart / minpart / nprocs) * safety
 
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize
