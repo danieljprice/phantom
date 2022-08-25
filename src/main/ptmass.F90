@@ -23,6 +23,7 @@ module ptmass
 !
 ! :Runtime parameters:
 !   - f_acc           : *particles < f_acc*h_acc accreted without checks*
+!   - f_crit_override : *unconditional sink formation if rho > f_crit_override*rho_crit*
 !   - h_acc           : *accretion radius for new sink particles*
 !   - h_soft_sinkgas  : *softening length for new sink particles*
 !   - h_soft_sinksink : *softening length between sink particles*
@@ -32,9 +33,9 @@ module ptmass
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
-! :Dependencies: boundary, dim, eos, eos_piecewise, externalforces,
-!   fastmath, infile_utils, io, io_summary, kdtree, kernel, linklist,
-!   mpidomain, mpiutils, options, part, units
+! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
+!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
+!   linklist, mpidomain, mpiutils, options, part, units
 !
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,iskfile,id,master
@@ -52,9 +53,7 @@ module ptmass
  public :: update_ptmass
  public :: calculate_mdot
  public :: ptmass_calc_enclosed_mass
-#ifdef PERIODIC
  public :: ptmass_boundary_crossing
-#endif
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -63,8 +62,8 @@ module ptmass
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
  real,    public :: f_crit_override = 0.0    ! 1000. ! if > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
-                                                     ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.§
-                                                     ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
+ ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.§
+ ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
@@ -423,10 +422,9 @@ end subroutine get_accel_sink_sink
 !  Update position of sink particles if they cross the periodic boundary
 !+
 !----------------------------------------------------------------
-#ifdef PERIODIC
 subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
- use boundary, only:cross_boundary
- use mpidomain,only:isperiodic
+ use boundary,  only:cross_boundary
+ use mpidomain, only:isperiodic
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  integer                :: i,ncross
@@ -437,7 +435,7 @@ subroutine ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  enddo
 
 end subroutine ptmass_boundary_crossing
-#endif
+
 !----------------------------------------------------------------
 !+
 !  predictor step for the point masses
