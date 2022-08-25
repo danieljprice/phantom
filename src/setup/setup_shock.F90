@@ -20,7 +20,7 @@ module setup
 !   - dtg         : *Dust to gas ratio*
 !   - dtmax       : *time between dumps*
 !   - dust_method : *1=one fluid, 2=two fluid*
-!   - gamma       : *Adiabatic index*
+!   - gamma       : *Adiabatic index (no effect if ieos=12)*
 !   - gmw         : *mean molecular weight*
 !   - ieos        : *equation of state option*
 !   - kappa       : *opacity in cm^2/g*
@@ -35,9 +35,10 @@ module setup
 !   - xleft       : *x min boundary*
 !   - xright      : *x max boundary*
 !
-! :Dependencies: boundary, dim, dust, eos, infile_utils, io, kernel,
-!   mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
-!   set_dust, setshock, setup_params, timestep, unifdis, units
+! :Dependencies: boundary, dim, dust, eos, eos_idealplusrad, infile_utils,
+!   io, kernel, mpiutils, nicil, options, part, physcon, prompting,
+!   radiation_utils, set_dust, setshock, setup_params, timestep, unifdis,
+!   units
 !
  use dim,       only:maxvxyzu,use_dust,do_radiation
  use options,   only:use_dustfrac

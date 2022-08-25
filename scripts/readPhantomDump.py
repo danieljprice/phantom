@@ -220,32 +220,34 @@ def read_hdf5(hdf5file):
   return dump
 
 def read_infile(infile):
-  """ Read a .in file
+  """ Read the .in  and .setup files
   """
   data = dict()
-  for line in open(infile, 'r'):
-    line = line.strip()
-    if line.startswith('#') or len(line)==0:
-      continue
-    line = line.split('!')[0]
-    namevalue = line.split('=')
-    if len(namevalue)==2:
-      name, value = namevalue
-      name = name.strip()
-      value = value.strip()
-      try:
-        if '.' in value:
-          value = float(value)
-        else:
-          value = int(value)
-      except ValueError:
-        pass
-      if name in data.keys():
-        if not isinstance(data[name], list):
-          data[name] = [data[name]]
-        data[name].append(value)
-      else:
-        data[name] = value
+  suffix=['.in','.setup']
+  for suff in suffix:
+      for line in open(infile+suff, 'r'):
+        line = line.strip()
+        if line.startswith('#') or len(line)==0:
+          continue
+        line = line.split('!')[0]
+        namevalue = line.split('=')
+        if len(namevalue)==2:
+          name, value = namevalue
+          name = name.strip()
+          value = value.strip()
+          try:
+            if '.' in value:
+              value = float(value)
+            else:
+              value = int(value)
+          except ValueError:
+            pass
+          if name in data.keys():
+            if not isinstance(data[name], list):
+              data[name] = [data[name]]
+            data[name].append(value)
+          else:
+            data[name] = value
   return data
 
 def read_ev_file(filename):

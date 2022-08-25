@@ -406,7 +406,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     npart = maxp
     call prompt('Enter number of particles ',npart,1,maxp)
     call bcast_mpi(npart)
-    if (npart > maxp) call fatal('setup','npart > maxp')
+    if (npart > maxp) call fatal('setup','npart > maxp; use ./phantomsetup --maxp=10000000')
     npartoftype(1) = npart
 
     print "(a,es10.3,a,1pg10.3,a)",'Mass is in units of ',umass,' g (',umass/solarm,' solar masses)'

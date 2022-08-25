@@ -576,8 +576,6 @@ end subroutine update_externalforce
 !-----------------------------------------------------------------------
 subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
  use extern_binary, only:binary_accreted,accradius1
- use part,          only:set_particle_type,iboundary,maxphase,maxp,igas
- !use part,          only:npartoftype
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
