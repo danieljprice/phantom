@@ -28,6 +28,7 @@ module mpiforce
 
  integer, public :: dtype_cellforce
 
+ integer, parameter :: ndata = 20 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
                                           8 * maxfsum * minpart           + &  !  fsums(maxfsum,minpart)
                                           8 * 20                          + &  !  fgrav(20)
@@ -86,8 +87,6 @@ subroutine get_mpitype_of_cellforce
 #ifdef MPI
  use mpi
  use io,       only:error
-
- integer, parameter              :: ndata = 19
 
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
