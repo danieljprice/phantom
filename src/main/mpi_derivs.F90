@@ -365,11 +365,6 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
  call barrier_mpi
 
- !--reset counter for next round
- ncomplete = 0
-
- !--reset thread completion
- thread_complete(omp_thread_num()+1) = .false.
 #endif
 
 end subroutine recv_while_wait_force
