@@ -814,6 +814,7 @@ subroutine reset_cell_counters(counters)
     endif
  enddo
  !$omp end master
+
 #endif
 end subroutine reset_cell_counters
 
