@@ -486,23 +486,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     do_export = any(remote_export)
 
     if (mpi) then
-       !$omp critical (crit_recv)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
-       !$omp end critical (crit_recv)
        if (do_export) then
           if (stack_waiting%n > 0) then
              !--wait for broadcast to complete, continue to receive whilst doing so
              idone(:) = .false.
              do while(.not.all(idone))
                 call check_send_finished(irequestsend,idone)
-                !$omp critical (crit_recv)
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
-                !$omp end critical (crit_recv)
              enddo
           endif
-          !$omp critical (crit_reserve_waiting)
           call reserve_stack(stack_waiting,cell%waiting_index)
-          !$omp end critical (crit_reserve_waiting)
           call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
        endif
     endif
@@ -541,9 +535,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
-       !$omp critical (crit_recv)
        call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
-       !$omp end critical (crit_recv)
     enddo
  endif
 
@@ -582,9 +574,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        idone(:) = .false.
        do while(.not.all(idone))
           call check_send_finished(irequestsend,idone)
-          !$omp critical (crit_recv)
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
-          !$omp end critical (crit_recv)
        enddo
 
        call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
@@ -596,9 +586,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     idone(:) = .false.
     do while(.not.all(idone))
        call check_send_finished(irequestsend,idone)
-       !$omp critical (crit_recv)
        call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
-       !$omp end critical (crit_recv)
     enddo
 
  endif igot_remote
