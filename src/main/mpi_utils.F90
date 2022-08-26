@@ -235,11 +235,14 @@ end subroutine endmyturn
 subroutine barrier_mpi()
 #ifdef MPI
  use io, only:fatal
+ integer :: mpierr_local
 
  ! call MPI_BARRIER on the master task only, but also barrier the OMP threads
+
+ !$omp barrier
  !$omp master
- call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
- if (mpierr /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
+ call MPI_BARRIER(MPI_COMM_WORLD,mpierr_local)
+ if (mpierr_local /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
  !$omp end master
  !$omp barrier
 
