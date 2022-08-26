@@ -337,9 +337,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
 !--continue receiving cells until all OMP threads have finished sending
  do while (.not. all(thread_complete))
-    !$omp critical (crit_recv)
     call recv_cellforce(stack,xrecvbuf,irequestrecv,counters)
-    !$omp end critical (crit_recv)
  enddo
 
  !--signal to other MPI tasks that this task has finished sending
@@ -353,10 +351,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
  !--continue receiving cells until all MPI tasks have finished sending
  do while (ncomplete_mpi < nprocs)
-    !$omp critical (crit_recv)
     call recv_cellforce(stack,xrecvbuf,irequestrecv,counters)
-    !$omp end critical (crit_recv)
-
     !$omp master
     call check_complete_force(counters,ncomplete_mpi)
     !$omp end master
