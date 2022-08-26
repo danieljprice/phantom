@@ -334,7 +334,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
  !--signal to other OMP threads that this thread has finished sending
  thread_complete(omp_thread_num()+1) = .true.
- print*,id,omp_thread_num(),'waiting for other OMP threads'
+
 !--continue receiving cells until all OMP threads have finished sending
  do while (.not. all(thread_complete))
     !$omp critical (crit_recv)
@@ -350,7 +350,7 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
     endif
  enddo
  !$omp end master
- print*,id,omp_thread_num(),'waiting for other MPI tasks'
+
  !--continue receiving cells until all MPI tasks have finished sending
  do while (ncomplete_mpi < nprocs)
     !$omp critical (crit_recv)
@@ -361,7 +361,6 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
     call check_complete_force(counters,ncomplete_mpi)
     !$omp end master
  enddo
- print*,id,omp_thread_num(),'check complete'
 
  call barrier_mpi
 
@@ -523,7 +522,6 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 
 !--free request handle
  do iproc=1,nprocs
-    !  print*,id,omp_thread_num(),'Freeing iproc=',iproc
     call MPI_WAIT(irequestrecv(iproc),status,mpierr)
     call MPI_REQUEST_FREE(irequestrecv(iproc),mpierr)
  enddo
@@ -758,8 +756,6 @@ subroutine check_complete(counters)
              print*,'nrecv',counters(i,irecv)
              print*,'nexpect',counters(i,iexpect)
              call fatal('mpiderivs', 'received more cells than expected')
-          else
-             print*,id,'nexpect=',counters(i,iexpect),'nrecv=',counters(i,irecv)
           endif
        endif
     endif
@@ -789,8 +785,6 @@ subroutine check_complete_force(counters,ncomplete_mpi)
              print*,'nrecv',counters(i,irecv)
              print*,'nexpect',counters(i,iexpect)
              call fatal('mpiderivs', 'received more cells than expected')
-          else
-             print*,id,'nexpect=',counters(i,iexpect),'nrecv=',counters(i,irecv)
           endif
        endif
     endif
