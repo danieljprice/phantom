@@ -66,7 +66,9 @@ module mpiderivs
  public :: tree_bcast
  public :: finish_tree_comms
  public :: reset_cell_counters
+#ifdef MPI
  public :: check_complete
+#endif
 
  !
  !--the counters are module variables, but must be passed through as arguments
