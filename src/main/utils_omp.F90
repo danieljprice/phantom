@@ -67,7 +67,7 @@ subroutine init_omp
  omp_num_threads = omp_get_num_threads()
 !$omp end parallel
 #else
- omp_num_threads = 0
+ omp_num_threads = 1
 #endif
 
 end subroutine init_omp
