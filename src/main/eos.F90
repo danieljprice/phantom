@@ -794,7 +794,8 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
 end function entropy
 
 real function get_entropy(rho,pres,mu_in,ieos)
-   use units, only:unit_density,unit_pressure,unit_ergg
+   use units,   only:unit_density,unit_pressure,unit_ergg
+   use physcon, only:kboltz
    integer, intent(in) :: ieos
    real, intent(in)    :: rho,pres,mu_in
    real                :: cgsrho,cgspres,cgss
@@ -809,6 +810,7 @@ real function get_entropy(rho,pres,mu_in,ieos)
    case default
       cgss = entropy(cgsrho,cgspres,mu_in,1)
    end select
+   cgss = cgss/kboltz ! s/kb
    get_entropy = cgss/unit_ergg
 
  end function get_entropy
@@ -851,7 +853,7 @@ end subroutine get_rho_from_p_s
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
- use physcon, only:kb_on_mh,radconst,rg
+ use physcon, only:kb_on_mh,radconst,rg,mass_proton_cgs,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use units,   only:unit_density,unit_pressure,unit_ergg
@@ -871,13 +873,13 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  niter = 0
  select case (ieos)
  case (2)
-    temp = (cgsrho * exp(mu*cgss/kb_on_mh))**(2./3.)
+    temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgsP = cgsrho*kb_on_mh*temp / mu
  case (12)
     corr = huge(corr)
     do while (abs(corr) > eoserr .and. niter < nitermax)
-       f = kb_on_mh / mu * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho) - cgss
-       df = 1.5*kb_on_mh / (mu*temp) + 4.*radconst*temp**2 / cgsrho
+       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
+       df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
        corr = f/df
        temp_new = temp - corr
        if (temp_new > 1.2 * temp) then
