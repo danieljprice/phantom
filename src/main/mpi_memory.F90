@@ -143,7 +143,7 @@ subroutine increase_mpi_memory
 
  ! Expand force
  call move_alloc(force_cells, force_cells_tmp)
- allocate(force_cells(stacksize_new,3), stat=allocstat)
+ allocate(force_cells(stacksize_new,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack', 'error increasing force stack size')
  force_cells(1:stacksize,:) = force_cells_tmp(:,:)
  deallocate(force_cells_tmp)
