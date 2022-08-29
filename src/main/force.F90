@@ -2461,7 +2461,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
 #endif
  use io,             only:warning
- use physcon,        only:c
+ use physcon,        only:c,kboltz
  use timestep,       only:C_rad
 #ifdef GR
  use part,           only:pxyzu
@@ -2737,7 +2737,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (ien_type == ien_etotal) then
              fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
           elseif (ien_type == ien_entropy_s) then
-             fxyz4 = fxyz4 + u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))
+             fxyz4 = fxyz4 + u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
