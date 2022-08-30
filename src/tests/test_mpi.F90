@@ -10,11 +10,11 @@ module testmpi
 !
 ! :References: None
 !
-! :Owner: Not Committed Yet
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, physcon, testutils, units
+! :Dependencies: io, mpimemory, physcon, testutils, units
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -39,10 +39,15 @@ subroutine test_mpi(ntests,npass)
 end subroutine test_mpi
 
 subroutine test_increase_mpi_memory(ntests,npass)
+ use mpimemory, only: increase_mpi_memory
  integer, intent(inout) :: ntests,npass
  integer :: nerr(1)
 
  nerr = 0
+
+ !$omp parallel
+ call increase_mpi_memory
+ !$omp end parallel
 
  call update_test_scores(ntests,nerr,npass)
 
