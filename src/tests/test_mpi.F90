@@ -45,9 +45,7 @@ subroutine test_increase_mpi_memory(ntests,npass)
 
  nerr = 0
 
- !$omp parallel
  call increase_mpi_memory
- !$omp end parallel
 
  call update_test_scores(ntests,nerr,npass)
 
