@@ -424,6 +424,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(cell_counters) &
 !$omp shared(thread_complete) &
 !$omp shared(ncomplete_mpi) &
+!$omp shared(stack_remote) &
+!$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
