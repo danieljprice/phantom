@@ -89,7 +89,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real(kind=4), intent(out)   :: divcurlB(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
- real,         intent(in)    :: rad(:,:)
+ real,         intent(inout) :: rad(:,:)
  real,         intent(out)   :: eos_vars(:,:)
  real,         intent(out)   :: drad(:,:)
  real,         intent(inout) :: radprop(:,:)
@@ -178,7 +178,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  !
  if (do_radiation) then
-    call do_radiation_implicit(dt,dtmax,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0) call error('radiation','Failed to converge')
  endif
 
