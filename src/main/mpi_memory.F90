@@ -267,10 +267,12 @@ subroutine push_onto_stack_force(stack,cell)
  type(stackforce),   intent(inout)  :: stack
  type(cellforce),    intent(in)     :: cell
 
+ !$omp critical (crit_stack)
  if (stack%n + 1 > stack%maxlength) call increase_mpi_memory_force
  ! after increasing stack size, cells can be added to because it is just a pointer
  stack%n = stack%n + 1
  stack%cells(stack%n) = cell
+ !$omp end critical (crit_stack)
 end subroutine push_onto_stack_force
 
 subroutine pop_off_stack_dens(stack,cell)
@@ -303,8 +305,10 @@ subroutine write_cell_force(stack,cell)
  type(stackforce),   intent(inout)  :: stack
  type(cellforce),    intent(inout)  :: cell
 
+ !$omp critical (crit_stack)
  if (cell%waiting_index > stack%maxlength) call fatal('force','attempting to write to invalid stack address')
  stack%cells(cell%waiting_index) = cell
+ !$omp end critical (crit_stack)
 
 end subroutine write_cell_force
 
@@ -322,9 +326,11 @@ subroutine reserve_stack_force(stack,i)
  type(stackforce),   intent(inout) :: stack
  integer,            intent(out)   :: i
 
+ !$omp critical (crit_stack)
  if (stack%n + 1 > stack%maxlength) call increase_mpi_memory_force
  stack%n = stack%n + 1
  i = stack%n
+ !$omp end critical (crit_stack)
 
 end subroutine reserve_stack_force
 

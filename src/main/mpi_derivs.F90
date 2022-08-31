@@ -413,6 +413,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  integer                            :: status(MPI_STATUS_SIZE)
 
  ! receive MPI broadcast
+ !$omp critical (crit_stack)
  do iproc=1,nprocs
     call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
@@ -444,6 +445,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
+ !$omp end critical (crit_stack)
 #endif
 end subroutine recv_cellforce
 
