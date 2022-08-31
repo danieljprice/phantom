@@ -482,7 +482,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
-    cell%owner                   = id
+    cell%owner = id
 
     do_export = any(remote_export)
 
@@ -541,10 +541,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
-
- ! restart cell exchange but now only accept tags that match current omp thread
- call finish_cell_exchange(irequestrecv,xsendbuf)
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi)
 
  !$omp master
  call reset_cell_counters(cell_counters)

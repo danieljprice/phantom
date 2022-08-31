@@ -350,6 +350,11 @@ subroutine recv_while_wait_force(stack,xrecvbuf,irequestrecv,irequestsend,thread
 
  call barrier_mpi
 
+ !$omp master
+ ncomplete_mpi = 0
+ !$omp end master
+ thread_complete(omp_thread_num()+1) = .false.
+
 #endif
 
 end subroutine recv_while_wait_force
