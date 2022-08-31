@@ -28,7 +28,7 @@ module mpiforce
 
  integer, public :: dtype_cellforce
 
- integer, parameter :: ndata = 20 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
                                           8 * maxfsum * minpart           + &  !  fsums(maxfsum,minpart)
                                           8 * 20                          + &  !  fgrav(20)
@@ -46,8 +46,7 @@ module mpiforce
                                           4                               + &  !  owner
                                           4                               + &  !  waiting_index
                                           1 * minpart                     + &  !  iphase(minpart)
-                                          1 * minpart                     + &  !  ibinneigh(minpart)
-                                          4                                    !  owner_thread
+                                          1 * minpart                          !  ibinneigh(minpart)
 
  type cellforce
     sequence
@@ -69,7 +68,6 @@ module mpiforce
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer          :: owner_thread                           ! omp thread that owns this cell
     integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
@@ -205,12 +203,6 @@ subroutine get_mpitype_of_cellforce
  blens(nblock) = size(cell%ibinneigh)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%ibinneigh,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
- call MPI_GET_ADDRESS(cell%owner_thread,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
