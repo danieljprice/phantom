@@ -481,7 +481,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
     cell%owner                   = id
-    cell%owner_thread            = omp_thread_num()
 
     do_export = any(remote_export)
 
