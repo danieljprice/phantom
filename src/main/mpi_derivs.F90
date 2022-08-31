@@ -158,7 +158,7 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 #endif
 end subroutine init_celldens_exchange
 
-subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,any_tag)
+subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi)
  use io,       only:fatal
  use mpiforce, only:dtype_cellforce,cellforce
  use omputils, only:omp_thread_num,omp_num_threads
@@ -167,9 +167,8 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,a
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
  logical,            intent(inout) :: thread_complete(omp_num_threads)
  integer,            intent(out)   :: ncomplete_mpi
- logical,            intent(in)    :: any_tag
 #ifdef MPI
- integer :: iproc, mpierr, tag
+ integer :: iproc, mpierr
 
 !
 !--use persistent communication type for receives
@@ -177,20 +176,10 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,a
 !  unless we make a request for each processor
 !
 !  We post a receive for EACH processor, to match the number of sends
-!
-!  Optionally, we can also force each reciever to only accept messages with
-!  tags that match the omp thread id. By default they accept MPI messages with
-!  any tag.
-
- if (any_tag) then
-    tag = MPI_ANY_TAG
- else
-    tag = omp_thread_num()
- endif
 
  do iproc=1,nprocs
     call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,iproc-1, &
-                       tag,comm_cellexchange,ireq(iproc),mpierr)
+                       0,comm_cellexchange,ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
 !--start the persistent communication channel
@@ -257,7 +246,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
 
  do newproc=0,nprocs-1
     if ((newproc /= id) .and. (targets(newproc+1))) then ! do not send to self
-       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,cell%owner_thread,comm_cellexchange,irequestsend(newproc+1),mpierr)
+       call MPI_ISEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,irequestsend(newproc+1),mpierr)
        if (mpierr /= 0) call fatal('send_cellforce','error in MPI_ISEND')
        !$omp atomic
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
