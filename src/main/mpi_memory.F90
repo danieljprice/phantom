@@ -67,7 +67,6 @@ module mpimemory
  type(stackdens),  public :: dens_stack_3
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
- !$omp threadprivate(force_stack_1,force_stack_2)
 
  private
 
@@ -78,7 +77,6 @@ module mpimemory
  ! primary chunk of memory requested using alloc
  type(celldens),  allocatable, target :: dens_cells(:,:)
  type(cellforce), allocatable, target :: force_cells(:,:)
- !$omp threadprivate(force_cells)
 
 contains
 
@@ -92,10 +90,8 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
  allocstat = 0
 
  if (present(stacksize_in)) stacksize_dens = stacksize_in
- !$omp parallel
  if (present(stacksize_in)) stacksize_force = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
- !$omp end parallel
  if (present(reallocate)) re_allocate = reallocate
 
  if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize_dens,3), stat=allocstat)
@@ -115,12 +111,10 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
     call allocate_stack(dens_stack_3, 3)
  endif
 
- !$omp parallel
  if (.not. allocated(force_cells)) allocate(force_cells(stacksize_force,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  call allocate_stack(force_stack_1, 1)
  call allocate_stack(force_stack_2, 2)
- !$omp end parallel
 
 end subroutine allocate_mpi_memory
 
@@ -211,9 +205,7 @@ end subroutine calculate_stacksize
 
 subroutine deallocate_mpi_memory
  if (allocated(dens_cells )) deallocate(dens_cells )
- !$omp parallel
  if (allocated(force_cells)) deallocate(force_cells)
- !$omp end parallel
 end subroutine deallocate_mpi_memory
 
 subroutine allocate_stack_dens(stack, i)
@@ -341,10 +333,8 @@ subroutine reset_stacks
  dens_stack_2%n=0
  dens_stack_3%n=0
 
- !$omp parallel
  force_stack_1%n=0
  force_stack_2%n=0
- !$omp end parallel
 end subroutine reset_stacks
 
 end module mpimemory
