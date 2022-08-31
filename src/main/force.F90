@@ -557,6 +557,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp barrier
 
  igot_remote: if (stack_remote%n > 0) then
+    !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
 
@@ -581,6 +582,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
 
     enddo over_remote
+    !$omp enddo
 
     stack_remote%n = 0
 
@@ -595,6 +597,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (stack_waiting%n > 0) then
+    !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
 
@@ -617,6 +620,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           rad,drad,radprop,dtrad)
 
     enddo over_waiting
+    !$omp enddo
 
     stack_waiting%n = 0
 
