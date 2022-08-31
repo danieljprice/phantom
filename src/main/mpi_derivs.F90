@@ -179,7 +179,7 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi)
 
  do iproc=1,nprocs
     call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_cellforce,iproc-1, &
-                       0,comm_cellexchange,ireq(iproc),mpierr)
+                       MPI_ANY_TAG,comm_cellexchange,ireq(iproc),mpierr)
     if (mpierr /= 0) call fatal('init_cell_exchange','error in MPI_RECV_INIT')
 !
 !--start the persistent communication channel
@@ -500,7 +500,7 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
 !  (we know the receive has been posted for this, so use RSEND)
 !
  do newproc=0,nprocs-1
-    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,omp_thread_num(),comm_cellexchange,mpierr)
+    call MPI_RSEND(xsendbuf,1,dtype_cellforce,newproc,0,comm_cellexchange,mpierr)
  enddo
 
 !
