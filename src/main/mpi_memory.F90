@@ -128,7 +128,7 @@ subroutine increase_mpi_memory_dens
  type(celldens),  allocatable, target :: dens_cells_tmp(:,:)
 
  stacksize_new = int(real(stacksize_dens) * factor)
- write(iprint, *) 'MPI stack exceeded on', id, 'increasing size to', stacksize_new
+ write(iprint, *) 'MPI dens stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand density
  call move_alloc(dens_cells, dens_cells_tmp)
@@ -154,7 +154,7 @@ subroutine increase_mpi_memory_force
  type(cellforce), allocatable, target :: force_cells_tmp(:,:)
 
  stacksize_new = int(real(stacksize_force) * factor)
- write(iprint, *) 'MPI stack exceeded on', id, 'increasing size to', stacksize_new
+ write(iprint, *) 'MPI force stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand force
  call move_alloc(force_cells, force_cells_tmp)
