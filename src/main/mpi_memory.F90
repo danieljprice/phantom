@@ -59,9 +59,9 @@ module mpimemory
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
 
- private
+ integer, public :: stacksize
 
- integer :: stacksize
+ private
 
  ! primary chunk of memory requested using alloc
  type(celldens),  allocatable, target :: dens_cells(:,:)
