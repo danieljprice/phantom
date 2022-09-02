@@ -38,6 +38,10 @@ module mpiderivs
   module procedure recv_celldens,recv_cellforce
  end interface recv_cells
 
+ interface combine_cells
+  module procedure combine_cellforce
+ end interface combine_cells
+
  interface finish_cell_exchange
   module procedure finish_celldens_exchange,finish_cellforce_exchange
  end interface finish_cell_exchange
@@ -418,41 +422,60 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  integer                            :: status(MPI_STATUS_SIZE)
 
  ! receive MPI broadcast
- !$omp critical (crit_stack_recv)
  do iproc=1,nprocs
     call MPI_TEST(irequestrecv(iproc),igot,status,mpierr)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
+       !$omp critical (crit_stack_recv)
        if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
-          do k = 1,xbuf(iproc)%npcell
-             target_stack%cells(iwait)%fsums(:,k) = target_stack%cells(iwait)%fsums(:,k) + xbuf(iproc)%fsums(:,k)
-             target_stack%cells(iwait)%tsmin(k) = min(target_stack%cells(iwait)%tsmin(k), xbuf(iproc)%tsmin(k))
-             target_stack%cells(iwait)%vsigmax(k) = max(target_stack%cells(iwait)%vsigmax(k), xbuf(iproc)%vsigmax(k))
-#ifdef IND_TIMESTEPS
-             target_stack%cells(iwait)%ibinneigh(k) = max(target_stack%cells(iwait)%ibinneigh(k), xbuf(iproc)%ibinneigh(k))
-#endif
-          enddo
-#ifdef GRAVITY
-          do k = 1,20
-             target_stack%cells(iwait)%fgrav(k) = target_stack%cells(iwait)%fgrav(k) + xbuf(iproc)%fgrav(k)
-          enddo
-#endif
-          target_stack%cells(iwait)%ndrag = target_stack%cells(iwait)%ndrag + xbuf(iproc)%ndrag
-          target_stack%cells(iwait)%nstokes = target_stack%cells(iwait)%nstokes + xbuf(iproc)%nstokes
-          target_stack%cells(iwait)%nsuper = target_stack%cells(iwait)%nsuper + xbuf(iproc)%nsuper
+          call combine_cells(target_stack%cells(iwait),xbuf(iproc))
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
+       !$omp end critical (crit_stack_recv)
        !$omp atomic
        counters(iproc,irecv) = counters(iproc,irecv) + 1
        call MPI_START(irequestrecv(iproc),mpierr)
     endif
  enddo
- !$omp end critical (crit_stack_recv)
 #endif
 end subroutine recv_cellforce
+
+!------------------------------------------------
+!+
+!  Adds new_cell onto target_cell
+!+
+!------------------------------------------------
+subroutine combine_cellforce(target_cell,new_cell)
+ use mpiforce,  only:cellforce
+
+ type(cellforce), intent(inout) :: target_cell
+ type(cellforce), intent(inout) :: new_cell
+
+ integer :: k
+
+ do k = 1,new_cell%npcell
+    target_cell%fsums(:,k)   =      target_cell%fsums(:,k) +  new_cell%fsums(:,k)
+    target_cell%tsmin(k)     = min( target_cell%tsmin(k),     new_cell%tsmin(k)     )
+    target_cell%vsigmax(k)   = max( target_cell%vsigmax(k),   new_cell%vsigmax(k)   )
+#ifdef IND_TIMESTEPS
+    target_cell%ibinneigh(k) = max( target_cell%ibinneigh(k), new_cell%ibinneigh(k) )
+#endif
+ enddo
+
+#ifdef GRAVITY
+ do k = 1,20
+    target_cell%fgrav(k) = target_cell%fgrav(k) + new_cell%fgrav(k)
+ enddo
+#endif
+
+ target_cell%ndrag   = target_cell%ndrag   + new_cell%ndrag
+ target_cell%nstokes = target_cell%nstokes + new_cell%nstokes
+ target_cell%nsuper  = target_cell%nsuper  + new_cell%nsuper
+
+end subroutine combine_cellforce
 
 !----------------------------------------------------------------
 !+
