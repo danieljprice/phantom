@@ -93,6 +93,17 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
  if (present(npart)) call calculate_stacksize(npart)
  if (present(reallocate)) re_allocate = reallocate
 
+ if (allocated(dens_cells)) then
+    if (stacksize_dens /= size(dens_cells,1)) then
+       call fatal('stack', 'dens_cells already allocated with a different size')
+    endif
+ endif
+ if (allocated(force_cells)) then
+    if (stacksize_force /= size(force_cells,1)) then
+       call fatal('stack', 'force_cells already allocated with a different size')
+    endif
+ endif
+
  if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize_dens,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
 
