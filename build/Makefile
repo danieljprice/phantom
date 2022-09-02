@@ -1254,7 +1254,10 @@ testnimhd:
 	${MAKE} SETUP=testnimhd phantomtest && $(RUNMPI) $(BINDIR)/phantomtest nimhd
 
 testmpi:
-	export MPI=yes && ${MAKE} SETUP=test phantomtest && $(RUNMPI) $(BINDIR)/phantomtest mpi
+	${MAKE} MPI=yes _testmpi
+
+_testmpi:
+	${MAKE} SETUP=test phantomtest && $(RUNMPI) $(BINDIR)/phantomtest mpi
 
 testall: test test2 testcyl testgrav
 
