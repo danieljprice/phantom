@@ -72,7 +72,6 @@ module mpimemory
 
  integer :: stacksize_dens
  integer :: stacksize_force
- !$omp threadprivate(stacksize_force)
 
  ! primary chunk of memory requested using alloc
  type(celldens),  allocatable, target :: dens_cells(:,:)
