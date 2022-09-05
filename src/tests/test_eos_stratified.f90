@@ -197,8 +197,8 @@ subroutine test_stratified_temps(ntests, npass)
              temp_mid = temp_mid0*(ri/100)**q_mid
              temp_atm = temp_atm0*(ri/100)**q_atm
              temp_ref = (temp_mid**4 + 0.5*(1+tanh((abs(zi) - alpha_z*zq)/zq))*temp_atm**4)**(0.25)
-             call checkvalbuf(tempi,temp_ref,1e-14, &
-             'ieos=7 temp matches temp from Law et al. 2021 equation',nfailed(1),ncheck(1),errmax)
+             call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Law et al. 2021 equation',&
+             nfailed(1),ncheck(1),errmax)
           enddo
        enddo
     enddo
