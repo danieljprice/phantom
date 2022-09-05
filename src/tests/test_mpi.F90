@@ -39,8 +39,8 @@ subroutine test_mpi(ntests,npass)
 end subroutine test_mpi
 
 subroutine test_increase_mpi_memory(ntests,npass)
- use mpimemory, only:allocate_mpi_memory,increase_mpi_memory,&
-                     deallocate_mpi_memory,stacksize, force_stack_1,&
+ use mpimemory, only:allocate_mpi_memory,increase_mpi_memory_dens,increase_mpi_memory_force,&
+                     deallocate_mpi_memory,stacksize_dens,force_stack_1,&
                      push_onto_stack
  use mpiforce,  only:cellforce
  integer, intent(inout) :: ntests,npass
@@ -53,8 +53,8 @@ subroutine test_increase_mpi_memory(ntests,npass)
  ncheck = 0
  maxerr = 0.
 
- ! Save original stacksize
- stacksize_orig = stacksize
+ ! Save original stacksize, assuming they're the same for dens and force
+ stacksize_orig = stacksize_dens
 
  ! Deallocate existing stack
  call deallocate_mpi_memory
@@ -73,7 +73,8 @@ subroutine test_increase_mpi_memory(ntests,npass)
  call update_test_scores(ntests,nerr,npass)
 
  ! Trigger a stacksize increase - if this doesn't segfault, that's a good sign
- call increase_mpi_memory
+ call increase_mpi_memory_dens
+ call increase_mpi_memory_force
 
  ! Ensure stack size hasn't changed
  call checkval(force_stack_1%n,new_stacksize,0,nerr(1),'stacksize after mem increase')
