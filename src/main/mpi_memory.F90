@@ -60,7 +60,8 @@ module mpimemory
  public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
- public :: increase_mpi_memory
+ public :: increase_mpi_memory_dens
+ public :: increase_mpi_memory_force
 
  ! stacks to be referenced from density and force routines
  type(stackdens),  public :: dens_stack_1
@@ -70,10 +71,11 @@ module mpimemory
  type(stackforce), public :: force_stack_2
  !$omp threadprivate(force_stack_1,force_stack_2)
 
+ integer, public :: stacksize_dens
+ integer, public :: stacksize_force
+
  private
 
- integer :: stacksize_dens
- integer :: stacksize_force
  !$omp threadprivate(stacksize_force)
 
  ! primary chunk of memory requested using alloc
