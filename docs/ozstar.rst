@@ -195,7 +195,14 @@ first check the `online job monitor <https://supercomputing.swin.edu.au/monitor/
      ...
      export OMP_NUM_THREADS=16
 
-where as above you also need to adjust the number of cpus you are requesting to fit the node size.
+where as above you also need to adjust the number of cpus you are requesting to fit the node size. In the sstar queue, the default nodes have only 16 cpus: as the job can only run on one node, you need to either request 16 cpus in your job submission script as above, or request the single 32 core node in sstar using ::
+
+     #SBATCH --nodes=1 --ntasks=32
+     ...
+     #SBATCH --partition=sstar
+     #SBATCH -C largemem
+     ...
+     export OMP_NUM_THREADS=32     
 
 getting your job to restart automatically
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

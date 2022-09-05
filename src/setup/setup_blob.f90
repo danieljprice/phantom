@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, domain, io, kernel, part, physcon, prompting,
+! :Dependencies: boundary, io, kernel, mpidomain, part, physcon, prompting,
 !   setup_params, timestep, unifdis
 !
  implicit none
@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use kernel,       only:hfact_default
  use timestep,     only:dtmax,tmax
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  use part,         only:periodic
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -92,6 +92,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             "'     mach number = ',f10.3,',      c_s = ',f6.3,/,"// &
             "'          tau_kh = ',f10.3,',      v_0 = ',f6.3,/)") &
        denscloud,rcloud,denszero,przero,vzero/spsound,spsound,taukh,vzero
+
+ !
+ ! default value of npartx = 100
+ !
+ npartx = 100
 
  call prompt('enter number of particles in x dir',npartx,8)
  deltax = dxbound/npartx

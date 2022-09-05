@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -55,7 +55,7 @@ module inject
  type injectparams
     real, public :: R_in, R_out, Rsect_in, Rsect_out, width, R_mid, dr_bound, phi_inject
     real, public :: phimax, p_index,q_index, HoverR, object_mass, disc_mass
- end type
+ end type injectparams
 
  type(injectparams), public :: injp
 

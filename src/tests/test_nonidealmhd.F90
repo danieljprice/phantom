@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,9 +21,9 @@ module testnimhd
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   nicil, options, part, physcon, step_lf_global, testutils, timestep,
-!   timestep_sts, unifdis, units
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, nicil, options, part, physcon, step_lf_global, testutils,
+!   timestep, timestep_sts, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -114,7 +114,7 @@ subroutine test_wavedamp(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_AD
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
 #ifdef STS_TIMESTEPS
  use timestep_sts,   only:sts_initialise
  use timestep,       only:dtdiff,dtcourant,dtforce
@@ -277,7 +277,7 @@ subroutine test_standingshock(ntests,npass)
  use kernel,         only:hfact_default,radkern
  use part,           only:init_part,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,hrho,rhoh,&
                           Bevol,fext,igas,iboundary,set_boundaries_to_active,alphaind,maxalpha,maxp,iphase,Bxyz,&
-                          iamtype,iamboundary
+                          iamtype,iamboundary,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
@@ -289,7 +289,7 @@ subroutine test_standingshock(ntests,npass)
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
                           use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,Cdt_diff,Cdt_hall
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer                :: i,j,nx,ny,nz,nsteps,ierr,idr,npts,itype
  integer                :: nerr(6)
@@ -297,7 +297,7 @@ subroutine test_standingshock(ntests,npass)
  real                   :: t,dt,dtext,dtnew
  real                   :: dexact,bexact,vexact,L2d,L2v,L2b,dx
  real                   :: leftstate(8),rightstate(8),exact_x(51),exact_d(51),exact_vx(51),exact_by(51)
- real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=3.1d-2
+ real, parameter        :: told = 2.1d-2, tolv=3.1d-2, tolb=1.1d-1
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
  logical                :: valid_bdy_rho,valid_bdy_v
@@ -377,6 +377,12 @@ subroutine test_standingshock(ntests,npass)
        Bevol(1:3,i) = leftstate(6:8)/leftstate(1)
     endif
  enddo
+
+ !
+ ! reduce types across MPI tasks
+ !
+ call update_npartoftypetot
+
  !
  ! initialise runtime parameters
  !
@@ -498,8 +504,8 @@ subroutine test_standingshock(ntests,npass)
  endif
  npts = int(reduceall_mpi('+',npts))
  L2d  = reduceall_mpi('+',L2d)
- L2v  = reduceall_mpi('+',L2d)
- L2b  = reduceall_mpi('+',L2d)
+ L2v  = reduceall_mpi('+',L2v)
+ L2b  = reduceall_mpi('+',L2b)
  if (npts > 0) then
     L2d = sqrt(L2d/npts)
     L2v = sqrt(L2v/npts)
@@ -527,16 +533,16 @@ subroutine test_etaval(ntests,npass)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
  use part,           only:init_part,npart,xyzh,vxyzu,Bxyz,npartoftype,massoftype,set_particle_type,&
-                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi
+                          Bevol,igas,alphaind,nden_nimhd,rhoh,eta_nimhd,iohm,ihall,iambi,eos_vars,itemp
  use deriv,          only:get_derivs_global
  use testutils,      only:checkval
- use eos,            only:ieos,init_eos,polyk,polyk2,gamma,get_temperature
+ use eos,            only:ieos,init_eos,polyk,polyk2,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,nicil_update_nimhd,eta_constant,use_ohm,use_hall,use_ambi,unit_eta
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: kmax = 2
  integer                :: i,k,nx,ierr,itmp
@@ -638,7 +644,7 @@ subroutine test_etaval(ntests,npass)
     !
     rhoi  = rhoh(xyzh(4,itmp),massoftype(igas))
     Bi    = sqrt(dot_product(Bevol(1:3,itmp),Bevol(1:3,itmp)))*rhoi
-    tempi = get_temperature(ieos,xyzh(1:3,itmp),rhoi,vxyzu(:,itmp))
+    tempi = eos_vars(itemp,itmp)
 
     if (id==master) then
        write(*,*) ' '

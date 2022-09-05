@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
@@ -58,7 +58,7 @@ subroutine check_setup(nerror,nwarn,restart)
  integer      :: i,j,nbad,itype,nunity,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas
+ real         :: hi,hmin,hmax,dust_to_gas_mean
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -113,10 +113,6 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
-    print*,'WARNING! Using non-ideal EoS but not storing temperature'
-    nwarn = nwarn + 1
- endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -391,7 +387,7 @@ subroutine check_setup(nerror,nwarn,restart)
  if (use_dustfrac) then
     nbad = 0
     nunity = 0
-    dust_to_gas = 0.
+    dust_to_gas_mean = 0.
     do i=1,npart
        do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
@@ -400,10 +396,11 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo
+    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
@@ -421,7 +418,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
+    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
  endif
 
 #ifdef GR
@@ -437,6 +434,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check dust growth arrays
 !
  if (use_dustgrowth) call check_setup_growth(npart,nerror)
+!
+!--check dust nucleation arrays
+!
+ if (do_nucleation) call check_setup_nucleation(npart,nerror)
 !
 !--check point mass setup
 !
@@ -522,7 +523,9 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !  or within each others accretion radii
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     do j=i+1,nptmass
+       if (xyzmh_ptmass(4,j) < 0.) cycle
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
@@ -541,21 +544,20 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  n = 0
  do i=1,nptmass
-    if (.not.in_range(xyzmh_ptmass(4,i),0.)) then
+    if (.not.in_range(xyzmh_ptmass(4,i))) then
        nerror = nerror + 1
        print*,' Error in setup: sink ',i,' mass = ',xyzmh_ptmass(4,i)
-    elseif (xyzmh_ptmass(4,i) < tiny(0.)) then
+    elseif (xyzmh_ptmass(4,i) < 0.) then
+       print*,' Sink ',i,' has previously merged with another sink'
        n = n + 1
     endif
  enddo
- if (n > 0) then
-    print*,'WARNING: ',n,' sink particles have zero mass '
-    nwarn = nwarn + 1
- endif
+ if (n > 0) print*,'The ptmass arrays have ',n,' sinks that have previously merged (i.e. have mass < 0)'
  !
  !  check that accretion radii are positive
  !
  do i=1,nptmass
+    if (xyzmh_ptmass(4,i) < 0.) cycle
     hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
     if (hsink <= 0.) then
        nerror = nerror + 1
@@ -579,6 +581,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
 
 end subroutine check_setup_ptmass
 
+!------------------------------------------------------------------
+!+
+! check dust growth arrays are sensible
+!+
+!------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
  use part, only:dustprop,dustprop_label
  integer, intent(in)    :: npart
@@ -599,12 +606,44 @@ subroutine check_setup_growth(npart,nerror)
 
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1
     endif
  enddo
 
 end subroutine check_setup_growth
+
+!------------------------------------------------------------------
+!+
+! check dust nucleation arrays are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_nucleation(npart,nerror)
+ use part, only:nucleation,nucleation_label,n_nucleation,idmu,idgamma
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ integer :: i,j,nbad(n_nucleation)
+
+ nbad = 0
+ !-- Check that all the parameters are > 0 when needed
+ do i=1,npart
+    if (nucleation(idmu,i) < 0.1) nbad(idmu) = nbad(idmu) + 1
+    if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
+
+    if (any(isnan(nucleation(:,i)))) then
+       print*,'NaNs in nucleation array'
+       nerror = nerror + 1
+    endif
+ enddo
+
+ do j=1,n_nucleation
+    if (nbad(j) > 0) then
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(nucleation_label(j))//' <= 0'
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_nucleation
 
 !------------------------------------------------------------------
 !+
@@ -674,6 +713,7 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use utils_gr,     only:get_u0
  use part,         only:isdead_or_accreted
  use units,        only:in_geometric_units,get_G_code,get_c_code
+ use options,      only:ien_type,ien_entropy,ien_etotal
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
@@ -709,6 +749,12 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
 
  if (nbad > 0) then
     print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nbad,' of ',npart,' particles have |v| > 1 or u > 1, giving undefined U^0'
+    nerror = nerror + 1
+ endif
+
+ if (ien_type /= ien_etotal .and. ien_type /= ien_entropy) then
+    print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
+                                 ien_entropy, ' or ', ien_etotal, ' but get ', ien_type
     nerror = nerror + 1
  endif
 

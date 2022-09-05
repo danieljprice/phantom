@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -527,6 +527,7 @@ subroutine create_sink_clumps(npart,xyzh)
  print'(a,F5.1,a)', 'All particles within ',sinkclumprad,' accretion radii  will be added to sink clumps'
 
  do iptmass=1,nptmass
+    if (xyzmh_ptmass(4,iptmass) < 0.) cycle
     clumpsep = sinkclumprad*xyzmh_ptmass(ihacc,iptmass)
     nclump   = nclump + 1
 

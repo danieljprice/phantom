@@ -10,7 +10,7 @@ Installing phantom
 -------------------
 Grab a copy of phantom as usual::
 
-    git clone https://bitbucket.org/danielprice/phantom
+    git clone https://github.com/danieljprice/phantom
 
 
 Make a directory somewhere else (not inside the phantom directory) to do the work::

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -178,7 +178,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     !
     ! invert to get mass coordinate from radial coordinate, i.e. r(m)
     !
-    rr = mr**(1./3.)*rmax ! uniform density
+    rr = (rmin**3+mr*(rmax**3-rmin**3))**(1./3.) ! uniform density
     !
     ! get a random position on sphere
     !
@@ -196,7 +196,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     if (mask(iparttot)) then
        np = np + 1
        if (np > maxp) then
-          print*,' ERROR: np > maxp'
+          print*,' ERROR: np > array size: use ./phantomsetup --maxp=',np_requested
           return
        endif
        xyzh(1:3,np) = rr*dir
@@ -206,7 +206,7 @@ subroutine set_sphere_mc(id,master,rmin,rmax,hfact,np_requested,np,xyzh, &
     if (mask(iparttot)) then
        np = np + 1
        if (np > maxp) then
-          print*,' ERROR: np > maxp'
+          print*,' ERROR: np > array size: use ./phantomsetup --maxp=',np_requested
           return
        endif
        xyzh(1:3,np) = -rr*dir
@@ -390,6 +390,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     endif
  endif
  write(*,'(a,I10,2a)') ' set_sphere: Iterations complete: added ',npart0,' particles in the ',trim(c_shape)
+ psep = (xmax-xmin)/nint((xmax-xmin)/psep)
 
 end subroutine set_unifdis_sphereN
 !-----------------------------------------------------------------------
@@ -419,9 +420,14 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
  yi = 1.5*r_ellipsoid(2)
  zi = 1.5*r_ellipsoid(3)
 
- vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
- call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
-                          vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
+ if (trim(lattice)=='random') then
+    call set_unifdis(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,xyzh,.false.,npnew_in=np_requested,&
+                     rellipsoid=r_ellipsoid,in_ellipsoid=.true.,nptot=nptot,verbose=.false.,centre=.true.)
+ else
+    vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
+    call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
+                             vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
+ endif
 
 end subroutine set_ellipse
 !-----------------------------------------------------------------------

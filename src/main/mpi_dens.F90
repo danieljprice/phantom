@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -16,19 +16,15 @@ module mpidens
 !
 ! :Dependencies: dim, io, mpi, mpiutils
 !
- use io,       only:nprocs,fatal
- use dim,      only:minpart,maxrhosum,maxprocs,stacksize,maxxpartvecidens
-#ifdef MPI
- use mpiutils, only:mpierr
-#endif
+ use io,       only:nprocs,fatal,error
+ use dim,      only:minpart,maxrhosum,maxxpartvecidens
+
  implicit none
  private
 
  public :: celldens
  public :: stackdens
-#ifdef MPI
  public :: get_mpitype_of_celldens
-#endif
 
  type celldens
     sequence
@@ -48,32 +44,31 @@ module mpidens
     integer          :: nneightry
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
-    logical          :: remote_export(maxprocs)                ! remotes we are waiting for
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8))
- endtype
+    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart) + minpart, 8))
+ end type celldens
 
  type stackdens
     sequence
     type(celldens), pointer   :: cells(:)
     integer                   :: maxlength = 0
     integer                   :: n = 0
-    integer                   :: mem_start
-    integer                   :: mem_end
- endtype
+    integer                   :: number
+ end type stackdens
 
 contains
 
-#ifdef MPI
 subroutine get_mpitype_of_celldens(dtype)
+#ifdef MPI
  use mpi
+ use mpiutils, only:mpierr
+ use io,       only:error
 
- integer, parameter              :: ndata = 20
+ integer, parameter              :: ndata = 18
 
  integer, intent(out)            :: dtype
- integer                         :: dtype_old
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
- integer(kind=4)                 :: disp(ndata)
+ integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
  type(celldens)                 :: cell
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
@@ -179,38 +174,30 @@ subroutine get_mpitype_of_celldens(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = size(cell%remote_export)
- mpitypes(nblock) = MPI_LOGICAL
- call MPI_GET_ADDRESS(cell%remote_export,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
  blens(nblock) = size(cell%iphase)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%iphase,addr,mpierr)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 8 - mod(4 * (6 + 2 * minpart + maxprocs) + minpart, 8)
+ blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
  call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
-    dtype_old = dtype
-    lb = 0
-    extent = sizeof(cell)
-    call MPI_TYPE_CREATE_RESIZED(dtype_old,lb,extent,dtype,mpierr)
-    call MPI_TYPE_COMMIT(dtype,mpierr)
-    call MPI_TYPE_FREE(dtype_old,mpierr)
+    call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
-end subroutine get_mpitype_of_celldens
+#else
+ integer, intent(out) :: dtype
+ dtype = 0
 #endif
+end subroutine get_mpitype_of_celldens
 
 end module mpidens
