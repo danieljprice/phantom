@@ -1,13 +1,19 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 program phantomevcompare
 !
-! For the given input .ev files, will rewrite them using
-!               common headers
+! This program has two main uses:
+! For a list of models, will rewrite the .ev files using common headers;
+! this option is either interactive or by including the .evin file as
+! an input when calling.
+! For a single input model, will merge all .ev files into one file with
+! suffix 00.ev, removing duplicate times; this option is either
+! interactive or by including the model name as an input when calling;
+! this option has reduced interactivity and auxiliary output files.
 !
 ! :References: None
 !
@@ -38,12 +44,15 @@ program phantomevcompare
  character(len=4096) :: cdummy
  integer, parameter  :: icolA = 26, icolB = 27, icolC = 28
 
+ interactive   = .true.
+ concise       = .true.
+ single_output = .true.
+ nummodels     = 0
+ nargs         = command_argument_count()
+ evinfile      = ''
  !
  !--If argument exists, read it in
  !
- interactive = .true.
- nargs       = command_argument_count()
- evinfile    = ''
  if (nargs > 0) then
     call get_command_argument(1,evinfile)
     idot = index(evinfile,'.')  ! strip .evin if present
@@ -60,7 +69,17 @@ program phantomevcompare
        else
           interactive = .false.
        endif
-    else
+    endif
+    if (interactive) then
+       ! determine if this is a single model
+       idot = index(evinfile,'.')  ! strip .evin if present
+       infilenames(1) = trim(evinfile(1:idot-1))
+       evinfile = trim(evinfile(1:idot-1))//'01.ev'
+       inquire(file=trim(evinfile),exist=iexist)
+       interactive = .false.
+       nummodels   = 1
+    endif
+    if (interactive) then
        write(*,'(3a)') "WARNING: ",trim(evinfile)," does not exists.  Entering interactive mode"
     endif
  endif
@@ -70,11 +89,9 @@ program phantomevcompare
  if (interactive) then
     !--Ask for details about what columns to compare
     !  (i.e. use all available columns (T) or only columns exisitng in all files (F))
-    concise = .true.
     call prompt('Do you wish to include only columns existing in all files?',concise)
     !
     !--Make a new .ev file for each input .ev file (F), or one per model (T)
-    single_output = .true.
     call prompt('Do you want only one output file per model?',single_output)
     !
     !--List the models to compare
@@ -125,7 +142,7 @@ program phantomevcompare
        endif       ! endif: (trim(modelprefix)=='')
     enddo          ! enddo:  while (enter_filename)
     nummodels = i   ! the number of models to compare
- else
+ elseif (nummodels /=1) then
     !
     !--Ensure that all the 01.ev files from the .evin file exists, and ensure that there are no duplicates
     do i = 1,nummodels
@@ -153,8 +170,13 @@ program phantomevcompare
        endif
     enddo
  endif   ! endif: interactive
+
+ ! Compatibility checks
  if (nummodels==0) then
     write(*,'(a)') 'There are no files to compare'
+    stop
+ elseif (nummodels==1 .and. .not.single_output) then
+    write(*,'(a)') 'Not creating a single file is incompatible with single_output=false'
     stop
  endif
  !
@@ -256,33 +278,37 @@ program phantomevcompare
  !
  !--Determine prefix for new output (if not read in)
  !
- if (evinfile=='') then
-    i           = 0
-    get_newfile = .true.
-    do while (get_newfile)
-       i = i + 1
-       write(filename,'(a,I2.2,a)')'evCompare',i,'.columns'
-       inquire(file=filename,exist=iexist)
-       if (.not.iexist .or. i==99) then  ! i=99 is a failsafe for the current format
-          write(outprefix,'(a,I2.2)')'evCompare',i
-          get_newfile = .false.
-       endif
-    enddo
+ if (nummodels==1) then
+    print*, 'We will not write an .evin file.'
  else
-    idot      = index(evinfile,'.evin')    ! .evin will be in the filename by construction
-    outprefix = evinfile(1:idot-1)
+    if (evinfile=='') then
+       i           = 0
+       get_newfile = .true.
+       do while (get_newfile)
+          i = i + 1
+          write(filename,'(a,I2.2,a)')'evCompare',i,'.columns'
+          inquire(file=filename,exist=iexist)
+          if (.not.iexist .or. i==99) then  ! i=99 is a failsafe for the current format
+             write(outprefix,'(a,I2.2)')'evCompare',i
+             get_newfile = .false.
+          endif
+       enddo
+    else
+       idot      = index(evinfile,'.evin')    ! .evin will be in the filename by construction
+       outprefix = evinfile(1:idot-1)
+    endif
+    !
+    !--Write .columns file (verbosely)
+    if ( write_columns ) then
+       call write_columns_to_file(numcol0,columns0,outprefix)
+    endif
+    write(*,'(3a,I4,a)') 'The .columns file is ',trim(outprefix),'.columns, with ',numcol0,' entries'
  endif
- !
- !--Write .columns file (verbosely)
- if ( write_columns ) then
-    call write_columns_to_file(numcol0,columns0,outprefix)
- endif
- write(*,'(3a,I4,a)') 'The .columns file is ',trim(outprefix),'.columns, with ',numcol0,' entries'
  !
  !--Write and store labels in proper format for .ev files
  !
  do i = 1,numcol0
-    write(columnsEV(i),"(1x,'[',i2.2,1x,a11,']',2x)")i,columns0(i)
+    write(columnsEV(i),"(1x,'[',i2.2,1x,a11,']',2x)")i,trim(columns0(i))
  enddo
  !
  !--Rewrite all the .ev files using the new columns ordering
@@ -319,7 +345,11 @@ program phantomevcompare
           if ( single_output ) then
              if ( i==1 ) then
                 ifailed = .false.
-                write(evout_new,'(4a)')trim(outprefix),'.',trim(outfilenames(j)),'00.ev'
+                if (nummodels==1) then
+                   write(evout_new,'(2a)')trim(outfilenames(j)),'00.ev'
+                else
+                   write(evout_new,'(4a)')trim(outprefix),'.',trim(outfilenames(j)),'00.ev'
+                endif
                 open(unit=icolB,file=evout_new)
                 write(icolB,ev_fmtH)'#',columnsEV(1:numcol0)
              endif
@@ -378,8 +408,10 @@ program phantomevcompare
  endif
  write(*,'(a)') ' '
  !
- !--Write inputs to .evin file
+ !--Write inputs to .evin file (if comparing multiple files)
  !
- call write_evin_file(outprefix,infilenames(1:nummodels),nummodels,single_output,concise)
+ if (nummodels/=1) then
+    call write_evin_file(outprefix,infilenames(1:nummodels),nummodels,single_output,concise)
+ endif
 
 end program phantomevcompare

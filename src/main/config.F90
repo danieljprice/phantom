@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,7 +44,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 17
+ integer, parameter :: nsinkproperties = 18
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -53,21 +53,12 @@ module dim
  integer, parameter :: maxvxyzu = 4
 #endif
 
- ! storage of temperature
- integer :: maxtemp = 0
-#ifdef STORE_TEMPERATURE
- logical, parameter :: store_temperature = .true.
-#else
- logical, parameter :: store_temperature = .false.
-#endif
-
  integer :: maxTdust = 0
+ logical :: store_dust_temperature = .false.
 #ifdef SINK_RADIATION
  logical, parameter :: sink_radiation = .true.
- logical, parameter :: store_dust_temperature = .true.
 #else
  logical, parameter :: sink_radiation = .false.
- logical, parameter :: store_dust_temperature = .false.
 #endif
 
  ! maximum allowable number of neighbours (safest=maxp)
@@ -78,7 +69,8 @@ module dim
 #endif
 
 ! maxmimum storage in linklist
- integer :: ncellsmax
+ integer         :: ncellsmax
+ integer(kind=8) :: ncellsmaxglobal
 
 !------
 ! Dust
@@ -153,12 +145,10 @@ module dim
                                            radenxpartvecforce + &
                                            maxxpartvecGR
 
- ! cell storage
- integer, parameter :: maxprocs = 32
-#ifdef STACKSIZE
- integer, parameter :: stacksize = STACKSIZE
+#ifdef MPI
+ logical, parameter :: mpi = .true.
 #else
- integer, parameter :: stacksize = 200000
+ logical, parameter :: mpi = .false.
 #endif
 
  ! storage for artificial viscosity switch
@@ -214,9 +204,7 @@ module dim
  integer :: maxp_krome = 0
 #ifdef KROME
  logical, parameter :: use_krome = .true.
- logical, parameter :: store_gamma = .true.
 #else
- logical, parameter :: store_gamma = .false.
  logical, parameter :: use_krome = .false.
 #endif
 
@@ -283,36 +271,23 @@ module dim
 #endif
 
 !--------------------
-! Gravitational wave strain
-!--------------------
-#ifdef GWS
- logical, parameter :: gws = .true.
-#else
- logical, parameter :: gws = .false.
-#endif
-
-!--------------------
 ! Supertimestepping
 !--------------------
  integer :: maxsts = 1
 
 !--------------------
-! Wind cooling
-!--------------------
-#if defined(WIND) || !defined (ISOTHERMAL)
- logical :: windcooling = .true.
-#else
- logical :: windcooling = .false.
-#endif
-
-!--------------------
 ! Dust formation
 !--------------------
-#ifdef NUCLEATION
- integer :: maxsp = maxp_hard
+ logical :: do_nucleation = .false.
+ integer :: inucleation = 0
+ !number of elements considered in the nucleation chemical network
+ integer, parameter :: nElements = 10
+#ifdef DUST_NUCLEATION
+ logical :: nucleation = .true.
 #else
- integer :: maxsp = 0
+ logical :: nucleation = .false.
 #endif
+ integer :: maxp_nucleation = 0
 
 !--------------------
 ! MCFOST library
@@ -342,6 +317,15 @@ module dim
  logical, parameter :: particles_are_injected = .false.
 #endif
 
+!--------------------
+! individual timesteps
+!--------------------
+#ifdef IND_TIMESTEPS
+ logical, parameter :: ind_timesteps = .true.
+#else
+ logical, parameter :: ind_timesteps = .false.
+#endif
+
  !--------------------
  ! Analysis array sizes
  !--------------------
@@ -358,8 +342,9 @@ module dim
 
 contains
 
-subroutine update_max_sizes(n)
- integer, intent(in) :: n
+subroutine update_max_sizes(n,ntot)
+ integer,                   intent(in) :: n
+ integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
 
@@ -368,17 +353,22 @@ subroutine update_max_sizes(n)
 #endif
 
 #ifdef SINK_RADIATION
- maxTdust = maxp
+ store_dust_temperature = .true.
 #endif
 
-#ifdef STORE_TEMPERATURE
- maxtemp = maxp
-#endif
+ if (store_dust_temperature) maxTdust = maxp
+ if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
- ncellsmax = NCELLSMAX
+ ncellsmax       = NCELLSMAX
+ ncellsmaxglobal = NCELLSMAX
 #else
  ncellsmax = 2*maxp
+ if (present(ntot)) then
+    ncellsmaxglobal = 2*ntot
+ else
+    ncellsmaxglobal = ncellsmax
+ endif
 #endif
 
 #ifdef DUST

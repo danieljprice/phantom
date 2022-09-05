@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -106,7 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           !--make ring of particles at r=rcyl
           do i=1,nphi
              ipart = ipart + 1
-             if (ipart > maxp) stop 'setup_tokamak: ipart>maxp; recompile with MAXP=big number'
+             if (ipart > maxp) stop 'setup_tokamak: ipart>maxp; use ./phantomsetup --maxp=10000000'
              phi = (i-1)*deltaphi
              xyzh(1,ipart) = rcyl*cos(phi+randphi)
              xyzh(2,ipart) = rcyl*sin(phi+randphi)

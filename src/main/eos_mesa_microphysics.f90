@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -207,9 +207,8 @@ end subroutine read_opacity_mesa
 
 
 
-! Return value of kappa for a value of density and temperature
+! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
-
  real, intent(in) :: rho,temp
  real, intent(out) :: kap,kapt,kapr
  real :: opac_k,opac_kd,opac_kt
@@ -220,6 +219,8 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  logrho = log10(rho)
  logt   = log10(temp)
  logr   = logrho + 18.d0 - 3.d0 * logt
+
+ if (.not.allocated(mesa_opacs_rs)) return ! avoid seg fault, but kappa undefined
 
  ! Get the r and T indices for looking up the table
  dnr = 1.d0 + ((logr - mesa_opacs_rs(1)) / mesa_opacs_dr)
@@ -425,7 +426,7 @@ end subroutine read_eos_mesa
 ! 5. dlnP/dlnrho|e 6. dlnP/dlne|rho 7. dlnT/dlnrho|e 8. dlnT/dlne|rho
 ! 9. logS         10. dlnT/dlnP|S  11. Gamma1       12. gamma
 ! Note: ivout=1,2,3,4 returns the unlogged quantity
-subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
+pure subroutine getvalue_mesa(rho,eint,ivout,vout,ierr)
  real, intent(in) :: rho, eint
  real, intent(out) :: vout
  integer, intent(in) :: ivout
@@ -475,7 +476,7 @@ end subroutine getvalue_mesa
 
 !only use if between e(2) < e < e(n_e-1) and v(2) < v < v(n_v-1)
 
-subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
+pure subroutine  eos_cubic_spline_mesa(e1,v1,e,v,n_var,z,h1,dh)
 
 ! use mesa_eos_logEs, mesa_eos_logVs
  implicit none
@@ -531,7 +532,7 @@ end subroutine eos_cubic_spline_mesa
 
 
 
-subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
+pure subroutine cubic_spline_mesa(x0,x1,x2,x3,y0,y1,y2,y3,as,bs)
 
  implicit none
 

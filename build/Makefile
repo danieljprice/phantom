@@ -21,9 +21,9 @@
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2021
+PHANTOM_VERSION_MAJOR=2022
 PHANTOM_VERSION_MINOR=0
-PHANTOM_VERSION_MICRO=0
+PHANTOM_VERSION_MICRO=1
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -40,23 +40,22 @@ MODFILE       = moddump_default.f90
 ANALYSIS      = analysis_dtheader.f90
 MULTIRUNFILE  = multirun.f90
 LIVE_ANALYSIS = no
-LINKLIST      = dtype_kdtree.F90 kdtree.F90 linklist_kdtree.F90
 DEBUG         = no
 #
 # can comment out the following lines and instead set
 # the parameters as environment variables
 #
 ifndef DOUBLEPRECISION
-  DOUBLEPRECISION= yes
+    DOUBLEPRECISION= yes
 endif
 ifndef EDITOR
-  EDITOR= emacs
+    EDITOR= emacs
 endif
 ifndef OPENMP
-  OPENMP= yes
+    OPENMP= yes
 endif
 ifndef SPLASH_DIR
-   SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
+    SPLASH_DIR=${shell if [ -d $$HOME/splash ]; then echo $$HOME/splash; fi}
 endif
 #MPI= yes
 #
@@ -88,1043 +87,8 @@ LIBTOOL=libtool
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
-#----------------------------------------------------------------
-#
-# Check for obsolete setups and replace with generic version
-#
-#----------------------------------------------------------------
-ifeq ($(SETUP), HLTau) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= HLTau
-    override SETUP=disc
-endif
-ifeq ($(SETUP), dustyHLTau) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= dustyHLTau
-    override SETUP=dustydisc
-endif
-ifeq ($(SETUP), mcfost) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP=mcfost
-    override SETUP=disc
-    MCFOST=yes
-endif
-ifeq ($(SETUP), planets) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= planets
-    override SETUP=disc
-endif
-ifeq ($(SETUP), binarydisc) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= binarydisc
-    override SETUP=disc
-endif
-ifeq ($(SETUP), dustybinarydisc) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= dustybinarydisc
-    override SETUP=dustydisc
-endif
-ifeq ($(SETUP), Lense-Thirring) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= Lense-Thirring
-    override SETUP=disc
-endif
-ifeq ($(SETUP), warp) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= warp
-    override SETUP=disc
-endif
-ifeq ($(SETUP), rndisc) # [buildbot skip]
-    OBSOLETE_SETUP=yes
-    OLDSETUP= rndisc
-    override SETUP=lightcurvedisc
-endif
 
-#----------------------------------------------------------------
-# Current code setup options
-#----------------------------------------------------------------
-ifeq ($(SETUP), empty)
-#   empty setup for external-driver simulation
-    SETUPFILE= setup_empty.f90
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), wddisc)
-    ISOTHERMAL=yes
-    SETUPFILE=setup_wddisc.f90
-    KNOWN_SETUP=yes
-    DUST=yes
-endif
-
-ifeq ($(SETUP), asteroidwind)
-    SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_asteroidwind.f90
-    IND_TIMESTEPS=yes
-    CONST_AV=yes
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), galdisc)
-#   galactic disc simulations
-    IND_TIMESTEPS=yes
-    H2CHEM=yes
-    ISOTHERMAL=no
-    GRAVITY=no
-    MHD=no
-    SETUPFILE= setup_galdisc.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), galdiscmhd)
-#   galactic disc simulations with magnetic fields
-    IND_TIMESTEPS=yes
-    H2CHEM=no
-    ISOTHERMAL=yes
-    GRAVITY=no
-    MHD=yes
-    SETUPFILE= setup_galdisc.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), turbdrive)
-#   driven turbulence
-    ifeq ($(IND_TIMESTEPS), yes)
-       FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    else
-       FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
-    endif
-    SETUPFILE= setup_unifdis.f90
-    SRCTURB= forcing.F90
-    MULTIRUNFILE= multirun_mach.f90
-    KNOWN_SETUP=yes
-    CURLV=yes
-    ISOTHERMAL=yes
-endif
-
-ifeq ($(SETUP), taylorgreen)
-#   Taylor-Green vortex problem
-    FPPFLAGS= -DPERIODIC -DCURLV
-    SETUPFILE= setup_taylorgreen.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-    MODFILE= moddump_taylorgreen.f90
-    IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), turb)
-#   driven supersonic turbulence (hydro, mhd, dusty)
-    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
-    SETUPFILE     = setup_turb.F90
-    SRCTURB       = forcing.F90
-    IND_TIMESTEPS = yes
-    KNOWN_SETUP   = yes
-    ISOTHERMAL    = yes
-    CURLV         = yes
-    MHD           = no
-    DUST          = no
-endif
-
-ifeq ($(SETUP), wd)
-    SETUPFILE     = setup_star.f90
-    IND_TIMESTEPS = no
-    MHD           = no
-    GRAVITY       = yes
-    ISOTHERMAL    = no
-    KNOWN_SETUP   = yes
-    STORE_TEMP    = yes
-    MODFILE       = moddump_binarystar.f90
-    GWS           = yes
-    ANALYSIS      = analysis_gws.f90
-endif
-
-ifeq ($(SETUP), photoevap)
-# Mark Hutchison
-    DISC_VISCOSITY=yes
-    FPPFLAGS= -DPHOTO
-    SETUPFILE= setup_photoevap.f90
-    ANALYSIS= analysis_disc.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    SRCPHOTO=photoevap.f90
-endif
-
-ifeq ($(SETUP), disc)
-#   locally isothermal gas disc
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), grtde)
-    SETUPFILE= setup_grtde.f90
-    GR=yes
-    METRIC=kerr
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    GRAVITY=yes
-    ANALYSIS=analysis_tde.f90
-endif
-
-ifeq ($(SETUP), srpolytrope)
-    FPPFLAGS= -DPRIM2CONS_FIRST
-    SETUPFILE= setup_srpolytrope.f90
-    GR=yes
-    METRIC=minkowski
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    MODFILE=moddump_polytrope.f90
-endif
-
-ifeq ($(SETUP), grdisc)
-    SETUPFILE= setup_grdisc.f90
-    ANALYSIS= analysis_disc.f90
-    ISOTHERMAL=no
-    GR=yes
-    METRIC=kerr
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-    NCELLSMAX=2*maxp
-    CONST_AV=yes
-endif
-
-ifeq ($(SETUP), firehose)
-#   injection of a stream of gas as a firehose
-    SRCINJECT= inject_firehose.f90
-    SETUPFILE= setup_firehose.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), adiabaticdisc)
-#   adiabatic disc
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    ISOTHERMAL=no
-endif
-
-ifeq ($(SETUP), raddisc)
-#   adiabatic disc with radiation
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
-    KNOWN_SETUP=yes
-    #IND_TIMESTEP=yes
-    RADIATION=yes
-endif
-
-ifeq ($(SETUP), lightcurvedisc)
-#   adiabatic disc with lightcurve
-    FPPFLAGS= -DLIGHTCURVE
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc.f90
-    DISC_VISCOSITY=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    ISOTHERMAL=no
-    MULTIRUNFILE= multirun.f90
-endif
-
-ifeq ($(SETUP), gwdisc)
-#   disc around inspiralling binary with gravitational wave decay
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_gwdisc.f90
-    ANALYSIS= analysis_disc.f90
-    MAXP=2000000
-    IND_TIMESTEPS=yes
-    ISOTHERMAL=yes
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    SRCPOT= ${SRCPOTS:extern_binary.f90=extern_binary_gw.f90}
-endif
-
-ifeq ($(SETUP), nshwdisc)
-#   disc around a neutron star
-    FPPFLAGS= -DPRDRAG
-    SETUPFILE= setup_nsdisc.f90
-    ANALYSIS= analysis_disc.f90
-    MODFILE= moddump_changemass.f90
-    ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    NCELLSMAX=3*maxp
-endif
-
-ifeq ($(SETUP), prtest)
-#   simple test of prdrag
-    FPPFLAGS=
-    SETUPFILE= setup_prtest.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), binarydiscMFlow)
-#   binarydiscMFlow setup
-    FPPFLAGS= -DMFLOW #-DVMFLOW -DBINPOS
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_disc_MFlow.f90
-#    ANALYSIS= analysis_binarydisc.f90
-    MAXP=1000000
-    ISOTHERMAL=yes
-    CURLV=yes
-    KNOWN_SETUP=yes
-    LIVE_ANALYSIS=no
-    IND_TIMESTEPS=yes
-    MODFILE= moddump_removeparticles_cylinder.f90 #moddump_addpartfortest.f90
-endif
-
-ifeq ($(SETUP), planetdisc)
-#   planet disc interaction with fixed planet orbit
-    FPPFLAGS=
-    SETUPFILE= setup_planetdisc.f90
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=yes
-    CURLV=yes
-    KNOWN_SETUP=yes
-    ANALYSIS=analysis_disc.f90
-endif
-
-ifeq ($(SETUP), planetatm)
-#   disc interaction with fixed planet orbit + atmosphere
-    FPPFLAGS=
-    SETUPFILE= setup_disc.f90
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=yes
-    CURLV=yes
-    KNOWN_SETUP=yes
-    ANALYSIS=analysis_disc.f90
-endif
-
-ifeq ($(SETUP), torus)
-#   MRI torus
-    FPPFLAGS=
-    SETUPFILE= setup_torus.f90
-    ANALYSIS= analysis_torus.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), galcen)
-#   galactic centre
-    FPPFLAGS=
-    SETUPFILE= setup_galcen_stars.f90
-    SRCINJECT= inject_galcen_winds.f90
-    KNOWN_SETUP=yes
-endif
-
-#--- Bondi accretion/wind ---------------------------
-ifeq ($(SETUP), bondi)
-    SETUPFILE=bondiexact.f90 setup_bondi.f90
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-    ISOTHERMAL=yes
-endif
-ifeq ($(SETUP), grbondi)
-    FPPFLAGS=-DPRIM2CONS_FIRST
-    SETUPFILE=bondiexact_gr.f90 setup_bondi.f90
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-    GR=yes
-    METRIC=schwarzschild
-endif
-ifeq ($(SETUP), grbondi-inject)
-    SETUPFILE= setup_bondiinject.F90
-    SRCINJECT=bondiexact_gr.f90 inject_bondi.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-    KERNEL=quintic
-    ISOTHERMAL=no
-    GR=yes
-    METRIC=schwarzschild
-endif
-#-----------------------------------------------
-
-ifeq ($(SETUP), quebec)
-    SETUPFILE = setup_quebec.f90
-    GRAVITY = yes
-    KNOWN_SETUP = yes
-    MODFILE = moddump_binarystar.f90
-endif
-
-ifeq ($(SETUP), tde)
-#   tidal disruption simulations
-    SETUPFILE= setup_star.f90
-    ANALYSIS=analysis_tde.f90
-    GRAVITY=yes
-    ISOTHERMAL=yes
-    MODFILE=moddump_tidal.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), polytrope)
-#   single (option 2) or binary (option 3) polytrope test
-    SETUPFILE= setup_star.f90
-    ANALYSIS= density_profiles.o analysis_polytropes.f90
-    GRAVITY=yes
-    ISOTHERMAL=yes
-    MODFILE=moddump_binarystar.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), neutronstar)
-#   neutron star (use option 4)
-    SETUPFILE= setup_star.f90
-    ISOTHERMAL=yes
-    GRAVITY=no     #since external force being used
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), sphereinbox)
-#   sphere-in-box setup
-    PERIODIC=yes
-    SETUPFILE= setup_sphereinbox.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), shock)
-#   sod shock tube test
-    PERIODIC=yes
-    SETUPFILE= setup_shock.F90
-    KERNEL=quintic
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), dustyshock)
-#   sod shock tube test
-    PERIODIC=yes
-    SETUPFILE= setup_shock.F90
-    DUST=yes
-    KERNEL=quintic
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), mhdshock)
-#   Ryu & Brio-Wu shock tube tests
-    PERIODIC=yes
-    SETUPFILE= setup_shock.F90
-    MHD=yes
-    KERNEL=quintic
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), nimhdshock)
-#   non-ideal mhd standing and C shock tests
-    PERIODIC=yes
-    SETUPFILE= setup_shock.F90
-    MHD=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-    NONIDEALMHD=yes
-    KERNEL=WendlandC4
-    ISOTHERMAL=yes
-    MAXP=6000000
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), radshock)
-    PERIODIC=yes
-    RADIATION=yes
-    SETUPFILE= setup_shock.F90
-    KERNEL=quintic
-    KNOWN_SETUP=yes
-    MPI=no
-endif
-
-ifeq ($(SETUP), srshock)
-#   special relativistic sod shock tube test
-    PERIODIC=yes
-    SETUPFILE= setup_shock.F90
-    KERNEL=quintic
-    GR=yes
-    METRIC=minkowski
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MAXP=900000
-    CONST_AV=yes
-endif
-
-ifeq ($(SETUP), testparticles)
-#   test particles
-    PERIODIC=no
-    SETUPFILE= setup_testparticles.F90
-    GR=no
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MAXP=500000
-    ANALYSIS= analysis_1particle.f90
-endif
-
-ifeq ($(SETUP), gr_testparticles)
-#   test particles in GR
-    PERIODIC=no
-    SETUPFILE= setup_testparticles.f90
-    GR=yes
-    METRIC=kerr
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MAXP=1000
-    ANALYSIS= analysis_1particle.f90
-endif
-
-ifeq ($(SETUP), dustydisc)
-#   locally isothermal dusty discs
-    SETUPFILE= setup_disc.f90
-    MODFILE= moddump_dustadd.f90
-    ISOTHERMAL=yes
-    DUST=yes
-    DISC_VISCOSITY=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    ANALYSIS=analysis_dustydisc.f90
-endif
-
-ifeq ($(SETUP), growingdisc)
-#   locally isothermal dusty discs with growth and fragmentation
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    MODFILE= moddump_dustadd.f90
-    ISOTHERMAL=yes
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    DUSTGROWTH = yes
-    ANALYSIS=analysis_dustydisc.f90
-    MAXDUSTLARGE=1
-    MAXDUSTSMALL=1
-endif
-
-ifeq ($(SETUP), growthtomulti)
-#   transform dustgrowth dump into multi large grains dump
-    DISC_VISCOSITY=yes
-    MODFILE=moddump_growthtomultigrain.f90
-    ISOTHERMAL=yes
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    DUSTGROWTH=yes
-    MAXDUSTLARGE=25
-endif
-
-ifeq ($(SETUP), dustybox)
-#   dust in a box
-    PERIODIC=yes
-    SETUPFILE= setup_dustybox.f90
-    MODFILE= moddump_dustadd.f90
-    ISOTHERMAL=yes
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    ANALYSIS= analysis_trackbox.f90
-endif
-
-ifeq ($(SETUP), dustysedov)
-#   Sedov blast wave test with dust
-    PERIODIC=yes
-    SETUPFILE= setup_dustysedov.f90
-    MODFILE= moddump_dustadd.f90
-    DUST=yes
-    KNOWN_SETUP=yes
-    #IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), dustywave)
-#   dust in a box
-    PERIODIC=yes
-    SETUPFILE= setup_wave.f90
-    MODFILE= moddump_dustadd.f90
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    ANALYSIS= analysis_trackbox.f90
-endif
-
-ifeq ($(SETUP), wave)
-#   linear wave
-    PERIODIC=yes
-    SETUPFILE= setup_wave.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    KERNEL=quintic
-endif
-
-ifeq ($(SETUP), wavedamp)
-#   Wave damping test as per Choi et al (2009)
-    PERIODIC=yes
-    SETUPFILE= setup_wavedamp.f90
-    ISOTHERMAL=yes
-    NONIDEALMHD=yes
-    MHD=yes
-    KNOWN_SETUP=yes
-    KERNEL=WendlandC4
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-    ANALYSIS = analysis_bzrms.f90
-    DEBUG=no
-endif
-
-ifeq ($(SETUP), sedov)
-#   Sedov blast wave test
-    PERIODIC=yes
-    SETUPFILE= setup_sedov.f90
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    MAXP=2100000
-endif
-
-ifeq ($(SETUP), srblast)
-#   special relativistic blast wave test (spherical)
-    PERIODIC=yes
-    SETUPFILE=setup_srblast.f90
-    IND_TIMESTEPS=no
-    GR=yes
-    METRIC=minkowski
-    KERNEL=quintic
-    KNOWN_SETUP=yes
-    CONST_AV=yes
-    ISOTHERMAL=no
-endif
-
-ifeq ($(SETUP), blob)
-#   Blob evaporation problem
-    PERIODIC=yes
-    SETUPFILE= setup_blob.f90
-    DOUBLEPRECISION= no
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), kh)
-#   Kelvin-Helmholtz problem
-    PERIODIC=yes
-    SETUPFILE= setup_kh.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), mhdrotor)
-#   MHD rotor problem
-    PERIODIC=yes
-    SETUPFILE= setup_mhdrotor.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), jadvect)
-#   MHD current loop advection problem
-    PERIODIC=yes
-    SETUPFILE= setup_jadvect.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), alfven)
-#   MHD circularly polarised Alfven wave problem
-    PERIODIC=yes
-    SETUPFILE= setup_alfvenwave.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-    KERNEL=quintic
-endif
-
-ifeq ($(SETUP), orstang)
-#   Orszag-Tang vortex
-    PERIODIC=yes
-    SETUPFILE= setup_orstang.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), balsarakim)
-#   Balsara-Kim 2004
-#   set BalsaraKim=.true. in setup_unifdis.f90 to initialise the correct defaults
-    PERIODIC=yes
-    SETUPFILE= setup_unifdis.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-    SRCINJECT=inject_sne.f90
-    KERNEL=quintic
-    IND_TIMESTEPS=yes
-    H2CHEM=yes
-endif
-
-ifeq ($(SETUP), mhdvortex)
-#   Balsara (2004) MHD vortex
-    PERIODIC=yes
-    SETUPFILE= setup_mhdvortex.f90
-    MHD=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), mhdsine)
-#   MHD sine wave
-    PERIODIC=yes
-    SETUPFILE= setup_mhdsine.f90
-    NONIDEALMHD=no
-    MHD=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), mhdblast)
-#   MHD blast wave test
-    SETUPFILE= setup_mhdblast.f90
-    PERIODIC=yes
-    MHD=yes
-    ISOTHERMAL=no
-    IND_TIMESTEPS=no
-    KNOWN_SETUP=yes
-    MAXP=3000000
-endif
-
-ifeq ($(SETUP), mhdwave)
-#   propagating isolated MHD wave
-    SETUPFILE= setup_mhdwave.f90
-    PERIODIC=yes
-    MHD=yes
-    ISOTHERMAL=no
-    IND_TIMESTEPS=no
-    KNOWN_SETUP=yes
-    MAXP=3000000
-endif
-
-ifeq ($(SETUP), cluster)
-#   cluster formation (setup)
-    FPPFLAGS=
-    SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
-    MODFILE= moddump_default.f90
-    ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
-    ISOTHERMAL=yes
-    MHD=no
-    GRAVITY=yes
-    IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-    MAXPTMASS=1000
-    MAXP=3500000
-endif
-
-ifeq ($(SETUP), binary)
-#   binary setup
-    FPPFLAGS= -DCONST_AV
-    SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
-    SETUPFILE= setup_binary.f90
-    #SETUPFILE= setup_chinchen.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), common)
-#   binary setup
-    FPPFLAGS=
-    SETUPFILE= setup_common.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), star)
-#   import stellar model from 1D stellar evolution code
-#   use option 5 of setup_star
-    FPPFLAGS=
-    SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    MAXP=10000000
-    GRAVITY=yes
-    MHD=no
-    STORE_TEMP=yes
-endif
-
-ifeq ($(SETUP), radstar)
-#   setup a star as in the star setup but with radiation
-    SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    MAXP=10000000
-    GRAVITY=yes
-    RADIATION=yes
-    STORE_TEMP=yes
-endif
-
-ifeq ($(SETUP), isowind)
-#   isothermal spherical wind
-    FPPFLAGS= -DWIND -DSINK_RADIATION
-    ISOTHERMAL=yes
-    WIND=yes
-endif
-ifeq ($(SETUP), wind)
-#   wind setup without nucleation
-    FPPFLAGS= -DWIND -DSINK_RADIATION
-    WIND=yes
-endif
-ifeq ($(SETUP), dustywind)
-#   wind setup with dust nucleation
-    FPPFLAGS= -DWIND -DNUCLEATION -DSINK_RADIATION
-    ANALYSIS= analysis_dustywind.F90 dust_formation.F90
-    WIND=yes
-endif
-
-ifeq ($(WIND), yes)
-#   wind particle injection setup
-    SETUPFILE= setup_wind.F90
-    SRCINJECT= wind_equations.f90 wind.F90 inject_wind.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), BHL)
-# Bondi-Hoyle-Lyttleton setup
-    SETUPFILE= setup_BHL.f90
-    SRCINJECT= inject_BHL.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), jet)
-#   Jet simulation from Price, Tricco & Bate (2012)
-    SETUPFILE= setup_sphereinbox.f90
-    #ANALYSIS= analysis_jet.f90
-    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
-    PERIODIC=yes
-    GRAVITY=yes
-    ISOTHERMAL=yes
-    MHD=yes
-    IND_TIMESTEPS=yes
-    DUST=no
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), jetnimhd)
-#   Simulation from Wurster, Price & Bate (2016,2017) et seq
-    SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= ${SRCNIMHD} analysis_protostar_environ.F90
-    PERIODIC=yes
-    GRAVITY=yes
-    ISOTHERMAL=yes
-    MHD=yes
-    NONIDEALMHD=yes
-    IND_TIMESTEPS=yes
-    STS_TIMESTEPS=yes
-    MODFILE=moddump_CoM.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), sgdisc)
-#   self-gravitating disc
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    SETUPFILE= setup_disc.f90
-#   ANALYSIS = utils_getneighbours.F90 utils_omp.F90 utils_summary.F90 ptmass.F90 analysis_clumpfind.F90
-    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
-#    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_getneighbours.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), dustysgdisc)
-#   self-gravitating dustydisc
-    SETUPFILE= setup_disc.f90
-    GRAVITY=yes
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    ANALYSIS=analysis_dustydisc.f90
-endif
-
-ifeq ($(SETUP), dustsettle)
-#   dust settling test from PL15
-    SETUPFILE= setup_dustsettle.f90
-    DUST=yes
-    PERIODIC=yes
-    ISOTHERMAL=yes
-    MODFILE=moddump_dustadd.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), test)
-#   default setup for tests
-    PERIODIC=yes
-    KNOWN_SETUP=yes
-    CONST_ARTRES=yes
-    CURLV=yes
-    MHD=yes
-    DUST=yes
-    RADIATION=yes
-    KERNEL=cubic
-endif
-
-ifeq ($(SETUP), test2)
-#   default setup for tests
-    DISC_VISCOSITY=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), testcyl)
-#   default setup for tests
-    DISC_VISCOSITY=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    CONST_ARTRES=yes
-    CURLV=yes
-endif
-
-ifeq ($(SETUP), testkd)
-#   default setup for tests
-    PERIODIC=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    CONST_ARTRES=yes
-    CURLV=yes
-    MHD=yes
-    RADIATION=yes
-endif
-
-ifeq ($(SETUP), testgrav)
-#   self-gravity unit tests
-    GRAVITY=yes
-    KNOWN_SETUP=yes
-    CONST_ARTRES=yes
-    CURLV=yes
-endif
-
-ifeq ($(SETUP), testdust)
-#   dust unit tests
-    PERIODIC=yes
-    DUST=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), testgrowth)
-#   dust growth unit tests
-    PERIODIC=yes
-    DUST=yes
-    DUSTGROWTH=yes
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-endif
-
-ifeq ($(SETUP), testnimhd)
-#   non-ideal MHD (+ boundary particle + super-timestepping) unit tests
-    PERIODIC=yes
-    ISOTHERMAL=yes
-    NONIDEALMHD=yes
-    MHD=yes
-    KERNEL=WendlandC4
-    IND_TIMESTEPS=no
-    STS_TIMESTEPS=yes
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), testlum)
-#   Lense-Thirring setup
-    FPPFLAGS= -DLIGHTCURVE
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    ISOTHERMAL=no
-endif
-
-ifeq ($(SETUP), testgr)
-    GR=yes
-    FPPFLAGS= -DGR
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=no
-    METRIC=kerr
-    SETUPFILE= setup_grdisc.f90
-endif
-
-ifeq ($(SETUP), default)
-    KNOWN_SETUP=yes
-    SETUPFILE= setup_unifdis.f90
-    PERIODIC=yes
-    DUST=yes
-endif
-
-ifeq ($(SETUP), galaxies)
-#   Read in data created from Wurster&Thacker(2013a,b)
-    SETUPFILE= setup_galaxies.f90
-    ANALYSIS=analysis_GalMerger.f90
-    CONST_AV=no
-    ISOTHERMAL=no
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    MAXP=2600000
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), nsmerger)
-#   Model a neutron star merger; use option 6
-    SETUPFILE= setup_star.f90
-    ISOTHERMAL=yes
-    IND_TIMESTEPS=no
-    GRAVITY=yes
-    MODFILE=moddump_binarystar.f90
-    ANALYSIS=analysis_NSmerger.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), evrard)
-#   models the Evrard collapse; use option 7
-    SETUPFILE= setup_star.f90
-    ISOTHERMAL=no
-    GRAVITY=yes
-    ANALYSIS=analysis_sphere.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), tokamak)
-#   tokamak torus setup
-    PERIODIC=no
-    ISOTHERMAL=yes
-    SETUPFILE= setup_tokamak.f90
-    KNOWN_SETUP=yes
-endif
-
-ifeq ($(SETUP), sfmcfost) # [buildbot skip]
-#   live feedback from mcfost in star formation calculation
-    PERIODIC=yes
-    SETUPFILE= setup_sphereinbox.f90
-    ANALYSIS= analysis_mcfost.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-    GRAVITY=yes
-    MCFOST=yes
-endif
-
-ifeq ($(SETUP), mcfostcmdline) # [buildbot skip]
-#   live feedback from mcfost, superseded by mcfost setup
-    DISC_VISCOSITY=yes
-    SETUPFILE= setup_disc.f90
-    ANALYSIS= analysis_mcfostcmdline.f90
-    LIVE_ANALYSIS=yes
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    MULTIRUNFILE= multirun.f90
-    IND_TIMESTEPS=yes
-endif
-
-ifeq ($(SETUP), radiativebox)
-    SETUPFILE=setup_radiativebox.f90
-    ISOTHERMAL=no
-    KNOWN_SETUP=yes
-    RADIATION=yes
-    IND_TIMESTEPS=no
-    PERIODIC=yes
-endif
+include Makefile_setups
 
 ifndef SETUPFILE
     SETUPFILE= setup_unifdis.f90
@@ -1156,270 +120,36 @@ ifeq ($(MCFOST), yes)
     MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
+    ifeq ($(MCFOST_XGBOOST), yes)
+        LXGBOOST= -lxgboost -ldmlc -lrabit
+    else
+        LXGBOOST=""
+    endif
+
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5 -lz -lxgboost -ldmlc -lrabit -lhdf5_fortran -lhdf5 -lz
+	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5_fortran -lhdf5 -lz $(LXGBOOST)
 endif
 
-
-#----------------------------------------------------------------
-ifeq ($(SYSTEM),cray)
-    FC=ftn
-    FFLAGS=-Oaggress -Ovector3 -Oipa4
-    DBLFLAG= -s real64
-    CC=cc
-    CCFLAGS=-O3
-    KNOWN_SYSTEM=yes
-ifeq ($(MAP),yes)
-    LDFLAGS+=-dynamic -L/${ALLINEA_DIR}/allinea -lmap-sampler -Wl,--eh-frame-hdr
-    FFLAGS+= -G2
-endif
-endif
-
-ifeq ($(SYSTEM),daint)
-    include Makefile_defaults_ifort
-    FC=ftn
-    FFLAGS+= -heap-arrays
-    QSYS = slurm
-ifeq ($(MPI),daint)
-    USEMPI=yes
-endif
-endif
-
-ifeq ($(SYSTEM),xc40)
-#massively copied from the Daint system
-    include Makefile_defaults_ifort
-    FC=ftn
-    FFLAGS+= -heap-arrays -dynamic
-    KNOWN_SYSTEM=yes
-    CC = cc
-    QSYS = slurm
-    OMPFLAGS = -openmp
-ifeq ($(MPI),xc40)
-    USEMPI=yes
-endif
-endif
-
-ifeq ($(SYSTEM), msg)
-    include Makefile_defaults_ifort
-    QSYS = sge
-    QSHELL = tcsh
-    ifeq ($(OPENMP),yes)
-       QPE = smp
-       NOMP = '$$NSLOTS'
-       ifndef NPAR
-          NPAR = '4-32'
-       endif
-    endif
-    ifeq ($(MPI),yes)
-       QPE = mpi
-       ifeq ($(OPENMP),yes)
-            QPE = mqu4
-            NOMP = 4
-       endif
-    endif
-    #QEXTRA='-l dpod=true -q mqu2'
-    #HDF5=yes
-#    HDF5ROOT=/opt/sw/hdf5-1.8.0/
-endif
-
-ifeq ($(SYSTEM), m2)
-#   MASSIVE facility: massive.org.au
-    include Makefile_defaults_ifort
-    QSYS = pbs
-    ifeq ($(OPENMP),yes)
-       NOMP='12'
-    else
-       NOMP='1'
-    endif
-    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
-    WALLTIME='500:00:00'
-endif
-
-ifeq ($(SYSTEM), g2)
-#   gstar facility
-#   Note: gstar has nomp=12; sstar has nomp=16
-    include Makefile_defaults_ifort
-    QSYS = pbs
-    ifeq ($(OPENMP),yes)
-       NOMP='16'
-    else
-       NOMP='1'
-    endif
-    QNAME='sstar'
-    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
-    WALLTIME='168:00:00'
-    MPIEXEC='mpiexec -npernode 1'
-endif
-
-ifeq ($(SYSTEM), ozstar)
-#   ozstar facility
-    include Makefile_defaults_ifort
-    OMPFLAGS=-qopenmp
-    NOMP=32
-    #QNAME='skylake'
-    QSYS = slurm
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), monarch)
-    include Makefile_defaults_ifort
-    OMPFLAGS=-qopenmp -qopt-report
-    QSYS = slurm
-    QPROJECT='p01'
-    WALLTIME='100:59:59'
-    QPARTITION='comp'
-endif
-
-ifeq ($(SYSTEM), monarchpsxe)
-    include Makefile_defaults_ifort
-    QSYS = slurm
-    QPROJECT='p01'
-endif
-
-ifeq ($(SYSTEM), nci)
-#   gadi (NCI machine)
-    include Makefile_defaults_ifort
-    #MPI=intel
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
-    DEBUGFLAG+= -fpe0 -fp-stack-check
-    CCFLAGS= -O3 -ip
-    QSYS= pbs
-    #PBSRESUBMIT=yes
-    NOMP=48
-    ifeq ($(MPI),yes)
-       NPAR=32
-    endif
-    QPROJECT='fu7'
-    QNAME='normal'
-    WALLTIME='48:00:00'
-    MPIEXEC='mpiexec -npernode 1'
-    QNODES='ncpus='$(NPAR)
-    QEXTRA='-l other=hyperthread'
-endif
-
-ifeq ($(SYSTEM), gfortran)
-    include Makefile_defaults_gfortran
-ifneq ($(UNAME), Darwin)
-    FFLAGS+= -mcmodel=medium
-endif
-endif
-
-ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
-    include Makefile_defaults_gfortran
-endif
-
-ifeq ($(SYSTEM), gfortran44)
-    include Makefile_defaults_gfortran
-    FC= gfortran -gdwarf-2
-    FFLAGS= -O3 -Wall -frecord-marker=4 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
-    DEBUGFLAG= -g -frange-check -ffpe-trap=invalid,denormal -finit-real=nan -finit-integer=nan -fbacktrace
-endif
-
-ifeq ($(SYSTEM), gfortran47)
-    include Makefile_defaults_gfortran
-    FC= gfortran-mp-4.7 -gdwarf-2
-    FFLAGS= -Wall -m64 -O3 -ffast-math -funroll-loops -ftree-loop-linear \
-            -finline-functions-called-once \
-            -fomit-frame-pointer -finline-limit=3000 --param min-vect-loop-bound=2
-    DEBUGFLAG= -Wextra -g -frange-check -fcheck=all -ffpe-trap=denormal -finit-real=nan -finit-integer=nan -fbacktrace
-endif
-
-ifeq ($(SYSTEM), complexity)
-#   complexity.leicester.dirac.ac.uk
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
-    QSYS=pbs
-    QNAME=q64
-    WALLTIME='48:00:00'
-endif
-
-ifeq ($(SYSTEM), isca)
-    # local cluster at the University of Exeter
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -axAVX -mcmodel=medium \
-            -warn uninitialized -warn truncated_source\
-            -warn interfaces -nogen-interfaces
-    OMPFLAGS= -qopenmp
-    DEBUGFLAG= -check all -traceback -g -fpe0 -fp-stack-check -heap-arrays -O0
-    QNAME=pq
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), skylake)
-# HPCs Skylake cluster at Cambridge
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn \
-            truncated_source -xCORE-AVX512 -ipo
-    OMPFLAGS = -qopenmp
-    CCFLAGS = -O3 -mcmodel=medium -xCORE-AVX512 -ipo
-    QSYS = slurm
-    QPROJECT='DIRAC-DP005-CPU'
-    WALLTIME='36:00:00'
-endif
-
-ifeq ($(SYSTEM), kennedy)
-# HPCs cluster at University of St. Andrews
-    include Makefile_defaults_ifort
-    OMPFLAGS = -qopenmp
-    QSYS = slurm
-endif
-
-ifeq ($(SYSTEM), ifort)
-    include Makefile_defaults_ifort
-endif
-
-ifeq ($(SYSTEM), ifortmac)
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-endif
-
-ifeq ($(SYSTEM), ifortgcc)
-    include Makefile_defaults_ifort
-    CC = gcc
-    CCFLAGS = -O3
-endif
-
-ifeq ($(SYSTEM), hydra)
-# this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
-            -warn unused -warn truncated_source
-    DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
-endif
-
-ifeq ($(SYSTEM), lyoccf)
-# LIO CCF cluster
-    include Makefile_defaults_ifort
-    FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
-            -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
-            -warn unused -warn truncated_source
-    LIBCXX = -cxxlib
-endif
+include Makefile_systems
 
 FFLAGS+=-fPIC
 # Set some default files if not defined above
 ifdef MAXP
-   FPPFLAGS += -DMAXP=${MAXP}
+    FPPFLAGS += -DMAXP=${MAXP}
 endif
 ifdef MAXPTMASS
-   FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
+    FPPFLAGS += -DMAXPTMASS=${MAXPTMASS}
 endif
 ifdef MAXNEIGH
-   FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
+    FPPFLAGS += -DMAXNEIGH=${MAXNEIGH}
 endif
 ifdef NCELLSMAX
-   FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
+    FPPFLAGS += -DNCELLSMAX=${NCELLSMAX}
 endif
 ifdef STACKSIZE
-   FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
+    FPPFLAGS += -DSTACKSIZE=${STACKSIZE}
 endif
 # Set other optional flags depending on settings
 
@@ -1453,10 +183,6 @@ ifeq ($(ISOTHERMAL), yes)
     FPPFLAGS += -DISOTHERMAL
 endif
 
-ifeq ($(STORE_TEMP), yes)
-    FPPFLAGS += -DSTORE_TEMPERATURE
-endif
-
 ifeq ($(MHD), yes)
     FPPFLAGS += -DMHD
 endif
@@ -1473,22 +199,18 @@ endif
     CONST_AV=yes
 endif
 
-ifeq ($(GWS), yes)
-    FPPFLAGS += -DGWS
-endif
-
 ifeq ($(DUST), yes)
     FPPFLAGS += -DDUST
     ifndef KERNEL
-       KERNEL=quintic
+        KERNEL=quintic
     endif
 endif
 
 ifdef MAXDUSTSMALL
-   FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
+    FPPFLAGS += -DMAXDUSTSMALL=${MAXDUSTSMALL}
 endif
 ifdef MAXDUSTLARGE
-   FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
+    FPPFLAGS += -DMAXDUSTLARGE=${MAXDUSTLARGE}
 endif
 
 ifeq ($(DUSTGROWTH), yes)
@@ -1544,6 +266,14 @@ ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
 endif
 
+ifeq ($(DUST_NUCLEATION), yes)
+    FPPFLAGS += -DDUST_NUCLEATION
+endif
+
+ifeq ($(SINK_RADIATION), yes)
+    FPPFLAGS += -DSINK_RADIATION
+endif
+
 ifdef SRCTURB
     FPPFLAGS += -DDRIVING
 endif
@@ -1562,10 +292,10 @@ endif
 #
 ifndef SRCKERNEL
 ifdef KERNEL
-   SRCKERNEL= kernel_${KERNEL}.f90
+    SRCKERNEL= kernel_${KERNEL}.f90
 else
-   SRCKERNEL= kernel_cubic.f90
-   KERNEL=cubic
+    SRCKERNEL= kernel_cubic.f90
+    KERNEL=cubic
 endif
 endif
 
@@ -1576,7 +306,7 @@ endif
 # if injection module selected
 #
 ifeq ($(INJECT_PARTICLES), no)
-   SRCINJECT=
+    SRCINJECT=
 else
 ifdef SRCINJECT
     FPPFLAGS += -DINJECT_PARTICLES
@@ -1611,7 +341,6 @@ endif
 ifeq ($(MPI), yes)
     FC= mpif90 `mpif90 --showme:compile`
     CC= mpicc `mpicc --showme:compile`
-    LDFLAGS+= `mpif90 --showme:link`
     USEMPI=yes
 endif
 
@@ -1655,7 +384,11 @@ ifeq ($(MPI), cray)
 endif
 
 ifeq ($(USEMPI), yes)
-    RUNMPI=$(MPIEXEC)
+    ifeq (X$(MPIEXEC), X)
+        RUNMPI=mpirun -np 2
+    else
+        RUNMPI=$(MPIEXEC)
+    endif
     FPPFLAGS += -DMPI
 else
     RUNMPI=
@@ -1718,7 +451,9 @@ OBJDIR=obj
 %.o : %.f
 	$(FC) -c $(FFLAGS) $< -o $@
 
-# these are the sources common to all compilations
+#
+# external forces
+#
 ifeq (X$(SRCPOTS), X)
 SRCPOTS= extern_corotate.f90 \
          extern_binary.f90 \
@@ -1735,51 +470,58 @@ endif
 ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
 endif
-
+#
+# metrics for GR
+#
 ifeq ($(GR),yes)
-   SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
+    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
-   SRCMETRIC= metric_${METRIC}.f90
+    SRCMETRIC= metric_${METRIC}.f90
 else
-   SRCMETRIC= metric_minkowski.f90
+    SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 cons2primsolver.f90
-
-SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 h2chem.f90 cooling.F90
-
+SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
+#
+# chemistry
+#
+SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 h2cooling.f90 cooling_molecular.f90 h2chem.f90 cooling.F90
+#
+# equations of state
+#
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 eos.F90
+SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.F90
 
 ifeq ($(HDF5), yes)
-   SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-   SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
-  SRCKROME=krome.f90
+    SRCKROME=krome.f90
 else
-  SRCKROME=
+    SRCKROME=
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 icosahedron.f90 \
-         utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
+         utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
-         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR}\
-         checkoptions.F90 viscosity.f90 options.f90 radiation_utils.f90 cons2prim.f90 \
+         gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
+			checkoptions.F90 viscosity.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
-         partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
-         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 \
-         mpi_dens.F90 mpi_force.F90 stack.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
+         partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM}\
+         ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
+         mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
-         evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 mf_write.f90 evolve.F90 \
+         utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         mf_write.f90 evolve.F90 \
          checksetup.F90 initial.F90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
@@ -1846,11 +588,14 @@ edit: checksetup
 # these are the sources for anything which uses the readwrite_dumps module
 #
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
-         utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} kdtree.F90 linklist_kdtree.F90 \
+         utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
+         mpi_dens.F90 mpi_force.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
-         utils_datafiles.f90 utils_filenames.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
+         utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
+         ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
@@ -1867,7 +612,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             utils_binary.f90 set_binary.f90 set_flyby.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
-            set_stellar_core.f90 set_dust.f90 libsetup.f90
+            set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
 libsetup: $(OBJLIBSETUP)
@@ -1882,19 +627,19 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_omp.F90 utils_timing.f90 utils_summary.F90 utils_gravwave.f90 \
-          mpi_balance.F90 set_dust_options.f90 \
-          utils_indtimesteps.F90 partinject.F90 stack.F90 mpi_dens.F90 mpi_force.F90 mpi_derivs.F90 \
+SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
+          set_dust_options.f90 \
+          utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
-          ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 relax_star.f90 \
-	  set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_vfield.f90 dust_formation.F90 ptmass_radiation.F90 ${SRCINJECT} \
+          ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 \
+          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 set_star.f90 relax_star.f90 \
+          set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
           set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 ifeq ($(KROME), krome)
-       OBJSETUP1 += $(KROME_OBJS)
+    OBJSETUP1 += $(KROME_OBJS)
 endif
 OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
 
@@ -1910,14 +655,21 @@ cleansetup:
 #----------------------------------------------------
 # phantom test suite
 #
+ifeq ($(MPI),yes)
+    SRCTESTMPI = test_mpi.F90
+else
+    SRCTESTMPI =
+endif
+
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
-         test_derivs.F90 test_cooling.f90 test_eos.f90 test_externf.f90 test_rwdump.f90 \
+         test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
+				 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
-         test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.F90 test_luminosity.F90\
+         test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         test_sedov.F90 test_radiation.F90 \
+         ${SRCTESTMPI} test_sedov.F90 test_radiation.F90 \
          testsuite.F90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -1925,9 +677,9 @@ SRCTEST=${SRCTESTS}
 endif
 # replace a few test routines for the GR code
 ifeq ($(GR),yes)
-   SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
-   SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
-   SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
+    SRCTEST1 = $(SRCTESTS:test_externf.f90=test_externf_gr.f90)
+    SRCTEST2 = $(SRCTEST1:test_gnewton.f90=)
+    SRCTEST = $(SRCTEST2:test_corotate.f90=test_gr.f90)
 endif
 OBJTEST1= $(SRCTEST:.f90=.o)
 OBJTEST= $(OBJTEST1:.F90=.o)
@@ -2020,22 +772,14 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = utils_omp.F90 utils_summary.f90 utils_indtimesteps.F90 \
-          set_Bfield.f90 \
-          random.f90 set_disc.F90 set_dust.f90 \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} dust_formation.F90 ptmass_radiation.F90 \
-          icosahedron.f90 radiation_utils.f90 cons2prim.f90 \
-          partinject.F90 utils_inject.f90 ${SRCINJECT} \
-          density_profiles.f90 ptmass.F90 damping.f90 readwrite_infile.f90 checksetup.f90 ${MODFILE:.f90=.o}
-OBJMOD2 = ${OBJMOD1:.F90=.o}
-OBJMOD = ${OBJMOD2:.f90=.o}
-OBJDA= ${OBJDUMP} ${OBJMOD} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o density_profiles.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD = ${OBJMOD1:.F90=.o}
 
-phantom_moddump: checksystem checkparams $(OBJDA)
+phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
 	@echo ""
 	@echo "phantom_moddump: we are here to help you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJDA) $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(MODDUMPBIN) $(OBJMOD) $(LDFLAGS) $(LIBS) $(LIBPHANTOM) $(LIBSETUP)
 
 moddump: phantom_moddump
 
@@ -2050,21 +794,20 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 # these are the sources for the phantomanalysis utility
 #
 OBJAN1= ${ANALYSIS:.f90=.o}
-OBJAN2= ${OBJAN1:.F90=.o}
-OBJAN= ${OBJAN2:.f=.o}
-OBJA= leastsquares.o solvelinearsystem.o \
-      ${OBJDUMP} utils_disc.o utils_gravwave.o set_dust.o utils_binary.o set_binary.o ${OBJAN}
+OBJAN= ${OBJAN1:.F90=.o}
+OBJA= leastsquares.o solvelinearsystem.o prompting.o \
+      utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
 ANALYSISBIN=phantomanalysis
 endif
 
 .PHONY: phantomanalysis
-phantomanalysis: checksystem checkparams $(OBJA) phantomanalysis.o
+phantomanalysis: checksystem checkparams libphantom $(OBJA)
 	@echo ""
 	@echo "phantomanalysis: we live to serve you"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) phantomanalysis.o $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$(ANALYSISBIN) $(OBJA) $(LDFLAGS) $(LIBS) $(LIBPHANTOM)
 
 analysis: phantomanalysis
 
@@ -2291,12 +1034,13 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 ${SRCFASTMATH} \
+SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 utils_timing.f90 dtype_kdtree.F90 ${SRCFASTMATH} \
           units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 setup_params.f90 \
-          utils_filenames.f90 utils_mathfunc.f90 utils_vectors.f90 utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 \
-          viscosity.f90 options.f90 damping.f90 ${SRCEOS} \
-          utils_infiles.f90 utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
-          ${SRCCHEM} ${DOMAIN} ${SRCPOT} ptmass.F90 ${LINKLIST} ${SRCTURB} \
+          utils_filenames.f90 utils_mathfunc.f90 utils_system.f90 utils_vectors.f90 \
+          utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 utils_infiles.f90 \
+          ${SRCEOS} viscosity.f90 options.f90 damping.f90 utils_gravwave.f90 \
+          utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
+          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_memory.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
           checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
@@ -2469,317 +1213,8 @@ cleancombinedustdumps:
 	rm -f $(BINDIR)/combinedustdumps
 
 
+include Makefile_qscripts
 
-#----------------------------------------------------
-# target to write appropriate queue submission script
-#
-ifndef QSYS
-   QSYS=pbs
-endif
-ifndef WALLTIME
-   WALLTIME='1000:00:00'
-endif
-ifndef MAXMEM
-   MAXMEM='16G'
-endif
-ifeq ($(OPENMP),yes)
- ifndef NOMP
-   ifdef OMP_NUM_THREADS
-      NOMP=$(OMP_NUM_THREADS)
-   else
-      NOMP=2
-   endif
- endif
- ifndef OMP_SCHEDULE
-    OMP_SCHEDULE=dynamic
- endif
- ifndef QPE
-    QPE=omp
- endif
- ifndef NPAR
-    NPAR=$(NOMP)
- endif
-endif
-ifeq ($(USEMPI),yes)
- ifndef NMPI
-    NMPI=8
- endif
- ifndef QPE
-    QPE=mpi
- endif
- ifndef NPAR
-    NPAR=$(NMPI)
- endif
- ifndef MPIEXEC
-    MPIEXEC=mpiexec -np ${NMPI}
- endif
-else
- ifndef NMPI
-    NMPI=1
- endif
-endif
-ifndef OUTFILE
-  ifeq ($(QSYS),sge)
-    OUTFILE=$(INFILE)'.sgeout'
-  else
-    ifeq ($(QSYS),pbs)
-       OUTFILE=$(INFILE)'.pbsout'
-    else
-       OUTFILE=$(INFILE)'.qout'
-    endif
-  endif
-endif
-ifndef MAILTO
-   MAILTO=`git config --get user.email`
-endif
-GETLOG='`grep logfile "$(INFILE)" | sed "s/logfile =//g" | sed "s/\\!.*//g" | sed "s/\s//g"`'
-
-ifndef CMD
-CMD='./phantom $(INFILE) >& $$outfile'
-endif
-
-.PHONY: qscript
-
-qscript:
-    ifneq ($(KNOWN_SYSTEM), yes)
-	@echo "Error: qscript needs known SYSTEM variable set"
-	@${MAKE} err;
-    endif
-    ifndef INFILE
-	@echo
-	@echo "Usage: make qscript INFILE=infile"
-	@echo
-	@${MAKE} err;
-    endif
-    # set default values for variables not set
-    ifeq ($(QSHELL),tcsh)
-	@echo '#!/bin/tcsh'
-    else
-	@echo '#!/bin/bash'
-    endif
-    ifeq ($(QSYS),sge)
-	@echo '## Sun Grid Engine Script, created by "make qscript" '`date`
-        ifeq ($(QSHELL),tcsh)
-	    @echo '#$$ -S /bin/tcsh'
-        else
-	    @echo '#$$ -S /bin/bash'
-        endif
-	@echo '#$$ -cwd'
-	@echo '#$$ -N '`../scripts/randomword.pl`
-	@echo '#$$ -o '$(OUTFILE)' -j y'
-	@echo '#$$ -l h_rt='$(WALLTIME)
-	@echo '#$$ -l h_vmem='$(MAXMEM)
-        ifdef MAILTO
-	   @echo '#$$ -m ae'
-	   @echo '#$$ -M '$(MAILTO)
-        endif
-        ifdef QPE
-	   @echo '#$$ -pe '$(QPE) $(NPAR)
-        endif
-        ifdef QEXTRA
-	   @echo '#$$ '$(QEXTRA)
-        endif
-	@echo
-	@echo 'echo "SGE: HOSTS   = "`cat $$PE_HOSTFILE`'
-	@echo 'echo "SGE: NHOSTS  = $$NHOSTS"'
-	@echo 'echo "SGE: NSLOTS  = $$NSLOTS"'
-	@echo 'echo "SGE: NQUEUES = $$NQUEUES"'
-    else ifeq ($(QSYS),pbs)
-	@echo '## PBS Job Submission Script, created by "make qscript" '`date`
-        ifdef QNODES
-	   @echo '#PBS -l '$(QNODES)
-        else
-           ifeq ($(SYSTEM),zen)
-	      @echo '#PBS -l nodes='$(NMPI)':ppn=8:StandardMem'
-           else
-	      @echo '#PBS -l nodes='$(NMPI)':ppn='$(NOMP)
-           endif
-        endif
-        ifdef JOBNAME
-	   @echo '#PBS -N '$(JOBNAME)
-        else
-	   @echo '#PBS -N '`../scripts/randomword.pl`
-        endif
-        ifdef QNAME
-	   @echo '#PBS -q '$(QNAME)
-        endif
-        ifdef QPROJECT
-	   @echo '#PBS -P '$(QPROJECT)
-        endif
-	@echo '#PBS -o '$(OUTFILE)
-	@echo '#PBS -j oe'
-        ifdef MAILTO
-	   @echo '#PBS -m e'
-	   @echo '#PBS -M '$(MAILTO)
-        endif
-	@echo '#PBS -l walltime='$(WALLTIME)
-	@echo '#PBS -l mem='$(MAXMEM)
-        ifdef QEXTRA
-	   @echo '#PBS '$(QEXTRA)
-        endif
-	@echo '## phantom jobs can be restarted:'
-	@echo '#PBS -r y'
-        ifeq ($(PBSRESUBMIT),yes)
-             ifeq ($(QSHELL),tcsh)
-	          $(error error: resubmittable scripts require bash, cannot use QSHELL=tcsh);
-             endif
-	     @echo '#PBS -v NJOBS,NJOB'
-	     @echo
-	     @echo '#------------------------------------------------------------------------------'
-	     @echo '# this is a self-resubmitting PBS script'
-	     @echo '# use qsub -v NJOBS=10 <scriptname> to submit'
-	     @echo '# with an appropriate value for NJOBS'
-	     @echo '#'
-	     @echo '# These variables are assumed to be set:'
-	     @echo '#   NJOBS is the total number of jobs in a sequence of jobs (defaults to 1)'
-	     @echo '#   NJOB is the number of the previous job in the sequence (defaults to 0)'
-	     @echo '#------------------------------------------------------------------------------'
-	     @echo 'if [ X$$NJOBS == X ]; then'
-	     @echo '    echo "NJOBS (total number of jobs in sequence) is not set - defaulting to 1"'
-	     @echo '    export NJOBS=1'
-	     @echo 'fi'
-	     @echo 'if [ X$$NJOB == X ]; then'
-	     @echo '    echo "NJOB (previous job number in sequence) is not set - defaulting to 0"'
-	     @echo '    export NJOB=0'
-	     @echo 'fi'
-	     @echo '#'
-	     @echo '# Quick termination of job sequence - look for a file called STOP_SEQUENCE'
-	     @echo '#'
-	     @echo 'if [ -f $$PBS_O_WORKDIR/STOP_SEQUENCE ]; then'
-	     @echo '    echo  "Terminating sequence after $$NJOB jobs"'
-	     @echo '    exit 0'
-	     @echo 'fi'
-	     @echo '#'
-	     @echo '# Increment the counter to get current job number'
-	     @echo '#'
-	     @echo 'NJOB=$$(($$NJOB+1))'
-	     @echo '#'
-	     @echo '# Are we in an incomplete job sequence - more jobs to run ?'
-	     @echo '#'
-	     @echo 'if [ $$NJOB -lt $$NJOBS ]; then'
-	     @echo '    #'
-	     @echo '    # Now submit the next job'
-	     @echo '    #'
-	     @echo '    NEXTJOB=$$(($$NJOB+1))'
-	     @echo '    echo "Submitting job number $$NEXTJOB in sequence of $$NJOBS jobs"'
-	     @echo '    qsub -z -W depend=afterany:$$PBS_JOBID $$0'
-	     @echo 'else'
-	     @echo '    echo "Running last job in sequence of $NJOBS jobs"'
-	     @echo 'fi'
-#	     @echo '#'
-#	     @echo '# File manipulation prior to job commencing, eg. clean up previous output files,'
-#	     @echo '# check for consistency of checkpoint files, ...'
-#	     @echo '#'
-#	     @echo 'if [ $$NJOB -gt 1 ]; then'
-#	     @echo '   echo " "'
-#	     @echo '   # .... USER INSERTION HERE '
-#	     @echo 'fi'
-	     @echo '#------------------------------------------------------------------------------'
-        endif
-	@echo
-	@echo 'cd $$PBS_O_WORKDIR'
-	@echo 'echo "PBS_O_WORKDIR is $$PBS_O_WORKDIR"'
-	@echo 'echo "PBS_JOBNAME is $$PBS_JOBNAME"'
-	@echo 'env | grep PBS'
-	@echo 'cat $$PBS_NODEFILE > nodefile'
-    else
-        ifdef QNODES
-	   @echo '#SBATCH --nodes='$(QNODES)
-        else
-	   @echo '#SBATCH --nodes='$(NMPI)' --ntasks='$(NOMP)
-        endif
-	@echo '#SBATCH --cpus-per-task=1'
-        ifdef JOBNAME
-	   @echo '#SBATCH --job-name='$(JOBNAME)
-        else
-	   @echo '#SBATCH --job-name='`../scripts/randomword.pl`
-        endif
-        ifdef QNAME
-	   @echo '#SBATCH --queue='$(QNAME)
-        endif
-        ifdef QPROJECT
-	   @echo '#SBATCH --account='$(QPROJECT)
-        endif
-        ifdef QPARTITION
-	   @echo '#SBATCH --partition='$(QPARTITION)
-        endif
-	@echo '#SBATCH --output='$(OUTFILE)
-        ifdef MAILTO
-	   @echo '#SBATCH --mail-type=BEGIN'
-	   @echo '#SBATCH --mail-type=FAIL'
-	   @echo '#SBATCH --mail-type=END'
-	   @echo '#SBATCH --mail-user='$(MAILTO)
-        endif
-	@echo '#SBATCH --time=0-'$(WALLTIME)
-	@echo '#SBATCH --mem='$(MAXMEM)
-        ifdef QEXTRA
-	   @echo '#SBATCH '$(QEXTRA)
-        endif
-    endif
-	@echo 'echo "HOSTNAME = $$HOSTNAME"'
-	@echo 'echo "HOSTTYPE = $$HOSTTYPE"'
-	@echo 'echo Time is `date`'
-	@echo 'echo Directory is `pwd`'
-	@echo
-    ifeq ($(QSHELL),tcsh)
-	@echo 'limit stacksize unlimited'
-    else
-	@echo 'ulimit -s unlimited'
-    endif
-    #-- set openMP environment variables
-    ifeq ($(OPENMP),yes)
-        ifeq ($(QSHELL),tcsh)
-	   @echo 'setenv OMP_SCHEDULE "'$(OMP_SCHEDULE)'"'
-	   @echo 'setenv OMP_NUM_THREADS '$(NOMP)
-	   @echo 'setenv OMP_STACKSIZE 1024m'
-        else
-	   @echo 'export OMP_SCHEDULE="'$(OMP_SCHEDULE)'"'
-	   @echo 'export OMP_NUM_THREADS='$(NOMP)
-	   @echo 'export OMP_STACKSIZE=1024m'
-        endif
-    endif
-	@echo
-    #-- add lines specific to particular machines
-    ifeq ($(SYSTEM),msg)
-        ifeq ($(QSHELL),bash)
-	   @echo 'source /etc/profile'
-	   @echo 'export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}'
-        else
-	   @echo 'setenv LD_LIBRARY_PATH '${LD_LIBRARY_PATH}
-        endif
-	@cat ~/.modules
-    endif
-	@echo
-    #--final line is code execution
-	@echo 'echo "starting phantom run..."'
-    ifeq ($(QSHELL),tcsh)
-	@echo 'setenv outfile '$(GETLOG)
-    else
-	@echo 'export outfile='$(GETLOG)
-    endif
-	@echo 'echo "writing output to $$outfile"'
-    ifeq ($(USEMPI),yes)
-	@echo $(MPIEXEC)' '$(CMD)
-    else
-	@echo $(CMD)
-    endif
-    ifeq ($(PBSRESUBMIT),yes)
-	@echo
-	@echo '#------------------------------------------------------------------------------'
-	@echo '# Not expected to reach this point in general but if we do, check that all '
-	@echo '# is OK.  If the job command exited with an error, terminate the job'
-	@echo '#'
-	@echo 'errstat=$$?'
-	@echo 'if [ $$errstat -ne 0 ]; then'
-	@echo '    # A brief nap so PBS kills us in normal termination. Prefer to '
-	@echo '    # be killed by PBS if PBS detected some resource excess'
-	@echo '    sleep 5  '
-	@echo '    echo "Job number $$NJOB returned an error status $$errstat - stopping job sequence."'
-	@echo '    touch $$PBS_O_WORKDIR/STOP_SEQUENCE'
-	@echo '    exit $$errstat'
-	@echo 'fi'
-	@echo '#------------------------------------------------------------------------------'
-    endif
 
 #----------------------------------------------------
 # unit test for block limits
@@ -2818,187 +1253,22 @@ testgrowth:
 testnimhd:
 	${MAKE} SETUP=testnimhd phantomtest && $(RUNMPI) $(BINDIR)/phantomtest nimhd
 
+testmpi:
+	${MAKE} MPI=yes _testmpi
+
+_testmpi:
+	${MAKE} SETUP=test phantomtest && $(RUNMPI) $(BINDIR)/phantomtest mpi
+
 testall: test test2 testcyl testgrav
 
-#----------------------------------------------------
-# this is a utility to test the fast sqrt functions
-# to see if they are faster than the native calls
-# if so, then the appropriate pre-processor flags
-# are added
-#
-.PHONY: .make_mathflags .make_nofastmath getmathflags checkmath
-ifndef FASTSQRT
-   FASTSQRT=${shell if [ -e .make_nofastmath ]; then echo no; fi}
-endif
-
-ifeq ($(FASTSQRT), no)
-   OBJTESTMATH=
-   FASTMATH=no
-else
-   OBJTESTMATH= random.o io.o fastmath.o mpi_utils.o test_fastmath.o getmathflags.o
-   FASTMATH=${shell if [ -e .make_mathflags ]; then cat .make_mathflags; fi}
-endif
-
-.make_mathflags: checksys $(OBJTESTMATH)
-     ifeq ($(FASTSQRT), no)
-	@touch .make_mathflags
-     else
-	@if [ ! -e $@ ]; then \
-	    $(FC) $(FFLAGS) -o $(BINDIR)/getmathflags $(OBJTESTMATH) || ${MAKE} fastmathlinkerr; \
-	    $(BINDIR)/getmathflags > .make_mathflags; \
-	fi
-     endif
-
-ifeq ($(FASTMATH), yes)
-   SRCFASTMATH=fastmath.o
-   TEST_FASTMATH=test_fastmath.F90
-   FPPFLAGS+=-DFINVSQRT
-else
-   SRCFASTMATH=
-   TEST_FASTMATH=
-endif
-
-fastmath.o: fastmath.f90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-test_fastmath.o: test_fastmath.F90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-getmathflags.o: getmathflags.f90
-	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-
-fastmathlinkerr:
-	@echo "***********************************************************************"
-	@echo "*** ERROR linking fastsqrt stuff (requires Fortran->C call)         ***"
-	@echo "*** Type make again to ignore this and compile without it           ***"
-	@echo "***********************************************************************"
-	@touch .make_mathflags
-	@touch .make_nofastmath
-	${MAKE} err;
-
-#----------------------------------------------------
+include Makefile_fastmath
 
 LASTSYSTEM = ${shell if [ -e .make_lastsystem ]; then cat .make_lastsystem; fi}
 LASTSETUP = ${shell if [ -e .make_lastsetup ]; then cat .make_lastsetup; fi}
 LASTFPPFLAGS = ${shell if [ -e .make_lastfppflags ]; then cat .make_lastfppflags; fi}
 LASTFFLAGS = ${shell if [ -e .make_lastfflags ]; then cat .make_lastfflags; fi}
 
-.PHONY: checksystem checkparams checksplash checksys
-
-checksystem: checksys checksetup
-
-checksys:
-   ifeq ($(KNOWN_SYSTEM), yes)
-	@echo ""
-	@echo "Compiling Phantom v$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO) for $(SYSTEM) system..........."
-	@echo ""
-        ifneq ($(SYSTEM),$(LASTSYSTEM))
-	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
-	    @${MAKE} clean
-	    @${MAKE} cleanmathflags
-        endif
-	@echo $(SYSTEM) > .make_lastsystem
-   else
-	@echo ""
-	@echo "make: WARNING: value of SYSTEM = $(SYSTEM) not recognised..."
-	@echo "=> set the environment variable SYSTEM to one listed "
-	@echo "   in build/Makefile and try again"
-	@echo ""
-	@${MAKE} compilers
-	@${MAKE} err;
-   endif
-
-checksetup:
-   ifeq ($(OBSOLETE_SETUP), yes)
-	@echo "make: WARNING: value of SETUP = $(OLDSETUP) is obsolete..."
-	@echo "=> setting SETUP = $(SETUP)"
-	@echo
-   endif
-   ifeq ($(KNOWN_SETUP), yes)
-	@echo "Using options for "$(SETUP)" setup"
-	@echo ""
-        ifneq ($(SETUP),$(LASTSETUP))
-	    @echo setup changed from ${LASTSETUP} to ${SETUP}
-	    @${MAKE} clean
-        endif
-	@echo $(SETUP) > .make_lastsetup
-   else
-	@echo "setup '$(SETUP)' not recognised..."
-	@echo ""
-	@echo "Please set SETUP to one listed in build/Makefile"
-	@echo ""
-	@echo " e.g.:"
-	@echo " make SETUP=sedov"
-	@echo " make SETUP=disc"
-	@echo " make SETUP=turbdrive"
-	@echo ""
-	@echo " or:"
-	@echo " export SETUP=sedov"
-	@echo " make"
-	@echo ""
-	@echo "You may also wish to consider the following compile-time options:"
-	@echo ""
-	@echo " DEBUG=yes/no"
-	@echo " DOUBLEPRECISION=yes/no"
-	@echo " OPENMP=yes/no"
-	@echo " ENDIAN=BIG/LITTLE"
-	@echo ""
-	@${MAKE} err;
-   endif
-
-checkparams:
-	@echo "Using $(KERNEL) kernel"
-   ifeq ($(DEBUG), yes)
-	@echo "Debugging flags are ON"
-   endif
-   ifeq ($(DOUBLEPRECISION), yes)
-	@echo "Flags set for DOUBLE PRECISION"
-   else
-	@echo "Flags set for SINGLE PRECISION"
-   endif
-   ifeq ($(OPENMP), yes)
-	@echo "Compiling in PARALLEL (OpenMP)"
-   else
-	@echo "Compiling in SERIAL"
-   endif
-   ifeq ($(ENDIAN), BIG)
-	@echo "Flags set for conversion to BIG endian"
-   endif
-   ifeq ($(ENDIAN), LITTLE)
-	@echo "Flags set for conversion to LITTLE endian"
-   endif
-   ifneq ($(FPPFLAGS),$(LASTFPPFLAGS))
-	@echo 'pre-processor flags changed from "'${LASTFPPFLAGS}'" to "'${FPPFLAGS}'"'
-	@${MAKE} clean;
-	#for x in ../src/*/*.F90; do y=`basename $$x`; rm -f $${y/.F90/.o}; done
-   endif
-	@echo "Preprocessor flags are "${FPPFLAGS}
-	@echo "${FPPFLAGS}" > .make_lastfppflags
-   ifneq ($(FFLAGS),$(LASTFFLAGS))
-	@echo 'Fortran flags changed from "'${LASTFFLAGS}'" to "'${FFLAGS}'"'
-	@${MAKE} clean;
-   endif
-	@echo "Fortran flags are "${FFLAGS}
-	@echo "${FFLAGS}" > .make_lastfflags
-
-checksplash:
-   ifneq ("X$(SPLASH_DIR)","X")
-	@echo; echo "Compiling SPLASH source files from "$(SPLASH_DIR); echo
-   else
-	@echo; echo "ERROR: cannot find SPLASH directory needed for some source files - try \"export SPLASH_DIR=${HOME}/splash\""; echo
-   endif
-
-checkmcfost:
-   ifneq ("X$(MCFOST_DIR)","X")
-	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
-   else
-	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
-   endif
-
-checksmol:
-   ifneq ("X$(SMOL_DIR)","X")
-	@echo; echo "Linking SMOLUCHOWSKY library from "$(SMOL_DIR); echo
-   else
-	@echo; echo "ERROR: cannot find SMOL_DIR directory needed for Smoluchowsky library - try \"export SMOL_DIR=${HOME}/smol\""; echo
-   endif
+include Makefile_checks
 
 giza-fortran.o : $(SPLASH_DIR)/giza/interface/giza-fortran.F90 $(SPLASH_DIR)/giza/lib/libgiza.a
 	$(FC) $(FFLAGS) -I$(SPLASH_DIR)/giza/include/ -c $< -o $@
@@ -3037,11 +1307,18 @@ include .depends
 getdims:
 	@echo $(MAXP)
 
+get_setup_opts:
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation}  ${H2CHEM:yes=H2_Chemistry} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+
+get_setup_file:
+	@echo "$(SETUPFILE)"
+
 err:
 	$(error aborting);
 
 clean: cleanlibphantom
 	rm -f *.o *.mod phantom-version.h
+	cd $(BINDIR); rm -f phantom phantomsetup
 ifeq ($(KROME),krome)
 	rm -f ${KROMEPATH}/build/*.o ${KROMEPATH}/build/*.mod
 endif
