@@ -11,6 +11,7 @@ module analysis
   !
   ! :References: None
   !
+  ! :Honours project: Megha Sharma, Supervisors- Daniel Price and Alexander Heger
   !
   ! :Dependencies:dump_utils,units,io,prompting,readwrite_dumps,vectorutils,
   !               part,centreofmass,sortutils,eos,physcon,fileutils
@@ -32,7 +33,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
    use io,              only : warning
    use dump_utils,      only : read_array_from_file
-   use units,           only : udist,umass,unit_density,unit_pressure,unit_ergg,unit_velocity !units required to convert to kepler units.
+   use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
    use prompting,       only : prompt
    use readwrite_dumps, only : opened_full_dump
 
@@ -52,6 +53,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    character(len=120)                :: output
    character(len=*),intent(in)       :: dumpfile
    integer :: max_pos
+   integer :: use_option
 
    !If dumpfile is not a complete dump we don't read it.
    if (.not.opened_full_dump) then
@@ -59,11 +61,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       return
    endif
 
+   !ask user which analysis they are trying to perform, answer can be 1 or 2.
+   write(*,*) 'Which analysis you want to perform: GR (1) or Newtonian (2)?'
+   read(*,*) use_option
+
     !if dumpfile is a full dump, we call the subroutine for getting the arrays we need
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp,ngrid,rad_mom,&
-                                  angular_vel_3D)
+                                  angular_vel_3D,use_option)
 
     !allocate for composition_kepler
     !Print the analysis being done
@@ -91,6 +97,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           comp_label                                    !chemical composition
 
     print*, shape(composition_kepler),'kepler compo'
+
+    !as the units units in GR setup and newtonian setup are not same,
+    !we need to consider both units while writing the file.
+    print*,udist,'udist',umass,'umass'
+
     do i = 1, ngrid
       grid = i
       write(iunit,'(50(es18.10,1X))')                     &
@@ -101,10 +112,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               density(i)*unit_density,                    &
               temperature(i),                             &
               rad_mom(i)*unit_velocity*umass,             &
-              (angular_vel_3D(j,i)*unit_velocity, j=1,3), &
+              (angular_vel_3D(j,i)/utime, j=1,3),         &
               (composition_kepler(j,i), j=1,n_comp)
     enddo
-
+    close(iunit)
+    print*,umass,'mass unit',unit_velocity,'unit of velocity'
+    print*,rad_grid(ngrid)*udist,mass(ngrid)*umass,'mass of star',density(1),'max_den'
  end subroutine do_analysis
 
  !----------------------------------------------------------------
@@ -115,24 +128,24 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  !----------------------------------------------------------------
  subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                     density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
-                                    y_e,a_bar,composition_kepler,comp_label,columns_compo,ngrid,rad_mom,&
-                                    angular_vel_3D)
-
-   use units,           only : udist,unit_density,unit_pressure!units required to convert to kepler units.
+                                    y_e,a_bar,composition_kepler,comp_label,columns_compo,correct_ngrid,rad_mom,&
+                                    angular_vel_3D,use_option)
+   use units , only: udist,umass,unit_velocity,utime,unit_energ
    use vectorutils,     only : cross_product3D
-   use part,            only : nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh
+   use part,            only : nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,poten
    use centreofmass,    only : get_centreofmass
    use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
    use eos,             only : equationofstate,entropy,X_in,Z_in,entropy,gmw,init_eos
-   use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro
+   use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
 
-   integer,intent(in)   :: npart
-   integer,intent(out)  :: ngrid
+
+   integer,intent(in)   :: npart,use_option
+   integer,intent(out)  :: correct_ngrid
    real,intent(in)      :: xyzh(:,:),vxyzu(:,:)
    real,intent(in)      :: pmass,time
-   real,intent(out),allocatable    :: rad_grid(:),mass(:),density(:)!rad_grid stores radius
+   real,intent(out),allocatable     :: rad_grid(:),mass(:),density(:)!rad_grid stores radius
    real,intent(out),allocatable     :: temperature(:),entropy_array(:),int_eng(:),bin_mass(:),rad_mom(:)
-   real,intent(out),allocatable    :: pressure(:),y_e(:),a_bar(:),velocity_3D(:,:)
+   real,intent(out),allocatable     :: pressure(:),y_e(:),a_bar(:),velocity_3D(:,:)
    real,intent(out),allocatable              :: composition_kepler(:,:),angular_vel_3D(:,:)
    character(len=20),allocatable,intent(out) :: comp_label(:)
 
@@ -141,36 +154,53 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer :: iorder(npart),j,i,s,m,index_val
    integer :: number_particle,ieos,ierr
    integer :: columns_compo,location
-   integer :: particle_sum
+   integer :: particle_sum,ngrid
    integer::  number_bins,number_tot, number_per_bin
-   real :: p_no
+   integer :: count=0
+   integer :: index_j,c_particle,index_i
+   real :: p_no,eccentricity_star
    real :: density_sum,density_i,eni_input
    real :: u_sum,u_i !specific internal energy storage
    real :: omega_sum(3),omega(3)
-   real :: moment_of_inertia
+   real :: moment_of_inertia,i_vector(3),j_vector(3),k_vector(3)
    real :: temperature_i,temperature_sum
    real :: rad_velocity,rad_vel_sum,momentum
    real :: pressure_i,pressure_sum
    real :: pos(3),vel(3),rad,rad_next
    real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
    real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
-   real :: Y_in
-   real :: mu_i
+   real :: velocity_norm,escape_vel,kinetic_add,mass_val,com_velocity
+   real :: Y_in,semimajor,h_value
+   real :: mu_i,period_star,eccentricity_vector(3),bh_mass
+   real :: potential_energy_shell,tot_energy,energy_shell,kinetic_energy,mass_enclosed
+   real :: potential_i,kinetic_i,energy_i,potential_bh,energy_total,angular_momentum_h(3)
+   real :: radius_i(3,npart),distance_i(3),rel_distance,distance_bh,velocity_wrt_bh_i(3)
+   real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh,vcrossh(3)
+   real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-   real, dimension(17) :: z_value,a_value
+   real,dimension(17)  :: z_value,a_value
+   real,allocatable    :: energy_tot(:)
 
+   print*,utime,'time!!','this is analysis_test file!'
    !The star is not on the origin as BH exists at that point.
    !minimum h value corresponds to position of maximum density.
    !COM is not a good option as it does not work for severe disruptione events.
    location = minloc(xyzh(4,:),dim=1)
    star_centre(:) = xyzh(1:3,location)
-   !we use the equation number 12 from eos file.
-   ieos = 12
+   !we use the equation number 12 for Newtonian and 2 for GR analysis.
+   if (use_option == 1) then
+     ieos = 2
+   else
+     ieos = 2
+   endif
    call init_eos(ieos,ierr)
 
    !use sorting algorithm to sort the particles from the center of star as a function of radius.
    xpos(:) = star_centre(:)
    vpos(:) = vxyzu(1:3,location)
+   velocity_norm = sqrt(dot_product(vpos(:),vpos(:)))
+
+   print*,'com velocity',vpos(:)
    call set_r2func_origin(xpos(1),xpos(2),xpos(3))
    call indexxfunc(npart,r2func_origin,xyzh,iorder)
    !Call composition_array subroutine to get the composition.
@@ -187,17 +217,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     !instead of setting the bin number, the goal is to fix particle per bin for each run and calculate
     !the ngrid using it.
     number_particle = 201
-    number_per_bin = number_particle
-    number_tot = npart
     number_bins = number_tot/number_per_bin
     ngrid = npart/number_particle
 
-    if (mod(number_tot,number_per_bin) > 0 ) then
+    if (mod(npart,number_particle) > 0) then
       ngrid = ngrid + 1
     endif
     print"(a,i5)", 'number of bins = ',ngrid
 
-    allocate(rad_grid(ngrid),mass(ngrid),density(ngrid))!rad_grid stores radius, stores radial velocity
+    allocate(rad_grid(ngrid),mass(ngrid),density(ngrid),energy_tot(npart))!rad_grid stores radius, stores radial velocity
     allocate(temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid),rad_mom(ngrid))
     allocate(pressure(ngrid),y_e(ngrid),a_bar(ngrid),velocity_3D(3,ngrid),angular_vel_3D(3,ngrid))
     no_in_bin          = 0 !this keeps track of the particles added to the bin in the loop implemented.
@@ -210,136 +238,260 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     temperature_i      = 0.
     moment_of_inertia  = 0.
     omega_sum(:)       = 0.
+    velocity_wrt_bh(:) = 0.
     X_in               = 0.71492308
     Y_in               = 0.27112283
     Z_in               = 1.-X_in-Y_in
     gmw                = 0.61 !mean molecular weight
-    !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
-    z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
-    a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,56,56/)
+    com_star(:)        = 0.
+    bh_mass            = 1e6 !change the mass of the black hole here.
+    if (columns_compo == 18) then
+      !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
+      z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
+      a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
+    endif
+
+    kinetic_add = 0.
     !allocating storage for composition of one particle.
     allocate(composition_i(columns_compo))
     allocate(composition_sum(columns_compo))
     allocate(composition_kepler(columns_compo,ngrid))
     composition_sum(:) = 0.
     composition_i(:) = 0.
+    c_particle = 0 !no of particles that are bound the star.
+
+
+    open(11,file='energy_tot1')
+    write(11,"('#',4(a22,1x))")&
+    'radius',&
+    'energy',&
+    'poten',&
+    'kinetic'
     !implementing loop for calculating the values we require.
     do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
 
-     !add 1 to no_in_bin
-     no_in_bin = no_in_bin + 1
-
      !the position of the particle is calculated by subtracting the point of highest density.
      !xyzh is position wrt the black hole present at origin.
      pos(:) = xyzh(1:3,i) - xpos(:)
+
      !calculate the position which is the location of the particle.
-     rad    = sqrt(dot_product(pos(:),pos(:)))
+     rad_test    = sqrt(dot_product(pos(:),pos(:)))
+     potential_i = poten(i)
 
      !velocity
      vel(:)     = vxyzu(1:3,i) - vpos(:)
      vel_sum(:) = vel_sum(:) + vel(:)
 
-     !radial momentum
-     !we skip the first particle as its the one that exists at the center of star and hence will give infinite rad_vel as rad = 0.
-     if (rad > 0.) then
-       rad_velocity = dot_product(vel(:),pos(:))/rad
-       momentum     = rad_velocity*pmass
-       rad_vel_sum  = rad_vel_sum + momentum
+     velocity_norm = dot_product(vel(:),vel(:))
+     kinetic_i     = 0.5*pmass*(velocity_norm)
+     energy_i      = potential_i + kinetic_i
+
+     write(11,*) rad_test*udist,(energy_i+vxyzu(4,i)*pmass)*unit_energ,potential_i*unit_energ,kinetic_i*unit_energ
+     if (j==1) then
+       print*,potential_i,'1',energy_i,'tot energy',kinetic_i,'kinetic'
+     endif
+     if (j==npart) then
+       print*,potential_i,'last particle',energy_i,'tot energy',kinetic_i,'kinetic'
      endif
 
-     !density
-     density_i   = rhoh(xyzh(4,i),pmass)
-     density_sum = density_sum + density_i
+     !if energy is less than 0, we have bound system. We can accept these particles.
+     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
+       rad  = rad_test
+       c_particle = 1+c_particle
+       !add 1 to no_in_bin if energy is < 0.
+       no_in_bin  = no_in_bin + 1
+       com_star(:) = com_star(:) + pmass*xyzh(1:3,i)
+       !momentum of star wrt black hole. need this to find com velocity.
+       velocity_wrt_bh(:)   = velocity_wrt_bh(:) + pmass*vxyzu(1:3,i)
 
-     !internal energy
-     u_i   = vxyzu(4,i)
-     u_sum = u_sum + u_i
-
-     !composition
-     if (columns_compo /= 0) then
-       composition_i(:) = interpolate_comp(:,i)
-     endif
-     composition_sum(:) = composition_sum(:) + composition_i(:)
-
-     !calculate mean molecular weight that is required by the eos module using the
-     !mass fractions for each particle.
-     !do not consider neutron which is the first element of the composition_i array.
-     mu_i = 0
-     if (columns_compo /= 0) then
-       do index_val = 1, columns_compo-1
-         mu_i = mu_i + (composition_i(index_val+1)*(1+z_value(index_val)))/a_value(index_val)
-       enddo
-       gmw = 1/mu_i
-     endif
-
-     eni_input = u_i
-     !call eos routine
-     call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
-
-     pressure_i      = ponrhoi*density_i
-     pressure_sum    = pressure_sum + pressure_i
-     temperature_sum = temperature_sum + temperature_i
-
-     !angular velocity of the cells. In kepler, we need it for the interface.
-     call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
-     moment_of_inertia = moment_of_inertia + rad**2*pmass*(2./3.) !moment of intertia
-     omega(:)          = Li(:)*pmass
-     omega_sum(:)      = omega_sum(:) + omega(:)
-
-     if (no_in_bin >= number_particle .or. ibin == ngrid)  then
-       !make the bin properties.
-       !the radius is calculated as the mean of i and i+1 bins,
-       if (ibin /= ngrid) then
-         s = j + 1 !we consider the first particle in the i+1 bin and then use it.
-         m = iorder(s)
-         pos(:) = xyzh(1:3,m) - xpos(:)
-         !calculate the position which is the location of the particle.
-         rad_next       = sqrt(dot_product(pos(:),pos(:)))
-         rad_grid(ibin) = (rad + rad_next)/2
-       else
-         if (j < npart) then
-           cycle
-         else
-           rad_grid(ibin) = rad
-         endif
+       !radial momentum
+       !we skip the first particle as its the one that exists at the center of star and hence will give infinite rad_vel as rad = 0.
+       if (rad > 0.) then
+         rad_velocity = dot_product(vel(:),pos(:))/rad
+         momentum     = rad_velocity*pmass
+         rad_vel_sum  = rad_vel_sum + momentum
        endif
 
-       bin_mass(ibin)             = no_in_bin*pmass !every bin has same mass.
-       mass(ibin)                 = j*pmass !mass of paricles < r. Calculates cell outer total mass required by kepler.
-       density(ibin)              = density_sum / no_in_bin
-       temperature(ibin)          = temperature_sum / no_in_bin
-       pressure(ibin)             = pressure_sum / no_in_bin
-       int_eng(ibin)              = u_sum / no_in_bin
-       velocity_3D(:,ibin)        = vel_sum(:) / no_in_bin !in cartesian coordinates
-       composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
-       !radial momentum of the bin is calculated by using -
-       rad_mom(ibin)     = rad_vel_sum
-       y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
-       a_bar(ibin)       = X_in + (4.*Y_in) !average atomic mass in each bin.
-       angular_vel_3D(:,ibin) = omega_sum(:) / moment_of_inertia !omega_sum is L_sum
-       !calculating entropy
-       !implementing entropy from the Sackur-Tetrode equation.
-       entropy_array(ibin) = entropy(density(ibin)*unit_density,pressure(ibin)*unit_pressure,2,ierr)
-       entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
-       if (ierr/=0) then
-         print*, 'Entropy is calculated incorrectly'
-       end if
+       !angular velocity of the shells of the star.
+       call cross_product3D(pos(:),vel(:),Li)
+       moment_of_inertia = moment_of_inertia + rad**2*pmass*(2./3.) !moment of intertia
+       omega(:)          = Li(:)*pmass
+       omega_sum(:)      = omega_sum(:) + omega(:)
 
-       no_in_bin          = 0
-       ibin               = ibin + 1
-       density_sum        = 0.
-       u_sum              = 0.
-       temperature_sum    = 0.
-       pressure_sum       = 0.
-       vel_sum(:)         = 0.
-       composition_sum(:) = 0.
-       rad_vel_sum        = 0.
-       omega_sum(:)       = 0.
-       moment_of_inertia  = 0.
-     end if
-   end do
+       !density
+       density_i   = rhoh(xyzh(4,i),pmass)
+       density_sum = density_sum + density_i
+
+       !internal energy
+       u_i   = vxyzu(4,i)
+       u_sum = u_sum + u_i
+
+       !composition
+       if (columns_compo /= 0) then
+         composition_i(:) = interpolate_comp(:,i)
+       endif
+       composition_sum(:) = composition_sum(:) + composition_i(:)
+
+       !calculate mean molecular weight that is required by the eos module using the
+       !mass fractions for each particle.
+       !do not consider neutron which is the first element of the composition_i array.
+       mu_i = 0
+       if (columns_compo /= 0) then
+         do index_val = 1, columns_compo-1
+           mu_i = mu_i + (composition_i(index_val+1)*(1+z_value(index_val)))/a_value(index_val)
+         enddo
+         gmw = 1/mu_i
+       endif
+       if (j==1) then
+         print*,'gmw',gmw
+       endif
+       eni_input = u_i
+       !call eos routine
+       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
+
+       pressure_i      = ponrhoi*density_i
+       pressure_sum    = pressure_sum + pressure_i
+       temperature_sum = temperature_sum + temperature_i
+       !print*,j,'j'
+     endif
+       !now, if the bin has the same number of particles as we specified initially, we save the values
+       if (no_in_bin == number_particle) then
+         !calculate the position which is the location of the particle.
+         do index_i = j,npart-1
+           s              = index_i + 1 !we consider the first particle in the i+1 bin and then use it.
+           m              = iorder(s)
+           pos(:)         = xyzh(1:3,m) - xpos(:)
+           potential_i    = poten(m)
+           vel(:)         = vxyzu(1:3,m) - vpos(:)
+           velocity_norm  = dot_product(vel(:),vel(:))
+           kinetic_i      = 0.5*pmass*(velocity_norm)
+           energy_i       = potential_i + kinetic_i
+           if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
+             rad_next     = sqrt(dot_product(pos(:),pos(:)))
+             exit
+           endif
+         enddo
+         rad_grid(ibin)   = (rad + rad_next)/2
+
+       !if number of bin does not have the same number of particles we loop again. so cycle for j<npart
+       else if (j<npart) then
+          cycle
+
+       !else if j is last then save the last bin if the nu,ber of particle /= no_in_bin
+       else if (j == npart) then
+        rad_grid(ibin) = rad
+       endif
+
+        if (no_in_bin == number_particle .or. j == npart) then
+
+          bin_mass(ibin)             = no_in_bin*pmass !bin mass
+          mass(ibin)                 = (c_particle)*pmass !mass of paricles < r.
+          density(ibin)              = density_sum / no_in_bin
+          temperature(ibin)          = temperature_sum / no_in_bin
+          pressure(ibin)             = pressure_sum / no_in_bin
+          int_eng(ibin)              = u_sum / no_in_bin
+          velocity_3D(:,ibin)        = vel_sum(:) / no_in_bin !in cartesian coordinates
+          composition_kepler(:,ibin) = composition_sum(:) / no_in_bin
+          !radial momentum of the bin is calculated by using -
+          rad_mom(ibin)     = rad_vel_sum
+          y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
+          a_bar(ibin)       = X_in + (4.*Y_in) !average atomic mass in each bin.
+          angular_vel_3D(:,ibin) = omega_sum(:) / moment_of_inertia !omega_sum is L_sum
+
+          !calculating entropy
+          !implementing entropy from the Sackur-Tetrode equation.
+          entropy_array(ibin) = entropy(density(ibin),pressure(ibin),2,ierr)
+          entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
+          if (ierr/=0) then
+            print*, 'Entropy is calculated incorrectly'
+          end if
+
+          potential_energy_shell = 0
+          tot_energy         = 0
+          no_in_bin          = 0
+          ibin               = ibin + 1
+          density_sum        = 0.
+          u_sum              = 0.
+          temperature_sum    = 0.
+          pressure_sum       = 0.
+          vel_sum(:)         = 0.
+          composition_sum(:) = 0.
+          rad_vel_sum        = 0.
+          omega_sum(:)       = 0.
+          moment_of_inertia  = 0.
+          kinetic_add        = 0.
+        endif
+  end do
+  close(1)
+  correct_ngrid = ibin-1
+  print*,c_particle,'c_particle'
+  print*,'----------------------------------------------------------------------'
+  print*,'orbit parameters'
+
+  !this is centre of mass of the star
+  print*,star_centre*udist,'center of star'
+  com_star(:) = (com_star(:)/(c_particle*pmass))*udist
+  position_bh = sqrt(dot_product(com_star(:),com_star(:)))
+  !velocity centre of mass of star
+  velocity_wrt_bh(:) = (velocity_wrt_bh(:) /(c_particle*pmass))*unit_velocity
+  velocity_bh = sqrt(dot_product(velocity_wrt_bh(:),velocity_wrt_bh(:)))
+  call cross_product3D(com_star,velocity_wrt_bh,angular_momentum_h)
+  print*,com_star(:),'position of star wrt bh'
+  print*,velocity_wrt_bh,'velocity of star wrt bh'
+  print*,angular_momentum_h(:),'angular momentum h'
+
+  print*,velocity_bh/1e5,'bh vel',position_bh,'distance'
+  escape_vel = sqrt((2.*gg*1e6*umass)/position_bh)
+  print*,escape_vel/1e5,'escape vel',velocity_bh/1e5,'velcoity of the star on orbit'
+  if (velocity_bh > escape_vel) then
+    print*,'star has escaped',velocity_bh/escape_vel,'vel bh/escape vel'
+  else
+    print*,'star is bound',velocity_bh/escape_vel,'vel bh/escape vel'
+  endif
+
+  !energy total is total energy of star. If negative, star is bound to BH but if negative then its unbound.
+  !Calculate orbital paramters
+  energy_total = 0.5*velocity_bh**2 - (gg*1e6*umass)/position_bh
+
+  if (energy_total < 0.) then
+    print*,'negative energy of the orbit'
+    semimajor = (gg*bh_mass*umass)/(2*abs(energy_total))
+    period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*bh_mass*umass))
+    print*,semimajor/pc,'semimajor in Parsec',period_star/years,'period in years'
+
+    h_value = dot_product(angular_momentum_h,angular_momentum_h)
+    print*,acos(abs(angular_momentum_h(1))/h_value),'inclination x',abs(angular_momentum_h(1))/h_value
+    print*,acos(abs(angular_momentum_h(2))/h_value),'inclination y',abs(angular_momentum_h(2))/h_value
+    print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
+    print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
+    eccentricity_star = sqrt(1-(h_value/(semimajor*gg*(mass(ngrid-1)+bh_mass)*umass)))
+    call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
+
+    !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
+    eccentricity_vector(:) = (vcrossh(:)/(gg*(mass(ngrid-1)+bh_mass)*umass)) - (com_star(:)/position_bh)
+    print*,energy_total,'energy of star on the orbit',eccentricity_star,'eccentricity'
+    print*,eccentricity_vector(:),'eccentricity vector'
+    eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
+    print*,eccentricity_star,'eccentricity again'
+    semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
+    period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
+    print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+    i_vector = (/1,0,0/)
+    j_vector = (/0,1,0/)
+    k_vector = (/0,0,1/)
+    call cross_product3D(k_vector,angular_momentum_h,n_vector)
+    n_vector_mag = sqrt(dot_product(n_vector,n_vector))
+    inclination_angle = acos(dot_product(k_vector,angular_momentum_h/h_value))
+    arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
+    longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
+    print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+  else
+    print*,'positive energy of the star on orbit'
+  endif
+  print*,npart-c_particle,'unbound particles ',correct_ngrid
+  print*,'----------------------------------------------------------------------'
  end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -402,3 +554,5 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    endif
 
  end subroutine composition_array
+
+end module analysis
