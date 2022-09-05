@@ -61,13 +61,14 @@ module ptmass
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
- real,    public :: f_crit_override = 0.0    ! 1000. ! if > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
- ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.§
- ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
+ real,    public :: f_crit_override = 0.0    ! 1000.
+ ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
+ ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
+ ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
 
  ! additional public variables
  integer, public :: ipart_rhomax
@@ -897,7 +898,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
- integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax
+ integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax,nneigh_act
  logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot,ForceCreation
 
  ifail       = 0
@@ -1018,8 +1019,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  erotx  = 0.
  eroty  = 0.
  erotz  = 0.
- epot_mass = 0.
- epot_rad  = 0.
+ epot_mass  = 0.
+ epot_rad   = 0.
+ nneigh_act = 0
 
  ! CHECK 3: all neighbours are all active ( & perform math for checks 4-6)
  ! find neighbours within the checking radius of hcheck
@@ -1042,7 +1044,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
 !$omp firstprivate(pmassj,pmassk,itypej,iactivej,itypek) &
-!$omp reduction(+:ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
+!$omp reduction(+:nneigh_act,ekin,erotx,eroty,erotz,etherm,epot,epot_mass,epot_rad) &
 !$omp reduction(min:potenj_min)
 !$omp do
  over_neigh: do n=1,nneigh
@@ -1082,6 +1084,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           cycle over_neigh
        endif
 #endif
+
+       nneigh_act = nneigh_act + 1
 
        dvx = vxi - vxyzu(1,j)
        dvy = vyi - vxyzu(2,j)
@@ -1418,8 +1422,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  endif
  ! print details to file, if requested
  if (record_created) then
-    write(iscfile,'(es18.10,1x,3(i18,1x),5(es18.9,1x),8(i18,1x))') &
-       time,nptmass+1,itest,nneigh,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,ifail_array
+    write(iscfile,'(es18.10,1x,3(i18,1x),8(es18.9,1x),8(i18,1x))') &
+       time,nptmass+1,itest,nneigh_act,rhoh(hi,pmassi),divvi,alpha_grav,alphabeta_grav,etot,epot,ekin,etherm,ifail_array
     call flush(iscfile)
  endif
 
@@ -1570,8 +1574,8 @@ subroutine init_ptmass(nptmass,logfile)
  if (record_created) then
     filename = trim(pt_prefix)//"SinkCreated"//trim(pt_suffix)
     open(unit=iscfile,file=trim(filename),form='formatted',status='replace')
-    write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 10-18: 0 = T, 1 = F")')
-    write(iscfile,"('#',17(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iscfile,'("# Data of particles attempting to be converted into sinks.  Columns 13-20: 0 = T, 1 = F")')
+    write(iscfile,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
            1,'time', &
            2,'nptmass+1', &
            3,'itest',     &
@@ -1581,14 +1585,17 @@ subroutine init_ptmass(nptmass,logfile)
            7,'alpha',     &
            8,'alphabeta', &
            9,'etot',      &
-          10,'is gas',    &
-          11,'div v < 0', &
-          12,'2h < h_acc',&
-          13,'all active',&
-          14,'alpha < 0', &
-          15,'a+b <= 1',  &
-          16,'etot < 0',  &
-          17,'pot_min'
+          10,'epot',      &
+          11,'ekin',      &
+          12,'etherm',    &
+          13,'is gas',    &
+          14,'div v < 0', &
+          15,'2h < h_acc',&
+          16,'all active',&
+          17,'alpha < 0', &
+          18,'a+b <= 1',  &
+          19,'etot < 0',  &
+          20,'pot_min'
  else
     iscfile = -abs(iscfile)
  endif
