@@ -182,7 +182,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
  endif
 
- if (sink_radiation .and. maxvxyzu==maxp) then
+ if (sink_radiation .and. maxvxyzu == 4) then
     !
     ! compute dust temperature based on radiation from sink particles
     !
