@@ -21,8 +21,7 @@ module cooling_solver
 !
 ! :Dependencies: infile_utils
 !
- use cooling_functions, only:bowen_Cprime,lambda_shock_cgs,T0_value,&
-     T1_factor
+ use cooling_functions, only:bowen_Cprime,lambda_shock_cgs,T0_value,T1_factor
  implicit none
  character(len=*), parameter :: label = 'cooling_library'
  integer, public :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0, shock_problem = 0
@@ -32,7 +31,7 @@ module cooling_solver
  real :: Tgrid(nTg)
 
  public :: init_cooling_solver,read_options_cooling_solver,write_options_cooling_solver
- public :: energ_cooling_solver
+ public :: energ_cooling_solver,calc_cooling_rate, calc_Q
  public :: testfunc,print_cooling_rates
  public :: T0_value ! expose to cooling module
 

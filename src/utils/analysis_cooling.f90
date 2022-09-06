@@ -7,27 +7,9 @@
 module analysis
 
    use physcon,        only: mass_proton_cgs, kboltz, atomic_mass_unit
-   ! use cooling ,       only: cool_dust_discrete_contact, &
-   !                           cool_dust_full_contact, &
-   !                           cool_dust_radiation, &
-   !                           cool_coulomb, &
-   !                           cool_HI, &
-   !                           cool_H_ionisation, &
-   !                           cool_He_ionisation, &
-   !                           cool_H2_rovib, &
-   !                           cool_H2_dissociation, &
-   !                           cool_CO_rovib, &
-   !                           cool_H2O_rovib, &
-   !                           cool_OH_rot, &
-   !                           heat_dust_friction, &
-   !                           heat_dust_photovoltaic_soft, &
-   !                           heat_dust_photovoltaic_hard, &
-   !                           heat_CosmicRays, &
-   !                           heat_H2_recombination, &
-   !                           calc_Q, &
-   !                           calc_dlnQdlnT, &
-   !                           print_cooling_rates
    use cooling
+   use cooling_functions
+   use cooling_solver
    use dust_formation, only: init_muGamma, set_abundances, kappa_gas, &
                              calc_kappa_bowen, chemical_equilibrium_light, mass_per_H
    use dim,            only:nElements

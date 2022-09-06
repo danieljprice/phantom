@@ -38,7 +38,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,maxp,mhd,fast_divcurlB,gr,periodic,&
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,&
                           sink_radiation,use_dustgrowth,itau_alloc
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
