@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module h2cooling
+module cooling_ism
 !
 ! Contains routines for cooling
 !  Routines are originally by Simon Glover,
@@ -38,8 +38,8 @@ module h2cooling
 ! only publicly visible entries are the
 ! cool_func and init_h2cooling subroutines
 !
- public :: cool_func, init_h2cooling, write_options_h2cooling, read_options_h2cooling
- public :: energ_h2cooling
+ public :: cool_func, init_cooling_ism, write_options_cooling_ism, read_options_cooling_ism
+ public :: energ_cooling_ism
 !
 ! required constants and parameters
 ! (this stuff formerly in cool.h)
@@ -135,7 +135,7 @@ contains
 !  Compute cooling term in energy equation (du/dt)
 !+
 !----------------------------------------------------------------
-subroutine energ_h2cooling(ui,rhoi,divv,gmwvar,abund,dudti)
+subroutine energ_cooling_ism(ui,rhoi,divv,gmwvar,abund,dudti)
  use units,     only:utime,udist,udens=>unit_density,uergg=>unit_ergg
  use physcon,   only:mass_proton_cgs,Rg
  real,         intent(in)    :: ui,rhoi,gmwvar
@@ -159,14 +159,14 @@ subroutine energ_h2cooling(ui,rhoi,divv,gmwvar,abund,dudti)
  !
  dudti = dudti + (-1.d0*ylamq/(rhoi*udens))*utime**3/udist**2
 
-end subroutine energ_h2cooling
+end subroutine energ_cooling_ism
 
 !-----------------------------------------------------------------------
 !+
 !  writes input options to the input file
 !+
 !-----------------------------------------------------------------------
-subroutine write_options_h2cooling(iunit)
+subroutine write_options_cooling_ism(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
@@ -188,14 +188,14 @@ subroutine write_options_h2cooling(iunit)
  call write_inopt(iphoto,'iphoto','Photoelectric heating treatment (0=optically thin, 1=w/extinction)',iunit)
  call write_inopt(iflag_atom,'iflag_atom','Which atomic cooling (1:Gal ISM, 2:Z=0 gas)',iunit)
 
-end subroutine write_options_h2cooling
+end subroutine write_options_cooling_ism
 
 !-----------------------------------------------------------------------
 !+
 !  reads input options from the input file
 !+
 !-----------------------------------------------------------------------
-subroutine read_options_h2cooling(name,valstring,imatch,igotall,ierr)
+subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
  use part, only:h2chemistry
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
@@ -236,7 +236,7 @@ subroutine read_options_h2cooling(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
-end subroutine read_options_h2cooling
+end subroutine read_options_cooling_ism
 
 !=======================================================================
 !
@@ -839,7 +839,7 @@ end subroutine three_level_pops
 !
 !=======================================================================
 !
-subroutine init_h2cooling
+subroutine init_cooling_ism
 !
 !    Based on an original routine by G. Suttner (University Wuerzburg, 1995)
 !    OI, CI cooling added by M. D. Smith (Armagh Observatory, 2000-2001)
@@ -1699,7 +1699,7 @@ subroutine init_h2cooling
  enddo
 !
  return
-end subroutine init_h2cooling
+end subroutine init_cooling_ism
 !=======================================================================
 !
 !    \\\\\\\\\\        E N D   S U B R O U T I N E        //////////
@@ -1809,4 +1809,4 @@ end subroutine co_cool
 !
 !=======================================================================
 
-end module h2cooling
+end module cooling_ism

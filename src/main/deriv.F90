@@ -39,7 +39,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,maxp,mhd,fast_divcurlB,gr,periodic,&
-                          sink_radiation,use_dustgrowth
+                          sink_radiation,use_dustgrowth,itau_alloc
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -60,8 +60,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
 #endif
+ use dust_formation,   only:calc_kappa_bowen,idust_opacity
+ use part,             only:ikappa,tau,nucleation
+ use raytracer
  use growth,           only:get_growth_rate
- use ptmass_radiation, only:get_dust_temperature_from_ptmass
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
@@ -184,6 +187,16 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     ! compute dust temperature based on radiation from sink particles
     !
     call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
+    !
+    ! do ray tracing to get optical depth (tau)
+    !
+    if (itau_alloc == 1) then
+      if (idust_opacity == 2) then
+         call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
+      else
+         call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
+      endif
+    endif
  endif
 !
 ! set new timestep from Courant/forces condition
