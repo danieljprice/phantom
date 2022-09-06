@@ -29,7 +29,7 @@ contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
- use prompting,    only:prompt
+ use prompting,  only:prompt
 
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
@@ -66,13 +66,15 @@ subroutine test_integration
 
   integer, parameter :: ndt = 20
   real :: tstart,tlast,dtstep,dti(ndt),tcool
-  real :: rho, T_gas, rho_gas, pH, pH2         !rho in code units
+  real :: rho, T_gas, rho_gas, pH, pH2   !rho in code units
   real :: mu, gamma
   real :: K2, kappa       !cgs
   real :: Q, dlnQ_dlnT
   real :: u,ui,xi,yi,zi,dudt,T_on_u,T,Tout,dt
 
   integer :: i,imethod
+
+  Townsend_test = .true.
 
 !set timesteps
   tstart = 0.1
