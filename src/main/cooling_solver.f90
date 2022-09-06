@@ -28,7 +28,7 @@ module cooling_solver
  integer, public :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0, shock_problem = 0
  integer, public :: icool_method  = 0
  integer, parameter :: nTg  = 64
- real,    parameter :: Tref = 1.d5, T_floor = 10.   ! required for exact_cooling
+ real,    parameter :: Tref = 1.d6 !higher value of the temperature grid
  real :: Tgrid(nTg)
 
  public :: init_cooling_solver,read_options_cooling_solver,write_options_cooling_solver
@@ -188,8 +188,8 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     stop '[implicit_cooling] u<0'
  endif
 
-
 end subroutine implicit_cooling
+
 
 !-----------------------------------------------------------------------
 !+
@@ -207,9 +207,14 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  real, intent(out) :: dudt
 
  real, parameter :: tol = 1.d-12
- real            :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u
+ real            :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u,T_floor
  integer         :: k
 
+ if (Townsend_test) then
+    T_floor = 1e4
+ else
+    T_floor = 10.
+ endif
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T      = T_on_u*ui
 
@@ -415,17 +420,17 @@ end function calc_dlnQdlnT
 
 !-----------------------------------------------------------------------
 !+
-!  Set Temperature grid
+!  Set Temperature grid for exact cooling: between 10K and Tref
 !+
 !-----------------------------------------------------------------------
 subroutine set_Tgrid
  integer :: i
  real    :: dlnT
 
- dlnT = log(Tref)/(nTg-1)
-
+ dlnT = log(Tref/10.)/(nTg-1)
  do i = 1,nTg
-    Tgrid(i) = exp((i-1)*dlnT)
+    Tgrid(i) = 10.*exp((i-1)*dlnT)
+    !print *,i,Tgrid(i)
  enddo
 
 end subroutine set_Tgrid

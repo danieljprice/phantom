@@ -53,12 +53,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(2)
     call generate_grid()
  case(3)
-    call test_integration
+    call test_solvers
  end select
 end subroutine do_analysis
 
 
-subroutine test_integration
+subroutine test_solvers
 
   use physcon,  only:Rg
   use units,    only:unit_ergg,unit_density,utime
@@ -72,7 +72,7 @@ subroutine test_integration
   real :: Q, dlnQ_dlnT
   real :: u,ui,xi,yi,zi,dudt,T_on_u,T,Tout,dt
 
-  integer :: i,imethod
+  integer :: i,imethod,ierr
 
   Townsend_test = .true.
 
@@ -100,6 +100,7 @@ subroutine test_integration
   rho_gas = 1.d-20 !cgs
   rho = rho_gas/unit_density
 
+  call init_cooling_solver(ierr)
   call set_abundances
 
   T = T_gas
@@ -110,9 +111,9 @@ subroutine test_integration
 
   do imethod = 0,2
      icool_method = imethod
-     print *,'#Tgas=',T,', rho_cgs=',rho_gas,', tcool_cgs=',tcool,', imethod=',icool_method
+     ui = T/T_on_u
+     print *,'#Tin=',T,', rho_cgs=',rho_gas,', tcool_cgs=',tcool,', imethod=',icool_method
      do i = 1,ndt
-        ui = T/T_on_u
         dt = tcool*dti(i)
      !print *,'#Tgas=',T,', rho_cgs=',rho_gas,', dt/tcool=',dti(i),', imethod=',icool_method
         call energ_cooling(xi,yi,zi,ui,dudt,rho,dt,T,mu,gamma)
@@ -122,7 +123,7 @@ subroutine test_integration
      enddo
   enddo
 
-end subroutine test_integration
+end subroutine test_solvers
 
 subroutine get_rate
 

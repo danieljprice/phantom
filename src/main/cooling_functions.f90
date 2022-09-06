@@ -49,7 +49,7 @@ contains
 subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
 
  real, intent(in)  :: T, T0, ndens
- real, intent(out) :: Q,dlnQ
+ real, intent(out) :: Q, dlnQ
  real :: T1,Tmid !,dlnT,fac
 
  T1 = T1_factor*T0
@@ -78,15 +78,15 @@ end subroutine piecewise_law
 !  Bowen 1988 cooling prescription
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Teq, rho, mu, gamma, Q, dlnQ_dlnT)
+subroutine cooling_Bowen_relaxation(T, Tdust, rho, mu, gamma, Q, dlnQ_dlnT)
 
  use physcon, only:Rg
 
- real, intent(in)  :: T, Teq, rho, mu, gamma
- real, intent(out) :: Q,dlnQ_dlnT
+ real, intent(in)  :: T, Tdust, rho, mu, gamma
+ real, intent(out) :: Q, dlnQ_dlnT
 
- Q         = Rg/((gamma-1.)*mu)*rho*(Teq-T)/bowen_Cprime
- dlnQ_dlnT = -T/(Teq-T+1.d-10)
+ Q         = Rg/((gamma-1.)*mu)*rho*(Tdust-T)/bowen_Cprime
+ dlnQ_dlnT = -T/(Tdust-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
 
@@ -95,25 +95,25 @@ end subroutine cooling_Bowen_relaxation
 !  collisionnal cooling
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_dust_collision(T, Teq, rho, K2, mu, Q, dlnQ_dlnT)
+subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q, dlnQ_dlnT)
 
  use physcon, only: kboltz, mass_proton_cgs, pi
 
- real, intent(in)  :: T, Teq, rho, K2, mu
- real, intent(out) :: Q,dlnQ_dlnT
+ real, intent(in)  :: T, Tdust, rho, K2, mu
+ real, intent(out) :: Q, dlnQ_dlnT
 
  real, parameter   :: f = 0.15, a0 = 1.28e-8
  real              :: A
 
  A = 2. * f * kboltz * a0**2/(mass_proton_cgs**2*mu) &
          * (1.05/1.54) * sqrt(2.*pi*kboltz/mass_proton_cgs) * 2.*K2 * rho
- Q = A * sqrt(T) * (Teq-T)
+ Q = A * sqrt(T) * (Tdust-T)
  if (Q  >  1.d6) then
     print *, f, kboltz, a0, mass_proton_cgs, mu
-    print *, mu, K2, rho, T, Teq, A, Q
+    print *, mu, K2, rho, T, Tdust, A, Q
     stop 'cooling'
  else
-    dlnQ_dlnT = 0.5+T/(Teq-T+1.d-10)
+    dlnQ_dlnT = 0.5+T/(Tdust-T+1.d-10)
  endif
 
 end subroutine cooling_dust_collision
@@ -123,15 +123,15 @@ end subroutine cooling_dust_collision
 !  Woitke (2006 A&A) cooling term
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_radiative_relaxation(T, Teq, kappa, Q, dlnQ_dlnT)
+subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q, dlnQ_dlnT)
 
  use physcon, only: steboltz
 
- real, intent(in) :: T, Teq, kappa
- real, intent(out) :: Q,dlnQ_dlnT
+ real, intent(in) :: T, Tdust, kappa
+ real, intent(out) :: Q, dlnQ_dlnT
 
- Q         = 4.*steboltz*(Teq**4-T**4)*kappa
- dlnQ_dlnT = -4.*T**4/(Teq**4-T**4+1.d-10)
+ Q         = 4.*steboltz*(Tdust**4-T**4)*kappa
+ dlnQ_dlnT = -4.*T**4/(Tdust**4-T**4+1.d-10)
 
 end subroutine cooling_radiative_relaxation
 
@@ -153,11 +153,12 @@ subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
  if (T > 3000.) then
     eps_e = calc_eps_e(T)
     Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho_cgs/(1.4*mass_proton_cgs)**2
-    dlnQ_dlnT = 118400.d0/T+log(calc_eps_e(1.001*T)/eps_e)/log(1.001)
+    dlnQ_dlnT = -118400./T+log(calc_eps_e(1.001*T)/eps_e)/log(1.001)
  else
     Q = 0.
     dlnQ_dlnT = 0.
  endif
+ !print *,'x',T,Q,dlnQ_dlnT
 
 end subroutine cooling_neutral_hydrogen
 
