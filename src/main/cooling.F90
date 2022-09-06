@@ -191,7 +191,7 @@ subroutine write_options_cooling(iunit)
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling library (step), 2=cooling library (force),'// &
                      '3=Gammie, 5,6=KI02)',iunit)
     select case(icooling)
-    case(4,5,6)
+    case(0,4,5,6)
        ! do nothing
     case(3)
        call write_options_cooling_gammie(iunit)
@@ -244,7 +244,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
        call read_options_ism_cooling(name,valstring,imatch,igotallism,ierr)
     else
        select case(icooling)
-       case(4,5,6)
+       case(0,4,5,6)
           ! do nothing
        case(3)
           call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
