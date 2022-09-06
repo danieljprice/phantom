@@ -178,7 +178,7 @@ subroutine wind_step(state)
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
- use cooling,          only:calc_cooling_rate
+ use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
 
@@ -280,7 +280,7 @@ subroutine wind_step(state)
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
- use cooling,          only:calc_cooling_rate
+ use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
  use dim,              only:itau_alloc
