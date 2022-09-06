@@ -117,37 +117,66 @@ end subroutine explicit_cooling
 !   implicit cooling
 !+
 !-----------------------------------------------------------------------
-subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Trad, K2, kappa)
+subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
  use physcon, only:Rg
  use units,   only:unit_ergg
- use io,      only:fatal
 
  real, intent(in)  :: ui, rho, dt, mu, gamma
- real, intent(in)  :: Trad, K2, kappa
+ real, intent(in)  :: Tdust, K2, kappa
  real, intent(out) :: dudt
 
- real, parameter    :: tol      = 1.d-4    ! to be adjusted
- integer, parameter :: iter_max = 200
- real               :: u,Q,dlnQ_dlnT,T,T_on_u,delta_u,term1,term2
+ real, parameter    :: tol = 1.d-5, Tmin = 1.
+ integer, parameter :: iter_max = 40
+ real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f,f0,fi,fmid,T,Ti,T0,dx,Tmid
  integer            :: iter
 
  u       = ui
  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
- delta_u = 1.d-3
- iter    = 0
- !term1 = 1.-(gamma-1.)*dt*divcurlv !pdv=(gamma-1.)*vxyzu(4,i)*divcurlv(1,i)*dt
- term1 = 1.
- do while (abs(delta_u) > tol .and. iter < iter_max)
-    T       = u*T_on_u
-    call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Trad, mu, gamma, K2, kappa)
-    term2   = u*term1-Q*dt
-    delta_u = (ui-term2)/(term1-Q*dlnQ_dlnT*dt/u)
-    u       = u+delta_u
+ T       = ui*T_on_u
+ call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, kappa)
+ T0   = T
+ f0   = -Q*dt*T_on_u
+ fi   = f0
+ iter = 0
+ !define bisection interval f(T) = T^(n+1)-T^n-Q*dt*T_on_u
+ do while (((f0 > 0. .and. fi > 0.) .or. (f0 < 0. .and. fi < 0.)) .and. iter < iter_max)
+    Tmid = max(T+Q*dt*T_on_u,Tmin)
+    call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, kappa)
+    fi = Tmid-T0-Qi*dt*T_on_u
+    T  = Tmid
+    iter = iter+1
+ enddo
+ if (iter > iter_max) stop '[implicit_cooling] cannot bracket cooling function'
+ iter = 0
+ if (Ti > T0) then
+    T = T0
+    fmid = fi
+ else
+    T = Tmid
+    !special fix for shock tube test
+    !T = max(1e4,Tmid)
+    fmid = f0
+ endif
+ dx = abs(Ti-T0)
+ do while (abs(dx/T0) > tol .and. iter < iter_max)
+    dx = dx*.5
+    Tmid = T+dx
+    call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, kappa)
+    fmid = Tmid-T0-Qi*dt*T_on_u
+    if (fmid <= 0.) T = Tmid
+    !special fix for shoch tube test
+    !if (fmid <= 0.) Tmid = max(1e4,Tmid)
     iter    = iter + 1
  enddo
+ !print *,iter,T,Tmid
+ u = Tmid/T_on_u
  dudt =(u-ui)/dt
- if (u < 0. .or. isnan(u)) call fatal('cooling_implicit',' u<0',var='u',val=u)
+ if (u < 0. .or. isnan(u)) then
+    print *,u
+    stop '[implicit_cooling] u<0'
+ endif
+
 
 end subroutine implicit_cooling
 
@@ -264,8 +293,10 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  if (excitation_HI  == 1) call cooling_neutral_hydrogen(T, rho_cgs, Q_H0, dlnQ_H0)
  if (relax_Bowen    == 1) call cooling_Bowen_relaxation(T, Teq, rho_cgs, mu, gamma, &
                                                         Q_relax_Bowen, dlnQ_relax_Bowen)
- if (dust_collision == 1) call cooling_dust_collision(T, Teq, rho_cgs, K2, mu, Q_col_dust, dlnQ_col_dust)
- if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan, dlnQ_relax_Stefan)
+ if (dust_collision == 1 .and. K2 > 0.) call cooling_dust_collision(T, Teq, rho_cgs, K2,&
+                                                        mu, Q_col_dust, dlnQ_col_dust)
+ if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan,&
+                                                        dlnQ_relax_Stefan)
  if (shock_problem  == 1) call piecewise_law(T, T0_value, ndens, Q_H0, dlnQ_H0)
  !if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
