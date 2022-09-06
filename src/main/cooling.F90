@@ -119,7 +119,7 @@ end subroutine init_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad_in,mu_in,gamma_in,K2_in,kappa_in,Tgas_in)
+subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,Tgas_in)
  use io,      only:fatal
  use eos,     only:gmw,gamma
  use physcon, only:Rg
@@ -130,21 +130,21 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad_in,mu_in,gamma_in,K2_in,ka
                                   cooling_KoyamaInutsuka_implicit
 
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
- real, intent(in), optional :: Tgas_in,Trad_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real, intent(in), optional :: Tgas_in,Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(out)          :: dudt                                ! in code units
- real                       :: mu,polyIndex,T_on_u,Tgas,Trad,K2,kappa
+ real                       :: mu,polyIndex,T_on_u,Tgas,Tdust,K2,kappa
 
  dudt       = 0.
  mu         = gmw
  polyIndex  = gamma
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  Tgas   = T_on_u*ui
- Trad   = Tgas
+ Tdust  = Tgas
  kappa  = 0.
  K2     = 0.
  if (present(gamma_in)) polyIndex = gamma_in
  if (present(mu_in))    mu        = mu_in
- if (present(Trad_in))  Trad      = Trad_in
+ if (present(Tdust_in)) Tdust     = Tdust_in
  if (present(Tgas_in))  Tgas      = Tgas_in
  if (present(K2_in))    K2        = K2_in
  if (present(kappa_in)) kappa     = kappa_in
@@ -163,7 +163,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Trad_in,mu_in,gamma_in,K2_in,ka
  case (3)
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case default
-    call energ_cooling_solver(ui,dudt,rho,dt,mu,polyIndex,Trad,K2,kappa)
+    call energ_cooling_solver(ui,dudt,rho,dt,mu,polyIndex,Tdust,K2,kappa)
  end select
 
 end subroutine energ_cooling
