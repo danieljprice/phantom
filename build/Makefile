@@ -894,7 +894,7 @@ endif
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90 utils_healpix.f90 utils_raytracer.F90
+    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no
     STS_TIMESTEPS=no
@@ -1544,7 +1544,7 @@ endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_allocate.f90 icosahedron.f90 utils_healpix.f90 utils_raytracer.f90 \
+         utils_allocate.f90 icosahedron.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
@@ -1552,10 +1552,10 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
 	 checkoptions.F90 viscosity.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
-         partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM}\
+         partinject.F90 utils_inject.f90 utils_filenames.f90 utils_summary.F90 ${SRCCHEM} \
          ${SRCDUST} dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
          mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCPHOTO} ${SRCINJECT} ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         ${SRCPHOTO} ${SRCINJECT} utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
@@ -1697,7 +1697,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
-				 test_eos.f90 test_externf.f90 test_rwdump.f90 \
+	 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \

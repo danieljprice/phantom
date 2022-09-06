@@ -85,7 +85,7 @@ subroutine test_integration
   integer, parameter :: ndt = 20
   real :: tstart,tlast,dtstep,dti(ndt),tcool
   real :: rho, T_gas, rho_gas, pH, pH2         !rho in code units
-  real :: r, mu, gamma
+  real :: mu, gamma
   real :: K2, kappa       !cgs
   real :: Q, dlnQ_dlnT
   real :: u,ui,xi,yi,zi,dudt,T_on_u,T,Tout,dt
@@ -107,7 +107,6 @@ subroutine test_integration
   icool_method = 1 !0=implicit, 1=explicit, 2=exact solution
   K2 = 0.
   kappa = 0.
-  r = 0.
   xi = 0.
   yi = 0.
   zi = 0.
@@ -121,17 +120,17 @@ subroutine test_integration
 
   T = T_gas
   call init_muGamma(rho_gas, T_gas, mu, gamma, pH, pH2)
-  call calc_cooling_rate(r, Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, kappa)
-  !tcool = -kboltz*T_gas/((gamma-1.)*mu*mass_proton_cgs*Q*unit_ergg) !cgs
-  tcool = -kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg/utime) !cgs
+  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, kappa)
+  tcool = -kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg) !code unit
   T_on_u = (gamma-1.)*mu*unit_ergg/Rg
 
   do imethod = 0,2
      icool_method = imethod
-     print *,'#Tgas=',T,', rho=',rho,', tcool=',tcool,', imethod=',icool_method
+     print *,'#Tgas=',T,', rho_cgs=',rho_gas,', tcool_cgs=',tcool,', imethod=',icool_method
      do i = 1,ndt
         ui = T/T_on_u
-        dt = tcool*dti(i)/utime
+        dt = tcool*dti(i)
+     !print *,'#Tgas=',T,', rho_cgs=',rho_gas,', dt/tcool=',dti(i),', imethod=',icool_method
         call energ_cooling(xi,yi,zi,ui,dudt,rho,dt,T,mu,gamma)
         u = ui+dt*dudt
         Tout = u*T_on_u
