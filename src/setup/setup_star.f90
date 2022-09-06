@@ -108,7 +108,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
-<<<<<<< HEAD
  integer, parameter               :: ng_max = nrhotab
  integer, parameter               :: ng     = 5001
  integer                          :: i,nx,npts,ierr,j
@@ -276,6 +275,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Interpolating composition for each particle in the star. For now I write a file with the interpolate data
  ! This is used in analysis kepler file to bin composition.
  !
+
+!This code would need fixing
+ select case(iprofile)
+ case(ikepler)
+   call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,composition,comp_label,columns_compo,ierr)
+   if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
+   if (ierr==2) call fatal('setup','insufficient data points read from file')
+   if (ierr==3) call fatal('setup','too many data points; increase ng')
+   rmin  = r(1)
+   Rstar = r(npts)
+
+   !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+   !in the star.
+   if (columns_compo /= 0) then
+     composition_exists = .true.
+   endif
+  end select
+
  if (composition_exists) then
    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
 
@@ -285,7 +302,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
      !Now setting the composition of star if the case used was ikepler
      allocate(compositioni(columns_compo,1))
      do i = 1,nstar
-       !  Interpolate compositions
+       !Interpolate compositions
        ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
 
        do j = 1,columns_compo
