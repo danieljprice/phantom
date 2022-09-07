@@ -283,18 +283,11 @@ module dim
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
-#ifdef STAR
- logical :: star_radiation = .true.
-#else
- logical :: star_radiation = .false.
-#endif
  logical :: nucleation = .true.
- integer :: maxsp = maxp_hard
 #else
- logical :: star_radiation = .false.
  logical :: nucleation = .false.
- integer :: maxsp = 0
 #endif
+ integer :: maxp_nucleation = 0
 
 !--------------------
 ! MCFOST library
@@ -363,9 +356,8 @@ subroutine update_max_sizes(n,ntot)
  store_dust_temperature = .true.
 #endif
 
- if (store_dust_temperature) then
-    maxTdust = maxp
- endif
+ if (store_dust_temperature) maxTdust = maxp
+ if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX

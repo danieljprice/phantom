@@ -120,10 +120,10 @@ ifeq ($(MCFOST), yes)
     MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
     MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
 
-    ifeq ($(MCFOST_NO_XGBOOST), yes)
-        LXGBOOST=""
-    else
+    ifeq ($(MCFOST_XGBOOST), yes)
         LXGBOOST= -lxgboost -ldmlc -lrabit
+    else
+        LXGBOOST=""
     endif
 
     FPPFLAGS+= -DMCFOST
@@ -384,7 +384,11 @@ ifeq ($(MPI), cray)
 endif
 
 ifeq ($(USEMPI), yes)
-    RUNMPI=$(MPIEXEC)
+    ifeq (X$(MPIEXEC), X)
+        RUNMPI=mpirun -np 2
+    else
+        RUNMPI=$(MPIEXEC)
+    endif
     FPPFLAGS += -DMPI
 else
     RUNMPI=
@@ -651,6 +655,12 @@ cleansetup:
 #----------------------------------------------------
 # phantom test suite
 #
+ifeq ($(MPI),yes)
+    SRCTESTMPI = test_mpi.F90
+else
+    SRCTESTMPI =
+endif
+
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.F90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
@@ -659,7 +669,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         test_sedov.F90 test_radiation.F90 \
+         ${SRCTESTMPI} test_sedov.F90 test_radiation.F90 \
          testsuite.F90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -1242,6 +1252,12 @@ testgrowth:
 
 testnimhd:
 	${MAKE} SETUP=testnimhd phantomtest && $(RUNMPI) $(BINDIR)/phantomtest nimhd
+
+testmpi:
+	${MAKE} MPI=yes _testmpi
+
+_testmpi:
+	${MAKE} SETUP=test phantomtest && $(RUNMPI) $(BINDIR)/phantomtest mpi
 
 testall: test test2 testcyl testgrav
 
