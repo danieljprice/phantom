@@ -788,7 +788,7 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
 
- ! check time
+ ! check temp
  if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
 
 end function entropy
