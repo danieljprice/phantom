@@ -14,7 +14,7 @@ module mpidens
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpi, mpiutils
+! :Dependencies: dim, io, mpi
 !
  use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxxpartvecidens
@@ -82,7 +82,6 @@ contains
 subroutine get_mpitype_of_celldens
 #ifdef MPI
  use mpi
- use mpiutils, only:mpierr
  use io,       only:error
 
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
@@ -90,6 +89,7 @@ subroutine get_mpitype_of_celldens
 
  type(celldens)                 :: cell
  integer(kind=MPI_ADDRESS_KIND) :: addr,start,lb,extent
+ integer                        :: mpierr
 
  nblock = 0
 
