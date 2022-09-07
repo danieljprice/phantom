@@ -1,6 +1,8 @@
+repos:
 -   repo: local
     hooks:
     -   id: bots
         name: Run bots
-        entry: scripts/bots.sh --apply --file
+        entry: scripts/bots.sh --apply --files
         language: script
+        require_serial: true
