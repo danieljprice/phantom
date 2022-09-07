@@ -41,7 +41,7 @@ module mpiutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpi, mpiforce
+! :Dependencies: io, mpi, mpidens, mpiforce
 !
 #ifdef MPI
  use mpi
@@ -122,6 +122,7 @@ contains
 subroutine init_mpi(id,nprocs)
 #ifdef MPI
  use io,       only:fatal,master
+ use mpidens,  only:get_mpitype_of_celldens
  use mpiforce, only:get_mpitype_of_cellforce
 #endif
  integer, intent(out) :: id,nprocs
@@ -156,6 +157,7 @@ subroutine init_mpi(id,nprocs)
     call fatal('init_mpi','cannot determine kind for default real')
  end select
 
+ call get_mpitype_of_celldens
  call get_mpitype_of_cellforce
 #else
  id = 0
