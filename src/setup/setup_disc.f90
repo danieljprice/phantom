@@ -56,6 +56,7 @@ module setup
 !   - flyby_i       : *inclination (deg)*
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
+!   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - m1            : *first hierarchical level primary mass*
 !   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
@@ -2372,13 +2373,13 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
-   call write_inopt(istrat,'istrat','temperature prescription (0=MAPS, 1=Dartois)',iunit)
-   call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
-   call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
-   call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
-   call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
-   call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
-   call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
+    call write_inopt(istrat,'istrat','temperature prescription (0=MAPS, 1=Dartois)',iunit)
+    call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
+    call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
+    call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
+    call write_inopt(temp_mid0,'temp_mid0', 'midplane temperature scaling factor',iunit)
+    call write_inopt(temp_atm0,'temp_atm0', 'atmosphere temperature scaling factor',iunit)
+    call write_inopt(qfacdisc2,'qatm', 'sound speed power law index of atmosphere',iunit)
 
  endif
  !--timestepping

@@ -14,7 +14,8 @@ module testeos_stratified
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, io, mpiutils, physcon, testutils, units
+! :Dependencies: eos, io, physcon, testutils, units
+!
 
  use testutils,     only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end
  !use units,         only:set_units,unit_density
@@ -23,8 +24,8 @@ module testeos_stratified
  public :: test_eos_stratified
 
  integer, parameter :: n = 5, nr = 700, nz = 210
-  ! Parameters are found using the fits from Law et al. 2021
-  ! Disc order: HD 1632996, IM Lup, GM Aur, AS 209, MWC 480
+ ! Parameters are found using the fits from Law et al. 2021
+ ! Disc order: HD 1632996, IM Lup, GM Aur, AS 209, MWC 480
  real, parameter :: qfacdiscs(n) = (/0.09,0.01,0.005,0.09,0.115/)
  real, parameter :: qfacdisc2s(n) = (/0.305,-0.015,0.275,0.295,0.35/)
  real, parameter :: alpha_zs(n) = (/3.01,4.91,2.57,3.31,2.78/)
@@ -111,31 +112,31 @@ subroutine test_stratified_midplane(ntests, npass)
 
 
  do i=1,5
-   call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+    call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                          temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
-   rhoi = 1e-13/unit_density
+    rhoi = 1e-13/unit_density
 
-   do j=1,1000,10
-     xi=j
-     do k=1,1
-       yi = 0
-       zi = 0
+    do j=1,1000,10
+       xi=j
+       do k=1,1
+          yi = 0
+          zi = 0
 
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
-       !print*, xi, zi, tempi, spsoundi*unit_velocity, 'cm/s'
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+          !print*, xi, zi, tempi, spsoundi*unit_velocity, 'cm/s'
 
-       call equationofstate(3,ponrhoi,spsoundi_ref,rhoi,xi,yi,zi,tempi_ref)
-       !print*, xi, zi, tempi_ref, spsoundi_ref*unit_velocity, 'cm/s'
-       call checkvalbuf(spsoundi,spsoundi_ref,1e-12,'ieos=3 cs in midplane matches ieos=7 cs in midplane', &
+          call equationofstate(3,ponrhoi,spsoundi_ref,rhoi,xi,yi,zi,tempi_ref)
+          !print*, xi, zi, tempi_ref, spsoundi_ref*unit_velocity, 'cm/s'
+          call checkvalbuf(spsoundi,spsoundi_ref,1e-12,'ieos=3 cs in midplane matches ieos=7 cs in midplane', &
                          nfailed(1),ncheck(1),errmax)
-       call checkvalbuf(tempi,tempi_ref,1e-12,'ieos=3 temp in midplane matches ieos=7 temp in midplane', &
+          call checkvalbuf(tempi,tempi_ref,1e-12,'ieos=3 temp in midplane matches ieos=7 temp in midplane', &
                          nfailed(2),ncheck(2),errmax)
 
-     enddo
-   enddo
-   call checkvalbuf_end('ieos=3 cs in midplane matches ieos=7 cs in midplane',ncheck(1),nfailed(1),errmax,1e-12)
-   call checkvalbuf_end('ieos=3 temp in midplane matches ieos=7 temp in midplane',ncheck(2),nfailed(2),errmax,1e-12)
-   call update_test_scores(ntests,nfailed,npass)
+       enddo
+    enddo
+    call checkvalbuf_end('ieos=3 cs in midplane matches ieos=7 cs in midplane',ncheck(1),nfailed(1),errmax,1e-12)
+    call checkvalbuf_end('ieos=3 temp in midplane matches ieos=7 temp in midplane',ncheck(2),nfailed(2),errmax,1e-12)
+    call update_test_scores(ntests,nfailed,npass)
  enddo
 
 end subroutine test_stratified_midplane
@@ -181,27 +182,28 @@ subroutine test_stratified_temps(ntests, npass)
 
 
  do i=1,n
-   call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+    call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                          temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
-   do j=1,nmax,nstep
-     xi=j
-     do k=1,nmax,nstep
-       yi = k
-       do l=1,nmax/2,nstep/2
-         zi = l
-         rhoi = 1e-13/unit_density
-         call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
-         ri = sqrt(xi**2 + yi**2)
-         zq = z0_original*(ri/100)**beta_z
-         temp_mid = temp_mid0*(ri/100)**q_mid
-         temp_atm = temp_atm0*(ri/100)**q_atm
-         temp_ref = (temp_mid**4 + 0.5*(1+tanh((abs(zi) - alpha_z*zq)/zq))*temp_atm**4)**(0.25)
-         call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Law et al. 2021 equation',nfailed(1),ncheck(1),errmax)
+    do j=1,nmax,nstep
+       xi=j
+       do k=1,nmax,nstep
+          yi = k
+          do l=1,nmax/2,nstep/2
+             zi = l
+             rhoi = 1e-13/unit_density
+             call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+             ri = sqrt(xi**2 + yi**2)
+             zq = z0_original*(ri/100)**beta_z
+             temp_mid = temp_mid0*(ri/100)**q_mid
+             temp_atm = temp_atm0*(ri/100)**q_atm
+             temp_ref = (temp_mid**4 + 0.5*(1+tanh((abs(zi) - alpha_z*zq)/zq))*temp_atm**4)**(0.25)
+             call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Law et al. 2021 equation',&
+             nfailed(1),ncheck(1),errmax)
+          enddo
        enddo
-     enddo
-   enddo
-   call checkvalbuf_end('ieos=7 temp matches temp from Law et al. 2021 equation',ncheck(1),nfailed(1),errmax,1e-14)
-   call update_test_scores(ntests,nfailed,npass)
+    enddo
+    call checkvalbuf_end('ieos=7 temp matches temp from Law et al. 2021 equation',ncheck(1),nfailed(1),errmax,1e-14)
+    call update_test_scores(ntests,nfailed,npass)
  enddo
 
 end subroutine test_stratified_temps
@@ -260,28 +262,28 @@ subroutine test_stratified_temps_dartois(ntests, npass)
  rhoi = 1e-13/unit_density
 
  do j=1,nmax,nstep
-   xi=j
-   do k=1,nmax,nstep
-     yi = k
-     do l=1,nmax/2,nstep/2
-       zi = l
-       istrat = 1
-       call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
-       !print*, 'eos temp', tempi
-       ri = sqrt(xi**2 + yi**2)
-       zq = z0_original*(ri/100)**beta_z
-       temp_mid = temp_mid0*(ri/100)**q_mid
-       temp_atm = temp_atm0*(ri/100)**q_atm
-       if (zi < zq) then
-         temp_ref = temp_atm + (temp_mid - temp_atm)*(cos((pi/2)*(zi/zq)))**2
-       else
-         temp_ref = temp_atm
-       endif
-       !print*, 'ref temp', temp_ref
-       call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Dartois et al. 2003 equation', &
+    xi=j
+    do k=1,nmax,nstep
+       yi = k
+       do l=1,nmax/2,nstep/2
+          zi = l
+          istrat = 1
+          call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
+          !print*, 'eos temp', tempi
+          ri = sqrt(xi**2 + yi**2)
+          zq = z0_original*(ri/100)**beta_z
+          temp_mid = temp_mid0*(ri/100)**q_mid
+          temp_atm = temp_atm0*(ri/100)**q_atm
+          if (zi < zq) then
+             temp_ref = temp_atm + (temp_mid - temp_atm)*(cos((pi/2)*(zi/zq)))**2
+          else
+             temp_ref = temp_atm
+          endif
+          !print*, 'ref temp', temp_ref
+          call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Dartois et al. 2003 equation', &
                           nfailed(1),ncheck(1),errmax)
-     enddo
-   enddo
+       enddo
+    enddo
  enddo
  call checkvalbuf_end('ieos=7 temp matches temp from Dartois et al. 2003 equation',ncheck(1), &
                          nfailed(1),errmax,1e-14)
@@ -347,22 +349,22 @@ end subroutine map_stratified_temps
 
 subroutine get_disc_params(ndisc,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk, &
                             polyk2,temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
-   integer, intent(in) :: ndisc
-   real, intent(out) :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+ integer, intent(in) :: ndisc
+ real, intent(out) :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                         temp_mid0,temp_atm0,z0_original,q_mid,q_atm
 
-   qfacdisc = qfacdiscs(ndisc)
-   qfacdisc2 = qfacdisc2s(ndisc)
-   alpha_z = alpha_zs(ndisc)
-   beta_z = beta_zs(ndisc)
-   z0 = z0s(ndisc)
-   polyk = polyks(ndisc)
-   polyk2 = polyk2s(ndisc)
-   temp_mid0 = temp_mid0s(ndisc)
-   temp_atm0 = temp_atm0s(ndisc)
-   z0_original = z0_originals(ndisc)
-   q_mid = q_mids(ndisc)
-   q_atm = q_atms(ndisc)
+ qfacdisc = qfacdiscs(ndisc)
+ qfacdisc2 = qfacdisc2s(ndisc)
+ alpha_z = alpha_zs(ndisc)
+ beta_z = beta_zs(ndisc)
+ z0 = z0s(ndisc)
+ polyk = polyks(ndisc)
+ polyk2 = polyk2s(ndisc)
+ temp_mid0 = temp_mid0s(ndisc)
+ temp_atm0 = temp_atm0s(ndisc)
+ z0_original = z0_originals(ndisc)
+ q_mid = q_mids(ndisc)
+ q_atm = q_atms(ndisc)
 
 end subroutine get_disc_params
 
