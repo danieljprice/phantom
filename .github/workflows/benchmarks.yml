@@ -1,18 +1,18 @@
 name: bench
 
-on:
-  push:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  pull_request:
-    branches: [ master ]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
-  schedule:
-    - cron: "0 0 * * *"
+# on:
+#   push:
+#     branches: [ master ]
+#     paths-ignore:
+#       - 'docs/**'
+#       - 'README.md'
+#   pull_request:
+#     branches: [ master ]
+#     paths-ignore:
+#       - 'docs/**'
+#       - 'README.md'
+#   schedule:
+#     - cron: "0 0 * * *"
 
 env:
   OMP_STACKSIZE: 512M
