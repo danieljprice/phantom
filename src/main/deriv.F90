@@ -62,12 +62,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #endif
  use growth,           only:get_growth_rate
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
- use part,             only:dust_temp
-#endif
-#ifdef PERIODIC
- use ptmass,         only:ptmass_boundary_crossing
-#endif
- use part,           only:mhd,gradh,alphaind,igas,igasP
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
