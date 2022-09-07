@@ -976,7 +976,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: veli(3),vij
 #ifdef GR
  real    :: bigv2j,alphagrj,enthdensav,enthi,enthj,dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
- real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2)
+ real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
 #endif
  real    :: radPj,fgravxi,fgravyi,fgravzi
 
@@ -1315,8 +1315,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
        projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
 
+       ! Reconstruction of velocity
+       if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
+       call reconstruct_dv_gr(projbigvi,projbigvj,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projbigvstari,projbigvstarj,1)
+
        ! Relativistic version of vi-vj
-       vij       = abs((projbigvi-projbigvj)/(1.-projbigvi*projbigvj))
+       vij       = abs((projbigvstari-projbigvstarj)/(1.-projbigvstari*projbigvstarj))
 #endif
 
        if (iamgasi .and. iamgasj) then
@@ -1472,9 +1476,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !   with beta viscosity only applied to approaching pairs)
           !
 #ifdef GR
-          lorentzi_star = 1./sqrt(1.-projbigvi**2)
-          lorentzj_star = 1./sqrt(1.-projbigvj**2)
-          dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
+          lorentzi_star = 1./sqrt(1.-projbigvstari**2)
+          lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
+          dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
           if (projv < 0.) then
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
              if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
@@ -1504,9 +1508,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 !------------------
           if (projv < 0.) then
 #ifdef GR
-             lorentzi_star = 1./sqrt(1.-projbigvi**2)
-             lorentzj_star = 1./sqrt(1.-projbigvj**2)
-             dlorentzv = lorentzi_star*projbigvi - lorentzj_star*projbigvj
+             lorentzi_star = 1./sqrt(1.-projbigvstari**2)
+             lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
+             dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
              qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
              if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
 #else
@@ -2010,7 +2014,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
 #endif
  use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
- use eos,       only:gamma,utherm
+ use eos,       only:utherm
  type(cellforce),    intent(inout) :: cell
  integer(kind=1),    intent(in)    :: iphase(:)
  real,               intent(in)    :: xyzh(:,:)
@@ -3113,6 +3117,43 @@ subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,il
  !projvstar = sign(1.0,projv)*min(abs(projv),abs(projvstar))
 
 end subroutine reconstruct_dv
+
+!-----------------------------------------------------------------------------
+!+
+!  Apply reconstruction to GR velocity gradients
+!+
+!-----------------------------------------------------------------------------
+subroutine reconstruct_dv_gr(projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvstari,projvstarj,ilimiter)
+ real, intent(in)  :: projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9)
+ real, intent(out) :: projvstari,projvstarj
+ integer, intent(in) :: ilimiter
+ real :: slopei,slopej,slope
+
+ ! CAUTION: here we use dx, not the unit vector to
+ ! define the projected slope. This is fine as
+ ! long as the slope limiter is linear, otherwise
+ ! one should use the unit
+ slopei = dx*(rx*dvdxi(1) + ry*dvdxi(4) + rz*dvdxi(7)) &
+        + dy*(rx*dvdxi(2) + ry*dvdxi(5) + rz*dvdxi(8)) &
+        + dz*(rx*dvdxi(3) + ry*dvdxi(6) + rz*dvdxi(9))
+
+ slopej = dx*(rx*dvdxj(1) + ry*dvdxj(4) + rz*dvdxj(7)) &
+        + dy*(rx*dvdxj(2) + ry*dvdxj(5) + rz*dvdxj(8)) &
+        + dz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
+
+ if (ilimiter > 0) then
+    slope = slope_limiter(slopei,slopej)
+ else
+    !
+    !--reconstruction with no slope limiter
+    !  (mainly useful for testing purposes)
+    !
+    slope = 0.5*(slopei + slopej)
+ endif
+ projvstari = (projvi - slope) / (1. - projvi*slope)
+ projvstarj = (projvj + slope) / (1. + projvj*slope)
+
+end subroutine reconstruct_dv_gr
 
 !-----------------------------------------------------------------------------
 !+
