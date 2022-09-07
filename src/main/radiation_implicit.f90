@@ -129,14 +129,16 @@ end subroutine do_radiation_onestep
 !+
 !---------------------------------------------------------
 subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- use linklist, only:ncells,get_neighbour_list,listneigh
+ use dim,      only:periodic,maxphase,maxp
+ use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
  use kdtree,   only:inodeparts,inoderange
  use boundary, only:dxbound,dybound,dzbound
  use part,     only:iphase,igas
+ use kernel,   only:radkern2
  real, intent(in)                  :: xyzh(:,:)
  integer, allocatable, intent(out) :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
- integer                           :: icell,nneigh,i,j,n,ip
+ integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact
  integer, parameter                :: maxcellcache = 10000
  real                              :: dx,dy,dz,hi21,hj21,hj1,rij2,q2i,q2j
  real, save                        :: xyzcache(maxcellcache,4)
@@ -147,9 +149,10 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  ncompactlocal = 0
 
  !$omp parallel do schedule(runtime)&
- !$omp shared(ncells,nneigh,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound)&
- !$omp private(icell,i,j,n,ip,iactivei,iamgasi,iamdusti,iamtypei,igas,xpartveci,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi21,hj21,hj1,ifilledcellcache)
+ !$omp shared(ncells,nneigh,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
+ !$omp shared(ncompact,icompact)&
+ !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
+ !$omp private(hi21,hj21,hj1,ncompact_private,icompact_private)
 
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
@@ -160,7 +163,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
     !
     !--get the neighbour list and fill the cell cache
     !
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache)
+    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache)
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
        i = inodeparts(ip)
@@ -184,26 +187,26 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
           !--do self contribution separately to avoid problems with 1/sqrt(0.)
           if (j==i) cycle loop_over_neigh
 
-          if (ifilledcellcache .and. n <= isizecellcache) then
+          if (n <= maxcellcache) then
              ! positions from cache are already mod boundary
-             dx = xpartveci(ixi) - xyzcache(n,1)
-             dy = xpartveci(iyi) - xyzcache(n,2)
-             dz = xpartveci(izi) - xyzcache(n,3)
+             dx = xyzh(1,i) - xyzcache(n,1)
+             dy = xyzh(2,i) - xyzcache(n,2)
+             dz = xyzh(3,i) - xyzcache(n,3)
           else
-             dx = xpartveci(ixi) - xyzh(1,j)
-             dy = xpartveci(iyi) - xyzh(2,j)
-             dz = xpartveci(izi) - xyzh(3,j)
+             dx = xyzh(1,i) - xyzh(1,j)
+             dy = xyzh(2,i) - xyzh(2,j)
+             dz = xyzh(3,i) - xyzh(3,j)
           endif
-#ifdef PERIODIC
-          if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-          if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-          if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
-#endif
+          if (periodic) then
+             if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+             if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+             if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+          endif
           rij2 = dx*dx + dy*dy + dz*dz
           q2i = rij2*hi21
        !--hj is in the cell cache but not in the neighbour cache
        !  as not accessed during the density summation
-          if (ifilledcellcache .and. n <= maxcellcache) then
+          if (n <= maxcellcache) then
              hj1 = xyzcache(n,4)
           else
              hj1 = 1./xyzh(4,j)
@@ -217,20 +220,21 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
 !$omp critical(listcompact)
              ncompact = ncompact + 1
-             ncompacthere = ncompact
-             icompacthere = icompact
-             icompact = icompact + nneighlocal
+             ncompact_private = ncompact
+             icompact_private = icompact
+             icompact = icompact + nneigh
 !$omp end critical (listcompact)
-             if (icompacthere+nneighlocal > icompactmax) then
+             icompactmax = size(ivar(1,:))
+             if (icompact_private+nneigh > icompactmax) then
                 call fatal('radiation-implicit','not enough memory allocated for neighbour list')
              endif
-             ivar(1,ncompacthere) = nneighlocal
-             ivar(2,ncompacthere) = icompacthere
-             ivar(3,ncompacthere) = ipart
+             ivar(1,ncompact_private) = nneigh
+             ivar(2,ncompact_private) = icompact_private
+             ivar(3,ncompact_private) = i
 
-             do k = 1, nneighlocal
-                j = neighlist(k)
-                ijvar(icompacthere + k) = j
+             do k = 1, nneigh
+                j = listneigh(k)
+                ijvar(icompact_private + k) = j
              enddo
 
           endif is_sph_neighbour
@@ -311,7 +315,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     hi41 = hi21*hi21
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
 
-    do k = 1,ivar(1,n)
+    do k = 1,ivar(1,n) ! Looping from 1 to nneigh
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
        !
