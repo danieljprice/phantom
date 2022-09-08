@@ -427,14 +427,14 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
     if (mpierr /= 0) call fatal('recv_cell','error in MPI_TEST call')
     ! unpack results
     if (igot) then
-       !$omp critical (crit_stack_recv)
        if (xbuf(iproc)%owner == id) then
           iwait = xbuf(iproc)%waiting_index
+          ! another thread may attempt to combine at the same time,
+          ! so a critical section is required
           call combine_cells(target_stack%cells(iwait),xbuf(iproc))
        else
           call push_onto_stack(target_stack, xbuf(iproc))
        endif
-       !$omp end critical (crit_stack_recv)
        !$omp atomic
        counters(iproc,irecv) = counters(iproc,irecv) + 1
        call MPI_START(irequestrecv(iproc),mpierr)
@@ -450,29 +450,40 @@ end subroutine recv_cellforce
 !------------------------------------------------
 subroutine combine_cellforce(target_cell,new_cell)
  use mpiforce,  only:cellforce
+ use dim,       only:maxfsum
 
  type(cellforce), intent(inout) :: target_cell
  type(cellforce), intent(inout) :: new_cell
 
- integer :: k
+ integer :: k, l
 
  do k = 1,new_cell%npcell
-    target_cell%fsums(:,k)   =      target_cell%fsums(:,k) +  new_cell%fsums(:,k)
+    do l = 1,maxfsum
+       !$omp atomic
+       target_cell%fsums(l,k) =      target_cell%fsums(l,k) +  new_cell%fsums(l,k)
+    enddo
+    !$omp atomic
     target_cell%tsmin(k)     = min( target_cell%tsmin(k),     new_cell%tsmin(k)     )
+    !$omp atomic
     target_cell%vsigmax(k)   = max( target_cell%vsigmax(k),   new_cell%vsigmax(k)   )
 #ifdef IND_TIMESTEPS
+    !$omp atomic
     target_cell%ibinneigh(k) = max( target_cell%ibinneigh(k), new_cell%ibinneigh(k) )
 #endif
  enddo
 
 #ifdef GRAVITY
  do k = 1,20
+    !$omp atomic
     target_cell%fgrav(k) = target_cell%fgrav(k) + new_cell%fgrav(k)
  enddo
 #endif
 
+ !$omp atomic
  target_cell%ndrag   = target_cell%ndrag   + new_cell%ndrag
+ !$omp atomic
  target_cell%nstokes = target_cell%nstokes + new_cell%nstokes
+ !$omp atomic
  target_cell%nsuper  = target_cell%nsuper  + new_cell%nsuper
 
 end subroutine combine_cellforce

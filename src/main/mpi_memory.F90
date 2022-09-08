@@ -279,10 +279,13 @@ subroutine push_onto_stack_force(stack,cell)
  type(stackforce),   intent(inout)  :: stack
  type(cellforce),    intent(in)     :: cell
 
- if (stack%n + 1 > stack%maxlength) call increase_mpi_memory_force
- ! after increasing stack size, cells can be added to because it is just a pointer
- stack%n = stack%n + 1
- stack%cells(stack%n) = cell
+ integer :: i
+
+ ! reserve_stack may increase stack size in a critical section, and atomically increments %n
+ call reserve_stack_force(stack,i)
+
+ ! no other thread will write to the same position, so it is threadsafe to write without a critical section
+ stack%cells(i) = cell
 end subroutine push_onto_stack_force
 
 subroutine pop_off_stack_dens(stack,cell)
@@ -338,9 +341,13 @@ subroutine reserve_stack_force(stack,i)
 
  !$omp critical (crit_stack)
  if (stack%n + 1 > stack%maxlength) call increase_mpi_memory_force
+ !$omp end critical (crit_stack)
+
+ !$omp atomic capture
  stack%n = stack%n + 1
  i = stack%n
- !$omp end critical (crit_stack)
+ !$omp end atomic
+
 
 end subroutine reserve_stack_force
 
