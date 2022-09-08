@@ -60,6 +60,7 @@ module mpimemory
  public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
+ public :: increase_mpi_memory
 
  ! stacks to be referenced from density and force routines
  type(stackdens),  public :: dens_stack_1
@@ -67,6 +68,8 @@ module mpimemory
  type(stackdens),  public :: dens_stack_3
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
+
+ integer, public :: stacksize
 
  private
 
