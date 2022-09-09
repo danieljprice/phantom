@@ -113,13 +113,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,nx,npts,ierr,j
  real                             :: vol_sphere,psep,rmin,presi
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
- !real, allocatable                :: composition(:,:),comp(:)
+ real, allocatable                :: composition(:,:),comp(:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
- !integer                          :: columns_compo
- !real , allocatable               :: compositioni(:,:)
- !character(len=20), allocatable   :: comp_label(:)
+ integer                          :: columns_compo
+ real , allocatable               :: compositioni(:,:)
+ character(len=20), allocatable   :: comp_label(:)
  logical                          :: calc_polyk,setexists
- !logical                          :: composition_exists
+ logical                          :: composition_exists
  integer                          :: ierr_relax
  real, allocatable                :: mu(:)
  character(len=120)               :: setupfile,inname
@@ -232,7 +232,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                         Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                        isoftcore,isofteningopt,rcore,hsoft,outputfilename)
+                        isoftcore,isofteningopt,rcore,hsoft,outputfilename,composition,&
+                        comp_label,columns_compo)
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -278,45 +279,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! This is used in analysis kepler file to bin composition.
  !
 
-! !This code would need fixing
-!  select case(iprofile)
-!  case(ikepler)
-!    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,composition,comp_label,columns_compo,ierr)
-!    if (ierr==1) call fatal('setup',trim(input_profile)//' does not exist')
-!    if (ierr==2) call fatal('setup','insufficient data points read from file')
-!    if (ierr==3) call fatal('setup','too many data points; increase ng')
-!    rmin  = r(1)
-!    Rstar = r(npts)
+
 !
-!    !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
-!    !in the star.
-!    if (columns_compo /= 0) then
-!      composition_exists = .true.
-!    endif
-!   end select
-!
-!  if (composition_exists) then
-!    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
-!
-!    open(11,file='kepler.comp')
-!    write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
-!          comp_label
-!      !Now setting the composition of star if the case used was ikepler
-!      allocate(compositioni(columns_compo,1))
-!      do i = 1,nstar
-!        !Interpolate compositions
-!        ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-!
-!        do j = 1,columns_compo
-!          comp(1:npts)      = composition(1:npts,j)
-!          compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-!        end do
-!         write(11,'(50(es18.10,1X))') &
-!          (compositioni(j,1),j=1,columns_compo)
-!      end do
-!   close(11)
-!   print*, '>>>>>> done'
-!   end if
+   !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+   !in the star.
+   if (columns_compo /= 0) then
+     composition_exists = .true.
+   endif
+
+
+   if (composition_exists) then
+     print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+
+     open(11,file='kepler.comp')
+     write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
+           comp_label
+       !Now setting the composition of star if the case used was ikepler
+       allocate(compositioni(columns_compo,1))
+       do i = 1,npart
+         !Interpolate compositions
+         ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+
+         do j = 1,columns_compo
+           comp(1:npts)      = composition(1:npts,j)
+           compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
+         end do
+          write(11,'(50(es18.10,1X))') &
+           (compositioni(j,1),j=1,columns_compo)
+       end do
+    close(11)
+    print*, '>>>>>> done'
+    end if
 
  !
  ! Print summary to screen
