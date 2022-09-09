@@ -99,6 +99,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,        only:reduceall_mpi
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
+ use table_utils,     only:yinterp
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

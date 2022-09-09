@@ -80,7 +80,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
- integer, allocatable, intent(out):: columns_compo
+ integer,           intent(out):: columns_compo
  character(len=20), allocatable, intent(out)   :: comp_label(:)
  integer :: ierr,i
  logical :: calc_polyk,iexist,composition_exists
