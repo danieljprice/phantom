@@ -34,10 +34,6 @@ module mpimemory
   module procedure push_onto_stack_dens,push_onto_stack_force
  end interface push_onto_stack
 
- interface pop_off_stack
-  module procedure pop_off_stack_dens,pop_off_stack_force
- end interface pop_off_stack
-
  interface get_cell
   module procedure get_cell_force
  end interface get_cell
@@ -55,7 +51,6 @@ module mpimemory
  public :: allocate_stack
  public :: swap_stacks
  public :: push_onto_stack
- public :: pop_off_stack
  public :: get_cell
  public :: write_cell
  public :: reserve_stack
@@ -281,30 +276,11 @@ subroutine push_onto_stack_force(stack,cell)
 
  integer :: i
 
- ! reserve_stack may increase stack size in a critical section, and atomically increments %n
  call reserve_stack_force(stack,i)
 
  ! no other thread will write to the same position, so it is threadsafe to write without a critical section
  stack%cells(i) = cell
 end subroutine push_onto_stack_force
-
-subroutine pop_off_stack_dens(stack,cell)
- type(stackdens),    intent(inout)  :: stack
- type(celldens),     intent(out)    :: cell
-
- if (stack%n <= 0) call fatal('density','attempting to pop empty stack')
- cell = stack%cells(stack%n)
- stack%n = stack%n - 1
-end subroutine pop_off_stack_dens
-
-subroutine pop_off_stack_force(stack,cell)
- type(stackforce),   intent(inout)  :: stack
- type(cellforce),    intent(out)    :: cell
-
- if (stack%n <= 0) call fatal('force','attempting to pop empty stack')
- cell = stack%cells(stack%n)
- stack%n = stack%n - 1
-end subroutine pop_off_stack_force
 
 type(cellforce) function get_cell_force(stack,i)
  type(stackforce),   intent(in)  :: stack
@@ -344,7 +320,6 @@ subroutine reserve_stack_force(stack,i)
  !$omp end atomic
 
  if (i > stack%maxlength) call fatal('force','MPI stack exceeded')
-
 
 end subroutine reserve_stack_force
 
