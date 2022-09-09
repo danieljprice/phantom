@@ -66,7 +66,7 @@ module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
-                     ipdv_heating,ishock_heating,iresistive_heating, &
+                     ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
@@ -77,8 +77,6 @@ module readwrite_infile
  use dim,       only:do_radiation,nucleation
  implicit none
  logical :: incl_runtime2 = .false.
- character(len=80), parameter, public :: &
-    modid="$Id$"
 
 contains
 
@@ -121,7 +119,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
@@ -187,14 +185,14 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopts_link(iwritein)
 
  write(iwritein,"(/,a)") '# options controlling hydrodynamics, artificial dissipation'
- if (maxalpha==maxp) then
-    call write_inopt(alpha,'alpha','MINIMUM art. viscosity parameter',iwritein)
-    call write_inopt(alphamax,'alphamax','MAXIMUM art. viscosity parameter',iwritein)
+ if (maxalpha==maxp .and. nalpha > 0) then
+    call write_inopt(alpha,'alpha','MINIMUM shock viscosity parameter',iwritein)
+    call write_inopt(alphamax,'alphamax','MAXIMUM shock viscosity parameter',iwritein)
  else
-    call write_inopt(alpha,'alpha','art. viscosity parameter',iwritein)
+    call write_inopt(alpha,'alpha','shock viscosity parameter',iwritein)
  endif
  if (maxvxyzu >= 4) then
-    call write_inopt(alphau,'alphau','art. conductivity parameter',iwritein)
+    call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  endif
  if (mhd) then
     call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
@@ -203,8 +201,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
- call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
-
+ if (maxalpha==maxp .and. maxp > 0) then
+    call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
+ endif
+ if (gr) then
+    call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
+ endif
  call write_options_damping(iwritein,idamp)
 
  !
@@ -466,6 +468,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) hdivbbmax_max
     case('beta')
        read(valstring,*,iostat=ierr) beta
+    case('ireconav')
+       read(valstring,*,iostat=ierr) ireconav
     case('avdecayconst')
        read(valstring,*,iostat=ierr) avdecayconst
     case('ipdv_heating')
