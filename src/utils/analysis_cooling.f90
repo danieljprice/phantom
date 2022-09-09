@@ -45,6 +45,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  analysis_to_perform = 1
 
  call prompt('Choose analysis type ',analysis_to_perform,1,3)
+ print *,''
 
  !analysis
  select case(analysis_to_perform)
@@ -53,31 +54,71 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(2)
     call generate_grid()
  case(3)
-    call test_solvers
+    call test_cooling_solvers
  end select
 end subroutine do_analysis
 
 
-subroutine test_solvers
+subroutine test_cooling_solvers
 
   use physcon,  only:Rg
   use units,    only:unit_ergg,unit_density,utime
   use options,  only:icooling
 
-  integer, parameter :: ndt = 20
+  integer, parameter :: ndt = 100
   real :: tstart,tlast,dtstep,dti(ndt),tcool
   real :: rho, T_gas, rho_gas, pH, pH2   !rho in code units
   real :: mu, gamma
   real :: K2, kappa       !cgs
   real :: Q, dlnQ_dlnT
-  real :: u,ui,xi,yi,zi,dudt,T_on_u,T,Tout,dt
+  real :: u,ui,dudt,T_on_u,T,Tout,dt,time,Texact,tcool0
+  real :: T_floor
 
-  integer :: i,imethod,ierr
+  integer :: i,imethod,ierr,iunit,ifunct
 
-  Townsend_test = .true.
+  !default cooling prescriptionHI
+  icooling = 1
+  icool_method = 1 !0=implicit, 1=explicit, 2=exact solution
+  K2    = 0.
+  kappa = 0.
+
+  !temperature
+  T_gas   = 1.d6
+  T       = T_gas
+  rho_gas = 1.d-20 !cgs
+  rho     = rho_gas/unit_density
+
+  call init_cooling_solver(ierr)
+  call set_abundances
+  call init_muGamma(rho_gas, T_gas, mu, gamma, pH, pH2)
+
+
+
+  !analytic cooling solutions activated if  excitation_HI = 99
+  excitation_HI  = 1
+  ifunct = 0  !cst coolint rate
+  ifunct = 1  !cooling rate depends on T
+  ifunct = 3  !cooling rate depends on T**3
+  ifunct = -3 !cooling rate depends on T**-3
+  if (excitation_HI == 1) then
+     Townsend_test = .true.
+     T_floor = 3000.
+     tstart = 0.01
+  else
+     K2 = ifunct
+     Townsend_test = .false.
+     T_floor = 10.
+     tstart = 0.01
+  endif
+
+  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, kappa)
+  tcool = abs(kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg)) !code unit
+  tcool0 = tcool
+  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
+  ui = T/T_on_u
+
 
 !set timesteps
-  tstart = 0.1
   tlast = 10.
   dtstep = log10(tlast/tstart)/(ndt-1)
   do i = 1,ndt
@@ -85,45 +126,107 @@ subroutine test_solvers
   enddo
   dti = 10.**dti
 
-  !default cooling prescriptionHI
-  excitation_HI  = 1
-  icooling = 1
-  icool_method = 1 !0=implicit, 1=explicit, 2=exact solution
-  K2 = 0.
-  kappa = 0.
-  xi = 0.
-  yi = 0.
-  zi = 0.
+  !--------------------------------------------------------------
+  ! test solver integration over timesteps of different durations
+  !--------------------------------------------------------------
 
-  !temperature
-  T_gas = 1.d6
-  rho_gas = 1.d-20 !cgs
-  rho = rho_gas/unit_density
-
-  call init_cooling_solver(ierr)
-  call set_abundances
-
-  T = T_gas
-  call init_muGamma(rho_gas, T_gas, mu, gamma, pH, pH2)
-  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, kappa)
-  tcool = -kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg) !code unit
-  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
+  open(newunit=iunit,file='test_cooling_solvers.dat',status='replace')
 
   do imethod = 0,2
-     icool_method = imethod
-     ui = T/T_on_u
-     print *,'#Tin=',T,', rho_cgs=',rho_gas,', tcool_cgs=',tcool,', imethod=',icool_method
+     icool_method = imethod !0=implicit, 1=explicit, 2=exact solution
+     print *,'#Tin=',T,', rho_cgs=',rho_gas,', imethod=',icool_method,', cooling funct =',ifunct,excitation_HI,k2
      do i = 1,ndt
-        dt = tcool*dti(i)
-     !print *,'#Tgas=',T,', rho_cgs=',rho_gas,', dt/tcool=',dti(i),', imethod=',icool_method
-        call energ_cooling(xi,yi,zi,ui,dudt,rho,dt,T,mu,gamma)
+        dt = tcool0*dti(i)
+        call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2,0.)
         u = ui+dt*dudt
-        Tout = u*T_on_u
-        write(*,*) dti(i),T,Tout,dudt
+        Tout = max(u*T_on_u,T_floor)
+        write(iunit,*) dti(i),dt,Tout,dudt,get_Texact(ifunct,T_gas,dt,tcool0,T_floor)
      enddo
   enddo
+  close(iunit)
 
-end subroutine test_solvers
+  !-----------------------------------------------------------
+  ! test full integration integration over timestep of different durations
+  !-----------------------------------------------------------
+
+  !perform explicit integration
+  icool_method = 1
+  call integrate_cooling('test_cooling_explicit.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+
+  !perform implicit integration
+  icool_method = 1
+  call integrate_cooling('test_cooling_implicit.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+
+  !perform implicit integration
+  icool_method = 2
+  call integrate_cooling('test_cooling_exact.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+
+end subroutine test_cooling_solvers
+
+
+!-----------------------------------------------------------
+! time integration of du/dt between t=0 and t=10*tcool
+!-----------------------------------------------------------
+
+subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+
+  use units,   only:unit_ergg
+  use physcon, only: Rg
+
+  integer, intent(in) :: ifunct
+  real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart
+  character(len=*), intent(in) :: file_in
+  real :: time,dudt,dt,T,Tout,u,tend,Texact,dt_fact,T_on_u
+  integer :: iunit
+
+  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
+  tend    = 10.*tcool0
+  dt_fact = 0.01
+  time    = 0.
+  Texact  = T_gas
+  Tout    = T_gas
+  dt      = tcool0*dt_fact
+  u       = ui
+  dudt    = 0.
+
+  open(newunit=iunit,file=file_in,status='replace')
+  write(iunit,*) tstart,dT,Tout,dudt,get_Texact(99,T_gas,time,tcool0,T_floor)
+  do while (time < tend)! .and. Tout > T_floor)
+     call energ_cooling_solver(u,dudt,rho,dt,mu,gamma,0.,dble(ifunct),0.)
+     u = u+dt*dudt
+     Tout = max(u*T_on_u,T_floor)
+     time = time+dt
+     !recalculate tcool after each iteration
+     !dt = dt_fact*abs(kboltz*Tout/((gamma-1.)*mu*atomic_mass_unit*dudt*unit_ergg))
+     write(iunit,*) time/tcool0,dt,Tout,dudt,get_Texact(ifunct,T_gas,time,tcool0,T_floor)
+  enddo
+  close(iunit)
+
+end subroutine integrate_cooling
+
+!-------------------------------------------------------
+! analytic solution for the evolution of the temperature
+!-------------------------------------------------------
+
+real function get_Texact(ifunct,T_gas,time,tcool0,T_floor)
+
+  integer, intent(in) :: ifunct
+  real, intent(in) :: T_gas,time,tcool0,T_floor
+
+  select case(ifunct)
+  case (0)
+     get_Texact = max(T_gas*(1.-time/tcool0),T_floor)
+  case (1)
+     get_Texact = max(T_gas*exp(-time/tcool0),T_floor)
+  case (3)
+     get_Texact = max(1./sqrt(1./T_gas**2*(1.+2.*time/tcool0)),T_floor)
+  case (-3)
+     get_Texact = max(sqrt(sqrt(T_gas**4*(1.-4.*time/tcool0))),T_floor)
+  case default
+     get_Texact = T_gas
+  end select
+
+end function get_Texact
 
 subroutine get_rate
 
