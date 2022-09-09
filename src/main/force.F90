@@ -973,11 +973,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: ii,ia,ib,ic
  real    :: densj
  real    :: bigvi(1:3),bigv2i,alphagri,lorentzi
- real    :: veli(3),vij
-#ifdef GR
- real    :: bigv2j,alphagrj,enthdensav,enthi,enthj,dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
+ real    :: veli(3),vij,vijstar
+ real    :: bigv2j,alphagrj,enthi,enthj
+ real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
-#endif
  real    :: radPj,fgravxi,fgravyi,fgravzi
 
  ! unpack
@@ -1305,34 +1304,36 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           denij = 0.
        endif
 
-#ifdef GR
-       !-- Get velocites required in GR shock capturing
-       velj  = [vxj,vyj,vzj]
-       metricj(0:3,0:3,1:2) = metrics(:,:,:,j)
-       call get_bigv(metricj,velj,bigvj,bigv2j,alphagrj,lorentzj)
+       if (gr) then
+          !-- Get velocites required in GR shock capturing
+          velj  = [vxj,vyj,vzj]
+          metricj(0:3,0:3,1:2) = metrics(:,:,:,j)
+          call get_bigv(metricj,velj,bigvj,bigv2j,alphagrj,lorentzj)
 
-       ! Reduce problem to 1D along the line of sight
-       projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
-       projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
+          ! Reduce problem to 1D along the line of sight
+          projbigvi = bigvi(1)*runix + bigvi(2)*runiy + bigvi(3)*runiz !dot_product(bigvi,rij)
+          projbigvj = bigvj(1)*runix + bigvj(2)*runiy + bigvj(3)*runiz
 
-       ! Reconstruction of velocity
-       if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
-       call reconstruct_dv_gr(projbigvi,projbigvj,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projbigvstari,projbigvstarj,1)
+          ! Reconstruction of velocity
+          if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
+          call reconstruct_dv_gr(projbigvi,projbigvj,runix,runiy,runiz,rij2*rij1,&
+                                 dvdxi,dvdxj,projbigvstari,projbigvstarj,1)
 
-       ! Relativistic version of vi-vj
-       vij       = abs((projbigvstari-projbigvstarj)/(1.-projbigvstari*projbigvstarj))
-#endif
+          ! Relativistic version of vi-vj
+          vij = abs((projbigvi-projbigvj)/(1.-projbigvi*projbigvj))
+          vijstar = abs((projbigvstari-projbigvstarj)/(1.-projbigvstari*projbigvstarj))
+       endif
 
        if (iamgasi .and. iamgasj) then
           !--work out vsig for timestepping and av
-#ifdef GR
-          ! Relativistic version vij + csi    (could put a beta here somewhere?)
-          vsigi     = (vij+spsoundi)/(1.+vij*spsoundi)
-          vsigavi   = alphai*vsigi
-#else
-          vsigi     = max(vwavei - beta*projv,0.)
-          vsigavi   = max(alphai*vwavei - beta*projv,0.)
-#endif
+          if (gr) then
+             ! Relativistic version vij + csi    (could put a beta here somewhere?)
+             vsigi     = (beta*vij+spsoundi)/(1.+beta*vij*spsoundi)
+             vsigavi   = alphai*vsigi
+          else
+             vsigi     = max(vwavei - beta*projv,0.)
+             vsigavi   = max(alphai*vwavei - beta*projv,0.)
+          endif
           if (vsigi > vsigmax) vsigmax = vsigi
 
           if (mhd) then
@@ -1414,7 +1415,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
              if (gr) then
                 ! Relativistic version vij + csi
-                vsigj   = (vij+spsoundj)/(1.+vij*spsoundj)
+                vsigj   = (beta*vij+spsoundj)/(1.+beta*vij*spsoundj)
                 vsigavj = alphaj*vsigj
              else
                 vsigj = max(vwavej - beta*projv,0.)
@@ -1462,10 +1463,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !
           qrho2i = 0.
           qrho2j = 0.
-#ifdef GR
-          enthi  = 1.+eni+pri/densi
-          enthj  = 1.+enj+prj/densj
-#endif
+          if (gr) then
+             enthi  = 1.+eni+pri/densi
+             enthj  = 1.+enj+prj/densj
+          endif
 
 !------------------
 #ifdef DISC_VISCOSITY
@@ -1475,48 +1476,48 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !  (We multiply by h/rij, use cs for the signal speed, apply to both approaching/receding,
           !   with beta viscosity only applied to approaching pairs)
           !
-#ifdef GR
-          lorentzi_star = 1./sqrt(1.-projbigvstari**2)
-          lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
-          dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
-          if (projv < 0.) then
-             qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
-             if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
+          if (gr) then
+             lorentzi_star = 1./sqrt(1.-projbigvstari**2)
+             lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
+             dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
+             if (projv < 0.) then
+                qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv*hi*rij1
+                if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv*hj*rij1
+             else
+                qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
+                if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
+             endif
+             if (ien_type == ien_etotal) then ! total energy
+                dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
+                                      (pro2j + qrho2j)*projvi*grkernj)
+             else
+                dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
+             endif
           else
-             qrho2i = -0.5*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1
-             if (usej) qrho2j = -0.5*rho1j*alphaj*spsoundj*enthj*dlorentzv*hj*rij1
+             if (projv < 0.) then
+                qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
+                if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
+             else
+                qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
+                if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
+             endif
+             dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
           endif
-          if (ien_type == ien_etotal) then ! total energy
-             dudtdissi = - pmassj*((pro2i + qrho2i)*projvj*grkerni + &
-                                   (pro2j + qrho2j)*projvi*grkernj)
-          else
-             dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*enthi*dlorentzv*hi*rij1*projv*grkerni
-          endif
-#else
-          if (projv < 0.) then
-             qrho2i = - 0.5*rho1i*(alphai*spsoundi - beta*projv)*hi*rij1*projv
-             if (usej) qrho2j = - 0.5*rho1j*(alphaj*spsoundj - beta*projv)*hj*rij1*projv
-          else
-             qrho2i = - 0.5*rho1i*alphai*spsoundi*hi*rij1*projv
-             if (usej) qrho2j = - 0.5*rho1j*alphaj*spsoundj*hj*rij1*projv
-          endif
-          dudtdissi = -0.5*pmassj*rho1i*alphai*spsoundi*hi*rij1*projv**2*grkerni
-#endif
 
 !--DISC_VISCOSITY--
 #else
 !------------------
           if (projv < 0.) then
-#ifdef GR
-             lorentzi_star = 1./sqrt(1.-projbigvstari**2)
-             lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
-             dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
-             qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
-             if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
-#else
-             qrho2i = - 0.5*rho1i*vsigavi*projv
-             if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
-#endif
+             if (gr) then
+                lorentzi_star = 1./sqrt(1.-projbigvstari**2)
+                lorentzj_star = 1./sqrt(1.-projbigvstarj**2)
+                dlorentzv = lorentzi_star*projbigvstari - lorentzj_star*projbigvstarj
+                qrho2i = -0.5*rho1i*vsigavi*enthi*dlorentzv
+                if (usej) qrho2j = -0.5*rho1j*vsigavj*enthj*dlorentzv
+             else
+                qrho2i = - 0.5*rho1i*vsigavi*projv
+                if (usej) qrho2j = - 0.5*rho1j*vsigavj*projv
+             endif
           endif
           !--energy conservation from artificial viscosity
           if (ien_type == ien_etotal) then ! total energy
@@ -1535,19 +1536,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
+#ifdef GR
+             denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
+             if (imetric==imet_minkowski) then  ! Eq 60 in LP19
+                rhoav1 = 2./(enthi*densi + enthj*densj)
+                vsigu = min(1.,sqrt(abs(pri-prj)*rhoav1))
+             else
+                vsigu = abs(vij)  ! Eq 61 in LP19
+             endif
+#else
              if (gravity) then
                 vsigu = abs(projv)
              else
                 rhoav1 = 2./(rhoi + rhoj)
-                vsigu = sqrt(abs(pri - prj)*rhoav1)  !abs(projv) !sqrt(abs(denij))
-             endif
-#ifdef GR
-             denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
-             if (imetric==imet_minkowski) then
-                enthdensav = 0.5*(enthi*pri + enthj*prj)
-                vsigu = min(1.,sqrt(abs(pri-prj)/enthdensav))
-             else
-                vsigu = abs(vij)
+                vsigu = sqrt(abs(pri - prj)*rhoav1)
              endif
 #endif
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
@@ -3114,8 +3116,8 @@ end subroutine reconstruct_dv
 !  Apply reconstruction to GR velocity gradients
 !+
 !-----------------------------------------------------------------------------
-subroutine reconstruct_dv_gr(projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvstari,projvstarj,ilimiter)
- real, intent(in)  :: projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9)
+subroutine reconstruct_dv_gr(projvi,projvj,rx,ry,rz,dr,dvdxi,dvdxj,projvstari,projvstarj,ilimiter)
+ real, intent(in)  :: projvi,projvj,rx,ry,rz,dr,dvdxi(9),dvdxj(9)
  real, intent(out) :: projvstari,projvstarj
  integer, intent(in) :: ilimiter
  real :: slopei,slopej,slope
@@ -3124,22 +3126,22 @@ subroutine reconstruct_dv_gr(projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvst
  ! define the projected slope. This is fine as
  ! long as the slope limiter is linear, otherwise
  ! one should use the unit
- slopei = dx*(rx*dvdxi(1) + ry*dvdxi(4) + rz*dvdxi(7)) &
-        + dy*(rx*dvdxi(2) + ry*dvdxi(5) + rz*dvdxi(8)) &
-        + dz*(rx*dvdxi(3) + ry*dvdxi(6) + rz*dvdxi(9))
+ slopei = rx*(rx*dvdxi(1) + ry*dvdxi(4) + rz*dvdxi(7)) &
+        + ry*(rx*dvdxi(2) + ry*dvdxi(5) + rz*dvdxi(8)) &
+        + rz*(rx*dvdxi(3) + ry*dvdxi(6) + rz*dvdxi(9))
 
- slopej = dx*(rx*dvdxj(1) + ry*dvdxj(4) + rz*dvdxj(7)) &
-        + dy*(rx*dvdxj(2) + ry*dvdxj(5) + rz*dvdxj(8)) &
-        + dz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
+ slopej = rx*(rx*dvdxj(1) + ry*dvdxj(4) + rz*dvdxj(7)) &
+        + ry*(rx*dvdxj(2) + ry*dvdxj(5) + rz*dvdxj(8)) &
+        + rz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
 
  if (ilimiter > 0) then
-    slope = slope_limiter_gr(slopei,slopej)
+    slope = dr*slope_limiter_gr(slopei,slopej)
  else
     !
     !--reconstruction with no slope limiter
     !  (mainly useful for testing purposes)
     !
-    slope = 0.5*(slopei + slopej)
+    slope = 0.5*dr*(slopei + slopej)
  endif
  projvstari = (projvi - slope) / (1. - projvi*slope)
  projvstarj = (projvj + slope) / (1. + projvj*slope)
