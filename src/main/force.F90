@@ -873,7 +873,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac
+ use options,     only:overcleanfac,use_dustfrac,ireconav
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -1316,8 +1316,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           ! Reconstruction of velocity
           if (maxdvdx==maxp) dvdxj(:) = dvdx(:,j)
-          call reconstruct_dv_gr(projbigvi,projbigvj,runix,runiy,runiz,rij2*rij1,&
-                                 dvdxi,dvdxj,projbigvstari,projbigvstarj,1)
+          projbigvstari = projbigvi
+          projbigvstarj = projbigvj
+          if (ireconav >= 0) call reconstruct_dv_gr(projbigvi,projbigvj,runix,runiy,runiz,rij2*rij1,&
+                                 dvdxi,dvdxj,projbigvstari,projbigvstarj,ireconav)
 
           ! Relativistic version of vi-vj
           vij = abs((projbigvi-projbigvj)/(1.-projbigvi*projbigvj))

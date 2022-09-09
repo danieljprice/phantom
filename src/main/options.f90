@@ -20,8 +20,6 @@ module options
 !
  use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
@@ -37,6 +35,7 @@ module options
  real, public :: alphamax
  real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
+ integer, public :: ireconav
 
 ! additional .ev data
  logical, public :: calc_erot
@@ -122,6 +121,7 @@ subroutine set_default_options
  ! artificial thermal conductivity
  alphau = 1.
  if (gr) alphau = 0.1
+ ireconav = 1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
