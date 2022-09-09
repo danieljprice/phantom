@@ -190,7 +190,7 @@ subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
  use io,  only:nprocs,id,master
  integer, intent(in) :: npart
- integer, parameter  :: safety = 4
+ integer, parameter  :: safety = 8
 
  ! size of the stack needed for communication,
  ! should be at least the maximum number of cells that need
