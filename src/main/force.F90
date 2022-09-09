@@ -1765,7 +1765,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
                 projvstar = projv
-                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar,irecon)
+                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 ! dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -1794,7 +1794,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
              elseif (iamdusti .and. iamgasj) then
                 projvstar = projv
-                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,pmassi,pmassj,projvstar,irecon)
+                if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 !dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
                    wdrag = wkern_drag(q2i,qi)*hi21*hi1*cnormk_drag
@@ -2182,6 +2182,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        visctermaniso = 0.
        dustfraci = 0.
        tempi = 0.
+       densi = 0.
     endif
 
     !
@@ -3073,23 +3074,13 @@ end subroutine finish_cell_and_store_results
 !  As described in Price & Laibe (2020), MNRAS 495, 3929-3934
 !+
 !-----------------------------------------------------------------------------
-subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,mi,mj,projvstar,ilimiter)
- real, intent(in)  :: projv,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9),mi,mj
+subroutine reconstruct_dv(projv,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvstar,ilimiter)
+ real, intent(in)  :: projv,dx,dy,dz,rx,ry,rz,dvdxi(9),dvdxj(9)
  real, intent(out) :: projvstar
  integer, intent(in) :: ilimiter
  real :: slopei,slopej,slope,sep
 
- ! do nothing and return
- !projvstar = projv
- !return
-
- if (mi > mj) then
-    sep = mj/(mi + mj)
- else
-    sep = mi/(mi + mj)
- endif
- !sep = 0.5
-
+ sep = 0.5
  ! CAUTION: here we use dx, not the unit vector to
  ! define the projected slope. This is fine as
  ! long as the slope limiter is linear, otherwise
@@ -3142,7 +3133,7 @@ subroutine reconstruct_dv_gr(projvi,projvj,dx,dy,dz,rx,ry,rz,dvdxi,dvdxj,projvst
         + dz*(rx*dvdxj(3) + ry*dvdxj(6) + rz*dvdxj(9))
 
  if (ilimiter > 0) then
-    slope = slope_limiter(slopei,slopej)
+    slope = slope_limiter_gr(slopei,slopej)
  else
     !
     !--reconstruction with no slope limiter
@@ -3181,5 +3172,20 @@ real function slope_limiter(sl,sr) result(s)
  !endif
 
 end function slope_limiter
+
+!-----------------------------------------------------------------------------
+!+
+!  Slope limiter used for velocity gradient reconstruction,
+!  as described in Price & Laibe (2020), MNRAS 495, 3929-3934
+!+
+!-----------------------------------------------------------------------------
+real function slope_limiter_gr(sl,sr) result(s)
+ real, intent(in) :: sl,sr
+
+ s = 0.
+ ! Van Leer is the only slope limiter we found that works for relativistic shocks
+ if (sl*sr > 0.) s = 2.*sl*sr/(sl + sr)
+
+end function slope_limiter_gr
 
 end module forces
