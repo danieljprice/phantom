@@ -142,11 +142,6 @@ subroutine increase_mpi_memory
  dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
  deallocate(dens_cells_tmp)
 
- stacksize = stacksize_new
- call allocate_stack(dens_stack_1, dens_stack_1%number)
- call allocate_stack(dens_stack_2, dens_stack_2%number)
- call allocate_stack(dens_stack_3, dens_stack_3%number)
-
  ! Expand force
  call move_alloc(force_cells, force_cells_tmp)
  allocate(force_cells(stacksize_new,2), stat=allocstat)
@@ -157,7 +152,9 @@ subroutine increase_mpi_memory
  stacksize = stacksize_new
  call allocate_stack(force_stack_1, 1)
  call allocate_stack(force_stack_2, 2)
-
+ call allocate_stack(dens_stack_1, dens_stack_1%number)
+ call allocate_stack(dens_stack_2, dens_stack_2%number)
+ call allocate_stack(dens_stack_3, dens_stack_3%number)
 end subroutine increase_mpi_memory
 
 subroutine calculate_stacksize(npart)
