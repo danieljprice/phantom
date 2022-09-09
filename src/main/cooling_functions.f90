@@ -36,7 +36,8 @@ module cooling_functions
            piecewise_law, &
            cooling_Bowen_relaxation, &
            cooling_dust_collision, &
-           cooling_radiative_relaxation
+           cooling_radiative_relaxation, &
+           testing_cooling_functions
 
  private
 
@@ -158,7 +159,6 @@ subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
     Q = 0.
     dlnQ_dlnT = 0.
  endif
- !print *,'x',T,Q,dlnQ_dlnT
 
 end subroutine cooling_neutral_hydrogen
 
@@ -183,6 +183,44 @@ real function calc_eps_e(T)
  calc_eps_e = (p + sqrt(q+p**2))/q
 
 end function calc_eps_e
+
+!-----------------------------------------------------------------------
+!+
+!  cooling functions with analytical solutions (for analysis)
+!+
+!-----------------------------------------------------------------------
+subroutine testing_cooling_functions(ifunct, T, Q, dlnQ_dlnT)
+
+ integer, intent(in) :: ifunct
+ real, intent(in) :: T
+ real, intent(out) :: Q,dlnQ_dlnT
+
+ select case(ifunct)
+ case (0)
+   !test1 : du/dt = cst --> linear decrease in time
+   Q = -1e13
+   dlnQ_dlnT = 0.
+ case(1)
+   !test2 : du/dt = -a*u --> exponential decrease in time
+    Q = -1e7*T
+    dlnQ_dlnT = 1.
+ case(3)
+    !test3 : du/dt = -a*u**3 --> powerlaw decrease in time**(-1/2)
+    Q = -1e-5*T**3
+    dlnQ_dlnT = 3.
+ case(-3)
+    !test4 : du/dt = -a*u**-3 --> powerlaw decrease in time**(1/4)
+    Q = -1e20/T**3
+    dlnQ_dlnT = -3.
+ case default
+    Q = 0.
+    dlnQ_dlnT = 0.
+ end select
+
+end subroutine testing_cooling_functions
+
+
+
 
 
 !-----------------------------------------------------------------------

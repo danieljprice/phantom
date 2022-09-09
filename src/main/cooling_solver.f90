@@ -28,7 +28,7 @@ module cooling_solver
  integer, public :: excitation_HI = 0, relax_Bowen = 0, dust_collision = 0, relax_Stefan = 0, shock_problem = 0
  integer, public :: icool_method  = 0
  integer, parameter :: nTg  = 64
- real,    parameter :: Tref = 1.d6 !higher value of the temperature grid
+ real,    parameter :: Tref = 1.d7 !higher value of the temperature grid (for exact cooling)
  real :: Tgrid(nTg)
 
  public :: init_cooling_solver,read_options_cooling_solver,write_options_cooling_solver
@@ -38,6 +38,7 @@ module cooling_solver
  logical, public :: Townsend_test = .false. !for analysis_cooling
 
  private
+ real,    parameter :: Tcap = 1.d3 !Townsend cap temperature
 
 contains
 !-----------------------------------------------------------------------
@@ -107,7 +108,7 @@ subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  if (ui + Q*dt < 0.) then   ! assume thermal equilibrium
     if (Townsend_test) then
     !special fix for Townsend benchmark
-       u = 1.e4/T_on_u
+       u = Tcap/T_on_u
     else
        u = Tdust/T_on_u     ! set T=Tdust
     endif
@@ -134,7 +135,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
 
  real, parameter    :: tol = 1.d-5, Tmin = 1.
  integer, parameter :: iter_max = 40
- real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f,f0,fi,fmid,T,Ti,T0,dx,Tmid
+ real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f0,fi,fmid,T,Ti,T0,dx,Tmid
  integer            :: iter
 
  u       = ui
@@ -161,7 +162,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  else
     if (Townsend_test) then
     !special fix for Townsend benchmark
-       T = max(1e4,Tmid)
+       T = max(Tcap,Tmid)
     else
        T = Tmid
     endif
@@ -175,7 +176,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     fmid = Tmid-T0-Qi*dt*T_on_u
     if (Townsend_test) then
     !special fix for Townsend benchmark
-       if (fmid <= 0.) Tmid = max(1e4,Tmid)
+       if (fmid <= 0.) Tmid = max(Tcap,Tmid)
     else
        if (fmid <= 0.) T = Tmid
     endif
@@ -207,11 +208,11 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  real, intent(out) :: dudt
 
  real, parameter :: tol = 1.d-12
- real            :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u,T_floor
+ real            :: Qref,dlnQref_dlnT,Q,dlnQ_dlnT,Y,Yk,Yinv,Temp,dy,T,T_on_u,T_floor,Qi
  integer         :: k
 
  if (Townsend_test) then
-    T_floor = 1e4
+    T_floor = Tcap
  else
     T_floor = 10.
  endif
@@ -225,6 +226,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     Temp = T+T_on_u*Q*dt
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, kappa)
+    Qi = Qref
     Y         = 0.
     k         = nTg
     Q         = Qref          ! default value if Tgrid < T for all k
@@ -232,22 +234,24 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     do while (Tgrid(k) > T)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
-       ! eqs A6
+       dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+       Qi = Q
+       ! eqs A6 to get Yk
        if (abs(dlnQ_dlnT-1.) < tol) then
           y = y - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
        else
           y = y - Qref*Tgrid(k)/(Q*Tref*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/Tgrid(k+1))**(dlnQ_dlnT-1.))
        endif
     enddo
-    !eqs A5
+    !eqs A5 for Y(T)
     yk = y
     if (abs(dlnQ_dlnT-1.) < tol) then
        y = yk + Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/T)
     else
-       y = yk + Qref*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1))
+       y = yk + Qref*Tgrid(k)/((Q*Tref)*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/T)**(dlnQ_dlnT-1.))
     endif
-    !eq 26
-    dy = Qref*dt*T_on_u/Tref
+    !argument of Y^(-1) in eq 26
+    dy = -Qref*dt*T_on_u/Tref
     y  = y + dy
     !compute Yinv (eqs A7)
     if (abs(dlnQ_dlnT-1.) < tol) then
@@ -277,7 +281,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  use physcon, only:mass_proton_cgs
  use cooling_functions, only:cooling_neutral_hydrogen,&
      cooling_Bowen_relaxation,cooling_dust_collision,&
-     cooling_radiative_relaxation,piecewise_law
+     cooling_radiative_relaxation,piecewise_law,testing_cooling_functions
  !use cooling_molecular, only:do_molecular_cooling,calc_cool_molecular
 
  real, intent(in)  :: rho, T, Teq     !rho in code units
@@ -314,6 +318,8 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan,&
                                                         dlnQ_relax_Stefan)
  if (shock_problem  == 1) call piecewise_law(T, T0_value, ndens, Q_H0, dlnQ_H0)
+
+ if (excitation_HI  == 99) call testing_cooling_functions(int(K2), T, Q_H0, dlnQ_H0)
  !if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
 
  Q_cgs = Q_H0 + Q_relax_Bowen + Q_col_dust + Q_relax_Stefan + Q_molec + Q_shock
