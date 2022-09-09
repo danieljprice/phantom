@@ -75,14 +75,13 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real,              intent(in)    :: ui_coef
  real,              intent(inout) :: gamma,polyk
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
- !real, allocatable                :: comp(:)
+  real, allocatable, intent(out)  :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
  integer,           intent(out)   :: npts
  real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
- !integer                          :: columns_compo
- !real , allocatable               :: compositioni(:,:)
- !character(len=20), allocatable   :: comp_label(:)
+ integer, allocatable, intent(out):: columns_compo
+ character(len=20), allocatable, intent(out)   :: comp_label(:)
  integer :: ierr,i
  logical :: calc_polyk,iexist,composition_exists
  real    :: eni,tempi,guessene
