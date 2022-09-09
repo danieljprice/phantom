@@ -130,7 +130,6 @@ subroutine set_default_options
  hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
  !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
- if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
  ! radius outside which we kill particles
