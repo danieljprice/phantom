@@ -35,11 +35,11 @@ module mpimemory
  end interface push_onto_stack
 
  interface get_cell
-  module procedure get_cell_force
+  module procedure get_cell_dens,get_cell_force
  end interface get_cell
 
  interface write_cell
-  module procedure write_cell_force
+  module procedure write_cell_dens,write_cell_force
  end interface write_cell
 
  interface reserve_stack
@@ -264,10 +264,12 @@ subroutine push_onto_stack_dens(stack,cell)
  type(stackdens),    intent(inout)  :: stack
  type(celldens),     intent(in)     :: cell
 
- stack%n = stack%n + 1
- stack%cells(stack%n) = cell
+ integer :: i
 
- if (stack%n > stack%maxlength) call fatal('force','MPI stack exceeded')
+ call reserve_stack(stack,i)
+
+ ! no other thread will write to the same position, so it is threadsafe to write without a critical section
+ stack%cells(i) = cell
 end subroutine push_onto_stack_dens
 
 subroutine push_onto_stack_force(stack,cell)
@@ -276,11 +278,19 @@ subroutine push_onto_stack_force(stack,cell)
 
  integer :: i
 
- call reserve_stack_force(stack,i)
+ call reserve_stack(stack,i)
 
  ! no other thread will write to the same position, so it is threadsafe to write without a critical section
  stack%cells(i) = cell
 end subroutine push_onto_stack_force
+
+type(celldens) function get_cell_dens(stack,i)
+ type(stackdens),    intent(in)  :: stack
+ integer,            intent(in)  :: i
+
+ if (stack%n < i) call fatal('dens','attempting to read invalid stack address')
+ get_cell_dens = stack%cells(i)
+end function get_cell_dens
 
 type(cellforce) function get_cell_force(stack,i)
  type(stackforce),   intent(in)  :: stack
@@ -289,6 +299,15 @@ type(cellforce) function get_cell_force(stack,i)
  if (stack%n < i) call fatal('force','attempting to read invalid stack address')
  get_cell_force = stack%cells(i)
 end function get_cell_force
+
+subroutine write_cell_dens(stack,cell)
+ type(stackdens),   intent(inout)  :: stack
+ type(celldens),    intent(inout)  :: cell
+
+ if (cell%waiting_index > stack%maxlength) call fatal('dens','attempting to write to invalid stack address')
+ stack%cells(cell%waiting_index) = cell
+
+end subroutine write_cell_dens
 
 subroutine write_cell_force(stack,cell)
  type(stackforce),   intent(inout)  :: stack
@@ -303,8 +322,10 @@ subroutine reserve_stack_dens(stack,i)
  type(stackdens),    intent(inout) :: stack
  integer,            intent(out)   :: i
 
+ !$omp atomic capture
  stack%n = stack%n + 1
  i = stack%n
+ !$omp end atomic
 
  if (i > stack%maxlength) call fatal('dens','MPI stack exceeded')
 
