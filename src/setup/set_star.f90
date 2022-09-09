@@ -60,7 +60,8 @@ contains
 !-------------------------------------------------------------------------------
 subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                              Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                             isoftcore,isofteningopt,rcore,hsoft,outputfilename)
+                             isoftcore,isofteningopt,rcore,hsoft,outputfilename,&
+                             composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
@@ -74,15 +75,14 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real,              intent(in)    :: ui_coef
  real,              intent(inout) :: gamma,polyk
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
- real, allocatable                :: composition(:,:),comp(:)
- real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:)
+ !real, allocatable                :: comp(:)
  integer,           intent(out)   :: npts
  real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
- integer                          :: columns_compo
- real , allocatable               :: compositioni(:,:)
- character(len=20), allocatable   :: comp_label(:)
+ !integer                          :: columns_compo
+ !real , allocatable               :: compositioni(:,:)
+ !character(len=20), allocatable   :: comp_label(:)
  integer :: ierr,i
  logical :: calc_polyk,iexist,composition_exists
  real    :: eni,tempi,guessene
@@ -168,33 +168,35 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
 
     !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
     !in the star.
-    if (columns_compo /= 0) then
-      composition_exists = .true.
-    endif
+    ! if (columns_compo /= 0) then
+    !   composition_exists = .true.
+    ! endif
 
-    ! if composition exists, we write a .comp file which only includes the composition
-    if (composition_exists) then
-      print*, 'Writing the stellar composition for each particle into ','kepler.comp'
-
-      open(11,file='kepler.comp')
-      write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
-            comp_label
-        !Now setting the composition of star if the case used was ikepler
-        allocate(compositioni(columns_compo,1))
-        do i = 1,nstar
-          !Interpolate compositions
-          ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-
-          do j = 1,columns_compo
-            comp(1:npts)      = composition(1:npts,j)
-            compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-          end do
-           write(11,'(50(es18.10,1X))') &
-            (compositioni(j,1),j=1,columns_compo)
-        end do
-     close(11)
-     print*, '>>>>>> done'
-     end if
+    !next step could be that we bring the columns exists answer back and check if its true in setup_star
+    !and if true then write a .comp file.
+    ! ! if composition exists, we write a .comp file which only includes the composition
+    ! if (composition_exists) then
+    !   print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+    !
+    !   open(11,file='kepler.comp')
+    !   write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
+    !         comp_label
+    !     !Now setting the composition of star if the case used was ikepler
+    !     allocate(compositioni(columns_compo,1))
+    !     do i = 1,nstar
+    !       !Interpolate compositions
+    !       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    !
+    !       do j = 1,columns_compo
+    !         comp(1:npts)      = composition(1:npts,j)
+    !         compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
+    !       end do
+    !        write(11,'(50(es18.10,1X))') &
+    !         (compositioni(j,1),j=1,columns_compo)
+    !     end do
+    !  close(11)
+    !  print*, '>>>>>> done'
+    !  end if
 
  case(ievrard)
     call rho_evrard(ng_max,Mstar,Rstar,r,den)
