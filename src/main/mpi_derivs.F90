@@ -15,18 +15,16 @@ module mpiderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: allocutils, dim, dtypekdtree, io, mpi, mpidens, mpiforce,
-!   mpimemory, mpiutils, omputils
+! :Dependencies: allocutils, dim, io, mpi, mpidens, mpiforce, mpimemory,
+!   mpiutils, omputils
 !
 #ifdef MPI
  use mpi
 #endif
  use io,             only:id,nprocs
  use mpiutils,       only:comm_cellexchange,comm_cellcount
- use dtypekdtree,    only:kdnode,ndimtree
 
  implicit none
-
  interface init_cell_exchange
   module procedure init_celldens_exchange,init_cellforce_exchange
  end interface init_cell_exchange
@@ -50,12 +48,8 @@ module mpiderivs
   module procedure recv_while_wait_force,recv_while_wait_dens
  end interface recv_while_wait
 
- interface reduce_group
-  module procedure reduce_group_real, reduce_group_int
- end interface reduce_group
-
- public :: allocate_comms_arrays
- public :: deallocate_comms_arrays
+ public :: allocate_cell_comms_arrays
+ public :: deallocate_cell_comms_arrays
 
  public :: init_cell_exchange
  public :: send_cell
@@ -63,12 +57,6 @@ module mpiderivs
  public :: check_send_finished
  public :: finish_cell_exchange
  public :: recv_while_wait
- public :: get_group_cofm
- public :: reduce_group
-
- public :: tree_sync
- public :: tree_bcast
- public :: finish_tree_comms
  public :: reset_cell_counters
 #ifdef MPI
  public :: check_complete
@@ -87,40 +75,30 @@ module mpiderivs
 
 #ifdef MPI
  integer :: ncomplete
-
  integer :: dtype_celldens
-
- integer :: globallevel
 #endif
- integer,allocatable :: comm_cofm(:)  ! only comms up to globallevel are used
- integer,allocatable :: comm_owner(:) ! only comms up to globallevel are used
 
  integer,allocatable :: countrequest(:)
 
 contains
 
-subroutine allocate_comms_arrays
+subroutine allocate_cell_comms_arrays
  use allocutils, only:allocate_array
  use dim,        only:mpi
  if (mpi) then
     call allocate_array('cell_counters', cell_counters, nprocs, 3)
     call allocate_array('countrequest',  countrequest,  nprocs)
-    call allocate_array('comm_cofm',     comm_cofm,     nprocs)
-    call allocate_array('comm_owner',    comm_owner,    nprocs)
-    call init_tree_comms
  else
     ! dummy cell counters that are required to prevent runtime errors
     ! in dens and force
     call allocate_array('cell_counters', cell_counters, 0, 0)
  endif
-end subroutine allocate_comms_arrays
+end subroutine allocate_cell_comms_arrays
 
-subroutine deallocate_comms_arrays
+subroutine deallocate_cell_comms_arrays
  if (allocated(cell_counters)) deallocate(cell_counters)
  if (allocated(countrequest )) deallocate(countrequest )
- if (allocated(comm_cofm    )) deallocate(comm_cofm    )
- if (allocated(comm_owner   )) deallocate(comm_owner   )
-end subroutine deallocate_comms_arrays
+end subroutine deallocate_cell_comms_arrays
 
 !----------------------------------------------------------------
 !+
@@ -416,7 +394,7 @@ subroutine recv_cellforce(target_stack,xbuf,irequestrecv,counters)
  integer,            intent(inout)  :: irequestrecv(nprocs)
  integer,            intent(inout)  :: counters(nprocs,3)
 #ifdef MPI
- integer                            :: iproc,k,iwait
+ integer                            :: iproc,iwait
  logical                            :: igot
  integer                            :: mpierr
  integer                            :: status(MPI_STATUS_SIZE)
@@ -554,208 +532,6 @@ subroutine finish_cellforce_exchange(irequestrecv,xsendbuf)
  enddo
 #endif
 end subroutine finish_cellforce_exchange
-
-!----------------------------------------------------------------
-!+
-!  initialise communicators for tree construction
-!+
-!----------------------------------------------------------------
-subroutine init_tree_comms()
-#ifdef MPI
- integer :: level,groupsize,color
- integer                            :: mpierr
-
- globallevel = int(ceiling(log(real(nprocs)) / log(2.0)))
-
- ! cofm group is all procs at level 0
- call MPI_COMM_DUP(MPI_COMM_WORLD, comm_cofm(1), mpierr)
- ! owner comm is never needed at level 0, left uninitialised
-
- do level = 1, globallevel
-    groupsize = 2**(globallevel - level)
-
-    ! cofm group
-    color = id / groupsize
-    call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm_cofm(level+1), mpierr)
-
-    ! owner group
-    if (groupsize == 1) then
-       call MPI_COMM_DUP(MPI_COMM_WORLD, comm_owner(level+1), mpierr)
-    else
-       if (mod(id, groupsize) == 0) then
-          color = 0
-       else
-          color = 1
-       endif
-       call MPI_COMM_SPLIT(MPI_COMM_WORLD, color, id, comm_owner(level+1), mpierr)
-    endif
- enddo
-#endif
-end subroutine init_tree_comms
-
-subroutine finish_tree_comms()
-#ifdef MPI
- integer :: level
- integer :: mpierr
-
- do level = 0, globallevel
-    call MPI_COMM_FREE(comm_cofm(level+1), mpierr)
- enddo
- do level = 1, globallevel
-    call MPI_COMM_FREE(comm_owner(level+1), mpierr)
- enddo
-#endif
-end subroutine finish_tree_comms
-
-!----------------------------------------------------------------
-!+
-!  get the COFM of the group
-!+
-!----------------------------------------------------------------
-subroutine get_group_cofm(xyzcofm,totmass_node,level,cofmsum,totmassg)
- real,      intent(in)        :: xyzcofm(3)
- real,      intent(in)        :: totmass_node
- integer,   intent(in)        :: level
-
- real,      intent(out)       :: cofmsum(3)
- real,      intent(out)       :: totmassg
-
-#ifdef MPI
- real                         :: cofmpart(3)
- integer                      :: mpierr
-
- cofmpart = xyzcofm * totmass_node
- call MPI_ALLREDUCE(totmass_node,totmassg,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
- call MPI_ALLREDUCE(cofmpart,cofmsum,3,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
- cofmsum = cofmsum / totmassg
-#endif
-
-end subroutine get_group_cofm
-
-!----------------------------------------------------------------
-!+
-!  tree group reductions
-!+
-!----------------------------------------------------------------
-
-function reduce_group_real(x,string,level) result(xg)
- use io, only:fatal
- real,               intent(in)        :: x
- character(len=*),   intent(in)        :: string
- integer,            intent(in)        :: level
- real                                  :: xg
-
-#ifdef MPI
- real                                  :: isend, ired
- integer                               :: mpierr
-
- isend = x
-
- select case(trim(string))
- case('+')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_SUM,comm_cofm(level+1),mpierr)
- case('max')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MAX,comm_cofm(level+1),mpierr)
- case('min')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_REAL8,MPI_MIN,comm_cofm(level+1),mpierr)
- case default
-    call fatal('reduceall (mpi)','unknown reduction operation')
- end select
-
- xg = ired
-#else
- xg = x
-#endif
-
-end function reduce_group_real
-
-function reduce_group_int(x,string,level) result(xg)
- use io, only:fatal
- integer,            intent(in)        :: x
- character(len=*),   intent(in)        :: string
- integer,            intent(in)        :: level
- integer                               :: xg
-
-#ifdef MPI
- integer                               :: isend, ired
- integer                               :: mpierr
-
- isend = x
-
- select case(trim(string))
- case('+')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_SUM,comm_cofm(level+1),mpierr)
- case('max')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MAX,comm_cofm(level+1),mpierr)
- case('min')
-    call MPI_ALLREDUCE(isend,ired,1,MPI_INTEGER,MPI_MIN,comm_cofm(level+1),mpierr)
- case default
-    call fatal('reduceall (mpi)','unknown reduction operation')
- end select
-
- xg = ired
-#else
- xg = x
-#endif
-end function reduce_group_int
-
-!----------------------------------------------------------------
-!+
-!  synchronize the global tree, placing nodes in the correct position
-!+
-!----------------------------------------------------------------
-subroutine tree_sync(node_in,n_in,node_synced,n_synced,ifirstingroup,level)
- use dtypekdtree, only:get_mpitype_of_kdnode
-
- integer, intent(in)         :: ifirstingroup,level
- integer, intent(in)         :: n_in      ! nodes sent per proc
- integer, intent(in)         :: n_synced  ! nodes in the synchronised array
- type(kdnode), intent(in)    :: node_in(n_in)
- type(kdnode), intent(inout) :: node_synced(n_synced)
-
-#ifdef MPI
- integer                     :: dtype_kdnode
- integer                     :: mpierr
-
-!  If there is only 1 owner, do a direct copy
- if (n_in == n_synced) then
-    node_synced(:) = node_in(:)
- else
-    call get_mpitype_of_kdnode(dtype_kdnode)
-    ! skip if we are not an owner
-    if (id == ifirstingroup) then
-       ! perform node exchange
-       call MPI_ALLGATHER(node_in,n_in,dtype_kdnode, &
-                          node_synced,n_in,dtype_kdnode, &
-                          comm_owner(level+1),mpierr)
-    endif
- endif
-#endif
-
-end subroutine tree_sync
-
-!----------------------------------------------------------------
-!+
-!  broadcast the tree from owners to non-owners
-!+
-!----------------------------------------------------------------
-subroutine tree_bcast(node, nnode, level)
- use dtypekdtree, only:get_mpitype_of_kdnode
-
- integer,      intent(in)        :: nnode
- type(kdnode), intent(inout)     :: node(nnode)
- integer,      intent(in)        :: level
-
-#ifdef MPI
- integer                         :: dtype_kdnode
- integer                         :: mpierr
-
- call get_mpitype_of_kdnode(dtype_kdnode)
- ! the bcast root is relative to the communicator (i.e. it needs to be 0, not ifirstingroup)
- call MPI_BCAST(node, nnode, dtype_kdnode, 0, comm_cofm(level+1), mpierr)
-#endif
-
-end subroutine tree_bcast
 
 !----------------------------------------------------------------
 !+
