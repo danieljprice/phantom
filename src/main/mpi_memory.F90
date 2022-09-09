@@ -55,8 +55,7 @@ module mpimemory
  public :: write_cell
  public :: reserve_stack
  public :: reset_stacks
- public :: increase_mpi_memory_dens
- public :: increase_mpi_memory_force
+ public :: increase_mpi_memory
 
  ! stacks to be referenced from density and force routines
  type(stackdens),  public :: dens_stack_1
@@ -65,8 +64,7 @@ module mpimemory
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
 
- integer, public :: stacksize_dens
- integer, public :: stacksize_force
+ integer, public :: stacksize
 
  private
 
@@ -85,23 +83,22 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
 
  allocstat = 0
 
- if (present(stacksize_in)) stacksize_dens = stacksize_in
- if (present(stacksize_in)) stacksize_force = stacksize_in
+ if (present(stacksize_in)) stacksize = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
  if (present(reallocate)) re_allocate = reallocate
 
  if (allocated(dens_cells)) then
-    if (stacksize_dens /= size(dens_cells,1)) then
+    if (stacksize /= size(dens_cells,1)) then
        call fatal('stack', 'dens_cells already allocated with a different size')
     endif
  endif
  if (allocated(force_cells)) then
-    if (stacksize_force /= size(force_cells,1)) then
+    if (stacksize /= size(force_cells,1)) then
        call fatal('stack', 'force_cells already allocated with a different size')
     endif
  endif
 
- if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize_dens,3), stat=allocstat)
+ if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
 
  ! If reallocating an existing stack for expanding MPI memory,
@@ -118,14 +115,14 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
     call allocate_stack(dens_stack_3, 3)
  endif
 
- if (.not. allocated(force_cells)) allocate(force_cells(stacksize_force,2), stat=allocstat)
+ if (.not. allocated(force_cells)) allocate(force_cells(stacksize,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
  call allocate_stack(force_stack_1, 1)
  call allocate_stack(force_stack_2, 2)
 
 end subroutine allocate_mpi_memory
 
-subroutine increase_mpi_memory_dens
+subroutine increase_mpi_memory
  use io, only:id
  real, parameter :: factor = 1.5
  integer         :: stacksize_new
@@ -133,53 +130,35 @@ subroutine increase_mpi_memory_dens
 
  ! temporary memory for increasing stack sizes
  type(celldens),  allocatable, target :: dens_cells_tmp(:,:)
+ type(cellforce), allocatable, target :: force_cells_tmp(:,:)
 
- stacksize_new = int(real(stacksize_dens) * factor)
+ stacksize_new = int(real(stacksize) * factor)
  write(iprint, *) 'MPI dens stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand density
  call move_alloc(dens_cells, dens_cells_tmp)
  allocate(dens_cells(stacksize_new,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack', 'error increasing dens stack size')
- dens_cells(1:stacksize_dens,:) = dens_cells_tmp(:,:)
+ dens_cells(1:stacksize,:) = dens_cells_tmp(:,:)
  deallocate(dens_cells_tmp)
 
- stacksize_dens = stacksize_new
+ stacksize = stacksize_new
  call allocate_stack(dens_stack_1, dens_stack_1%number)
  call allocate_stack(dens_stack_2, dens_stack_2%number)
  call allocate_stack(dens_stack_3, dens_stack_3%number)
-
-end subroutine increase_mpi_memory_dens
-
-subroutine increase_mpi_memory_force
- use io, only:id
- real, parameter :: factor = 1.5
- integer         :: stacksize_new
- integer         :: allocstat
-
- ! temporary memory for increasing stack sizes
- type(cellforce), allocatable, target :: force_cells_tmp(:,:)
-
- stacksize_new = int(real(stacksize_force) * factor)
- write(iprint, *) 'MPI force stack exceeded on', id, 'increasing size to', stacksize_new
 
  ! Expand force
  call move_alloc(force_cells, force_cells_tmp)
  allocate(force_cells(stacksize_new,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack', 'error increasing force stack size')
- force_cells(1:stacksize_force,:) = force_cells_tmp(:,:)
+ force_cells(1:stacksize,:) = force_cells_tmp(:,:)
  deallocate(force_cells_tmp)
 
- ! Set new stacksize value
- ! Reallocate, with memory already containing cells
-!  call allocate_mpi_memory(stacksize_in=stacksize_new, reallocate=.true.)
- ! TEMP: while only force has parallel recv, it's easier to just call the allocate here
- ! rather than using allocate_mpi_memory
- stacksize_force = stacksize_new
+ stacksize = stacksize_new
  call allocate_stack(force_stack_1, 1)
  call allocate_stack(force_stack_2, 2)
 
-end subroutine increase_mpi_memory_force
+end subroutine increase_mpi_memory
 
 subroutine calculate_stacksize(npart)
  use dim, only:mpi,minpart
@@ -196,16 +175,14 @@ subroutine calculate_stacksize(npart)
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
     ! assume that every cell will be exported, with some safety factor
-    stacksize_dens = (npart / minpart / nprocs) * safety
-    stacksize_force = stacksize_dens
+    stacksize = (npart / minpart / nprocs) * safety
 
     if (id == master) then
-       write(iprint, *) 'MPI memory stack size = ', stacksize_dens
+       write(iprint, *) 'MPI memory stack size = ', stacksize
        write(iprint, *) '  (total number of cells that can be exported by a single task)'
     endif
  else
-    stacksize_dens = 0
-    stacksize_force = 0
+    stacksize = 0
  endif
 
 end subroutine calculate_stacksize
@@ -220,8 +197,8 @@ subroutine allocate_stack_dens(stack, i)
  integer,         intent(in)    :: i
 
  stack%number = i
- stack%cells => dens_cells(1:stacksize_dens,stack%number)
- stack%maxlength = stacksize_dens
+ stack%cells => dens_cells(1:stacksize,stack%number)
+ stack%maxlength = stacksize
 
 end subroutine allocate_stack_dens
 
@@ -230,8 +207,8 @@ subroutine allocate_stack_force(stack, i)
  integer,            intent(in)    :: i
 
  stack%number = i
- stack%cells => force_cells(1:stacksize_force,stack%number)
- stack%maxlength = stacksize_force
+ stack%cells => force_cells(1:stacksize,stack%number)
+ stack%maxlength = stacksize
 
 end subroutine allocate_stack_force
 
@@ -255,8 +232,8 @@ subroutine swap_stacks_dens(stack_a, stack_b)
  stack_b%number = temp_number
 
  ! change pointers
- stack_a%cells => dens_cells(1:stacksize_dens,stack_a%number)
- stack_b%cells => dens_cells(1:stacksize_dens,stack_b%number)
+ stack_a%cells => dens_cells(1:stacksize,stack_a%number)
+ stack_b%cells => dens_cells(1:stacksize,stack_b%number)
 
 end subroutine swap_stacks_dens
 
