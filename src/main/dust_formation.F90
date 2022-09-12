@@ -588,6 +588,7 @@ pure real function solve_q(a, b, c)
  else
     solve_q = -c/b
  endif
+ solve_q = max(solve_q,1e-50)
 end function solve_q
 
 !-------------------------------------------------------------------------

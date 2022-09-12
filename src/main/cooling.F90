@@ -236,7 +236,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
     if (h2chemistry) then
-       call read_options_ism_cooling(name,valstring,imatch,igotallism,ierr)
+       call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
     else
        select case(icooling)
        case(0,4,5,6)
