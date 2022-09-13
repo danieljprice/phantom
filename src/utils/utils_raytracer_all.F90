@@ -199,7 +199,7 @@ module raytracer_all
          enddo
       enddo
       do i=1, 12*4**maxOrder
-         if (distrs(i,1) .ne. max) then
+         if (distrs(i,1)  /=  max) then
             call pix2vec_nest(2**maxOrder, i-1, rays(:,ind))
             indices(i) = ind
             ind=ind+1
@@ -781,9 +781,9 @@ module raytracer_all
 
       integer :: L, R, m ! left, right and middle index for binary search
 
-      if (distance .lt. dist_along_ray(1)) then
+      if (distance  <  dist_along_ray(1)) then
          tau = 0.
-      else if (distance .gt. dist_along_ray(len)) then
+      else if (distance  >  dist_along_ray(len)) then
          tau = 99.
       else
          L = 2
@@ -1039,7 +1039,7 @@ module raytracer_all
          previous = next
          previousDist = nextDist
          call find_next(xyzh(1:3,point), ray, nextDist, xyzh, neighbors(next,:), next)
-         if (nextDist .gt. maxDist) then
+         if (nextDist  >  maxDist) then
                nextDist = maxDist
          endif
          call getneigh_pos(xyzh(1:3,point) + nextDist*ray,0.,xyzh(4,previous)*radkern, &
@@ -1101,7 +1101,7 @@ module raytracer_all
 
       i = 1
       do while (i <= nneigh .and. neighbors(i) /= 0)
-         if (neighbors(i) .ne. prev) then
+         if (neighbors(i)  /=  prev) then
             vec=xyzh(1:3,neighbors(i)) - trace_point
             tempdist = dot_product(vec,ray)
             if (tempdist>0.) then

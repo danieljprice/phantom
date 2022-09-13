@@ -329,9 +329,9 @@ module raytracer
 
       integer :: L, R, m ! left, right and middle index for binary search
 
-      if (distance .lt. dist_along_ray(1)) then
+      if (distance  <  dist_along_ray(1)) then
          tau = 0.
-      else if (distance .gt. dist_along_ray(len)) then
+      else if (distance  >  dist_along_ray(len)) then
          tau = 99.
       else
          L = 2
@@ -470,7 +470,7 @@ module raytracer
          dtaudr = dtaudr+wkern(q*q,q)*kappa(listneigh(i))*rhoh(xyzh(4,listneigh(i)), massoftype(igas))
 
          ! find the next particle : among the neighbours find the particle located the closest to the ray
-         if (listneigh(i) .ne. prev) then
+         if (listneigh(i)  /=  prev) then
             dr = dot_product(vec,ray) !projected distance along the ray
             if (dr>0.) then
                !distance perpendicular to the ray direction
