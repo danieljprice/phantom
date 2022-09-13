@@ -303,9 +303,9 @@ subroutine wind_step(state)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  if (itau_alloc == 1) then
-   state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
-   state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  state%alpha = state%alpha_Edd+alpha_rad
  if (idust_opacity == 2) state%jKmuS(idalpha) = state%alpha

@@ -525,10 +525,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
  endif
  if (abs(time) <= tiny(0.)) then
-   !initialize nucleation array at the start of the run only
-   if (do_nucleation) call init_nucleation
-   !initialize optical depth array tau
-   if (itau_alloc == 1) tau = 0.
+    !initialize nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    !initialize optical depth array tau
+    if (itau_alloc == 1) tau = 0.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this

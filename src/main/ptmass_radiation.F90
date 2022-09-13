@@ -155,9 +155,9 @@ subroutine get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
  real :: fac,tau
 
  if (present(tau_in)) then
-   tau = tau_in
+    tau = tau_in
  else
-   tau = 0.
+    tau = 0.
  endif
  select case (isink_radiation)
  case (1)

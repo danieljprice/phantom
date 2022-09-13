@@ -795,26 +795,26 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
 end function entropy
 
 real function get_entropy(rho,pres,mu_in,ieos)
-   use units,   only:unit_density,unit_pressure,unit_ergg
-   use physcon, only:kboltz
-   integer, intent(in) :: ieos
-   real, intent(in)    :: rho,pres,mu_in
-   real                :: cgsrho,cgspres,cgss
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ use physcon, only:kboltz
+ integer, intent(in) :: ieos
+ real, intent(in)    :: rho,pres,mu_in
+ real                :: cgsrho,cgspres,cgss
 
-   cgsrho = rho * unit_density
-   cgspres = pres * unit_pressure
-   select case (ieos)
-   case (12)
-      cgss = entropy(cgsrho,cgspres,mu_in,2)
-   case (10, 20)
-      cgss = entropy(cgsrho,cgspres,mu_in,3)
-   case default
-      cgss = entropy(cgsrho,cgspres,mu_in,1)
-   end select
-   cgss = cgss/kboltz ! s/kb
-   get_entropy = cgss/unit_ergg
+ cgsrho = rho * unit_density
+ cgspres = pres * unit_pressure
+ select case (ieos)
+ case (12)
+    cgss = entropy(cgsrho,cgspres,mu_in,2)
+ case (10, 20)
+    cgss = entropy(cgsrho,cgspres,mu_in,3)
+ case default
+    cgss = entropy(cgsrho,cgspres,mu_in,1)
+ end select
+ cgss = cgss/kboltz ! s/kb
+ get_entropy = cgss/unit_ergg
 
- end function get_entropy
+end function get_entropy
 
 !-----------------------------------------------------------------------
 !+

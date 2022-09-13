@@ -433,7 +433,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
        endif
        If (itau_alloc == 1) then
-           call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
+          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
        endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
