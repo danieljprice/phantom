@@ -21,7 +21,7 @@ module raytracer_all
    public :: get_all_tau_outwards, get_all_tau_inwards, get_all_tau_adaptive
    private
    contains
-   
+
    !*********************************************************************!
    !***************************   ADAPTIVE   ****************************!
    !*********************************************************************!
@@ -51,7 +51,7 @@ module raytracer_all
       real, intent(in)    :: primary(3), opacities(:), xyzh(:,:), Rstar
       real, optional      :: R, companion(3)
       real, intent(out)   :: taus(:)
-   
+
       integer     :: i, nrays, nsides, index
       real        :: normCompanion, theta0, unitCompanion(3), theta, root, dist, vec(3), dir(3)
       real, dimension(:,:), allocatable :: dirs
@@ -89,7 +89,7 @@ module raytracer_all
             listsOfDists(:,i) = dists
          enddo
          !$omp end parallel do
-         
+
          nsides = 2**(minOrder+refineLevel)
          taus = 0.
          !$omp parallel do private(index,vec)
@@ -121,7 +121,7 @@ module raytracer_all
    !                       sampled deeper
    !  IN: R:               The radius of the companion
    !+
-   !  OUT: rays:           A list containing the rays that need to be traced 
+   !  OUT: rays:           A list containing the rays that need to be traced
    !                       in the adaptive ray-tracing scheme
    !  OUT: indices:        A list containing a link between the index in the
    !                       deepest order and the rays in the adaptive ray-tracing scheme
@@ -149,7 +149,7 @@ module raytracer_all
       !If there is no refinement, just return the uniform ray distribution
       minNsides = 2**minOrder
       minNrays = 12*4**minOrder
-      if (refineLevel == 0) then 
+      if (refineLevel == 0) then
          do i=1, minNrays
             call pix2vec_nest(minNsides,i-1, rays(:,i))
             indices(i) = i
@@ -160,7 +160,7 @@ module raytracer_all
       !Fill a list to have the number distribution in angular space
       distr = 0
       !$omp parallel do private(ind)
-      do i = 1, npart 
+      do i = 1, npart
          call vec2pix_nest(2**maxOrder, xyzh(1:3, i)-primary, ind)
          distr(ind+1) = distr(ind+1)+1
       enddo
@@ -255,7 +255,7 @@ module raytracer_all
             j = left+stepsize
             ksize = min(stepsize*2,n-left+1)
             k=1
-      
+
             do while ( i<left+stepsize .and. j<left+ksize )
                if ( r(d(i))<r(d(j)) ) then
                      il(k)=d(i)
@@ -267,7 +267,7 @@ module raytracer_all
                      k=k+1
                endif
             enddo
-      
+
             if ( i<left+stepsize ) then
                ! fill up remaining from left
                il(k:ksize) = d(i:left+stepsize-1)
@@ -315,7 +315,7 @@ module raytracer_all
          call get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order, raypolation, taus)
       endif
    end subroutine get_all_tau_outwards
-   
+
    !--------------------------------------------------------------------------
    !+
    !  Calculates the optical depth to each SPH particle, using the uniform outwards
@@ -517,7 +517,7 @@ module raytracer_all
       integer, intent(in) :: nsides, rays_dim(:), raypolation
       real, intent(in)    :: vec(:), rays_tau(:,:), rays_dist(:,:)
       real, intent(out)   :: tau
-   
+
       integer :: rayIndex, neighbours(8), nneigh, i, k
       real    :: tautemp, ray(3), vectemp(3), weight, tempdist(8), distRay_sq, vec_norm2
       logical :: mask(8)
@@ -546,7 +546,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -587,7 +587,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -628,7 +628,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -669,7 +669,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -710,7 +710,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -751,7 +751,7 @@ module raytracer_all
             tau    = tautemp
             return
          endif
-   
+
          !returns the number nneigh and list of vectors (n) neighbouring the ray number index
          call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
          !for each neighbouring ray calculate its distance to the particle
@@ -775,8 +775,8 @@ module raytracer_all
          tau = tau / weight
       endif
    end subroutine interpolate_tau
-   
-    
+
+
    !--------------------------------------------------------------------------
    !+
    !  Interpolation of the optical depth for an arbitrary point on the ray,
@@ -819,7 +819,7 @@ module raytracer_all
                   (dist_along_ray(L)-dist_along_ray(L-1))*(distance-dist_along_ray(L-1))
       endif
    end subroutine get_tau_on_ray
-    
+
    !--------------------------------------------------------------------------
    !+
    !  Calculate the optical depth along a given ray
@@ -846,7 +846,7 @@ module raytracer_all
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
-      
+
       integer, parameter :: maxcache = 0
       real, allocatable  :: xyzcache(:,:)
       real :: distance, h, dtaudr, previousdtaudr, nextdtaudr
@@ -906,7 +906,7 @@ module raytracer_all
    !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       each particle
    !  IN: kappa:           The array containing the opacity of all the SPH particles
    !  IN: Rstar:           The radius of the primary star
@@ -922,7 +922,7 @@ module raytracer_all
       integer, intent(in) :: npart, neighbors(:,:)
       real, optional      :: R, companion(3)
       real, intent(out)   :: tau(:)
-      
+
       if (present(companion) .and. present(R)) then
          call get_all_tau_inwards_companion(npart, primary, xyzh, neighbors, kappa, Rstar, companion, R, tau)
       else
@@ -938,7 +938,7 @@ module raytracer_all
    !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       each particle
    !  IN: kappa:           The array containing the opacity of all the SPH particles
    !  IN: Rstar:           The radius of the primary star
@@ -950,9 +950,9 @@ module raytracer_all
       real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
       integer, intent(in) :: npart, neighbors(:,:)
       real, intent(out)   :: tau(:)
-      
+
       integer :: i
-      
+
       !$omp parallel do private(tau)
       do i = 1, npart
          call get_tau_inwards(i, primary, xyzh, neighbors, kappa, Rstar, tau(i))
@@ -968,7 +968,7 @@ module raytracer_all
    !  IN: npart:           The number of SPH particles
    !  IN: primary:         The xyz coordinates of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       each particle
    !  IN: kappa:           The array containing the opacity of all the SPH particles
    !  IN: Rstar:           The radius of the primary star
@@ -982,15 +982,15 @@ module raytracer_all
       real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, xyzh(:,:), Rcomp
       integer, intent(in) :: npart, neighbors(:,:)
       real, intent(out)   :: tau(:)
-      
+
       integer :: i
       real    :: normCompanion, theta0, uvecCompanion(3), norm, theta, root, norm0
-      
+
       uvecCompanion = companion-primary
       normCompanion = norm2(uvecCompanion)
       uvecCompanion = uvecCompanion/normCompanion
       theta0        = asin(Rcomp/normCompanion)
-      
+
       !$omp parallel do private(norm,theta,root,norm0)
       do i = 1, npart
          norm  = norm2(xyzh(1:3,i)-primary)
@@ -1009,7 +1009,7 @@ module raytracer_all
       enddo
       !$omp end parallel do
    end subroutine get_all_tau_inwards_companion
-    
+
    !--------------------------------------------------------------------------
    !+
    !  Calculate the optical depth for a given particle, using the inwards ray-
@@ -1018,7 +1018,7 @@ module raytracer_all
    !  IN: point:           The index of the point that needs to be calculated
    !  IN: primary:         The location of the primary star
    !  IN: xyzh:            The array containing the particles position+smooting lenght
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       each particle
    !  IN: opacities:       The list of the opacities of the particles
    !  IN: Rstar:           The radius of the star
@@ -1048,7 +1048,7 @@ module raytracer_all
                         3,listneigh,nneigh,xyzh,xyzcache,nmaxcache,ifirstincell)
       call calc_opacity(xyzh(1:3,point), xyzh, kappa, listneigh, nneigh, nextdtaudr)
       nextDist=0.
-      
+
       tau = 0.
       i=1
       do while (nextDist < maxDist .and. next /=0)
@@ -1073,7 +1073,7 @@ module raytracer_all
    !*********************************************************************!
    !****************************   COMMON   *****************************!
    !*********************************************************************!
-   
+
    !--------------------------------------------------------------------------
    !+
    !  Find the next point on a ray
@@ -1083,7 +1083,7 @@ module raytracer_all
    !  IN: ray:             The unit vector of the direction in which the next
    !                       point will be calculated
    !  IN: xyzh:            The array containing the particles position+smoothing length
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       the initial point
    !  IN: inext:           The index of the initial point
    !                       (this point will not be considered as possible next point)
@@ -1099,11 +1099,11 @@ module raytracer_all
       integer, intent(inout) :: inext
       real, intent(inout)    :: dist
       integer, optional      :: nneighin
-      
+
       real     :: trace_point(3), dmin, vec(3), tempdist, raydist
       real     :: nextdist
       integer  :: i, nneigh, prev
-      
+
       dmin = huge(0.)
       if (present(nneighin)) then
          nneigh = nneighin
@@ -1142,7 +1142,7 @@ module raytracer_all
    !  IN: r0:              The location where the opacity will be calculated
    !  IN: xyzh:            The xyzh of all the particles
    !  IN: opacities:       The list of the opacities of the particles
-   !  IN: neighbors:       A list containing the indices of the neighbors of 
+   !  IN: neighbors:       A list containing the indices of the neighbors of
    !                       the initial point
    !  IN: nneigh:          The amount of neighbors
    !+
