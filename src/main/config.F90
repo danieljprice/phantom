@@ -154,10 +154,10 @@ module dim
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef CONST_AV
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1

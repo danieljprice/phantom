@@ -1115,7 +1115,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        if (itypej==igas) then
           rhoj = rhoh(xyzh(4,j),pmassj)
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassj*utherm(vxyzu(4,j),rhoj)
+             etherm = etherm + pmassj*utherm(vxyzu(:,j),rhoj,gamma)
           else
              if (ieos==2 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
