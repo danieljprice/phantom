@@ -25,7 +25,7 @@ module dust_formation
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
- use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs
+ use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs,patm
  use dim,     only:nElements
 
  implicit none
@@ -82,7 +82,6 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
