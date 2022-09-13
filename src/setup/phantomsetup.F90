@@ -151,7 +151,7 @@ program phantomsetup
        pmassi = massoftype(igas)
        do i=1,npart
           if (maxphase==maxp) pmassi = massoftype(iamtype(iphase(i)))
-          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(maxvxyzu,i),rhoh(xyzh(4,i),pmassi))
+          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(:,i),rhoh(xyzh(4,i),pmassi),gamma)
        enddo
     endif
 

@@ -43,7 +43,7 @@ subroutine check_setup(nerror,nwarn,restart)
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
-                remove_particle_from_npartoftype
+                remove_particle_from_npartoftype,ien_type,ien_etotal,gr
  use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
@@ -330,6 +330,10 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nerror = nerror + 1
     endif
+ endif
+ if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then
+    print*,'Cannot use total energy with self gravity or mhd'
+    nerror = nerror + 1
  endif
 !
 !--sanity checks on magnetic field
@@ -711,9 +715,8 @@ end subroutine check_setup_dustgrid
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
- use part,         only:isdead_or_accreted
+ use part,         only:isdead_or_accreted,ien_type,ien_entropy,ien_etotal,ien_entropy_s
  use units,        only:in_geometric_units,get_G_code,get_c_code
- use options,      only:ien_type,ien_entropy,ien_etotal
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: xyzh(:,:),vxyzu(:,:)
@@ -752,9 +755,10 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
     nerror = nerror + 1
  endif
 
- if (ien_type /= ien_etotal .and. ien_type /= ien_entropy) then
+ if (ien_type /= ien_etotal .and. ien_type /= ien_entropy .and. ien_type /= ien_entropy_s) then
     print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
-                                 ien_entropy, ' or ', ien_etotal, ' but get ', ien_type
+                                 ien_entropy, ', ', ien_etotal, ' or ', ien_entropy_s, &
+                                 ' but get ', ien_type
     nerror = nerror + 1
  endif
 

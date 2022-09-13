@@ -129,9 +129,17 @@ module part
                        imu   = 4, &
                        iX    = 5, &
                        iZ    = 6, &
-                       maxeosvars = 6
+                       igamma = 7, &
+                       maxeosvars = 7
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+!
+!--energy_variables
+!
+ integer, public :: ien_type
+ integer, public, parameter :: ien_entropy = 1, &
+                               ien_etotal  = 2, &
+                               ien_entropy_s = 3
 !
 !--one-fluid dust (small grains)
 !
