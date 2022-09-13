@@ -116,7 +116,7 @@ subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  call calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, kappa)
  if (ui + Q*dt < 0.) then   ! assume thermal equilibrium
     if (Townsend_test) then
-    !special fix for Townsend benchmark
+       !special fix for Townsend benchmark
        u = Tcap/T_on_u
     else
        u = Tdust/T_on_u     ! set T=Tdust
@@ -170,7 +170,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     fmid = fi
  else
     if (Townsend_test) then
-    !special fix for Townsend benchmark
+       !special fix for Townsend benchmark
        T = max(Tcap,Tmid)
     else
        T = Tmid
@@ -184,7 +184,7 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, kappa)
     fmid = Tmid-T0-Qi*dt*T_on_u
     if (Townsend_test) then
-    !special fix for Townsend benchmark
+       !special fix for Townsend benchmark
        if (fmid <= 0.) Tmid = max(Tcap,Tmid)
     else
        if (fmid <= 0.) T = Tmid
@@ -358,7 +358,7 @@ real function calc_Q(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas
  real, intent(in)  :: T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL
 
-  calc_Q =  cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust) &
+ calc_Q =  cool_dust_discrete_contact(T_gas, rho_gas, mu, T_dust, d2g, a, rho_grain, kappa_dust) &
 !     + cool_dust_full_contact(T_gas, rho_gas, mu, T_dust, kappa_dust) &
 !     + cool_dust_radiation(T_gas, kappa_gas, T_dust, kappa_dust) &
     + cool_coulomb(T_gas, rho_gas, mu, nH, nHe) &

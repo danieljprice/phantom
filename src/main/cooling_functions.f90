@@ -197,11 +197,11 @@ subroutine testing_cooling_functions(ifunct, T, Q, dlnQ_dlnT)
 
  select case(ifunct)
  case (0)
-   !test1 : du/dt = cst --> linear decrease in time
-   Q = -1e13
-   dlnQ_dlnT = 0.
+    !test1 : du/dt = cst --> linear decrease in time
+    Q = -1e13
+    dlnQ_dlnT = 0.
  case(1)
-   !test2 : du/dt = -a*u --> exponential decrease in time
+    !test2 : du/dt = -a*u --> exponential decrease in time
     Q = -1e7*T
     dlnQ_dlnT = 1.
  case(3)
@@ -245,23 +245,23 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
  Y      = nHe/n_gas
  cst    = mass_proton_cgs/rho_gas * sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
  if (T_gas > 1.d5) then
-   xx = 1.
+    xx = 1.
  else
-   KH   = cst/X * exp(-H_ion /(kboltz*T_gas))
-   ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
-   xx   = (1./2.) * (-KH    + sqrt(KH**2+4.*KH))
+    KH   = cst/X * exp(-H_ion /(kboltz*T_gas))
+    ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
+    xx   = (1./2.) * (-KH    + sqrt(KH**2+4.*KH))
  endif
  if (T_gas > 3.d5) then
-   z1 = 1.
-   z2 = 1.
+    z1 = 1.
+    z2 = 1.
  else
-   KHe    = 4.*cst * exp(-He_ion/(kboltz*T_gas))
-   KHe2   =    cst * exp(-He2_ion/(kboltz*T_gas))
+    KHe    = 4.*cst * exp(-He_ion/(kboltz*T_gas))
+    KHe2   =    cst * exp(-He2_ion/(kboltz*T_gas))
 
 ! solution to quadratic SAHA equations (Eq. 17 in D'Angelo et al 2013)
-   z1     = (2./Y ) * (-KHe-X + sqrt((KHe+X)**2+KHe*Y))
+    z1     = (2./Y ) * (-KHe-X + sqrt((KHe+X)**2+KHe*Y))
 ! solution to quadratic SAHA equations (Eq. 18 in D'Angelo et al 2013)
-   z2     = (2./Y ) * (-KHe2-X + sqrt((KHe+X+Y/4.)**2+KHe2*Y))
+    z2     = (2./Y ) * (-KHe2-X + sqrt((KHe+X+Y/4.)**2+KHe2*Y))
  endif
  n_e    = xx * nH + z1*(1.+z2) * nHe
 

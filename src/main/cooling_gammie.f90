@@ -71,9 +71,9 @@ subroutine read_options_cooling_gammie(name,valstring,imatch,igotall,ierr)
  igotall = .true. ! none of the cooling options are compulsory
  select case(trim(name))
  case('beta_cool')
-     read(valstring,*,iostat=ierr) beta_cool
-     ngot = ngot + 1
-     if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
+    read(valstring,*,iostat=ierr) beta_cool
+    ngot = ngot + 1
+    if (beta_cool < 1.) call fatal('read_options','beta_cool must be >= 1')
  case default
     imatch = .false.
  end select

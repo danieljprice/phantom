@@ -258,7 +258,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
           gamma = gamma_global
        endif
     case (2)
-      call get_u(u,P,dens,gamma)
+       call get_u(u,P,dens,gamma)
     end select
  else
     p = en*dens**gamma
