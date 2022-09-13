@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module cooling_solver
 !
-!  Generic module handling analytic cooling functions
+! Generic module handling analytic cooling functions
 !  with known derivatives. These can be solved either
 !  explicitly, implicitly or with the Townsend (2009)
 !  exact method. Implementation by Lionel Siess.
@@ -17,9 +17,18 @@ module cooling_solver
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - beta_cool      : *beta factor in Gammie (2001) cooling*
+!   - T0             : *temperature to cool towards*
+!   - T1_factor      : *factor by which T0 is increased (T1= T1_factor*T0)*
+!   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
+!   - dust_collision : *dust collision (1=on/0=off)*
+!   - excitation_HI  : *cooling via electron excitation of HI (1=on/0=off)*
+!   - lambda_shock   : *Cooling rate parmaeter for analytic shock solution*
+!   - relax_bowen    : *Bowen (diffusive) relaxation (1=on/0=off)*
+!   - relax_stefan   : *radiative relaxation (1=on/0=off)*
+!   - shock_problem  : *piecewise formulation for analytic shock solution (1=on/0=off)*
 !
-! :Dependencies: infile_utils
+! :Dependencies: cooling_functions, infile_utils, io, physcon, timestep,
+!   units
 !
 
  use cooling_functions, only:bowen_Cprime,lambda_shock_cgs,T0_value,T1_factor

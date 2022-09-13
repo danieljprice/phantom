@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module cooling_gammie
 !
-!  Simple beta-cooling prescription used for experiments on gravitational
+! Simple beta-cooling prescription used for experiments on gravitational
 !  instability in discs
 !
 ! :References:
@@ -15,9 +15,9 @@ module cooling_gammie
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - beta_cool      : *beta factor in Gammie (2001) cooling*
+!   - beta_cool : *beta factor in Gammie (2001) cooling*
 !
-! :Dependencies: infile_utils
+! :Dependencies: infile_utils, io
 !
  implicit none
  real, private :: beta_cool  = 3.

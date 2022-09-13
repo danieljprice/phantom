@@ -28,8 +28,8 @@ module setup
 !   - zmax        : *zmax boundary*
 !   - zmin        : *zmin boundary*
 !
-! :Dependencies: boundary, cooling, dim, eos, cooling_ism, infile_utils, io,
-!   mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
+! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
+!   io, mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
 !   setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd

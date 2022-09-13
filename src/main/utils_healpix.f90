@@ -1,49 +1,21 @@
-!-----------------------------------------------------------------------------
-!
-!  Copyright (C) 1997-2013 Krzysztof M. Gorski, Eric Hivon,
-!                          Benjamin D. Wandelt, Anthony J. Banday, 
-!                          Matthias Bartelmann, Hans K. Eriksen, 
-!                          Frode K. Hansen, Martin Reinecke
-!
-!
-!  This file is part of HEALPix.
-!
-!  HEALPix is free software; you can redistribute it and/or modify
-!  it under the terms of the GNU General Public License as published by
-!  the Free Software Foundation; either version 2 of the License, or
-!  (at your option) any later version.
-!
-!  HEALPix is distributed in the hope that it will be useful,
-!  but WITHOUT ANY WARRANTY; without even the implied warranty of
-!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-!  GNU General Public License for more details.
-!
-!  You should have received a copy of the GNU General Public License
-!  along with HEALPix; if not, write to the Free Software
-!  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-!
-!  For more information about HEALPix see http://healpix.sourceforge.net
-!
-!-----------------------------------------------------------------------------
-!
-! file to be inserted in pix_tools.F90 with
-!  #include "pixel_routines.F90"
-!
-! the following routines should be compiled twice:
-! once without DOI8B, and once with DOI8B
-! in order to respectively support 4-byte and 8-byte pixel indexing
-!
-!   s pix2vec_nest
-!   s vec2pix_nest
-!   f npix2nside
-!   s xy2pix_nest
-!   s pix2xy_nest
-!   s neighbours_nest
-!
-! 2012-03-02: make sure that both arguments of iand and modulo 
-!      are of the same type (for XL Fortran compiler)
-!
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module healpix
+!
+! healpix
+!
+! :References: None
+!
+! :Owner: MatsEsseldeurs
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
    implicit none
    ! This module sets the types used in the Fortran 90 modules (healpix_types.f90)
    ! of the HEALPIX distribution and follows the example of Numerical Recipes

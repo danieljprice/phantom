@@ -14,8 +14,8 @@ module wind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cooling, dust_formation, eos, io, options, part, physcon,
-!   ptmass_radiation, timestep, units, wind_equations
+! :Dependencies: cooling_solver, dim, dust_formation, eos, io, options,
+!   part, physcon, ptmass_radiation, timestep, units, wind_equations
 !
 
 !#define CALC_HYDRO_THEN_CHEM
