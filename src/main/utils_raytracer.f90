@@ -333,7 +333,7 @@ module raytracer
 
       if (distance  <  dist_along_ray(1)) then
          tau = 0.
-      else if (distance  >  dist_along_ray(len)) then
+      elseif (distance  >  dist_along_ray(len)) then
          tau = 99.
       else
          L = 2
@@ -345,7 +345,7 @@ module raytracer
                   R = m
             else
                   L = m + 1
-            end if
+            endif
          enddo
          !interpolate linearly ray properties to get the particle's optical depth
          tau = tau_along_ray(L-1)+(tau_along_ray(L)-tau_along_ray(L-1))/ &
@@ -481,8 +481,8 @@ module raytracer
                   dmin     = raydistance
                   inext    = listneigh(i)
                   distance = dr
-               end if
-            end if
+               endif
+            endif
          endif
       enddo
       dtaudr = dtaudr*cnormk/hfact**3

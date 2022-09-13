@@ -189,7 +189,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iTeff,2) = secondary_Teff
     xyzmh_ptmass(iReff,2) = secondary_Reff
     xyzmh_ptmass(iLum,2)  = secondary_lum
- else if (icompanion_star == 2) then
+ elseif (icompanion_star == 2) then
     !-- hierarchical triple
        nptmass  = 0
        print "(/,a)",'----------- Hierarchical triple -----------'
@@ -229,7 +229,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             xyzmh_ptmass(iReff,3) = Reff2b
             xyzmh_ptmass(iLum,3)  = lum2b
 
-       else if (subst == 11) then
+       elseif (subst == 11) then
             call set_multiple(primary_mass*q2/(q2+1),primary_mass/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
                 accretion_radius1=racc2b,accretion_radius2=primary_racc, &
                 xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
@@ -392,7 +392,7 @@ subroutine setup_interactive()
         secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
     !replace primary by tight binary system : 2+1
-    else if (subst == 11) then
+    elseif (subst == 11) then
         print "(a)",'Stellar parameters of the remote single star (2+1)'
         print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
         call prompt('select mass and radius of remote single star',ichoice,0,1)
@@ -615,7 +615,7 @@ subroutine write_setupfile(filename)
         call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
         call write_inopt(Reff2a_au,'Reff2a','tight binary primary effective radius (au)',iunit)
         call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
-    else if (subst == 11) then
+    elseif (subst == 11) then
         call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
         call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
         call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
@@ -725,7 +725,7 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
- else if (icompanion_star == 2) then
+ elseif (icompanion_star == 2) then
     !-- hierarchical triple
     call read_inopt(subst,'subst',db,errcount=nerr)
     if (subst == 11) then
@@ -736,7 +736,7 @@ subroutine read_setupfile(filename,ierr)
         secondary_Reff = secondary_Reff_au * au / udist
         call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
         secondary_racc = secondary_racc_au * au / udist
-    else if (subst == 12) then
+    elseif (subst == 12) then
         call read_inopt(lum2a_lsun,'lum2a',db,errcount=nerr)
         lum2a = lum2a_lsun * (solarl * utime / unit_energ)
         !secondary_lum_lsun = lum2a_lsun

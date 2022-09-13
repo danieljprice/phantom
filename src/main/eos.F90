@@ -624,7 +624,7 @@ real function utherm(vxyzui,rho,gammai)
     else
        stop 'gamma=1 using entropy evolution'
     endif
- else if (ien_type == ien_etotal) then
+ elseif (ien_type == ien_etotal) then
     utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     utherm = en

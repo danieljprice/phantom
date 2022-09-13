@@ -135,14 +135,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       if (method == 1) then
          SPH = .false.
          calcInwards = .false.
-      else if (method == 2) then
+      elseif (method == 2) then
          SPH = .false.
          calcInwards = .false.
          print *,'At which order would you like to start?'
          read *,minOrder
          print *,'At which order would you like to stop?'
          read *,maxOrder
-      else if (method == 3) then
+      elseif (method == 3) then
          SPH = .false.
          calcInwards = .false.
          print *,'At which order would you like to start?'
@@ -158,21 +158,21 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print *,'(5) 4 rays, cubed  interpolation'
          print *,'(6) 9 rays, cubed  interpolation'
          read*,k
-      else if (method ==4) then
+      elseif (method ==4) then
          SPH = .false.
          calcInwards = .false.
          print *,'At which order would you like to start?'
          read *,minOrder
          print *,'At which order would you like to stop?'
          read *,maxOrder
-      else if (method == 5) then
+      elseif (method == 5) then
 
-      else if (method == 6) then
+      elseif (method == 6) then
 
-      else if (method == 7) then
+      elseif (method == 7) then
 
       endif
-   else if (analyses == 2) then
+   elseif (analyses == 2) then
       print *,'Which algorithm would you like to run?'
       print *, '(1) Inwards'
       print *, '(2) Outwards (realtime)'
@@ -182,11 +182,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       if (method == 1) then
          print *,'Do you want to use SPH neighbours? (T/F)'
          read*,SPH
-      else if (method == 2) then
+      elseif (method == 2) then
          print *,'What order do you want to run?'
          read*,j
          write(jstring,'(i0)') j
-      else if (method == 3) then
+      elseif (method == 3) then
          print *,'What order do you want to run?'
          read*,j
          write(jstring,'(i0)') j
@@ -200,7 +200,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print *,'(6) 9 rays, cubed  interpolation'
          read*,k
          write(kstring,'(i0)') k
-      else if (method == 4) then
+      elseif (method == 4) then
          print *,'What order do you want to run? (integer below 7)'
          read*,j
          write(jstring,'(i0)') j
@@ -324,7 +324,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          enddo
 
       ! OUTWARD INTEGRATION realTIME ANALYSIS
-      else if (method == 2) then
+      elseif (method == 2) then
          if (calcInwards) then
             print*,''
             print*, 'Start calculating optical depth inwards'
@@ -385,7 +385,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*,'Total time of the calculation = ',totalTime,' seconds.'
 
       ! OUTWARD INTEGRATION INTERPOLATION ANALYSIS
-      else if (method == 3) then
+      elseif (method == 3) then
          if (calcInwards) then
             print*,''
             print*, 'Start calculating optical depth inwards'
@@ -446,7 +446,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*,'Total time of the calculation = ',totalTime,' seconds.'
 
       !ADAPTIVE (OUTWARD) INTEGRATION ANALYSIS
-      else if (method == 4) then
+      elseif (method == 4) then
          if (calcInwards) then
             print*,''
             print*, 'Start calculating optical depth inwards'
@@ -511,7 +511,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          print*,'Total time of the calculation = ',totalTime,' seconds.'
 
       ! SCALING ANALYSIS
-      else if (method == 5) then
+      elseif (method == 5) then
          order = 5
          print*,'Start doing scaling analysis with order =',order
          open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
@@ -538,7 +538,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          enddo
 
       ! TIME ANALYSIS MULTIPLE FILES
-      else if (method == 6) then
+      elseif (method == 6) then
             order = 5
             print*,'Start doing scaling analysis with order =',order
             if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -566,7 +566,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             close(iu2)
       endif
 
-   else if (analyses == 2) then
+   elseif (analyses == 2) then
       !ADAPTIVE (OUTWARD) INTEGRATION SCHEME
       if (method == 1) then
          print*,''
@@ -591,7 +591,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      else if (method == 2) then
+      elseif (method == 2) then
          print*,''
          print*, 'Start calculating optical depth outwards: ', trim(jstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -610,7 +610,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      else if (method == 3) then
+      elseif (method == 3) then
          print*,''
          print*, 'Start calculating optical depth outwards: ', trim(jstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -629,7 +629,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             write(iu2, *) tau(i)
          enddo
          close(iu2)
-      else if (method == 4) then
+      elseif (method == 4) then
          print*,''
          print*, 'Start calculating optical depth adaptive: minOrder = ', trim(jstring),', refineLevel = ', trim(kstring)
          if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -652,7 +652,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          close(iu2)
       endif
 
-   else if (analyses == 3) then
+   elseif (analyses == 3) then
       order = 5
       print*,'Start calculating optical depth'
       if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -672,7 +672,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       enddo
       close(iu4)
 
-   else if (analyses == 4) then
+   elseif (analyses == 4) then
       do i=1,npart
          if (norm2(xyzh2(1:3,i) - (/10.,10.,10./)) < 4.) then
             kappa(i) = 1e10
