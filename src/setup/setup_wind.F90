@@ -13,35 +13,40 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
+!   - Reff2a            : *tight binary primary effective radius (au)*
+!   - Reff2b            : *tight binary secondary effective radius (au)*
 !   - T_wind            : *wind temperature (K)*
-!   - eccentricity      : *eccentricity of the binary system*                      !    = binary_e      : *wide binary eccentricity*
-!   - icompanion_star   : *set to 1 for a binary system, 2 for a triple system*
-!   - mass_of_particles : *particle mass (overwritten if iwind_resolution <>0)*
-!   - primary_Reff      : *primary star effective radius*
-!   - primary_Teff      : *primary star effective temperature (K)*
-!   - primary_lum       : *primary star luminosity**
-!   - primary_mass      : *primary star mass*                                      !    = m1            : *first hierarchical level primary mass*
-!   - primary_racc      : *primary star accretion radius*                          !    = racc1         : *primary star accretion radius*
-!   - secondary_Reff    : *secondary star effective radius*
-!   - secondary_Teff    : *secondary star effective temperature)*
-!   - secondary_lum     : *secondary star luminosity*
-!   - secondary_mass    : *secondary star mass (Msun)*                             !    = m2            : *first hierarchical level secondary mass*
-!   - secondary_racc    : *secondary star accretion radius*                        !    = racc2         : *perturber accretion radius*
-!   - semi_major_axis   : *semi-major axis of the binary system*                   !    = binary_a      : *wide binary semi-major axis*
-!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
-!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
-!   - racc2a            : *tight binary primary accretion radius*
-!   - racc2b            : *tight binary secondary accretion radius*
-!   - lum2a             : *tight binary luminosity*
-!   - lum2b             : *tight binary luminosity*
-!   - Teff2a            : *effective temperature (K)*
-!   - Teff2b            : *effective temperature (K)*
-!   - Reff2a_au         : *effective radius*
-!   - Reff2b_au         : *effective radius*
+!   - Teff2a            : *tight binary primary effective temperature (K)*
+!   - Teff2b            : *tight binary secondary effective temperature (K)*
 !   - binary2_a         : *tight binary semi-major axis*
 !   - binary2_e         : *tight binary eccentricity*
-!   - q2                : *tight binary mass ratio*                    !    m2a = m2/(q2+1), m2b = m2*q2/(q2+1)
-!   - subst             : *star to substitute, or sky if subst=0*
+!   - eccentricity      : *eccentricity of the binary system*
+!   - icompanion_star   : *set to 1 for a binary system, 2 for a triple system*
+!   - inclination       : *inclination of the tight binary system w.r.t. outer binary (deg)*
+!   - lum2a             : *tight binary primary luminosity (Lsun)*
+!   - lum2b             : *tight binary secondary luminosity (Lsun)*
+!   - mass_of_particles : *particle mass (Msun, overwritten if iwind_resolution <>0)*
+!   - primary_Reff      : *primary star effective radius (au)*
+!   - primary_Teff      : *primary star effective temperature (K)*
+!   - primary_lum       : *primary star luminosity (Lsun)*
+!   - primary_mass      : *primary star mass (Msun)*
+!   - primary_racc      : *primary star accretion radius (au)*
+!   - q2                : *tight binary mass ratio*
+!   - racc2a            : *tight binary primary accretion radius*
+!   - racc2b            : *tight binary secondary accretion radius*
+!   - secondary_Reff    : *secondary star effective radius (au)*
+!   - secondary_Teff    : *secondary star effective temperature)*
+!   - secondary_lum     : *secondary star luminosity (Lsun)*
+!   - secondary_mass    : *secondary star mass (Msun)*
+!   - secondary_racc    : *secondary star accretion radius (au)*
+!   - semi_major_axis   : *semi-major axis of the binary system (au)*
+!   - subst             : *star to substitute*
+!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
+!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
+!
+! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
+!   setbinary, spherical, units
+!
 
 
 !   incl,posang_ascnode, arg_peri, omega_corotate, f, verbose not needed but may be included

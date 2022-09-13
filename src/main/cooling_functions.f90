@@ -6,16 +6,16 @@
 !--------------------------------------------------------------------------!
 module cooling_functions
 !
-!  A library of cooling functions that can be handled by cooling_solver
+! A library of cooling functions that can be handled by cooling_solver
 !  Contributed by Lionel Siess and Ward Homan
 !
 ! :References:
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters:
+! :Runtime parameters: None
 !
-! :Dependencies: infile_utils
+! :Dependencies: physcon
 !
  implicit none
 

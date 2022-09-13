@@ -10,11 +10,11 @@ module cons2primsolver
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, options, units, utils_gr
+! :Dependencies: eos, io, metric_tools, part, physcon, units, utils_gr
 !
  use eos, only:ieos,polyk
  use part, only:ien_etotal,ien_entropy,ien_entropy_s

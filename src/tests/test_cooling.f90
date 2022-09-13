@@ -14,8 +14,7 @@ module testcooling
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cooling, cooling_ism, io, part, physcon, testutils,
-!   units
+! :Dependencies: chem, cooling_ism, io, part, physcon, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master

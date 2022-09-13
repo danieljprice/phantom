@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module cooling_koyamainutsuka
 !
-!  Koyama & Inutsuka (2002) cooling curve
+! Koyama & Inutsuka (2002) cooling curve
 !
 ! :References:
 !   Koyama & Inutsuka (2002), ApJL 564, 97-100
@@ -14,10 +14,9 @@ module cooling_koyamainutsuka
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters:
-!   - beta_cool      : *beta factor in Gammie (2001) cooling*
+! :Runtime parameters: None
 !
-! :Dependencies: infile_utils
+! :Dependencies: eos, io, physcon, units
 !
  implicit none
  public :: init_cooling_KI02, write_options_cooling_KI02, read_options_cooling_KI02
