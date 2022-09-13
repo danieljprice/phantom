@@ -36,7 +36,7 @@ module cooling_ism
  implicit none
 !
 ! only publicly visible entries are the
-! cool_func and init_h2cooling subroutines
+! cool_func and init_cooling_ism subroutines
 !
  public :: cool_func, init_cooling_ism, write_options_cooling_ism, read_options_cooling_ism
  public :: energ_cooling_ism
@@ -59,7 +59,7 @@ module cooling_ism
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 54
 
-! These varables are initialised in init_h2cooling
+! These varables are initialised in init_cooling_ism
  real :: temptab(nmd)
  real :: cltab(ncltab, nmd),dtcltab(ncltab, nmd)
  real :: dtlog, tmax, tmin
@@ -535,7 +535,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
  endif
 !
 ! (R1) -- gas-grain cooling-heating -- dust:gas ratio already incorporated
-!         into rate coefficient in init_h2cooling
+!         into rate coefficient in init_cooling_ism
 !
  rates(1) = cl14 * (temp - tdust) * yn**2
 !
@@ -678,7 +678,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
 ! (R9) --  SiI fine-structure cooling
 !
 ! Proton rates (from HM89) are constant and so there's no point
-! tabulating them in init_h2cooling
+! tabulating them in init_cooling_ism
 !
  siIc10 = cl42 * ynh + 7.2d-9 * ynhp
  siIc20 = cl43 * ynh + 7.2d-9 * ynhp

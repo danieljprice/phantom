@@ -31,7 +31,7 @@ module cooling
 !   - relax_bowen    : *Bowen (diffusive) relaxation [1=on/0=off]*
 !   - relax_stefan   : *radiative relaxation [1=on/0=off]*
 !
-! :Dependencies: chem, cooling_molecular, datafiles, dim, eos, h2cooling,
+! :Dependencies: chem, cooling_molecular, datafiles, dim, eos, cooling_ism,
 !   infile_utils, io, options, part, physcon, timestep, units
 !
 
