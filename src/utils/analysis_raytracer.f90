@@ -536,7 +536,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             write(iu4, *) omp_get_max_threads(), timeTau
             close(iu4)
          enddo
-      
+
       ! TIME ANALYSIS MULTIPLE FILES
       else if (method == 6) then
             order = 5

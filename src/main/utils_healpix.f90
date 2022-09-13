@@ -47,7 +47,7 @@ module healpix
    integer,       PARAMETER, public :: max_i1b = 127
    real(kind=sp), PARAMETER, public :: max_sp  = HUGE(1.0_sp)
    real(kind=dp), PARAMETER, public :: max_dp  = HUGE(1.0_dp)
- 
+
    ! Numerical Constant (Double precision)
    real(kind=dp), PARAMETER, public :: QUARTPI=0.785398163397448309615660845819875721049_dp
    real, PARAMETER, public :: HALFPI= 1.570796326794896619231321691639751442099
@@ -58,16 +58,16 @@ module healpix
    real(kind=dp), PARAMETER, public :: EULER = 0.5772156649015328606065120900824024310422_dp
    real(kind=dp), PARAMETER, public :: SQ4PI_INV = 0.2820947917738781434740397257803862929220_dp
    real(kind=dp), PARAMETER, public :: TWOTHIRD = 0.6666666666666666666666666666666666666666_dp
- 
+
    real(kind=DP), parameter, public :: RAD2DEG = 180.0_DP / PI
    real(kind=DP), parameter, public :: DEG2RAD = PI / 180.0_DP
    real(kind=SP), parameter, public :: hpx_sbadval = -1.6375e30_sp
    real(kind=DP), parameter, public :: hpx_dbadval = -1.6375e30_dp
- 
+
    ! Maximum length of filenames
    integer, parameter :: filenamelen = 1024
- 
- 
+
+
  !   ! ---- Normalisation and convention ----
     ! normalisation of spin weighted functions
     real(kind=dp), parameter, public ::  KvS = 1.0_dp ! 1.0 : CMBFAST (Healpix 1.2)
@@ -75,14 +75,14 @@ module healpix
  !   real(kind=dp), parameter, public :: sgQ = -1.0_dp ! -1 : CMBFAST (Healpix 1.2)
  !   ! sign of spin weighted function !
  !   real(kind=dp), parameter, public :: SW1 = -1.0_dp ! -1 : Healpix 1.2, bug correction
- 
+
  ! !  ! normalisation of spin weighted functions
  ! !  real(kind=dp), parameter, public ::  KvS = 2.0_dp ! 2.0 : KKS  (Healpix 1.1)
  ! !  ! sign of Q
  ! !  real(kind=dp), parameter, public :: sgQ = +1.0_dp ! +1 : KKS (Healpix 1.1)
  ! !  ! sign of spin weighted function !
  ! !  real(kind=dp), parameter, public :: SW1 = +1.0_dp ! +1 : Healpix 1.1
- 
+
  !   real(kind=dp), parameter, public :: iKvS = 1.0_dp / KvS  ! inverse of KvS
  integer(KIND=i4b), private, PARAMETER :: ns_max4=8192     ! 2^13
  integer(KIND=i4b), private, save, dimension(0:127) :: x2pix1=-1,y2pix1=-1
@@ -96,34 +96,34 @@ contains
 function swapLSBMSB(i)
    integer(i4b) :: swapLSBMSB
    integer(i4b), intent(in) :: i
- 
+
    swapLSBMSB = IAND(i,evenbits)/2 + IAND(i,oddbits)*2
  end function swapLSBMSB
- 
+
  !! Returns NOT(i) with even and odd bit positions interchanged.
  function invswapLSBMSB(i)
    integer(i4b) :: invswapLSBMSB
    integer(i4b), intent(in) :: i
- 
+
    invswapLSBMSB = NOT(swapLSBMSB(i))
  end function invswapLSBMSB
- 
+
  !! Returns i with odd (1,3,5,...) bits inverted.
  function invLSB(i)
    integer(i4b) :: invLSB
    integer(i4b), intent(in) :: i
- 
+
    invLSB = IEOR(i,oddbits)
  end function invLSB
- 
+
  !! Returns i with even (0,2,4,...) bits inverted.
  function invMSB(i)
    integer(i4b) :: invMSB
    integer(i4b), intent(in) :: i
- 
+
    invMSB = IEOR(i,evenbits)
  end function invMSB
- 
+
 !=======================================================================
 !     vec2pix_nest
 !
@@ -206,7 +206,7 @@ subroutine vec2pix_nest  (nside, vector, ipix)
 
   endif
 
-  if (nside <= ns_max4) then 
+  if (nside <= ns_max4) then
      ix_low = iand(ix, 127)
      iy_low = iand(iy, 127)
      ipf =     x2pix1(ix_low) + y2pix1(iy_low) &
@@ -516,8 +516,8 @@ end subroutine vec2pix_nest
  !       Returns exact Floor(sqrt(x)) where x is a (64 bit) integer.
  !             y^2 <= x < (y+1)^2         (1)
  !       The double precision floating point operation is not accurate enough
- !       when dealing with 64 bit integers, especially in the vicinity of 
- !       perfect squares. 
+ !       when dealing with 64 bit integers, especially in the vicinity of
+ !       perfect squares.
  !=======================================================================
 function cheap_isqrt(lin) result (lout)
  integer(i4b), intent(in) :: lin
@@ -1140,7 +1140,7 @@ end subroutine neighbours_nest
 
     ix = ix_in
     iy = iy_in
-    if (nside <= ns_max4) then 
+    if (nside <= ns_max4) then
        ix_low = iand(ix, 127)
        iy_low = iand(iy, 127)
        ipf =     x2pix1(ix_low) + y2pix1(iy_low) &
