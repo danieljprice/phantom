@@ -59,33 +59,33 @@ module healpix
    !            Feb  2009: introduce healpix_version
    !
    character(len=*), PARAMETER, public :: healpix_version = '3.80'
-   INTEGER, PARAMETER, public :: i4b = SELECTED_INT_KIND(9)
-   INTEGER, PARAMETER, public :: i8b = SELECTED_INT_KIND(16)
-   INTEGER, PARAMETER, public :: i2b = SELECTED_INT_KIND(4)
-   INTEGER, PARAMETER, public :: i1b = SELECTED_INT_KIND(2)
-   INTEGER, PARAMETER, public :: sp  = SELECTED_REAL_KIND(5,30)
-   INTEGER, PARAMETER, public :: dp  = SELECTED_REAL_KIND(12,200)
-   INTEGER, PARAMETER, public :: lgt = KIND(.TRUE.)
-   INTEGER, PARAMETER, public :: spc = KIND((1.0_sp, 1.0_sp))
-   INTEGER, PARAMETER, public :: dpc = KIND((1.0_dp, 1.0_dp))
+   integer, PARAMETER, public :: i4b = SELECTED_INT_KIND(9)
+   integer, PARAMETER, public :: i8b = SELECTED_INT_KIND(16)
+   integer, PARAMETER, public :: i2b = SELECTED_INT_KIND(4)
+   integer, PARAMETER, public :: i1b = SELECTED_INT_KIND(2)
+   integer, PARAMETER, public :: sp  = SELECTED_REAL_KIND(5,30)
+   integer, PARAMETER, public :: dp  = SELECTED_REAL_KIND(12,200)
+   integer, PARAMETER, public :: lgt = KIND(.TRUE.)
+   integer, PARAMETER, public :: spc = KIND((1.0_sp, 1.0_sp))
+   integer, PARAMETER, public :: dpc = KIND((1.0_dp, 1.0_dp))
    !
-   INTEGER(I8B),  PARAMETER, public :: max_i8b = HUGE(1_i8b)
-   INTEGER,       PARAMETER, public :: max_i4b = HUGE(1_i4b)
-   INTEGER,       PARAMETER, public :: max_i2b = HUGE(1_i2b)
-   INTEGER,       PARAMETER, public :: max_i1b = 127
-   REAL(kind=sp), PARAMETER, public :: max_sp  = HUGE(1.0_sp)
-   REAL(kind=dp), PARAMETER, public :: max_dp  = HUGE(1.0_dp)
+   integer(I8B),  PARAMETER, public :: max_i8b = HUGE(1_i8b)
+   integer,       PARAMETER, public :: max_i4b = HUGE(1_i4b)
+   integer,       PARAMETER, public :: max_i2b = HUGE(1_i2b)
+   integer,       PARAMETER, public :: max_i1b = 127
+   real(kind=sp), PARAMETER, public :: max_sp  = HUGE(1.0_sp)
+   real(kind=dp), PARAMETER, public :: max_dp  = HUGE(1.0_dp)
  
    ! Numerical Constant (Double precision)
-   REAL(kind=dp), PARAMETER, public :: QUARTPI=0.785398163397448309615660845819875721049_dp
-   REAL, PARAMETER, public :: HALFPI= 1.570796326794896619231321691639751442099
-   REAL, PARAMETER, public :: PI    = 3.141592653589793238462643383279502884197
-   REAL, PARAMETER, public :: TWOPI = 6.283185307179586476925286766559005768394
-   REAL(kind=dp), PARAMETER, public :: FOURPI=12.56637061435917295385057353311801153679_dp
-   REAL(kind=dp), PARAMETER, public :: SQRT2 = 1.41421356237309504880168872420969807856967_dp
-   REAL(kind=dp), PARAMETER, public :: EULER = 0.5772156649015328606065120900824024310422_dp
-   REAL(kind=dp), PARAMETER, public :: SQ4PI_INV = 0.2820947917738781434740397257803862929220_dp
-   REAL(kind=dp), PARAMETER, public :: TWOTHIRD = 0.6666666666666666666666666666666666666666_dp
+   real(kind=dp), PARAMETER, public :: QUARTPI=0.785398163397448309615660845819875721049_dp
+   real, PARAMETER, public :: HALFPI= 1.570796326794896619231321691639751442099
+   real, PARAMETER, public :: PI    = 3.141592653589793238462643383279502884197
+   real, PARAMETER, public :: TWOPI = 6.283185307179586476925286766559005768394
+   real(kind=dp), PARAMETER, public :: FOURPI=12.56637061435917295385057353311801153679_dp
+   real(kind=dp), PARAMETER, public :: SQRT2 = 1.41421356237309504880168872420969807856967_dp
+   real(kind=dp), PARAMETER, public :: EULER = 0.5772156649015328606065120900824024310422_dp
+   real(kind=dp), PARAMETER, public :: SQ4PI_INV = 0.2820947917738781434740397257803862929220_dp
+   real(kind=dp), PARAMETER, public :: TWOTHIRD = 0.6666666666666666666666666666666666666666_dp
  
    real(kind=DP), parameter, public :: RAD2DEG = 180.0_DP / PI
    real(kind=DP), parameter, public :: DEG2RAD = PI / 180.0_DP
@@ -112,12 +112,12 @@ module healpix
  ! !  real(kind=dp), parameter, public :: SW1 = +1.0_dp ! +1 : Healpix 1.1
  
  !   real(kind=dp), parameter, public :: iKvS = 1.0_dp / KvS  ! inverse of KvS
- INTEGER(KIND=i4b), private, PARAMETER :: ns_max4=8192     ! 2^13
+ integer(KIND=i4b), private, PARAMETER :: ns_max4=8192     ! 2^13
  integer(KIND=i4b), private, save, dimension(0:127) :: x2pix1=-1,y2pix1=-1
  integer(KIND=i4b), private, save, dimension(0:1023) :: pix2x=-1, pix2y=-1
  integer(i4b), parameter :: oddbits=89478485   ! 2^0 + 2^2 + 2^4+..+2^26
  integer(i4b), parameter :: evenbits=178956970 ! 2^1 + 2^3 + 2^4+..+2^27
- INTEGER(KIND=i4b), private, PARAMETER :: ns_max=268435456! 2^28
+ integer(KIND=i4b), private, PARAMETER :: ns_max=268435456! 2^28
 contains
 
 !! Returns i with even and odd bit positions interchanged.
@@ -163,23 +163,23 @@ function swapLSBMSB(i)
 !=======================================================================
 subroutine vec2pix_nest  (nside, vector, ipix)
   integer(i4b), parameter :: MKD = I4B
-  INTEGER(KIND=I4B), INTENT(IN)                :: nside
-  REAL,              INTENT(IN), dimension(1:) :: vector
-  INTEGER(KIND=MKD), INTENT(OUT)               :: ipix
+  integer(KIND=I4B), INTENT(IN)                :: nside
+  real,              INTENT(IN), dimension(1:) :: vector
+  integer(KIND=MKD), INTENT(OUT)               :: ipix
 
   integer(kind=MKD) :: ipf, scale, scale_factor
-  REAL(KIND=DP)     ::  z, za, tt, tp, tmp, dnorm, phi
-  INTEGER(KIND=I4B) ::  jp, jm, ifp, ifm, face_num, &
+  real(KIND=DP)     ::  z, za, tt, tp, tmp, dnorm, phi
+  integer(KIND=I4B) ::  jp, jm, ifp, ifm, face_num, &
        &     ix, iy, ix_low, iy_low, ntt, i, ismax
   character(len=*), parameter :: code = "vec2pix_nest"
 
   !-----------------------------------------------------------------------
   if (nside<1 .or. nside>ns_max4) call fatal_error(code//"> nside out of range")
-  dnorm = SQRT(vector(1)**2+vector(2)**2+vector(3)**2)
+  dnorm = sqrt(vector(1)**2+vector(2)**2+vector(3)**2)
   z = vector(3) / dnorm
   phi = 0.0
   if (vector(1) /= 0.0 .or. vector(2) /= 0.0) &
-       &     phi = ATAN2(vector(2),vector(1)) ! phi in ]-pi,pi]
+       &     phi = atan2(vector(2),vector(1)) ! phi in ]-pi,pi]
 
   za = ABS(z)
   if (phi < 0.0)    phi = phi + twopi ! phi in [0,2pi[
@@ -211,9 +211,9 @@ subroutine vec2pix_nest  (nside, vector, ipix)
      ntt = INT(tt)
      if (ntt >= 4) ntt = 3
      tp = tt - ntt
-     !tmp = SQRT( 3.0_dp*(1.0_dp - za) )  ! in ]0,1]
-     tmp = SQRT(vector(1)**2+vector(2)**2) / dnorm ! sin(theta)
-     tmp = tmp * SQRT( 3.0_dp / (1.0_dp + za) ) !more accurate
+     !tmp = sqrt( 3.0_dp*(1.0_dp - za) )  ! in ]0,1]
+     tmp = sqrt(vector(1)**2+vector(2)**2) / dnorm ! sin(theta)
+     tmp = tmp * sqrt( 3.0_dp / (1.0_dp + za) ) !more accurate
 
      !        (the index of edge lines increase when distance from the closest pole goes up)
      jp = INT( nside * tp          * tmp ) ! line going toward the pole as phi increases
@@ -271,20 +271,20 @@ end subroutine vec2pix_nest
 !=======================================================================
   subroutine pix2vec_nest  (nside, ipix, vector, vertex)
     integer(i4b), parameter :: MKD = i4b
-    INTEGER(KIND=I4B), INTENT(IN) :: nside
-    INTEGER(KIND=MKD), INTENT(IN) :: ipix
-    REAL,              INTENT(OUT), dimension(1:) :: vector
-    REAL,     INTENT(OUT), dimension(1:,1:), optional :: vertex
+    integer(KIND=I4B), INTENT(IN) :: nside
+    integer(KIND=MKD), INTENT(IN) :: ipix
+    real,              INTENT(OUT), dimension(1:) :: vector
+    real,     INTENT(OUT), dimension(1:,1:), optional :: vertex
 
-    INTEGER(KIND=MKD) :: npix, npface, ipf
-    INTEGER(KIND=I4B) :: ip_low, ip_trunc, ip_med, ip_hi
-    INTEGER(KIND=I4B) :: face_num, ix, iy, kshift, scale, i, ismax
-    INTEGER(KIND=I4B) :: jrt, jr, nr, jpt, jp, nl4
-    REAL     :: z, fn, fact1, fact2, sth, phi
+    integer(KIND=MKD) :: npix, npface, ipf
+    integer(KIND=I4B) :: ip_low, ip_trunc, ip_med, ip_hi
+    integer(KIND=I4B) :: face_num, ix, iy, kshift, scale, i, ismax
+    integer(KIND=I4B) :: jrt, jr, nr, jpt, jp, nl4
+    real     :: z, fn, fact1, fact2, sth, phi
 
     ! coordinate of the lowest corner of each face
-    INTEGER(KIND=I4B), dimension(1:12) :: jrll = (/ 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 /) ! in unit of nside
-    INTEGER(KIND=I4B), dimension(1:12) :: jpll = (/ 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7 /) ! in unit of nside/2
+    integer(KIND=I4B), dimension(1:12) :: jrll = (/ 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4 /) ! in unit of nside
+    integer(KIND=I4B), dimension(1:12) :: jpll = (/ 1, 3, 5, 7, 0, 2, 4, 6, 1, 3, 5, 7 /) ! in unit of nside/2
 
     real :: phi_nv, phi_wv, phi_sv, phi_ev, phi_up, phi_dn, sin_phi, cos_phi
     real :: z_nv, z_sv, sth_nv, sth_sv
@@ -368,7 +368,7 @@ end subroutine vec2pix_nest
     else if (jr <= 3*nside) then ! equatorial region
        nr = nside
        z  = (2*nside-jr)*fact2
-       sth = SQRT((1.0-z)*(1.0+z)) ! good enough on Equator
+       sth = sqrt((1.0-z)*(1.0+z)) ! good enough on Equator
        kshift = iand(jr - nside, 1)
        if (do_vertex) then
           z_nv = (2*nside-jr+1)*fact2
@@ -433,29 +433,29 @@ end subroutine vec2pix_nest
 
        ! west vertex
        phi_wv      = phi - hdelta_phi
-       vertex(1,2) = sth * COS(phi_wv)
-       vertex(2,2) = sth * SIN(phi_wv)
+       vertex(1,2) = sth * cos(phi_wv)
+       vertex(2,2) = sth * sin(phi_wv)
        vertex(3,2) = z
 
        ! east vertex
        phi_ev      = phi + hdelta_phi
-       vertex(1,4) = sth * COS(phi_ev)
-       vertex(2,4) = sth * SIN(phi_ev)
+       vertex(1,4) = sth * cos(phi_ev)
+       vertex(2,4) = sth * sin(phi_ev)
        vertex(3,4) = z
 
        ! north and south vertices
-       sth_nv = SQRT((1.0-z_nv)*(1.0+z_nv))
-       sth_sv = SQRT((1.0-z_sv)*(1.0+z_sv))
+       sth_nv = sqrt((1.0-z_nv)*(1.0+z_nv))
+       sth_sv = sqrt((1.0-z_sv)*(1.0+z_sv))
        if (diff_phi == 0) then
           vertex(1,1) = sth_nv * cos_phi
           vertex(2,1) = sth_nv * sin_phi
           vertex(1,3) = sth_sv * cos_phi
           vertex(2,3) = sth_sv * sin_phi
        else
-          vertex(1,1) = sth_nv * COS(phi_nv)
-          vertex(2,1) = sth_nv * SIN(phi_nv)
-          vertex(1,3) = sth_sv * COS(phi_sv)
-          vertex(2,3) = sth_sv * SIN(phi_sv)
+          vertex(1,1) = sth_nv * cos(phi_nv)
+          vertex(2,1) = sth_nv * sin(phi_nv)
+          vertex(1,3) = sth_sv * cos(phi_sv)
+          vertex(2,3) = sth_sv * sin(phi_sv)
        endif
        vertex(3,1) = z_nv
        vertex(3,3) = z_sv
@@ -475,12 +475,12 @@ end subroutine vec2pix_nest
 !=======================================================================
  function npix2nside  (npix) result(nside_result)
    integer(i4b), parameter :: MKD = I4B
-   INTEGER(KIND=MKD), PARAMETER  :: npix_max = (12_MKD*ns_max4)*ns_max4
-   INTEGER(KIND=MKD), INTENT(IN) :: npix
-   INTEGER(KIND=MKD)             :: npix1, npix2
-   INTEGER(KIND=I4B)             :: nside_result
-   INTEGER(KIND=I4B)             :: nside
-   CHARACTER(LEN=*),  PARAMETER  :: code = "npix2nside"
+   integer(KIND=MKD), PARAMETER  :: npix_max = (12_MKD*ns_max4)*ns_max4
+   integer(KIND=MKD), INTENT(IN) :: npix
+   integer(KIND=MKD)             :: npix1, npix2
+   integer(KIND=I4B)             :: nside_result
+   integer(KIND=I4B)             :: nside
+   character(LEN=*),  PARAMETER  :: code = "npix2nside"
    !=======================================================================
 
    if (npix < 12 .or. npix > npix_max) then
@@ -490,7 +490,7 @@ end subroutine vec2pix_nest
       goto 1
    endif
 
-   nside = NINT( sqrt(npix/12.0_dp) )
+   nside = nint( sqrt(npix/12.0_dp) )
    npix1 = (12_MKD*nside)*nside
    if (abs(npix1-npix) > 0) then
       print*, code,"> Npix=",npix, &
@@ -522,11 +522,11 @@ end subroutine vec2pix_nest
    ! EH, Feb-2000
    ! 2009-03-04: returns i8b result, faster
    !=======================================================================
-   INTEGER(KIND=I4B)             :: npix_result
-   INTEGER(KIND=I4B), INTENT(IN) :: nside
+   integer(KIND=I4B)             :: npix_result
+   integer(KIND=I4B), INTENT(IN) :: nside
 
-   INTEGER(KIND=I4B) :: npix
-   CHARACTER(LEN=*), PARAMETER :: code = "nside2npix"
+   integer(KIND=I4B) :: npix
+   character(LEN=*), PARAMETER :: code = "nside2npix"
    !=======================================================================
 
    npix = (12_i4b*nside)*nside
@@ -563,7 +563,7 @@ subroutine mk_pix2xy()
    !     the bits corresponding to x and y are interleaved in the pixel number
    !     one breaks up the pixel number by even and odd bits
    !=======================================================================
-   INTEGER(KIND=I4B) ::  kpix, jpix, ix, iy, ip, id
+   integer(KIND=I4B) ::  kpix, jpix, ix, iy, ip, id
 
    !cc cf block data      data      pix2x(1023) /0/
    !-----------------------------------------------------------------------
@@ -604,7 +604,7 @@ subroutine mk_pix2xy()
    !          iy = 2*ix
    !     ix + iy in {0, 128**2 -1}
    !=======================================================================
-   INTEGER(KIND=I4B):: k,ip,i,j,id
+   integer(KIND=I4B):: k,ip,i,j,id
    !=======================================================================
 
    do i = 0,127           !for converting x,y into
@@ -1099,12 +1099,12 @@ end subroutine neighbours_nest
 !=======================================================================
   subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
     integer(kind=i4b), parameter  ::   MKD = I4B
-    INTEGER(KIND=I4B), INTENT(IN)  :: nside
-    INTEGER(KIND=MKD), INTENT(IN)  :: ipf_in
-    INTEGER(KIND=I4B), INTENT(OUT) :: ix, iy
+    integer(KIND=I4B), INTENT(IN)  :: nside
+    integer(KIND=MKD), INTENT(IN)  :: ipf_in
+    integer(KIND=I4B), INTENT(OUT) :: ix, iy
 
     integer(kind=MKD) :: ipf
-    INTEGER(KIND=I4B) ::  ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
+    integer(KIND=I4B) ::  ip_low, ip_trunc, ip_med, ip_hi, scale, i, ismax
     character(len=*), parameter :: code = "pix2xy_nest"
 
     !-----------------------------------------------------------------------
@@ -1154,9 +1154,9 @@ end subroutine neighbours_nest
   subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
     integer(kind=i4b), parameter  ::   MKD = I4B
     !=======================================================================
-    INTEGER(KIND=I4B), INTENT(IN) ::  nside, ix_in, iy_in, face_num
-    INTEGER(KIND=MKD), INTENT(OUT) :: ipix
-    INTEGER(KIND=I4B) ::  ix, iy, ix_low, iy_low, i, ismax
+    integer(KIND=I4B), INTENT(IN) ::  nside, ix_in, iy_in, face_num
+    integer(KIND=MKD), INTENT(OUT) :: ipix
+    integer(KIND=I4B) ::  ix, iy, ix_low, iy_low, i, ismax
     integer(kind=MKD) :: ipf, scale, scale_factor
     character(len=*), parameter :: code = "xy2pix_nest"
 

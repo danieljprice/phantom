@@ -322,7 +322,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             write(iu2, *) tau(i)
          enddo
 
-      ! OUTWARD INTEGRATION REALTIME ANALYSIS
+      ! OUTWARD INTEGRATION realTIME ANALYSIS
       else if (method == 2) then
          if (calcInwards) then
             print*,''
