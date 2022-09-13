@@ -112,7 +112,7 @@ end subroutine init_nucleation
 
 subroutine set_abundances
 ! all quantities in cgs
- eps(iH)  = 1.d0
+ eps(iH)  = 1.0
  eps(iHe) = 1.04d-1
  eps(iOx) = 6.d-4
  eps(iN)  = 2.52d-4
@@ -219,7 +219,7 @@ pure elemental real function calc_kappa_bowen(Teq)
  if (dlnT > 50.) then
     calc_kappa_bowen = 0.
  else
-    calc_kappa_bowen = bowen_kmax/(1.d0 + exp(dlnT)) + kappa_gas
+    calc_kappa_bowen = bowen_kmax/(1.0 + exp(dlnT)) + kappa_gas
  endif
 
 end function calc_kappa_bowen
@@ -411,7 +411,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
     pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
     pH2    = pH_tot/2.
-    pH     = 0.d0
+    pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
     gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
