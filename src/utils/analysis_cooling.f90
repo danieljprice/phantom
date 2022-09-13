@@ -6,21 +6,21 @@
 !--------------------------------------------------------------------------!
 module analysis
 
-   use physcon,        only: mass_proton_cgs, kboltz, atomic_mass_unit
    use cooling
    use cooling_functions
    use cooling_solver
-   use dust_formation, only: init_muGamma, set_abundances, kappa_gas, &
-                             calc_kappa_bowen, chemical_equilibrium_light, mass_per_H
-   use dim,            only:nElements
+   use physcon,          only:mass_proton_cgs,kboltz,atomic_mass_unit,patm
+   use dust_formation,   only:init_muGamma,set_abundances,kappa_gas,calc_kappa_bowen,&
+                              chemical_equilibrium_light,mass_per_H
+   use dim,              only:nElements
 
    implicit none
 
    character(len=20), parameter, public :: analysistype = 'cooling'
    public :: do_analysis
+
    private
-   integer                              :: analysis_to_perform
-   real, parameter :: patm = 1.013250d6
+   integer :: analysis_to_perform
    real    :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
    real    :: eps(nElements) = [1.d0, 1.04d-1, 0.0,  6.d-4, 2.52d-4, 1.17d-4, 3.58d-5, 1.85d-5, 3.24d-5, 8.6d-8]
 
@@ -61,9 +61,10 @@ end subroutine do_analysis
 
 subroutine test_cooling_solvers
 
-  use physcon,  only:Rg
-  use units,    only:unit_ergg,unit_density,utime
-  use options,  only:icooling
+  use prompting, only:prompt
+  use physcon,   only:Rg
+  use units,     only:unit_ergg,unit_density
+  use options,   only:icooling
 
   integer, parameter :: ndt = 100
   real :: tstart,tlast,dtstep,dti(ndt),tcool
@@ -71,12 +72,14 @@ subroutine test_cooling_solvers
   real :: mu, gamma
   real :: K2, kappa       !cgs
   real :: Q, dlnQ_dlnT
-  real :: u,ui,dudt,T_on_u,T,Tout,dt,time,Texact,tcool0
+  real :: u,ui,dudt,T_on_u,Tout,dt,tcool0
   real :: T_floor
 
-  integer :: i,imethod,ierr,iunit,ifunct
+  integer :: i,imethod,ierr,iunit,ifunct,irate
+  character(len=11) :: label
 
   !default cooling prescriptionHI
+  excitation_HI  = 99
   icooling = 1
   icool_method = 1 !0=implicit, 1=explicit, 2=exact solution
   K2    = 0.
@@ -84,7 +87,6 @@ subroutine test_cooling_solvers
 
   !temperature
   T_gas   = 1.d6
-  T       = T_gas
   rho_gas = 1.d-20 !cgs
   rho     = rho_gas/unit_density
 
@@ -92,17 +94,41 @@ subroutine test_cooling_solvers
   call set_abundances
   call init_muGamma(rho_gas, T_gas, mu, gamma, pH, pH2)
 
+  print "(29(a,/))", &
+      'Select cooling function',&
+      ' 1) Q = -a', &
+      ' 2) Q = -b*T', &
+      ' 3) Q = -c*T**3', &
+      ' 4) Q = -d/T**3', &
+      ' 5) HI cooling'
 
+  irate = 0
+  call prompt('Choose cooling rate ',irate)
+  print *,''
 
-  !analytic cooling solutions activated if  excitation_HI = 99
-  excitation_HI  = 1
-  ifunct = 0  !cst coolint rate
-  ifunct = 1  !cooling rate depends on T
-  ifunct = 3  !cooling rate depends on T**3
-  ifunct = -3 !cooling rate depends on T**-3
+  excitation_HI  = 99
+  ifunct = 0
+  select case(irate)
+  case(2)
+     ifunct = 1  !cooling rate depends on T
+     label = '_exp.dat'
+  case(3)
+     ifunct = 3  !cooling rate depends on T**3
+     label = '_T3.dat'
+  case(4)
+     ifunct = -3 !cooling rate depends on T**-3
+     label = '_Tm3.dat'
+  case(5)
+     excitation_HI = 1
+     label = '_HI.dat'
+  case default
+     ifunct = 0  !cst coolint rate
+     label = '_linear.dat'
+  end select
+
   if (excitation_HI == 1) then
      Townsend_test = .true.
-     T_floor = 3000.
+     T_floor = 10000.
      tstart = 0.01
   else
      K2 = ifunct
@@ -112,10 +138,10 @@ subroutine test_cooling_solvers
   endif
 
   call calc_cooling_rate(Q, dlnQ_dlnT, rho, T_gas, T_gas, mu, gamma, K2, kappa)
-  tcool = abs(kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg)) !code unit
+  tcool  = abs(kboltz*T_gas/((gamma-1.)*mu*atomic_mass_unit*Q*unit_ergg)) !code unit
   tcool0 = tcool
   T_on_u = (gamma-1.)*mu*unit_ergg/Rg
-  ui = T/T_on_u
+  ui     = T_gas/T_on_u
 
 
 !set timesteps
@@ -130,11 +156,11 @@ subroutine test_cooling_solvers
   ! test solver integration over timesteps of different durations
   !--------------------------------------------------------------
 
-  open(newunit=iunit,file='test_cooling_solvers.dat',status='replace')
+  open(newunit=iunit,file='test_cooling_solvers'//trim(label),status='replace')
 
   do imethod = 0,2
      icool_method = imethod !0=implicit, 1=explicit, 2=exact solution
-     print *,'#Tin=',T,', rho_cgs=',rho_gas,', imethod=',icool_method,', cooling funct =',ifunct,excitation_HI,k2
+     print *,'#Tin=',T_gas,', rho_cgs=',rho_gas,', imethod=',icool_method,', cooling funct =',ifunct,excitation_HI,k2
      do i = 1,ndt
         dt = tcool0*dti(i)
         call energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,0.,K2,0.)
@@ -151,15 +177,15 @@ subroutine test_cooling_solvers
 
   !perform explicit integration
   icool_method = 1
-  call integrate_cooling('test_cooling_explicit.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+  call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
   !perform implicit integration
   icool_method = 1
-  call integrate_cooling('test_cooling_implicit.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+  call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
   !perform implicit integration
   icool_method = 2
-  call integrate_cooling('test_cooling_exact.dat',ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
+  call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
 end subroutine test_cooling_solvers
 
@@ -176,14 +202,13 @@ subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,m
   integer, intent(in) :: ifunct
   real, intent(in) :: tcool0,ui,rho,mu,gamma,T_gas,T_floor,tstart
   character(len=*), intent(in) :: file_in
-  real :: time,dudt,dt,T,Tout,u,tend,Texact,dt_fact,T_on_u
+  real :: time,dudt,dt,Tout,u,tend,dt_fact,T_on_u
   integer :: iunit
 
   T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
   tend    = 10.*tcool0
-  dt_fact = 0.01
+  dt_fact = 0.1
   time    = 0.
-  Texact  = T_gas
   Tout    = T_gas
   dt      = tcool0*dt_fact
   u       = ui
@@ -196,7 +221,7 @@ subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,m
      u = u+dt*dudt
      Tout = max(u*T_on_u,T_floor)
      time = time+dt
-     !recalculate tcool after each iteration
+     !update dt based on the new value of tcool (bad for linear cooling!)
      !dt = dt_fact*abs(kboltz*Tout/((gamma-1.)*mu*atomic_mass_unit*dudt*unit_ergg))
      write(iunit,*) time/tcool0,dt,Tout,dudt,get_Texact(ifunct,T_gas,time,tcool0,T_floor)
   enddo
