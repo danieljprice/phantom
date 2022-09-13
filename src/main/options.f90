@@ -20,8 +20,6 @@ module options
 !
  use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
@@ -37,12 +35,7 @@ module options
  real, public :: alphamax
  real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
-
-! gr
- integer, public :: ien_type
- integer, public, parameter :: &
-      ien_entropy = 1, &
-      ien_etotal  = 2
+ integer, public :: ireconav
 
 ! additional .ev data
  logical, public :: calc_erot
@@ -70,7 +63,7 @@ contains
 
 subroutine set_default_options
  use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
+ use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
  use kernel,    only:hfact_default
@@ -128,6 +121,7 @@ subroutine set_default_options
  ! artificial thermal conductivity
  alphau = 1.
  if (gr) alphau = 0.1
+ ireconav = 1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
@@ -136,7 +130,6 @@ subroutine set_default_options
  hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
  !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
- if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
  ! radius outside which we kill particles
