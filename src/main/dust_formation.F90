@@ -627,7 +627,7 @@ pure real function calc_Kd(coefs, T)
  real, parameter :: R = 1.987165
  real :: G, d
  G = coefs(1)/T + coefs(2) + (coefs(3)+(coefs(4)+coefs(5)*T)*T)*T
- d = min(-G/(R*T),222.d0)
+ d = min(-G/(R*T),222.)
  calc_Kd = exp(d)
 end function calc_Kd
 
