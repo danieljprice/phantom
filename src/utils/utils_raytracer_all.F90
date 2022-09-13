@@ -244,7 +244,7 @@ module raytracer_all
 
       do i=1,n
             d(i)=i
-      end do
+      enddo
 
       if ( n==1 ) return
 
@@ -276,9 +276,9 @@ module raytracer_all
                il(k:ksize) = d(j:left+ksize-1)
             endif
             d(left:left+ksize-1) = il(1:ksize)
-         end do
+         enddo
          stepsize=stepsize*2
-      end do
+      enddo
    end subroutine merge_argsort
 
    !*********************************************************************!
@@ -529,7 +529,7 @@ module raytracer_all
          call get_tau_on_ray(norm2(vec), rays_tau(:,rayIndex), rays_dist(:,rayIndex), rays_dim(rayIndex), tau)
 
       ! 4 rays, linear interpolation
-      else if (raypolation==1) then
+      elseif (raypolation==1) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -570,7 +570,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 9 rays, linear interpolation
-      else if (raypolation==2) then
+      elseif (raypolation==2) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -611,7 +611,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 4 rays, square interpolation
-      else if (raypolation==3) then
+      elseif (raypolation==3) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -652,7 +652,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 9 rays, square interpolation
-      else if (raypolation==4) then
+      elseif (raypolation==4) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -693,7 +693,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 4 rays, cubed interpolation
-      else if (raypolation==3) then
+      elseif (raypolation==3) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -734,7 +734,7 @@ module raytracer_all
          tau = tau / weight
 
       ! 9 rays, cubed interpolation
-      else if (raypolation==4) then
+      elseif (raypolation==4) then
          vec_norm2 = norm2(vec)
          !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
          call vec2pix_nest(nsides, vec, rayIndex)
@@ -800,7 +800,7 @@ module raytracer_all
 
       if (distance  <  dist_along_ray(1)) then
          tau = 0.
-      else if (distance  >  dist_along_ray(len)) then
+      elseif (distance  >  dist_along_ray(len)) then
          tau = 99.
       else
          L = 2
@@ -812,7 +812,7 @@ module raytracer_all
                   R = m
             else
                   L = m + 1
-            end if
+            endif
          enddo
          !interpolate linearly ray properties to get the particle's optical depth
          tau = tau_along_ray(L-1)+(tau_along_ray(L)-tau_along_ray(L-1))/ &
@@ -1127,8 +1127,8 @@ module raytracer_all
                   dmin = raydist
                   inext = neighbors(i)
                   nextdist = dist+tempdist
-               end if
-            end if
+               endif
+            endif
          endif
          i = i+1
       enddo

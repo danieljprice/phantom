@@ -169,7 +169,7 @@ subroutine vec2pix_nest  (nside, vector, ipix)
      ifm = jm / nside
      if (ifp == ifm) then          ! faces 4 to 7
         face_num = iand(ifp,3) + 4
-     else if (ifp < ifm) then     ! (half-)faces 0 to 3
+     elseif (ifp < ifm) then     ! (half-)faces 0 to 3
         face_num = iand(ifp,3)
      else                            ! (half-)faces 8 to 11
         face_num = iand(ifm,3) + 8
@@ -337,7 +337,7 @@ end subroutine vec2pix_nest
           z_sv = 1. - (nr+1)*fact1*(nr+1)
        endif
 
-    else if (jr <= 3*nside) then ! equatorial region
+    elseif (jr <= 3*nside) then ! equatorial region
        nr = nside
        z  = (2*nside-jr)*fact2
        sth = sqrt((1.0-z)*(1.0+z)) ! good enough on Equator
@@ -352,7 +352,7 @@ end subroutine vec2pix_nest
           endif
        endif
 
-    else if (jr > 3*nside) then ! south pole region
+    elseif (jr > 3*nside) then ! south pole region
        nr = nl4 - jr
        z   = - 1.0 + nr*fact1*nr
        sth = nr * sqrt(fact1 * (1. - z) )
@@ -389,14 +389,14 @@ end subroutine vec2pix_nest
           phi_nv = phi_up
           phi_sv = phi_dn
           diff_phi = 3 ! both phi_nv and phi_sv different from phi
-       else if (jr > 3*nside) then     ! South polar cap
+       elseif (jr > 3*nside) then     ! South polar cap
           phi_nv = phi_dn
           phi_sv = phi_up
           diff_phi = 3 ! both phi_nv and phi_sv different from phi
-       else if (jr == nside) then      ! North transition
+       elseif (jr == nside) then      ! North transition
           phi_nv = phi_up
           diff_phi = 1
-       else if (jr == 3*nside) then    ! South transition
+       elseif (jr == 3*nside) then    ! South transition
           phi_sv = phi_up
           diff_phi = 2
        endif
@@ -705,37 +705,37 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
    nneigh=8                  !Except in special cases below
 
    !     Exclude corners
-   if(ipf==local_magic2)     then !WestCorner
+   if (ipf==local_magic2)     then !WestCorner
       icase=5
       goto 100
    endif
-   if(ipf==(nsidesq-1)) then !NorthCorner
+   if (ipf==(nsidesq-1)) then !NorthCorner
       icase=6
       goto 100
    endif
-   if(ipf==0)           then !SouthCorner
+   if (ipf==0)           then !SouthCorner
       icase=7
       goto 100
    endif
-   if(ipf==local_magic1)     then !EastCorner
+   if (ipf==local_magic1)     then !EastCorner
       icase=8
       goto 100
    endif
 
    !     Detect edges
-   if(IAND(ipf,local_magic1)==local_magic1) then !NorthEast
+   if (IAND(ipf,local_magic1)==local_magic1) then !NorthEast
       icase=1
       goto 100
    endif
-   if(IAND(ipf,local_magic1)==0)      then !SouthWest
+   if (IAND(ipf,local_magic1)==0)      then !SouthWest
       icase=2
       goto 100
    endif
-   if(IAND(ipf,local_magic2)==local_magic2) then !NorthWest
+   if (IAND(ipf,local_magic2)==local_magic2) then !NorthWest
       icase=3
       goto 100
    endif
-   if(IAND(ipf,local_magic2)==0)      then !SouthEast
+   if (IAND(ipf,local_magic2)==0)      then !SouthEast
       icase=4
       goto 100
    endif
@@ -759,7 +759,7 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
    ibm=modulo(ib+4-1,4)
    ib2=modulo(ib+2,4)
 
-   if(ia==0) then          !North Pole region
+   if (ia==0) then          !North Pole region
       select case(icase)
       case(1)              !NorthEast edge
          other_face=0+ibp
@@ -857,7 +857,7 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
          n(1)=n(7)-1
       end select ! north
 
-   elseif(ia==1) then      !Equatorial region
+   elseif (ia==1) then      !Equatorial region
       select case(icase)
       case(1)              !NorthEast edge
          other_face=0+ib
