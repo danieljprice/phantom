@@ -146,9 +146,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%JKmuS     = 0.
  if (idust_opacity == 2) call init_muGamma(state%rho, state%Tg, state%mu, state%gamma)
  state%alpha          = state%alpha_Edd + alpha_rad
- state%jKmuS(idalpha) = state%alpha
- state%jKmuS(idmu)    = state%mu
- state%jKmuS(idgamma) = state%gamma
+ state%JKmuS(idalpha) = state%alpha
+ state%JKmuS(idmu)    = state%mu
+ state%JKmuS(idgamma) = state%gamma
  state%dalpha_dr = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
 #ifdef ISOTHERMAL
@@ -213,7 +213,7 @@ subroutine wind_step(state)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
     state%alpha_Edd      = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
-    state%jKmuS(idalpha) = state%alpha_Edd+alpha_rad
+    state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
@@ -308,7 +308,7 @@ subroutine wind_step(state)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  state%alpha = state%alpha_Edd+alpha_rad
- if (idust_opacity == 2) state%jKmuS(idalpha) = state%alpha
+ if (idust_opacity == 2) state%JKmuS(idalpha) = state%alpha
  if (state%time > 0.)    state%dalpha_dr      = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
  rvT(1) = state%r
  rvT(2) = state%v

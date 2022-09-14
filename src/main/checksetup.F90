@@ -388,7 +388,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check dust fraction is 0->1 if one fluid dust is used
 !
- if (use_dustfrac) then
+ if (use_dustfrac .and. npart > 0) then
     nbad = 0
     nunity = 0
     dust_to_gas_mean = 0.
