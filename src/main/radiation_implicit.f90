@@ -133,24 +133,25 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
  use kdtree,   only:inodeparts,inoderange
  use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas
+ use part,     only:iphase,igas,get_partinfo
  use kernel,   only:radkern2
+ use io,       only:fatal
  real, intent(in)                  :: xyzh(:,:)
  integer, allocatable, intent(out) :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
- integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact
+ integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact,icompactmax,iamtypei
  integer, parameter                :: maxcellcache = 10000
  real                              :: dx,dy,dz,hi21,hj21,hj1,rij2,q2i,q2j
  real, save                        :: xyzcache(maxcellcache,4)
  !$omp threadprivate(xyzcache)
- logical                           :: iactivei,iamtypei,iamdusti,iamgasi
+ logical                           :: iactivei,iamdusti,iamgasi
 
  ncompact = 0
  ncompactlocal = 0
-
+ icompactmax = size(ivar(1,:))
  !$omp parallel do schedule(runtime)&
  !$omp shared(ncells,nneigh,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
- !$omp shared(ncompact,icompact)&
+ !$omp shared(ncompact,icompact,icompactmax)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
  !$omp private(hi21,hj21,hj1,ncompact_private,icompact_private)
 
@@ -224,7 +225,6 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
              icompact_private = icompact
              icompact = icompact + nneigh
 !$omp end critical (listcompact)
-             icompactmax = size(ivar(1,:))
              if (icompact_private+nneigh > icompactmax) then
                 call fatal('radiation-implicit','not enough memory allocated for neighbour list')
              endif
@@ -370,10 +370,12 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
           vmu = dv
        endif
 
+       ! Coefficients in radiative flux term in radiation energy density equation (e.g. eq 22 & 25, Whitehouse & Bate 2004)
        dvdWimj = pmj*dv*dWi*gradh(1,i)
        dvdWimi = pmi*dv*dWi*gradh(1,i)
        dvdWjmj = pmj*dv*dWj*gradh(1,j)
 
+       ! Coefficients for p(div(v))/rho term in gas energy equation (e.g. eq 26, Whitehouse & Bate 2004)
        dWidrlightrhorhom = c_code*dWi/dr*pmj/(rhoi*rhoj)
        dWiidrlightrhorhom = c_code*dWi/dr*pmi/(rhoi*rhoj)
        dWjdrlightrhorhom = c_code*dWj/dr*pmj/(rhoi*rhoj)
@@ -465,7 +467,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
        pmjdWruniy = varij2(2,icompact)
        pmjdWruniz = varij2(3,icompact)
 
-       ! Calculates the gradient of E (where E=rho*e)
+       ! Calculates the gradient of E (where E=rho*e, and e is xi)
        Eij1 = rhoi*EU0(1,i) - rhoj*EU0(1,j)
 
        dedxi = dedxi - Eij1*pmjdWrunix
@@ -484,7 +486,7 @@ end subroutine compute_flux
 
 !---------------------------------------------------------
 !+
-!  calculate lambda and eddington factor
+!  calculate flux limiter (lambda) and eddington factor
 !+
 !---------------------------------------------------------
 subroutine calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
@@ -520,8 +522,8 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
     endif
 
     radRi = get_rad_R(rhoi,EU0(1,i),radprop(ifluxx:ifluxz,i),opacity)
-    radprop(ilambda,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2) 
-    radprop(iedd,i) = radprop(ilambda,i) + radprop(ilambda,i)**2 * radRi**2
+    radprop(ilambda,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
+    radprop(iedd,i) = radprop(ilambda,i) + radprop(ilambda,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
  enddo
  !$omp end parallel do
 
@@ -578,7 +580,7 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
        dWidrlightrhorhom = varij(3,icompact)
        dWjdrlightrhorhom = varij(4,icompact)
        !
-       !--Set c*lambda/kappa*rho term for current quantities
+       !--Set c*lambda/kappa*rho term (radiative diffusion coefficient) for current quantities
        !
        if (dustRT .and. dust_temp(i) < Tdust_threshold) then
           opacityi = nucleation(idkappa,i)
@@ -604,7 +606,7 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
        !	    
        !--Diffusion numerator and denominator
        !
-       diffusion_numerator = diffusion_numerator - 0.5*dWidrlightrhorhom*b1*EU0(1,J)*rhoj
+       diffusion_numerator = diffusion_numerator - 0.5*dWidrlightrhorhom*b1*EU0(1,j)*rhoj
        diffusion_denominator = diffusion_denominator + 0.5*dWidrlightrhorhom*b1*rhoi
        !
        !--If particle j is active, need to add contribution due to i for hj
@@ -688,8 +690,8 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
     if (gradEi2 < tiny(0.)) then
        gradvPi = 0.
     else
-       rpdiag = 0.5*(1.-radprop(iedd,i))
-       rpall = 0.5*(3.*radprop(iedd,i)-1.)/gradEi2
+       rpdiag = 0.5*(1.-radprop(iedd,i))  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
+       rpall = 0.5*(3.*radprop(iedd,i)-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux) 
        gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
                  ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
                  ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
@@ -698,7 +700,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
                  ((rpall*radprop(ifluxy,i)*radprop(ifluxz,i))*dvdx(6,i))+ &
                  ((rpall*radprop(ifluxz,i)*radprop(ifluxx,i))*dvdx(7,i))+ &
                  ((rpall*radprop(ifluxz,i)*radprop(ifluxy,i))*dvdx(8,i))+ &
-                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))
+                 ((rpdiag+rpall*radprop(ifluxz,i)**2)*dvdx(9,i)))  ! e.g. eq 23, Whitehouse & Bate (2004)
     endif
 
     radpresdenom = gradvPi * EU0(1,i)
@@ -1350,7 +1352,7 @@ end function gas_dust_collisional_term
 
 !---------------------------------------------------------
 !+
-!  solve quartic
+!  solve quartic (eq 22, Whitehouse et al. 2005)
 !  (Should be split further and unit tested)
 !+
 !---------------------------------------------------------
@@ -1362,6 +1364,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep)
  real :: soln,tsoln1,tsoln2,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
  real, dimension(2) :: z1,z2,z3,z4
 
+ ! Between eq 22 & 23
  a4 = 1.
  a3 = 0.
  a2 = 0.

@@ -47,6 +47,7 @@ contains
 pure real function get_rad_R(rho,xi,flux,kappa) result(radR)
  real, intent(in) :: rho,xi,flux(3),kappa
 
+ ! Note that flux is supposed to be grad(E) = grad(rho*xi)
  if (abs(xi) > epsilon(xi)) then
     radR = sqrt(dot_product(flux,flux))/(kappa*rho*rho*xi)
  else
