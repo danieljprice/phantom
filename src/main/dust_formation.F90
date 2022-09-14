@@ -102,8 +102,8 @@ subroutine init_nucleation
  !initialize nucleation array
  gamma = 5./3.
  JKmuS = 0.
- jKmuS(idmu)    = gmw
- jKmuS(idgamma) = gamma
+ JKmuS(idmu)    = gmw
+ JKmuS(idgamma) = gamma
  do i=1,npart
     nucleation(:,i) = JKmuS(:)
  enddo
