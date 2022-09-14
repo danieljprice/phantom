@@ -34,6 +34,7 @@ contains
 !+
 !---------------------------------------------------------
 subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+ use io, only:fatal
  integer, intent(in)  :: npart
  real, intent(in)     :: dt,xyzh(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
@@ -41,19 +42,24 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
  real                 :: dtsub,errorE,errorU
- real, allocatable    :: origEU(:,:)
+ real, allocatable    :: origEU(:,:),EU0(:,:)
  
  ierr = 0
  nsubsteps = 1 
  dtsub = dt
 
+ allocate(origEU(2,npart),EU0(2,npart),stat=ierr)
+ if (ierr/=0) call fatal('do_radiation_implicit','could not allocate memory to origEU and EU0')
+
  call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.false.)
 
  do i = 1,nsubsteps
-    call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,failed,nit,errorE,errorU,moresweep,ierr)
+    call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
     if (failed) ierr = ierr_failed_to_converge
     if (i /= nsubsteps) call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
  enddo
+
+ deallocate(origEU,EU0)
 
 end subroutine do_radiation_implicit
 
@@ -95,15 +101,16 @@ end subroutine save_radiation_energies
 !  perform single iteration
 !+
 !---------------------------------------------------------
-subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,failed,nit,errorE,errorU,moresweep,ierr)
- real, intent(in)     :: dt,xyzh(:,:)
+subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+ use io, only:fatal
+ real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
- real, intent(out)    :: errorE,errorU
+ real, intent(out)    :: errorE,errorU,EU0(:,:)
  integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal
- real, allocatable    :: vari(:,:),EU0(:,:),varij(:,:),varij2(:,:),varinew(:,:),origEU(:,:)
+ integer              :: ncompact,ncompactlocal,npart,icompactmax
+ real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
 
  failed = .false.
  nit = 0
@@ -111,9 +118,18 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,failed,nit,errorE,erro
  errorU = 0. 
  ierr = 0
 
+ npart = size(xyzh(1,:))
+ icompactmax = 60*npart
+ allocate(ivar(3,npart),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
+ allocate(ijvar(icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
+ allocate(vari(2,npart),varij(4,icompactmax),varij2(3,icompactmax),varinew(3,npart),stat=ierr)
+ if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew')
+
  !dtimax = dt/imaxstep 
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,vari,varij,varij2,origEU,EU0)
+ call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
  call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
  call calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
  call calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varinew,ierr)
@@ -137,7 +153,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  use kernel,   only:radkern2
  use io,       only:fatal
  real, intent(in)                  :: xyzh(:,:)
- integer, allocatable, intent(out) :: ivar(:,:),ijvar(:)
+ integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
  integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact,icompactmax,iamtypei
  integer, parameter                :: maxcellcache = 10000
@@ -148,7 +164,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
  ncompact = 0
  ncompactlocal = 0
- icompactmax = size(ivar(1,:))
+ icompactmax = size(ijvar)
  !$omp parallel do schedule(runtime)&
  !$omp shared(ncells,nneigh,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
  !$omp shared(ncompact,icompact,icompactmax)&
