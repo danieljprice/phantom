@@ -40,7 +40,7 @@ module cooling
  public :: init_cooling,energ_cooling
  public :: write_options_cooling,read_options_cooling
 
- logical, public :: cooling_in_step  = .true.
+ logical, public :: cooling_in_step  = .false.
 
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0.                     ! [K]; set in .in file.  On if Tfloor > 0.
