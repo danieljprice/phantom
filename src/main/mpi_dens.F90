@@ -14,7 +14,7 @@ module mpidens
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpi, mpiutils
+! :Dependencies: dim, io, mpi
 !
  use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxxpartvecidens
@@ -25,6 +25,27 @@ module mpidens
  public :: celldens
  public :: stackdens
  public :: get_mpitype_of_celldens
+
+ integer, public :: dtype_celldens
+
+ integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
+                                         8 * minpart                    + & !  h_old(minpart)
+                                         8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
+                                         8 * maxrhosum * minpart        + & !  rhosums(maxrhosum,minpart)
+                                         8 * 3                          + & !  xpos(3)
+                                         8                              + & !  xsizei
+                                         8                              + & !  rcuti
+                                         8                              + & !  hmax
+                                         4                              + & !  icell
+                                         4                              + & !  npcell
+                                         4 * minpart                    + & !  arr_index(minpart)
+                                         4                              + & !  owner
+                                         4                              + & !  nits
+                                         4                              + & !  nneightry
+                                         4 * minpart                    + & !  nneigh(minpart)
+                                         4                              + & !  waiting_index
+                                         1 * minpart                        !  iphase(minpart)
 
  type celldens
     sequence
@@ -45,7 +66,7 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart) + minpart, 8))
+    integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
  type stackdens
@@ -58,20 +79,17 @@ module mpidens
 
 contains
 
-subroutine get_mpitype_of_celldens(dtype)
+subroutine get_mpitype_of_celldens
 #ifdef MPI
  use mpi
- use mpiutils, only:mpierr
  use io,       only:error
 
- integer, parameter              :: ndata = 18
-
- integer, intent(out)            :: dtype
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
- type(celldens)                 :: cell
+ type(celldens)                  :: cell
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
+ integer                         :: mpierr
 
  nblock = 0
 
@@ -185,18 +203,17 @@ subroutine get_mpitype_of_celldens(dtype)
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
- call MPI_TYPE_COMMIT(dtype,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype_celldens,mpierr)
+ call MPI_TYPE_COMMIT(dtype_celldens,mpierr)
 
  ! check extent okay
- call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
+ call MPI_TYPE_GET_EXTENT(dtype_celldens,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
     call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 #else
- integer, intent(out) :: dtype
- dtype = 0
+ dtype_celldens = 0
 #endif
 end subroutine get_mpitype_of_celldens
 
