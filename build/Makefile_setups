@@ -389,7 +389,7 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
-    SETUPFILE= velfield_fromcubes.f90  setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
