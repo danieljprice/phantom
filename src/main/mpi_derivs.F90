@@ -75,7 +75,6 @@ module mpiderivs
 
 #ifdef MPI
  integer :: ncomplete
- integer :: dtype_celldens
 #endif
 
  integer,allocatable :: countrequest(:)
@@ -107,7 +106,7 @@ end subroutine deallocate_cell_comms_arrays
 !----------------------------------------------------------------
 subroutine init_celldens_exchange(xbufrecv,ireq)
  use io,       only:fatal
- use mpidens,  only:get_mpitype_of_celldens,celldens
+ use mpidens,  only:dtype_celldens,celldens
 
  type(celldens),     intent(inout) :: xbufrecv(nprocs)
  integer,            intent(out)   :: ireq(nprocs) !,nrecv
@@ -122,8 +121,6 @@ subroutine init_celldens_exchange(xbufrecv,ireq)
 !
 !  We post a receive for EACH processor, to match the number of sends
 !
-
- call get_mpitype_of_celldens(dtype_celldens)
 
  do iproc=1,nprocs
     call MPI_RECV_INIT(xbufrecv(iproc),1,dtype_celldens,iproc-1, &
@@ -184,7 +181,7 @@ end subroutine init_cellforce_exchange
 !-----------------------------------------------------------------------
 subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
  use io,       only:fatal
- use mpidens,  only:celldens
+ use mpidens,  only:celldens,dtype_celldens
 
  type(celldens),     intent(in)     :: cell
  logical,            intent(in)     :: targets(nprocs)
@@ -473,7 +470,7 @@ end subroutine combine_cellforce
 !----------------------------------------------------------------
 subroutine finish_celldens_exchange(irequestrecv,xsendbuf)
  use io,       only:fatal
- use mpidens,  only:celldens
+ use mpidens,  only:celldens,dtype_celldens
  integer,            intent(inout)  :: irequestrecv(nprocs)
  type(celldens), intent(in)         :: xsendbuf
 #ifdef MPI
