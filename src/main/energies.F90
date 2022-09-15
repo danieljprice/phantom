@@ -364,7 +364,7 @@ subroutine compute_energies(t)
           ponrhoi  = eos_vars(igasP,i)/rhoi
           spsoundi = eos_vars(ics,i)
           if (maxvxyzu >= 4) then
-             ethermi = pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
+             ethermi = pmassi*utherm(vxyzu(:,i),rhoi,gamma)*gasfrac
 #ifdef GR
              ethermi = (alpha_gr/lorentzi)*ethermi
 #endif

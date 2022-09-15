@@ -120,7 +120,7 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
-                     use_dust,fast_divcurlB,mpi
+                     use_dust,fast_divcurlB,mpi,gr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
@@ -200,7 +200,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !
  realviscosity = (irealvisc > 0)
  getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. (icall <= 1 .or. icall==3)) .or. &
-         (maxdvdx==maxp .and. (use_dust .or. realviscosity))
+         (maxdvdx==maxp .and. (use_dust .or. realviscosity .or. gr))
  if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
