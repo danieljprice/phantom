@@ -285,30 +285,36 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
  real, parameter   :: Nl = 5.
  real, parameter   :: mproton = 1.6726485d-24
 
- real :: ln_S_g, Nstar_inf_13, Nstar, Nstar_m1_13, Nstar_m1_23, theta_Nstar
+ real :: ln_S_g, Nstar_inf_13, Nstar, Nstar_m1_13, Nstar_m1_23, theta_Nstar,Nstar_m1
  real :: dtheta_dNstar, d2lnc_dN2star, Z, A_Nstar, v1, beta, c_star, expon
 
  ln_S_g = log(S)
+ v1     = vfactor*sqrt(T)
  Nstar_inf_13  = 2.*theta_inf/(3.*T*ln_S_g)
- Nstar         = 1. + (Nstar_inf_13**3)/8. * (1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13)**3
- Nstar_m1_13   = (Nstar - 1.)**(1./3.)
- Nstar_m1_23   = Nstar_m1_13**2
- theta_Nstar   = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
- dtheta_dNstar = Nl**(1./3.)/3. * theta_Nstar**2/(theta_inf * Nstar_m1_23**2)
- d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
- Z             = sqrt(d2lnc_dN2star/(2.*pi))
- A_Nstar       = A0 * Nstar**(2./3.)
- v1            = vfactor*sqrt(T)
- beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
- expon         = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
- if (expon < -100.) then
-    c_star = 1.d-99
+ Nstar_m1      = 1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13
+ if (Nstar_m1 > 0.) then
+    Nstar         = 1. + (Nstar_inf_13**3)/8. * Nstar_m1**3
+    Nstar_m1_13   = (Nstar - 1.)**(1./3.)
+    Nstar_m1_23   = Nstar_m1_13**2
+    theta_Nstar   = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
+    dtheta_dNstar = Nl**(1./3.)/3. * theta_Nstar**2/(theta_inf * Nstar_m1_23**2)
+    d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
+    Z             = sqrt(d2lnc_dN2star/(2.*pi))
+    A_Nstar       = A0 * Nstar**(2./3.)
+    beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
+    expon         = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
+    if (expon < -100.) then
+       c_star = 1.d-99
+    else
+       c_star = pC/(kboltz*T) * exp(expon)
+    endif
+    JstarS  = beta * A_Nstar * Z * c_star
+    taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
  else
-    c_star = pC/(kboltz*T) * exp(expon)
+    JstarS  = 0.d0
+    taustar = 1.d-30
  endif
- JstarS  = beta * A_Nstar * Z * c_star
- taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
- taugr   = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
+ taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
 
 !------------------------------------
