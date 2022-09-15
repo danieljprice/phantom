@@ -58,9 +58,7 @@ module mpiderivs
  public :: finish_cell_exchange
  public :: recv_while_wait
  public :: reset_cell_counters
-#ifdef MPI
  public :: check_complete
-#endif
 
  !
  !--the counters are module variables, but must be passed through as arguments
@@ -73,11 +71,7 @@ module mpiderivs
 
  private
 
-#ifdef MPI
- integer :: ncomplete
-#endif
-
- integer,allocatable :: countrequest(:)
+ integer, allocatable :: countrequest(:)
 
 contains
 
@@ -110,7 +104,7 @@ subroutine init_celldens_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi)
  use omputils, only:omp_thread_num,omp_num_threads
 
  type(celldens),     intent(inout) :: xbufrecv(nprocs)
- integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ integer,            intent(out)   :: ireq(nprocs)
  logical,            intent(inout) :: thread_complete(omp_num_threads)
  integer,            intent(out)   :: ncomplete_mpi
 #ifdef MPI
@@ -148,7 +142,7 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi)
  use omputils, only:omp_thread_num,omp_num_threads
 
  type(cellforce),    intent(inout) :: xbufrecv(nprocs)
- integer,            intent(out)   :: ireq(nprocs) !,nrecv
+ integer,            intent(out)   :: ireq(nprocs)
  logical,            intent(inout) :: thread_complete(omp_num_threads)
  integer,            intent(out)   :: ncomplete_mpi
 #ifdef MPI
@@ -194,8 +188,7 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters)
  type(celldens),     intent(out)    :: xsendbuf
  integer,            intent(inout)  :: counters(nprocs,3)
 #ifdef MPI
- integer                            :: newproc
- integer                            :: mpierr
+ integer                            :: newproc,mpierr
 
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
@@ -222,8 +215,7 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters)
  type(cellforce),    intent(out)    :: xsendbuf
  integer,            intent(inout)  :: counters(nprocs,3)
 #ifdef MPI
- integer                            :: newproc
- integer                            :: mpierr
+ integer                            :: newproc,mpierr
 
  xsendbuf = cell
  irequestsend = MPI_REQUEST_NULL
@@ -579,17 +571,18 @@ end subroutine finish_cellforce_exchange
 !  check which threads have completed
 !+
 !----------------------------------------------------------------
-#ifdef MPI
+
 subroutine check_complete(counters,ncomplete_mpi)
  use io, only:fatal
  integer, intent(inout) :: counters(nprocs,3)
  integer, intent(out)   :: ncomplete_mpi
+#ifdef MPI
  integer :: i
  logical :: countreceived
  integer :: mpierr
  integer :: status(MPI_STATUS_SIZE)
 
- ncomplete_mpi = 1 !self
+ ncomplete_mpi = 1 ! self
  do i=1,nprocs
     if (i /= id + 1) then
        call MPI_TEST(countrequest(i),countreceived,status,mpierr)
@@ -605,8 +598,8 @@ subroutine check_complete(counters,ncomplete_mpi)
        endif
     endif
  enddo
-end subroutine check_complete
 #endif
+end subroutine check_complete
 
 !----------------------------------------------------------------
 !+
@@ -622,11 +615,11 @@ subroutine reset_cell_counters(counters)
  integer :: iproc
  integer :: mpierr
 
+ !$omp master
  counters(:,isent)   = 0
  counters(:,iexpect) = -1
  counters(:,irecv)   = 0
 
- !$omp master
  do iproc=1,nprocs
     if (iproc /= id + 1) then
        call MPI_IRECV(counters(iproc,iexpect),1,MPI_INTEGER4,iproc-1, &

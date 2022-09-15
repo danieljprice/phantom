@@ -74,24 +74,22 @@ module mpimemory
 
 contains
 
-subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
+subroutine allocate_mpi_memory(npart, stacksize_in)
  integer, optional,  intent(in) :: npart
  integer, optional,  intent(in) :: stacksize_in
- logical, optional,  intent(in) :: reallocate
  integer :: allocstat
- logical :: re_allocate = .false.
 
  allocstat = 0
 
  if (present(stacksize_in)) stacksize = stacksize_in
  if (present(npart)) call calculate_stacksize(npart)
- if (present(reallocate)) re_allocate = reallocate
 
  if (allocated(dens_cells)) then
     if (stacksize /= size(dens_cells,1)) then
        call fatal('stack', 'dens_cells already allocated with a different size')
     endif
  endif
+
  if (allocated(force_cells)) then
     if (stacksize /= size(force_cells,1)) then
        call fatal('stack', 'force_cells already allocated with a different size')
@@ -100,20 +98,9 @@ subroutine allocate_mpi_memory(npart, stacksize_in, reallocate)
 
  if (.not. allocated(dens_cells)) allocate(dens_cells(stacksize,3), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')
-
- ! If reallocating an existing stack for expanding MPI memory,
- ! give the stack the same address that it previously had. This
- ! may not be the same as the initial order because density stacks
- ! can be swapped. Force stacks do not get swapped.
- if (re_allocate) then
-    call allocate_stack(dens_stack_1, dens_stack_1%number)
-    call allocate_stack(dens_stack_2, dens_stack_2%number)
-    call allocate_stack(dens_stack_3, dens_stack_3%number)
- else
-    call allocate_stack(dens_stack_1, 1)
-    call allocate_stack(dens_stack_2, 2)
-    call allocate_stack(dens_stack_3, 3)
- endif
+ call allocate_stack(dens_stack_1, 1)
+ call allocate_stack(dens_stack_2, 2)
+ call allocate_stack(dens_stack_3, 3)
 
  if (.not. allocated(force_cells)) allocate(force_cells(stacksize,2), stat=allocstat)
  if (allocstat /= 0) call fatal('stack','fortran memory allocation error')

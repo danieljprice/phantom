@@ -312,16 +312,14 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     !--skip empty cells AND inactive cells
     if (i <= 0) cycle over_cells
 
-    !
     !--get the neighbour list and fill the cell cache
-    !
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                            remote_export=remote_export)
     do_export = any(remote_export)
-    cell%icell                   = icell
-    cell%owner                   = id
-    cell%nits                    = 0
-    cell%nneigh                  = 0
+    cell%icell  = icell
+    cell%owner  = id
+    cell%nits   = 0
+    cell%nneigh = 0
 
     call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad)
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -429,8 +427,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     !$omp master
     n_remote_its = n_remote_its + 1
-    call reset_cell_counters(cell_counters)
     !$omp end master
+    call reset_cell_counters(cell_counters)
     !$omp barrier
 
     igot_remote: if (stack_remote%n > 0) then
@@ -470,9 +468,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif igot_remote
 
     call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
-    !$omp master
     call reset_cell_counters(cell_counters)
-    !$omp end master
     !$omp barrier
 
     iam_waiting: if (stack_waiting%n > 0) then
@@ -487,8 +483,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              converged = .true.
           endif
 
-          ! communication happened while finishing cell
-          ! TODO: see if calling recv first here improves performance
+          ! check for incoming cells (if converged, this may not be checked until enxt cell)
+          call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+
           if (.not. converged) then
              call set_hmaxcell(cell%icell,cell%hmax)
              call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
