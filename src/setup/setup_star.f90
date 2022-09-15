@@ -279,15 +279,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Interpolating composition for each particle in the star. For now I write a file with the interpolate data
  ! This is used in analysis kepler file to bin composition.
  !
-
-
-!
-   !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
-   !in the star.
+ select case(iprofile)
+        case(ikepler)
+   ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+   ! !in the star.
    if (columns_compo /= 0) then
      composition_exists = .true.
    endif
-
 
    if (composition_exists) then
      print*, 'Writing the stellar composition for each particle into ','kepler.comp'
@@ -297,6 +295,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
            comp_label
        !Now setting the composition of star if the case used was ikepler
        allocate(compositioni(columns_compo,1))
+       allocate(comp(1:npts))
        do i = 1,npart
          !Interpolate compositions
          ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
@@ -311,7 +310,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     close(11)
     print*, '>>>>>> done'
     end if
-
+end select
  !
  ! Print summary to screen
  !
@@ -511,7 +510,7 @@ subroutine set_defaults_given_profile(iprofile,iexist,need_inputprofile,need_rst
     need_inputprofile = .true.
  case(ikepler)
     ! sets up a star from a 1D KEPLER code output
-    !  Original Author: Nicole Rodrigues
+    !  Original Author: Nicole Rodrigues and Megha Sharma
     input_profile = 'kepler_MS.data'
     need_inputprofile = .true.
  case(ibpwpoly)
