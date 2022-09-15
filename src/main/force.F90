@@ -283,10 +283,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
 
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
-
- integer :: ncomplete_mpi
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -549,7 +548,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
  !$omp end master
-
  !$omp barrier
 
  igot_remote: if (stack_remote%n > 0) then
@@ -580,7 +578,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo over_remote
     !$omp enddo
 
+    !$omp master
     stack_remote%n = 0
+    !$omp end master
 
     idone(:) = .false.
     do while(.not.all(idone))
