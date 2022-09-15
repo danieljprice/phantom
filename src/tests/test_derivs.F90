@@ -18,7 +18,7 @@ module testderivs
 !   eos, io, kernel, linklist, mpidomain, mpiutils, nicil, options, part,
 !   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
- use part, only:massoftype
+ use part, only:massoftype,ien_type,ien_entropy
  implicit none
 
  public :: test_derivs
@@ -33,7 +33,7 @@ subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
                         maxdustsmall,periodic,mpi
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,          only:polyk,gamma,use_entropy,init_eos
+ use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
  use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac,iopacity_type
@@ -1115,7 +1115,7 @@ subroutine check_fxyzu(n,nfailed,j)
  call checkvalf(n,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)',checkmask)
  call checkvalf(n,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)',checkmask)
  call checkvalf(n,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)',checkmask)
- if (use_entropy .or. ieos /= 2) then
+ if (ien_type == ien_entropy .or. ieos /= 2) then
     call checkval(n,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt',checkmask)
  else
     allocate(dummy(n))
@@ -1134,7 +1134,7 @@ subroutine check_fxyzu_nomask(n,nfailed,j)
  call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)')
  call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)')
  call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)')
- if (use_entropy .or. ieos /= 2) then
+ if (ien_type == ien_entropy .or. ieos /= 2) then
     call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt')
  else
     allocate(dummy(nparttest))

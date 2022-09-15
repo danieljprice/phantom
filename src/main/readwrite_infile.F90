@@ -33,7 +33,7 @@ module readwrite_infile
 !   - flux_limiter       : *limit radiation flux*
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
-!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy)*
+!   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
 !   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
@@ -66,20 +66,17 @@ module readwrite_infile
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
-                     ipdv_heating,ishock_heating,iresistive_heating, &
+                     ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc, &
-                     ien_type
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
- use part,      only:hfact
+ use part,      only:hfact,ien_type
  use io,        only:iverbose
  use dim,       only:do_radiation,nucleation
  implicit none
  logical :: incl_runtime2 = .false.
- character(len=80), parameter, public :: &
-    modid="$Id$"
 
 contains
 
@@ -89,7 +86,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -122,7 +119,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
@@ -180,6 +177,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(hfact,'hfact','h in units of particle spacing [h = hfact(m/rho)^(1/3)]',iwritein)
  call write_inopt(tolh,'tolh','tolerance on h-rho iterations',iwritein,exp=.true.)
  if (gr) then
+    call write_inopt(C_ent,'C_ent','restrict timestep when ds/dt is too large (not used if ien_type != 3)',iwritein)
     call write_inopt(xtol,'xtol','tolerance on xyz iterations',iwritein)
     call write_inopt(ptol,'ptol','tolerance on pmom iterations',iwritein)
  endif
@@ -187,14 +185,14 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopts_link(iwritein)
 
  write(iwritein,"(/,a)") '# options controlling hydrodynamics, artificial dissipation'
- if (maxalpha==maxp) then
-    call write_inopt(alpha,'alpha','MINIMUM art. viscosity parameter',iwritein)
-    call write_inopt(alphamax,'alphamax','MAXIMUM art. viscosity parameter',iwritein)
+ if (maxalpha==maxp .and. nalpha > 0) then
+    call write_inopt(alpha,'alpha','MINIMUM shock viscosity parameter',iwritein)
+    call write_inopt(alphamax,'alphamax','MAXIMUM shock viscosity parameter',iwritein)
  else
-    call write_inopt(alpha,'alpha','art. viscosity parameter',iwritein)
+    call write_inopt(alpha,'alpha','shock viscosity parameter',iwritein)
  endif
  if (maxvxyzu >= 4) then
-    call write_inopt(alphau,'alphau','art. conductivity parameter',iwritein)
+    call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  endif
  if (mhd) then
     call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
@@ -203,8 +201,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
- call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
-
+ if (maxalpha==maxp .and. maxp > 0) then
+    call write_inopt(avdecayconst,'avdecayconst','decay time constant for viscosity switches',iwritein)
+ endif
+ if (gr) then
+    call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
+ endif
  call write_options_damping(iwritein,idamp)
 
  !
@@ -218,7 +220,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(iresistive_heating,'iresistive_heating','resistive heating (0=off, 1=on)',iwritein)
     endif
     if (gr) then
-       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy)',iwritein)
+       call write_inopt(ien_type,'ien_type','energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)',iwritein)
     endif
  endif
 
@@ -300,7 +302,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
- use eos,             only:use_entropy,read_options_eos,ieos
+ use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
@@ -466,6 +468,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) hdivbbmax_max
     case('beta')
        read(valstring,*,iostat=ierr) beta
+    case('ireconav')
+       read(valstring,*,iostat=ierr) ireconav
     case('avdecayconst')
        read(valstring,*,iostat=ierr) avdecayconst
     case('ipdv_heating')
@@ -634,8 +638,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     !if (damp > 1.)     call warn(label,'damping ridiculously big')
     if (alpha < 0.)    call fatal(label,'stupid choice of alpha')
     if (alphau < 0.)   call fatal(label,'stupid choice of alphau')
-    if (alphau > tiny(alphau) .and. use_entropy) &
-                        call fatal(label,'cannot use thermal conductivity if evolving entropy')
     if (alpha > 10.)   call warn(label,'very large alpha, need to change timestep',2)
     if (alphau > 10.)  call warn(label,'very large alphau, check timestep',3)
     if (alphamax < tiny(alphamax)) call warn(label,'alphamax = 0 means no shock viscosity',2)
