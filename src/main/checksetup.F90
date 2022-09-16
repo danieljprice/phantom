@@ -635,8 +635,10 @@ subroutine check_setup_nucleation(npart,nerror)
     if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
 
     if (any(isnan(nucleation(:,i)))) then
-       print*,'NaNs in nucleation array'
-       nerror = nerror + 1
+      do j = 1,n_nucleation
+         if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
+      enddo
+      nerror = nerror + 1
     endif
  enddo
 
