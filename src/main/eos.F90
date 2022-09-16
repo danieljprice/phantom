@@ -862,7 +862,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  real, intent(inout) :: temp
  real, intent(out)   :: P
  integer, intent(in) :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss,temp_old
+ real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
  real,    parameter  :: eoserr=1d-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
@@ -900,7 +900,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  ! check temp
  if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
-                           considering reducing entropy factor C_ent')
+                                 &considering reducing entropy factor C_ent')
 
  ! change back to code unit
  P = cgsP / unit_pressure

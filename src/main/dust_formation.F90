@@ -282,34 +282,39 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
  real, parameter   :: alpha1 = 0.37 !sticking coef for C
  real, parameter   :: alpha2 = 0.34 !sticking coef for C2,C2H,C2H2
  real, parameter   :: alpha3 = 0.08 !sticking coef for C3
- real, parameter   :: Nl = 5.
+ real, parameter   :: Nl_13 = 5.**(1./3.)
  real, parameter   :: mproton = 1.6726485d-24
 
- real :: ln_S_g, Nstar_inf_13, Nstar, Nstar_m1_13, Nstar_m1_23, theta_Nstar,Nstar_m1
+ real :: ln_S_g, Nstar_inf_13, Nstar_m1_13, Nstar_m1_23, theta_Nstar,Nstar_m1,Nstar_tmp
  real :: dtheta_dNstar, d2lnc_dN2star, Z, A_Nstar, v1, beta, c_star, expon
 
  ln_S_g = log(S)
  v1     = vfactor*sqrt(T)
  Nstar_inf_13  = 2.*theta_inf/(3.*T*ln_S_g)
- Nstar_m1      = 1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13
- if (Nstar_m1 > 0.) then
-    Nstar         = 1. + (Nstar_inf_13**3)/8. * Nstar_m1**3
-    Nstar_m1_13   = (Nstar - 1.)**(1./3.)
+ Nstar_tmp     = 1. + sqrt(1. + 2.*Nl_13/Nstar_inf_13) - 2.*Nl_13/Nstar_inf_13
+ if (Nstar_tmp > 0.) then
+    Nstar_m1      = (Nstar_inf_13**3)/8. * Nstar_tmp**3
+    Nstar_m1_13   = 0.5*Nstar_inf_13*Nstar_tmp
     Nstar_m1_23   = Nstar_m1_13**2
-    theta_Nstar   = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
-    dtheta_dNstar = Nl**(1./3.)/3. * theta_Nstar**2/(theta_inf * Nstar_m1_23**2)
-    d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
+    theta_Nstar   = theta_inf/(1. + Nl_13/Nstar_m1_13)
+    dtheta_dNstar = Nl_13 * theta_Nstar**2/(3.*theta_inf * Nstar_m1_23**2)
+    d2lnc_dN2star = 2.*theta_Nstar/(9.*T*Nstar_m1)*(Nstar_m1_13+2.*Nl_13)/(Nstar_m1_13+Nl_13)**2
     Z             = sqrt(d2lnc_dN2star/(2.*pi))
-    A_Nstar       = A0 * Nstar**(2./3.)
+    A_Nstar       = A0 * (1.+Nstar_m1)**(2./3.)
     beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
-    expon         = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
+    expon         = Nstar_m1*ln_S_g - theta_Nstar*Nstar_m1_23/T
     if (expon < -100.) then
-       c_star = 1.d-99
+       c_star = 1.d-70
     else
        c_star = pC/(kboltz*T) * exp(expon)
     endif
     JstarS  = beta * A_Nstar * Z * c_star
     taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
+    ! if (isnan(JstarS)) then
+    !   print*,i,'(N-1)^1/3=',Nstar_m1_13,'exp=',expon,'T=',T,'theta_N=',theta_Nstar,'d2lnc/dN2=',d2lnc_dN2star,ddd,&
+    !        'beta=',beta,'Z=',Z,'c_star=',c_star,'JstarS=',JstarS,'tau*=',taustar
+    !   if (isnan(JstarS)) stop
+    ! endif
  else
     JstarS  = 0.d0
     taustar = 1.d-30
@@ -351,7 +356,13 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
- !if (K_new(3) > 1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
+ !if (any(isnan(K_new))) then
+ !  print*,'NaNs in K_new for particle #',i
+ !  print *,'dt=',dt,'tau*=',taustar,'taug=',taugr,'d=',d,'i0=',i0,'i1=',i1,'Jstar=',Jstar,'JstarS=',JstarS,&
+ !      'k1=',k(1),'dk1=',dk1,'Kn1=',k_new(1),'k2=',k(2),'dk2=',dk2,'Kn2=',k_new(2),'k3=',k(3),'dk3=',dk3,'Kn3=',k_new(3)
+ !  stop
+ !endif
+
 end subroutine evol_K
 
 !----------------------------------------
