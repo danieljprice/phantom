@@ -22,7 +22,7 @@ module cooling_solver
 !   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
 !   - dust_collision : *dust collision (1=on/0=off)*
 !   - excitation_HI  : *cooling via electron excitation of HI (1=on/0=off)*
-!   - lambda_shock   : *Cooling rate parmaeter for analytic shock solution*
+!   - lambda_shock   : *Cooling rate parameter for analytic shock solution*
 !   - relax_bowen    : *Bowen (diffusive) relaxation (1=on/0=off)*
 !   - relax_stefan   : *radiative relaxation (1=on/0=off)*
 !   - shock_problem  : *piecewise formulation for analytic shock solution (1=on/0=off)*
@@ -473,7 +473,7 @@ subroutine write_options_cooling_solver(iunit)
  call write_inopt(dust_collision,'dust_collision','dust collision (1=on/0=off)',iunit)
  call write_inopt(shock_problem,'shock_problem','piecewise formulation for analytic shock solution (1=on/0=off)',iunit)
  if (shock_problem == 1) then
-    call write_inopt(lambda_shock_cgs,'lambda_shock','Cooling rate parmaeter for analytic shock solution',iunit)
+    call write_inopt(lambda_shock_cgs,'lambda_shock','Cooling rate parameter for analytic shock solution',iunit)
     call write_inopt(T1_factor,'T1_factor','factor by which T0 is increased (T1= T1_factor*T0)',iunit)
     call write_inopt(T0_value,'T0','temperature to cool towards (do not modify! set by setup)',iunit)
  endif
