@@ -571,6 +571,16 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
   character(len=20),intent(in) :: comp_label(:)
   real,allocatable :: A_array(:), Z_array(:)
+  integer :: size_to_allocate
+
+  if ( ANY( como_label=="nt1" ) ) then
+    size_to_allocate = size(comp_label(:))-1
+
+  else
+    size_to_allocate = size(comp_label(:))
+  endif
+  print*,size_to_allocate,"size_to_allocate"
+  allocate(A_array(size_to_allocate), Z_array(size_to_allocate))
 
   print*, "comp _label_read",comp_label(:)
 
