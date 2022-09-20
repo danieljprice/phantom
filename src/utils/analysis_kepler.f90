@@ -172,14 +172,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
    real :: velocity_norm,escape_vel,kinetic_add,mass_val,com_velocity
    real :: Y_in,semimajor,h_value
-   real :: mu_i,period_star,eccentricity_vector(3),bh_mass
+   real :: period_star,eccentricity_vector(3),bh_mass
    real :: potential_energy_shell,tot_energy,energy_shell,kinetic_energy,mass_enclosed
    real :: potential_i,kinetic_i,energy_i,potential_bh,energy_total,angular_momentum_h(3)
    real :: radius_i(3,npart),distance_i(3),rel_distance,distance_bh,velocity_wrt_bh_i(3)
    real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh,vcrossh(3)
    real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-   !real,dimension(17)  :: z_value,a_value
    real,allocatable    :: energy_tot(:)
    real,allocatable :: A_array(:), Z_array(:)
 
@@ -244,15 +243,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     X_in               = 0.71492308
     Y_in               = 0.27112283
     Z_in               = 1.-X_in-Y_in
-    gmw                = 0.61 !mean molecular weight
+    gmw                = 0.61 !mean molecular weight. Setting default value as gmw of sun.
     com_star(:)        = 0.
     bh_mass            = 1e6 !change the mass of the black hole here.
     print*,"columns_compo",columns_compo
-    ! if (columns_compo == 18) then
-    !   !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
-    !   z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
-    !   a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
-    ! endif
+
     call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
     print*,A_array,"A_array",Z_array,"Z_array"
 
@@ -265,14 +260,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     composition_i(:) = 0.
     c_particle = 0 !no of particles that are bound the star.
 
-
-    ! open(11,file='energy_tot1')
-    ! write(11,"('#',4(a22,1x))")&
-    ! 'radius',&
-    ! 'energy',&
-    ! 'poten',&
-    ! 'kinetic'
-    !implementing loop for calculating the values we require.
     do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
@@ -291,9 +278,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
      velocity_norm = dot_product(vel(:),vel(:))
      kinetic_i     = 0.5*pmass*(velocity_norm)
+
+     !total energy of single particle
      energy_i      = potential_i + kinetic_i
 
-     ! write(11,*) rad_test*udist,(energy_i+vxyzu(4,i)*pmass)*unit_energ,potential_i*unit_energ,kinetic_i*unit_energ
      if (j==1) then
        print*,potential_i,'1',energy_i,'tot energy',kinetic_i,'kinetic'
      endif
@@ -307,6 +295,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        c_particle = 1+c_particle
        !add 1 to no_in_bin if energy is < 0.
        no_in_bin  = no_in_bin + 1
+
+       !Calculating COM of star and velocity of the COM. This is only done for particles with
+       !negative energy wrt black hole.
        com_star(:) = com_star(:) + pmass*xyzh(1:3,i)
        !momentum of star wrt black hole. need this to find com velocity.
        velocity_wrt_bh(:)   = velocity_wrt_bh(:) + pmass*vxyzu(1:3,i)
@@ -342,20 +333,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        !calculate mean molecular weight that is required by the eos module using the
        !mass fractions for each particle.
        !do not consider neutron which is the first element of the composition_i array.
-       mu_i = 0.
-       if (columns_compo /= 0) then
-         do index_val = 1, columns_compo-1
-           mu_i = mu_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
-           !print*, mu_i,"mu_i",composition_i(index_val+1),"composition_i(index_val+1)"
-         enddo
-         gmw = 1./mu_i
+       if (j==1) then
+         call calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
        endif
+
        if (j<=2) then
          print*,'gmw',gmw,j,"j"
        endif
        eni_input = u_i
        !call eos routine
-       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
+       !call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
+       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
 
        pressure_i      = ponrhoi*density_i
        pressure_sum    = pressure_sum + pressure_i
@@ -586,7 +574,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
   allocate(A_array(size_to_allocate), Z_array(size_to_allocate), new_comp_label(size_to_allocate))
   new_comp_label = pack(comp_label,comp_label/="nt1")
 
-  do i = 1, size_to_allocate+1
+  do i = 1, size_to_allocate
     if (new_comp_label(i)=="h1") then
       A_array(i) = 1
       Z_array(i) = 1
@@ -676,5 +664,28 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
   print*, "A and Z arrays assigned"
 
 end subroutine assign_atomic_mass_and_number
+!----------------------------------------------------------------
+!+
+!  This subroutine is for calculating the gmw value by using
+!  1/mu_i = Summation_a ((mass fraction)_a/A_a )*(1+Z_a)
+!+
+!----------------------------------------------------------------
+subroutine calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
+
+  real,allocatable,intent(in) :: A_array(:), Z_array(:), composition_i(:)
+  integer, intent(in) :: columns_compo
+  real, intent(out) :: gmw
+  real :: mu_i
+  integer :: index_val
+  mu_i = 0.
+  if (columns_compo /= 0) then
+    do index_val = 1, columns_compo-1
+      mu_i = mu_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
+      print*, composition_i,"composition_i",mu_i,"mu_i"
+    enddo
+    gmw = 1./mu_i
+  endif
+
+end subroutine calculate_gmw
 
 end module analysis
