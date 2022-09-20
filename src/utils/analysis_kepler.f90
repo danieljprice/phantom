@@ -181,6 +181,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
    real,dimension(17)  :: z_value,a_value
    real,allocatable    :: energy_tot(:)
+   real,allocatable :: A_array(:), Z_array(:)
 
    print*,utime,'time!!','this is analysis_test file!'
    !The star is not on the origin as BH exists at that point.
