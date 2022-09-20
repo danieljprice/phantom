@@ -181,7 +181,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
    real,dimension(17)  :: z_value,a_value
    real,allocatable    :: energy_tot(:)
-   real,allocatable :: A_array(:), Z_array(:)
+   real :: A_array(:), Z_array(:)
 
    print*,utime,'time!!','this is analysis_test file!'
    !The star is not on the origin as BH exists at that point.
@@ -254,6 +254,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
     endif
     call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
+    print*,A_array,"A_array",Z_array,"Z_array"
 
     kinetic_add = 0.
     !allocating storage for composition of one particle.
@@ -571,17 +572,105 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
   character(len=20),intent(in) :: comp_label(:)
   real,allocatable :: A_array(:), Z_array(:)
-  integer :: size_to_allocate
+  integer :: size_to_allocate, i
 
-  if ( ANY( como_label=="nt1" ) ) then
+  if ( ANY( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
 
   else
     size_to_allocate = size(comp_label(:))
   endif
+  
   print*,size_to_allocate,"size_to_allocate"
   allocate(A_array(size_to_allocate), Z_array(size_to_allocate))
 
+  do i = 1, size_to_allocate
+    if (comp_label=="h1") then
+      A_array(i) = 1
+      Z_array(i) = 1
+    endif
+
+    if (comp_label=="he3") then
+      A_array(i) = 3
+      Z_array(i) = 2
+    endif
+
+    if (comp_label=="he4") then
+      A_array(i) = 4
+      Z_array(i) = 2
+    endif
+
+    if (comp_label=="c12") then
+      A_array(i) = 12
+      Z_array(i) = 6
+    endif
+
+    if (comp_label=="n14") then
+      A_array(i) = 14
+      Z_array(i) = 7
+    endif
+
+    if (comp_label=="o16") then
+      A_array(i) = 16
+      Z_array(i) = 8
+    endif
+
+    if (comp_label=="ne20") then
+      A_array(i) = 20
+      Z_array(i) = 10
+    endif
+
+    if (comp_label=="mg24") then
+      A_array(i) = 24
+      Z_array(i) = 12
+    endif
+
+    if (comp_label=="si28") then
+      A_array(i) = 28
+      Z_array(i) = 14
+    endif
+
+    if (comp_label=="s32") then
+      A_array(i) = 32
+      Z_array(i) = 16
+    endif
+
+    if (comp_label=="ar36") then
+      A_array(i) = 36
+      Z_array(i) = 18
+    endif
+
+    if (comp_label=="ca40") then
+      A_array(i) = 40
+      Z_array(i) = 20
+    endif
+
+    if (comp_label=="ti44") then
+      A_array(i) = 44
+      Z_array(i) = 22
+    endif
+
+    if (comp_label=="cr48") then
+      A_array(i) = 48
+      Z_array(i) = 24
+    endif
+
+    if (comp_label=="fe52") then
+      A_array(i) = 52
+      Z_array(i) = 26
+    endif
+
+    if (comp_label=="fe54") then
+      A_array(i) = 54
+      Z_array(i) = 26
+    endif
+
+    if (comp_label=="ni56") then
+      A_array(i) = 56
+      Z_array(i) = 28
+    endif
+
+  end do
   print*, "comp _label_read",comp_label(:)
 
 end subroutine assign_atomic_mass_and_number
