@@ -246,6 +246,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     gmw                = 0.61 !mean molecular weight
     com_star(:)        = 0.
     bh_mass            = 1e6 !change the mass of the black hole here.
+    print*,"columns_compo",columns_compo
     if (columns_compo == 18) then
       !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
       z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
@@ -342,12 +343,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        if (columns_compo /= 0) then
          do index_val = 1, columns_compo-1
            mu_i = mu_i + (composition_i(index_val+1)*(1+z_value(index_val)))/a_value(index_val)
-           print*, mu_i,"mu_i",composition_i(index_val+1),"composition_i(index_val+1)"
+           !print*, mu_i,"mu_i",composition_i(index_val+1),"composition_i(index_val+1)"
          enddo
          gmw = 1./mu_i
        endif
        if (j<=2) then
-         print*,'gmw',gmw, "j"
+         print*,'gmw',gmw, "j",a_value,"a_value",z_value,"z_value"
        endif
        eni_input = u_i
        !call eos routine
