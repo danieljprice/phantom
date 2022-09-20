@@ -179,7 +179,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh,vcrossh(3)
    real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-   real,dimension(17)  :: z_value,a_value
+   !real,dimension(17)  :: z_value,a_value
    real,allocatable    :: energy_tot(:)
    real,allocatable :: A_array(:), Z_array(:)
 
@@ -248,11 +248,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     com_star(:)        = 0.
     bh_mass            = 1e6 !change the mass of the black hole here.
     print*,"columns_compo",columns_compo
-    if (columns_compo == 18) then
-      !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
-      z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
-      a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
-    endif
+    ! if (columns_compo == 18) then
+    !   !order of elements- h1,he3,he4,c12,n14,o16,ne20,mg24,si28,s32,ar36,ca40,ti44,cr48,fe52,fe54,ni56
+    !   z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
+    !   a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
+    ! endif
     call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
     print*,A_array,"A_array",Z_array,"Z_array"
 
@@ -345,13 +345,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        mu_i = 0.
        if (columns_compo /= 0) then
          do index_val = 1, columns_compo-1
-           mu_i = mu_i + (composition_i(index_val+1)*(1+z_value(index_val)))/a_value(index_val)
+           mu_i = mu_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
            !print*, mu_i,"mu_i",composition_i(index_val+1),"composition_i(index_val+1)"
          enddo
          gmw = 1./mu_i
        endif
        if (j<=2) then
-         print*,'gmw',gmw, "j",a_value,"a_value",z_value,"z_value"
+         print*,'gmw',gmw,j,"j"
        endif
        eni_input = u_i
        !call eos routine
@@ -586,7 +586,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
   allocate(A_array(size_to_allocate), Z_array(size_to_allocate), new_comp_label(size_to_allocate))
   new_comp_label = pack(comp_label,comp_label/="nt1")
 
-  do i = 1, size_to_allocate
+  do i = 1, size_to_allocate+1
     if (new_comp_label(i)=="h1") then
       A_array(i) = 1
       Z_array(i) = 1
@@ -673,7 +673,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
     endif
 
   end do
-  print*, "comp _label_read",comp_label(:)
+  print*, "A and Z arrays assigned"
 
 end subroutine assign_atomic_mass_and_number
 
