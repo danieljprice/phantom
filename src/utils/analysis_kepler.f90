@@ -65,16 +65,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    write(*,*) 'Which analysis you want to perform: GR (1) or Newtonian (2)?'
    read(*,*) use_option
 
+   !allocate for composition_kepler
+   !Print the analysis being done
+   write(*,'("Performing analysis type ",A)') analysistype
+   write(*,'("Input file name is ",A)') dumpfile
+
+
     !if dumpfile is a full dump, we call the subroutine for getting the arrays we need
     call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp,ngrid,rad_mom,&
                                   angular_vel_3D,use_option)
-
-    !allocate for composition_kepler
-    !Print the analysis being done
-    write(*,'("Performing analysis type ",A)') analysistype
-    write(*,'("Input file name is ",A)') dumpfile
 
     write(output,"(a4,i5.5)") 'ptok',numfile
     write(*,'("Output file name is ",A)') output
@@ -194,7 +195,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      ieos = 2
    endif
    call init_eos(ieos,ierr)
-
+   print*,ieos,"ieos"
    !use sorting algorithm to sort the particles from the center of star as a function of radius.
    xpos(:) = star_centre(:)
    vpos(:) = vxyzu(1:3,location)
@@ -261,12 +262,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     c_particle = 0 !no of particles that are bound the star.
 
 
-    open(11,file='energy_tot1')
-    write(11,"('#',4(a22,1x))")&
-    'radius',&
-    'energy',&
-    'poten',&
-    'kinetic'
+    ! open(11,file='energy_tot1')
+    ! write(11,"('#',4(a22,1x))")&
+    ! 'radius',&
+    ! 'energy',&
+    ! 'poten',&
+    ! 'kinetic'
     !implementing loop for calculating the values we require.
     do j = 1, npart
 
@@ -288,7 +289,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      kinetic_i     = 0.5*pmass*(velocity_norm)
      energy_i      = potential_i + kinetic_i
 
-     write(11,*) rad_test*udist,(energy_i+vxyzu(4,i)*pmass)*unit_energ,potential_i*unit_energ,kinetic_i*unit_energ
+     ! write(11,*) rad_test*udist,(energy_i+vxyzu(4,i)*pmass)*unit_energ,potential_i*unit_energ,kinetic_i*unit_energ
      if (j==1) then
        print*,potential_i,'1',energy_i,'tot energy',kinetic_i,'kinetic'
      endif
@@ -337,19 +338,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        !calculate mean molecular weight that is required by the eos module using the
        !mass fractions for each particle.
        !do not consider neutron which is the first element of the composition_i array.
-       mu_i = 0
+       mu_i = 0.
        if (columns_compo /= 0) then
          do index_val = 1, columns_compo-1
            mu_i = mu_i + (composition_i(index_val+1)*(1+z_value(index_val)))/a_value(index_val)
+           print*, mu_i,"mu_i",composition_i(index_val+1),"composition_i(index_val+1)"
          enddo
-         gmw = 1/mu_i
+         gmw = 1./mu_i
        endif
-       if (j==1) then
-         print*,'gmw',gmw
+       if (j<=2) then
+         print*,'gmw',gmw, "j"
        endif
        eni_input = u_i
        !call eos routine
-       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i)
+       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
 
        pressure_i      = ponrhoi*density_i
        pressure_sum    = pressure_sum + pressure_i
@@ -543,6 +545,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      allocate(comp_label(columns_compo))
      call get_column_labels(line,n_labels,comp_label)
      close(12)
+     print*,"comp_label",comp_label
 
      open(13, file=filename)
      call skip_header(13,nheader,ierr)
