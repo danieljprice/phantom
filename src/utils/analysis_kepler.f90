@@ -252,6 +252,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
       z_value = (/1,2,2,6,7,8,10,12,14,16,18,20,22,24,26,26,28/)
       a_value = (/1,3,4,12,14,16,20,24,28,32,36,40,44,48,52,54,56/)
     endif
+    call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
     kinetic_add = 0.
     !allocating storage for composition of one particle.
@@ -558,5 +559,20 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    endif
 
  end subroutine composition_array
+
+ !----------------------------------------------------------------
+ !+
+ !  This routine is for assigning A and Z values based on the
+ !  element found in kepler.comp file
+ !+
+ !----------------------------------------------------------------
+subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
+
+  character(len=20),intent(in) :: comp_label(:)
+  real,allocatable :: A_array(:), Z_array(:)
+
+  print*, "comp _label_read",comp_label(:)
+
+end subroutine assign_atomic_mass_and_number
 
 end module analysis
