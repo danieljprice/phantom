@@ -104,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
  use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
- use eos,             only:gmw,temperature_coef,init_eos
+ use eos,             only:temperature_coef,init_eos
  use cooling,         only:T0_value
 #ifdef NONIDEALMHD
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
@@ -739,7 +739,8 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  call write_inopt(tmax,'tmax','maximum runtime',lu,ierr1)
  call write_inopt(dtmax,'dtmax','time between dumps',lu,ierr1)
  call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
- if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ !if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
 #ifdef NONIDEALMHD
  call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
  call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
@@ -799,7 +800,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(tmax,'tmax',db,errcount=nerr)
  call read_inopt(dtmax,'dtmax',db,errcount=nerr)
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
+ call read_inopt(gmw,'gmw',db,errcount=nerr)
+ !if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
 #ifdef NONIDEALMHD
  call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
  call read_inopt(use_hall,'use_hall',db,errcount=nerr)

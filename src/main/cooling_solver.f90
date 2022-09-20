@@ -142,20 +142,25 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  real, intent(in)  :: Tdust, K2, kappa
  real, intent(out) :: dudt
 
- real, parameter    :: tol = 1.d-5, Tmin = 1.
+ real, parameter    :: tol = 1.d-6, Tmin = 1.
  integer, parameter :: iter_max = 40
- real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f0,fi,fmid,T,Ti,T0,dx,Tmid
+ real               :: u,Q,dlnQ_dlnT,T_on_u,Qi,f0,fi,fmid,T,T0,dx,Tmid
  integer            :: iter
 
  u       = ui
  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
  T       = ui*T_on_u
  call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, kappa)
+  !cooling negligible, return
+ if (abs(Q) < tiny(0.)) then
+   dudt = 0.
+   return
+ endif
  T0   = T
  f0   = -Q*dt*T_on_u
  fi   = f0
  iter = 0
- !define bisection interval f(T) = T^(n+1)-T^n-Q*dt*T_on_u
+ !define bisection interval for function f(T) = T^(n+1)-T^n-Q*dt*T_on_u
  do while (((f0 > 0. .and. fi > 0.) .or. (f0 < 0. .and. fi < 0.)) .and. iter < iter_max)
     Tmid = max(T+Q*dt*T_on_u,Tmin)
     call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, kappa)
@@ -163,11 +168,11 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     T  = Tmid
     iter = iter+1
  enddo
+ !Temperature is between T0 and Tmid
  if (iter > iter_max) stop '[implicit_cooling] cannot bracket cooling function'
  iter = 0
- if (Ti > T0) then
+ if (Tmid > T0) then
     T = T0
-    fmid = fi
  else
     if (Townsend_test) then
        !special fix for Townsend benchmark
@@ -175,10 +180,9 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     else
        T = Tmid
     endif
-    fmid = f0
  endif
- dx = abs(Ti-T0)
- do while (abs(dx/T0) > tol .and. iter < iter_max)
+ dx = abs(Tmid-T0)
+ do while (dx/T0 > tol .and. iter < iter_max)
     dx = dx*.5
     Tmid = T+dx
     call calc_cooling_rate(Qi,dlnQ_dlnT, rho, Tmid, Tdust, mu, gamma, K2, kappa)
@@ -189,7 +193,8 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     else
        if (fmid <= 0.) T = Tmid
     endif
-    iter    = iter + 1
+    iter = iter + 1
+    !print *,iter,fmid,T,Tmid
  enddo
  u = Tmid/T_on_u
  dudt =(u-ui)/dt
@@ -470,7 +475,7 @@ subroutine write_options_cooling_solver(iunit)
  if (shock_problem == 1) then
     call write_inopt(lambda_shock_cgs,'lambda_shock','Cooling rate parmaeter for analytic shock solution',iunit)
     call write_inopt(T1_factor,'T1_factor','factor by which T0 is increased (T1= T1_factor*T0)',iunit)
-    call write_inopt(T0_value,'T0','temperature to cool towards',iunit)
+    call write_inopt(T0_value,'T0','temperature to cool towards (do not modify! set by setup)',iunit)
  endif
  call write_inopt(bowen_Cprime,'bowen_Cprime','radiative cooling rate (g.s/cm³)',iunit)
 
