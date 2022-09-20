@@ -571,6 +571,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
   character(len=20),intent(in) :: comp_label(:)
+  character(len=20), allocatable :: new_comp_label(:)
   real,allocatable :: A_array(:), Z_array(:)
   integer :: size_to_allocate, i
 
@@ -582,90 +583,91 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
   endif
 
   print*,size_to_allocate,"size_to_allocate"
-  allocate(A_array(size_to_allocate), Z_array(size_to_allocate))
+  allocate(A_array(size_to_allocate), Z_array(size_to_allocate), new_comp_label(size_to_allocate))
+  new_comp_label = pack(comp_label,comp_label/="nt1")
 
   do i = 1, size_to_allocate
-    if (comp_label(i)=="h1") then
+    if (new_comp_label(i)=="h1") then
       A_array(i) = 1
       Z_array(i) = 1
     endif
 
-    if (comp_label(i)=="he3") then
+    if (new_comp_label(i)=="he3") then
       A_array(i) = 3
       Z_array(i) = 2
     endif
 
-    if (comp_label(i)=="he4") then
+    if (new_comp_label(i)=="he4") then
       A_array(i) = 4
       Z_array(i) = 2
     endif
 
-    if (comp_label(i)=="c12") then
+    if (new_comp_label(i)=="c12") then
       A_array(i) = 12
       Z_array(i) = 6
     endif
 
-    if (comp_label(i)=="n14") then
+    if (new_comp_label(i)=="n14") then
       A_array(i) = 14
       Z_array(i) = 7
     endif
 
-    if (comp_label(i)=="o16") then
+    if (new_comp_label(i)=="o16") then
       A_array(i) = 16
       Z_array(i) = 8
     endif
 
-    if (comp_label(i)=="ne20") then
+    if (new_comp_label(i)=="ne20") then
       A_array(i) = 20
       Z_array(i) = 10
     endif
 
-    if (comp_label(i)=="mg24") then
+    if (new_comp_label(i)=="mg24") then
       A_array(i) = 24
       Z_array(i) = 12
     endif
 
-    if (comp_label(i)=="si28") then
+    if (new_comp_label(i)=="si28") then
       A_array(i) = 28
       Z_array(i) = 14
     endif
 
-    if (comp_label(i)=="s32") then
+    if (new_comp_label(i)=="s32") then
       A_array(i) = 32
       Z_array(i) = 16
     endif
 
-    if (comp_label(i)=="ar36") then
+    if (new_comp_label(i)=="ar36") then
       A_array(i) = 36
       Z_array(i) = 18
     endif
 
-    if (comp_label(i)=="ca40") then
+    if (new_comp_label(i)=="ca40") then
       A_array(i) = 40
       Z_array(i) = 20
     endif
 
-    if (comp_label(i)=="ti44") then
+    if (new_comp_label(i)=="ti44") then
       A_array(i) = 44
       Z_array(i) = 22
     endif
 
-    if (comp_label(i)=="cr48") then
+    if (new_comp_label(i)=="cr48") then
       A_array(i) = 48
       Z_array(i) = 24
     endif
 
-    if (comp_label(i)=="fe52") then
+    if (new_comp_label(i)=="fe52") then
       A_array(i) = 52
       Z_array(i) = 26
     endif
 
-    if (comp_label(i)=="fe54") then
+    if (new_comp_label(i)=="fe54") then
       A_array(i) = 54
       Z_array(i) = 26
     endif
 
-    if (comp_label(i)=="ni56") then
+    if (new_comp_label(i)=="ni56") then
       A_array(i) = 56
       Z_array(i) = 28
     endif
