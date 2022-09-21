@@ -684,9 +684,9 @@ end subroutine calculate_gmw
 !  This routine calculates orbital parameters.
 !+
 !----------------------------------------------------------------
-subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh)
+subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
 
-  real, intent(in)   :: angular_momentum_h(3),com_star(3)
+  real, intent(in)   :: angular_momentum_h(3),com_star(3),velocity_wrt_bh(3)
   real, intent(in)   :: bh_mass, mass_star, position_bh
   real               :: eccentricity_value,semimajor_value,period_value
   real               :: h_value
@@ -721,9 +721,9 @@ end subroutine orbital_parameters
 real function eccentricity_star(vcrossh, mass_star, bh_mass, com_star, position_bh)
 
   use units , only : umass
-  use physcon,only : gg
+  use physcon,only : gg,pi
 
-  real, intent(in) :: vrossh(3), com_star(3)
+  real, intent(in) :: vcrossh(3), com_star(3)
   real, intent(in) :: mass_star, bh_mass, position_bh
   real :: eccentricity_vector(3)
 
@@ -743,7 +743,7 @@ end function eccentricity_star
 real function semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
 
   use units , only : umass
-  use physcon,only : gg
+  use physcon,only : gg,pi
 
   real, intent(in) :: h_value,mass_star,bh_mass,eccentricity_value
 
@@ -760,7 +760,7 @@ end function semimajor_axis
 real function period_star(semimajor_value,mass_star,bh_mass)
 
   use units , only : umass
-  use physcon,only : gg
+  use physcon,only : gg,pi
 
   real, intent(in) :: semimajor_value,mass_star,bh_mass
 
