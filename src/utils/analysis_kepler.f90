@@ -140,10 +140,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
 
 
-   integer,intent(in)   :: npart,use_option
-   integer,intent(out)  :: correct_ngrid
-   real,intent(in)      :: xyzh(:,:),vxyzu(:,:)
-   real,intent(in)      :: pmass,time
+   integer,intent(in)               :: npart,use_option
+   integer,intent(out)              :: correct_ngrid
+   real,intent(in)                  :: xyzh(:,:),vxyzu(:,:)
+   real,intent(in)                  :: pmass,time
    real,intent(out),allocatable     :: rad_grid(:),mass(:),density(:)!rad_grid stores radius
    real,intent(out),allocatable     :: temperature(:),entropy_array(:),int_eng(:),bin_mass(:),rad_mom(:)
    real,intent(out),allocatable     :: pressure(:),y_e(:),a_bar(:),velocity_3D(:,:)
@@ -180,7 +180,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
    real,allocatable    :: energy_tot(:)
-   real,allocatable :: A_array(:), Z_array(:)
+   real,allocatable    :: A_array(:), Z_array(:)
 
    print*,utime,'time!!','this is analysis_test file!'
    !The star is not on the origin as BH exists at that point.
@@ -431,7 +431,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
   !velocity centre of mass of star
   velocity_wrt_bh(:) = (velocity_wrt_bh(:) /(c_particle*pmass))*unit_velocity
   velocity_bh = sqrt(dot_product(velocity_wrt_bh(:),velocity_wrt_bh(:)))
+  
   call cross_product3D(com_star,velocity_wrt_bh,angular_momentum_h)
+
+
   print*,com_star(:),'position of star wrt bh'
   print*,velocity_wrt_bh,'velocity of star wrt bh'
   print*,angular_momentum_h(:),'angular momentum h'
@@ -445,7 +448,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     print*,'star is bound',velocity_bh/escape_vel,'vel bh/escape vel'
   endif
 
-  !energy total is total energy of star. If negative, star is bound to BH but if negative then its unbound.
+  !energy total is total energy of star. If negative, star is bound to BH but if positive then its unbound.
   !Calculate orbital paramters
   energy_total = 0.5*velocity_bh**2 - (gg*1e6*umass)/position_bh
 
@@ -558,10 +561,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  !----------------------------------------------------------------
 subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
-  character(len=20),intent(in) :: comp_label(:)
+  character(len=20),intent(in)   :: comp_label(:)
   character(len=20), allocatable :: new_comp_label(:)
-  real,allocatable :: A_array(:), Z_array(:)
-  integer :: size_to_allocate, i
+  real,allocatable               :: A_array(:), Z_array(:)
+  integer                        :: size_to_allocate, i
 
   if ( ANY( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
@@ -572,6 +575,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 
   print*,size_to_allocate,"size_to_allocate"
   allocate(A_array(size_to_allocate), Z_array(size_to_allocate), new_comp_label(size_to_allocate))
+  !we skip nt1 as its neutron.
   new_comp_label = pack(comp_label,comp_label/="nt1")
 
   do i = 1, size_to_allocate
@@ -673,10 +677,11 @@ end subroutine assign_atomic_mass_and_number
 subroutine calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
 
   real,allocatable,intent(in) :: A_array(:), Z_array(:), composition_i(:)
-  integer, intent(in) :: columns_compo
-  real, intent(out) :: gmw
-  real :: mu_i
-  integer :: index_val
+  integer, intent(in)         :: columns_compo
+  real,    intent(out)        :: gmw
+  real                        :: mu_i
+  integer                     :: index_val
+
   mu_i = 0.
   if (columns_compo /= 0) then
     do index_val = 1, columns_compo-1
@@ -687,5 +692,39 @@ subroutine calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
   endif
 
 end subroutine calculate_gmw
+!----------------------------------------------------------------
+!+
+!  This routine calculates orbital parameters.
+!+
+!----------------------------------------------------------------
+subroutine orbital_parameters()
+  h_value = dot_product(angular_momentum_h,angular_momentum_h)
+  print*,acos(abs(angular_momentum_h(1))/h_value),'inclination x',abs(angular_momentum_h(1))/h_value
+  print*,acos(abs(angular_momentum_h(2))/h_value),'inclination y',abs(angular_momentum_h(2))/h_value
+  print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
+  print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
+  eccentricity_star = sqrt(1-(h_value/(semimajor*gg*(mass(ngrid-1)+bh_mass)*umass)))
+  call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
+
+  !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
+  eccentricity_vector(:) = (vcrossh(:)/(gg*(mass(ngrid-1)+bh_mass)*umass)) - (com_star(:)/position_bh)
+  print*,energy_total,'energy of star on the orbit',eccentricity_star,'eccentricity'
+  print*,eccentricity_vector(:),'eccentricity vector'
+  eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
+  print*,eccentricity_star,'eccentricity again'
+  semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
+  period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
+  print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+  i_vector = (/1,0,0/)
+  j_vector = (/0,1,0/)
+  k_vector = (/0,0,1/)
+  call cross_product3D(k_vector,angular_momentum_h,n_vector)
+  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
+  inclination_angle = acos(dot_product(k_vector,angular_momentum_h/h_value))
+  arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
+  longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
+  print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+
+end subroutine orbital_parameters
 
 end module analysis
