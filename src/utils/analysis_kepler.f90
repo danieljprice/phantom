@@ -470,7 +470,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     ! longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
     ! print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
     print*,"negative energy"
-    call orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh)
+    call orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
   else
     print*,'positive energy of the star on orbit'
   endif
@@ -686,6 +686,8 @@ end subroutine calculate_gmw
 !----------------------------------------------------------------
 subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
 
+  use vectorutils,     only : cross_product3D
+
   real, intent(in)   :: angular_momentum_h(3),com_star(3),velocity_wrt_bh(3)
   real, intent(in)   :: bh_mass, mass_star, position_bh
   real               :: eccentricity_value,semimajor_value,period_value
@@ -764,7 +766,7 @@ real function period_star(semimajor_value,mass_star,bh_mass)
 
   real, intent(in) :: semimajor_value,mass_star,bh_mass
 
-  period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass_star+bh_mass)*umass))
+  period_star = sqrt((4*pi**2*abs(semimajor_value)**3)/(gg*(mass_star+bh_mass)*umass))
 ! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
 ! i_vector = (/1,0,0/)
 ! j_vector = (/0,1,0/)
