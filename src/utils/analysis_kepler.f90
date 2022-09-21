@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer              :: i,j,n_comp
    integer              :: ngrid = 0
 
-   real                              :: grid
+   integer                           :: grid
    real,intent(in)                   :: xyzh(:,:),vxyzu(:,:)
    real,intent(in)                   :: pmass,time
    real , allocatable,dimension(:)   :: pressure,rad_grid,mass,density,temperature,entropy_array,&
@@ -171,16 +171,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
    real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
    real :: velocity_norm,escape_vel,kinetic_add,mass_val,com_velocity
-   real :: Y_in,semimajor,h_value
-   real :: period_star,eccentricity_vector(3),bh_mass
+   real :: Y_in
+   real :: bh_mass
    real :: potential_energy_shell,tot_energy,energy_shell,kinetic_energy,mass_enclosed
    real :: potential_i,kinetic_i,energy_i,potential_bh,energy_total,angular_momentum_h(3)
    real :: radius_i(3,npart),distance_i(3),rel_distance,distance_bh,velocity_wrt_bh_i(3)
-   real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh,vcrossh(3)
+   real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh
    real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
    real,allocatable    :: energy_tot(:)
    real,allocatable    :: A_array(:), Z_array(:)
+   real  :: mass_star
 
    print*,utime,'time!!','this is analysis_test file!'
    !The star is not on the origin as BH exists at that point.
@@ -428,10 +429,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
   print*,star_centre*udist,'center of star'
   com_star(:) = (com_star(:)/(c_particle*pmass))*udist
   position_bh = sqrt(dot_product(com_star(:),com_star(:)))
-  !velocity centre of mass of star
+  !velocity of centre of mass of star
   velocity_wrt_bh(:) = (velocity_wrt_bh(:) /(c_particle*pmass))*unit_velocity
   velocity_bh = sqrt(dot_product(velocity_wrt_bh(:),velocity_wrt_bh(:)))
-  
+  mass_star = mass(ngrid-1)
+
+  !we calculate angular momentum vector on the orbit around black hole.
   call cross_product3D(com_star,velocity_wrt_bh,angular_momentum_h)
 
 
@@ -453,37 +456,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
   energy_total = 0.5*velocity_bh**2 - (gg*1e6*umass)/position_bh
 
   if (energy_total < 0.) then
-    print*,'negative energy of the orbit'
-    semimajor = (gg*bh_mass*umass)/(2*abs(energy_total))
-    period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*bh_mass*umass))
-    print*,semimajor/pc,'semimajor in Parsec',period_star/years,'period in years'
 
-    h_value = dot_product(angular_momentum_h,angular_momentum_h)
-    print*,acos(abs(angular_momentum_h(1))/h_value),'inclination x',abs(angular_momentum_h(1))/h_value
-    print*,acos(abs(angular_momentum_h(2))/h_value),'inclination y',abs(angular_momentum_h(2))/h_value
-    print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
-    print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
-    eccentricity_star = sqrt(1-(h_value/(semimajor*gg*(mass(ngrid-1)+bh_mass)*umass)))
-    call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
-
-    !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
-    eccentricity_vector(:) = (vcrossh(:)/(gg*(mass(ngrid-1)+bh_mass)*umass)) - (com_star(:)/position_bh)
-    print*,energy_total,'energy of star on the orbit',eccentricity_star,'eccentricity'
-    print*,eccentricity_vector(:),'eccentricity vector'
-    eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
-    print*,eccentricity_star,'eccentricity again'
-    semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
-    period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
-    print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
-    i_vector = (/1,0,0/)
-    j_vector = (/0,1,0/)
-    k_vector = (/0,0,1/)
-    call cross_product3D(k_vector,angular_momentum_h,n_vector)
-    n_vector_mag = sqrt(dot_product(n_vector,n_vector))
-    inclination_angle = acos(dot_product(k_vector,angular_momentum_h/h_value))
-    arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
-    longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
-    print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+    ! semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
+    ! period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
+    ! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+    ! i_vector = (/1,0,0/)
+    ! j_vector = (/0,1,0/)
+    ! k_vector = (/0,0,1/)
+    ! call cross_product3D(k_vector,angular_momentum_h,n_vector)
+    ! n_vector_mag = sqrt(dot_product(n_vector,n_vector))
+    ! inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
+    ! arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
+    ! longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
+    ! print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+    print*,"negative energy"
+    call orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh)
   else
     print*,'positive energy of the star on orbit'
   endif
@@ -697,34 +684,92 @@ end subroutine calculate_gmw
 !  This routine calculates orbital parameters.
 !+
 !----------------------------------------------------------------
-subroutine orbital_parameters()
-  h_value = dot_product(angular_momentum_h,angular_momentum_h)
+subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh)
+
+  real, intent(in)   :: angular_momentum_h(3),com_star(3)
+  real, intent(in)   :: bh_mass, mass_star, position_bh
+  real               :: eccentricity_value,semimajor_value,period_value
+  real               :: h_value
+  real               :: vcrossh(3)
+
+  !h_value is the magnitude of angular_momentum_h vector squared.
+  h_value = dot_product(angular_momentum_h,angular_momentum_h) !square of the magnitude of h vector
   print*,acos(abs(angular_momentum_h(1))/h_value),'inclination x',abs(angular_momentum_h(1))/h_value
   print*,acos(abs(angular_momentum_h(2))/h_value),'inclination y',abs(angular_momentum_h(2))/h_value
   print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
   print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
-  eccentricity_star = sqrt(1-(h_value/(semimajor*gg*(mass(ngrid-1)+bh_mass)*umass)))
+
   call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
 
-  !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
-  eccentricity_vector(:) = (vcrossh(:)/(gg*(mass(ngrid-1)+bh_mass)*umass)) - (com_star(:)/position_bh)
-  print*,energy_total,'energy of star on the orbit',eccentricity_star,'eccentricity'
-  print*,eccentricity_vector(:),'eccentricity vector'
-  eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
-  print*,eccentricity_star,'eccentricity again'
-  semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
-  period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
-  print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
-  i_vector = (/1,0,0/)
-  j_vector = (/0,1,0/)
-  k_vector = (/0,0,1/)
-  call cross_product3D(k_vector,angular_momentum_h,n_vector)
-  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
-  inclination_angle = acos(dot_product(k_vector,angular_momentum_h/h_value))
-  arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
-  longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
-  print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+  eccentricity_value = eccentricity_star(vcrossh, mass_star, bh_mass, com_star, position_bh)
+  print*, eccentricity_value, "eccentricity"
+
+  semimajor_value = semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
+  print*, semimajor_value, "value of semi-major axis `a`"
+
+  period_value = period_star(semimajor_value,mass_star,bh_mass)
+  print*, period_value, "Period of the orbit"
+
 
 end subroutine orbital_parameters
+
+!----------------------------------------------------------------
+!+
+!  This function calculates eccentricity of the orbit.
+!+
+!----------------------------------------------------------------
+real function eccentricity_star(vcrossh, mass_star, bh_mass, com_star, position_bh)
+
+  use units , only : umass
+  use physcon,only : gg
+
+  real, intent(in) :: vrossh(3), com_star(3)
+  real, intent(in) :: mass_star, bh_mass, position_bh
+  real :: eccentricity_vector(3)
+
+
+  !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
+  eccentricity_vector(:) = (vcrossh(:)/(gg*(mass_star+bh_mass)*umass)) - (com_star(:)/position_bh)
+
+  eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
+
+end function eccentricity_star
+
+!----------------------------------------------------------------
+!+
+!  This function calculates semimajor axis of the orbit.
+!+
+!----------------------------------------------------------------
+real function semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
+
+  use units , only : umass
+  use physcon,only : gg
+
+  real, intent(in) :: h_value,mass_star,bh_mass,eccentricity_value
+
+  !formula used is a = h^2/(G(M*+M_BH)*(1-e^2))
+  semimajor_axis = h_value/((gg*(mass_star+bh_mass)*umass)*(1-eccentricity_value**2))
+
+end function semimajor_axis
+
+!----------------------------------------------------------------
+!+
+!  This function calculates period of the orbit.
+!+
+!----------------------------------------------------------------
+real function period_star(semimajor_value,mass_star,bh_mass)
+
+  use units , only : umass
+  use physcon,only : gg
+
+  real, intent(in) :: semimajor_value,mass_star,bh_mass
+
+  period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass_star+bh_mass)*umass))
+! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+! i_vector = (/1,0,0/)
+! j_vector = (/0,1,0/)
+! k_vector = (/0,0,1/)
+! call cross_product3D(k_vector,angular_momentum_h,n_vector)
+end function period_star
 
 end module analysis
