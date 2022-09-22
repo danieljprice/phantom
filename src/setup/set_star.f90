@@ -83,7 +83,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  integer,           intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out)   :: comp_label(:)
  integer :: ierr,i
- logical :: calc_polyk,iexist,composition_exists
+ logical :: calc_polyk,iexist
  real    :: eni,tempi,guessene
  procedure(func), pointer :: get_dPdrho
  !
@@ -356,12 +356,12 @@ end subroutine set_star_thermalenergy
 !
 !+
 !-----------------------------------------------------------------------
-subroutine write_kepler_comp(composition,comp_label,columns_compo,real,r&
-                             npart,npts,composition_exists)
+subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
+                             xyzh,npart,npts,composition_exists)
 
-   use table_utils, only                      :yinterp
+   use table_utils, only                      :  yinterp
    integer, intent(in)                        :: columns_compo,npart,npts
-   real, intent(in)                           :: xyzh(:,:)
+   real,    intent(in)                        :: xyzh(:,:)
    real, allocatable,intent(in)               :: r(:)
    real, allocatable, intent(in)              :: composition(:,:)
    character(len=20), allocatable,intent(in)  :: comp_label(:)

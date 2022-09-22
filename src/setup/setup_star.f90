@@ -268,8 +268,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  select case (iprofile)
       case(ikepler)
-          call write_kepler_comp(composition,comp_label,columns_compo,&
-                                       npart,npts,composition_exists)
+          call write_kepler_comp(composition,comp_label,columns_compo,r,&
+                                       xyzh,npart,npts,composition_exists)
  end select
  !
  ! set the internal energy and temperature
