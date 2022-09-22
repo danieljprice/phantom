@@ -687,7 +687,7 @@ end function escape
 subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
 
   use vectorutils,     only : cross_product3D
-  use physcon,         only : years,pc
+  use physcon,         only : years,pc,pi
 
   real, intent(in)   :: angular_momentum_h(3),com_star(3),velocity_wrt_bh(3)
   real, intent(in)   :: bh_mass, mass_star, position_bh
@@ -709,7 +709,7 @@ subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,posi
 
   call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
 
-  call eccentricity_vector(vcrossh, mass_star, bh_mass, com_star, position_bh, eccentricity_vector)
+  call eccentricity_vector_v(vcrossh, mass_star, bh_mass, com_star, position_bh, eccentricity_vector)
 
   eccentricity_value = eccentricity_star(eccentricity_vector)
   print*, eccentricity_value, "eccentricity"
@@ -732,7 +732,7 @@ end subroutine orbital_parameters
 !  This function calculates eccentricity vector of the orbit.
 !+
 !----------------------------------------------------------------
-subroutine eccentricity_vector(vcrossh, mass_star, bh_mass, com_star, position_bh,eccentricity_vector)
+subroutine eccentricity_vector_v(vcrossh, mass_star, bh_mass, com_star, position_bh,eccentricity_vector)
   use units , only : umass
   use physcon,only : gg,pi
 
@@ -743,7 +743,7 @@ subroutine eccentricity_vector(vcrossh, mass_star, bh_mass, com_star, position_b
   !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
   eccentricity_vector(:) = (vcrossh(:)/(gg*(mass_star+bh_mass)*umass)) - (com_star(:)/position_bh)
 
-end subroutine eccentricity_vector
+end subroutine eccentricity_vector_v
 !----------------------------------------------------------------
 !+
 !  This function calculates eccentricity of the orbit.
@@ -751,7 +751,7 @@ end subroutine eccentricity_vector
 !----------------------------------------------------------------
 real function eccentricity_star(eccentricity_vector)
 
-  real, intent(in) :: eccentricity_value(3)
+  real, intent(in) :: eccentricity_vector(3)
 
   eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
 
@@ -816,7 +816,7 @@ subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_va
   call cross_product3D(k_vector,angular_momentum_h,n_vector)
   n_vector_mag = sqrt(dot_product(n_vector,n_vector))
   inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
-  arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
+  arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_value,n_vector/n_vector_mag))
   longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
 
 
