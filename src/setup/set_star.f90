@@ -46,6 +46,7 @@ module setstar
  public :: set_star_composition
  public :: set_star_thermalenergy
  public :: set_stellar_core
+ public :: write_kepler_comp
 
  private
 
