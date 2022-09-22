@@ -356,17 +356,17 @@ end subroutine set_star_thermalenergy
 !
 !+
 !-----------------------------------------------------------------------
-subroutine write_kepler_comp(composition,comp_label,columns_compo,&
+subroutine write_kepler_comp(composition,comp_label,columns_compo,real,r&
                              npart,npts,composition_exists)
 
    use table_utils, only                      :yinterp
    integer, intent(in)                        :: columns_compo,npart,npts
    real, intent(in)                           :: xyzh(:,:)
+   real, allocatable,intent(in)               :: r(:)
    real, allocatable, intent(in)              :: composition(:,:)
    character(len=20), allocatable,intent(in)  :: comp_label(:)
    real , allocatable                         :: compositioni(:,:)
    logical, intent(out)                       :: composition_exists
-   integer                                    :: columns_compo
    real, allocatable                          :: comp(:)
    integer                                    :: i,j
    real                                       :: ri
