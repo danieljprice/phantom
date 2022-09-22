@@ -41,7 +41,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    integer              :: i,j,n_comp
    integer              :: ngrid = 0
 
-   integer                           :: grid
+   real                              :: grid
    real,intent(in)                   :: xyzh(:,:),vxyzu(:,:)
    real,intent(in)                   :: pmass,time
    real , allocatable,dimension(:)   :: pressure,rad_grid,mass,density,temperature,entropy_array,&
@@ -52,8 +52,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    character(len=20),allocatable     :: comp_label(:)
    character(len=120)                :: output
    character(len=*),intent(in)       :: dumpfile
-   integer :: max_pos
-   integer :: use_option
+   integer                           :: use_option
 
    !If dumpfile is not a complete dump we don't read it.
    if (.not.opened_full_dump) then
@@ -133,7 +132,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
                                     angular_vel_3D,use_option)
    use units , only: udist,umass,unit_velocity,utime,unit_energ
    use vectorutils,     only : cross_product3D
-   use part,            only : nptmass,xyzmh_ptmass,vxyz_ptmass,rhoh,poten
+   use part,            only : rhoh,poten
    use centreofmass,    only : get_centreofmass
    use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
    use eos,             only : equationofstate,entropy,X_in,Z_in,entropy,gmw,init_eos
@@ -152,32 +151,29 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
    integer :: no_in_bin !this stores the number of particles in bin after each loop.
    integer :: ibin
-   integer :: iorder(npart),j,i,s,m,index_val
+   integer :: iorder(npart),j,i,s,m
    integer :: number_particle,ieos,ierr
    integer :: columns_compo,location
-   integer :: particle_sum,ngrid
+   integer :: ngrid
    integer::  number_bins,number_tot, number_per_bin
    integer :: count=0
-   integer :: index_j,c_particle,index_i
-   real :: p_no,eccentricity_star
+   integer :: c_particle,index_i
    real :: density_sum,density_i,eni_input
    real :: u_sum,u_i !specific internal energy storage
    real :: omega_sum(3),omega(3)
-   real :: moment_of_inertia,i_vector(3),j_vector(3),k_vector(3)
+   real :: moment_of_inertia
    real :: temperature_i,temperature_sum
    real :: rad_velocity,rad_vel_sum,momentum
    real :: pressure_i,pressure_sum
    real :: pos(3),vel(3),rad,rad_next
    real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
    real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
-   real :: velocity_norm,escape_vel,kinetic_add,mass_val,com_velocity
+   real :: velocity_norm,escape_vel,kinetic_add
    real :: Y_in
    real :: bh_mass
-   real :: potential_energy_shell,tot_energy,energy_shell,kinetic_energy,mass_enclosed
-   real :: potential_i,kinetic_i,energy_i,potential_bh,energy_total,angular_momentum_h(3)
-   real :: radius_i(3,npart),distance_i(3),rel_distance,distance_bh,velocity_wrt_bh_i(3)
-   real :: velocity_wrt_bh(3),ke_bh,pe_bh,rad_test,velocity_bh,com_star(3),position_bh
-   real :: inclination_angle,arguement_of_periestron,n_vector_mag,n_vector(3),longitude_ascending_node
+   real :: tot_energy
+   real :: potential_i,kinetic_i,energy_i,energy_total,angular_momentum_h(3)
+   real :: velocity_wrt_bh(3),rad_test,velocity_bh,com_star(3),position_bh
    real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
    real,allocatable    :: energy_tot(:)
    real,allocatable    :: A_array(:), Z_array(:)
@@ -403,7 +399,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
             print*, 'Entropy is calculated incorrectly'
           end if
 
-          potential_energy_shell = 0
           tot_energy         = 0
           no_in_bin          = 0
           ibin               = ibin + 1
@@ -437,41 +432,21 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
   !we calculate angular momentum vector on the orbit around black hole.
   call cross_product3D(com_star,velocity_wrt_bh,angular_momentum_h)
 
-
   print*,com_star(:),'position of star wrt bh'
   print*,velocity_wrt_bh,'velocity of star wrt bh'
   print*,angular_momentum_h(:),'angular momentum h'
-
-  print*,velocity_bh/1e5,'bh vel',position_bh,'distance'
-  escape_vel = sqrt((2.*gg*1e6*umass)/position_bh)
-  print*,escape_vel/1e5,'escape vel',velocity_bh/1e5,'velcoity of the star on orbit'
-  if (velocity_bh > escape_vel) then
-    print*,'star has escaped',velocity_bh/escape_vel,'vel bh/escape vel'
-  else
-    print*,'star is bound',velocity_bh/escape_vel,'vel bh/escape vel'
-  endif
 
   !energy total is total energy of star. If negative, star is bound to BH but if positive then its unbound.
   !Calculate orbital paramters
   energy_total = 0.5*velocity_bh**2 - (gg*1e6*umass)/position_bh
 
   if (energy_total < 0.) then
-
-    ! semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
-    ! period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
-    ! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
-    ! i_vector = (/1,0,0/)
-    ! j_vector = (/0,1,0/)
-    ! k_vector = (/0,0,1/)
-    ! call cross_product3D(k_vector,angular_momentum_h,n_vector)
-    ! n_vector_mag = sqrt(dot_product(n_vector,n_vector))
-    ! inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
-    ! arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
-    ! longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
-    ! print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+    print*, escape(velocity_bh,bh_mass,position_bh)
     print*,"negative energy"
     call orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
+
   else
+    print*, escape(velocity_bh,bh_mass,position_bh)
     print*,'positive energy of the star on orbit'
   endif
   print*,npart-c_particle,'unbound particles ',correct_ngrid
@@ -486,6 +461,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  !+
  !----------------------------------------------------------------
  subroutine composition_array(interpolate_comp,columns_compo,comp_label)
+
    !first read the file with compositon and save that into an array.
    use fileutils,only : get_nlines,skip_header,get_column_labels
 
@@ -657,7 +633,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
 end subroutine assign_atomic_mass_and_number
 !----------------------------------------------------------------
 !+
-!  This subroutine is for calculating the gmw value by using
+!  This routine is for calculating the gmw value by using
 !  1/mu_i = Summation_a ((mass fraction)_a/A_a )*(1+Z_a)
 !+
 !----------------------------------------------------------------
@@ -681,18 +657,44 @@ subroutine calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
 end subroutine calculate_gmw
 !----------------------------------------------------------------
 !+
+!  This function tells if the star escaped the black hole or not
+!+
+!----------------------------------------------------------------
+logical function escape(velocity_bh,bh_mass,position_bh)
+
+  use units , only : umass
+  use physcon,only : gg
+
+  real, intent(in) :: velocity_bh, position_bh
+  real             :: escape_vel
+
+
+  escape_vel = sqrt((2.*gg*bh_mass*umass)/position_bh)
+
+  if (velocity_bh > escape_vel) then
+    print*,'star has escaped',velocity_bh/escape_vel,'vel bh/escape vel'
+    escape = .true.
+  else
+    print*,'star is bound',velocity_bh/escape_vel,'vel bh/escape vel'
+    escape = .false.
+  endif
+end function escape
+!----------------------------------------------------------------
+!+
 !  This routine calculates orbital parameters.
 !+
 !----------------------------------------------------------------
 subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
 
   use vectorutils,     only : cross_product3D
+  use physcon,         only : years,pc
 
   real, intent(in)   :: angular_momentum_h(3),com_star(3),velocity_wrt_bh(3)
   real, intent(in)   :: bh_mass, mass_star, position_bh
   real               :: eccentricity_value,semimajor_value,period_value
   real               :: h_value
-  real               :: vcrossh(3)
+  real               :: vcrossh(3),eccentricity_vector(3)
+  real               :: inclination_angle,arguement_of_periestron,longitude_ascending_node
 
   !h_value is the magnitude of angular_momentum_h vector squared.
   h_value = dot_product(angular_momentum_h,angular_momentum_h) !square of the magnitude of h vector
@@ -701,37 +703,55 @@ subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,posi
   print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
   print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
 
+  ! semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
+  ! period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
+  ! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+
   call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
 
-  eccentricity_value = eccentricity_star(vcrossh, mass_star, bh_mass, com_star, position_bh)
+  call eccentricity_vector(vcrossh, mass_star, bh_mass, com_star, position_bh, eccentricity_vector)
+
+  eccentricity_value = eccentricity_star(eccentricity_vector)
   print*, eccentricity_value, "eccentricity"
 
   semimajor_value = semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
-  print*, semimajor_value, "value of semi-major axis `a`"
+  print*, semimajor_value/pc, "value of semi-major axis `a` in Parsec"
 
   period_value = period_star(semimajor_value,mass_star,bh_mass)
-  print*, period_value, "Period of the orbit"
+  print*, period_value/years, "Period of the orbit in years"
 
+  call orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
+                            inclination_angle,arguement_of_periestron,longitude_ascending_node)
+
+  print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
 
 end subroutine orbital_parameters
 
 !----------------------------------------------------------------
 !+
-!  This function calculates eccentricity of the orbit.
+!  This function calculates eccentricity vector of the orbit.
 !+
 !----------------------------------------------------------------
-real function eccentricity_star(vcrossh, mass_star, bh_mass, com_star, position_bh)
-
+subroutine eccentricity_vector(vcrossh, mass_star, bh_mass, com_star, position_bh,eccentricity_vector)
   use units , only : umass
   use physcon,only : gg,pi
 
-  real, intent(in) :: vcrossh(3), com_star(3)
-  real, intent(in) :: mass_star, bh_mass, position_bh
-  real :: eccentricity_vector(3)
-
+  real, intent(in)  :: vcrossh(3), com_star(3)
+  real, intent(in)  :: mass_star, bh_mass, position_bh
+  real, intent(out) :: eccentricity_vector(3)
 
   !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
   eccentricity_vector(:) = (vcrossh(:)/(gg*(mass_star+bh_mass)*umass)) - (com_star(:)/position_bh)
+
+end subroutine eccentricity_vector
+!----------------------------------------------------------------
+!+
+!  This function calculates eccentricity of the orbit.
+!+
+!----------------------------------------------------------------
+real function eccentricity_star(eccentricity_vector)
+
+  real, intent(in) :: eccentricity_value(3)
 
   eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
 
@@ -766,12 +786,41 @@ real function period_star(semimajor_value,mass_star,bh_mass)
 
   real, intent(in) :: semimajor_value,mass_star,bh_mass
 
+
   period_star = sqrt((4*pi**2*abs(semimajor_value)**3)/(gg*(mass_star+bh_mass)*umass))
-! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
-! i_vector = (/1,0,0/)
-! j_vector = (/0,1,0/)
-! k_vector = (/0,0,1/)
-! call cross_product3D(k_vector,angular_momentum_h,n_vector)
+
 end function period_star
+
+!----------------------------------------------------------------
+!+
+!  This routine calculated the inclination angle,
+!  argument of pariestron, longitude ascending node.
+!+
+!----------------------------------------------------------------
+subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
+                          inclination_angle,arguement_of_periestron,longitude_ascending_node)
+
+  use vectorutils, only : cross_product3D
+
+  real, intent(in)   :: angular_momentum_h(3),eccentricity_vector(3)
+  real , intent(in)  :: h_value,eccentricity_value
+  real               :: i_vector(3),j_vector(3),k_vector(3),n_vector(3)
+  real               :: n_vector_mag
+  real, intent(out)  :: inclination_angle,arguement_of_periestron,longitude_ascending_node
+
+
+  i_vector = (/1,0,0/)
+  j_vector = (/0,1,0/)
+  k_vector = (/0,0,1/)
+
+  call cross_product3D(k_vector,angular_momentum_h,n_vector)
+  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
+  inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
+  arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_star,n_vector/n_vector_mag))
+  longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
+
+
+end subroutine orbital_angles
+
 
 end module analysis
