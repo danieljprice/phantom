@@ -35,10 +35,10 @@ module setup
 !   - xleft       : *x min boundary*
 !   - xright      : *x max boundary*
 !
-! :Dependencies: boundary, dim, dust, eos, eos_idealplusrad, infile_utils,
-!   io, kernel, mpiutils, nicil, options, part, physcon, prompting,
-!   radiation_utils, set_dust, setshock, setup_params, timestep, unifdis,
-!   units
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
+!   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,
+!   prompting, radiation_utils, set_dust, setshock, setup_params, timestep,
+!   unifdis, units
 !
  use dim,       only:maxvxyzu,use_dust,do_radiation
  use options,   only:use_dustfrac
@@ -90,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
  use mpiutils,        only:bcast_mpi
  use dim,             only:ndim,mhd
- use options,         only:use_dustfrac
+ use options,         only:use_dustfrac,icooling,ieos
  use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
                            periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,            only:rad,radprop,iradxi,ikappa
@@ -104,6 +104,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
  use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use eos,             only:temperature_coef,init_eos
+ use cooling,         only:T0_value
 #ifdef NONIDEALMHD
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
 #endif
@@ -124,7 +126,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical                          :: iexist,jexist,use_closepacked
 
  if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
- if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
+ if (do_radiation .or. icooling > 0) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
  !
@@ -329,6 +331,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     eta_const_type = icnstsemi
     rho_i_cnst     = rho_i_cnst * rhozero  ! Modify ion density from fraction to physical (for ambipolar diffusion)
 #endif
+ endif
+ !
+ ! set cooling function information from initial conditions
+ !
+ if (iexist .and. icooling > 0) then
+    call init_eos(ieos,ierr)
+    T0_value = temperature_coef*gmw*rightstate(ipr)/rightstate(idens)
+    print*,' Setting T0 in cooling function to ',T0_value
  endif
 
 end subroutine setpart
@@ -729,7 +739,8 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  call write_inopt(tmax,'tmax','maximum runtime',lu,ierr1)
  call write_inopt(dtmax,'dtmax','time between dumps',lu,ierr1)
  call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
- if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ !if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
 #ifdef NONIDEALMHD
  call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
  call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
@@ -789,7 +800,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(tmax,'tmax',db,errcount=nerr)
  call read_inopt(dtmax,'dtmax',db,errcount=nerr)
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
+ call read_inopt(gmw,'gmw',db,errcount=nerr)
+ !if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
 #ifdef NONIDEALMHD
  call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
  call read_inopt(use_hall,'use_hall',db,errcount=nerr)

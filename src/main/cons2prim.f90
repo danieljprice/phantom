@@ -59,7 +59,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i),usedens,ien_type)
-       
+
        ! save eos vars for later use
        eos_vars(igasP,i)  = pri
        eos_vars(itemp,i)  = tempi
