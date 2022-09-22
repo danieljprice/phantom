@@ -93,7 +93,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:init_eos,finish_eos,gmw,X_in,Z_in,eos_outputs_mu
  use eos_piecewise,   only:init_eos_piecewise_preset
  use setstar,         only:set_stellar_core,read_star_profile,set_star_density, &
-                           set_star_composition,set_star_thermalenergy
+                           set_star_composition,set_star_thermalenergy,write_kepler_comp
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,igas
  use relaxstar,       only:relax_star
  use mpiutils,        only:reduceall_mpi
