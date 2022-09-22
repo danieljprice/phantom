@@ -28,8 +28,8 @@ module setup
 !   - zmax        : *zmax boundary*
 !   - zmin        : *zmin boundary*
 !
-! :Dependencies: boundary, cooling, dim, eos, h2cooling, infile_utils, io,
-!   mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
+! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
+!   io, mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
 !   setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd
@@ -73,7 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:icooling,alpha,alphau
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
  use cooling,      only:Tfloor
- use h2cooling,    only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
+ use cooling_ism,  only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
