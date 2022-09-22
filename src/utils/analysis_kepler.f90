@@ -665,7 +665,7 @@ logical function escape(velocity_bh,bh_mass,position_bh)
   use units , only : umass
   use physcon,only : gg
 
-  real, intent(in) :: velocity_bh, position_bh
+  real, intent(in) :: velocity_bh, position_bh, bh_mass
   real             :: escape_vel
 
 
