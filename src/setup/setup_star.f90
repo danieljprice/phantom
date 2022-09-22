@@ -114,10 +114,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer                          :: i,nx,npts,ierr,j
  real                             :: vol_sphere,psep,rmin,presi
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
- real, allocatable                :: composition(:,:),comp(:)
+ real, allocatable                :: composition(:,:)
  real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
  integer                          :: columns_compo
- real , allocatable               :: compositioni(:,:)
  character(len=20), allocatable   :: comp_label(:)
  logical                          :: calc_polyk,setexists
  logical                          :: composition_exists
@@ -265,6 +264,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,xyzh,Xfrac,Yfrac,mu,mtab,Mstar,eos_vars)
  endif
  !
+ ! Write composition file called kepler.comp contaning composition of each particle after interpolation
+ !
+ select case (iprofile)
+      case(ikepler)
+          call write_kepler_comp(composition,comp_label,columns_compo,&
+                                       npart,npts,composition_exists)
+ end select
+ !
  ! set the internal energy and temperature
  !
  if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,&
@@ -275,42 +282,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Reset centre of mass (again)
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- !
- ! Interpolating composition for each particle in the star. For now I write a file with the interpolate data
- ! This is used in analysis kepler file to bin composition.
- !
- select case(iprofile)
-        case(ikepler)
-   ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
-   ! !in the star.
-   if (columns_compo /= 0) then
-     composition_exists = .true.
-   endif
 
-   if (composition_exists) then
-     print*, 'Writing the stellar composition for each particle into ','kepler.comp'
-
-     open(11,file='kepler.comp')
-     write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
-           comp_label
-       !Now setting the composition of star if the case used was ikepler
-       allocate(compositioni(columns_compo,1))
-       allocate(comp(1:npts))
-       do i = 1,npart
-         !Interpolate compositions
-         ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-
-         do j = 1,columns_compo
-           comp(1:npts)      = composition(1:npts,j)
-           compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-         end do
-          write(11,'(50(es18.10,1X))') &
-           (compositioni(j,1),j=1,columns_compo)
-       end do
-    close(11)
-    print*, '>>>>>> done'
-    end if
-end select
  !
  ! Print summary to screen
  !
