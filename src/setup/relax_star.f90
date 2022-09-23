@@ -248,7 +248,7 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  real, intent(out)   :: dtmin
  real :: dx(3),dti,phi,rhoi,cs,hi
  integer :: i,nlargeshift
-!l
+!
 ! shift particles asynchronously
 !
  dtmin = huge(dtmin)
