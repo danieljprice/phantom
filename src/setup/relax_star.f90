@@ -85,7 +85,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step
- logical, parameter :: fix_entrop = .false. ! fix entropy instead of thermal energy
+ logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical, parameter :: write_files = .true.
  character(len=20) :: filename
  !
@@ -248,7 +248,7 @@ subroutine shift_particles(npart,xyzh,vxyzu,dtmin)
  real, intent(out)   :: dtmin
  real :: dx(3),dti,phi,rhoi,cs,hi
  integer :: i,nlargeshift
-!
+!l
 ! shift particles asynchronously
 !
  dtmin = huge(dtmin)
@@ -325,7 +325,6 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_e
     endif
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
-
  enddo
  rmserr = sqrt(rmserr/npart)/rho1
 

@@ -737,6 +737,7 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
     endif
  endif
 
+
  ! star properties
  if (isoftcore <= 0) then
     if (need_inputprofile) then
