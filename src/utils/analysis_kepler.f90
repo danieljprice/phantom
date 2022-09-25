@@ -89,6 +89,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           'cell outer tot. mass',                    &  !total mass < r
           'cell outer radius',                       &  !position
           'cell density',                            &  !density
+          'cell pressure',                           &
           'cell temperature',                        &  !temperature
           'cell radial momentum',                    &  !radial momentum
           'angular vel (x)',                         &  !velocity x component
@@ -110,6 +111,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               mass(i)*umass,                              &
               rad_grid(i)*udist,                          &
               density(i)*unit_density,                    &
+              pressure(i),                                &
               temperature(i),                             &
               rad_mom(i)*unit_velocity*umass,             &
               (angular_vel_3D(j,i)/utime, j=1,3),         &
@@ -340,7 +342,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        eni_input = u_i
        !call eos routine
        !call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
-       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i, mu_local=1./gmw)
+       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi=temperature_i, eni=eni_input)
 
        pressure_i      = ponrhoi*density_i
        pressure_sum    = pressure_sum + pressure_i
