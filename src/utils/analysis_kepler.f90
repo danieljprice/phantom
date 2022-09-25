@@ -171,7 +171,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
    real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
    real :: velocity_norm,escape_vel,kinetic_add
-   real :: Y_in
+   real :: Y_in,mu
    real :: bh_mass
    real :: tot_energy
    real :: potential_i,kinetic_i,energy_i,energy_total,angular_momentum_h(3)
@@ -333,9 +333,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        !mass fractions for each particle.
        !do not consider neutron which is the first element of the composition_i array.
        if (j==1) then
-         call calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
+         call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
        endif
-
+       gmw = 1./mu
        if (j<=2) then
          print*,'gmw',gmw,j,"j"
        endif
@@ -395,7 +395,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
           !calculating entropy
           !implementing entropy from the Sackur-Tetrode equation.
-          entropy_array(ibin) = entropy(density(ibin),pressure(ibin),1./gmw,ientropy=2,ierr=ierr)
+          entropy_array(ibin) = entropy(density(ibin),pressure(ibin),mu,ientropy=2,ierr=ierr)
           entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
           if (ierr/=0) then
             print*, 'Entropy is calculated incorrectly'
@@ -639,24 +639,24 @@ end subroutine assign_atomic_mass_and_number
 !  1/mu_i = Summation_a ((mass fraction)_a/A_a )*(1+Z_a)
 !+
 !----------------------------------------------------------------
-subroutine calculate_gmw(A_array,Z_array,composition_i,columns_compo,gmw)
+subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
 
   real,allocatable,intent(in) :: A_array(:), Z_array(:), composition_i(:)
   integer, intent(in)         :: columns_compo
-  real,    intent(out)        :: gmw
-  real                        :: mu_i
+  real,    intent(out)        :: mu
+  real                        :: gmw_i
   integer                     :: index_val
 
   mu_i = 0.
   if (columns_compo /= 0) then
     do index_val = 1, columns_compo-1
-      mu_i = mu_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
+      gmw_i = gmw_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
       print*, composition_i,"composition_i",mu_i,"mu_i"
     enddo
-    gmw = 1./mu_i
+    mu = 1./gmw_i
   endif
 
-end subroutine calculate_gmw
+end subroutine calculate_mu
 !----------------------------------------------------------------
 !+
 !  This function tells if the star escaped the black hole or not
