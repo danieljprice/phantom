@@ -89,7 +89,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           'cell outer tot. mass',                    &  !total mass < r
           'cell outer radius',                       &  !position
           'cell density',                            &  !density
-          'cell pressure',                           &
           'cell temperature',                        &  !temperature
           'cell radial momentum',                    &  !radial momentum
           'angular vel (x)',                         &  !velocity x component
@@ -111,7 +110,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               mass(i)*umass,                              &
               rad_grid(i)*udist,                          &
               density(i)*unit_density,                    &
-              pressure(i),                                &
               temperature(i),                             &
               rad_mom(i)*unit_velocity*umass,             &
               (angular_vel_3D(j,i)/utime, j=1,3),         &
@@ -336,7 +334,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
 
        gmw = 1./mu
-       
+
        if (j<=2) then
          print*,'gmw',gmw,j,"j"
        endif
@@ -647,11 +645,10 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
   real,    intent(out)        :: mu
   integer                     :: index_val
 
-
+  mu = 0.
   if (columns_compo /= 0) then
     do index_val = 1, columns_compo-1
       mu = mu + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
-      print*, composition_i,"composition_i",mu,"mu_i"
     enddo
 
   endif
