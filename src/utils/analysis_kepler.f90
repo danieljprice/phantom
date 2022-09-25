@@ -135,7 +135,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
    use part,            only : rhoh,poten
    use centreofmass,    only : get_centreofmass
    use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
-   use eos,             only : equationofstate,entropy,X_in,Z_in,entropy,gmw,init_eos
+   use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
    use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
 
 
@@ -340,7 +340,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        eni_input = u_i
        !call eos routine
        !call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
-       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i, mu_local=1./mu_i)
+       call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i, mu_local=1./gmw)
 
        pressure_i      = ponrhoi*density_i
        pressure_sum    = pressure_sum + pressure_i
@@ -393,7 +393,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
           !calculating entropy
           !implementing entropy from the Sackur-Tetrode equation.
-          entropy_array(ibin) = entropy(density(ibin),pressure(ibin),2,ierr)
+          entropy_array(ibin) = entropy(density(ibin),pressure(ibin),1./gmw,ientropy=2,ierr=ierr)
           entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
           if (ierr/=0) then
             print*, 'Entropy is calculated incorrectly'
