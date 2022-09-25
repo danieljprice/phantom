@@ -332,10 +332,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        !calculate mean molecular weight that is required by the eos module using the
        !mass fractions for each particle.
        !do not consider neutron which is the first element of the composition_i array.
-       if (j==1) then
-         call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
-       endif
+
+       call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
+
        gmw = 1./mu
+       
        if (j<=2) then
          print*,'gmw',gmw,j,"j"
        endif
@@ -644,16 +645,15 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
   real,allocatable,intent(in) :: A_array(:), Z_array(:), composition_i(:)
   integer, intent(in)         :: columns_compo
   real,    intent(out)        :: mu
-  real                        :: gmw_i
   integer                     :: index_val
 
-  mu_i = 0.
+
   if (columns_compo /= 0) then
     do index_val = 1, columns_compo-1
-      gmw_i = gmw_i + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
-      print*, composition_i,"composition_i",mu_i,"mu_i"
+      mu = mu + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
+      print*, composition_i,"composition_i",mu,"mu_i"
     enddo
-    mu = 1./gmw_i
+
   endif
 
 end subroutine calculate_mu
