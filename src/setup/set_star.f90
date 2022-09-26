@@ -76,7 +76,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real,              intent(in)    :: ui_coef
  real,              intent(inout) :: gamma,polyk
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
-  real, allocatable, intent(out)  :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
+ real, allocatable, intent(out)  :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
  integer,           intent(out)   :: npts
  real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
  integer,           intent(in)    :: isoftcore,isofteningopt
@@ -360,50 +360,50 @@ end subroutine set_star_thermalenergy
 subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
                              xyzh,npart,npts,composition_exists)
 
-   use table_utils, only                      :  yinterp
-   integer, intent(in)                        :: columns_compo,npart,npts
-   real,    intent(in)                        :: xyzh(:,:)
-   real, allocatable,intent(in)               :: r(:)
-   real, allocatable, intent(in)              :: composition(:,:)
-   character(len=20), allocatable,intent(in)  :: comp_label(:)
-   real , allocatable                         :: compositioni(:,:)
-   logical, intent(out)                       :: composition_exists
-   real, allocatable                          :: comp(:)
-   integer                                    :: i,j
-   real                                       :: ri
+ use table_utils, only                      :  yinterp
+ integer, intent(in)                        :: columns_compo,npart,npts
+ real,    intent(in)                        :: xyzh(:,:)
+ real, allocatable,intent(in)               :: r(:)
+ real, allocatable, intent(in)              :: composition(:,:)
+ character(len=20), allocatable,intent(in)  :: comp_label(:)
+ real , allocatable                         :: compositioni(:,:)
+ logical, intent(out)                       :: composition_exists
+ real, allocatable                          :: comp(:)
+ integer                                    :: i,j
+ real                                       :: ri
 
 
-   composition_exists = .false.
+ composition_exists = .false.
 
-    ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
-    ! !in the star.
-    if (columns_compo /= 0) then
-      composition_exists = .true.
-    endif
+ ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+ ! !in the star.
+ if (columns_compo /= 0) then
+    composition_exists = .true.
+ endif
 
-    if (composition_exists) then
-      print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+ if (composition_exists) then
+    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
 
-      open(11,file='kepler.comp')
-      write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
+    open(11,file='kepler.comp')
+    write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
             comp_label
-        !Now setting the composition of star if the case used was ikepler
-        allocate(compositioni(columns_compo,1))
-        allocate(comp(1:npts))
-        do i = 1,npart
-          !Interpolate compositions
-          ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    !Now setting the composition of star if the case used was ikepler
+    allocate(compositioni(columns_compo,1))
+    allocate(comp(1:npts))
+    do i = 1,npart
+       !Interpolate compositions
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
 
-          do j = 1,columns_compo
-            comp(1:npts)      = composition(1:npts,j)
-            compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-          enddo
-           write(11,'(50(es18.10,1X))') &
+       do j = 1,columns_compo
+          comp(1:npts)      = composition(1:npts,j)
+          compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
+       enddo
+       write(11,'(50(es18.10,1X))') &
             (compositioni(j,1),j=1,columns_compo)
-        enddo
-     close(11)
-     print*, '>>>>>> done'
-     endif
+    enddo
+    close(11)
+    print*, '>>>>>> done'
+ endif
 
 
 end subroutine write_kepler_comp

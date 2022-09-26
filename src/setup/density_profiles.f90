@@ -596,10 +596,10 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
 
  !check which label gives nt1.
  do i = 1,len(all_label)
-   if (all_label(i) == 'nt1') then
-     skip_no = i - 1
-     composition_available = .true.
-   endif
+    if (all_label(i) == 'nt1') then
+       skip_no = i - 1
+       composition_available = .true.
+    endif
  enddo
 
  !Allocate memory for saving data
@@ -644,22 +644,22 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !if elements were found in the file read, save the composition by allocating an array
  !else set it to 0
  if (composition_available) then
-   !saving composition. In a composition file of KEPLER, we have first 13 columns that do not contain composition
-   !We skip them and store the rest into a composition tensor.
-   print*, 'Kepler file has composition.'
-   columns_compo = 0
-   allocate(composition(n_rows,n_cols-skip_no))
-   allocate(comp_label(n_cols-skip_no))
-   comp_label(:) = all_label(skip_no+1:n_cols)
-   column_no = skip_no + 1
-   do i = 1, n_cols-skip_no
-     composition(:,i) = stardata(:,column_no)
-     column_no        = column_no + 1
-   enddo
-   columns_compo = n_cols-skip_no
+    !saving composition. In a composition file of KEPLER, we have first 13 columns that do not contain composition
+    !We skip them and store the rest into a composition tensor.
+    print*, 'Kepler file has composition.'
+    columns_compo = 0
+    allocate(composition(n_rows,n_cols-skip_no))
+    allocate(comp_label(n_cols-skip_no))
+    comp_label(:) = all_label(skip_no+1:n_cols)
+    column_no = skip_no + 1
+    do i = 1, n_cols-skip_no
+       composition(:,i) = stardata(:,column_no)
+       column_no        = column_no + 1
+    enddo
+    columns_compo = n_cols-skip_no
  else
-   allocate(composition(0,0))
-   allocate(comp_label(0))
+    allocate(composition(0,0))
+    allocate(comp_label(0))
  endif
  print*, shape(composition),'shape of composition array'
  if (present(rcut) .and. present(mcut)) then
