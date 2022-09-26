@@ -680,7 +680,7 @@ end subroutine calc_diffusion_coefficient
 !+
 !---------------------------------------------------------
 subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vxyzu,radprop,rad,origEU,varinew,EU0,moresweep)
- use io,    only:error
+ use io,    only:fatal
  use part,  only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars
  use units, only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
