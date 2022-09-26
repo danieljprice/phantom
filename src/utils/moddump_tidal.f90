@@ -21,9 +21,9 @@ module moddump
 !   - r0    : *starting distance  (code units)*
 !   - rs    : *radius of star     (code units)*
 !   - theta : *stellar rotation with respect to x-axis (in degrees)*
-!   - ecc   : *eccentricity
-! :Dependencies: centreofmass, externalforces, infile_utils, io, options,
-!   physcon, prompting
+!
+! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
+!   options, physcon, prompting, units
 !
  implicit none
 

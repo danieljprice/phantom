@@ -45,7 +45,7 @@ module setup
 ! :Dependencies: centreofmass, dim, eos, eos_gasradrec, eos_piecewise,
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
 !   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
-!   setsoftenedcore, setstar, setup_params, timestep, units
+!   setsoftenedcore, setstar, setup_params, table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity,ihsoft

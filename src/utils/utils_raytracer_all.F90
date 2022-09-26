@@ -10,7 +10,7 @@ module raytracer_all
 !
 ! :References: None
 !
-! :Owner: MatsEsseldeurs
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
