@@ -10,7 +10,7 @@ module healpix
 !
 ! :References: None
 !
-! :Owner: MatsEsseldeurs
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
