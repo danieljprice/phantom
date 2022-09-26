@@ -267,8 +267,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Write composition file called kepler.comp contaning composition of each particle after interpolation
  !
  select case (iprofile)
-      case(ikepler)
-          call write_kepler_comp(composition,comp_label,columns_compo,r,&
+ case(ikepler)
+    call write_kepler_comp(composition,comp_label,columns_compo,r,&
                                        xyzh,npart,npts,composition_exists)
  end select
  !
@@ -310,7 +310,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(*,"(70('='))")
 
  if (composition_exists) then
-   write(*,'(a)') 'Composition written to kepler.comp file.'
+    write(*,'(a)') 'Composition written to kepler.comp file.'
  endif
 
  if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
