@@ -216,7 +216,7 @@ function get_nlines(string,skip_comments,n_columns,n_headerlines) result(n)
  do_skip = .false.
  if (present(skip_comments)) do_skip = skip_comments
 
- if (do_skip .or. present(n_columns) .or. present(n_headerlines))then
+ if (do_skip .or. present(n_columns) .or. present(n_headerlines)) then
    call get_ncolumns(iunit,ncolumns,nheaderlines)
    if (present(n_columns)) n_columns = ncolumns
    if (present(n_headerlines)) n_headerlines = nheaderlines

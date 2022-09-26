@@ -380,11 +380,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
          rad_grid(ibin)   = (rad + rad_next)/2
 
        !if number of bin does not have the same number of particles we loop again. so cycle for j<npart
-       else if (j<npart) then
+       elseif (j<npart) then
           cycle
 
-       !else if j is last then save the last bin if the nu,ber of particle /= no_in_bin
-       else if (j == npart) then
+       !elseif j is last then save the last bin if the nu,ber of particle /= no_in_bin
+       elseif (j == npart) then
         rad_grid(ibin) = rad
        endif
 
@@ -410,7 +410,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
           if (ierr/=0) then
             print*, 'Entropy is calculated incorrectly'
-          end if
+          endif
 
           tot_energy         = 0
           no_in_bin          = 0
@@ -426,7 +426,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           moment_of_inertia  = 0.
           kinetic_add        = 0.
         endif
-  end do
+  enddo
   close(1)
   correct_ngrid = ibin-1
   print*,c_particle,'c_particle'
@@ -522,7 +522,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      call skip_header(13,nheader,ierr)
      do k = 1, n_rows
        read(13,*,iostat=ierr) interpolate_comp(:,k)
-     end do
+     enddo
      close(13)
      print*, '>>>>>> done'
    endif
@@ -640,7 +640,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
       Z_array(i) = 28
     endif
 
-  end do
+  enddo
   print*, "A and Z arrays assigned"
 
 end subroutine assign_atomic_mass_and_number

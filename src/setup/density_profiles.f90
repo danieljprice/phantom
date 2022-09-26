@@ -655,7 +655,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
    do i = 1, n_cols-skip_no
      composition(:,i) = stardata(:,column_no)
      column_no        = column_no + 1
-   end do
+   enddo
    columns_compo = n_cols-skip_no
  else
    allocate(composition(0,0))
