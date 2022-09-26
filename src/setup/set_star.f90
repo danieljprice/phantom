@@ -397,13 +397,13 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
           do j = 1,columns_compo
             comp(1:npts)      = composition(1:npts,j)
             compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-          end do
+          enddo
            write(11,'(50(es18.10,1X))') &
             (compositioni(j,1),j=1,columns_compo)
-        end do
+        enddo
      close(11)
      print*, '>>>>>> done'
-     end if
+     endif
 
 
 end subroutine write_kepler_comp

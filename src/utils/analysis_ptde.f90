@@ -343,7 +343,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        entropy_array(ibin) = entropy_array(ibin)/(kboltz*avogadro)
        if (ierr/=0) then
          print*, 'Entropy is calculated incorrectly'
-       end if
+       endif
        print*, no_in_bin,'no in bin',ibin,'ibin',number_particle,'no particle',no_in_bin,'no in bin'
        no_in_bin          = 0
        ibin               = ibin + 1
@@ -356,8 +356,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        rad_vel_sum        = 0.
        omega_sum(:)       = 0.
        moment_of_inertia  = 0.
-     end if
-   end do
+     endif
+   enddo
  end subroutine phantom_to_kepler_arrays
  !----------------------------------------------------------------
  !+
@@ -413,7 +413,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      call skip_header(13,nheader,ierr)
      do k = 1, n_rows
        read(13,*,iostat=ierr) interpolate_comp(:,k)
-     end do
+     enddo
      close(13)
 
      print*, '>>>>>> done'
@@ -469,7 +469,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     !Energy = KE + PE = v^2/2 - G mh/r.
     eps(i) = (v2**2*unit_velocity**2)/2. - (1e6*solarm*gg)/(rad*udist)
 
-  end do
+  enddo
 
  count = 0.
 
@@ -477,8 +477,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
      !if energy is positive, then particle has been removed from star.
      if (eps(i) > 0) then
        count = count + 1.
-     end if
-   end do
+     endif
+   enddo
 
    ! print*,count,'count',npart,'npart'
    ! print*, count*umass*pmass, 'mass lost', npart*umass*pmass,umass,'mass unit'
