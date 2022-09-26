@@ -103,13 +103,16 @@ end subroutine save_radiation_energies
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
  use io, only:fatal
+ use part, only:hfact
+ use physcon, only:pi
+ use kernel, only:radkern
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: errorE,errorU,EU0(:,:)
  integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal,npart,icompactmax
+ integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
 
  failed = .false.
@@ -119,7 +122,8 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  ierr = 0
 
  npart = size(xyzh(1,:))
- icompactmax = 60*npart
+ nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
+ icompactmax = nneigh_average*npart
  allocate(ivar(3,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
  allocate(ijvar(icompactmax),stat=ierr)
@@ -155,21 +159,29 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  real, intent(in)                  :: xyzh(:,:)
  integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
- integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact,icompactmax,iamtypei
+ integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
  integer, parameter                :: maxcellcache = 10000
- real                              :: dx,dy,dz,hi21,hj21,hj1,rij2,q2i,q2j
- real, save                        :: xyzcache(maxcellcache,4)
- !$omp threadprivate(xyzcache)
+ integer, save, allocatable        :: neighlist(:)
+ real                              :: dx,dy,dz,hi21,rij2,q2i
+ real, save                        :: xyzcache(maxcellcache,3)
+ !$omp threadprivate(xyzcache,neighlist)
  logical                           :: iactivei,iamdusti,iamgasi
+
+ if (.not. allocated(neighlist)) then
+    !$omp parallel
+    allocate(neighlist(size(xyzh(1,:))))
+    !$omp end parallel
+ endif
 
  ncompact = 0
  ncompactlocal = 0
+ icompact = 0
  icompactmax = size(ijvar)
  !$omp parallel do schedule(runtime)&
- !$omp shared(ncells,nneigh,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
+ !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
  !$omp shared(ncompact,icompact,icompactmax)&
- !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi21,hj21,hj1,ncompact_private,icompact_private)
+ !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i)&
+ !$omp private(hi21,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
@@ -180,7 +192,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
     !
     !--get the neighbour list and fill the cell cache
     !
-    call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache)
+    call get_neighbour_list(icell,listneigh,nneigh_trial,xyzh,xyzcache,maxcellcache)
 
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
        i = inodeparts(ip)
@@ -197,8 +209,10 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
        if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
           cycle over_parts
        endif
+       nneigh = 0
+       hi21 = 1./xyzh(4,i)**2
 
-       loop_over_neigh: do n = 1,nneigh
+       loop_over_neigh: do n = 1,nneigh_trial
 
           j = listneigh(n)
           !--do self contribution separately to avoid problems with 1/sqrt(0.)
@@ -221,40 +235,34 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
           endif
           rij2 = dx*dx + dy*dy + dz*dz
           q2i = rij2*hi21
-       !--hj is in the cell cache but not in the neighbour cache
-       !  as not accessed during the density summation
-          if (n <= maxcellcache) then
-             hj1 = xyzcache(n,4)
-          else
-             hj1 = 1./xyzh(4,j)
-          endif
-          hj21 = hj1*hj1
-          q2j  = rij2*hj21
-!
-!--do interaction if r/h < compact support size
-!
+          !
+          !--do interaction if r/h < compact support size
+          !
           is_sph_neighbour: if (q2i < radkern2) then ! .or. q2j < radkern2) then
+              nneigh = nneigh + 1
+              neighlist(nneigh) = j
+          endif is_sph_neighbour
+
+        enddo loop_over_neigh
 
 !$omp critical(listcompact)
-             ncompact = ncompact + 1
-             ncompact_private = ncompact
-             icompact_private = icompact
-             icompact = icompact + nneigh
+        ncompact = ncompact + 1
+        ncompact_private = ncompact
+        icompact_private = icompact
+        icompact = icompact + nneigh
 !$omp end critical (listcompact)
-             if (icompact_private+nneigh > icompactmax) then
-                call fatal('radiation-implicit','not enough memory allocated for neighbour list')
-             endif
-             ivar(1,ncompact_private) = nneigh
-             ivar(2,ncompact_private) = icompact_private
-             ivar(3,ncompact_private) = i
+       if (icompact_private+nneigh > icompactmax) then
+         print*,i,nneigh,icompact_private,nneigh,icompactmax
+          call fatal('radiation-implicit','not enough memory allocated for neighbour list')
+       endif
+       ivar(1,ncompact_private) = nneigh
+       ivar(2,ncompact_private) = icompact_private
+       ivar(3,ncompact_private) = i
 
-             do k = 1, nneigh
-                j = listneigh(k)
-                ijvar(icompact_private + k) = j
-             enddo
-
-          endif is_sph_neighbour
-       enddo loop_over_neigh
+       do k = 1, nneigh
+          j = neighlist(k)
+          ijvar(icompact_private + k) = j
+       enddo
     enddo over_parts
  enddo over_cells
  !$omp end parallel do
@@ -330,10 +338,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     hi21 = 1./(hi*hi)
     hi41 = hi21*hi21
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
-
+   !  print*,n,'i=',i,' nneigh=',ivar(1,n)
+   !  read*
     do k = 1,ivar(1,n) ! Looping from 1 to nneigh
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
+      !  print*,'  j=',j,' r/h =',sqrt(dot_product(xyzh(1:3,i)-xyzh(1:3,j),xyzh(1:3,i)-xyzh(1:3,j)))/xyzh(4,i)
+      !  read*
        !
        !--Need to make sure that E and U values are loaded for non-active neighbours
        !
@@ -482,6 +493,9 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
        pmjdWrunix = varij2(1,icompact)
        pmjdWruniy = varij2(2,icompact)
        pmjdWruniz = varij2(3,icompact)
+      !  print*,'i=',i,'  j=',j,' r/h =',sqrt(dot_product(xyzh(1:3,i)-xyzh(1:3,j),xyzh(1:3,i)-xyzh(1:3,j)))/xyzh(4,i)
+      !  print*,' rhoj=',rhoj,' rhoj should be=',rhoh(xyzh(4,j),massoftype(igas))
+      !  read*
 
        ! Calculates the gradient of E (where E=rho*e, and e is xi)
        Eij1 = rhoi*EU0(1,i) - rhoj*EU0(1,j)
@@ -540,9 +554,14 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
     radRi = get_rad_R(rhoi,EU0(1,i),radprop(ifluxx:ifluxz,i),opacity)
     radprop(ilambda,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
     radprop(iedd,i) = radprop(ilambda,i) + radprop(ilambda,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
+
+   !  print*,'i=',i,'radRi=',radRi,'lambda=',radprop(ilambda,i),'edd factor',radprop(iedd,i),'kappa',opacity*unit_opacity
+   !  print*,' rhoi=',rhoi*unit_density,' rhoi should be=',rhoh(xyzh(4,i),massoftype(igas))*unit_density
+   !  read*
  enddo
  !$omp end parallel do
-
+!  print*,minval(radprop(ilambda,1:npart)),maxval(radprop(ilambda,1:npart)),minval(radprop(ikappa,1:npart))*unit_opacity,maxval(radprop(ikappa,1:npart))*unit_opacity
+! read*
 end subroutine calc_lambda_and_eddington
 
 
@@ -572,6 +591,8 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
     i = ivar(3,n)
    !  if (iphase(i) == 0) then
     rhoi = vari(2,n)
+   !  print*,'i=',i,'rhoi=',rhoi,'should be',rhoh(xyzh(4,i),massoftype(igas))
+   !  read*
 
     !--NOTE: Needs to do this loop even for boundaryparticles because active
     !     boundary particles will need to contribute to the varinew() 
@@ -590,8 +611,11 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
     do k = 1,ivar(1,n)
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
-      !  IF (iphase(j).EQ.0) THEN
+      !  print*,'  j=',j,' r/h =',sqrt(dot_product(xyzh(1:3,i)-xyzh(1:3,j),xyzh(1:3,i)-xyzh(1:3,j)))/xyzh(4,i)
+      !  read*
        rhoj = varij(1,icompact)
+      !  print*,'j=',j,'rhoj=',rhoj,'should be',rhoh(xyzh(4,j),massoftype(igas))
+      !  read*
        dWiidrlightrhorhom = varij(2,icompact)
        dWidrlightrhorhom = varij(3,icompact)
        dWjdrlightrhorhom = varij(4,icompact)
@@ -645,8 +669,8 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
        varinew(1,i) = varinew(1,i) + diffusion_numerator
        !$omp atomic
        varinew(2,i) = varinew(2,i) + diffusion_denominator
-               ! ENDIF
  enddo
+ !$omp end parallel do
 end subroutine calc_diffusion_coefficient
 
 
@@ -816,7 +840,9 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
        u1term = u1term/u4term
        u0term = u0term/u4term
        moresweep2 = .false.
-       call solve_quartic(u1term,u0term,EU0(2,i),U1i,moresweep)  ! U1i is the quartic solution
+       call solve_quartic(u1term,u0term,EU0(2,i),U1i,moresweep,ierr)  ! U1i is the quartic solution
+       if (ierr /= 0) call fatal('solve_quartic','Fail to solve')
+      !  call QUARTIC_GS1T(u1term,u0term,EU0(2,i),U1i,moresweep,i)
 
        if (moresweep2) then
 !$omp critical (moresweepset)
@@ -1372,13 +1398,16 @@ end function gas_dust_collisional_term
 !  (Should be split further and unit tested)
 !+
 !---------------------------------------------------------
-subroutine solve_quartic(u1term,u0term,uold,soln,moresweep)
+subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  real, intent(in) :: u1term,u0term,uold
+ integer, intent(out) :: ierr
  integer :: rtst
  logical :: moresweep
  real :: y1,ub1,uc1,ub2,uc2,a0,a1,a2,a3,a4,ub,uc
  real :: soln,tsoln1,tsoln2,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
  real, dimension(2) :: z1,z2,z3,z4
+
+ ierr = 0
 
  ! Between eq 22 & 23
  a4 = 1.
@@ -1420,6 +1449,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep)
     print *,"Quantity1:",quantity1,biggest_term
     print *,"Returning to TRAP with moresweep2=.TRUE."
     moresweep = .true.
+    ierr = 1
     return
  endif
 
