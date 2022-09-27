@@ -841,7 +841,17 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
        u0term = u0term/u4term
        moresweep2 = .false.
        call solve_quartic(u1term,u0term,EU0(2,i),U1i,moresweep,ierr)  ! U1i is the quartic solution
-       if (ierr /= 0) call fatal('solve_quartic','Fail to solve')
+       if (ierr /= 0) then
+          print*,'Error in solve_quartic'
+          print*,'i=',i,'u1term=',u1term,'u0term=',u0term,'EU0(2,i)=',EU0(2,i),'U1i=',U1i,'moresweep=',moresweep
+          print*,"info: ",EU0(2,i)/radprop(icv,i)
+          print*,"info2: ",u0term,u1term,u4term,gammaval,radprop(ikappa,i),radprop(icv,i)
+          print*,"info3: ",chival,betaval,dti
+          print*,"info4: ",pres_denominator,origeu(1,i),pres_numerator
+          print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
+          print*,"info6: ",radpresdenom,EU0(1,i)
+          call fatal('solve_quartic','Fail to solve')
+       endif
       !  call QUARTIC_GS1T(u1term,u0term,EU0(2,i),U1i,moresweep,i)
 
        if (moresweep2) then
@@ -1404,7 +1414,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  integer :: rtst
  logical :: moresweep
  real :: y1,ub1,uc1,ub2,uc2,a0,a1,a2,a3,a4,ub,uc
- real :: soln,tsoln1,tsoln2,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
+ real :: soln,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
  real, dimension(2) :: z1,z2,z3,z4
 
  ierr = 0
@@ -1631,31 +1641,31 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
     return
  else                      !four solutions
     rtst = 0
-    write (*,*) 'four solutions ',tsoln1,tsoln2,z1(1),z2(1),z3(1),&
-                                  z4(1),u1term,u0term,uold
+    write (*,*) 'four solutions ',z1(1),z2(1),z3(1),z4(1),u1term,u0term,uold
+    ierr = 1
     return
-    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-       rtst = rtst + 1
-       soln = z1(1)
-    endif
-    if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
-       rtst = rtst + 1
-       soln = z2(1)
-    endif
-    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-       rtst = rtst + 1
-       soln = z3(1)
-    endif
-    if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-       rtst = rtst + 1
-       soln = z4(1)
-    endif
+   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+   !     rtst = rtst + 1
+   !     soln = z1(1)
+   !  endif
+   !  if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
+   !     rtst = rtst + 1
+   !     soln = z2(1)
+   !  endif
+   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+   !     rtst = rtst + 1
+   !     soln = z3(1)
+   !  endif
+   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+   !     rtst = rtst + 1
+   !     soln = z4(1)
+   !  endif
 
     if (rtst /= 1) then
        print*,"quartic4: there are four solutions and i'm incapable of"
        print*,"picking one. solns are: "
        print*,z1(1),z2(1),z3(1),z4(1)
-       print*,tsoln1,tsoln2,tsoln3,tsoln4
+      !  print*,tsoln1,tsoln2,tsoln3,tsoln4
        print*,"min..max t :",tmin,tmax
        print*,"i'm going back to trapimpl with moresweep2=.true."
        moresweep = .true.
