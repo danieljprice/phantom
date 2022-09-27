@@ -704,11 +704,11 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
 
  !$omp parallel do default(none)&
  !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew,dvdx,origEU,nucleation,dust_temp,eos_vars)&
- !$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type)&
+ !$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code)&
  !$omp private (i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb)&
  !$omp private (gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private (dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
- !$omp private (cooling_line,photoelectric,h2form,dust_heating,dust_term,a_code,c_code,betaval,chival,gammaval,betaval_d,tfour) &
+ !$omp private (cooling_line,photoelectric,h2form,dust_heating,dust_term,betaval,chival,gammaval,betaval_d,tfour) &
  !$omp private (e_planetesimali,u4term,u1term,u0term,pcoleni,pres_numerator,pres_denominator,moresweep2,mui,ierr) &
  !$omp private (residualE,residualU,maxerrE2,maxerrU2,xchange,maxerrU2old,gas_temp,ieqtype,unit_density)
 
