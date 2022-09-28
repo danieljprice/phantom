@@ -17,16 +17,9 @@ module analysis
 ! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, part,
 !   physcon, prompting, readwrite_dumps, sortutils, units, vectorutils
 !
-
  !
  ! Module for generating KEPLER file from a TDE dumpfile.
  !
- ! :References: None
- !
- ! :Honours project: Megha Sharma, Supervisors- Daniel Price and Alexander Heger
- !
- ! :Dependencies:dump_utils,units,io,prompting,readwrite_dumps,vectorutils,
- !               part,centreofmass,sortutils,eos,physcon,fileutils
  !
  implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
@@ -95,7 +88,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  open(iunit,file=output)
  write(iunit,'("# ",i5,"   # Version")') 10000
  write(iunit,'("# ",es20.12,"   # Dump file number")') time
- write(iunit,"('#',50(a22,1x))")                  &
+ write(iunit,"('#',50(a22,1x))")                     &
           'grid',                                    &  !grid number/ bin number
           'cell mass',                               &  !bin mass
           'cell outer tot. mass',                    &  !total mass < r
@@ -116,7 +109,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  do i = 1, ngrid
     grid = i
-    write(iunit,'(50(es18.10,1X))')                     &
+    write(iunit,'(50(es18.10,1X))')                       &
               grid,                                       &
               bin_mass(i)*umass,                          &
               mass(i)*umass,                              &
@@ -128,8 +121,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
               (composition_kepler(j,i), j=1,n_comp)
  enddo
  close(iunit)
- print*,umass,'mass unit',unit_velocity,'unit of velocity'
- print*,rad_grid(ngrid)*udist,mass(ngrid)*umass,'mass of star',density(1),'max_den'
+ print*,'----------------------------------------------------------------------'
+ print*,rad_grid(ngrid)*udist, 'radius of star',rad_grid(ngrid)
+ print*,mass(ngrid)*umass 'total mass of star',mass(ngrid)
+ print*,density(1),'maximum density of star'
 end subroutine do_analysis
 
  !----------------------------------------------------------------
@@ -189,7 +184,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
  real,allocatable    :: energy_tot(:)
  real,allocatable    :: A_array(:), Z_array(:)
- real  :: mass_star
+ real :: mass_star
 
  print*,utime,'time!!','this is analysis_test file!'
  !The star is not on the origin as BH exists at that point.
@@ -350,6 +345,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
        if (j<=2) then
           print*,'gmw',gmw,j,"j"
        endif
+
+       if (j>=npart-3) then
+          print*,'gmw',gmw,j,"j"
+       endif
        eni_input = u_i
        !call eos routine
        !call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
@@ -364,6 +363,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
     if (no_in_bin == number_particle) then
        !calculate the position which is the location of the particle.
        do index_i = j,npart-1
+
+          !we check that the first particle in the next bin is bound and if it is we calculate the radius as average
           s              = index_i + 1 !we consider the first particle in the i+1 bin and then use it.
           m              = iorder(s)
           pos(:)         = xyzh(1:3,m) - xpos(:)
@@ -383,7 +384,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
     elseif (j<npart) then
        cycle
 
-       !elseif j is last then save the last bin if the nu,ber of particle /= no_in_bin
+       !elseif j is last then save the last bin if the number of particle /= no_in_bin
     elseif (j == npart) then
        rad_grid(ibin) = rad
     endif
@@ -462,7 +463,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
     print*, escape(velocity_bh,bh_mass,position_bh)
     print*,'positive energy of the star on orbit'
  endif
- print*,npart-c_particle,'unbound particles ',correct_ngrid
+ print*,npart-c_particle,'unbound number of particles ',correct_ngrid
  print*,'----------------------------------------------------------------------'
 end subroutine phantom_to_kepler_arrays
 
@@ -773,15 +774,15 @@ end function eccentricity_star
 !  This function calculates semimajor axis of the orbit.
 !+
 !----------------------------------------------------------------
-real function semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
+real function semimajor_axis(h2_value,mass_star,bh_mass,eccentricity_value)
 
  use units , only : umass
  use physcon,only : gg,pi
 
- real, intent(in) :: h_value,mass_star,bh_mass,eccentricity_value
+ real, intent(in) :: h2_value,mass_star,bh_mass,eccentricity_value
 
  !formula used is a = h^2/(G(M*+M_BH)*(1-e^2))
- semimajor_axis = h_value/((gg*(mass_star+bh_mass)*umass)*(1-eccentricity_value**2))
+ semimajor_axis = h2_value/((gg*(mass_star+bh_mass)*umass)*(1-eccentricity_value**2))
 
 end function semimajor_axis
 

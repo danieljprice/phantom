@@ -4,14 +4,14 @@
 #                           IF LOST, YOU WILL NOT BE HELPED LATER.
 #
 # format                    ions (mass fraction)     
-# created at (GMT)          Wed Sep 21 00:28:47 2022 
+# created at (GMT)          Tue Sep 27 01:15:36 2022 
 # created by                megha                    
 # created on                dyn-49-127-46-122.its.monash.edu.au
-# created as                /Users/megha/kepler/test3/sun@final
-# created from              /Users/megha/kepler/test3/sun#final
-# dump sha256sum            c1f47cfadd742aa8a9c5573c610dc4cf83438ed920f288ae87a7eb4bc3655829
-# dump file date            Tue Sep 20 05:28:03 2022 
-# dump last run             Tue Sep 20 15:28:03 2022 
+# created as                /Users/megha/kepler/solar_star/sun@final
+# created from              /Users/megha/kepler/solar_star/sun#final
+# dump sha256sum            34592b30b41cd1eb20615be5abc9aa4e1c6219b444d2c5cbbbf2b82074b91b1a
+# dump file date            Tue Sep 27 01:12:18 2022 
+# dump last run             Tue Sep 27 11:12:18 2022 
 # dump created by           megha
 # dump created on           dyn-49-127-46-122.its.monash.edu.au
 # cycle                     143                      
@@ -22,10 +22,10 @@
 # GIT  BRANCH               main
 # UUID PROG                 f996844e-37df-11ed-85d9-7ac5a31576f2 (Mon Sep 19 05:57:42 2022)
 # UUID RUN                  0909dcbe-d046-11e9-8ff2-2cfda1c73a9c (Fri Sep  6 01:31:22 2019)
-# UUID CYCLE                4215a86a-38a0-11ed-8e16-7ac5a31576f1 (Tue Sep 20 04:54:07 2022)
-# UUID DUMP                 0008dd70-38a5-11ed-b24d-7ac5a31576f1 (Tue Sep 20 05:28:03 2022)
-# UUID EXEC                 00086f8e-38a5-11ed-b24d-7ac5a31576f1 (Tue Sep 20 05:28:03 2022)
-# UUID THIS FILE            5bb856ec-3944-11ed-80dc-7ac5a31576f1 (Wed Sep 21 00:28:47 2022)
+# UUID CYCLE                2ee43a26-3e00-11ed-9586-7ac5a31576f2 (Tue Sep 27 01:03:22 2022)
+# UUID DUMP                 6e96354c-3e01-11ed-82a4-7ac5a31576f2 (Tue Sep 27 01:12:18 2022)
+# UUID EXEC                 6e95cdbe-3e01-11ed-82a4-7ac5a31576f2 (Tue Sep 27 01:12:18 2022)
+# UUID THIS FILE            e44b87f6-3e01-11ed-88b8-7ac5a31576f2 (Tue Sep 27 01:15:36 2022)
 #
 # grid                cell mass    cell outer total mass        cell outer radius      cell outer velocity             cell density         cell temperature            cell pressure   cell spec. int. energy    cell specific entropy    cell angular velocity               cell A_bar                 cell Y_e                      nt1                       h1                      he3                      he4                      c12                      n14                      o16                     ne20                     mg24                     si28                      s32                     ar36                     ca40                     ti44                     cr48                     fe52                     fe54                     ni56                     fe56                     'fe'
 # unit                        g                        g                       cm                   cm/sec                  g/cm**3                        K                dyn/cm**2                    erg/g                kb/baryon                  rad/sec                      amu                                     mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction            mass fraction
