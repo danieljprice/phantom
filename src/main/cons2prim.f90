@@ -294,7 +294,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !
           !--calculate species number densities & non-ideal MHD coefficients
           !
-          if (mhd_nonideal .and. iactivei) then
+          if (mhd_nonideal) then
              Bi = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
              call nicil_update_nimhd(0,eta_nimhd(iohm,i),eta_nimhd(ihall,i),eta_nimhd(iambi,i), &
                                      Bi,rhoi,temperaturei,nden_nimhd(:,i),ierrlist)
