@@ -41,7 +41,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use units,           only : udist,umass,unit_density,unit_ergg,unit_velocity,utime !units required to convert to kepler units.
  use prompting,       only : prompt
  use readwrite_dumps, only : opened_full_dump
- use orbits_data,     only : escape, orbital_parameters
 
  integer,  intent(in) :: numfile,npart,iunit
  integer              :: i,j,n_comp
@@ -58,7 +57,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  character(len=20),allocatable     :: comp_label(:)
  character(len=120)                :: output
  character(len=*),intent(in)       :: dumpfile
- integer                           :: use_option
+
 
  !If dumpfile is not a complete dump we don't read it.
  if (.not.opened_full_dump) then
@@ -66,9 +65,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
- !ask user which analysis they are trying to perform, answer can be 1 or 2.
- write(*,*) 'Which analysis you want to perform: GR (1) or Newtonian (2)?'
- read(*,*) use_option
 
  !allocate for composition_kepler
  !Print the analysis being done
@@ -80,7 +76,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                   density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                   y_e,a_bar,composition_kepler,comp_label,n_comp,ngrid,rad_mom,&
-                                  angular_vel_3D,use_option)
+                                  angular_vel_3D,numfile)
 
  write(output,"(a4,i5.5)") 'ptok',numfile
  write(*,'("Output file name is ",A)') output
@@ -125,7 +121,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  print*,'----------------------------------------------------------------------'
  print*,"Important summary"
  print*,rad_grid(ngrid)*udist, 'radius of star',rad_grid(ngrid)
- print*,mass(ngrid)*umass 'total mass of star',mass(ngrid)
+ print*,mass(ngrid)*umass, 'total mass of star',mass(ngrid)
  print*,density(1),'maximum density of star'
 end subroutine do_analysis
 
@@ -138,7 +134,7 @@ end subroutine do_analysis
 subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_grid,mass,&
                                     density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                     y_e,a_bar,composition_kepler,comp_label,columns_compo,correct_ngrid,rad_mom,&
-                                    angular_vel_3D,use_option)
+                                    angular_vel_3D,numfile)
  use units , only: udist,umass,unit_velocity,utime,unit_energ
  use vectorutils,     only : cross_product3D
  use part,            only : rhoh,poten
@@ -146,9 +142,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
  use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
+use orbits_data,      only : escape, orbital_parameters
 
 
- integer,intent(in)               :: npart,use_option
+ integer,intent(in)               :: npart,numfile
  integer,intent(out)              :: correct_ngrid
  real,intent(in)                  :: xyzh(:,:),vxyzu(:,:)
  real,intent(in)                  :: pmass,time
@@ -195,11 +192,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  location = minloc(xyzh(4,:),dim=1)
  star_centre(:) = xyzh(1:3,location)
  !we use the equation number 12 for Newtonian and 2 for GR analysis.
- if (use_option == 1) then
+
     ieos = 2
- else
-    ieos = 2
- endif
+
  call init_eos(ieos,ierr)
  print*,ieos,"ieos"
  !use sorting algorithm to sort the particles from the center of star as a function of radius.
@@ -467,6 +462,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  endif
  print*,npart-c_particle,'unbound number of particles ',correct_ngrid
  print*,'----------------------------------------------------------------------'
+
+ call write_mass_of_star_and_no(numfile,mass_star)
+ 
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -669,6 +667,39 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
  endif
 
 end subroutine calculate_mu
+!----------------------------------------------------------------
+!+
+!  This routine for writing the mass and time of each particle.
+!  This will help me plot them to see if mass becomes constant with
+!  evolution time.
+!+
+!----------------------------------------------------------------
+subroutine write_mass_of_star_and_no(numfile,mass_star)
 
+ integer, intent(in)  :: numfile
+ real,    intent(in)  :: real
+ character(len=120)   :: filename
+
+
+ filename = 'all_analysis.dat'
+
+  if (numfile=00000) then
+
+    open(21,file=filename,status='new',action='write',
+        form='formatted')
+    write(21,*) "Mass of remnant", "File number"
+    write(21,*) mass_star, numfile
+    close(21)
+
+  else
+
+    open(21,file=filename,status='old',action='write',
+        form='formatted',position="append")
+    write(21,*) mass_star, numfile
+    close(21)
+
+  endif
+
+end subroutine write_mass_of_star_and_no
 
 end module analysis
