@@ -9,7 +9,10 @@ module radiation_implicit
 ! Implicit scheme for radiative transfer in flux limited diffusion
 ! approximation
 !
-! :References: Wurster, Bate & Monaghan (2006)
+! :References:
+!   Whitehouse, Bate & Monaghan (2005), MNRAS 364, 1367-1377
+!   Whitehouse & Bate (2004), MNRAS 353, 1078-1094
+!   Bate & Keto (2015), MNRAS 449, 2643-2667
 !
 ! :Owner: Daniel Price
 !
@@ -43,9 +46,9 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  logical              :: failed,moresweep
  real                 :: dtsub,errorE,errorU
  real, allocatable    :: origEU(:,:),EU0(:,:)
- 
+
  ierr = 0
- nsubsteps = 1 
+ nsubsteps = 1
  dtsub = dt
 
  allocate(origEU(2,npart),EU0(2,npart),stat=ierr)
@@ -118,7 +121,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  failed = .false.
  nit = 0
  errorE = 0.
- errorU = 0. 
+ errorU = 0.
  ierr = 0
 
  npart = size(xyzh(1,:))
@@ -131,7 +134,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  allocate(vari(2,npart),varij(4,icompactmax),varij2(3,icompactmax),varinew(3,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew')
 
- !dtimax = dt/imaxstep 
+ !dtimax = dt/imaxstep
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
  call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
@@ -159,7 +162,8 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  real, intent(in)                  :: xyzh(:,:)
  integer, intent(out)              :: ivar(:,:),ijvar(:)
  integer, intent(out)              :: ncompact,ncompactlocal
- integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private,icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
+ integer                           :: icell,nneigh,i,j,k,n,ip,ncompact_private
+ integer                           :: icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
  integer, parameter                :: maxcellcache = 10000
  integer, save, allocatable        :: neighlist(:)
  real                              :: dx,dy,dz,hi21,rij2,q2i
@@ -252,8 +256,9 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
         icompact = icompact + nneigh
 !$omp end critical (listcompact)
        if (icompact_private+nneigh > icompactmax) then
-         print*,i,nneigh,icompact_private,nneigh,icompactmax
-          call fatal('radiation-implicit','not enough memory allocated for neighbour list')
+          print*,'i=',i,'nneigh=',nneigh,'desired size=',icompact_private+nneigh,' actual size=',icompactmax
+          call fatal('radiation-implicit','not enough memory allocated for neighbour list', &
+                     var='icompactmax',ival=icompactmax)
        endif
        ivar(1,ncompact_private) = nneigh
        ivar(2,ncompact_private) = icompact_private
@@ -295,11 +300,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
  c_code = get_c_code()
+ dti = dt
  !$omp parallel do default(none) &
  !$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx) &
  !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh) &
+ !$omp firstprivate(dti) &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi) &
- !$omp private(dvzdxi,dvzdyi,dvzdzi,dti,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
+ !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj) &
  !$omp private(dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom,dWiidrlightrhorhom,cv_effective) &
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
@@ -355,7 +362,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !
        rhoj = rhoh(xyzh(4,j), massoftype(igas))
        cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j))
-       dti = dt
+       !dti = dt
        !
        !--Calculate other quantities
        !
@@ -433,15 +440,15 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        varij2(2,icompact) = pmjdWruniy
        varij2(3,icompact) = pmjdWruniz
     enddo
-    dvdx(1,i) = dvxdxi
-    dvdx(2,i) = dvxdyi
-    dvdx(3,i) = dvxdzi
-    dvdx(4,i) = dvydxi
-    dvdx(5,i) = dvydyi
-    dvdx(6,i) = dvydzi
-    dvdx(7,i) = dvzdxi
-    dvdx(8,i) = dvzdyi
-    dvdx(9,i) = dvzdzi
+    dvdx(1,i) = real(dvxdxi,kind=kind(dvdx)) ! convert to real*4 explicitly to avoid warnings
+    dvdx(2,i) = real(dvxdyi,kind=kind(dvdx))
+    dvdx(3,i) = real(dvxdzi,kind=kind(dvdx))
+    dvdx(4,i) = real(dvydxi,kind=kind(dvdx))
+    dvdx(5,i) = real(dvydyi,kind=kind(dvdx))
+    dvdx(6,i) = real(dvydzi,kind=kind(dvdx))
+    dvdx(7,i) = real(dvzdxi,kind=kind(dvdx))
+    dvdx(8,i) = real(dvzdyi,kind=kind(dvdx))
+    dvdx(9,i) = real(dvzdzi,kind=kind(dvdx))
 
     vari(1,n) = dti
     vari(2,n) = rhoi
@@ -477,13 +484,13 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
    !             varinew(1,i) = 0.
    !             varinew(2,i) = 0.
    ! c            varinew(3,i) = 0.
-      !          IF (iphase(i).EQ.0 .AND. 
+      !          IF (iphase(i).EQ.0 .AND.
       !   &           (n2.EQ.0 .OR. iunique(iorig(i)).LE.n1)) THEN
-   
+
     dedxi = 0.
     dedyi = 0.
     dedzi = 0.
-   
+
     rhoi = vari(2,n)
 
     do k = 1,ivar(1,n)
@@ -595,7 +602,7 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
    !  read*
 
     !--NOTE: Needs to do this loop even for boundaryparticles because active
-    !     boundary particles will need to contribute to the varinew() 
+    !     boundary particles will need to contribute to the varinew()
     !     quantities (i.e. diffusion terms) of particle j due to the way that
     !     particle j only finds neighbours inside h_j or non-active particles
     !     inside h_i.  The varinew() quantities of a boundaryparticle are
@@ -643,7 +650,7 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
        !     favour of the particle with the lowest opacity.  The other average
        !     is that original recommended in Cleary & Monaghan for heat diffusion.
        b1 = bi + bj
-       !	    
+       !
        !--Diffusion numerator and denominator
        !
        diffusion_numerator = diffusion_numerator - 0.5*dWidrlightrhorhom*b1*EU0(1,j)*rhoj
@@ -664,7 +671,7 @@ subroutine calc_diffusion_coefficient(ivar,ijvar,varij,ncompact,radprop,vari,EU0
       !     diffusion_denominator = diffusion_denominator + 0.5*dWjdrlightrhorhom*b1*rhoi
       !  endif
                      ! ENDIF         !--iphase(j).EQ.0
-    enddo   
+    enddo
        !$omp atomic
        varinew(1,i) = varinew(1,i) + diffusion_numerator
        !$omp atomic
@@ -725,13 +732,13 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
     !
     !--Radiation pressure...
     !
-    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i)) 
-    
+    gradEi2 = dot_product(radprop(ifluxx:ifluxz,i),radprop(ifluxx:ifluxz,i))
+
     if (gradEi2 < tiny(0.)) then
        gradvPi = 0.
     else
        rpdiag = 0.5*(1.-radprop(iedd,i))  ! Diagonal component of Eddington tensor (eq 10, Whitehouse & Bate 2004)
-       rpall = 0.5*(3.*radprop(iedd,i)-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux) 
+       rpall = 0.5*(3.*radprop(iedd,i)-1.)/gradEi2  ! n,n-component of Eddington tensor, where n is the direction of grad(E) (or -ve flux)
        gradvPi = (((rpdiag+rpall*radprop(ifluxx,i)**2)*dvdx(1,i))+ &
                  ((rpall*radprop(ifluxx,i)*radprop(ifluxy,i))*dvdx(2,i))+ &
                  ((rpall*radprop(ifluxx,i)*radprop(ifluxz,i))*dvdx(3,i))+ &
@@ -761,7 +768,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
        mui = eos_vars(imu,i)
        xnH2 = rhoi*unit_density/(mui*mass_proton_cgs)  ! Mike: Check units
     endif
-    
+
     skip_quartic = .false.
     if (dustRT .and. &
         ( abs(dust_tempi-(rhoi*EU0(1,i)/a_code)**0.25) > 1. .and. xnH2 < 1.e11/metallicity) ) then
@@ -771,7 +778,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
        !     until the gas-dust coupling term gets very large, where upon the
        !     convergence fails because even a small difference (<1 K) in the
        !     gas and dust temperatures results in a large term.  The gas-dust
-       !     coupling term potentially becomes large for high densities, but 
+       !     coupling term potentially becomes large for high densities, but
        !     a density criterion alone is not sufficient.  What we really want
        !     to see is that the matter is well coupled with the radiation field
        !     already.  So if we have high densities AND the difference between
@@ -801,7 +808,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
 
     else
        !--Else, this is the original version of radiative transfer
-       !     (Whitehouse & Bate 2006), which does not include the 
+       !     (Whitehouse & Bate 2006), which does not include the
        !     diffuse ISM model of Bate (2015).
        call turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
                                      cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
@@ -811,10 +818,10 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
     !
     betaval = c_code*radprop(ikappa,i)*rhoi*dti
     chival = dti*(diffusion_denominator-radpresdenom/EU0(1,I))-betaval
-    gammaval = a_code*c_code*radprop(ikappa,i)/radprop(icv,i)**4 
+    gammaval = a_code*c_code*radprop(ikappa,i)/radprop(icv,i)**4
     tfour = a_code*c_code*radprop(ikappa,i) * ((rhoi*EU0(1,i)/a_code) - ((EU0(2,i)/radprop(icv,i))**4))
     u4term = gammaval*dti*(dti*(diffusion_denominator-radpresdenom/EU0(1,i)) - 1.)
-    u1term = (chival-1.)*(1.-dti*pres_denominator + dti*gas_dust_val/radprop(icv,i)) & 
+    u1term = (chival-1.)*(1.-dti*pres_denominator + dti*gas_dust_val/radprop(icv,i)) &
               - betaval*dti*gas_dust_val/radprop(icv,i)
     u0term = betaval*(origEU(1,i) - dti*gas_dust_val*dust_tempi + dti*dust_heating) + &
              (chival-1.)*(-origEU(2,i) - dti*pres_numerator - dti*e_planetesimali &
@@ -865,7 +872,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
           print*,"info6: ",radpresdenom,EU0(1,i)
           print*,"info7: ",cosmic_ray,heatingisri
           print*,"info8: ",cooling_line,photoelectric,h2form
-!$omp end critical (moresweepset)               
+!$omp end critical (moresweepset)
           cycle main_loop
        endif
     endif
@@ -923,7 +930,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
     radprop(icv,i) = get_cv(rhoi,vxyzu(4,i))
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
-    if (DUSTRT >= 0) then
+    if (dustRT) then
        dust_temp(i) = dust_temperature(rad(iradxi,i),EU0(2,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
        nucleation(idkappa,i) = dust_kappai
     endif
@@ -934,16 +941,17 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
 end subroutine update_gas_radiation_energy
 
 
-subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,dti,diffusion_denominator,pres_numerator,&
-                                        radpresdenom,rhoi,xnH2,heatingISRi,e_planetesimali,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
-                                        chival,tfour,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
-                                        cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
+subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,dti,&
+           diffusion_denominator,pres_numerator,radpresdenom,rhoi,xnH2,heatingISRi,&
+           e_planetesimali,metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
+           chival,tfour,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
+           cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
  use units,   only:unit_pressure,unit_ergg,utime
  use physcon, only:eV
  use eos,     only:get_u_from_rhoT,ieos
  integer, intent(in)  :: i
- real, intent(in)     :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi,heatingISRi,dti,diffusion_denominator,radpresdenom,&
-                         pres_numerator,e_planetesimali
+ real, intent(in)     :: eradi,ugasi,orig_eradi,orig_ugasi,xnH2,metallicity,gas_temp,rhoi
+ real, intent(in)     :: heatingISRi,dti,diffusion_denominator,radpresdenom,pres_numerator,e_planetesimali
  real, intent(inout)  :: cvi
  logical, intent(out) :: skip_quartic
  integer, intent(out) :: ieqtype,ierr
@@ -951,8 +959,9 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  real, intent(out)    :: betaval,betaval_d,gammaval,tfour,gas_dust_val,dustgammaval,chival,&
                          gas_dust_cooling,cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,U1i
  integer              :: itry,iterationloop
- real                 :: u_found,t_found,t_orig,u_last,t_last,t_plus,u_plus,tdiff,cooling_line1,cooling_line2,dline_du,h2form1,h2form2,dh2form_dt,&
-                         photoelectric1,photoelectric2,dphoto_du,func,derivative,func_old,gas_dust_dustT,cv1,h2fraci
+ real                 :: u_found,t_found,t_orig,u_last,t_last,t_plus,u_plus
+ real                 :: tdiff,cooling_line1,cooling_line2,dline_du,h2form1,h2form2,dh2form_dt
+ real                 :: photoelectric1,photoelectric2,dphoto_du,func,derivative,func_old,gas_dust_dustT,cv1,h2fraci
 
  skip_quartic = .false.
  ierr = 0
@@ -973,7 +982,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  gas_dust_dustT = gas_dust_val*dust_tempi
  cosmic_ray = cosmic_ray_heating(xnH2) / rhoi / unit_pressure*utime
  !
- !--This adds the dust heating term into the equations.  
+ !--This adds the dust heating term into the equations.
  !
  dust_heating = heatingISRi/unit_ergg*utime
  cooling_line = cooling_line_rate(i,gas_temp,xnH2,metallicity) / rhoi / unit_pressure*utime
@@ -996,7 +1005,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  dust_term = 0.
  photoelectric = photoelectric_heating(i,gas_temp,xnH2,metallicity) / rhoi / unit_pressure*utime
 
- !--In the low-density regime, the line cooling term (and sometimes 
+ !--In the low-density regime, the line cooling term (and sometimes
  !     other terms) can be very large, so need to solve for U1i using
  !     Newton-Raphson so that it doesn't go negative
  if (.true.) then
@@ -1012,7 +1021,7 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
           cv1 = get_cv(rhoi,u_found)
           t_found = u_found/cv1
           !
-          !--For calculating numerical derivative with gas temperature, 
+          !--For calculating numerical derivative with gas temperature,
           !     set t_plus to be 1 K higher, or 1% higher if temperature is small
           !
           if (t_found > 10.) then
@@ -1135,8 +1144,9 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
 end subroutine set_heating_cooling_low_rhoT
 
 
-subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqtype,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
-                               cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
+subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqtype, &
+           dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling, &
+           cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term)
  use units, only:unit_ergg,utime,unit_pressure,unit_density
  use physcon, only:eV,mass_proton_cgs
  integer, intent(in)  :: i
@@ -1181,7 +1191,7 @@ subroutine set_heating_cooling(i,ugasi,cvi,rhoi,mui,heatingISRi,metallicity,ieqt
  else
     h2form = 0.
  endif
- 
+
  photoelectric = photoelectric_heating(i,gas_temp,xnH2,metallicity) / rhoi / unit_pressure*utime
 
 end subroutine set_heating_cooling
@@ -1194,17 +1204,17 @@ subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval
                          photoelectric,h2form,dust_heating,dust_term
 
  ieqtype = 0
- 
+
  dust_tempi = 0.
  gas_dust_val = 0.
  dustgammaval = 0.
  gas_dust_cooling = 0.
-    
+
  cosmic_ray = 0.
  cooling_line = 0.
  photoelectric = 0.
  h2form = 0.
-    
+
  dust_heating = 0.
  dust_term = 0.
 
@@ -1304,7 +1314,7 @@ end function h2_formation
 !+
 !  Following Young et al. (2004) we set the photoelectric heating rate
 !  of the gas by electrons liberated from grains as
-!     
+!
 !     Gamma_pe = 1E-24 * 0.05 * G(r) * n_H
 !
 !  and we take n_H = 2*n_H2 + 4*n_He = 2.66 nH2
@@ -1324,7 +1334,7 @@ real function photoelectric_heating(ipart,gas_temp,xnH2,metallicity)
 
 !  ep = 0.049/(1.+0.004*(G0*sqrt(gas_temp)/xne/phiPAH)**0.73) +&
 !      0.037*(gas_temp/1.e+4)**0.7/&
-!      (1. + 2.e-4*(G0*sqrt(gas_temp)/xne/phiPAH))      
+!      (1. + 2.e-4*(G0*sqrt(gas_temp)/xne/phiPAH))
 ! ! ep = 0.05
 
 !  if (use_photoelectric_heating) then
@@ -1357,7 +1367,7 @@ real function electron_fraction(xnH,phiPAH_opt)
     !     closer to 10^4 K at very low ISM densities (<1 cm^-3)
     phiPAH = 0.55
  endif
-    
+
  xne_over_nH = 0.008/xnH
  if (xne_over_nH < 1.e-4) xne_over_nH = 1.e-4
  if (xne_over_nH > 1.) xne_over_nH = 1.
@@ -1368,7 +1378,7 @@ end function electron_fraction
 
 !---------------------------------------------------------
 !+
-!  Returns the first bit of the gas-dust collisional heating/cooling 
+!  Returns the first bit of the gas-dust collisional heating/cooling
 !  term used by Keto & Field (2005), which is
 !  Lambda_gd = 1.0E-33 * n_H2**2 * SQRT(T_gas) * (T_gas - T_dust)
 !  or the coupling term used by Glover & Clark (2012), which is
@@ -1378,7 +1388,7 @@ end function electron_fraction
 !  which essentially assumes that the dust number density depends
 !  linearly on the metallicity.
 !
-!  The value is calculated in cgs units and excludes the 
+!  The value is calculated in cgs units and excludes the
 !  (T_gas-T_dust) term because of the need for derivatives w.r.t.
 !  T_gas in solving the system of equations.
 !+
@@ -1414,7 +1424,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  integer :: rtst
  logical :: moresweep
  real :: y1,ub1,uc1,ub2,uc2,a0,a1,a2,a3,a4,ub,uc
- real :: soln,tmin,tmax,tsoln3,tsoln4,quantity1,biggest_term
+ real :: soln,tmin,tmax,quantity1,biggest_term
  real, dimension(2) :: z1,z2,z3,z4
 
  ierr = 0
@@ -1425,7 +1435,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  a2 = 0.
  a1 = u1term
  a0 = u0term
-           
+
  z1(2) = 0.
  z2(2) = 0.
  z3(2) = 0.
@@ -1436,19 +1446,19 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
 
  ! Real root of equation:
  ! y^3 -4 a0 y - a1^2 = 0
-    
+
  quantity1 = -54.*a2*a1**3*a3 + 12.*a3**2*a0*a2**3 - 3.*a1**2*a3**2*a2**2 - &
              432.*a2*a0*a1**2 + 18.*a1**2*a3**2*a0 + 576.*a1*a3*a0**2 - 432.*a2* &
              a0**2*a3**2 + 240.*a1*a3*a2**2*a0 - 54.*a2*a1*a3**3*a0 + 384.*a2**2* &
              a0**2-48.*a0*a2**4 + 12.*a1**2*a2**3 + 81.*a3**4*a0**2 - 768.*a0**3+ &
              81.*a1**4 + 12.*a1**3*a3**3
 
- biggest_term = max(abs(-54.*a2*a1**3*a3),abs(12.*a3**2*a0*a2**3), & 
-                    abs(-3.*a1**2*a3**2*a2**2),abs(-432.*a2*a0*a1**2), & 
-                    abs(18.*a1**2*a3**2*a0),abs(576.*a1*a3*a0**2), & 
-                    abs(-432.*a2*a0**2*a3**2),abs(240.*a1*a3*a2**2*a0), & 
-                    abs(-54.*a2*a1*a3**3*a0),abs(384.*a2**2*a0**2), & 
-                    abs(-48.*a0*a2**4),abs(12.*a1**2*a2**3),abs(81.*a3**4*a0**2), & 
+ biggest_term = max(abs(-54.*a2*a1**3*a3),abs(12.*a3**2*a0*a2**3), &
+                    abs(-3.*a1**2*a3**2*a2**2),abs(-432.*a2*a0*a1**2), &
+                    abs(18.*a1**2*a3**2*a0),abs(576.*a1*a3*a0**2), &
+                    abs(-432.*a2*a0**2*a3**2),abs(240.*a1*a3*a2**2*a0), &
+                    abs(-54.*a2*a1*a3**3*a0),abs(384.*a2**2*a0**2), &
+                    abs(-48.*a0*a2**4),abs(12.*a1**2*a2**3),abs(81.*a3**4*a0**2), &
                     abs(-768.*a0**3),abs(81.*a1**4),abs(12.*a1**3*a3**3))
 
  if (quantity1 < 0. .and. abs(quantity1)/biggest_term < 1.e-12) then
@@ -1463,11 +1473,11 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
     return
  endif
 
- y1 = (-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + 8.*a2**3 + 12.* & 
-      sqrt(quantity1))**(1./3.)/6. - 6*(a1*a3/3.-4./3.*a0 - & 
-      a2**2/9.)/(-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + & 
+ y1 = (-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + 8.*a2**3 + 12.* &
+      sqrt(quantity1))**(1./3.)/6. - 6*(a1*a3/3.-4./3.*a0 - &
+      a2**2/9.)/(-36.*a2*a1*a3 - 288.*a2*a0 + 108.*a1**2 + 108.*a3**2*a0 + &
       8.*a2**3 + 12.*sqrt(quantity1))**(1./3.)+a2/3.
-         
+
  z1(2) = 0.
  z2(2) = 0.
  z3(2) = 0.
@@ -1477,7 +1487,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  z2(1) = 0.
  z3(1) = 0.
  z4(1) = 0.
-    
+
  ! Solution to quartic
  ! This is solution to two quadratics
  ! v^2+(a2/2... etc)
@@ -1534,7 +1544,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
        z3(2) = 1
        z4(2) = 1
  elseif (ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 < 0.) then
-    !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE RETURNED ANALYTICALLY !!   
+    !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE RETURNED ANALYTICALLY !!
     print*,"QUARTIC4: All imaginary roots for quartic"
     return
  else
@@ -1559,7 +1569,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
     else
        z4(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
     endif
-       
+
        z3(1)=0.5*((-ub1)+sqrt(ub1**2 - 4.*uc1))
        z2(1)=0.5*((-ub2)-sqrt(ub2**2 - 4.*uc2))
        z1(1)=0.5*((-ub2)+sqrt(ub2**2 - 4.*uc2))
@@ -1602,7 +1612,7 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
     endif
 
  elseif (z3(2) == 1. .and. z4(2) == 1. .and. z1(2) == 0. .and. z2(2) == 0.) then
-    
+
     if (z3(1) > 0. .and. z4(1) < 0.) then
        soln = z3(1)
     elseif (z3(1) <= 0. .and. z4(1) >= 0.) then
