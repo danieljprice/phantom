@@ -17,10 +17,10 @@ module analysis
 ! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, part,
 !   physcon, prompting, readwrite_dumps, sortutils, units, vectorutils
 !
- !
- ! Module for generating KEPLER file from a TDE dumpfile.
- !
- !
+!
+! Module for generating KEPLER file from a TDE dumpfile.
+!
+!
  implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
  public :: do_analysis
@@ -464,7 +464,7 @@ use orbits_data,      only : escape, orbital_parameters
  print*,'----------------------------------------------------------------------'
 
  call write_mass_of_star_and_no(numfile,mass_star)
- 
+
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -677,24 +677,22 @@ end subroutine calculate_mu
 subroutine write_mass_of_star_and_no(numfile,mass_star)
 
  integer, intent(in)  :: numfile
- real,    intent(in)  :: real
+ real,    intent(in)  :: mass_star
  character(len=120)   :: filename
 
 
  filename = 'all_analysis.dat'
 
-  if (numfile=00000) then
+  if (numfile==00000) then
 
-    open(21,file=filename,status='new',action='write',
-        form='formatted')
+    open(21,file=filename,status='new',action='write',form='formatted')
     write(21,*) "Mass of remnant", "File number"
     write(21,*) mass_star, numfile
     close(21)
 
   else
 
-    open(21,file=filename,status='old',action='write',
-        form='formatted',position="append")
+    open(21,file=filename,status='old',action='write',form='formatted',position="append")
     write(21,*) mass_star, numfile
     close(21)
 

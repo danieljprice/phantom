@@ -59,7 +59,7 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
- use dim,             only:maxp,maxvxyzu
+ use dim,             only:maxp,maxvxyzu,gr,gravity
  use part,            only:vxyzu,rad,eos_vars
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
@@ -97,6 +97,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  mstar = mr(nt)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
+ print*,gr,"gr",gravity,"gravity",iexternalforce,"iexternalforce"
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
  !
@@ -110,10 +111,10 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     return
  endif
  use_step = .false.
- if (iexternalforce > 0) then
-    call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
-    use_step = .true.
- endif
+ if (iexternalforce > 0 .and. (.not. gr)) then
+   call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
+   use_step = .true.
+   endif
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
