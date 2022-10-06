@@ -70,7 +70,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc, &
-                     ien_type
+                     ien_type,implicit_radiation
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact
@@ -281,6 +281,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
+    call write_inopt(implicit_radiation,'implicit_radiation','do radiation implicitly',iwritein)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
     call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,-1=preserve)',iwritein)
@@ -502,6 +503,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_computes_Lacc')
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
 #endif
+    case('implicit_radiation')
+       read(valstring,*,iostat=ierr) implicit_radiation
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
     case('flux_limiter')
