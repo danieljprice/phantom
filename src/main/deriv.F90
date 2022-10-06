@@ -177,7 +177,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  !
  !
- if (do_radiation) then
+ if (do_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0) call error('radiation','Failed to converge')
  endif
@@ -194,7 +194,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
-            ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
+            ipart_rhomax,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 
 #ifdef DUSTGROWTH

@@ -177,7 +177,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
-                 ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
+                 ipart_rhomax,stressmax,eos_vars,dens,metrics)
 
  use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -237,7 +237,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(out)   :: dBevol(:,:)
  real(kind=4), intent(inout) :: divcurlv(:,:)
  real(kind=4), intent(in)    :: divcurlB(:,:)
- real,         intent(in)    :: dt,stressmax
+ real,         intent(in)    :: stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
  real,         intent(in)    :: rad(:,:)
  real,         intent(out)   :: drad(:,:)
@@ -391,7 +391,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(divBsymm) &
 !$omp shared(dBevol) &
 !$omp shared(eos_vars) &
-!$omp shared(dt) &
 !$omp shared(nprocs,icall) &
 !$omp shared(poten) &
 !$omp private(icell,i) &
@@ -489,7 +488,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (do_export) then
        stack_waiting%cells(cell%waiting_index) = cell
     else
-       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
+       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -570,7 +569,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
 
-       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
+       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -2378,7 +2377,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
 end subroutine compute_cell
 
-subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
+subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,&
                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -2403,7 +2402,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
  use eos,            only:use_entropy,gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal
+                          use_dustfrac,damp,ien_type,ien_entropy,ien_etotal,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
  use cooling,        only:energ_cooling,cooling_explicit
@@ -2446,7 +2445,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(inout) :: fxyzu(:,:)
  real,               intent(in)    :: xyzh(:,:)
  real,               intent(inout) :: vxyzu(:,:)
- real,               intent(in)    :: dt
  real(kind=4),       intent(in)    :: dvdx(:,:)
  real(kind=4),       intent(out)   :: poten(:)
  real(kind=4),       intent(out)   :: divBsymm(:)
@@ -2935,7 +2933,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (do_radiation.and.iamgasi) then
-       if (radprop(ithick,i) < 0.5) then
+       if (radprop(ithick,i) < 0.5 .or. implicit_radiation) then
           drad(iradxi,i) = 0.
        else
           if (iopacity_type == 0) then

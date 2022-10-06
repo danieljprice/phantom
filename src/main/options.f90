@@ -57,7 +57,7 @@ module options
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
- logical,public :: exchange_radiation_energy, limit_radiation_flux
+ logical,public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
 
  public :: set_default_options
  public :: ieos
@@ -155,10 +155,12 @@ subroutine set_default_options
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
     iopacity_type = 1
+    implicit_radiation = .false.
  else
     exchange_radiation_energy = .false.
     limit_radiation_flux = .false.
     iopacity_type = 0
+    implicit_radiation = .false.
  endif
 
  ! variable composition
