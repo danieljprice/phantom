@@ -608,12 +608,12 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read the file again and save the data in stardata tensor.
  !
- open(13, file=trim(fullfilepath))
+ open(UNIT=11, file=trim(fullfilepath))
  call skip_header(13,nheaderlines,ierr)
  do k=1,n_rows
     read(13,*,iostat=ierr) stardata(k,:)
  enddo
- close(13)
+ close(11)
  !
  !--Save the relevant information we require into arrays that can be used later.
  !--convert relevant data from CGS to code units
