@@ -521,7 +521,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
 
  integer,intent(in)                       :: ng_max
  integer,intent(out)                      :: ierr,n_rows
- real,intent(out)                         :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,allocatable,intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
  real,intent(out),allocatable             :: composition(:,:)
  real,intent(out)                         :: totmass
  real,intent(out),optional                :: rcut
@@ -604,6 +604,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
 
  !Allocate memory for saving data
  allocate(stardata(n_rows, n_cols))
+ allocate(rtab(n_rows),rhotab(n_rows),ptab(n_rows),temperature(n_rows),enitab(n_rows))
  !
  !--Read the file again and save the data in stardata tensor.
  !
