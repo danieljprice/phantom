@@ -114,6 +114,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: rmin
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  logical                          :: setexists
+ character(len=120)               :: setupfile,inname
  real, allocatable                :: composition(:,:)
  integer                          :: columns_compo
  character(len=20), allocatable   :: comp_label(:)
