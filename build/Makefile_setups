@@ -723,7 +723,7 @@ ifeq ($(SETUP), grstar)
     METRIC=minkowski
     FPPFLAGS=
     SETUPFILE= setup_star.f90
-    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90 
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     MAXP=10000000

@@ -110,20 +110,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- integer, parameter               :: ng_max = nrhotab
- integer, parameter               :: ng     = 5001
- integer                          :: i,nx,npts,ierr,j
- real                             :: vol_sphere,psep,rmin,presi
- real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:)
+ integer                          :: npts,ierr,ierr_relax
+ real                             :: rmin
+ real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
+ logical                          :: setexists
  real, allocatable                :: composition(:,:)
- real                             :: eni,tempi,p_on_rhogas,xi,yi,zi,ri,spsoundi,densi,hi
  integer                          :: columns_compo
  character(len=20), allocatable   :: comp_label(:)
- logical                          :: calc_polyk,setexists
  logical                          :: composition_exists
- integer                          :: ierr_relax
- real, allocatable                :: mu(:)
- character(len=120)               :: setupfile,inname
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
