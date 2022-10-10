@@ -609,9 +609,9 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--Read the file again and save the data in stardata tensor.
  !
  open(UNIT=11, file=trim(fullfilepath))
- call skip_header(13,nheaderlines,ierr)
+ call skip_header(11,nheaderlines,ierr)
  do k=1,n_rows
-    read(13,*,iostat=ierr) stardata(k,:)
+    read(11,*,iostat=ierr) stardata(k,:)
  enddo
  close(11)
  !
@@ -621,15 +621,15 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !radius
  stardata(1:n_rows,4)  = stardata(1:n_rows,4)/udist
  rtab(1:n_rows)        = stardata(1:n_rows,4)
-
+print*,shape(rtab),"shape of rtab"
+print*,"density",stardata(1:n_rows,6)
  !density
  stardata(1:n_rows,6)  = stardata(1:n_rows,6)/unit_density
  rhotab(1:n_rows)      = stardata(1:n_rows,6)
-
  !mass
  stardata(1:n_rows,3)  = stardata(1:n_rows,3)/umass
  totmass               = stardata(n_rows,3)
-
+print*,totmass,"totmass"
  !pressure
  stardata(1:n_rows,8)  = stardata(1:n_rows,8)/unit_pressure
  ptab(1:n_rows)        = stardata(1:n_rows,8)
