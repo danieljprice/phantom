@@ -233,6 +233,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                         Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
                         isoftcore,isofteningopt,rcore,hsoft,outputfilename,composition,&
                         comp_label,columns_compo)
+print*, den,"density"
  !
  ! set up particles to represent the desired stellar profile
  !
