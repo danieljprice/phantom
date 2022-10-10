@@ -23,6 +23,7 @@ module checkconserved
  real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes)
 
  public :: init_conservation_checks, check_conservation_error
+ public :: check_magnetic_stability
 
  private
 
@@ -123,5 +124,32 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  endif
 
 end subroutine check_conservation_error
+!----------------------------------------------------------------
+!+
+!  routine to check the stability of the magnetic field based upon
+!  the values of h |divB|/B
+!  Although not at true conservation check, this is a stability check
+!  so is related to the checks performed here
+!+
+!----------------------------------------------------------------
+subroutine check_magnetic_stability(hdivBB_xa)
+ use options, only:hdivbbmax_max
+ use io,      only:fatal
+ real, intent(in) :: hdivBB_xa(:)
 
+ if (hdivbbmax_max < 1.1) then
+    ! In this regime, we assume the user has not modified this value,
+    ! either by choice or by being unaware of this.  This warning will
+    ! appear in this case.
+    if (hdivBB_xa(1) > 100 .or. hdivBB_xa(2) > 0.1) then
+       ! Tricco, Price & Bate (2016) suggest the average should remain lower than 0.01,
+       ! but we will increase it here due to the nature of the exiting the code
+       ! The suggestion of 512 was empirically determined in Dobbs & Wurster (2021)
+       call fatal('evolve','h|divb|/b is too large; recommend hdivbbmax_max = 512; set >1.2 to suppress this message.')
+    endif
+ endif
+
+end subroutine check_magnetic_stability
+
+!----------------------------------------------------------------
 end module checkconserved
