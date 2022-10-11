@@ -54,7 +54,7 @@ subroutine test_increase_mpi_memory(ntests,npass)
  maxerr = 0.
 
  ! Save original stacksize, assuming they're the same for dens and force
- stacksize_orig = stacksize_dens
+ stacksize_orig = stacksize
 
  ! Deallocate existing stack
  call deallocate_mpi_memory
@@ -73,8 +73,7 @@ subroutine test_increase_mpi_memory(ntests,npass)
  call update_test_scores(ntests,nerr,npass)
 
  ! Trigger a stacksize increase - if this doesn't segfault, that's a good sign
- call increase_mpi_memory_dens
- call increase_mpi_memory_force
+ call increase_mpi_memory
 
  ! Ensure stack size hasn't changed
  call checkval(force_stack_1%n,new_stacksize,0,nerr(1),'stacksize after mem increase')
