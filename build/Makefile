@@ -523,7 +523,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          partinject.F90 utils_inject.f90 dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
-         mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
+         mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT} utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
