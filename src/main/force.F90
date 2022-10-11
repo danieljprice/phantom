@@ -61,93 +61,93 @@ module forces
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
- integer, parameter :: &
-       ixi  = 1, &
-       iyi  = 2, &
-       izi  = 3, &
-       ihi  = 4, &
-       ivxi = 5, &
-       ivyi = 6, &
-       ivzi = 7, &
-       ieni = 8, &
-       iBevolxi = 9, &
-       iBevolyi = 10, &
-       iBevolzi = 11, &
-       ipsi = 12, &
-       igradhi1    = 13, &
-       igradhi2    = 14, &
-       ialphai     = 15, &
-       ialphaBi    = 16, &
-       ivwavei     = 17, &
-       irhoi       = 18, &
-       irhogasi    = 19, &
-       ispsoundi   = 20, &
-       itempi      = 21, &
-       isxxi       = 22, &
-       isxyi       = 23, &
-       isxzi       = 24, &
-       isyyi       = 25, &
-       isyzi       = 26, &
-       iszzi       = 27, &
+ integer, parameter ::       &
+       ixi             = 1,  &
+       iyi             = 2,  &
+       izi             = 3,  &
+       ihi             = 4,  &
+       ivxi            = 5,  &
+       ivyi            = 6,  &
+       ivzi            = 7,  &
+       ieni            = 8,  &
+       iBevolxi        = 9,  &
+       iBevolyi        = 10, &
+       iBevolzi        = 11, &
+       ipsi            = 12, &
+       igradhi1        = 13, &
+       igradhi2        = 14, &
+       ialphai         = 15, &
+       ialphaBi        = 16, &
+       ivwavei         = 17, &
+       irhoi           = 18, &
+       irhogasi        = 19, &
+       ispsoundi       = 20, &
+       itempi          = 21, &
+       isxxi           = 22, &
+       isxyi           = 23, &
+       isxzi           = 24, &
+       isyyi           = 25, &
+       isyzi           = 26, &
+       iszzi           = 27, &
        ivisctermisoi   = 28, &
        ivisctermanisoi = 29, &
-       ipri        = 30, &
-       ipro2i      = 31, &
-       ietaohmi    = 32, &
-       ietahalli   = 33, &
-       ietaambii   = 34, &
-       ijcbcbxi    = 35, &
-       ijcbcbyi    = 36, &
-       ijcbcbzi    = 37, &
-       ijcbxi      = 38, &
-       ijcbyi      = 39, &
-       ijcbzi      = 40, &
-       idivBi      = 41, &
-       icurlBxi    = 42, &
-       icurlByi    = 43, &
-       icurlBzi    = 44, &
-       igrainsizei = 45, &
-       igraindensi = 46, &
-       idvxdxi     = 47, &
-       idvzdzi     = 55, &
+       ipri            = 30, &
+       ipro2i          = 31, &
+       ietaohmi        = 32, &
+       ietahalli       = 33, &
+       ietaambii       = 34, &
+       ijcbcbxi        = 35, &
+       ijcbcbyi        = 36, &
+       ijcbcbzi        = 37, &
+       ijcbxi          = 38, &
+       ijcbyi          = 39, &
+       ijcbzi          = 40, &
+       idivBi          = 41, &
+       icurlBxi        = 42, &
+       icurlByi        = 43, &
+       icurlBzi        = 44, &
+       igrainsizei     = 45, &
+       igraindensi     = 46, &
+       idvxdxi         = 47, &
+       idvzdzi         = 55, &
  !--dust arrays initial index
-       idustfraci    = 56, &
+       idustfraci      = 56, &
  !--dust arrays final index
-       idustfraciend = 56 + (maxdusttypes - 1), &
-       itstop        = 57 + (maxdusttypes - 1), &
-       itstopend     = 57 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 56 + (maxdusttypes - 1), &
+       itstop          = 57 + (maxdusttypes - 1), &
+       itstopend       = 57 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
-       iradxii        = lastxpvdust + 1, &
-       iradfxi        = lastxpvdust + 2, &
-       iradfyi        = lastxpvdust + 3, &
-       iradfzi        = lastxpvdust + 4, &
-       iradkappai     = lastxpvdust + 5, &
-       iradlambdai    = lastxpvdust + 6, &
-       iradrbigi      = lastxpvdust + 7, &
+       lastxpvdust     = 57 + 2*(maxdusttypes - 1), &
+       iradxii         = lastxpvdust + 1, &
+       iradfxi         = lastxpvdust + 2, &
+       iradfyi         = lastxpvdust + 3, &
+       iradfzi         = lastxpvdust + 4, &
+       iradkappai      = lastxpvdust + 5, &
+       iradlambdai     = lastxpvdust + 6, &
+       iradrbigi       = lastxpvdust + 7, &
  !--final radiation index
-       lastxpvrad     = lastxpvdust + 7, &
+       lastxpvrad      = lastxpvdust + 7, &
  !--gr primitive density
-       idensGRi      = lastxpvrad + 1, &
+       idensGRi        = lastxpvrad + 1, &
  !--gr metrics
-       imetricstart  = idensGRi + 1, &
-       imetricend    = imetricstart + 31
+       imetricstart    = idensGRi + 1, &
+       imetricend      = imetricstart + 31
 
  !--indexing for fsum array
- integer, parameter :: &
-       ifxi        = 1, &
-       ifyi        = 2, &
-       ifzi        = 3, &
-       ipot        = 4, &
-       idrhodti    = 5, &
-       idudtdissi  = 6, &
-       idendtdissi = 7, &
-       idivBsymi   = 8, &
-       idBevolxi   = 9, &
-       idBevolyi   = 10, &
-       idBevolzi   = 11, &
-       idivBdiffi  = 12, &
-       ihdivBBmax  = 13, &
+ integer, parameter ::   &
+       ifxi           = 1,  &
+       ifyi           = 2,  &
+       ifzi           = 3,  &
+       ipot           = 4,  &
+       idrhodti       = 5,  &
+       idudtdissi     = 6,  &
+       idendtdissi    = 7,  &
+       idivBsymi      = 8,  &
+       idBevolxi      = 9,  &
+       idBevolyi      = 10, &
+       idBevolzi      = 11, &
+       idivBdiffi     = 12, &
+       ihdivBBmax     = 13, &
  !--dust array indexing
        iddustevoli    = 14, &
        iddustevoliend = 14 +   (maxdustsmall-1), &
@@ -262,7 +262,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer :: iamtypei
 #endif
 #ifdef DUST
- real    :: frac_stokes, frac_super
+ real    :: frac_stokes,frac_super
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -278,15 +278,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
 #endif
  integer(kind=1)           :: ibinnow_m1
- logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
 
  type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
-
+ logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
-
- integer :: ncomplete_mpi
 
 #ifdef IND_TIMESTEPS
  nbinmaxnew      = 0
@@ -369,6 +367,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
 !
 !-- verification for non-ideal MHD
+!
  if (mhd_nonideal .and. ndivcurlB < 4) call fatal('force','non-ideal MHD needs curl B stored, but ndivcurlB < 4')
 !
 !--check that compiled options are compatible with this routine
@@ -424,6 +423,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(cell_counters) &
 !$omp shared(thread_complete) &
 !$omp shared(ncomplete_mpi) &
+!$omp shared(stack_remote) &
+!$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -449,7 +450,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(t2) &
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,any_tag=.true.)
+
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -473,16 +475,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
-    !
-    !--get the neighbour list and fill the cell cache
-    !
 
+    !--get the neighbour list and fill the cell cache
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
-    cell%owner                   = id
-    cell%owner_thread            = omp_thread_num()
-
+    cell%owner = id
     do_export = any(remote_export)
 
     if (mpi) then
@@ -540,22 +538,17 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  endif
 
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
-
- ! restart cell exchange but now only accept tags that match current omp thread
- call finish_cell_exchange(irequestrecv,xsendbuf)
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,any_tag=.false.)
-
- !$omp master
  call reset_cell_counters(cell_counters)
 
+ !$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
  !$omp end master
-
  !$omp barrier
 
  igot_remote: if (stack_remote%n > 0) then
+    !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
 
@@ -580,8 +573,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
 
     enddo over_remote
+    !$omp enddo
 
+    !$omp master
     stack_remote%n = 0
+    !$omp end master
 
     idone(:) = .false.
     do while(.not.all(idone))
@@ -594,6 +590,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (stack_waiting%n > 0) then
+    !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
 
@@ -616,6 +613,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                                           rad,drad,radprop,dtrad)
 
     enddo over_waiting
+    !$omp enddo
 
     stack_waiting%n = 0
 
