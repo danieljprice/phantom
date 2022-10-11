@@ -87,9 +87,9 @@ subroutine get_mpitype_of_celldens
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
- type(celldens)                 :: cell
- integer(kind=MPI_ADDRESS_KIND) :: addr,start,lb,extent
- integer                        :: mpierr
+ type(celldens)                  :: cell
+ integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
+ integer                         :: mpierr
 
  nblock = 0
 

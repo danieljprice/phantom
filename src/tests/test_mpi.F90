@@ -39,8 +39,8 @@ subroutine test_mpi(ntests,npass)
 end subroutine test_mpi
 
 subroutine test_increase_mpi_memory(ntests,npass)
- use mpimemory, only:allocate_mpi_memory,increase_mpi_memory_dens,increase_mpi_memory_force,&
-                     deallocate_mpi_memory,stacksize_dens,force_stack_1,&
+ use mpimemory, only:allocate_mpi_memory,increase_mpi_memory,&
+                     deallocate_mpi_memory,stacksize,force_stack_1,&
                      push_onto_stack
  use mpiforce,  only:cellforce
  integer, intent(inout) :: ntests,npass
