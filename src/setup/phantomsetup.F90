@@ -57,6 +57,7 @@ program phantomsetup
  real                        :: time,pmassi
  logical                     :: iexist
 
+ nprocs = 1    ! for MPI, this is not initialised until init_mpi, but an initialised value is required for init_part
  call set_io_unit_numbers
  call set_units
  call set_boundary
@@ -151,7 +152,7 @@ program phantomsetup
        pmassi = massoftype(igas)
        do i=1,npart
           if (maxphase==maxp) pmassi = massoftype(iamtype(iphase(i)))
-          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(maxvxyzu,i),rhoh(xyzh(4,i),pmassi))
+          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(:,i),rhoh(xyzh(4,i),pmassi),gamma)
        enddo
     endif
 

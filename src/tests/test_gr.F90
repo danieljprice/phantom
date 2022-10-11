@@ -15,8 +15,8 @@ module testgr
 ! :Runtime parameters: None
 !
 ! :Dependencies: cons2prim, cons2primsolver, eos, extern_gr, inverse4x4,
-!   io, metric, metric_tools, options, part, physcon, step_lf_global,
-!   testutils, units, utils_gr, vectorutils
+!   io, metric, metric_tools, part, physcon, step_lf_global, testutils,
+!   units, utils_gr, vectorutils
 !
  use testutils, only:checkval,checkvalbuf,checkvalbuf_end,update_test_scores
  implicit none
@@ -173,7 +173,7 @@ end subroutine test_inccirc
 !-----------------------------------------------------------------------
 subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use io,             only:iverbose
- use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes
+ use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type
  use step_lf_global, only:step_extern_gr
  use eos,            only:ieos
  use cons2prim,      only:prim2consall
@@ -213,6 +213,7 @@ subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  iverbose       = 1
  time           = 0
  blah           = dt
+ ien_type       = 1
 
  call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
@@ -472,7 +473,7 @@ end subroutine test_metric_derivs_i
 !----------------------------------------------------------------
 subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
- use options,         only:ien_entropy,ien_etotal
+ use part,            only:ien_entropy,ien_etotal,ien_entropy_s
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
  use physcon,         only:radconst,kb_on_mh
@@ -482,7 +483,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
  real :: metrici(0:3,0:3,2)
- real :: rho2,pmom2(1:3),en2
+ real :: rho2,pmom2(1:3),en2,temp
  real :: p2,u2,t2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
@@ -499,32 +500,35 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  P2 = pondens2 * dens2
  v2 = v
 
- over_energy_variables: do i = 1,2
+ over_energy_variables: do i = 1,3
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
     u_out    = u
     p_out    = p
+    gamma_out = 1. + p/(dens*u)
     errmax   = 0.
     nfailprev = nfail
+    temp = 1.e7 ! arbitrary initial guess
+    gamma2 = 1. + P2/(dens2*u2)
 
     call pack_metric(x,metrici)
-    if (i == 1 .and. ieos /= 12) then
+    if (ieos == 12 .and. i /= 3) then
+       ! entropy_K and etotal cannot use with gasplusrad eos
+       cycle
+    elseif (i == 1) then
        ien_type = ien_entropy
        toli = 1.5e-11
-    elseif (i == 1 .and. ieos == 12) then
-       ! entropy cannot use for gasplusrad eos
-       cycle
-    else
+    elseif (i == 2) then
        ien_type = ien_etotal
        toli = 1.5e-9
+    else
+       ien_type = ien_entropy_s
+       toli = 1.5e-11
     endif
 
     call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
-    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,rho2,pmom2,en2,ierr,ien_type)
-
-    gamma2 = 1. + P2/(dens2*u2)
-    gamma_out = 1. + P_out/(dens_out*u_out)
+    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type)
 
     call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
     do j=1,3
