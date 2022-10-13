@@ -171,6 +171,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
 
  type(celldens)            :: cell,xsendbuf,xrecvbuf(nprocs)
+ integer                   :: mpitype
 
  integer                   :: n_remote_its,nlocal
  integer                   :: ncomplete_mpi
@@ -285,6 +286,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp private(xrecvbuf) &
 !$omp private(irequestrecv) &
 !$omp private(idone) &
+!$omp private(mpitype) &
 !$omp reduction(+:ncalc) &
 !$omp reduction(+:np) &
 !$omp reduction(max:maxneighact) &
@@ -296,7 +298,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:rhomax) &
 !$omp private(i)
 
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi)
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -337,7 +339,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              enddo
           endif
           call reserve_stack(stack_waiting,cell%waiting_index)  ! make a reservation on the stack
-          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send the cell to remote
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send the cell to remote
        endif
     endif
 
@@ -369,7 +371,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                       enddo
                    endif
                    call reserve_stack(stack_waiting,cell%waiting_index)
-                   call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
+                   call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
                 endif
                 nrelink = nrelink + 1
              endif
@@ -452,7 +454,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
           enddo
 
-          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell back to owner
        enddo over_remote
        !$omp enddo
 
@@ -498,7 +500,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
              enddo
              call reserve_stack(stack_redo,cell%waiting_index)
-             call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell to remote
+             call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
@@ -542,7 +544,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
  !$omp end master
 
- if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf)
+ if (mpi) call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
  !$omp end parallel
 

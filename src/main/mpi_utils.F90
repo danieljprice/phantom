@@ -157,8 +157,6 @@ subroutine init_mpi(id,nprocs)
     call fatal('init_mpi','cannot determine kind for default real')
  end select
 
- call get_mpitype_of_celldens
- call get_mpitype_of_cellforce
 #else
  id = 0
  nprocs = 1

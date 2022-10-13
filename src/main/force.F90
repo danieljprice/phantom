@@ -280,6 +280,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer(kind=1)           :: ibinnow_m1
 
  type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
+ integer                   :: mpitype
  logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
  integer                   :: ncomplete_mpi
@@ -403,6 +404,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(remote_export) &
 !$omp private(idone) &
 !$omp private(nneigh) &
+!$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
 #ifdef GRAVITY
@@ -451,7 +453,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
 
- call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi)
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
  !$omp master
  call get_timings(t1,tcpu1)
@@ -495,7 +497,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              enddo
           endif
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters)  ! send to remote
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
        endif
     endif
 
@@ -570,7 +572,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
           call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
        enddo
 
-       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters) ! send the cell back to owner
+       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
@@ -619,7 +621,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif iam_waiting
 
- call finish_cell_exchange(irequestrecv,xsendbuf)
+ call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
 !$omp master
  call get_timings(t2,tcpu2)
