@@ -57,6 +57,7 @@ program phantomsetup
  real                        :: time,pmassi
  logical                     :: iexist
 
+ nprocs = 1    ! for MPI, this is not initialised until init_mpi, but an initialised value is required for init_part
  call set_io_unit_numbers
  call set_units
  call set_boundary
