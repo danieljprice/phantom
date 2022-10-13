@@ -25,8 +25,7 @@ module mpidens
  public :: celldens
  public :: stackdens
  public :: get_mpitype_of_celldens
-
- integer, public :: dtype_celldens
+ public :: free_mpitype_of_celldens
 
  integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
@@ -79,11 +78,13 @@ module mpidens
 
 contains
 
-subroutine get_mpitype_of_celldens
+subroutine get_mpitype_of_celldens(dtype)
 #ifdef MPI
  use mpi
  use io,       only:error
-
+#endif
+ integer, intent(out)            :: dtype
+#ifdef MPI
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
@@ -203,18 +204,26 @@ subroutine get_mpitype_of_celldens
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype_celldens,mpierr)
- call MPI_TYPE_COMMIT(dtype_celldens,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
- call MPI_TYPE_GET_EXTENT(dtype_celldens,lb,extent,mpierr)
+ call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
     call error('mpi_dens','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 #else
- dtype_celldens = 0
+ dtype = 0
 #endif
 end subroutine get_mpitype_of_celldens
+
+subroutine free_mpitype_of_celldens(dtype)
+ integer, intent(inout) :: dtype
+ integer                :: mpierr
+
+ call MPI_Type_free(dtype,mpierr)
+
+end subroutine free_mpitype_of_celldens
 
 end module mpidens

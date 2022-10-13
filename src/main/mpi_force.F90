@@ -25,8 +25,7 @@ module mpiforce
  public :: cellforce
  public :: stackforce
  public :: get_mpitype_of_cellforce
-
- integer, public :: dtype_cellforce
+ public :: free_mpitype_of_cellforce
 
  integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
@@ -81,11 +80,13 @@ module mpiforce
 
 contains
 
-subroutine get_mpitype_of_cellforce
+subroutine get_mpitype_of_cellforce(dtype)
 #ifdef MPI
  use mpi
  use io,       only:error
-
+#endif
+ integer, intent(out)            :: dtype
+#ifdef MPI
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
@@ -211,19 +212,27 @@ subroutine get_mpitype_of_cellforce
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
- call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype_cellforce,mpierr)
- call MPI_TYPE_COMMIT(dtype_cellforce,mpierr)
+ call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
+ call MPI_TYPE_COMMIT(dtype,mpierr)
 
  ! check extent okay
- call MPI_TYPE_GET_EXTENT(dtype_cellforce,lb,extent,mpierr)
+ call MPI_TYPE_GET_EXTENT(dtype,lb,extent,mpierr)
  if (extent /= sizeof(cell)) then
     call error('mpi_force','MPI_TYPE_GET_EXTENT has calculated the extent incorrectly')
  endif
 
 #else
- dtype_cellforce = 0
+ dtype = 0
 #endif
 
 end subroutine get_mpitype_of_cellforce
+
+subroutine free_mpitype_of_cellforce(dtype)
+ integer, intent(inout) :: dtype
+ integer                :: mpierr
+
+ call MPI_Type_free(dtype,mpierr)
+
+end subroutine free_mpitype_of_cellforce
 
 end module mpiforce
