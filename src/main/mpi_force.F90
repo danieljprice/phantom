@@ -228,11 +228,15 @@ subroutine get_mpitype_of_cellforce(dtype)
 end subroutine get_mpitype_of_cellforce
 
 subroutine free_mpitype_of_cellforce(dtype)
+#ifdef MPI
+ use mpi
+#endif
  integer, intent(inout) :: dtype
+#ifdef MPI
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
-
+#endif
 end subroutine free_mpitype_of_cellforce
 
 end module mpiforce

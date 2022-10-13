@@ -219,10 +219,15 @@ subroutine get_mpitype_of_celldens(dtype)
 end subroutine get_mpitype_of_celldens
 
 subroutine free_mpitype_of_celldens(dtype)
+#ifdef MPI
+ use mpi
+#endif
  integer, intent(inout) :: dtype
+#ifdef MPI
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
+#endif
 
 end subroutine free_mpitype_of_celldens
 
