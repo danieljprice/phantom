@@ -34,7 +34,8 @@ module moddump
          theta,  &  ! stellar tilting along x
          phi,    &  ! stellar tilting along y
          r0,     &  ! starting distance
-         ecc        ! eccentricity
+         ecc,    &  ! eccentricity
+         incline    ! inclination (in x-z plane)
 
 contains
 
@@ -71,6 +72,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta = 0.                  ! stellar tilting along x
  phi   = 0.                  ! stellar tilting along y
  ecc   = 1.                  ! eccentricity
+ incline = 0.                ! inclination (in x-z plane)
 
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
@@ -220,6 +222,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(2,i) = vxyzu(2,i) + vy0
  enddo
 
+ !--Incline the orbit
+ incline = incline*pi/180
+ do i = 1, npart
+    x=xyzh(1,i)
+    z=xyzh(3,i)
+    xyzh(1,i)= x*cos(incline) - z*sin(incline)
+    xyzh(3,i)= x*sin(incline) + z*cos(incline)
+    vx=vxyzu(1,i)
+    vz=vxyzu(3,i)
+    vxyzu(1,i)= vx*cos(incline) - vz*sin(incline)
+    vxyzu(3,i)= vx*sin(incline) + vz*cos(incline)
+ enddo
+
  theta = theta*pi/180.
  phi   = phi*pi/180.
 
@@ -232,6 +247,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,'(a,Es12.5,a)') ' Tilting along x     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity        = ',ecc
+ write(*,'(a,Es12.5,a)') ' Inclination         = ',incline,' degrees'
 
  write(*,'(a)') "======================================================================"
 
@@ -249,14 +265,15 @@ subroutine write_setupfile(filename)
  print "(a)",' writing moddump params file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# parameters file for a TDE phantommodump'
- call write_inopt(beta,  'beta',  'penetration factor',                                  iunit)
- call write_inopt(mh,    'mh',    'mass of black hole (code units)',                     iunit)
- call write_inopt(ms,    'ms',    'mass of star       (code units)',                     iunit)
- call write_inopt(rs,    'rs',    'radius of star     (code units)',                     iunit)
- call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
- call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
- call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
- call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
+ call write_inopt(beta,   'beta',   'penetration factor',                                  iunit)
+ call write_inopt(mh,     'mh',     'mass of black hole (code units)',                     iunit)
+ call write_inopt(ms,     'ms',     'mass of star       (code units)',                     iunit)
+ call write_inopt(rs,     'rs',     'radius of star     (code units)',                     iunit)
+ call write_inopt(theta,  'theta',  'stellar rotation with respect to x-axis (in degrees)',iunit)
+ call write_inopt(phi,    'phi',    'stellar rotation with respect to y-axis (in degrees)',iunit)
+ call write_inopt(r0,     'r0',     'starting distance  (code units)',                     iunit)
+ call write_inopt(ecc,    'ecc',    'eccentricity (1 for parabolic)',                      iunit)
+ call write_inopt(incline,'incline','inclination (in x-z plane)',                          iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -274,14 +291,15 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(beta,  'beta',  db,min=0.,errcount=nerr)
- call read_inopt(mh,    'mh',    db,min=0.,errcount=nerr)
- call read_inopt(ms,    'ms',    db,min=0.,errcount=nerr)
- call read_inopt(rs,    'rs',    db,min=0.,errcount=nerr)
- call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
- call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
- call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
- call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
+ call read_inopt(mh,     'mh',     db,min=0.,errcount=nerr)
+ call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
+ call read_inopt(rs,     'rs',     db,min=0.,errcount=nerr)
+ call read_inopt(theta,  'theta',  db,min=0.,errcount=nerr)
+ call read_inopt(phi,    'phi',    db,min=0.,errcount=nerr)
+ call read_inopt(r0,     'r0',     db,min=0.,errcount=nerr)
+ call read_inopt(ecc,    'ecc',    db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(incline,'incline',db,       errcount=nerr)
 
  call close_db(db)
  if (nerr > 0) then
