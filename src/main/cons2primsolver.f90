@@ -205,7 +205,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = en*dens**gamma
     endif
 
-    f = 1. + gamfac*P/dens - enth_old
+    if (ien_type /= ien_entropy_s) f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_etotal) then
@@ -213,20 +213,15 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     elseif (ien_type == ien_entropy_s) then
-       select case (ieos)
-       case (12)
-          df = -1. + (pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
-       case (2)
-          df = -1. + (2.*gamfac*pmom2*P)/(3.*lorentz_LEO2 * enth_old**3 * dens)
-       case default
-          df = 0.
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
-       end select
     else
        df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
-    enth = enth_old - f/df
+    if (ien_type /= ien_entropy_s) then ! .or. ieos /= 12) then
+       enth = enth_old - f/df
+    else
+       enth = 1. + gamfac*P/dens ! update enth with temp instead of NR
+    endif
 
     ! Needed in dust case when f/df = NaN casuses enth = NaN
     if (enth-1. < tiny(enth)) enth = 1. + 1.5e-6
