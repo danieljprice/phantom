@@ -40,18 +40,15 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
-
+ use externalforces, only:mass1
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,damp
  use dim,            only:gr
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
- if (gr) then
-   use metric,         only:mass1,a
- else
-    use externalforces, only:mass1
-  endif
+ use metric,         only:a
+
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -195,7 +192,7 @@ print*,a,"new a"
     mass1          = Mh
     accradius1     = 5.
     accradius1_hard= 5.
-    a              = 0.3
+    a              = 0.1 !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
  endif
 
  !--Tilting the star
@@ -234,6 +231,9 @@ print*,a,"new a"
     vxyzu(1,i) = vxyzu(1,i) + vx0
     vxyzu(2,i) = vxyzu(2,i) + vy0
  enddo
+ !check angular momentum after putting star on orbit
+ call get_angmom(ltot,npart,xyzh,vxyzu)
+ print*, "angular momentum after putting on orbit i.e., wrt BH"
 
  theta = theta*pi/180.
  phi   = phi*pi/180.
