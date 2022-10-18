@@ -47,6 +47,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
+ use metric,         only:mass1,a
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -76,6 +77,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rp = rt/beta                       ! pericenter distance
  r0 = 10.*rt                        ! starting radius
 
+print*, mass1,"mass1", Mh,"Mh",a,"a"
+a = 0.4
+print*,a,"new a"
  !
  !-- Read runtime parameters from tdeparams file
  !
