@@ -47,7 +47,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
- use metric,         only:mass1,a
+ use metric,         only:a
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
