@@ -40,18 +40,15 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
-
+use externalforces, only:mass1
  use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,damp
  use dim,            only:gr
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
- if (gr) then
-   use metric,         only:mass1,a
- else
+   use metric,         only:a
     use externalforces, only:mass1
-  endif
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
