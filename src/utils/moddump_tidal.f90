@@ -40,14 +40,18 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use centreofmass
- use externalforces, only:mass1
- use externalforces, only:accradius1
+
+ use externalforces, only:accradius1,accradius1_hard
  use options,        only:iexternalforce,damp
  use dim,            only:gr
  use prompting,      only:prompt
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
- use metric,         only:mass1,a
+ if (gr) then
+   use metric,         only:mass1,a
+ else
+    use externalforces, only:mass1
+  endif
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -185,6 +189,13 @@ print*,a,"new a"
     damp           = 0.
     c_light        = get_c_code()
     accradius1     = (2*Mh)/(c_light**2) ! R_sch = 2*G*Mh/c**2
+ endif
+ !--Set input file parameters
+ if (gr) then
+    mass1          = Mh
+    accradius1     = 5.
+    accradius1_hard= 5.
+    a              = 0.3
  endif
 
  !--Tilting the star
