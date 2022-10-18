@@ -170,8 +170,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print*, 'Parabolic orbit'
     y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
-    vx0   = sqrt(2*Mh/r0) * 2*rp / (4*rp**2 + x0**2)
-    vy0   = sqrt(2*Mh/r0) * x0   / (4*rp**2 + x0**2)
+    vx0   = sqrt(2*Mh/r0) * 2*rp / sqrt(4*rp**2 + x0**2)
+    vy0   = sqrt(2*Mh/r0) * x0   / sqrt(4*rp**2 + x0**2)
+    print*,vx0,"vx0",vy0,"vy0",x0,"x0",y0,"y0",umass,"umass",udist,"udist"
+print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
  endif
 
  !--Set input file parameters
@@ -218,8 +220,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     xyzh(2,i)  = xyzh(2,i)  + y0
     vxyzu(1,i) = vxyzu(1,i) + vx0
     vxyzu(2,i) = vxyzu(2,i) + vy0
+    if (vxyzu(1,i)==0.) then 
+        print*,i,"i"
+    endif 
+    if (i==1 .or. i==2) then 
+        print*,vxyzu(1,i),"vx",vxyzu(2,i),"vy"
+    endif 
  enddo
-
+ print*,vxyzu(1,1),"vx",vxyzu(2,1),"vy","i=1"
+print*,vxyzu(1,2),"vx",vxyzu(2,2),"vy","i=2"
+print*,vxyzu(1,1:1000),"vxyzu"
+do i = 1,npart 
+       if (vxyzu(1,i)==0.) then 
+        print*,"i",i
+       endif 
+enddo 
+print*,shape(vxyzu),"shape",npart,"npart",size(vxyzu),"size"
  theta = theta*pi/180.
  phi   = phi*pi/180.
 
