@@ -4,6 +4,7 @@ module orbits_data
 
   public :: escape, orbital_parameters, eccentricity_vector_v, eccentricity_star
   public :: semimajor_axis, period_star, orbital_angles
+  public :: isco_kerr
 
   private
 
@@ -176,5 +177,37 @@ contains
 
   end subroutine orbital_angles
 
+  !----------------------------------------------------------------
+  !+
+  !  This subroutine calculates the kerr metric's Innermost stable
+  !  circular orbit. These formulas were obtained from
+  !  Bardeen & Teukolsky 1972
+  !+
+  !----------------------------------------------------------------
+
+  subroutine isco_kerr(a,mass_bh,r_isco)
+    real, intent(in) :: a,mass_bh
+    real, intent(out):: r_isco
+    real  :: z1,z2
+
+   !Modified the formulas for Z1 and Z2 so that it uses the spin parameter
+   !implemented in PHANTOM, which is a/M.
+
+   z1 = 1 + (1-a**2.)**(1./3.)*((1+a)**(1./3.) + (1-a)**(1./3.))
+   z2 = ((3*a**2.) + z1**2.)**(1./2.)
+
+   !now we check if the value if +ve or -ve
+   !+ve implies prograde while -ve implies retrograde
+
+   if (a>=0.) then
+     print*,"prograde rotation of BH wrt orbit"
+     r_isco = mass_bh*(3 + z2 - sqrt((3-z1)*(3+z1+2*z2)))
+   else
+     r_isco = mass_bh*(3 + z2 + sqrt((3-z1)*(3+z1+2*z2)))
+     print*, "retrograde rotation of BH wrt orbit"
+   endif
+
+   print*, "ISCO of KERR metric with spin ",a," is: ",r_isco
+  end subroutine isco_kerr
 
 end module orbits_data
