@@ -56,13 +56,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
- real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3),L_mag
+ real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3)
  real                    :: rp,rt
  real                    :: x,y,z,vx,vy,vz
  real                    :: x0,y0,vx0,vy0,alpha
  real                    :: c_light
- real                    :: unit_ltot(3),unit_L_sum(3),l_mag
- real                    :: dot_value_angvec(3),angle_btw_vec
+ real                    :: unit_ltot(3),unit_L_sum(3),ltot_mag,L_mag
+ real                    :: dot_value_angvec,angle_btw_vec
 !
 !-- Default runtime parameters
 !
@@ -245,19 +245,22 @@ print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
  call angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
 
  unit_L_sum = L_sum(:)/L_mag
- l_mag = sqrt(dot_product(ltot,ltot))
- unit_ltot = ltot(:)/l_mag
-
+ ltot_mag = sqrt(dot_product(ltot,ltot))
+ unit_ltot = ltot(:)/ltot_mag
+print*,unit_L_sum,"unit_L_sum",unit_ltot,"unit_ltot"
  !next take dot product of the unit_ltot and unit_L_sum.
  !using this we can find the angle between the two vectors
  !if the vectors are on a angle of Pi, we have retrograde motion
  !if the vectors are on an angle of 0, we have prograde motion
  dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
- angle_btw_vec = asin(dot_value_angvec)
- print*, angle_btw_vec,"angle_btw_vec"
+ angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees 
+
+ print*,dot_value_angvec,"dot_value_angvec", angle_btw_vec,"angle_btw_vec"
  theta = theta*pi/180.
  phi   = phi*pi/180.
-
+if (gr) then 
+    a              = 0.25
+ endif
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
  write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' code units'
@@ -354,36 +357,37 @@ subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
 
   use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
   use vectorutils,     only : cross_product3D
-
+  use centreofmass, only    : get_centreofmass
   integer, intent(in) :: npart
   real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
   real, intent(out)   :: L_sum(3),L_mag
-  real                :: location,star_centre(3),xpos(3),vpos(3)
-  real                :: pos(3),vel(3),Li(3)
+  real                :: star_centre(3),xpos(3),vpos(3)
+  real                :: pos(3),vel(3),Li(3),xcom(3),vcom(3)
   integer             :: iorder(npart)
-  integer             :: i,j
+  integer             :: i,j,location
 
   !find point of max density which is star's centre
   location = minloc(xyzh(4,:),dim=1)
   star_centre(:) = xyzh(1:3,location)
-
+print*,location,"location"
   !use sorting algorithm to sort the particles from the center of star as a function of radius.
   xpos(:) = star_centre(:)
   vpos(:) = vxyzu(1:3,location)
-
+ print*,xpos(:),"xpos",vpos(:),"vpos"
   L_sum(:) = 0.
-
+  
+call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu)
   call set_r2func_origin(xpos(1),xpos(2),xpos(3))
   call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
+print*,"COM",xcom,vcom
   do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
 
      !the position of the particle is calculated by subtracting the point of highest density.
-     pos(:) = xyzh(1:3,i) - xpos(:)
+     pos(:) = xyzh(1:3,i) - xcom(:)
      !velocity
-     vel(:) = vxyzu(1:3,i) - vpos(:)
+     vel(:) = vxyzu(1:3,i) - vcom(:)
 
      !angular velocity
      call cross_product3D(pos(:),vel(:),Li)
