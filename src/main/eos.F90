@@ -50,7 +50,7 @@ module eos
 
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure
+ public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
 #ifdef KROME
  public  :: get_local_u_internal
@@ -858,6 +858,31 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
  mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
 
 end function get_mean_molecular_weight
+
+!---------------------------------------------------------
+!+
+!  return cv from rho, u in code units
+!+
+!---------------------------------------------------------
+real function get_cv(rho,u,eos_type) result(cv)
+ use mesa_microphysics, only:getvalue_mesa
+ use units,             only:unit_ergg,unit_density
+ real, intent(in)    :: rho,u
+ integer, intent(in) :: eos_type
+ real                :: rho_cgs,u_cgs,temp
+
+ select case (eos_type)
+
+ case(10)  ! MESA EoS
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    call getvalue_mesa(rho_cgs,u_cgs,4,temp)
+    cv = u_cgs/temp / unit_ergg
+ case default  ! constant cv
+    cv = 1./(gmw*temperature_coef*(gamma-1.))
+ end select
+
+end function get_cv
 
 !-----------------------------------------------------------------------
 !+

@@ -2936,7 +2936,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
        if (radprop(ithick,i) < 0.5 .or. implicit_radiation) then
           drad(iradxi,i) = 0.
        else
-          if (iopacity_type == 0) then
+          if (iopacity_type == 0) then ! infinite opacity equals no radiation diffusion
              drad(iradxi,i) = radprop(iradP,i)*drhodti*rho1i*rho1i
              dtradi = bignumber
           else
