@@ -22,9 +22,10 @@ module radiation_implicit
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type
- use radiation_utils, only:get_kappa,get_1overmu,get_cv
+ use radiation_utils, only:get_kappa,get_1overmu
+ use eos,             only:get_cv
  implicit none
- integer, parameter :: ierr_failed_to_converge = 1,ierr_negative_opacity = 2, gas_dust_collisional_term_type = 0
+ integer, parameter :: ierr_failed_to_converge = 1,ierr_negative_opacity = 2, gas_dust_collisional_term_type = 0,cv_type=0,mu_type=0
  logical, parameter :: dustRT = .false.,H2formation_heating = .false.,use_cosmic_ray_heating = .false.,&
                        use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.
@@ -89,7 +90,7 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
     origEU(2,i) = vxyzu(4,i)
     if (save_cv) then
        rhoi = rhoh(xyzh(4,i),massoftype(igas))
-       radprop(icv,i) = get_cv(rhoi,vxyzu(4,i))
+       radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
        radprop(ikappa,i) = get_kappa(iopacity_type,vxyzu(4,i),radprop(icv,i),rhoi)
     endif
     drad(:,i) = 0.  ! Set dxi/dt = 0 for implicit scheme
@@ -126,7 +127,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
 
  npart = size(xyzh(1,:))
  nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
- icompactmax = nneigh_average*npart
+ icompactmax = int(1.2*nneigh_average*npart)
  allocate(ivar(3,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
  allocate(ijvar(icompactmax),stat=ierr)
@@ -283,6 +284,8 @@ end subroutine get_compacted_neighbour_list
 !+
 !---------------------------------------------------------
 subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
+ use dim,             only:periodic
+ use boundary,        only:dxbound,dybound,dzbound
  use part,            only:dust_temp,nucleation,gradh,dvdx
  use units,           only:get_c_code
  use kernel,          only:grkern
@@ -302,7 +305,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
  c_code = get_c_code()
  dti = dt
  !$omp parallel do default(none) &
- !$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx) &
+ !$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx,dxbound,dybound,dzbound) &
  !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh) &
  !$omp firstprivate(dti) &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi) &
@@ -317,7 +320,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     EU0(1,i) = rad(iradxi,i)
     EU0(2,i) = vxyzu(4,i)
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
-    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i))
+    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
     !
     !--Diffuse ISM: Set dust temperature and opacity
@@ -329,7 +332,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     !
     !--Note that CV and Kappa have already been done in ASS
     !
-    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i))
+    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i),mu_type)
     dvxdxi = 0.
     dvxdyi = 0.
     dvxdzi = 0.
@@ -361,7 +364,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !--Note that CV and Kappa have already been done in ASS
        !
        rhoj = rhoh(xyzh(4,j), massoftype(igas))
-       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j))
+       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j),mu_type)
        !dti = dt
        !
        !--Calculate other quantities
@@ -369,6 +372,11 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        dx = xyzh(1,i) - xyzh(1,j)
        dy = xyzh(2,i) - xyzh(2,j)
        dz = xyzh(3,i) - xyzh(3,j)
+       if (periodic) then
+          if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+          if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+          if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+       endif
        rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
        rij = sqrt(rij2)
        rij1 = 1./rij
@@ -927,7 +935,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
     !
     EU0(1,i) = E1i
     EU0(2,i) = U1i
-    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i))
+    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
     if (dustRT) then
@@ -1011,14 +1019,14 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
  if (.true.) then
     try_loop: do itry = 1,2
        u_found = ugasi  ! ugasi = EU0(2,i)
-       t_found = ugasi/get_cv(rhoi,u_found)
+       t_found = ugasi/get_cv(rhoi,u_found,cv_type)
        t_orig = t_found
        do iterationloop = 1,100
           u_last = u_found
           t_last = t_found
 
           u_found = get_u_from_rhoT(rhoi,t_found,ieos)
-          cv1 = get_cv(rhoi,u_found)
+          cv1 = get_cv(rhoi,u_found,cv_type)
           t_found = u_found/cv1
           !
           !--For calculating numerical derivative with gas temperature,

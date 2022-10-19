@@ -29,8 +29,8 @@ module radiation_utils
  public :: Tgas_from_ugas
  public :: get_opacity
  public :: get_1overmu
- public :: get_cv
  public :: get_kappa
+ real, public :: kappa_cgs=0.3
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps
  public :: solve_internal_energy_explicit
@@ -81,23 +81,6 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,r
 
 end subroutine set_radiation_and_gas_temperature_equal
 
-!---------------------------------------------------------
-!+
-!  return cv from rho, u in code units
-!+
-!---------------------------------------------------------
-real function get_cv(rho,u) result(cv)
- use mesa_microphysics, only:getvalue_mesa
- use units,             only:unit_ergg,unit_density
- real, intent(in) :: rho,u
- real             :: rho_cgs,u_cgs,temp
-
- rho_cgs = rho*unit_density
- u_cgs = u*unit_ergg
- call getvalue_mesa(rho_cgs,u_cgs,4,temp)
- cv = u_cgs/temp / unit_ergg
-
-end function get_cv
 
 !-------------------------------------------------
 !+
@@ -440,6 +423,18 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
     call get_kappa_mesa(rho_cgs,temperature,kappa,kapt,kapr)
     kappa = kappa/unit_opacity
 
+ case(2)
+    !
+    ! constant opacity
+    !
+    kappa = kappa_cgs/unit_opacity
+
+ case default
+    !
+    ! infinite opacity
+    !
+    kappa = huge(1.)
+
  end select
 
 end subroutine get_opacity
@@ -450,16 +445,23 @@ end subroutine get_opacity
 !  get 1/mu from rho, u
 !+
 !--------------------------------------------------------------------
-real function get_1overmu(rho,u) result(rmu)
+real function get_1overmu(rho,u,mu_type) result(rmu)
+ use eos,               only:gmw
  use mesa_microphysics, only:get_1overmu_mesa
  use physcon,           only:Rg
  use units,             only:unit_density,unit_ergg
- real, intent(in) :: rho,u
- real             :: rho_cgs,u_cgs
+ real, intent(in)    :: rho,u
+ integer, intent(in) :: mu_type
+ real                :: rho_cgs,u_cgs
 
- rho_cgs = rho*unit_density
- u_cgs = u*unit_ergg
- rmu = get_1overmu_mesa(rho_cgs,u_cgs,Rg)
+ select case (mu_type)
+ case(2) ! mu from MESA EoS tables
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    rmu = get_1overmu_mesa(rho_cgs,u_cgs,Rg)
+ case default
+    rmu = 1./gmw
+ end select
 
 end function get_1overmu
 

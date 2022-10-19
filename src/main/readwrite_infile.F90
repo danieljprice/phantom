@@ -124,6 +124,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
+ use radiation_utils, only:kappa_cgs
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr
  use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
@@ -284,7 +285,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(implicit_radiation,'implicit_radiation','do radiation implicitly',iwritein)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
-    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,-1=preserve)',iwritein)
+    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
+    if (iopacity_type == 2) call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
  endif
 #ifdef GR
  call write_options_metric(iwritein)
@@ -338,6 +340,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
  use ptmass_radiation,only:read_options_ptmass_radiation
+ use radiation_utils, only:kappa_cgs
 #ifdef WIND
  use ptmass_radiation,only:isink_radiation,alpha_rad
 #endif
@@ -511,6 +514,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
        read(valstring,*,iostat=ierr) iopacity_type
+    case('kappa_cgs')
+       read(valstring,*,iostat=ierr) kappa_cgs
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
