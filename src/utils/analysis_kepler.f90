@@ -142,7 +142,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
  use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
-use orbits_data,      only : escape, orbital_parameters
+ use orbits_data,     only : escape, orbital_parameters
 
 
  integer,intent(in)               :: npart,numfile
@@ -172,7 +172,8 @@ use orbits_data,      only : escape, orbital_parameters
  real :: rad_velocity,rad_vel_sum,momentum
  real :: pressure_i,pressure_sum
  real :: pos(3),vel(3),rad,rad_next
- real :: xpos(3),vpos(3),star_centre(3) !COM position and velocity
+ real :: xpos(3),vpos(3),
+  !COM position and velocity
  real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
  real :: velocity_norm,escape_vel,kinetic_add
  real :: Y_in,mu
@@ -193,7 +194,7 @@ use orbits_data,      only : escape, orbital_parameters
  star_centre(:) = xyzh(1:3,location)
  !we use the equation number 12 for Newtonian and 2 for GR analysis.
 
-    ieos = 2
+ ieos = 2
 
  call init_eos(ieos,ierr)
  print*,ieos,"ieos"

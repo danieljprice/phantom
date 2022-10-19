@@ -56,12 +56,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
- real                    :: Lx,Ly,Lz,L,Lp,Ltot(3)
+ real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3),L_mag
  real                    :: rp,rt
  real                    :: x,y,z,vx,vy,vz
  real                    :: x0,y0,vx0,vy0,alpha
  real                    :: c_light
-
+ real                    :: unit_ltot(3),unit_L_sum(3),l_mag
+ real                    :: dot_value_angvec(3),angle_btw_vec
 !
 !-- Default runtime parameters
 !
@@ -78,9 +79,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rp = rt/beta                       ! pericenter distance
  r0 = 10.*rt                        ! starting radius
 
-print*, mass1,"mass1", Mh,"Mh",a,"a"
-a = 0.4
-print*,a,"new a"
  !
  !-- Read runtime parameters from tdeparams file
  !
@@ -235,6 +233,20 @@ print*,a,"new a"
  call get_angmom(ltot,npart,xyzh,vxyzu)
  print*, "angular momentum after putting on orbit i.e., wrt BH"
 
+ !find angular momentum of star on the orbit
+ call angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
+
+ unit_L_sum = L_sum(:)/L_mag
+ l_mag = sqrt(dot_product(ltot,ltot))
+ unit_ltot = ltot(:)/l_mag
+
+ !next take dot product of the unit_ltot and unit_L_sum.
+ !using this we can find the angle between the two vectors
+ !if the vectors are on a angle of Pi, we have retrograde motion
+ !if the vectors are on an angle of 0, we have prograde motion
+ dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
+ angle_btw_vec = asin(dot_value_angvec)
+ print*, angle_btw_vec,"angle_btw_vec"
  theta = theta*pi/180.
  phi   = phi*pi/180.
 
@@ -329,5 +341,57 @@ subroutine get_angmom(ltot,npart,xyzh,vxyzu)
  print*,''
 
 end subroutine get_angmom
+
+subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
+
+  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
+  use vectorutils,     only : cross_product3D
+
+  integer, intent(in) :: npart
+  real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
+  real, intent(out)   :: L_sum(3),L_mag
+  real                :: location,star_centre(3),xpos(3),vpos(3)
+  real                :: pos(3),vel(3),Li(3)
+  integer             :: iorder(npart)
+  integer             :: i,j
+
+  !find point of max density which is star's centre
+  location = minloc(xyzh(4,:),dim=1)
+  star_centre(:) = xyzh(1:3,location)
+
+  !use sorting algorithm to sort the particles from the center of star as a function of radius.
+  xpos(:) = star_centre(:)
+  vpos(:) = vxyzu(1:3,location)
+
+  L_sum(:) = 0.
+
+  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
+  call indexxfunc(npart,r2func_origin,xyzh,iorder)
+
+  do j = 1, npart
+
+     i  = iorder(j) !Access the rank of each particle in radius.
+
+     !the position of the particle is calculated by subtracting the point of highest density.
+     pos(:) = xyzh(1:3,i) - xpos(:)
+     !velocity
+     vel(:) = vxyzu(1:3,i) - vpos(:)
+
+     !angular velocity
+     call cross_product3D(pos(:),vel(:),Li)
+
+     L_sum(:) = L_sum(:) + Li(:)
+
+   enddo
+
+   L_mag = sqrt(dot_product(L_sum,L_sum))
+
+   print*,''
+   print*,'Calculating angular momentum of the star...'
+   print*,'Angular momentum is L = (',L_sum(1),L_sum(2),L_sum(3),')'
+   print*,'Angular momentum modulus is |L| = ',L_mag
+   print*,''
+
+end subroutine angmom_star
 
 end module moddump
