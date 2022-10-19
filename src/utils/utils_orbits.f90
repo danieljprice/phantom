@@ -200,7 +200,7 @@ contains
    !+ve implies prograde while -ve implies retrograde
 
    if (a>=0.) then
-     print*,"prograde rotation of BH wrt orbit"
+     print*, "prograde rotation of BH wrt orbit"
      r_isco = mass_bh*(3 + z2 - sqrt((3-z1)*(3+z1+2*z2)))
    else
      r_isco = mass_bh*(3 + z2 + sqrt((3-z1)*(3+z1+2*z2)))

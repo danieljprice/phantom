@@ -189,8 +189,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set input file parameters
  if (gr) then
     mass1          = Mh
-    !accradius1     = 5.
-    !accradius1_hard= 5.
     a              = 0.1 !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
     call isco_kerr(a,mass1,accradius1)
     accradius1_hard = accradius1
@@ -233,8 +231,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(2,i) = vxyzu(2,i) + vy0
  enddo
  !check angular momentum after putting star on orbit
+ print*, "Angular momentum after putting on orbit i.e., wrt BH: "
  call get_angmom(ltot,npart,xyzh,vxyzu)
- print*, "angular momentum after putting on orbit i.e., wrt BH"
 
  !find angular momentum of star on the orbit
  call angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
@@ -242,11 +240,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  unit_L_sum = L_sum(:)/L_mag
  ltot_mag = sqrt(dot_product(ltot,ltot))
  unit_ltot = ltot(:)/ltot_mag
- print*,unit_L_sum,"unit_L_sum",unit_ltot,"unit_ltot","for star"
  dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
  angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees
 
- print*,dot_value_angvec,"dot_value_angvec", angle_btw_vec,"angle_btw_vec"
  theta = theta*pi/180.
  phi   = phi*pi/180.
 
@@ -350,36 +346,29 @@ subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
 
   use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
   use vectorutils,     only : cross_product3D
-
+  use centreofmass, only    : get_centreofmass
   integer, intent(in) :: npart
   real, intent(in)    :: xyzh(:,:), vxyzu(:,:)
   real, intent(out)   :: L_sum(3),L_mag
-  real                :: location,star_centre(3),xpos(3),vpos(3)
-  real                :: pos(3),vel(3),Li(3)
+  real                :: pos(3),vel(3),Li(3),xcom(3),vcom(3)
   integer             :: iorder(npart)
   integer             :: i,j
 
-  !find point of max density which is star's centre
-  location = minloc(xyzh(4,:),dim=1)
-  star_centre(:) = xyzh(1:3,location)
-
-  !use sorting algorithm to sort the particles from the center of star as a function of radius.
-  xpos(:) = star_centre(:)
-  vpos(:) = vxyzu(1:3,location)
 
   L_sum(:) = 0.
 
+  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu)
   call set_r2func_origin(xpos(1),xpos(2),xpos(3))
   call indexxfunc(npart,r2func_origin,xyzh,iorder)
-
+  print*,"COM of star at beginning ",xcom
   do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
 
      !the position of the particle is calculated by subtracting the point of highest density.
-     pos(:) = xyzh(1:3,i) - xpos(:)
+     pos(:) = xyzh(1:3,i) - xcom(:)
      !velocity
-     vel(:) = vxyzu(1:3,i) - vpos(:)
+     vel(:) = vxyzu(1:3,i) - vcom(:)
 
      !angular velocity
      call cross_product3D(pos(:),vel(:),Li)
