@@ -48,6 +48,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,        only:pi,solarm,solarr
  use units,          only:umass,udist,get_c_code
  use metric,         only:a
+ use orbits_data,    only:isco_kerr
 
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
@@ -175,8 +176,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     x0    = -sqrt(r0**2 - y0**2)
     vx0   = sqrt(2*Mh/r0) * 2*rp / sqrt(4*rp**2 + x0**2)
     vy0   = sqrt(2*Mh/r0) * x0   / sqrt(4*rp**2 + x0**2)
-    print*,vx0,"vx0",vy0,"vy0",x0,"x0",y0,"y0",umass,"umass",udist,"udist"
-print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
  endif
 
  !--Set input file parameters
@@ -190,9 +189,11 @@ print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
  !--Set input file parameters
  if (gr) then
     mass1          = Mh
-    accradius1     = 5.
-    accradius1_hard= 5.
-    a              = 0.1 !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
+    !accradius1     = 5.
+    !accradius1_hard= 5.
+    a              = -1. !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
+    call isco_kerr(a,mass1,accradius1)
+    accradius1_hard = accradius1
  endif
 
  !--Tilting the star
@@ -230,16 +231,9 @@ print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
     xyzh(2,i)  = xyzh(2,i)  + y0
     vxyzu(1,i) = vxyzu(1,i) + vx0
     vxyzu(2,i) = vxyzu(2,i) + vy0
-    if (vxyzu(1,i)==0.) then 
-        print*,i,"i"
-    endif 
-    if (i==1 .or. i==2) then 
-        print*,vxyzu(1,i),"vx",vxyzu(2,i),"vy"
-    endif 
  enddo
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
- print*, "angular momentum after putting on orbit i.e., wrt BH"
 
  !find angular momentum of star on the orbit
  call angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
@@ -247,20 +241,11 @@ print*,sqrt(2*Mh/r0),"escape",Mh,"Mh",r0,"r0"
  unit_L_sum = L_sum(:)/L_mag
  ltot_mag = sqrt(dot_product(ltot,ltot))
  unit_ltot = ltot(:)/ltot_mag
-print*,unit_L_sum,"unit_L_sum",unit_ltot,"unit_ltot"
- !next take dot product of the unit_ltot and unit_L_sum.
- !using this we can find the angle between the two vectors
- !if the vectors are on a angle of Pi, we have retrograde motion
- !if the vectors are on an angle of 0, we have prograde motion
  dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
- angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees 
+ angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees
 
- print*,dot_value_angvec,"dot_value_angvec", angle_btw_vec,"angle_btw_vec"
  theta = theta*pi/180.
  phi   = phi*pi/180.
-if (gr) then 
-    a              = 0.25
- endif
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
  write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' code units'
@@ -352,7 +337,11 @@ subroutine get_angmom(ltot,npart,xyzh,vxyzu)
  print*,''
 
 end subroutine get_angmom
-
+!
+!This subroutine calculates the angular momentum of the star on orbit wrt to
+!its centre. This might be helpful to know how is star itself rotating around
+!its centre.
+!
 subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
 
   use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
