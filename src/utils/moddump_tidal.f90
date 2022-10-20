@@ -34,7 +34,9 @@ module moddump
          theta,  &  ! stellar tilting along x
          phi,    &  ! stellar tilting along y
          r0,     &  ! starting distance
-         ecc        ! eccentricity
+         ecc,    &  ! eccentricity
+         spin       !spin of black hole
+
 
 contains
 
@@ -75,6 +77,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta = 0.                  ! stellar tilting along x
  phi   = 0.                  ! stellar tilting along y
  ecc   = 1.                  ! eccentricity
+ if (.not. gr) then
+   spin = 0.
+ else
+   spin = 1. !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
+ endif
 
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
@@ -190,7 +197,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set input file parameters
  if (gr) then
     mass1          = Mh
-    a              = 0.1 !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
+    a              = spin
     call isco_kerr(a,mass1,accradius1)
     accradius1_hard = accradius1
  endif
@@ -255,6 +262,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,'(a,Es12.5,a)') ' Tilting along x     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity        = ',ecc
+ if (gr) then
+    write(*,'(a,Es12.5,a)') ' Spin of black hole "a"       = ',a
+ endif
 
  write(*,'(a)') "======================================================================"
 
@@ -266,6 +276,7 @@ end subroutine modify_dump
 !
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use dim,          only:gr
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -280,6 +291,9 @@ subroutine write_setupfile(filename)
  call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
+ if (gr) then
+   call write_inopt(spin,   'a',   'spin of SMBH',                                       iunit)
+ endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -287,6 +301,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ use dim,          only:gr
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -305,6 +320,9 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
  call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
+ if (gr) then
+   call read_inopt(spin, 'a',    db,min=-1.,max=1.,errcount=nerr)
+ endif
 
  call close_db(db)
  if (nerr > 0) then
@@ -361,6 +379,7 @@ subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
   call set_r2func_origin(xcom(1),xcom(2),xcom(3))
   call indexxfunc(npart,r2func_origin,xyzh,iorder)
   print*,"COM of star at beginning ",xcom
+  
   do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
