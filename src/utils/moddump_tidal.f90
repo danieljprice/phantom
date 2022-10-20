@@ -176,6 +176,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     x0    = -sqrt(r0**2 - y0**2)
     vx0   = sqrt(2*Mh/r0) * 2*rp / sqrt(4*rp**2 + x0**2)
     vy0   = sqrt(2*Mh/r0) * x0   / sqrt(4*rp**2 + x0**2)
+    print*,y0,"y0",x0,"x0",vx0,"vx0",vy0,"vy0"
  endif
 
  !--Set input file parameters
@@ -351,13 +352,13 @@ subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
   real, intent(out)   :: L_sum(3),L_mag
   real                :: pos(3),vel(3),Li(3),xcom(3),vcom(3)
   integer             :: iorder(npart)
-  integer             :: i,j,location
+  integer             :: i,j
 
 
   L_sum(:) = 0.
 
   call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu)
-  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
+  call set_r2func_origin(xcom(1),xcom(2),xcom(3))
   call indexxfunc(npart,r2func_origin,xyzh,iorder)
   print*,"COM of star at beginning ",xcom
   do j = 1, npart
