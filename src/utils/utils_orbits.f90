@@ -181,7 +181,7 @@ contains
   !+
   !  This subroutine calculates the kerr metric's Innermost stable
   !  circular orbit. These formulas were obtained from
-  !  Bardeen & Teukolsky 1972
+  !  Bardeen & Teukolsky 1972 Astrophysical Journal, Vol. 178, pp. 347-370 
   !+
   !----------------------------------------------------------------
 
@@ -196,18 +196,19 @@ contains
    z1 = 1 + (1-a**2.)**(1./3.)*((1+a)**(1./3.) + (1-a)**(1./3.))
    z2 = ((3*a**2.) + z1**2.)**(1./2.)
 
-   !now we check if the value if +ve or -ve
+   !now we check if the value of a is +ve or -ve
    !+ve implies prograde while -ve implies retrograde
 
    if (a>=0.) then
      print*, "prograde rotation of BH wrt orbit"
-     r_isco = mass_bh*(3 + z2 - sqrt((3-z1)*(3+z1+2*z2)))
+     r_isco = mass_bh*(3. + z2 - sqrt((3.-z1)*(3.+z1+2.*z2)))
    else
-     r_isco = mass_bh*(3 + z2 + sqrt((3-z1)*(3+z1+2*z2)))
+     r_isco = mass_bh*(3. + z2 + sqrt((3.-z1)*(3.+z1+2.*z2)))
      print*, "retrograde rotation of BH wrt orbit"
    endif
-
+   print*,"----------------------------------------------------------"
    print*, "ISCO of KERR metric with spin ",a," is: ",r_isco
+   print*,"----------------------------------------------------------"
   end subroutine isco_kerr
 
 end module orbits_data
