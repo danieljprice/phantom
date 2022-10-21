@@ -103,7 +103,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
-
+print*,"theta",theta,"phi",phi
+print*,"************************"
  phi   = 0.
  theta = 0.
 
@@ -112,12 +113,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  Ly = ltot(2)
  Lz = ltot(3)
  Lp = sqrt(Lx**2.0+Lz**2.0)
+print*,"----------"
  if (Lx > 0.) then
     phi=acos(Lz/Lp)
+print*,phi,"phi = acos(Lz/Lp)"
  elseif (Lx < 0.) then
     phi=-acos(Lz/Lp)
+ print*,phi,"phi=-acos(Lz/Lp)"
  endif
-
 !
 !--Rotate the star so the momentum lies in the yz plan
 !
@@ -141,10 +144,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ly = ltot(2)
  lz = ltot(3)
  L  = sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
+print*,"----------"
  if (Ly < 0.) then
     theta=acos(Lz/L)
+    print*,theta,"theta = acos(Lz/L)"
  elseif (Ly > 0.) then
     theta=-acos(Lz/L)
+    print*,theta,"theta=-acos(Lz/L)"
  endif
 
 !
@@ -205,7 +211,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Tilting the star
  theta=theta*pi/180.0
  phi=phi*pi/180.0
-
+print*,"****************"
+print*,theta,"theta",phi,"phi"
  if (theta  /=  0.) then
     do i=1,npart
        y=xyzh(2,i)
