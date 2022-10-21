@@ -111,6 +111,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  Lx = ltot(1)
  Ly = ltot(2)
  Lz = ltot(3)
+ !first rotate the vector in xz plane with phi
  Lp = sqrt(Lx**2.0+Lz**2.0)
  if (Lx > 0.) then
     phi=acos(Lz/Lp)
@@ -120,6 +121,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 !
 !--Rotate the star so the momentum lies in the yz plan
+! rotation is performed in counter-clockwise direction
 !
  print*,'tilting along y axis: ',(phi*180/pi),'degrees'
  do i=1,npart
@@ -140,6 +142,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  lx = ltot(1)
  ly = ltot(2)
  lz = ltot(3)
+ !rotate in xy plane by theta 
  L  = sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
  if (Ly < 0.) then
     theta=acos(Lz/L)
@@ -379,7 +382,7 @@ subroutine angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
   call set_r2func_origin(xcom(1),xcom(2),xcom(3))
   call indexxfunc(npart,r2func_origin,xyzh,iorder)
   print*,"COM of star at beginning ",xcom
-  
+
   do j = 1, npart
 
      i  = iorder(j) !Access the rank of each particle in radius.
