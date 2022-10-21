@@ -172,7 +172,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real :: rad_velocity,rad_vel_sum,momentum
  real :: pressure_i,pressure_sum
  real :: pos(3),vel(3),rad,rad_next
- real :: xpos(3),vpos(3),
+ real :: xpos(3),vpos(3)
   !COM position and velocity
  real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
  real :: velocity_norm,escape_vel,kinetic_add
