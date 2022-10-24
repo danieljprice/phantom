@@ -106,10 +106,10 @@ end subroutine save_radiation_energies
 !+
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
- use io, only:fatal
- use part, only:hfact
+ use io,      only:fatal
+ use part,    only:hfact
  use physcon, only:pi
- use kernel, only:radkern
+ use kernel,  only:radkern
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep

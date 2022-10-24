@@ -387,7 +387,7 @@ end subroutine radiation_equation_of_state
 
 !--------------------------------------------------------------------
 !+
-!  get opacity from u and rho in code units (and precalculated cv)  
+!  get opacity from u and rho in code units (and precalculated cv)
 !+
 !--------------------------------------------------------------------
 real function get_kappa(opacity_type,u,cv,rho) result(kappa)
