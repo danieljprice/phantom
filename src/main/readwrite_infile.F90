@@ -305,7 +305,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,store_dust_temperature
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:use_entropy,read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -508,6 +508,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
+       if (implicit_radiation) store_dust_temperature = .true.
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
     case('flux_limiter')

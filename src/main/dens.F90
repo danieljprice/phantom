@@ -573,6 +573,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
+ use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -802,7 +803,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
              endif
 
-             if (do_radiation .and. gas_gas) then
+             if (do_radiation .and. gas_gas .and. implicit_radiation) then
                 rhoi = rhoh(real(hi), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
                 dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
@@ -1462,7 +1463,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        maxgradh,idust,ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation
- use options,     only:use_dustfrac
+ use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
@@ -1603,7 +1604,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
        endif
 
-       if (do_radiation .and. iamgasi) radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
+       if (do_radiation .and. iamgasi .and. .not. implicit_radiation) then
+          radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
+       endif
     endif
 
     if (calculate_density) then
