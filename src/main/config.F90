@@ -367,9 +367,9 @@ subroutine update_max_sizes(n,ntot)
  maxp_krome = maxp
 #endif
 
-#ifdef SINK_RADIATION
- maxTdust = maxp
-#endif
+ if (store_dust_temperature) then
+    maxTdust = maxp
+ endif
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX
@@ -442,6 +442,7 @@ subroutine update_max_sizes(n,ntot)
 
 #ifdef RADIATION
  maxprad = maxp
+ maxlum = maxp
 #endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan

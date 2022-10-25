@@ -465,7 +465,7 @@ end subroutine finish_eos
 !-----------------------------------------------------------------------
 !+
 !  Calculate gas temperature, sound speed, and pressure.
-!  This will be required for various analysis routines is eos_vars
+!  This will be required for various analysis routines if eos_vars
 !  is not saved in the dump files
 !+
 !-----------------------------------------------------------------------

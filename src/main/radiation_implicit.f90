@@ -25,7 +25,10 @@ module radiation_implicit
  use radiation_utils, only:get_kappa,get_1overmu
  use eos,             only:get_cv
  implicit none
- integer, parameter :: ierr_failed_to_converge = 1,ierr_negative_opacity = 2, gas_dust_collisional_term_type = 0,cv_type=0,mu_type=0
+ integer, parameter :: ierr_failed_to_converge = 1,&
+                       ierr_negative_opacity = 2
+ integer, parameter :: gas_dust_collisional_term_type = 0
+ integer, parameter :: cv_type=0, mu_type=0
  logical, parameter :: dustRT = .false.,H2formation_heating = .false.,use_cosmic_ray_heating = .false.,&
                        use_photoelectric_heating = .false.
  real, parameter    :: Tdust_threshold = 100.

@@ -178,6 +178,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  !
  !
+ dvdx = 0.
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
    call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0) call error('radiation','Failed to converge')
