@@ -220,7 +220,8 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,&
-                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc
+                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy
+ use ptmass_radiation, only:iget_tdust
  use options,    only:use_dustfrac,use_var_comp
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -433,6 +434,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
        If (itau_alloc == 1) then
            call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
+       endif
+       If (iget_tdust == 2) then
+           call write_array(1,tau_lucy,'tau_lucy',npart,k,ipass,idump,nums,ierrs(30))
        endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
@@ -1113,7 +1117,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
-                      nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,ithick,itemp,igasP,iorig
+                      nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,ithick,itemp,igasP,iorig
+ use ptmass_radiation, only: iget_tdust
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1224,6 +1229,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              endif
              if (itau_alloc == 1) then
                 call read_array(tau,'tau',got_ray_tracer,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (iget_tdust == 2) then
+                call read_array(tau_lucy,'tau_lucy',got_ray_tracer,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)

@@ -119,6 +119,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
    print *, '(2) Method'
    print *, '(3) Calculate tau as done in realtime in PHANTOM'
    print *, '(4) Preloaded settings'
+   print *, '(5) Print out points'
    read *,analyses
    ! analyses=4
 
@@ -670,9 +671,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
          write(iu2, *) tau(i)
       enddo
       close(iu2)
-   endif
 
-   if (.false.) then! Write out the location and density of all the points
+   else if (analyses == 5) then
       open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
       do i=1, npart2+2
          write(iu1, *) xyzh2(1:3,i)

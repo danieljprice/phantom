@@ -34,6 +34,7 @@ module part
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
                inucleation,itau_alloc
+ use ptmass_radiation, only:iget_tdust
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -199,6 +200,7 @@ module part
 !-- Ray tracing : optical depth
 !
  real, allocatable :: tau(:)
+ real, allocatable :: tau_lucy(:)
 !
 !--Dust formation - theory of moments
 !
@@ -495,6 +497,7 @@ subroutine allocate_part
  call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
+ call allocate_array('tau_lucy', tau_lucy, maxp*int(iget_tdust/2))
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -560,6 +563,7 @@ subroutine deallocate_part
 #endif
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
+ if (allocated(tau_lucy))     deallocate(tau_lucy)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -1270,6 +1274,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
  if (itau_alloc == 1) tau(dst) = tau(src)
+ if (iget_tdust == 2) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)

@@ -966,7 +966,7 @@ module raytracer_all
       
       integer :: i
       
-      !$omp parallel do private(tau)
+      !$omp parallel do
       do i = 1, npart
          call get_tau_inwards(i, primary, xyzh, neighbors, kappa, Rstar, tau(i))
       enddo

@@ -122,13 +122,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, &
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
+ use ptmass_radiation, only:iget_tdust
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -525,6 +526,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
    if (do_nucleation) call init_nucleation
    !initialize optical depth array tau
    if (itau_alloc == 1) tau = 0.
+   !initialize Lucy optical depth array tau_lucy
+   if (iget_tdust == 2) tau_lucy = 2./3.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this

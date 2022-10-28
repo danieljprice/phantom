@@ -38,7 +38,7 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,itau_alloc
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -65,9 +65,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #endif
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  use dust_formation,   only:calc_kappa_bowen,idust_opacity
- use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
- use part,             only:ikappa,dust_temp,nucleation,tau
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution,iget_tdust
+ use part,             only:ikappa,dust_temp,nucleation,tau,tau_lucy,itau_alloc
  use raytracer
+ use raytracer_lucy,   only:get_all_tau_lucy
 #endif
 #ifdef PERIODIC
  use ptmass,         only:ptmass_boundary_crossing
@@ -195,8 +196,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
 
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
- !compute dust temperature
- call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
+ !compute optical depth
  if (itau_alloc == 1) then
     if (idust_opacity == 2) then
        call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
@@ -204,6 +204,17 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
     endif
  endif
+ !compute dust temperature
+ if (iget_tdust == 2 .and. itau_alloc == 1) then
+   if (idust_opacity == 2) then
+      call get_all_tau_lucy(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
+   else
+      call get_all_tau_lucy(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
+   endif
+   call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp, tau_lucy)
+ else
+   call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
+endif
 #endif
 !
 ! set new timestep from Courant/forces condition

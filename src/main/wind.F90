@@ -912,41 +912,129 @@ end subroutine save_windprofile
 subroutine filewrite_header(iunit,nwrite)
  use options,        only:icooling
  use dust_formation, only:idust_opacity
+ use ptmass_radiation, only:iget_tdust
+ use dim,              only:itau_alloc
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
  character (len=20):: fmt
 
- if (idust_opacity == 2) then
-    if (icooling > 0) then
-       nwrite = 22
-       write(fmt,*) nwrite
-       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma','Q'
+ if (itau_alloc == 1) then
+    if (iget_tdust == 2) then
+       if (idust_opacity == 2) then
+          if (icooling > 0) then
+             nwrite = 23
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma','Q'
+          else
+             nwrite = 22
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma'
+          endif
+       else 
+          if (icooling > 0) then
+             nwrite = 17
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','tau_lucy','kappa','tau','Tdust','gamma','Q'
+          else
+             nwrite = 16
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','tau_lucy','kappa','tau','Tdust','gamma'
+          endif
+       endif
     else
-       nwrite = 21
-       write(fmt,*) nwrite
-       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-            'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
+       if (idust_opacity == 2) then
+          if (icooling > 0) then
+             nwrite = 22
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','kappa','tau','Tdust','gamma','Q'
+          else
+             nwrite = 21
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','kappa','tau','Tdust','gamma'
+          endif
+       else
+          if (icooling > 0) then
+             nwrite = 15
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','kappa','tau','gamma','Q'
+          else
+             nwrite = 14
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','kappa','tau','gamma'
+          endif
+       endif
     endif
  else
-    if (icooling > 0) then
-       nwrite = 14
-       write(fmt,*) nwrite
-       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
+    if (iget_tdust == 2) then
+       if (idust_opacity == 2) then
+          if (icooling > 0) then
+             nwrite = 22
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma','Q'
+          else
+             nwrite = 21
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
+          endif
+       else 
+          if (icooling > 0) then
+             nwrite = 16
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','tau_lucy','kappa','Tdust','gamma','Q'
+          else
+             nwrite = 15
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','tau_lucy','kappa','Tdust','gamma'
+          endif
+       endif
     else
-       nwrite = 13
-       write(fmt,*) nwrite
-       write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
+       if (idust_opacity == 2) then
+          if (icooling > 0) then
+             nwrite = 21
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','kappa','Tdust','gamma','Q'
+          else
+             nwrite = 20
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+                   'mu','S','Jstar','K0','K1','K2','K3','kappa','Tdust','gamma'
+          endif
+       else
+          if (icooling > 0) then
+             nwrite = 14
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
+          else
+             nwrite = 13
+             write(fmt,*) nwrite
+             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
+          endif
+       endif
     endif
  endif
 end subroutine filewrite_header
 
-subroutine state_to_array(state,nwrite, array)
+subroutine state_to_array(state, array)
  use dust_formation, only:idust_opacity
  use options,        only:icooling
+ use ptmass_radiation, only:iget_tdust
+ use dim,              only:itau_alloc
  type(wind_state), intent(in) :: state
- integer, intent(in) :: nwrite
  real, intent(out) :: array(:)
+ integer           :: iwrite
 
  array(1)  = state%time
  array(2)  = state%r
@@ -958,24 +1046,42 @@ subroutine state_to_array(state,nwrite, array)
  array(8)  = state%rho
  array(9)  = state%alpha
  array(10) = state%a
+ iwrite = 10
  if (idust_opacity == 2) then
-    array(11) = state%JKmuS(idmu)
-    array(12) = state%JKmuS(idsat)
-    array(13) = state%JKmuS(idJstar)
-    array(14) = state%JKmuS(idK0)
-    array(15) = state%JKmuS(idK1)
-    array(16) = state%JKmuS(idK2)
-    array(17) = state%JKmuS(idK3)
-    array(18) = state%tau_lucy
-    array(19) = state%kappa
-    array(20) = state%Tdust
-    array(21) = state%JKmuS(idgamma)
+    array(iwrite+1) = state%JKmuS(idmu)
+    array(iwrite+2) = state%JKmuS(idsat)
+    array(iwrite+3) = state%JKmuS(idJstar)
+    array(iwrite+4) = state%JKmuS(idK0)
+    array(iwrite+5) = state%JKmuS(idK1)
+    array(iwrite+6) = state%JKmuS(idK2)
+    array(iwrite+7) = state%JKmuS(idK3)
+    iwrite = iwrite + 7
  else
-    array(11) = state%mu
-    array(12) = state%kappa
-    array(13) = state%gamma
+    array(iwrite+1) = state%mu
+    iwrite = iwrite + 1
  endif
- if (icooling > 0) array(nwrite) = state%Q
+ if (iget_tdust == 2) then
+    array(iwrite+1) = state%tau_lucy
+    iwrite = iwrite + 1
+ endif
+ array(iwrite+1) = state%kappa
+ iwrite = iwrite + 1
+ if (itau_alloc == 1) then
+    array(iwrite+1) = state%tau
+    iwrite = iwrite + 1
+ endif
+ if (idust_opacity == 2 .or. iget_tdust == 2) then
+    array(iwrite+1) = state%Tdust
+    iwrite = iwrite + 1
+ endif
+ if (idust_opacity == 2) then
+    array(iwrite+2) = state%JKmuS(idgamma)
+    iwrite = iwrite + 1
+ else
+    array(iwrite+1) = state%gamma
+    iwrite = iwrite + 1
+ endif
+ if (icooling > 0) array(iwrite) = state%Q
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)
@@ -985,7 +1091,7 @@ subroutine filewrite_state(iunit,nwrite, state)
  real :: array(nwrite)
  character (len=20):: fmt
 
- call state_to_array(state,nwrite, array)
+ call state_to_array(state, array)
  write(fmt,*) nwrite
  write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
 !  write(iunit, '(22(1x,es11.3E3:))') array(1:nwrite)

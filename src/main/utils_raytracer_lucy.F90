@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module raytracer
+module raytracer_lucy
 !
 ! This module contains all routines required to:
 !   - perform radial ray tracing starting from the primary star
@@ -23,7 +23,7 @@ module raytracer
    use healpix
 
    implicit none
-   public :: get_all_tau
+   public :: get_all_tau_lucy
 
    private
 
@@ -46,7 +46,7 @@ module raytracer
    !  OUT: tau:            The array of optical depths for each SPH particle
    !+
    !--------------------------------------------------------------------------
-     subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
+     subroutine get_all_tau_lucy(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
       use part, only: iReff
       integer, intent(in) :: npart, order, nptmass
       real, intent(in)    :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:)
@@ -58,7 +58,7 @@ module raytracer
       else
          call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzh, kappa_cgs, xyzmh_ptmass(iReff,1), order, tau)
       endif
-   end subroutine get_all_tau
+   end subroutine get_all_tau_lucy
 
    !--------------------------------------------------------------------------
    !+
@@ -330,7 +330,7 @@ module raytracer
       integer :: L, R, m ! left, right and middle index for binary search
 
       if (distance .lt. dist_along_ray(1)) then
-         tau = 0.
+         tau = tau_along_ray(1)
       else if (distance .gt. dist_along_ray(len)) then
          tau = tau_along_ray(len)
       else
@@ -348,9 +348,6 @@ module raytracer
          !interpolate linearly ray properties to get the particle's optical depth
          tau = tau_along_ray(L-1)+(tau_along_ray(L)-tau_along_ray(L-1))/ &
                   (dist_along_ray(L)-dist_along_ray(L-1))*(distance-dist_along_ray(L-1))
-         if (distance > dist_along_ray(L)) then
-            print*,L,R,len
-         endif
       endif
    end subroutine get_tau_on_ray
 
@@ -378,7 +375,6 @@ module raytracer
       real, optional       :: maxDistance
       real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
       integer, intent(out) :: len
-      real, parameter      :: tau_max = 99.
 
       real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
       integer :: inext, i
@@ -392,24 +388,27 @@ module raytracer
       enddo
 
       i = 1
-      tau_along_ray(i)  = 0.
+      tau_along_ray(i)  = 2./3.
       distance          = Rstar
       dist_along_ray(i) = distance
       do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
          distance = distance+dr
          call find_next(primary + distance*ray, xyzh(4,inext), ray, xyzh, kappa, nextdtaudr, next_dr, inext)
          i = i + 1
+         nextdtaudr        = nextdtaudr*(Rstar/distance)**2
          dtaudr            = (nextdtaudr+previousdtaudr)/2.
          previousdtaudr    = nextdtaudr
          !fix units for tau (kappa is in cgs while rho & r are in code units)
-         tau_along_ray(i)  = tau_along_ray(i-1)+dr*dtaudr*umass/(udist**2)
+         tau_along_ray(i)  = tau_along_ray(i-1)-dr*dtaudr*umass/(udist**2)
          dist_along_ray(i) = distance
          dr                = next_dr
       enddo
       if (present(maxDistance)) then
          i = i + 1
-         tau_along_ray(i)  = tau_max
+         tau_along_ray(i)  = 0.
          dist_along_ray(i) = maxDistance
+      elseif (tau_along_ray(i)<0.) then
+         tau_along_ray     = 0.
       endif
       len = i
    end subroutine ray_tracer
@@ -418,11 +417,10 @@ module raytracer
       integer, intent(in) :: inext
       real, intent(in)    :: distance, tau
       real, optional      :: maxDistance
-      real, parameter :: tau_max = 99.
       if (present(maxDistance)) then
-         hasNext = inext /= 0 .and. distance < maxDistance .and. tau < tau_max
+         hasNext = inext /= 0 .and. distance < maxDistance .and. tau > 0.
       else
-         hasNext = inext /= 0 .and. tau < tau_max
+         hasNext = inext /= 0 .and. tau > 0.
       endif
    end function hasNext
 
@@ -494,4 +492,4 @@ module raytracer
       enddo
       dtaudr = dtaudr*cnormk/hfact**3
    end subroutine find_next
-end module raytracer
+end module raytracer_lucy

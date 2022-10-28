@@ -200,7 +200,7 @@ end subroutine get_radiative_acceleration_from_star
 !  through the gas, or by simpler approximations
 !+
 !-----------------------------------------------------------------------
-subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
+subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp,tau_lucy)
  use part,    only:isdead_or_accreted,iLum,iTeff,iReff,rhoh,massoftype,igas,nucleation,idmu,idgamma
  use part,    only:eos_vars,itemp
  use eos,     only:ieos,get_temperature
@@ -208,8 +208,9 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
  use io,      only:fatal
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),vxyzu(:,:)
+ real,     intent(in), optional   :: tau_lucy(:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4)
+ real                    :: r,L_star,T_star,R_star,xa,ya,za,pmassi,vxyzui(4),tl
  integer                 :: i,j
 
  !
@@ -243,8 +244,39 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmas
     !$omp end parallel do
  case(2)
     !Lucy approximation for Tdust
-    print *,'Not implemented yet'
-    call fatal('ptmass_radiation','Lucy approximation not implemented')
+    if (present(tau_lucy)) then
+      !$omp parallel  do default(none) &
+      !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau_lucy) &
+      !$omp private(i,r,tl)
+      do i=1,npart
+         if (.not.isdead_or_accreted(xyzh(4,i))) then
+            r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
+            if (r .lt. R_star) r = R_star
+            if (isnan(tau_lucy(i))) then
+               tl = 2./3.
+            else
+               tl = tau_lucy(i)
+            endif
+            dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl))**(1./4.)
+            ! if (isnan(dust_temp(i))) then
+            !    print*,1.-sqrt(1.-(R_star/r)**2), tl, (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl)), &
+            !    (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl))**(1./4.)
+            ! endif
+         endif
+      enddo
+      !$omp end parallel do
+    else
+      !$omp parallel  do default(none) &
+      !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau_lucy) &
+      !$omp private(i,r)
+      do i=1,npart
+         if (.not.isdead_or_accreted(xyzh(4,i))) then
+            r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
+            dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)))**(1./4.)
+         endif
+      enddo
+      !$omp end parallel do
+    endif
  case default
     ! sets Tdust = Tgas
     pmassi = massoftype(igas)
