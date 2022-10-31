@@ -104,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ctrg = 0
  if (npart > maxp) then
     close(lu)
-    call fatal('setup','maxp too small.  Make bigger than ',ival=npart)
+    call fatal('setup','maxp too small.  Use ./phantomsetup --maxp=',ival=npart)
  endif
  i  = 1
  ro = 0

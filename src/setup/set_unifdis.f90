@@ -201,7 +201,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                 iparttot = iparttot + 1
                 if (i_belong(iparttot)) then
                    ipart = ipart + 1
-                   if (ipart > maxp) stop 'ipart > maxp: re-compile with MAXP=bigger number'
+                   if (ipart > maxp) stop 'ipart > maxp: use ./phantomsetup --maxp=10000000'
                    xyzh(1,ipart) = xi
                    xyzh(2,ipart) = yi
                    xyzh(3,ipart) = zi

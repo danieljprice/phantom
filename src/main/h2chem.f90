@@ -21,7 +21,7 @@ module chem
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: h2cooling, part, physcon, units
+! :Dependencies: cooling_ism, part, physcon, units
 !
 
  implicit none
@@ -118,7 +118,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
  use units,     only:utime,uergg=>unit_ergg,udens=>unit_density
  use physcon,   only:mp=>mass_proton_cgs,Rg
- use h2cooling, only:nrates,dchem,cosmic_ray_ion_rate,&
+ use cooling_ism, only:nrates,dchem,cosmic_ray_ion_rate,&
                    abundc,abundo,abunde,AV_conversion_factor
  real,    intent(in)    :: ui,rhoi,dt,dphot
  integer, intent(in)    :: nchem
@@ -446,8 +446,8 @@ end subroutine H2fd_rate
 !------------------------------------------------------
 pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
  use physcon, only:kboltz,eV
- use h2cooling, only:iphoto,uv_field_strength,dust_to_gas_ratio,AV_conversion_factor,&
-                     cosmic_ray_ion_rate
+ use cooling_ism, only:iphoto,uv_field_strength,dust_to_gas_ratio,AV_conversion_factor,&
+                       cosmic_ray_ion_rate
  real,         intent(in)  :: temp, yn, abe, abhp, sqrttemp
  real(kind=8), intent(in)  :: NH
  real,         intent(out) :: C, D

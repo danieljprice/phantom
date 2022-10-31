@@ -28,7 +28,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2022 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -154,10 +154,10 @@ module dim
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef CONST_AV
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
@@ -202,7 +202,6 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
- logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -285,18 +284,11 @@ module dim
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
-#ifdef STAR
- logical :: star_radiation = .true.
-#else
- logical :: star_radiation = .false.
-#endif
  logical :: nucleation = .true.
- integer :: maxsp = maxp_hard
 #else
- logical :: star_radiation = .false.
  logical :: nucleation = .false.
- integer :: maxsp = 0
 #endif
+ integer :: maxp_nucleation = 0
 
 !--------------------
 ! MCFOST library
@@ -362,8 +354,11 @@ subroutine update_max_sizes(n,ntot)
 #endif
 
 #ifdef SINK_RADIATION
- maxTdust = maxp
+ store_dust_temperature = .true.
 #endif
+
+ if (store_dust_temperature) maxTdust = maxp
+ if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX

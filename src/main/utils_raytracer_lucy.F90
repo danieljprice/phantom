@@ -20,14 +20,14 @@ module raytracer_lucy
 !
 ! :Dependencies: linklist, kernel, part, healpix
 !
-   use healpix
+ use healpix
 
-   implicit none
-   public :: get_all_tau_lucy
+ implicit none
+ public :: get_all_tau_lucy
 
-   private
+ private
 
- contains
+contains
 
    !--------------------------------------------------------------------------
    !+

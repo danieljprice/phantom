@@ -13,35 +13,40 @@ module setup
 ! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
+!   - Reff2a            : *tight binary primary effective radius (au)*
+!   - Reff2b            : *tight binary secondary effective radius (au)*
 !   - T_wind            : *wind temperature (K)*
-!   - eccentricity      : *eccentricity of the binary system*                    ! = binary_e : *wide binary eccentricity*
-!   - icompanion_star   : *set to 1 for a binary system, 2 for a triple system*
-!   - mass_of_particles : *particle mass (overwritten if iwind_resolution <>0)*
-!   - primary_Reff      : *primary star effective radius*
-!   - primary_Teff      : *primary star effective temperature (K)*
-!   - primary_lum       : *primary star luminosity**
-!   - primary_mass      : *primary star mass*                                    ! = m1       : *first hierarchical level primary mass*
-!   - primary_racc      : *primary star accretion radius*                        ! = racc1    : *primary star accretion radius*
-!   - secondary_Reff    : *secondary star effective radius*
-!   - secondary_Teff    : *secondary star effective temperature)*
-!   - secondary_lum     : *secondary star luminosity*
-!   - secondary_mass    : *secondary star mass (Msun)*                           ! = m2       : *first hierarchical level secondary mass*
-!   - secondary_racc    : *secondary star accretion radius*                      ! = racc2    : *perturber accretion radius*
-!   - semi_major_axis   : *semi-major axis of the binary system*                 ! = binary_a : *wide binary semi-major axis*
-!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
-!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
-!   - racc2a            : *tight binary primary accretion radius*
-!   - racc2b            : *tight binary secondary accretion radius*
-!   - lum2a             : *tight binary luminosity*
-!   - lum2b             : *tight binary luminosity*
-!   - Teff2a            : *effective temperature (K)*
-!   - Teff2b            : *effective temperature (K)*
-!   - Reff2a_au         : *effective radius*
-!   - Reff2b_au         : *effective radius*
+!   - Teff2a            : *tight binary primary effective temperature (K)*
+!   - Teff2b            : *tight binary secondary effective temperature (K)*
 !   - binary2_a         : *tight binary semi-major axis*
 !   - binary2_e         : *tight binary eccentricity*
-!   - q2                : *tight binary mass ratio*                    !    m2a = m2/(q2+1), m2b = m2*q2/(q2+1)
-!   - subst             : *star to substitute, or sky if subst=0*
+!   - eccentricity      : *eccentricity of the binary system*
+!   - icompanion_star   : *set to 1 for a binary system, 2 for a triple system*
+!   - inclination       : *inclination of the tight binary system w.r.t. outer binary (deg)*
+!   - lum2a             : *tight binary primary luminosity (Lsun)*
+!   - lum2b             : *tight binary secondary luminosity (Lsun)*
+!   - mass_of_particles : *particle mass (Msun, overwritten if iwind_resolution <>0)*
+!   - primary_Reff      : *primary star effective radius (au)*
+!   - primary_Teff      : *primary star effective temperature (K)*
+!   - primary_lum       : *primary star luminosity (Lsun)*
+!   - primary_mass      : *primary star mass (Msun)*
+!   - primary_racc      : *primary star accretion radius (au)*
+!   - q2                : *tight binary mass ratio*
+!   - racc2a            : *tight binary primary accretion radius*
+!   - racc2b            : *tight binary secondary accretion radius*
+!   - secondary_Reff    : *secondary star effective radius (au)*
+!   - secondary_Teff    : *secondary star effective temperature)*
+!   - secondary_lum     : *secondary star luminosity (Lsun)*
+!   - secondary_mass    : *secondary star mass (Msun)*
+!   - secondary_racc    : *secondary star accretion radius (au)*
+!   - semi_major_axis   : *semi-major axis of the binary system (au)*
+!   - subst             : *star to substitute*
+!   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
+!   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
+!
+! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
+!   setbinary, spherical, units
+!
 
 
 !   incl,posang_ascnode, arg_peri, omega_corotate, f, verbose not needed but may be included
@@ -182,78 +187,72 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
     xyzmh_ptmass(iTeff,2) = secondary_Teff
-    if (secondary_Reff == 0.0) then
-       xyzmh_ptmass(iReff,2) = secondary_Racc
-    else
-       xyzmh_ptmass(iReff,2) = secondary_Reff
-    endif
+    xyzmh_ptmass(iReff,2) = secondary_Reff
     xyzmh_ptmass(iLum,2)  = secondary_lum
- else if (icompanion_star == 2) then
+ elseif (icompanion_star == 2) then
     !-- hierarchical triple
-       nptmass  = 0
-       print "(/,a)",'----------- Hierarchical triple -----------'
-       print "(a,g10.3,a)",'     First hierarchical level primary mass: ', primary_mass_msun
-       print "(a,g10.3,a)",'   First hierarchical level secondary mass: ', secondary_mass_msun
-       print "(a,g10.3)",  '                    Wide binary mass ratio: ', secondary_mass/primary_mass
-       print "(a,g10.3)",  '                   Tight binary mass ratio: ', q2
-       print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
-       !print "(a,g10.3,a)",'                       Accretion Radius 1 : ', primary_racc!, trim(dist_unit)
-       !print "(a,g10.3,a)",'                       Accretion Radius 2a: ', racc2a!, trim(dist_unit)
-       !print "(a,g10.3,a)",'                       Accretion Radius 2b: ', racc2b!, trim(dist_unit)
+    nptmass  = 0
+    print "(/,a)",'----------- Hierarchical triple -----------'
+    print "(a,g10.3,a)",'     First hierarchical level primary mass: ', primary_mass_msun
+    print "(a,g10.3,a)",'   First hierarchical level secondary mass: ', secondary_mass_msun
+    print "(a,g10.3)",  '                    Wide binary mass ratio: ', secondary_mass/primary_mass
+    print "(a,g10.3)",  '                   Tight binary mass ratio: ', q2
+    print "(a,g10.3)",  '                    Star to be substituted: ', abs(subst)
+!        print "(a,g10.3,a)",'                        Accretion Radius 1: ', primary_racc!, trim(dist_unit)
+!        print "(a,g10.3,a)",'                       Accretion Radius 2a: ', racc2a!, trim(dist_unit)
+!        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', racc2b!, trim(dist_unit)
 
-       if (subst>0) then
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
-       else
-          print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
-       endif
+    if (subst>0) then
+       print "(a,g10.3,a)",'      Tight binary orientation referred to: substituted star orbital plane'
+    else
+       print "(a,g10.3,a)",'      Tight binary orientation referred to: sky'
+    endif
 
 
-       call set_multiple(primary_mass,secondary_mass,semimajoraxis=semi_major_axis,eccentricity=eccentricity, &
+    call set_multiple(primary_mass,secondary_mass,semimajoraxis=semi_major_axis,eccentricity=eccentricity, &
             accretion_radius1=primary_racc,accretion_radius2=secondary_racc, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
-        !replace companion by tight binary system : 1+2
-        if (subst == 12) then
-           call set_multiple(secondary_mass/(q2+1),secondary_mass*q2/(q2+1),semimajoraxis=binary2_a,&
-                eccentricity=binary2_e, accretion_radius1=racc2a,accretion_radius2=racc2b, &
+    if (subst == 12) then
+       call set_multiple(secondary_mass/(q2+1),secondary_mass*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+                accretion_radius1=racc2a,accretion_radius2=racc2b, &
                 xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
                 posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
 
-            xyzmh_ptmass(iTeff,1) = primary_Teff
-            xyzmh_ptmass(iReff,1) = primary_Reff
-            xyzmh_ptmass(iLum,1)  = primary_lum
-            xyzmh_ptmass(iTeff,2) = Teff2a
-            xyzmh_ptmass(iReff,2) = Reff2a
-            xyzmh_ptmass(iLum,2)  = lum2a
-            xyzmh_ptmass(iTeff,3) = Teff2b
-            xyzmh_ptmass(iReff,3) = Reff2b
-            xyzmh_ptmass(iLum,3)  = lum2b
+       xyzmh_ptmass(iTeff,1) = primary_Teff
+       xyzmh_ptmass(iReff,1) = primary_Reff
+       xyzmh_ptmass(iLum,1)  = primary_lum
+       xyzmh_ptmass(iTeff,2) = Teff2a
+       xyzmh_ptmass(iReff,2) = Reff2a
+       xyzmh_ptmass(iLum,2)  = lum2a
+       xyzmh_ptmass(iTeff,3) = Teff2b
+       xyzmh_ptmass(iReff,3) = Reff2b
+       xyzmh_ptmass(iLum,3)  = lum2b
 
-       !replace primary by tight binary system : 2+1
-       else if (subst == 11) then
-          call set_multiple(primary_mass*q2/(q2+1),primary_mass/(q2+1),semimajoraxis=binary2_a,&
-               eccentricity=binary2_e, accretion_radius1=racc2b,accretion_radius2=primary_racc, &
-               xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
-               posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
+    elseif (subst == 11) then
+       call set_multiple(primary_mass*q2/(q2+1),primary_mass/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+                accretion_radius1=racc2b,accretion_radius2=primary_racc, &
+                xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
+                posang_ascnode=0.,arg_peri=0.,incl=binary2_i,subst=subst,ierr=ierr)
 
-            xyzmh_ptmass(iTeff,1) = primary_Teff
-            xyzmh_ptmass(iReff,1) = primary_Reff
-            xyzmh_ptmass(iLum,1)  = primary_lum
-            xyzmh_ptmass(iTeff,2) = secondary_Teff
-            xyzmh_ptmass(iReff,2) = secondary_Reff
-            xyzmh_ptmass(iLum,2)  = secondary_lum
-            xyzmh_ptmass(iTeff,3) = Teff2b
-            xyzmh_ptmass(iReff,3) = Reff2b
-            xyzmh_ptmass(iLum,3)  = lum2b
-       endif
+       xyzmh_ptmass(iTeff,1) = primary_Teff
+       xyzmh_ptmass(iReff,1) = primary_Reff
+       xyzmh_ptmass(iLum,1)  = primary_lum
+       xyzmh_ptmass(iTeff,2) = secondary_Teff
+       xyzmh_ptmass(iReff,2) = secondary_Reff
+       xyzmh_ptmass(iLum,2)  = secondary_lum
+       xyzmh_ptmass(iTeff,3) = Teff2b
+       xyzmh_ptmass(iReff,3) = Reff2b
+       xyzmh_ptmass(iLum,3)  = lum2b
+    endif
 
-       print *,'Sink particles summary'
-       print *,'  #    mass       racc      lum         Reff'
-       do k=1,nptmass
-          print '(i4,2(2x,f9.5),2(2x,es10.3))',k,xyzmh_ptmass(4:5,k),xyzmh_ptmass(iLum,k)/&
-               (solarl*utime/unit_energ),xyzmh_ptmass(iReff,k)*udist/au
-       enddo
-       print *,''
+    print *,'Sink particles summary'
+    print *,'  #    mass       racc      lum         Reff'
+    do k=1,nptmass
+       print '(i4,2(2x,f9.5),2(2x,es10.3))',k,xyzmh_ptmass(4:5,k),xyzmh_ptmass(iLum,k)/(solarl*utime/unit_energ),&
+               xyzmh_ptmass(iReff,k)*udist/au
+    enddo
+    print *,''
 
  else
     nptmass = 1
@@ -339,126 +338,126 @@ subroutine setup_interactive()
 
     !replace companion by tight binary system : 1+2
     if (subst == 12) then
-        print "(a)",'Primary star parameters (the single wind launching central star)'
-        print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
+       print "(a)",'Primary star parameters (the single wind launching central star)'
+       print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
         ' 1: Mass = 1.5 Msun, accretion radius = 1.2568 au', &
         ' 0: custom'
-        call prompt('select mass and radius of primary',ichoice,0,2)
-        select case(ichoice)
-        case(2)
-            primary_mass_msun = 1.2
-            primary_racc_au   = 0.2568
-        case(1)
-            primary_mass_msun = 1.5
-            primary_racc_au   = 1.2568
-        case default
-            primary_mass_msun = 1.5
-            primary_racc_au   = 1.
-            call prompt('enter primary mass',primary_mass_msun,0.,100.)
-            call prompt('enter accretion radius in au ',primary_racc_au,0.)
-        end select
-        primary_mass = primary_mass_msun * (solarm / umass)
-        primary_racc = primary_racc_au * (au / udist)
+       call prompt('select mass and radius of primary',ichoice,0,2)
+       select case(ichoice)
+       case(2)
+          primary_mass_msun = 1.2
+          primary_racc_au   = 0.2568
+       case(1)
+          primary_mass_msun = 1.5
+          primary_racc_au   = 1.2568
+       case default
+          primary_mass_msun = 1.5
+          primary_racc_au   = 1.
+          call prompt('enter primary mass',primary_mass_msun,0.,100.)
+          call prompt('enter accretion radius in au ',primary_racc_au,0.)
+       end select
+       primary_mass = primary_mass_msun * (solarm / umass)
+       primary_racc = primary_racc_au * (au / udist)
 
-        ichoice = 1
-        print "(a)",'Total mass of tight binary system (1+2)'
-        print "(a)",' 1: Total mass tight binary = 1.0 Msun',' 0: custom'
-        secondary_mass_msun = 1.
-        call prompt('select mass',ichoice,0,1)
-        select case(ichoice)
-        case(0)
-            call prompt('enter total mass tigh binary',secondary_mass_msun,0.,100.)
-        end select
-        secondary_mass = secondary_mass_msun * (solarm / umass)
+       ichoice = 1
+       print "(a)",'Total mass of tight binary system (1+2)'
+       print "(a)",' 1: Total mass tight binary = 1.0 Msun',' 0: custom'
+       secondary_mass_msun = 1.
+       call prompt('select mass',ichoice,0,1)
+       select case(ichoice)
+       case(0)
+          call prompt('enter total mass tigh binary',secondary_mass_msun,0.,100.)
+       end select
+       secondary_mass = secondary_mass_msun * (solarm / umass)
 
-        ichoice = 1
-        print "(a)",'Mass ratio and accretion radii of stars in tight orbit:'
-        print "(a)",' 1: mass ratio m2b/m2a = 1, accretion radius a = 0.01 au, accretion radius b = 0.01 au',' 0: custom'
-        call prompt('select mass ratio and accretion radii of tight binary',ichoice,0,1)
-        select case(ichoice)
-        case(1)
-            q2 = 1.
-            racc2a_au = 0.1
-            racc2b_au = 0.1
-        case default
-            q2 = 1.
-            racc2a_au = 0.1
-            racc2b_au = 0.1
-            call prompt('enter tight binary mass ratio',q2,0.)
-            call prompt('enter accretion radius a in au ',racc2a_au,0.)
-            call prompt('enter accretion radius b in au ',racc2b_au,0.)
-        end select
-        racc2a = racc2a_au * (au / udist)
-        racc2b = racc2b_au * (au / udist)
-        secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
+       ichoice = 1
+       print "(a)",'Mass ratio and accretion radii of stars in tight orbit:'
+       print "(a)",' 1: mass ratio m2b/m2a = 1, accretion radius a = 0.01 au, accretion radius b = 0.01 au',' 0: custom'
+       call prompt('select mass ratio and accretion radii of tight binary',ichoice,0,1)
+       select case(ichoice)
+       case(1)
+          q2 = 1.
+          racc2a_au = 0.1
+          racc2b_au = 0.1
+       case default
+          q2 = 1.
+          racc2a_au = 0.1
+          racc2b_au = 0.1
+          call prompt('enter tight binary mass ratio',q2,0.)
+          call prompt('enter accretion radius a in au ',racc2a_au,0.)
+          call prompt('enter accretion radius b in au ',racc2b_au,0.)
+       end select
+       racc2a = racc2a_au * (au / udist)
+       racc2b = racc2b_au * (au / udist)
+       secondary_racc = racc2a !needs to be /=0 otherwise NaNs in set_multiple
 
-    !replace primary by tight binary system : 2+1
-    else if (subst == 11) then
-        print "(a)",'Stellar parameters of the remote single star (2+1)'
-        print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
-        call prompt('select mass and radius of remote single star',ichoice,0,1)
-        select case(ichoice)
-        case(1)
-            secondary_mass_msun = 1.
-            secondary_racc_au   = 0.1
-        case default
-            secondary_mass_msun = 1.
-            secondary_racc_au   = 0.1
-            call prompt('enter mass of remote single star',secondary_mass_msun,0.,100.)
-            call prompt('enter accretion radius in au ',secondary_racc_au,0.)
-        end select
-        secondary_mass = secondary_mass_msun * (solarm / umass)
-        secondary_racc = secondary_racc_au * (au / udist)
+       !replace primary by tight binary system : 2+1
+    elseif (subst == 11) then
+       print "(a)",'Stellar parameters of the remote single star (2+1)'
+       print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
+       call prompt('select mass and radius of remote single star',ichoice,0,1)
+       select case(ichoice)
+       case(1)
+          secondary_mass_msun = 1.
+          secondary_racc_au   = 0.1
+       case default
+          secondary_mass_msun = 1.
+          secondary_racc_au   = 0.1
+          call prompt('enter mass of remote single star',secondary_mass_msun,0.,100.)
+          call prompt('enter accretion radius in au ',secondary_racc_au,0.)
+       end select
+       secondary_mass = secondary_mass_msun * (solarm / umass)
+       secondary_racc = secondary_racc_au * (au / udist)
 
-        ichoice = 1
-        print "(a)",'wind-launching star accretion radius in tigh orbit (called primary)'
-        print "(a)",' 2: accretion radius primary = 0.2568 au',&
+       ichoice = 1
+       print "(a)",'wind-launching star accretion radius in tigh orbit (called primary)'
+       print "(a)",' 2: accretion radius primary = 0.2568 au',&
         ' 1: accretion radius primary = 1.2568 au', &
         ' 0: custom'
-        call prompt('select accretion radius of wind launching star',ichoice,0,2)
-        select case(ichoice)
-        case(2)
-            primary_racc_au = 0.2568
-        case(1)
-            primary_racc_au = 1.2568
-        case default
-            primary_racc_au = 1.
-            call prompt('enter accretion radius in au ',primary_racc_au,0.)
-        end select
-        primary_racc = primary_racc_au * (au / udist)
+       call prompt('select accretion radius of wind launching star',ichoice,0,2)
+       select case(ichoice)
+       case(2)
+          primary_racc_au = 0.2568
+       case(1)
+          primary_racc_au = 1.2568
+       case default
+          primary_racc_au = 1.
+          call prompt('enter accretion radius in au ',primary_racc_au,0.)
+       end select
+       primary_racc = primary_racc_au * (au / udist)
 
-        ichoice = 1
-        print "(a)",'Total mass of the tight binary system (2+1):'
-        print "(a)",' 2: Total mass tight binary = 1.2 Msun',&
+       ichoice = 1
+       print "(a)",'Total mass of the tight binary system (2+1):'
+       print "(a)",' 2: Total mass tight binary = 1.2 Msun',&
         ' 1: Total mass tight binary = 1.5 Msun', &
         ' 0: custom'
-        call prompt('select total mass tight binary',ichoice,0,2)
-        select case(ichoice)
-        case(2)
-            primary_mass_msun = 1.2
-        case(1)
-            primary_mass_msun = 1.5
-        case default
-            primary_mass_msun = 1.5
-            call prompt('enter primary mass',primary_mass_msun,0.,100.)
-        end select
-        primary_mass = primary_mass_msun * (solarm / umass)
+       call prompt('select total mass tight binary',ichoice,0,2)
+       select case(ichoice)
+       case(2)
+          primary_mass_msun = 1.2
+       case(1)
+          primary_mass_msun = 1.5
+       case default
+          primary_mass_msun = 1.5
+          call prompt('enter primary mass',primary_mass_msun,0.,100.)
+       end select
+       primary_mass = primary_mass_msun * (solarm / umass)
 
-        ichoice = 1
-        print "(a)",'Mass ratio and accretion radius of secondary in tight orbit:'
-        print "(a)",' 1: mass ratio m1b/m1a = 0.3, accretion radius b = 0.01 au',' 0: custom'
-        call prompt('select mass ratio and accretion radius of tight binary',ichoice,0,1)
-        select case(ichoice)
-        case(1)
-            q2 = 0.3
-            racc2b_au = 0.1
-        case default
-            q2 = 0.3
-            racc2b_au = 0.1
-            call prompt('enter tight binary mass ratio',q2,0.)
-            call prompt('enter accretion radius b in au ',racc2b_au,0.)
-        end select
-        racc2b = racc2b_au * (au / udist)
+       ichoice = 1
+       print "(a)",'Mass ratio and accretion radius of secondary in tight orbit:'
+       print "(a)",' 1: mass ratio m1b/m1a = 0.3, accretion radius b = 0.01 au',' 0: custom'
+       call prompt('select mass ratio and accretion radius of tight binary',ichoice,0,1)
+       select case(ichoice)
+       case(1)
+          q2 = 0.3
+          racc2b_au = 0.1
+       case default
+          q2 = 0.3
+          racc2b_au = 0.1
+          call prompt('enter tight binary mass ratio',q2,0.)
+          call prompt('enter accretion radius b in au ',racc2b_au,0.)
+       end select
+       racc2b = racc2b_au * (au / udist)
     endif
 
     ichoice = 1
@@ -483,18 +482,18 @@ subroutine setup_interactive()
     call prompt('select inclination',ichoice,0,1)
     select case(ichoice)
     case(1)
-        binary2_i = 0.
+       binary2_i = 0.
     case default
-        binary2_i = 0.
-        call prompt('enter inclination',binary2_i,0.,90.)
+       binary2_i = 0.
+       call prompt('enter inclination',binary2_i,0.,90.)
     end select
 
- !binary or single star case
+    !binary or single star case
  else
     if (icompanion_star == 1) then
-        print "(a)",'Primary star parameters'
+       print "(a)",'Primary star parameters'
     else
-        print "(a)",'Stellar parameters'
+       print "(a)",'Stellar parameters'
     endif
     ichoice = 2
     print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
@@ -503,53 +502,53 @@ subroutine setup_interactive()
     call prompt('select mass and radius of primary',ichoice,0,2)
     select case(ichoice)
     case(2)
-        primary_mass_msun = 1.2
-        primary_racc_au   = 0.2568
+       primary_mass_msun = 1.2
+       primary_racc_au   = 0.2568
     case(1)
-        primary_mass_msun = 1.
-        primary_racc_au   = 1.2568
+       primary_mass_msun = 1.
+       primary_racc_au   = 1.2568
     case default
-        primary_mass_msun = 1.
-        primary_racc_au   = 1.
-        call prompt('enter primary mass',primary_mass_msun,0.,100.)
-        call prompt('enter accretion radius in au ',primary_racc_au,0.)
+       primary_mass_msun = 1.
+       primary_racc_au   = 1.
+       call prompt('enter primary mass',primary_mass_msun,0.,100.)
+       call prompt('enter accretion radius in au ',primary_racc_au,0.)
     end select
     primary_mass = primary_mass_msun * (solarm / umass)
     primary_racc = primary_racc_au * (au / udist)
 
     if (icompanion_star == 1) then
-        ichoice = 1
-        print "(a)",'Secondary star parameters'
-        print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
-        call prompt('select mass and radius of secondary',ichoice,0,1)
-        select case(ichoice)
-        case(1)
-            secondary_mass_msun = 1.
-            secondary_racc_au   = 0.1
-        case default
-            secondary_mass_msun = 1.
-            secondary_racc_au   = 0.1
-            call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
-            call prompt('enter accretion radius in au ',secondary_racc_au,0.)
-        end select
-        secondary_mass = secondary_mass_msun * (solarm / umass)
-        secondary_racc = secondary_racc_au * (au / udist)
+       ichoice = 1
+       print "(a)",'Secondary star parameters'
+       print "(a)",' 1: Mass = 1.0 Msun, accretion radius = 0.1 au',' 0: custom'
+       call prompt('select mass and radius of secondary',ichoice,0,1)
+       select case(ichoice)
+       case(1)
+          secondary_mass_msun = 1.
+          secondary_racc_au   = 0.1
+       case default
+          secondary_mass_msun = 1.
+          secondary_racc_au   = 0.1
+          call prompt('enter secondary mass',secondary_mass_msun,0.,100.)
+          call prompt('enter accretion radius in au ',secondary_racc_au,0.)
+       end select
+       secondary_mass = secondary_mass_msun * (solarm / umass)
+       secondary_racc = secondary_racc_au * (au / udist)
 
-        ichoice = 1
-        print "(a)",'Orbital parameters'
-        print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0',' 0: custom'
-        call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
-        select case(ichoice)
-        case(1)
-            semi_major_axis_au = 3.7
-            eccentricity       = 0.
-        case default
-            semi_major_axis_au = 1.
-            eccentricity       = 0.
-            call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
-            call prompt('enter eccentricity',eccentricity,0.)
-        end select
-        semi_major_axis = semi_major_axis_au * au / udist
+       ichoice = 1
+       print "(a)",'Orbital parameters'
+       print "(a)",' 1: semi-axis = 3.7 au, eccentricity = 0',' 0: custom'
+       call prompt('select semi-major axis and ecccentricity',ichoice,0,1)
+       select case(ichoice)
+       case(1)
+          semi_major_axis_au = 3.7
+          eccentricity       = 0.
+       case default
+          semi_major_axis_au = 1.
+          eccentricity       = 0.
+          call prompt('enter semi-major axis in au',semi_major_axis_au,0.,100.)
+          call prompt('enter eccentricity',eccentricity,0.)
+       end select
+       semi_major_axis = semi_major_axis_au * au / udist
     endif
  endif
 
@@ -595,55 +594,55 @@ subroutine write_setupfile(filename)
     call write_inopt(subst,'subst','star to substitute',iunit)
     write(iunit,"(/,a)") '# input of primary (wind launching star)'
     if (subst == 12) then
-        call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
-        call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
-        call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
-        call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
-        call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
-        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
-        write(iunit,"(/,a)") '# input secondary to be replaced by tight binary'
-        call write_inopt(secondary_mass_msun,'secondary_mass','total mass of secondary tight binary (Msun)',iunit)
-        call write_inopt(q2,'q2','tight binary mass ratio',iunit)
-        !-- tight orbital parameters
-        call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
-        call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
-        !-- accretion radii, luminosity, radii
-        call write_inopt(racc2a_au,'racc2a','tight binary primary accretion radius',iunit)
-        call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
-        call write_inopt(lum2a_lsun,'lum2a','tight binary primary luminosity (Lsun)',iunit)
-        call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
-        call write_inopt(Teff2a,'Teff2a','tight binary primary effective temperature (K)',iunit)
-        call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
-        call write_inopt(Reff2a_au,'Reff2a','tight binary primary effective radius (au)',iunit)
-        call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
-    else if (subst == 11) then
-        call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
-        call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
-        call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
-        call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
-        write(iunit,"(/,a)") '# input tight binary to create close companion'
-        call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
-        call write_inopt(q2,'q2','tight binary mass ratio',iunit)
-        !-- tight orbital parameters
-        call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
-        call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
-        !-- accretion radii
-        call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
-        call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
-        call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
-        call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
-        write(iunit,"(/,a)") '# input of secondary, outer binary'
-        call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
-        call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
-        call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
-        call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
-        call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
-        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
+       call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
+       call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
+       call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
+       call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
+       call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
+       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
+       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
+       write(iunit,"(/,a)") '# input secondary to be replaced by tight binary'
+       call write_inopt(secondary_mass_msun,'secondary_mass','total mass of secondary tight binary (Msun)',iunit)
+       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
+       !-- tight orbital parameters
+       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
+       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
+       !-- accretion radii, luminosity, radii
+       call write_inopt(racc2a_au,'racc2a','tight binary primary accretion radius',iunit)
+       call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
+       call write_inopt(lum2a_lsun,'lum2a','tight binary primary luminosity (Lsun)',iunit)
+       call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
+       call write_inopt(Teff2a,'Teff2a','tight binary primary effective temperature (K)',iunit)
+       call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
+       call write_inopt(Reff2a_au,'Reff2a','tight binary primary effective radius (au)',iunit)
+       call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
+    elseif (subst == 11) then
+       call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
+       call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
+       call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
+       call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
+       write(iunit,"(/,a)") '# input tight binary to create close companion'
+       call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
+       call write_inopt(q2,'q2','tight binary mass ratio',iunit)
+       !-- tight orbital parameters
+       call write_inopt(binary2_a,'binary2_a','tight binary semi-major axis',iunit)
+       call write_inopt(binary2_e,'binary2_e','tight binary eccentricity',iunit)
+       !-- accretion radii
+       call write_inopt(racc2b_au,'racc2b','tight binary secondary accretion radius',iunit)
+       call write_inopt(lum2b_lsun,'lum2b','tight binary secondary luminosity (Lsun)',iunit)
+       call write_inopt(Teff2b,'Teff2b','tight binary secondary effective temperature (K)',iunit)
+       call write_inopt(Reff2b_au,'Reff2b','tight binary secondary effective radius (au)',iunit)
+       write(iunit,"(/,a)") '# input of secondary, outer binary'
+       call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
+       call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
+       call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
+       call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
+       call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
+       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
+       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
     call write_inopt(binary2_i,'inclination','inclination of the tight binary system w.r.t. outer binary (deg)',iunit)
- !binary or single star
+    !binary or single star
  else
     call write_inopt(primary_mass_msun,'primary_mass','primary star mass (Msun)',iunit)
     call write_inopt(primary_racc_au,'primary_racc','primary star accretion radius (au)',iunit)
@@ -652,26 +651,20 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     if (icompanion_star == 1) then
-        if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
+       if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
             secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
-        if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
+       if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
             secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
-        if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
+       if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
             secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
-        secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
-        call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
-        call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
-        call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
-        call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
-        if (secondary_Reff_au == 0.) then
-           secondary_Reff_au = secondary_racc_au
-           secondary_Reff    = secondary_racc
-           call write_inopt(secondary_racc_au,'secondary_Reff','secondary star effective radius (Racc, au)',iunit)
-        else
-           call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
-        endif
-        call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
-        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
+       secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+       call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
+       call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
+       call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
+       call write_inopt(secondary_Teff,'secondary_Teff','secondary star effective temperature)',iunit)
+       call write_inopt(secondary_Reff_au,'secondary_Reff','secondary star effective radius (au)',iunit)
+       call write_inopt(semi_major_axis_au,'semi_major_axis','semi-major axis of the binary system (au)',iunit)
+       call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
  endif
 
@@ -743,37 +736,28 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
- else if (icompanion_star == 2) then
+ elseif (icompanion_star == 2) then
     !-- hierarchical triple
     call read_inopt(subst,'subst',db,errcount=nerr)
     !replace primary by tight binary system : 2+1
     if (subst == 11) then
-        call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1000.,errcount=nerr)
-        secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
-        call read_inopt(secondary_Teff,'secondary_Teff',db,min=0.,max=1000.,errcount=nerr)
-        call read_inopt(secondary_Reff_au,'secondary_Reff',db,min=0.,max=1000.,errcount=nerr)
-        secondary_Reff = secondary_Reff_au * au / udist
-        call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
-        secondary_racc = secondary_racc_au * au / udist
-        if (secondary_racc < tiny(0.)) then
-           print *,'WARNING: secondary accretion radius not defined'
-           !nerr = nerr+1
-        endif
-     !replace companion by tight binary system : 1+2
-     else if (subst == 12) then
-        call read_inopt(lum2a_lsun,'lum2a',db,errcount=nerr)
-        lum2a = lum2a_lsun * (solarl * utime / unit_energ)
-        !secondary_lum_lsun = lum2a_lsun
-        call read_inopt(Teff2a,'Teff2a',db,errcount=nerr)
-        call read_inopt(Reff2a_au,'Reff2a',db,errcount=nerr)
-        Reff2a = Reff2a_au * au / udist
-        !secondary_Reff =  Reff2a
-        call read_inopt(racc2a_au,'racc2a',db,errcount=nerr)
-        racc2a = racc2a_au * au / udist
-        if (racc2a < tiny(0.)) then
-           print *,'WARNING: secondary accretion radius not defined'
-           !nerr = nerr+1
-        endif
+       call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1000.,errcount=nerr)
+       secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+       call read_inopt(secondary_Teff,'secondary_Teff',db,min=0.,max=1000.,errcount=nerr)
+       call read_inopt(secondary_Reff_au,'secondary_Reff',db,min=0.,max=1000.,errcount=nerr)
+       secondary_Reff = secondary_Reff_au * au / udist
+       call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,max=1000.,errcount=nerr)
+       secondary_racc = secondary_racc_au * au / udist
+    elseif (subst == 12) then
+       call read_inopt(lum2a_lsun,'lum2a',db,errcount=nerr)
+       lum2a = lum2a_lsun * (solarl * utime / unit_energ)
+       !secondary_lum_lsun = lum2a_lsun
+       call read_inopt(Teff2a,'Teff2a',db,errcount=nerr)
+       call read_inopt(Reff2a_au,'Reff2a',db,errcount=nerr)
+       Reff2a = Reff2a_au * au / udist
+       !secondary_Reff =  Reff2a
+       call read_inopt(racc2a_au,'racc2a',db,errcount=nerr)
+       racc2a = racc2a_au * au / udist
     endif
     call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
     secondary_mass = secondary_mass_msun * (solarm / umass)

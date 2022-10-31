@@ -14,8 +14,8 @@ module wind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cooling, dust_formation, eos, io, options, part, physcon,
-!   ptmass_radiation, timestep, units, wind_equations
+! :Dependencies: cooling_solver, dim, dust_formation, eos, io, options,
+!   part, physcon, ptmass_radiation, timestep, units, wind_equations
 !
 
 !#define CALC_HYDRO_THEN_CHEM
@@ -43,7 +43,7 @@ module wind
     real :: dt, time, r, r0, Rstar, v, a, time_end, Tg, Tdust
     real :: alpha, rho, p, u, c, dalpha_dr, r_old, Q, dQ_dr
     real :: kappa, mu, gamma, tau_lucy, alpha_Edd, tau
-    real :: JKmuS(n_nucleation)
+    real :: JKmuS(n_nucleation),K2
     integer :: spcode, nsteps
     logical :: dt_force, error, find_sonic_solution
  end type wind_state
@@ -140,16 +140,15 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%alpha_Edd = 0.
+ state%K2        = 0.
  state%mu        = gmw
  state%gamma     = wind_gamma
  state%JKmuS     = 0.
- if (idust_opacity == 2) then
-    call init_muGamma(state%rho, state%Tg, state%mu, state%gamma)
-    state%jKmuS(idmu)    = state%mu
-    state%jKmuS(idgamma) = state%gamma
-    state%jKmuS(idalpha) = state%alpha_Edd + alpha_rad
- endif
- state%alpha     = state%alpha_Edd + alpha_rad
+ if (idust_opacity == 2) call init_muGamma(state%rho, state%Tg, state%mu, state%gamma)
+ state%alpha          = state%alpha_Edd + alpha_rad
+ state%JKmuS(idalpha) = state%alpha
+ state%JKmuS(idmu)    = state%mu
+ state%JKmuS(idgamma) = state%gamma
  state%dalpha_dr = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
 #ifdef ISOTHERMAL
@@ -179,7 +178,7 @@ subroutine wind_step(state)
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
- use cooling,          only:calc_cooling_rate
+ use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
 
@@ -209,11 +208,12 @@ subroutine wind_step(state)
  if (idust_opacity == 2) then
     !state%Tg   = state%u*(state%gamma-1.)/Rg*state%mu
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
+    state%K2             = state%JKmuS(idK2)
     state%mu             = state%JKmuS(idmu)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
     state%alpha_Edd      = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
-    state%jKmuS(idalpha) = state%alpha_Edd+alpha_rad
+    state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
@@ -245,12 +245,8 @@ subroutine wind_step(state)
  !apply cooling
  if (icooling > 0) then
     Q_old = state%Q
-    if (idust_opacity == 2) then
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
-    else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
-    endif
+    call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
+         state%mu,state%gamma,state%K2,state%kappa)
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  endif
@@ -284,7 +280,7 @@ subroutine wind_step(state)
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
- use cooling,          only:calc_cooling_rate
+ use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
  use dim,              only:itau_alloc
@@ -297,19 +293,22 @@ subroutine wind_step(state)
  alpha_old  = state%alpha
  if (idust_opacity == 2) then
     call evolve_chem(state%dt,state%Tg,state%rho,state%JKmuS)
-    state%mu    = state%JKmuS(idmu)
-    state%gamma = state%JKmuS(idgamma)
-    state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
+    state%K2        = state%JKmuS(idK2)
+    state%mu        = state%JKmuS(idmu)
+    state%gamma     = state%JKmuS(idgamma)
+    state%kappa     = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  elseif (idust_opacity == 1) then
-    state%kappa = calc_kappa_bowen(state%Tdust)
+    state%kappa     = calc_kappa_bowen(state%Tdust)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  if (itau_alloc == 1) then
-   state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
-   state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  state%alpha = state%alpha_Edd+alpha_rad
- if (idust_opacity == 2) state%jKmuS(idalpha) = state%alpha
+ if (idust_opacity == 2) state%JKmuS(idalpha) = state%alpha
  if (state%time > 0.)    state%dalpha_dr      = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
  rvT(1) = state%r
  rvT(2) = state%v
@@ -356,12 +355,8 @@ subroutine wind_step(state)
  !apply cooling
  if (icooling > 0) then
     Q_old = state%Q
-    if (idust_opacity == 2) then
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
-            state%JKmuS(idmu),state%JKmuS(idgamma),state%JKmuS(idK2),state%kappa)
-    else
-       call calc_cooling_rate(state%r,Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,state%mu,state%gamma)
-    endif
+    call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
+         state%mu,state%gamma,state%K2,state%kappa)
     state%Q = Q_code*unit_ergg
     state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
  endif

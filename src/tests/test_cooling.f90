@@ -14,8 +14,7 @@ module testcooling
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cooling, h2cooling, io, part, physcon, testutils,
-!   units
+! :Dependencies: chem, cooling_ism, io, part, physcon, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -43,8 +42,6 @@ subroutine test_cooling(ntests,npass)
 
  !call test_cooling_rate(ntests,npass)
 
- call test_coolfunc(ntests,npass)
-
  if (id==master) write(*,"(/,a)") '<-- COOLING TEST COMPLETE'
 
 end subroutine test_cooling
@@ -55,11 +52,12 @@ end subroutine test_cooling
 !+
 !--------------------------------------------
 subroutine test_cooling_rate(ntests,npass)
- use h2cooling, only:nrates,dphot0,init_h2cooling,energ_h2cooling,dphotflag,abundsi,abundo,abunde,abundc,nabn
- use chem,      only:update_abundances,init_chem,get_dphot
- use part,      only:nabundances,iHI
- use physcon,   only:Rg,mass_proton_cgs
- use units,     only:unit_ergg,unit_density,udist,utime
+ use cooling_ism, only:nrates,dphot0,init_cooling_ism,energ_cooling_ism,dphotflag,&
+       abundsi,abundo,abunde,abundc,nabn
+ use chem,        only:update_abundances,init_chem,get_dphot
+ use part,        only:nabundances,iHI
+ use physcon,     only:Rg,mass_proton_cgs
+ use units,       only:unit_ergg,unit_density,udist,utime
  real :: abundance(nabundances)
  !real :: ratesq(nrates)
  integer, intent(inout) :: ntests,npass
@@ -71,7 +69,7 @@ subroutine test_cooling_rate(ntests,npass)
  integer :: i,ichem,iunit
  real    :: abundi(nabn)
 
- if (id==master) write(*,"(/,a)") '--> testing h2cooling rate'
+ if (id==master) write(*,"(/,a)") '--> testing cooling_ism rate'
 
  logtmax = log10(1.e8)
  logtmin = log10(1.e0)
@@ -88,7 +86,7 @@ subroutine test_cooling_rate(ntests,npass)
  ndens = rhoi*unit_density/(gmwvar*mass_proton_cgs)
  print*,' rho = ',rhoi, ' ndens = ',ndens
  call init_chem()
- call init_h2cooling()
+ call init_cooling_ism()
 
  open(newunit=iunit,file='cooltable.txt',status='replace')
  write(iunit,"(a)") '#   T   \Lambda_E(T) erg s^{-1} cm^3   \Lambda erg s^{-1} cm^{-3}'
@@ -101,7 +99,7 @@ subroutine test_cooling_rate(ntests,npass)
     ui = 1.5*t*(Rg/gmwvar)/unit_ergg
     dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
     call update_abundances(ui,rhoi,abundance,nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
-    call energ_h2cooling(ui,rhoi,divv_cgs,gmwvar,abundi,dudti)
+    call energ_cooling_ism(ui,rhoi,divv_cgs,gmwvar,abundi,dudti)
 !call cool_func(tempiso,ndens,dlq,divv_cgs,abund,crate,ratesq)
     ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
     crate = dudti*udist**2/utime**3*(rhoi*unit_density)
@@ -115,43 +113,5 @@ subroutine test_cooling_rate(ntests,npass)
  close(iunit)
 
 end subroutine test_cooling_rate
-
-!--------------------------------------------
-!+
-!  Check that cooling function is continuous
-!+
-!--------------------------------------------
-subroutine test_coolfunc(ntests,npass)
- use cooling,  only:find_in_table
- use testutils, only:checkvalbuf,checkvalbuf_start
- integer, intent(inout) :: ntests,npass
- integer, parameter :: nt = 100
- integer :: i,k,ndiff(1),ncheck
- real    :: table(nt),val
- logical :: my_test
-
- if (id==master) write(*,"(/,a)") '--> testing find_in_table routine'
- !
- ! set up table
- !
- do i=1,nt
-    table(i) = i
- enddo
-
- ndiff = 0
- ncheck = 0
- call checkvalbuf_start('table(i) < val < table(i+1)')
- do i=1,nt-1
-    val = i+0.5
-    k = find_in_table(nt,table,val)
-    !print*,k,table(k),val,table(k+1)
-    if (k < nt) then
-       my_test = (val > table(k) .and. val < table(k+1))
-       call checkvalbuf(my_test,.true.,'table(i) < val < table(i+1)',ndiff(1),ncheck)
-    endif
- enddo
- call update_test_scores(ntests,ndiff,npass)
-
-end subroutine test_coolfunc
 
 end module testcooling

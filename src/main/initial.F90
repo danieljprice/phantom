@@ -16,13 +16,13 @@ module initial
 !
 ! :Dependencies: analysis, boundary, centreofmass, checkconserved,
 !   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
-!   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpiderivs, mpidomain, mpimemory, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
-!   writeheader
+!   deriv, dim, dust, dust_formation, energies, eos, evwrite, extern_gr,
+!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
+!   io_summary, krome_interface, linklist, metric_tools, mf_write,
+!   mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, photoevap, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -227,8 +227,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
- character(len=len(dumpfile)) :: dumpfileold,file1D
+ character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
+#ifdef INJECT_PARTICLES
+ character(len=len(dumpfile)) :: file1D
+#endif
+
 
  read_input_files = .true.
  if (present(noread)) read_input_files = .not.noread
@@ -533,7 +537,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--inject particles at t=0, and get timestep constraint on this
 !
 #ifdef INJECT_PARTICLES
-call init_inject(ierr)
+ call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  !rename wind profile filename
  inquire(file='wind_profile1D.dat',exist=iexist)
