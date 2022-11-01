@@ -301,7 +301,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,itau_alloc
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,itau_alloc,gr
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -348,7 +348,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -377,6 +377,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallprad     = .true.
  igotalldustform = .true.
  igotallgw       = .true.
+ igotallgr       = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -519,7 +520,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef GR
-       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
@@ -561,7 +562,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallphoto  .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw
+                    .and. igotalldustform .and. igotallgw .and. igotallgr
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -578,9 +579,16 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
+          if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
-          if (.not.igotallextern) write(*,*) 'missing external force options'
+          if (.not.igotallextern) then
+             if (gr) then
+                write(*,*) 'missing GR quantities (eg: accretion radius)'
+             else
+                write(*,*) 'missing external force options'
+             endif
+          endif
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'
           if (.not.igotallionise) write(*,*) 'missing ionisation options'
           if (.not.igotallnonideal) write(*,*) 'missing non-ideal MHD options'
