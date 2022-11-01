@@ -160,7 +160,7 @@ subroutine print_units(unit)
  write(lu,"(a)") ' --- code units --- '
  write(lu,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm    Time: ',utime,'s'
  write(lu,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg   En/m: ',unit_ergg,'erg/g'
- write(lu,"(2(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G'
+ write(lu,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  opacity: ',unit_opacity,'cm^2/g'
  write(lu,"(3(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
                                  '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
 
