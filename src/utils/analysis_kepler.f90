@@ -185,7 +185,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real,allocatable    :: energy_tot(:)
  real,allocatable    :: A_array(:), Z_array(:)
  real :: mass_star
-
+ real :: omega_val(3),val_omega
+ integer :: count_new,skip_breakup
  print*,utime,'time!!','this is analysis_test file!'
  !The star is not on the origin as BH exists at that point.
  !minimum h value corresponds to position of maximum density.
@@ -248,8 +249,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  gmw                = 0.61 !mean molecular weight. Setting default value as gmw of sun.
  com_star(:)        = 0.
  bh_mass            = 1e6 !change the mass of the black hole here.
- print*,"columns_compo",columns_compo
-
+ count_new          = 1 
+ print*,"columns_compo",columns_compo,ngrid,"ngrid"
+ skip_breakup = 0
  call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  print*,A_array,"A_array",Z_array,"Z_array"
 
@@ -283,21 +285,35 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
 
     !total energy of single particle
     energy_i      = potential_i + kinetic_i
-
-    if (j==1) then
-       print*,potential_i,'1',energy_i,'tot energy',kinetic_i,'kinetic'
+    
+   call cross_product3D(pos(:),vel(:),Li)
+    omega_val(:) =(Li(:)*unit_velocity*udist)/((rad_test*udist)**2)
+    val_omega = dot_product(omega_val(:),omega_val(:))
+    !if (j .ne. 1) then 
+         if (val_omega < (gg*pmass*j*umass)/((rad_test*udist)**3)) then 
+           count_new = count_new+1
+          endif 
+    !endif 
+    if (j==1 .or. j==612 .or. j==613) then
+      print*,"------------------"
+      print*,"j",j 
+      print*,val_omega,"val_omega",(gg*pmass*j*umass)/(rad_test*udist)**3
+      print*,kinetic_i,"kinetic",potential_i,"potential_i",energy_i
     endif
-    if (j==npart) then
-       print*,potential_i,'last particle',energy_i,'tot energy',kinetic_i,'kinetic'
+    
+    if (j==1) then 
+       val_omega = 0.
     endif
-
     !if energy is less than 0, we have bound system. We can accept these particles.
-    if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
+    if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i) .and. val_omega < (gg*pmass*j*umass)/((rad_test*udist)**3)) then
+       if (j==1) then 
+         print*,"WORKED"
+       endif
        rad  = rad_test
        c_particle = 1+c_particle
+       !print*,"c_particle",j,"j"
        !add 1 to no_in_bin if energy is < 0.
        no_in_bin  = no_in_bin + 1
-
        !Calculating COM of star and velocity of the COM. This is only done for particles with
        !negative energy wrt black hole.
        com_star(:) = com_star(:) + pmass*xyzh(1:3,i)
@@ -340,13 +356,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
 
        gmw = 1./mu
 
-       if (j<=2) then
-          print*,'gmw',gmw,j,"j"
-       endif
 
-       if (j>=npart-3) then
-          print*,'gmw',gmw,j,"j"
-       endif
        eni_input = u_i
        !call eos routine
        !call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),eni=eni_input, tempi=temperature_i,mu_local=1./mu_i)
@@ -372,6 +382,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
           kinetic_i      = 0.5*pmass*(velocity_norm)
           energy_i       = potential_i + kinetic_i
           if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
+          !if (energy_i < 0.) then   
              rad_next     = sqrt(dot_product(pos(:),pos(:)))
              exit
           endif
@@ -428,7 +439,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  enddo
  close(1)
  correct_ngrid = ibin-1
- print*,c_particle,'c_particle'
+ print*,c_particle,'c_particle',npart-c_particle
  print*,'----------------------------------------------------------------------'
  print*,'orbit parameters'
 
@@ -439,11 +450,13 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  !velocity of centre of mass of star
  velocity_wrt_bh(:) = (velocity_wrt_bh(:) /(c_particle*pmass))*unit_velocity
  velocity_bh = sqrt(dot_product(velocity_wrt_bh(:),velocity_wrt_bh(:)))
- mass_star = mass(ngrid-1)
+ mass_star = c_particle*pmass
 
  !we calculate angular momentum vector on the orbit around black hole.
  call cross_product3D(com_star,velocity_wrt_bh,angular_momentum_h)
-
+print*,mass(ibin-1),"MASS OFBIN"
+print*,mass_star,"mass_star",mass_star*umass,ngrid,"ngrid"
+print*,"------"
  print*,com_star(:),'position of star wrt bh'
  print*,velocity_wrt_bh,'velocity of star wrt bh'
  print*,angular_momentum_h(:),'angular momentum h'
@@ -451,21 +464,22 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  !energy total is total energy of star. If negative, star is bound to BH but if positive then its unbound.
  !Calculate orbital paramters
  energy_total = 0.5*velocity_bh**2 - (gg*1e6*umass)/position_bh
-
+ print*,"here"
  if (energy_total < 0.) then
     print*, escape(velocity_bh,bh_mass,position_bh)
     print*,"negative energy"
     call orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
-
+print*,"here2"
  else
     print*, escape(velocity_bh,bh_mass,position_bh)
     print*,'positive energy of the star on orbit'
  endif
- print*,npart-c_particle,'unbound number of particles ',correct_ngrid
+ print*,npart-c_particle,'unbound number of particles',correct_ngrid
+ print*,npart-count_new,"count_new"
  print*,'----------------------------------------------------------------------'
-
+print*,"here3",mass_star,"mass_star"
  call write_mass_of_star_and_no(numfile,mass_star)
-
+print*,"here4"
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -676,29 +690,31 @@ end subroutine calculate_mu
 !+
 !----------------------------------------------------------------
 subroutine write_mass_of_star_and_no(numfile,mass_star)
-
+ use units, only:umass
  integer, intent(in)  :: numfile
  real,    intent(in)  :: mass_star
  character(len=120)   :: filename
-
+logical                 :: iexist
 
  filename = 'all_analysis.dat'
-
-  if (numfile==00000) then
+print*,mass_star,"mass_star"
+!  if (numfile==00000) then
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then 
 
     open(21,file=filename,status='new',action='write',form='formatted')
-    write(21,*) "Mass of remnant", "File number"
-    write(21,*) mass_star, numfile
+    write(21,*) "[Mass of remnant]"," ", "[File numbe]r"
+    write(21,*) mass_star*umass, numfile
     close(21)
-
+    
   else
 
     open(21,file=filename,status='old',action='write',form='formatted',position="append")
-    write(21,*) mass_star, numfile
+    write(21,*) mass_star*umass, numfile
     close(21)
 
   endif
-
+print*,mass_star*umass, "star"
 end subroutine write_mass_of_star_and_no
 
 end module analysis
