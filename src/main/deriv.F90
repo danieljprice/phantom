@@ -176,11 +176,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call do_timing('cons2prim',tlast,tcpulast)
 
  !
+ ! implicit radiation update
  !
- !
- dvdx = 0.
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
-   call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0) call error('radiation','Failed to converge')
  endif
 
@@ -208,6 +207,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !compute dust temperature
  call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
 #endif
+
+ if (do_radiation .and. implicit_radiation) then
+    drad(:,1:npart) = 0.
+    fxyzu(4,1:npart) = 0.
+ endif
 !
 ! set new timestep from Courant/forces condition
 !
