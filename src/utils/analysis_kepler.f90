@@ -185,7 +185,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real,allocatable    :: energy_tot(:)
  real,allocatable    :: A_array(:), Z_array(:)
  real :: mass_star
- real :: omega_val(3),val_omega
+ real :: omega_val(3),val_omega, den_all(npart)
  integer :: count_new,skip_breakup
  print*,utime,'time!!','this is analysis_test file!'
  !The star is not on the origin as BH exists at that point.
@@ -193,10 +193,18 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  !COM is not a good option as it does not work for severe disruptione events.
  location = minloc(xyzh(4,:),dim=1)
  star_centre(:) = xyzh(1:3,location)
+
+do j = 1,npart 
+  den_all(j) = rhoh(xyzh(4,j),pmass)
+enddo
+location = maxloc(den_all,dim=1)
+star_centre(:) = xyzh(1:3,location)
+print*,maxval(den_all),"MAX DEN VAL IN ARRAY",location
  !we use the equation number 12 for Newtonian and 2 for GR analysis.
-
+print*,rhoh(xyzh(4,location),pmass),"MAX DENSITY",location,"location"
+print*,"__________________________________________" 
  ieos = 2
-
+!print*,maxval(rhoh(xyzh(4,:),pmass)),"MAX DENSITU FROM MAX RHO"
  call init_eos(ieos,ierr)
  print*,ieos,"ieos"
  !use sorting algorithm to sort the particles from the center of star as a function of radius.
@@ -265,7 +273,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  c_particle = 0 !no of particles that are bound the star.
 
  do j = 1, npart
-
+    print*,rhoh(xyzh(4,j),pmass),"rhoh(xyzh(4,j),pmass",j,"j"
+    print*,"*******************************"
     i  = iorder(j) !Access the rank of each particle in radius.
 
     !the position of the particle is calculated by subtracting the point of highest density.
@@ -305,7 +314,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
        val_omega = 0.
     endif
     !if energy is less than 0, we have bound system. We can accept these particles.
-    if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i) .and. val_omega < (gg*pmass*j*umass)/((rad_test*udist)**3)) then
+    
+    print*, energy_i,"energy_i",kinetic_i,"kinetic_i",potential_i,"potential_i"
+    if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i) ) then
        if (j==1) then 
          print*,"WORKED"
        endif
@@ -478,7 +489,7 @@ print*,"here2"
  print*,npart-count_new,"count_new"
  print*,'----------------------------------------------------------------------'
 print*,"here3",mass_star,"mass_star"
- call write_mass_of_star_and_no(numfile,mass_star)
+ call write_mass_of_star_and_no(numfile,mass_star, star_centre(:))
 print*,"here4"
 end subroutine phantom_to_kepler_arrays
 
@@ -689,28 +700,29 @@ end subroutine calculate_mu
 !  evolution time.
 !+
 !----------------------------------------------------------------
-subroutine write_mass_of_star_and_no(numfile,mass_star)
- use units, only:umass
+subroutine write_mass_of_star_and_no(numfile,mass_star,central_position)
+ use units, only:umass,udist
  integer, intent(in)  :: numfile
  real,    intent(in)  :: mass_star
  character(len=120)   :: filename
 logical                 :: iexist
-
+real :: central_position(:)
  filename = 'all_analysis.dat'
+print*,udist,"UDIST"
 print*,mass_star,"mass_star"
 !  if (numfile==00000) then
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then 
 
     open(21,file=filename,status='new',action='write',form='formatted')
-    write(21,*) "[Mass of remnant]"," ", "[File numbe]r"
-    write(21,*) mass_star*umass, numfile
+    write(21,*) "[Mass of remnant]"," ", "[File numbe]"," ","[Central Positioni]"
+    write(21,*) mass_star*umass, numfile, central_position
     close(21)
     
   else
 
     open(21,file=filename,status='old',action='write',form='formatted',position="append")
-    write(21,*) mass_star*umass, numfile
+    write(21,*) mass_star*umass, numfile, central_position
     close(21)
 
   endif
