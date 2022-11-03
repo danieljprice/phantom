@@ -162,7 +162,11 @@ endif
 ifeq ($(SYSTEM), gfortran)
     include Makefile_defaults_gfortran
 ifneq ($(UNAME), Darwin)
+ifeq ($(UNAMEP), aarch64) # -mcmodel=medium is not an option for aarch64 type processors with gfortran.
+    FFLAGS+= -mcmodel=small
+else
     FFLAGS+= -mcmodel=medium
+endif   
 endif
 endif
 
