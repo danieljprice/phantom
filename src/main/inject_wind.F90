@@ -33,7 +33,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,wind_injection_radius
  private
 !
 !--runtime settings for this module
