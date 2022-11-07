@@ -413,10 +413,11 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
  len = i
 end subroutine ray_tracer
 
-logical function hasNext(inext, tau, tau_max, distance, maxDistance)
+logical function hasNext(inext, tau, distance, maxDistance)
  integer, intent(in) :: inext
- real, intent(in)    :: tau, tau_max, distance
+ real, intent(in)    :: tau, distance
  real, optional      :: maxDistance
+ real                :: tau_max = 99.
  if (present(maxDistance)) then
     hasNext = inext /= 0 .and. distance < maxDistance .and. tau < tau_max
  else

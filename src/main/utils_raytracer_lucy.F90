@@ -377,7 +377,7 @@ contains
       integer, intent(out) :: len
 
       real    :: dr, next_dr, h, dtaudr, previousdtaudr, nextdtaudr, distance
-      integer :: inext, i
+      integer :: inext, i, L, R, m ! left, right and middle index for binary search
 
       h = Rstar/100.
       inext=0
@@ -388,7 +388,7 @@ contains
       enddo
 
       i = 1
-      tau_along_ray(i)  = 2./3.
+      tau_along_ray(i)  = 0.
       distance          = Rstar
       dist_along_ray(i) = distance
       do while (hasNext(inext,tau_along_ray(i),distance,maxDistance))
@@ -399,16 +399,28 @@ contains
          dtaudr            = (nextdtaudr+previousdtaudr)/2.
          previousdtaudr    = nextdtaudr
          !fix units for tau (kappa is in cgs while rho & r are in code units)
-         tau_along_ray(i)  = tau_along_ray(i-1)-dr*dtaudr*umass/(udist**2)
+         tau_along_ray(i)  = tau_along_ray(i-1)+dr*dtaudr*umass/(udist**2)
          dist_along_ray(i) = distance
          dr                = next_dr
       enddo
+      tau_along_ray = tau_along_ray(i) - tau_along_ray
       if (present(maxDistance)) then
          i = i + 1
          tau_along_ray(i)  = 0.
          dist_along_ray(i) = maxDistance
-      elseif (tau_along_ray(i)<0.) then
-         tau_along_ray     = 0.
+      elseif (tau_along_ray(1) > 2./3.) then
+         L = 1
+         R = i
+         !bysection search for the index of the closest ray location to the particle
+         do while (L < R)
+            m = (L + R)/2
+            if (tau_along_ray(m) < 2./3.) then
+               R = m
+            else
+               L = m + 1
+            endif
+         enddo
+         tau_along_ray(1:L) = 2./3.
       endif
       len = i
    end subroutine ray_tracer
@@ -417,10 +429,11 @@ contains
       integer, intent(in) :: inext
       real, intent(in)    :: distance, tau
       real, optional      :: maxDistance
+      real                :: tau_max = 99.
       if (present(maxDistance)) then
-         hasNext = inext /= 0 .and. distance < maxDistance .and. tau > 0.
+         hasNext = inext /= 0 .and. distance < maxDistance .and. tau < tau_max
       else
-         hasNext = inext /= 0 .and. tau > 0.
+         hasNext = inext /= 0 .and. tau < tau_max
       endif
    end function hasNext
 
