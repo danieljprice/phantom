@@ -800,7 +800,7 @@ OBJLIB=${OBJLIB1:.F90=.o}
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
 libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
-	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
+	ar rcs $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
