@@ -26,7 +26,8 @@ module radiation_implicit
  use eos,             only:get_cv
  implicit none
  integer, parameter :: ierr_failed_to_converge = 1,&
-                       ierr_negative_opacity = 2
+                       ierr_negative_opacity = 2, &
+                       ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
  integer, parameter :: cv_type=0, mu_type=0
  logical, parameter :: dustRT = .false.,H2formation_heating = .false.,use_cosmic_ray_heating = .false.,&
@@ -109,7 +110,7 @@ end subroutine save_radiation_energies
 !+
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
- use io,      only:fatal
+ use io,      only:fatal,error
  use part,    only:hfact
  use physcon, only:pi
  use kernel,  only:radkern
@@ -140,6 +141,12 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
 
  !dtimax = dt/imaxstep
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ ! check for errors
+ if (ncompact <= 0 .or. ncompactlocal <= 0) then
+    call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+    ierr = ierr_neighbourlist_empty
+    return
+ endif
  call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
  call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
  call calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
@@ -731,6 +738,8 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
+    print*,i
+
       ! IF (iphase(i).EQ.0) THEN
     dti = vari(1,n)
     rhoi = vari(2,n)
@@ -838,6 +847,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
              (chival-1.)*(-origEU(2,i) - dti*pres_numerator - dti*e_planetesimali &
              - dti*gas_dust_val*dust_tempi - dti*cosmic_ray + dti*cooling_line - dti*photoelectric &
              - dti*h2form + dti*dust_term) + dti*diffusion_numerator*betaval + stellarradiation*betaval - (chival-1.)*pcoleni
+    print*,i,u4term,gammaval,a_code*c_code*radprop(ikappa,i),radprop(icv,i)
 
     if (u1term>0. .and. u0term>0. .or. u1term<0. .and. u0term<0.) then
        !$omp critical(quart)
