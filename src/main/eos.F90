@@ -867,6 +867,7 @@ end function get_mean_molecular_weight
 real function get_cv(rho,u,eos_type) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
+ use physcon,           only:Rg
  real, intent(in)    :: rho,u
  integer, intent(in) :: eos_type
  real                :: rho_cgs,u_cgs,temp
@@ -879,7 +880,7 @@ real function get_cv(rho,u,eos_type) result(cv)
     call getvalue_mesa(rho_cgs,u_cgs,4,temp)
     cv = u_cgs/temp / unit_ergg
  case default  ! constant cv
-    cv = 1./(gmw*temperature_coef*(gamma-1.))
+    cv = Rg/((gamma-1.)*gmw*unit_ergg)
  end select
 
 end function get_cv
