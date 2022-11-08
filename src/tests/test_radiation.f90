@@ -50,7 +50,7 @@ subroutine test_radiation(ntests,npass)
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass,use_implicit=.false.)
- !call test_exchange_terms(ntests,npass,use_implicit=.true.)
+ call test_exchange_terms(ntests,npass,use_implicit=.true.)
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
@@ -85,6 +85,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use mpiutils,   only:reduceall_mpi
  use mpidomain,  only:i_belong
  use radiation_implicit, only:do_radiation_implicit
+ use linklist,   only:set_linklist
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -126,6 +127,8 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  npartoftype(1) = npart
  pmassi = massoftype(igas)
 
+ if (use_implicit) call set_linklist(npart,npart,xyzh,vxyzu)
+
  !
  ! first version of the test: set gas temperature high and radiation temperature low
  ! so that gas cools towards radiation temperature (itest=1)
@@ -163,8 +166,10 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        dt = max(1d-18*seconds/utime,0.05d0*t)
        ! dt = maxt/utime
        if (use_implicit) then
+          print*,' particle 1000 befor: rad = ',vxyzu(4,1000),rad(iradxi,1000),npart,dt
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
+          print*,' particle 1000 after: rad = ',vxyzu(4,1000),rad(iradxi,1000)
        else
           call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
        endif
