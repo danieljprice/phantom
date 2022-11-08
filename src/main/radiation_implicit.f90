@@ -865,7 +865,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,vx
           print*,"info: ",EU0(2,i)/radprop(icv,i)
           print*,"info2: ",u0term,u1term,u4term,gammaval,radprop(ikappa,i),radprop(icv,i)
           print*,"info3: ",chival,betaval,dti
-          print*,"info4: ",pres_denominator,origeu(1,i),pres_numerator
+          print*,"info4: ",pres_denominator,origEU(1,i),pres_numerator
           print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
           print*,"info6: ",radpresdenom,EU0(1,i)
           call fatal('solve_quartic','Fail to solve')
