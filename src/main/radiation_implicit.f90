@@ -62,7 +62,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
 
  do i = 1,nsubsteps
     call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
-    if (failed) ierr = ierr_failed_to_converge
+    if (failed .or. moresweep) ierr = ierr_failed_to_converge
     if (i /= nsubsteps) call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
  enddo
 
@@ -717,6 +717,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 
  a_code = get_radconst_code()
  c_code = get_c_code()
+ moresweep = .false.
 
  !$omp parallel do default(none)&
  !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew,dvdx,origEU,nucleation,dust_temp,eos_vars)&
