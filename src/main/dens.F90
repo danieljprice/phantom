@@ -803,7 +803,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
              endif
 
-             if (do_radiation .and. gas_gas .and. implicit_radiation) then
+             if (do_radiation .and. gas_gas .and. .not. implicit_radiation) then
                 rhoi = rhoh(real(hi), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
                 dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
