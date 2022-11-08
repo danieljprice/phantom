@@ -166,10 +166,10 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        dt = max(1d-18*seconds/utime,0.05d0*t)
        ! dt = maxt/utime
        if (use_implicit) then
-          print*,' particle 1000 befor: rad = ',vxyzu(4,1000),rad(iradxi,1000),npart,dt
+         !  print*,' particle 1000 befor: rad = ',vxyzu(4,1000),rad(iradxi,1000),npart,dt
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
-          print*,' particle 1000 after: rad = ',vxyzu(4,1000),rad(iradxi,1000)
+         !  print*,' particle 1000 after: rad = ',vxyzu(4,1000),rad(iradxi,1000)
        else
           call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
        endif
