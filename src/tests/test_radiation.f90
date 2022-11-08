@@ -39,6 +39,7 @@ subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
  use dim,     only:do_radiation,periodic
+ use options, only:implicit_radiation
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -48,11 +49,13 @@ subroutine test_radiation(ntests,npass)
  if (id==master) write(*,"(/,a,/)") '--> TESTING RADIATION MODULE'
 
  call set_units(dist=au,mass=solarm,G=1.d0)
- call test_exchange_terms(ntests,npass)
+ call test_exchange_terms(ntests,npass,use_implicit=.false.)
+ !call test_exchange_terms(ntests,npass,use_implicit=.true.)
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
  else
+    implicit_radiation = .false.
     call test_uniform_derivs(ntests,npass)
  endif
 
@@ -65,15 +68,15 @@ end subroutine test_radiation
 !  unit tests of gas-radiation energy exchange terms
 !+
 !----------------------------------------------------
-subroutine test_exchange_terms(ntests,npass)
- use radiation_utils, only:update_radenergy
+subroutine test_exchange_terms(ntests,npass,use_implicit)
+ use radiation_utils, only:update_radenergy,kappa_cgs
  use units,      only:set_units,unit_ergg,unit_density,unit_opacity,utime
  use physcon,    only:au,solarm,seconds
  use dim,        only:maxp,periodic
  use options,    only:exchange_radiation_energy
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
-                      iphase,maxphase,isetphase,rhoh,&
+                      iphase,maxphase,isetphase,rhoh,drad,&
                       npartoftype,rad,radprop,maxvxyzu
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
@@ -81,18 +84,29 @@ subroutine test_exchange_terms(ntests,npass)
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use mpiutils,   only:reduceall_mpi
  use mpidomain,  only:i_belong
+ use radiation_implicit, only:do_radiation_implicit
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
+ logical, intent(in)    :: use_implicit
  real :: dt,t,physrho,rhoi,maxt,laste
- integer :: i,nerr(1)
+ integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest
  integer(kind=8) :: nptot
  logical, parameter :: write_output = .false.
+ character(len=12) :: string,filestr
 
  call init_part()
  iverbose = 0
  exchange_radiation_energy = .false.
  iopacity_type = -1  ! preserve the opacity value
+ kappa_cgs = 0.4
+
+ if (use_implicit) then
+    string = ' implicit'
+    iopacity_type = 2
+ else
+    string = ' explicit'
+ endif
 
  psep = 1./16.
  hfact = hfact_default
@@ -112,62 +126,70 @@ subroutine test_exchange_terms(ntests,npass)
  npartoftype(1) = npart
  pmassi = massoftype(igas)
 
- do i=1,npart
-    rhoi              = rhoh(xyzh(4,i),pmassi)
-    rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
-    radprop(ikappa,i) = 0.4/unit_opacity
-    vxyzu(4,i)        = 1e10/(unit_ergg*unit_density)
-    vxyzu(4,i)        = vxyzu(4,i)/rhoi
-    fxyzu(4,i)        = 0
- enddo
+ !
+ ! first version of the test: set gas temperature high and radiation temperature low
+ ! so that gas cools towards radiation temperature (itest=1)
+ !
+ ! second version: gas heats towards radiation temperature (itest=2)
+ !
+ do itest = 1,2
+    do i=1,npart
+       rhoi              = rhoh(xyzh(4,i),pmassi)
+       rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
+       radprop(ikappa,i) = kappa_cgs/unit_opacity
+       if (itest==2) then
+          vxyzu(4,i)     = 1e2/(unit_ergg*unit_density)
+       else
+          vxyzu(4,i)     = 1e10/(unit_ergg*unit_density)
+       endif
+       vxyzu(4,i)        = vxyzu(4,i)/rhoi
+       fxyzu(4,i)        = 0.
+    enddo
 
- maxt = 5e-7*seconds
- t = 0.
- rhoi    = rhoh(xyzh(4,1),pmassi)
- physrho = rhoi*unit_density
- i = 0
- do while(t < maxt/utime)
-    dt = max(1d-18*seconds/utime,0.05d0*t)
-    ! dt = maxt/utime
-    call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
-    ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-    ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-    t = t + dt
-    if (mod(i,10)==0) then
-       laste = (vxyzu(4,1)*unit_ergg)*physrho
-       if (write_output) write(24,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
+    if (write_output) then
+       write(filestr,"(i2.2)") itest
+       open(unit=23+itest,file='radiation-test'//trim(filestr)//trim(adjustl(string))//'.ev')
+       write(23+itest,"(a)") '# time [s],Egas [erg/cm^3],Erad [erg/cm^3]'
     endif
-    i = i + 1
- enddo
- call checkval(laste,21197127.9406196,1e-10,nerr(1),'energy exchange for gas cooling')
- call update_test_scores(ntests,nerr,npass)
-
- do i=1,npart
-    rhoi              = rhoh(xyzh(4,i),pmassi)
-    rad(iradxi,i)     = 1e12/(unit_ergg*unit_density)/rhoi
-    radprop(ikappa,i) = 0.4/unit_opacity
-    vxyzu(4,i)        = 1e2/(unit_ergg*unit_density)
-    vxyzu(4,i)        = vxyzu(4,i)/rhoi
-    fxyzu(4,i)        = 0
- enddo
-
- dt = 1e-11*seconds/utime
- t = 0.
- physrho = rhoi*unit_density
- i = 0
- do while(t < maxt/utime)
-    dt = max(1d-18*seconds/utime,0.05d0*t)
-    ! dt = maxt/utime
-    call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
-    t = t + dt
-    if (mod(i,10)==0) then
-       laste = (vxyzu(4,1)*unit_ergg)*physrho
-       if (write_output) write(25,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
+    maxt = 5e-7*seconds
+    t = 0.
+    rhoi    = rhoh(xyzh(4,1),pmassi)
+    physrho = rhoi*unit_density
+    i = 0
+    ndiff = 0
+    ncheck = 0
+    ierrmax = 0
+    do while(t < maxt/utime)
+       dt = max(1d-18*seconds/utime,0.05d0*t)
+       ! dt = maxt/utime
+       if (use_implicit) then
+          call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+          call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
+       else
+          call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
+       endif
+       ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+       ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
+       t = t + dt
+       if (mod(i,10)==0) then
+          laste = (vxyzu(4,1)*unit_ergg)*physrho
+          if (write_output) write(23+itest,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
+       endif
+       i = i + 1
+    enddo
+    if (ncheck > 0) then
+       call checkvalbuf_end('no errors from implicit solver',ncheck,ndiff(1),ierrmax,0)
+       call update_test_scores(ntests,ndiff,npass)
     endif
-    i = i + 1
+    if (itest==2) then
+       call checkval(laste,21144463.0313597,1e-10,nerr(1),'energy exchange for gas heating'//trim(string))
+    else
+       call checkval(laste,21197127.9406196,1e-10,nerr(1),'energy exchange for gas cooling'//trim(string))
+    endif
+    call update_test_scores(ntests,nerr,npass)
+
+    if (write_output) close(23+itest)
  enddo
- call checkval(laste,21144463.0313597,1e-10,nerr(1),'energy exchange for gas heating')
- call update_test_scores(ntests,nerr,npass)
 
 end subroutine test_exchange_terms
 
@@ -194,9 +216,10 @@ subroutine test_uniform_derivs(ntests,npass)
  use timestep,        only:dtmax
  use mpiutils,        only:reduceall_mpi
  use mpidomain,       only:i_belong
+ use radiation_utils, only:kappa_cgs
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi
- real :: dtext,pmassi, dt,t,kappa_code
+ real :: dtext,pmassi,dt,t,kappa_code
  real :: Tref,xi0,D0,rho0,l0
  real :: dtnew,tmax
  real :: exact_grE,exact_DgrF,exact_xi
@@ -221,14 +244,15 @@ subroutine test_uniform_derivs(ntests,npass)
  npartoftype(igas) = npart
  nactive = npart
 
- iopacity_type = -1  ! preserve the opacity value
+ iopacity_type = 2  ! constant opacity value
  c_code = get_c_code()
  gamma = 5./3.
  gmw = 2.0
  cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
  a   = get_radconst_code()
  pmassi = massoftype(igas)
- kappa_code = 1.0/unit_opacity
+ kappa_cgs = 1.0
+ kappa_code = kappa_cgs/unit_opacity
  Tref = 100.
 
  rho0 = rhoh(xyzh(4,1),pmassi)
@@ -267,7 +291,6 @@ subroutine test_uniform_derivs(ntests,npass)
     D0  = c_code*(1./3)/kappa_code/rhoi
     exact_grE  =  xi0*rho0*0.1*l0   *cos(xyzh(1,i)*l0)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
-    !print*,' got drad=',drad(iradxi,i), ' should be ',exact_DgrF
     call checkvalbuf(radprop(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
     call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
