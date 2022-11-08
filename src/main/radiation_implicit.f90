@@ -738,7 +738,6 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
-    print*,i
 
       ! IF (iphase(i).EQ.0) THEN
     dti = vari(1,n)
@@ -847,7 +846,6 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
              (chival-1.)*(-origEU(2,i) - dti*pres_numerator - dti*e_planetesimali &
              - dti*gas_dust_val*dust_tempi - dti*cosmic_ray + dti*cooling_line - dti*photoelectric &
              - dti*h2form + dti*dust_term) + dti*diffusion_numerator*betaval + stellarradiation*betaval - (chival-1.)*pcoleni
-    print*,i,u4term,gammaval,a_code*c_code*radprop(ikappa,i),radprop(icv,i)
 
     if (u1term>0. .and. u0term>0. .or. u1term<0. .and. u0term<0.) then
        !$omp critical(quart)

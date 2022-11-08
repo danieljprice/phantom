@@ -166,17 +166,14 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        dt = max(1d-18*seconds/utime,0.05d0*t)
        ! dt = maxt/utime
        if (use_implicit) then
-         !  print*,' particle 1000 befor: rad = ',vxyzu(4,1000),rad(iradxi,1000),npart,dt
+          if (i > 1) dt = 0.05*maxt/utime ! use large timesteps for implicit version
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           call checkvalbuf(ierr,0,0,'no errors from implicit solver',ndiff(1),ncheck,ierrmax)
-         !  print*,' particle 1000 after: rad = ',vxyzu(4,1000),rad(iradxi,1000)
        else
           call update_radenergy(1,xyzh,fxyzu,vxyzu,rad,radprop,dt)
        endif
-       ! call solve_internal_energy_implicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
-       ! call solve_internal_energy_explicit(unew,ui,rhoi,etot,dudt,ack,a,cv1,dt)
        t = t + dt
-       if (mod(i,10)==0) then
+       if (mod(i,10)==0 .or. use_implicit) then
           laste = (vxyzu(4,1)*unit_ergg)*physrho
           if (write_output) write(23+itest,*) t*utime, laste,(rad(iradxi,1)*unit_ergg)*physrho
        endif
@@ -187,9 +184,9 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        call update_test_scores(ntests,ndiff,npass)
     endif
     if (itest==2) then
-       call checkval(laste,21144463.0313597,1e-10,nerr(1),'energy exchange for gas heating'//trim(string))
+       call checkval(laste,21144463.0313597,3e-15,nerr(1),'energy exchange for gas heating'//trim(string))
     else
-       call checkval(laste,21197127.9406196,1e-10,nerr(1),'energy exchange for gas cooling'//trim(string))
+       call checkval(laste,21197127.9406196,2e-15,nerr(1),'energy exchange for gas cooling'//trim(string))
     endif
     call update_test_scores(ntests,nerr,npass)
 
