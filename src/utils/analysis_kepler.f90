@@ -273,8 +273,8 @@ print*,"__________________________________________"
  c_particle = 0 !no of particles that are bound the star.
 
  do j = 1, npart
-    print*,rhoh(xyzh(4,j),pmass),"rhoh(xyzh(4,j),pmass",j,"j"
-    print*,"*******************************"
+   ! print*,rhoh(xyzh(4,j),pmass),"rhoh(xyzh(4,j),pmass",j,"j"
+    !print*,"*******************************"
     i  = iorder(j) !Access the rank of each particle in radius.
 
     !the position of the particle is calculated by subtracting the point of highest density.
@@ -315,7 +315,7 @@ print*,"__________________________________________"
     endif
     !if energy is less than 0, we have bound system. We can accept these particles.
     
-    print*, energy_i,"energy_i",kinetic_i,"kinetic_i",potential_i,"potential_i"
+   ! print*, energy_i,"energy_i",kinetic_i,"kinetic_i",potential_i,"potential_i"
     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i) ) then
        if (j==1) then 
          print*,"WORKED"
@@ -489,7 +489,7 @@ print*,"here2"
  print*,npart-count_new,"count_new"
  print*,'----------------------------------------------------------------------'
 print*,"here3",mass_star,"mass_star"
- call write_mass_of_star_and_no(numfile,mass_star, star_centre(:))
+ call write_mass_of_star_and_no(numfile,mass_star,star_centre(:),maxval(den_all(:)))
 print*,"here4"
 end subroutine phantom_to_kepler_arrays
 
@@ -700,13 +700,13 @@ end subroutine calculate_mu
 !  evolution time.
 !+
 !----------------------------------------------------------------
-subroutine write_mass_of_star_and_no(numfile,mass_star,central_position)
+subroutine write_mass_of_star_and_no(numfile,mass_star,central_position,central_den)
  use units, only:umass,udist
  integer, intent(in)  :: numfile
  real,    intent(in)  :: mass_star
  character(len=120)   :: filename
 logical                 :: iexist
-real :: central_position(:)
+real :: central_position(:),central_den
  filename = 'all_analysis.dat'
 print*,udist,"UDIST"
 print*,mass_star,"mass_star"
@@ -715,14 +715,14 @@ print*,mass_star,"mass_star"
  if (.not. iexist) then 
 
     open(21,file=filename,status='new',action='write',form='formatted')
-    write(21,*) "[Mass of remnant]"," ", "[File numbe]"," ","[Central Positioni]"
-    write(21,*) mass_star*umass, numfile, central_position
+    write(21,*) "[Mass of remnant]"," ", "[File numbe]"," ","[Central Positioni]"," ","[Central Density]"
+    write(21,*) mass_star*umass, numfile, central_position,central_den
     close(21)
     
   else
 
     open(21,file=filename,status='old',action='write',form='formatted',position="append")
-    write(21,*) mass_star*umass, numfile, central_position
+    write(21,*) mass_star*umass, numfile, central_position,central_den
     close(21)
 
   endif
