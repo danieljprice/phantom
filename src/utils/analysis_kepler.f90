@@ -163,7 +163,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  integer :: ngrid
  integer::  number_bins,number_tot, number_per_bin
  integer :: count=0
- integer :: c_particle,index_i
+ integer :: c_particle,index_i,energy_verified_no
  real :: density_sum,density_i,eni_input
  real :: u_sum,u_i !specific internal energy storage
  real :: omega_sum(3),omega(3)
@@ -228,19 +228,61 @@ print*,"__________________________________________"
  ibin = 1
  !instead of setting the bin number, the goal is to fix particle per bin for each run and calculate
  !the ngrid using it.
-! number_particle = 201
- number_bins = number_tot/number_per_bin
-ngrid = 101
+ !number_particle = 201
+ !number_bins = number_tot/number_per_bin
  !ngrid = npart/number_particle
-number_per_bin = npart/ngrid
-number_particle = number_per_bin 
-print*,number_per_bin,"NUMBER PER BIN", npart, "npart", ngrid, "ngrid"
-print*,"######################################################"
+ number_particle = 0
+ energy_verified_no = 0
  if (mod(npart,number_particle) > 0) then
     ngrid = ngrid + 1
  endif
 print*,"**********************************"
  print"(a,i5)", 'number of bins = ',ngrid
+
+ do j = 1, npart
+
+    i  = iorder(j) !Access the rank of each particle in radius.
+
+    !the position of the particle is calculated by subtracting the point of highest density.
+    !xyzh is position wrt the black hole present at origin.
+    pos(:) = xyzh(1:3,i) - xpos(:)
+
+    !calculate the position which is the location of the particle.
+    rad_test    = sqrt(dot_product(pos(:),pos(:)))
+    potential_i = poten(i)
+
+    !velocity
+    vel(:)     = vxyzu(1:3,i) - vpos(:)
+
+    velocity_norm = dot_product(vel(:),vel(:))
+    kinetic_i     = 0.5*pmass*(velocity_norm)
+
+    !total energy of single particle
+    energy_i      = potential_i + kinetic_i
+
+    !if energy is less than 0, we have bound system. We can accept these particles.
+    if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
+      energy_verified_no = energy_verified_no + 1
+    endif
+
+ enddo
+
+ !based on the number of particles that satisfy the energy distribution formula, we will chose the
+ !number of particles per bin
+ if (energy_verified_no >= 1e6) then
+    number_particle = 500
+ elseif (energy_verified_no >= 1e5) then
+    number_particle = 100
+ elseif (energy_verified_no >= 1e4) then
+    number_particle = 20
+ elseif (energy_verified_no >= 1e3) then
+    number_particle = 100
+ else
+    number_particle = 1
+ endif
+
+ !we allocate arrays that can save 2000 data points.
+ ngrid = 2000
 
  allocate(rad_grid(ngrid),mass(ngrid),density(ngrid),energy_tot(npart))!rad_grid stores radius, stores radial velocity
  allocate(temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid),rad_mom(ngrid))
