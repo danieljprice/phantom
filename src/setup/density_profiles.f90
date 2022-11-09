@@ -621,15 +621,12 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !radius
  stardata(1:n_rows,4)  = stardata(1:n_rows,4)/udist
  rtab(1:n_rows)        = stardata(1:n_rows,4)
-print*,shape(rtab),"shape of rtab"
-print*,"density",stardata(1:n_rows,6)
  !density
  stardata(1:n_rows,6)  = stardata(1:n_rows,6)/unit_density
  rhotab(1:n_rows)      = stardata(1:n_rows,6)
  !mass
  stardata(1:n_rows,3)  = stardata(1:n_rows,3)/umass
  totmass               = stardata(n_rows,3)
-print*,totmass,"totmass"
  !pressure
  stardata(1:n_rows,8)  = stardata(1:n_rows,8)/unit_pressure
  ptab(1:n_rows)        = stardata(1:n_rows,8)
@@ -640,7 +637,7 @@ print*,totmass,"totmass"
  !specific internal energy
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
-
+ print*, totmass*umass, "Total Mass",rtab(n_rows)*udist,"max radius"
 
  !if elements were found in the file read, save the composition by allocating an array
  !else set it to 0

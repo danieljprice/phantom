@@ -228,13 +228,18 @@ print*,"__________________________________________"
  ibin = 1
  !instead of setting the bin number, the goal is to fix particle per bin for each run and calculate
  !the ngrid using it.
- number_particle = 201
+! number_particle = 201
  number_bins = number_tot/number_per_bin
- ngrid = npart/number_particle
-
+ngrid = 101
+ !ngrid = npart/number_particle
+number_per_bin = npart/ngrid
+number_particle = number_per_bin 
+print*,number_per_bin,"NUMBER PER BIN", npart, "npart", ngrid, "ngrid"
+print*,"######################################################"
  if (mod(npart,number_particle) > 0) then
     ngrid = ngrid + 1
  endif
+print*,"**********************************"
  print"(a,i5)", 'number of bins = ',ngrid
 
  allocate(rad_grid(ngrid),mass(ngrid),density(ngrid),energy_tot(npart))!rad_grid stores radius, stores radial velocity
@@ -410,6 +415,8 @@ print*,"__________________________________________"
     endif
 
     if (no_in_bin == number_particle .or. j == npart) then
+      print*,"-----------------------------------------------------------**"
+      print*,"j",j,"no_in_bin",no_in_bin,"number_particle",number_particle
 
        bin_mass(ibin)             = no_in_bin*pmass !bin mass
        mass(ibin)                 = (c_particle)*pmass !mass of paricles < r.
