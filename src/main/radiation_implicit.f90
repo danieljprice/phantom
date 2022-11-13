@@ -299,7 +299,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
  use boundary,        only:dxbound,dybound,dzbound
  use part,            only:dust_temp,nucleation,gradh,dvdx
  use units,           only:get_c_code
- use kernel,          only:grkern
+ use kernel,          only:grkern,cnormk
  integer, intent(in) :: ncompact,ncompactlocal,ivar(:,:),ijvar(:)
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
  real, intent(inout) :: radprop(:,:)
@@ -405,8 +405,8 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        v2j = rij2*hj21
        vj = rij/hj
 
-       dWi = grkern(v2i,vi)
-       dWj = grkern(v2j,vj)
+       dWi = grkern(v2i,vi)*hi41*cnormk*gradh(1,i)
+       dWj = grkern(v2j,vj)*hj41*cnormk*gradh(1,j)
 
        dvx = vxyzu(1,i) - vxyzu(1,j)
        dvy = vxyzu(2,i) - vxyzu(2,j)
@@ -424,9 +424,9 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        endif
 
        ! Coefficients in radiative flux term in radiation energy density equation (e.g. eq 22 & 25, Whitehouse & Bate 2004)
-       dvdWimj = pmj*dv*dWi*gradh(1,i)
-       dvdWimi = pmi*dv*dWi*gradh(1,i)
-       dvdWjmj = pmj*dv*dWj*gradh(1,j)
+       dvdWimj = pmj*dv*dWi
+       dvdWimi = pmi*dv*dWi
+       dvdWjmj = pmj*dv*dWj
 
        ! Coefficients for p(div(v))/rho term in gas energy equation (e.g. eq 26, Whitehouse & Bate 2004)
        dWidrlightrhorhom = c_code*dWi/dr*pmj/(rhoi*rhoj)
@@ -440,6 +440,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !
        !--Calculates density(i) times the gradient of velocity
        !
+       !if (i==48 .and. j==81) print*,i,j,dvx,dx*rij1,pmjdWrunix/(cnormk*pmi*gradh(1,i)/rhoi*hi41),hi41 !*rij1
        dvxdxi = dvxdxi - dvx*pmjdWrunix
        dvxdyi = dvxdyi - dvx*pmjdWruniy
        dvxdzi = dvxdzi - dvx*pmjdWruniz
@@ -488,18 +489,15 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
  real, intent(in)    :: varij(:,:),varij2(:,:),vari(:,:),EU0(:,:)
  real, intent(inout) :: radprop(:,:)
  integer             :: i,j,k,n,icompact
- real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,Eij1
+ real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij
 
  !$omp parallel do default(none)&
  !$omp shared(vari,ivar,EU0,varij2,ijvar,varij,ncompact,radprop)&
  !$omp private(i,j,k,n,dedxi,dedyi,dedzi,rhoi,rhoj,icompact)&
- !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,Eij1)
+ !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)
 
  do n = 1,ncompact
     i = ivar(3,n)
-   !
-   !--For MPICOPY code varinew is zeroed for entire list of particles above
-   !
    !             varinew(1,i) = 0.
    !             varinew(2,i) = 0.
    ! c            varinew(3,i) = 0.
@@ -519,16 +517,12 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,radprop)
        pmjdWrunix = varij2(1,icompact)
        pmjdWruniy = varij2(2,icompact)
        pmjdWruniz = varij2(3,icompact)
-      !  print*,'i=',i,'  j=',j,' r/h =',sqrt(dot_product(xyzh(1:3,i)-xyzh(1:3,j),xyzh(1:3,i)-xyzh(1:3,j)))/xyzh(4,i)
-      !  print*,' rhoj=',rhoj,' rhoj should be=',rhoh(xyzh(4,j),massoftype(igas))
-      !  read*
 
        ! Calculates the gradient of E (where E=rho*e, and e is xi)
-       Eij1 = rhoi*EU0(1,i) - rhoj*EU0(1,j)
-
-       dedxi = dedxi - Eij1*pmjdWrunix
-       dedyi = dedyi - Eij1*pmjdWruniy
-       dedzi = dedzi - Eij1*pmjdWruniz
+       dradenij = rhoj*EU0(1,j) - rhoi*EU0(1,i)
+       dedxi = dedxi + dradenij*pmjdWrunix
+       dedyi = dedyi + dradenij*pmjdWruniy
+       dedzi = dedzi + dradenij*pmjdWruniz
     enddo
 
     radprop(ifluxx,i) = dedxi
@@ -835,6 +829,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
     !
     !--Now solve those equations... (these are eqns 22 in Whitehouse, Bate & Monaghan 2005)
     !
+    !print*,i,' Tgas = ',EU0(2,i)/radprop(icv,i),' Trad = ',(rhoi*EU0(1,i)/a_code)**0.25
     betaval = c_code*radprop(ikappa,i)*rhoi*dti
     chival = dti*(diffusion_denominator-radpresdenom/EU0(1,I))-betaval
     gammaval = a_code*c_code*radprop(ikappa,i)/radprop(icv,i)**4
@@ -862,6 +857,8 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
        cycle main_loop
     endif
 
+    !print*,' HERE EU0(2,i)=',i,EU0(2,i)
+
     if (.not. skip_quartic) then
        u1term = u1term/u4term
        u0term = u0term/u4term
@@ -872,10 +869,12 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
           print*,'i=',i,'u1term=',u1term,'u0term=',u0term,'EU0(2,i)=',EU0(2,i),'U1i=',U1i,'moresweep=',moresweep
           print*,"info: ",EU0(2,i)/radprop(icv,i)
           print*,"info2: ",u0term,u1term,u4term,gammaval,radprop(ikappa,i),radprop(icv,i)
-          print*,"info3: ",chival,betaval,dti
+          print*,"info3: ",chival,betaval,dti,rhoi
           print*,"info4: ",pres_denominator,origEU(1,i),pres_numerator
           print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
           print*,"info6: ",radpresdenom,EU0(1,i)
+          print*,"Tgas: ",EU0(2,i)/radprop(icv,i)," Trad:",(rhoi*EU0(1,i)/a_code)**0.25,' ack*(Tgas^4 - Trad^4): ',tfour
+
           call fatal('solve_quartic','Fail to solve')
        endif
       !  call QUARTIC_GS1T(u1term,u0term,EU0(2,i),U1i,moresweep,i)
@@ -912,8 +911,8 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
     !
     if (U1i <= 0.) then
 !$omp critical (moresweepset)
+       print*, "gsimpl: u has gone negative ",i,u1term,u0term,u4term,EU0(2,i),U1i,moresweep,ierr
        moresweep=.true.
-       print*, "gsimpl: u has gone negative ",i
 !$omp end critical (moresweepset)
     endif
     if (E1i <= 0.) then
@@ -944,9 +943,11 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
     !
     !--Copy values
     !
+    !if (i==700) print*,' change in E is ',100*(E1i-EU0(1,i))/EU0(1,i),'%'
+    !if (i==700) print*,' change in u is ',100*(U1i-EU0(2,i))/EU0(2,i),'%'
     EU0(1,i) = E1i
     EU0(2,i) = U1i
-    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
+    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type) ! should this be EU0(2,i)??
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
     if (dustRT) then
