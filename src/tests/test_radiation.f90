@@ -55,6 +55,8 @@ subroutine test_radiation(ntests,npass)
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
  else
+    call test_implicit_matches_explicit(ntests,npass)
+
     implicit_radiation = .false.
     call test_uniform_derivs(ntests,npass)
  endif
@@ -197,79 +199,118 @@ end subroutine test_exchange_terms
 
 !---------------------------------------------------------
 !+
+!  unit tests to check that derivatives computed
+!  in the radiation_implicit routines match those
+!  computed in the regular density/force routines
+!  in an explicit calculation
+!+
+!---------------------------------------------------------
+subroutine test_implicit_matches_explicit(ntests,npass)
+ use part,     only:dvdx,npart,xyzh,vxyzu,dvdx_label,rad,radprop,drad,&
+                    xyzh_label,init_part,radprop_label
+ use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
+ use options,  only:implicit_radiation,tolh
+ use physcon,  only:pi
+ use deriv,    only:get_derivs_global
+ use io,       only:iverbose
+ use radiation_implicit, only:do_radiation_implicit
+ integer, intent(inout) :: ntests,npass
+ real(kind=kind(dvdx)), allocatable :: dvdx_explicit(:,:)
+ real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
+ real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,exact(9),tolh_old,pmassi
+ integer :: i,j,itry,nerr_e(9),ierr
+
+ implicit_radiation = .false.
+ iverbose = 0
+ call init_part()
+ tolh_old = tolh
+ tolh = 1.e-8
+ do itry = 1,2
+    if (itry == 2) implicit_radiation = .true.
+    call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+
+    ! set some non-zero velocities
+    do i=1,npart
+       vxyzu(1,i) = 0.1*sin((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin))
+       vxyzu(2,i) = 0.1*cos((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin))
+       vxyzu(3,i) = 0.1*sin((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))
+    enddo
+    call get_derivs_global()
+    if (itry==1) then
+       call get_derivs_global()  ! twice to get density on neighbours correct
+       dvdx_explicit = dvdx
+       allocate(flux_explicit(3,npart))
+       flux_explicit = radprop(ifluxx:ifluxz,1:npart)
+       dvdx = 0.
+    else
+       dvdx = 0.
+       radprop = 0.
+       call do_radiation_implicit(1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
+    endif
+ enddo
+
+ ! now check that things match
+ nerr_e = 0
+ errmax_e = 0.
+ tol_e = 1.e-15
+ do j=1,9
+    call checkval(npart,dvdx(j,:),dvdx_explicit(j,:),tol_e,nerr_e(j),dvdx_label(j))
+ enddo
+ call update_test_scores(ntests,nerr_e,npass)
+
+ nerr_e = 0
+ errmax_e = 0.
+ do j=1,3
+   call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
+ enddo
+ call update_test_scores(ntests,nerr_e,npass)
+ !write(1,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
+ !write(2,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
+ !do i=1,npart
+    !write(1,*) xyzh(1:3,i),radprop(ifluxx:ifluxz,i)
+    !write(2,*) xyzh(1:3,i),flux_explicit(:,i)
+    !if (i==1496) print*,i,' flux is  : ',radprop(ifluxx:ifluxz,i)
+    !if (i==1496) print*,i,' should be: ',flux_explicit(:,i)
+    !exact = [ 0.1*2.*pi/(xmax-xmin)*cos((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin)),0.,0.,&
+      !       0.,-0.1*2.*pi/(ymax-ymin)*sin((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin)),0.,&
+      !       0.,0., 0.1*2.*pi/(zmax-zmin)*cos((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))]
+!    write(3,*) xyzh(1:3,i),exact(:)
+ !enddo
+
+ vxyzu(1:3,:) = 0.  ! zero velocities again
+ tolh = tolh_old
+
+end subroutine test_implicit_matches_explicit
+
+!---------------------------------------------------------
+!+
 !  unit tests of radiation derivatives: grad E and div F
 !+
 !---------------------------------------------------------
 subroutine test_uniform_derivs(ntests,npass)
- use dim,             only:maxp
- use io,              only:id,master
- use part,            only:npart,xyzh,vxyzu,massoftype,igas,periodic,&
-                           iphase,maxphase,isetphase,rhoh,npartoftype,&
-                           rad,radprop,drad,ifluxx,maxvxyzu,init_part,fxyzu
- use kernel,          only:hfact_default
- use unifdis,         only:set_unifdis
- use units,           only:set_units,unit_opacity,get_c_code,unit_velocity,unit_ergg,get_radconst_code
- use physcon,         only:Rg,pi,seconds
- use eos,             only:gamma,gmw,iopacity_type
+ use part,            only:npart,xyzh,rhoh,vxyzu,&
+                           rad,radprop,drad,ifluxx,maxvxyzu,fxyzu,init_part
+ use boundary,        only:xmin,xmax
+ use physcon,         only:pi
  use readwrite_dumps, only:write_fulldump
- use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
+ use options,         only:implicit_radiation
  use mpiutils,        only:reduceall_mpi
- use mpidomain,       only:i_belong
- use radiation_utils, only:kappa_cgs
  integer, intent(inout) :: ntests,npass
- real :: psep,hfact,a,c_code,cv1,rhoi
- real :: dtext,pmassi,dt,t,kappa_code
- real :: Tref,xi0,D0,rho0,l0
+ real :: rhoi,dtext,pmassi,dt,t,kappa_code
+ real :: xi0,D0,rho0,l0,c_code
  real :: dtnew,tmax
  real :: exact_grE,exact_DgrF,exact_xi
  real :: errmax_e,errmax_f,tol_e,tol_f,errmax_xi,tol_xi,de,dekin,degas,derad
  integer :: i,j
  integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
- integer(kind=8) :: nptot
- character(len=20) :: string !,filename
+ character(len=20) :: string,filename
+ logical, parameter :: write_output = .false.
 
- psep = 1./32.
- hfact = hfact_default
- npart = 0
  call init_part()
- call set_boundary(-0.5,0.5,-0.1,0.1,-0.1,0.1)
- call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
-                  hfact,npart,xyzh,periodic,mask=i_belong)
- nptot = reduceall_mpi('+',npart)
- massoftype(igas) = 1./nptot*1e-25
- pmassi = massoftype(igas)
- if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
- npartoftype(:) = 0
- npartoftype(igas) = npart
- nactive = npart
-
- iopacity_type = 2  ! constant opacity value
- c_code = get_c_code()
- gamma = 5./3.
- gmw = 2.0
- cv1 = (gamma-1.)*gmw/Rg*unit_velocity**2
- a   = get_radconst_code()
- pmassi = massoftype(igas)
- kappa_cgs = 1.0
- kappa_code = kappa_cgs/unit_opacity
- Tref = 100.
-
- rho0 = rhoh(xyzh(4,1),pmassi)
- xi0 = a*Tref**4.0/rho0
- do i=1,npart
-    vxyzu(4,i) = (Tref/cv1)/(unit_ergg)
-    radprop(ikappa,i) = kappa_code
-    rad(iradxi,i)     = xi0*(1. + 1e-1*sin(xyzh(1,i)*2.*pi/(xmax-xmin)))
-    radprop(ithick,i) = 1.
-    ! etot = vxyzu(4,i) + radiation(iradxi,i)
-    ! Tgas = vxyzu(4,i)*unit_ergg*cv1
-    ! print*, vxyzu(4,i),radiation(iradxi,i),etot
-    ! Trad = (rhoi*(etot-vxyzu(4,i))/a)**(1./4.)
-    ! print*, Tref, Trad, Tgas
- enddo
+ call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
 
  tmax = 5.e-22
  dtmax = tmax
@@ -295,7 +336,7 @@ subroutine test_uniform_derivs(ntests,npass)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
     call checkvalbuf(radprop(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
-    call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
+    if (.not. implicit_radiation) call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
  enddo
  call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e(1),errmax_e,tol_e)
  call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f(1),errmax_f,tol_f)
@@ -310,7 +351,6 @@ subroutine test_uniform_derivs(ntests,npass)
     degas = degas + fxyzu(4,i)       ! du/dt
     derad = derad + drad(iradxi,i)   ! dxi/dt
  enddo
- !print*,' GOT ',pmassi*dekin,pmassi*degas,pmassi*derad
  de = pmassi*(dekin + degas + derad)
  de = reduceall_mpi('+',de)
  call checkval(de,0.,4.e-9,nerr_e(1),'dE/dt = 0')
@@ -319,8 +359,14 @@ subroutine test_uniform_derivs(ntests,npass)
  ! now solve diffusion as a function of time
  !
  t  = 0.
+ if (write_output) then
+    write (filename,'(a5,i3.3)') 'rad_test_',0
+    call write_fulldump(t,filename)
+ endif
  dt = dtnew
  dtext = dt
+!    dt = 6.7e-24
+
  call init_step(npart,t,dtmax)
  i = 0
  do while(t < tmax)
@@ -328,6 +374,8 @@ subroutine test_uniform_derivs(ntests,npass)
     dtext = dt
     call step(npart,nactive,t,dt,dtext,dtnew)
     dt = dtnew
+    !dt = 6.7e-24
+
     i = i + 1
 
     if (mod(i,10) == 0) then
@@ -346,13 +394,83 @@ subroutine test_uniform_derivs(ntests,npass)
        call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
        call update_test_scores(ntests,nerr_xi,npass)
     endif
-    !write (filename,'(A5,I3.3)') 'rad_test_', i
-    !call write_fulldump(t,filename)
+    if (write_output) then
+       write (filename,'(a5,i3.3)') 'rad_test_', i
+       call write_fulldump(t,filename)
+    endif
  enddo
 
  ! reset various things
  call init_part()
 
 end subroutine test_uniform_derivs
+
+!---------------------------------------------------------
+!+
+!  subroutine to setup sinusoidal diffusion problem
+!  (split so this can be called by different subtests)
+!+
+!---------------------------------------------------------
+subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
+ use dim,             only:maxp
+ use io,              only:id,master
+ use eos,             only:gamma,gmw,iopacity_type
+ use part,            only:npart,hfact,xyzh,vxyzu,massoftype,igas,periodic,&
+                           iphase,maxphase,isetphase,rhoh,npartoftype,&
+                           rad,radprop,ifluxx,maxvxyzu
+ use units,           only:unit_opacity,get_c_code,unit_ergg,get_radconst_code
+ use physcon,         only:Rg,pi,seconds
+ use mpidomain,       only:i_belong
+ use mpiutils,        only:reduceall_mpi
+ use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax
+ use kernel,          only:hfact_default
+ use unifdis,         only:set_unifdis
+ use radiation_utils, only:kappa_cgs
+ real, intent(out) :: kappa_code,c_code,xi0,rho0,pmassi
+ real :: psep,a,cv1,Tref
+ integer :: i,nactive
+ integer(kind=8) :: nptot
+
+ psep = 1./32.
+ hfact = hfact_default
+ npart = 0
+ call set_boundary(-0.5,0.5,-0.1,0.1,-0.1,0.1)
+ call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
+                  hfact,npart,xyzh,periodic,mask=i_belong)
+ nptot = reduceall_mpi('+',npart)
+ massoftype(igas) = 1./nptot*1e-25
+ pmassi = massoftype(igas)
+ if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
+ npartoftype(:) = 0
+ npartoftype(igas) = npart
+ nactive = npart
+
+ iopacity_type = 2  ! constant opacity value
+ c_code = get_c_code()
+ gamma = 5./3.
+ gmw = 2.0
+ cv1 = (gamma-1.)*gmw/Rg*unit_ergg
+ a   = get_radconst_code()
+ pmassi = massoftype(igas)
+ kappa_cgs = 1.0
+ kappa_code = kappa_cgs/unit_opacity
+ Tref = 100.
+
+ rho0 = rhoh(xyzh(4,1),pmassi)
+ xi0 = a*Tref**4/rho0
+ do i=1,npart
+    vxyzu(4,i) = (Tref/cv1)
+    radprop(ikappa,i) = kappa_code
+    rad(iradxi,i)     = xi0*(1. + 1e-1*sin(xyzh(1,i)*2.*pi/(xmax-xmin)))
+    radprop(ithick,i) = 1.
+     !etot = vxyzu(4,i) + rad(iradxi,i)
+     !Tgas = vxyzu(4,i)*cv1
+     !rhoi = rhoh(xyzh(4,i),pmassi)
+     !if (i==1) print*,i,'u=',vxyzu(4,i),'xi=',rad(iradxi,i),rho0
+     !Trad = (rho0*(etot-vxyzu(4,i))/a)**(1./4.)
+     !print*, Tref, Trad, Tgas
+ enddo
+
+end subroutine setup_radiation_diffusion_problem_sinusoid
 
 end module testradiation
