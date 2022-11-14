@@ -34,7 +34,7 @@ module wind
  character(len=*), parameter :: label = 'wind'
 
  ! input parameters
- real :: Mstar_cgs, Lstar_cgs, wind_gamma, Mdot_cgs, Tstar
+ real :: Mstar_cgs, Lstar_cgs, wind_gamma, Mdot_cgs, Tstar, Rstar
  real :: u_to_temperature_ratio
  real, dimension (:,:), allocatable, public :: trvurho_1D, JKmuS_1D
 
@@ -100,9 +100,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use io,               only:fatal
  use eos,              only:gmw
  use ptmass_radiation, only:alpha_rad
- use part,             only:xyzmh_ptmass,iTeff,ilum
+ use part,             only:xyzmh_ptmass,iTeff,iReff,ilum
  use dust_formation,   only:kappa_gas,init_muGamma,idust_opacity
- use units,            only:umass,unit_energ,utime
+ use units,            only:umass,unit_energ,utime,udist
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
@@ -136,6 +136,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%tau    = 0
 
  Tstar     = xyzmh_ptmass(iTeff,wind_emitting_sink)
+ Rstar     = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
  Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
@@ -229,15 +230,15 @@ subroutine wind_step(state)
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  state%tau_lucy = state%tau_lucy &
-      - (state%r-state%r_old) * state%r0**2 &
+      - (state%r-state%r_old) * Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
  !update dust temperature
  if (iget_tdust == 2) then
     tau_lucy_bounded = max(0., state%tau_lucy)
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
+    state%Tdust = Tstar*(Rstar/state%r)**tdust_exp
  else
     state%Tdust = state%Tg
  endif
@@ -283,7 +284,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc
+ use dim,              only:itau_alloc, itauL_alloc
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
@@ -302,7 +303,7 @@ subroutine wind_step(state)
     state%kappa     = calc_kappa_bowen(state%Tdust)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
- if (itau_alloc == 1) then
+ if (itau_alloc == 1 .and. itauL_alloc == 0.) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
@@ -339,15 +340,15 @@ subroutine wind_step(state)
  endif
  state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
-      - (state%r-state%r_old) * state%r0**2 &
+      - (state%r-state%r_old) * Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
  !update dust temperature
  if (iget_tdust == 2) then
     tau_lucy_bounded = max(0., state%tau_lucy)
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%r0/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(state%r0/state%r)**tdust_exp
+    state%Tdust = Tstar*(Rstar/state%r)**tdust_exp
  else
     state%Tdust = state%Tg
  endif

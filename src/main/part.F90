@@ -33,8 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc
- use ptmass_radiation, only:iget_tdust
+               inucleation,itau_alloc,itauL_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -505,7 +504,7 @@ subroutine allocate_part
  call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
- call allocate_array('tau_lucy', tau_lucy, maxp*int(iget_tdust/2))
+ call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -1282,7 +1281,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
  if (itau_alloc == 1) tau(dst) = tau(src)
- if (iget_tdust == 2) tau_lucy(dst) = tau_lucy(src)
+ if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)

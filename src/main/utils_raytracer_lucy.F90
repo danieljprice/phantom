@@ -59,6 +59,7 @@ contains
       else
          call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzh, kappa_cgs, wind_injection_radius, order, tau)
       endif
+      tau = tau * xyzmh_ptmass(iReff,1)**2
    end subroutine get_all_tau_lucy
 
    !--------------------------------------------------------------------------
@@ -396,7 +397,7 @@ contains
          distance = distance+dr
          call find_next(primary + distance*ray, xyzh(4,inext), ray, xyzh, kappa, nextdtaudr, next_dr, inext)
          i = i + 1
-         nextdtaudr        = nextdtaudr*(Rstar/distance)**2
+         nextdtaudr        = nextdtaudr/distance**2
          dtaudr            = (nextdtaudr+previousdtaudr)/2.
          previousdtaudr    = nextdtaudr
          !fix units for tau (kappa is in cgs while rho & r are in code units)

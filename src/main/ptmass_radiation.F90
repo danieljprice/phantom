@@ -91,7 +91,7 @@ end subroutine get_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
- use dim,   only:do_nucleation, itau_alloc
+ use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
@@ -191,9 +191,9 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
  use io,      only:fatal
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
- real,     intent(in), optional   :: tau_lucy(:)
+ real,     intent(inout), optional   :: tau_lucy(:)
  real,     intent(out)   :: dust_temp(:)
- real                    :: r,L_star,T_star,R_star,xa,ya,za,tl
+ real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
 
  !
@@ -230,21 +230,13 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
     if (present(tau_lucy)) then
       !$omp parallel  do default(none) &
       !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau_lucy) &
-      !$omp private(i,r,tl)
+      !$omp private(i,r)
       do i=1,npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
             r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
             if (r .lt. R_star) r = R_star
-            if (isnan(tau_lucy(i))) then
-               tl = 2./3.
-            else
-               tl = tau_lucy(i)
-            endif
-            dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl))**(1./4.)
-            ! if (isnan(dust_temp(i))) then
-            !    print*,1.-sqrt(1.-(R_star/r)**2), tl, (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl)), &
-            !    (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tl))**(1./4.)
-            ! endif
+            if (isnan(tau_lucy(i))) tau_lucy(i) = 2./3.
+            dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tau_lucy(i)))**(1./4.)
          endif
       enddo
       !$omp end parallel do
@@ -305,7 +297,7 @@ end subroutine write_options_ptmass_radiation
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  use io,  only:fatal
- use dim, only:itau_alloc
+ use dim, only:itau_alloc,itauL_alloc
  character(len=*), intent(in)  :: name,valstring
  logical, intent(out) :: imatch,igotall
  integer,intent(out) :: ierr
@@ -328,6 +320,7 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('iget_tdust')
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
+    if (iget_tdust == 2) itauL_alloc = 1
     if (iget_tdust < 0 .or. iget_tdust > 2) call fatal(label,'invalid setting for iget_tdust ([0,3])')
  case('tdust_exp')
     read(valstring,*,iostat=ierr) tdust_exp

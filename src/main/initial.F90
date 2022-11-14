@@ -111,7 +111,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
+ use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
@@ -129,7 +129,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
- use ptmass_radiation, only:iget_tdust
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -531,7 +530,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
    !initialize optical depth array tau
    if (itau_alloc == 1) tau = 0.
    !initialize Lucy optical depth array tau_lucy
-   if (iget_tdust == 2) tau_lucy = 2./3.
+   if (itauL_alloc == 1) tau_lucy = 2./3.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this
