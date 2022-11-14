@@ -144,7 +144,7 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  dt_cgs    = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
- T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
+ T         = get_temperature(ieos,xyzh,rho,vxyzui,gammai=JKmuS(idgamma),mui=JKmuS(idmu))
  call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
