@@ -64,7 +64,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
 
  if (nptmass > 3) then
-    stop 'ERROR: Number of sink particles > 3'
+    call fatal('moddump_binary','Number of sink particles > 3')
  elseif (nptmass == 3) then
     print*, 'Three sink particles are present. Choose option below:'
     print "(1(/,a))",'1) Remove a sink from the simulation'
@@ -209,15 +209,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*,' Got ',npart,npartoftype(igas),' after deleting accreted particles'
 
        !sets up the binary system orbital parameters
+       hsoft_primary = 0.
        if (nptmass == 1) then
           mcore = xyzmh_ptmass(4,1)
           hsoft_primary = xyzmh_ptmass(ihsoft,1)  ! stash primary core hsoft before calling set_binary, which resets the softening lengths
        elseif (nptmass == 0) then
           mcore = 0.
-          hsoft_primary = 0.
        else
-          print *,'[S-moddump_binary] mcore not defined! nptmass = ',nptmass
-          stop '[S-moddump_binary]'
+          call fatal('moddump_binary', 'sink particle not specified (nptmass > 1)')
        endif
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
@@ -281,9 +280,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           ! Move star 1 particles to avoid getting overwritten when reading second dump file.
           if (2*nstar1 > maxp) then  ! Check if particle array is large enough to provide particle-copying buffer
-             print*, 'Error: Two times number of particles in star 1 exceeds MAXP'
-             print*, 'Need to compile with larger MAXP'
-             stop
+             call fatal('moddump_binary','Two times number of particles in star 1 exceeds MAXP. Need to compile with larger MAXP')
           endif
           if (nstar1 > nstar2) then ! Move ith particle of star 1 to nstar1+i
              do i=1,nstar1
@@ -299,10 +296,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
           nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2
           pmass2 = massoftype(igas)
-          if (ierr /= 0) stop 'error reading second dump file'
+          if (ierr /= 0) call fatal('read_dump','error reading second dump file')
           if ( abs(1.-pmass2/pmass1) > 1.e-3) then
-             print*, 'ERROR: pmass2/pmass1 = ',pmass2/pmass1
-             stop
+             call fatal('moddump_binary','unequal mass particles between dumps 1 and 2, pmass2 /= pmass1')
           endif
           print*,'Setting gas mass to be that from first dump,',pmass1
           massoftype(igas) = pmass1
@@ -547,7 +543,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        elseif (icompanion_grav == 1) then
           primarycore_mass = xyzmh_ptmass(4,1)
        else
-          stop 'ERROR: icompanion_grav not equal to 1 or 2'
+          call fatal('companion_gravity','icompanion_grav not equal to 1 or 2') 
        endif
        call close_db(db)
 
