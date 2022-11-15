@@ -111,7 +111,7 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
+ use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
                             nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
@@ -122,7 +122,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
@@ -524,8 +524,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
  endif
- !initialize nucleation array at the start of the run only
- if (do_nucleation .and. abs(time) <= tiny(0.)) call init_nucleation
+ if (abs(time) <= tiny(0.)) then
+    !initialize nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    !initialize optical depth array tau
+    if (itau_alloc == 1) tau = 0.
+ endif
 !
 !--inject particles at t=0, and get timestep constraint on this
 !

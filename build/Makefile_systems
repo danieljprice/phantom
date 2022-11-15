@@ -101,32 +101,10 @@ ifeq ($(SYSTEM), ozstar)
     WALLTIME='168:00:00'
 endif
 
-ifeq ($(SYSTEM), irustyarch)
-#   Flatiron rusty cluster rome node, AMD EPYC 7742
+ifeq ($(SYSTEM), rusty)
+#   Flatiron CCA rusty cluster rome node, AMD EPYC 7742
     include Makefile_defaults_ifort
-    FFLAGS= -Ofast -mcmodel=medium -march=core-avx2
-    NOMP=64
-    QSYS = slurm
-    QNAME='rome'
-    QPARTITION='cca'
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), irustyopt)
-#   Flatiron rusty cluster rome node, AMD EPYC 7742
-    include Makefile_defaults_ifort
-    FFLAGS= -Ofast -mcmodel=medium
-    NOMP=64
-    QSYS = slurm
-    QNAME='rome'
-    QPARTITION='cca'
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), irusty)
-#   Flatiron rusty cluster rome node, AMD EPYC 7742
-    include Makefile_defaults_ifort
-    FFLAGS= -mcmodel=medium
+    FFLAGS= -Ofast -mcmodel=medium -march=znver2
     NOMP=64
     QSYS = slurm
     QNAME='rome'
@@ -135,30 +113,9 @@ ifeq ($(SYSTEM), irusty)
 endif
 
 ifeq ($(SYSTEM), ipopeyearch)
-#   Flatiron popeye cluster icelake node
+#   Flatiron CCA popeye cluster icelake node
     include Makefile_defaults_ifort
     FFLAGS= -Ofast -mcmodel=medium -march=core-avx2
-    NOMP=64
-    QSYS = slurm
-    QNAME='icelake'
-    QPARTITION='cca'
-    WALLTIME='168:00:00'
-endif
-
-ifeq ($(SYSTEM), ipopeyeopt)
-#   Flatiron popeye cluster icelake node
-    include Makefile_defaults_ifort
-    FFLAGS= -Ofast -mcmodel=medium
-    NOMP=64
-    QSYS = slurm
-    QNAME='icelake'
-    QPARTITION='cca'
-    WALLTIME='168:00:00'
-endif
-ifeq ($(SYSTEM), ipopeye)
-#   Flatiron popeye cluster icelake node
-    include Makefile_defaults_ifort
-    FFLAGS= -mcmodel=medium
     NOMP=64
     QSYS = slurm
     QNAME='icelake'
@@ -205,7 +162,11 @@ endif
 ifeq ($(SYSTEM), gfortran)
     include Makefile_defaults_gfortran
 ifneq ($(UNAME), Darwin)
+ifeq ($(UNAMEP), aarch64) # -mcmodel=medium is not an option for aarch64 type processors with gfortran.
+    FFLAGS+= -mcmodel=small
+else
     FFLAGS+= -mcmodel=medium
+endif   
 endif
 endif
 

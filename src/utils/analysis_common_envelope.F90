@@ -78,7 +78,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !chose analysis type
  if (dump_number==0) then
-    print "(36(a,/))", &
+    print "(37(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -88,6 +88,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 7) Simulation units and particle properties', &
             ' 8) Output .divv', &
             ' 9) EoS testing', &
+            '10) Planet destruction', &
             '11) Profile of newly unbound particles', &
             '12) Sink properties', &
             '13) MESA EoS compute total entropy and other average td quantities', &
@@ -109,7 +110,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '29) Energy histogram',&
             '30) Analyse disk',&
             '31) Recombination energy vs time',&
-            '32) Sound-crossing time profile',&
+            '32) Binding energy profile',&
             '33) planet_rvm',&
             '34) Velocity histogram',&
             '35) Unbound temperature',&
@@ -145,6 +146,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(9) !EoS testing
     call eos_surfaces
+ case(10) !Planet destruction
+    call planet_destruction(time,npart,particlemass,xyzh,vxyzu)
  case(11) !New unbound particle profiles in time
     call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(19) ! Rotation profile
@@ -173,8 +176,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  case(31) ! Recombination energy vs. time
     call erec_vs_t(time,npart,particlemass,xyzh)
- case(32) ! Sound crossing time profile
-    call tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(32) ! Binding energy profile
+    call create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(33) ! Planet coordinates and mass
     call planet_rvm(time,particlemass,xyzh,vxyzu)
  case(34) ! Velocity histogram
@@ -1606,75 +1609,6 @@ end subroutine tau_profile
 
 !----------------------------------------------------------------
 !+
-!  Sound crossing time profile
-!+
-!----------------------------------------------------------------
-subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
- use part,  only:itemp
- use eos,   only:get_spsound
- use units, only:unit_velocity
- integer, intent(in)    :: npart,num
- real, intent(in)       :: time,particlemass
- real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
- integer                :: nbins
- real, dimension(npart) :: rad_part,cs_part
- real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
- real                   :: maxloga,minloga,rhoi
- character(len=17)      :: filename
- character(len=40)      :: data_formatter
- integer                :: i,unitnum
- 
- call compute_energies(time)
- nbins      = 500
- rad_part   = 0.
- cs_part   = 0.
- minloga    = 0.5
- maxloga    = 4.3
- 
- allocate(cs_hist(nbins),sepbins(nbins),tconv(nbins))
- filename = '    grid_tconv.ev'
- 
- do i=1,npart
-    rhoi = rhoh(xyzh(4,i), particlemass)
-    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-    cs_part(i) = get_spsound(eos_type=ieos,xyzi=xyzh(:,i),rhoi=rhoi,vxyzui=vxyzu(:,i),gammai=gamma,mui=gmw,Xi=X_in,Zi=Z_in)
- enddo
- 
- call histogram_setup(rad_part(1:npart),cs_part,cs_hist,npart,maxloga,minloga,nbins,.true.,.true.)
-
- ! Integrate sound-crossing time from surface inwards
- sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
- ! Convert to cgs units
- cs_hist = cs_hist * unit_velocity
- sepbins = sepbins * udist ! udist should be Rsun in cm
- 
- tconv(nbins) = 0.
- do i=nbins,2,-1
-    if (cs_hist(i) < tiny(1.)) then
-       tconv(i-1) = tconv(i)
-    else
-       tconv(i-1) = tconv(i) + (sepbins(i+1) - sepbins(i)) / cs_hist(i)
-    endif
- enddo
- 
- ! Write data row
- write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
- if (num == 0) then
-    unitnum = 1000
-    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
-    write(unitnum, "(a)") '# Sound crossing time profile'
-    close(unit=unitnum)
- endif
- unitnum=1002
- open(unit=unitnum, file=trim(adjustl(filename)), position='append')
- write(unitnum,data_formatter) time,tconv
- close(unit=unitnum)
-
-end subroutine tconv_profile
-
-
-!----------------------------------------------------------------
-!+
 !  Histogram of optical depth at hydrogen recombination
 !+
 !----------------------------------------------------------------
@@ -3054,6 +2988,152 @@ subroutine J_E_plane(num,npart,particlemass,xyzh,vxyzu)
 
 end subroutine J_E_plane
 
+!-------------------------------------------------------------------
+!+
+! Planet destruction
+!+
+!-------------------------------------------------------------------
+subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
+ use kernel, only:wkern
+ integer, intent(in)              :: npart
+ real, intent(in)                 :: time,particlemass
+ real, intent(inout)              :: xyzh(:,:),vxyzu(:,:)
+ character(len=17), allocatable   :: columns(:)
+ character(len=18)                :: filename
+ real, allocatable                :: planetDestruction(:)
+ integer                          :: ncols,i,j
+ real, allocatable, save          :: time_old
+ real, allocatable, save          :: particleRho(:)
+ character(len=50)                :: planetRadiusPromptString
+ real, allocatable, save          :: planetRadii(:) !In units of Rsun
+
+ real, dimension(3)               :: currentGasVel, currentVelContrast
+ real                             :: currentRho(1) !Is a one element array because sphInterpolation returns a 1 dimensional array.
+ real                             :: currentRhoScaled,currentVelContrastScaled,currentPlanetRhoScaled
+ real                             :: currentPlanetMassScaled,currentPlanetRadiusScaled
+ real, allocatable, save          :: currentKhAblatedMass(:)
+
+ ncols=5
+ allocate(columns(ncols))
+ allocate(planetDestruction(ncols))
+ columns=(/"      rhoGas", &
+           "  kh_rhoCrit", &
+           "     kh_lmax", &
+           "     kh_mdot", &
+           " kh_ablatedM" /)
+
+ !Kelvin-Helmholtz instability planet destruction as described in "On the survival of brown dwarfs
+ !and planets by their giant host star" (https://arxiv.org/abs/1210.0879). Description of columns:
+ !rhoGas: background gas density at sink. In units of g/cm^3.
+ !kh_rhoCrit: paper equation 5. In units of g/cm^3.
+ !kh_lmax: paper equation 6. In units of Jupiter radii.
+ !kh_mdot: paper equation 7. In units of Jupiter mass/year.
+ !kh_ablatedM: kh_mdot integrated over time. In units of Jupiter masses.
+
+ currentRho = 0.
+ do i=1,nptmass
+    if (i==1) cycle !The first sink is assumed to be the core.
+
+    if ((dump_number==0) .and. (i==2)) then !This is only done once.
+       allocate(planetRadii(nptmass))
+       planetRadii=0.1
+       do j=2,nptmass
+          write(planetRadiusPromptString,"(A13,I0,A32)") "Enter planet ",j-1," radius in units of solar radii"
+          call prompt(planetRadiusPromptString,planetRadii(i),0.0,1.0)
+       enddo
+
+       allocate(time_old)
+       allocate(particleRho(npart))
+       allocate(currentKhAblatedMass(nptmass))
+      
+       time_old=0.0
+       particleRho=getParticleRho(xyzh(4,:),particlemass)
+       currentKhAblatedMass=0.0
+    endif
+
+
+    currentRho=sphInterpolation(npart,particlemass,particleRho,xyzh,xyzmh_ptmass(1:3,i),reshape(particleRho,(/1,npart/)))
+    currentGasVel=sphInterpolation(npart,particlemass,particleRho,xyzh,xyzmh_ptmass(1:3,i),vxyzu(1:3,:))
+    currentVelContrast=vxyz_ptmass(1:3,i)-currentGasVel
+
+    currentPlanetRadiusScaled=planetRadii(i)/0.1 !In units of 0.1 Rsun.
+    currentPlanetMassScaled=xyzmh_ptmass(4,i)*104.74 !In units of 10 jupiter masses.
+    currentPlanetRhoScaled=(xyzmh_ptmass(4,i)/((4.0/3.0)*pi*(planetRadii(i)**3.0)))*0.44 !In units of 13.34 g/cm^3
+    currentRhoScaled=currentRho(1)*59000.0 !In units of 10^-4 g/cm^3.
+    currentVelContrastScaled=distance(currentVelContrast)*4.37 !In units of 100 km/s.
+
+    planetDestruction(1)=currentRho(1)*5.9
+    planetDestruction(2)=3.82*(currentPlanetRhoScaled**(4.0/3.0))*(currentPlanetMassScaled**(2.0/3.0))&
+                             *(currentVelContrastScaled**(-2.0))
+    planetDestruction(3)=0.0000263*(currentVelContrastScaled**2.0)*currentRhoScaled*(currentPlanetRhoScaled**((-5.0)/3.0))&
+                                   *(currentPlanetMassScaled**((-1.0)/3.0))
+    planetDestruction(4)=11.0*currentVelContrastScaled*currentRhoScaled*(currentPlanetRadiusScaled**2.0)&
+                             *(planetDestruction(3)/(currentPlanetRadiusScaled*0.973))
+
+    currentKhAblatedMass(i)=currentKhAblatedMass(i)+((time-time_old)*planetDestruction(4)*0.0000505)
+    planetDestruction(5)=currentKhAblatedMass(i)
+
+
+    write(filename, "(A17,I0)") "sink_destruction_",i
+    call write_time_file(filename, columns, time, planetDestruction, ncols, dump_number)
+ enddo
+
+ time_old=time
+end subroutine planet_destruction
+
+!-----------------------------------------------------------------------------------------
+!+
+!Binding energy profile
+!+
+!-----------------------------------------------------------------------------------------
+subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ real, intent(in)     :: time,particlemass
+ integer, intent(in)  :: num,npart
+ real, intent(in)     :: xyzh(4,npart),vxyzu(4,npart)
+ 
+ character(len=17), allocatable :: columns(:)
+ real, allocatable              :: profile(:,:)
+ integer                        :: ncols,i,j,iorder(npart)
+ real                           :: currentInteriorMass,currentParticleGPE,currentCoreParticleSeparation
+ real                           :: previousBindingEnergy,previousBindingEnergyU
+ 
+ ncols=3
+ allocate(columns(ncols))
+ allocate(profile(ncols,npart))
+ columns=(/"      radius",& 
+           "     bEnergy",& !Binding energy without internal energy.
+           " bEnergy (u)"/) !Binding energy with internal energy.
+           
+           
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
+ call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ currentInteriorMass=xyzmh_ptmass(4,1)+(npart*particlemass) !Initally set to the entire mass of the star.
+           
+ do i=npart,1,-1 !Loops over all particles from outer to inner.
+    j=iorder(i)
+    currentInteriorMass=currentInteriorMass-particlemass
+    currentCoreParticleSeparation=separation(xyzmh_ptmass(1:3,1),xyzh(1:3,j))
+    currentParticleGPE=(currentInteriorMass*particlemass)/currentCoreParticleSeparation
+    
+    !The binding energy at a particular radius is the sum of the gravitational potential energies
+    !(and internal energies in the case of the third column) of all particles beyond that radius.
+    if (i==npart) then
+       previousBindingEnergy=0.0
+       previousBindingEnergyU=0.0
+    else
+       previousBindingEnergy=profile(2,i+1)
+       previousBindingEnergyU=profile(3,i+1)
+    endif
+       
+    profile(1,i)=currentCoreParticleSeparation
+    profile(2,i)=previousBindingEnergy+currentParticleGPE
+    profile(3,i)=previousBindingEnergyU+currentParticleGPE-(vxyzu(4,j)*particlemass)
+ enddo
+ 
+ 
+ call write_file('bEnergyProfile','bEnergyProfiles',columns,profile,npart,ncols,num)
+end subroutine create_bindingEnergy_profile
+
 
 subroutine get_core_gas_com(time,npart,xyzh,vxyzu)
  use sortutils, only:set_r2func_origin,r2func_origin,indexxfunc
@@ -3843,6 +3923,53 @@ real function separation(a,b)
 
  separation = distance(a - b)
 end function separation
+
+!Creates an array of SPH particle densities for each value of h.
+elemental real function getParticleRho(h,particlemass)
+  real, intent(in) :: h,particlemass
+  getParticleRho=rhoh(h,particlemass)
+end function getParticleRho
+
+!Performs SPH interpolation on the SPH particle property toInterpolate at the location interpolateXyz.
+!The smoothing length used is the smoothing length of the closest SPH particle to interpolateXyz.
+function sphInterpolation(npart,particlemass,particleRho,particleXyzh,interpolateXyz,toInterpolate) result(interpolatedData)
+ use kernel, only:wkern
+ integer, intent(in) :: npart
+ real, intent(in)    :: particlemass
+ real, intent(in)    :: particleRho(npart)
+ real, intent(in)    :: particleXyzh(4,npart)
+ real, intent(in)    :: interpolateXyz(3)
+ real, intent(in)    :: toInterpolate(:,:)
+ real                :: interpolatedData(size(toInterpolate,1))
+  
+ integer             :: i,j,iorder(npart)
+ real                :: currentR,currentQ,currentQ2
+ real                :: nearestSphH
+ real                :: currentParticleRho,currentSphSummandFactor
+  
+ interpolatedData=0.0 
+ call set_r2func_origin(interpolateXyz(1),interpolateXyz(2),interpolateXyz(3))
+ call indexxfunc(npart,r2func_origin,particleXyzh,iorder) !Gets the order of SPH particles from the interpolation point.
+ nearestSphH=particleXyzh(4,iorder(1)) !The smoothing length of the nearest SPH particle to the ineterpolation point.
+  
+ do i=1,npart
+    j=iorder(i)
+    
+    currentR=separation(interpolateXyz,particleXyzh(1:3,j))
+    currentQ=currentR/nearestSphH !currentR is scaled in units of nearestSphH
+    currentQ2=currentQ**2.0
+    
+    !All SPH particles beyond 2 smoothing lengths are ignored.
+    if (currentQ>2) then
+       exit
+    endif
+       
+    !SPH interpolation is done below.
+    currentParticleRho=particleRho(j)
+    currentSphSummandFactor=(particlemass/currentParticleRho)*((1.0/((nearestSphH**3.0)*pi))*wkern(currentQ2,currentQ))
+    interpolatedData=interpolatedData+(currentSphSummandFactor*toInterpolate(:,j))
+ enddo    
+end function sphInterpolation
 
 !Sorting routines
 recursive subroutine quicksort(a, first, last, ncols, sortcol)
