@@ -58,7 +58,7 @@ subroutine test_radiation(ntests,npass)
     call test_implicit_matches_explicit(ntests,npass)
 
     implicit_radiation = .false.
-    call test_uniform_derivs(ntests,npass)
+    call test_radiation_diffusion(ntests,npass)
  endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
@@ -287,7 +287,7 @@ end subroutine test_implicit_matches_explicit
 !  unit tests of radiation derivatives: grad E and div F
 !+
 !---------------------------------------------------------
-subroutine test_uniform_derivs(ntests,npass)
+subroutine test_radiation_diffusion(ntests,npass)
  use part,            only:npart,xyzh,rhoh,vxyzu,&
                            rad,radprop,drad,ifluxx,maxvxyzu,fxyzu,init_part
  use boundary,        only:xmin,xmax
@@ -365,30 +365,33 @@ subroutine test_uniform_derivs(ntests,npass)
  endif
  dt = dtnew
  dtext = dt
-!    dt = 6.7e-24
+ if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
 
  call init_step(npart,t,dtmax)
  i = 0
+ D0  = c_code*(1./3)/kappa_code/rho0
+ print "(/,a,3(es10.3,a))", " exact solution: ",xi0,'*(1 + 0.1*sin(x*',l0,'))*exp(',-l0*l0*D0,'*t)'
  do while(t < tmax)
     t = t + dt
     dtext = dt
     call step(npart,nactive,t,dt,dtext,dtnew)
     dt = dtnew
-    !dt = 6.7e-24
+    if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
 
     i = i + 1
 
-    if (mod(i,10) == 0) then
+    if (mod(i,1) == 0) then
        nerr_xi = 0
        ncheck_xi = 0
        errmax_xi = 0.
        tol_xi = 3.5e-4
        do j = 1,npart
-          rhoi = rhoh(xyzh(4,i),pmassi)
+          rhoi = rhoh(xyzh(4,j),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
-          exact_xi = xi0*(1.+0.1*sin(xyzh(1,i)*l0)*exp(-l0*l0*t*D0))
+          exact_xi = xi0*(1.+0.1*sin(xyzh(1,j)*l0)*exp(-l0*l0*t*D0))
+          !if (j==8) print*,i,' xi = ',rad(iradxi,j),' should be ',exact_xi,D0,rhoi
           write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
-          call checkvalbuf(rad(iradxi,i),exact_xi,tol_xi,trim(string),&
+          call checkvalbuf(rad(iradxi,j),exact_xi,tol_xi,trim(string),&
                            nerr_xi(1),ncheck_xi,errmax_xi)
        enddo
        call checkvalbuf_end(trim(string),ncheck_xi,nerr_xi(1),errmax_xi,tol_xi)
@@ -403,7 +406,7 @@ subroutine test_uniform_derivs(ntests,npass)
  ! reset various things
  call init_part()
 
-end subroutine test_uniform_derivs
+end subroutine test_radiation_diffusion
 
 !---------------------------------------------------------
 !+
@@ -422,7 +425,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  use physcon,         only:Rg,pi,seconds
  use mpidomain,       only:i_belong
  use mpiutils,        only:reduceall_mpi
- use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,          only:hfact_default
  use unifdis,         only:set_unifdis
  use radiation_utils, only:kappa_cgs
@@ -438,7 +441,9 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep,&
                   hfact,npart,xyzh,periodic,mask=i_belong)
  nptot = reduceall_mpi('+',npart)
- massoftype(igas) = 1./nptot*1e-25
+
+ rho0 = 2.5e-24
+ massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot  !*1e-25
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0
@@ -456,7 +461,6 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  kappa_code = kappa_cgs/unit_opacity
  Tref = 100.
 
- rho0 = rhoh(xyzh(4,1),pmassi)
  xi0 = a*Tref**4/rho0
  do i=1,npart
     vxyzu(4,i) = (Tref/cv1)

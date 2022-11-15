@@ -829,7 +829,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
     !
     !--Now solve those equations... (these are eqns 22 in Whitehouse, Bate & Monaghan 2005)
     !
-    !print*,i,' Tgas = ',EU0(2,i)/radprop(icv,i),' Trad = ',(rhoi*EU0(1,i)/a_code)**0.25
+    !if (i==8) print*,i,' Tgas = ',EU0(2,i)/radprop(icv,i),' Trad = ',(rhoi*EU0(1,i)/a_code)**0.25
     betaval = c_code*radprop(ikappa,i)*rhoi*dti
     chival = dti*(diffusion_denominator-radpresdenom/EU0(1,I))-betaval
     gammaval = a_code*c_code*radprop(ikappa,i)/radprop(icv,i)**4
