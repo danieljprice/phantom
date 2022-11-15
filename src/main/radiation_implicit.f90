@@ -332,7 +332,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     EU0(2,i) = vxyzu(4,i)
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
     radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
-    radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
+    radprop(ikappa,i) = get_kappa(iopacity_type,vxyzu(4,i),radprop(icv,i),rhoi)
     !
     !--Diffuse ISM: Set dust temperature and opacity
     !
@@ -913,6 +913,16 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 !$omp critical (moresweepset)
        print*, "gsimpl: u has gone negative ",i,u1term,u0term,u4term,EU0(2,i),U1i,moresweep,ierr
        moresweep=.true.
+       print*, "gsimpl: u has gone negative ",i,U1i
+       print*,'Error in solve_quartic'
+          print*,'i=',i,'u1term=',u1term,'u0term=',u0term,'EU0(2,i)=',EU0(2,i),'U1i=',U1i,'moresweep=',moresweep
+          print*,"info: ",EU0(2,i)/radprop(icv,i)
+          print*,"info2: ",u0term,u1term,u4term,gammaval,radprop(ikappa,i),radprop(icv,i)
+          print*,"info3: ",chival,betaval,dti
+          print*,"info4: ",pres_denominator,origEU(1,i),pres_numerator
+          print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
+          print*,"info6: ",radpresdenom,EU0(1,i)
+          read*
 !$omp end critical (moresweepset)
     endif
     if (E1i <= 0.) then
@@ -947,7 +957,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
     !if (i==700) print*,' change in u is ',100*(U1i-EU0(2,i))/EU0(2,i),'%'
     EU0(1,i) = E1i
     EU0(2,i) = U1i
-    radprop(icv,i) = get_cv(rhoi,vxyzu(4,i),cv_type) ! should this be EU0(2,i)??
+    radprop(icv,i) = get_cv(rhoi,EU0(2,i),cv_type) ! should this be EU0(2,i)??
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
     if (dustRT) then

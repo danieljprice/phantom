@@ -321,6 +321,8 @@ else
     SRCAN=
 endif
 
+LIBTOOL=libtool -static -o
+
 #
 # MPI flavour (mostly openmpi these days)
 #
@@ -602,7 +604,7 @@ libsetup: $(OBJLIBSETUP)
 	@echo ""
 	@echo "Phantom libsetup built"
 	@echo ""
-	ar rcs $(LIBSETUP) $^
+	$(LIBTOOL) $(LIBSETUP) $^
 
 #----------------------------------------------------
 # these are the sources for phantom setup utility
@@ -800,7 +802,7 @@ OBJLIB=${OBJLIB1:.F90=.o}
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
 libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
-	ar rcs $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
+	$(LIBTOOL) $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so

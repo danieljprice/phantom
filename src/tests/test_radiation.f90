@@ -95,7 +95,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest
  integer(kind=8) :: nptot
- logical, parameter :: write_output = .false.
+ logical, parameter :: write_output = .true.
  character(len=12) :: string,filestr
 
  call init_part()
@@ -166,7 +166,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     ierrmax = 0
     do while(t < maxt/utime)
        dt = max(1d-18*seconds/utime,0.05d0*t)
-       ! dt = maxt/utime
+      !  dt = maxt/utime
        if (use_implicit) then
           if (i > 1) dt = 0.05*maxt/utime ! use large timesteps for implicit version
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
