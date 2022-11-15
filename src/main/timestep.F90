@@ -14,11 +14,11 @@ module timestep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: io
 !
  implicit none
  real    :: tmax,dtmax
- real    :: C_cour,C_force,C_cool,C_rad,tolv,xtol,ptol
+ real    :: C_cour,C_force,C_cool,C_rad,C_ent,tolv,xtol,ptol
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
@@ -44,6 +44,7 @@ subroutine set_defaults_timestep
  C_force = 0.25
  C_cool  = 0.05
  C_rad   = 0.8  ! see Biriukov & Price (2019)
+ C_ent   = 3.
  tmax    = 10.0
  dtmax   =  1.0
  tolv    = 1.e-2
@@ -112,6 +113,7 @@ end subroutine print_dtlog
 !----------------------------------------------------------------
 subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                     rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
+ use io, only: iverbose
  integer,      intent(in)    :: iprint
  integer,      intent(out)   :: dtmax_ifactor
  integer,      intent(inout) :: nfulldump
@@ -119,7 +121,7 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
  real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(in)    :: change_dtmax_now
- real                        :: ratio,dtmax_global
+ real                        :: ratio,dtmax_global,tempvar,diff
  integer                     :: ipower,ifactor,dtmax_ifactor_time
  integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
  integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
@@ -157,27 +159,54 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
     endif
  endif
 
- ! modify dtmax based upon density change (algorithm copied from sphNG)
+ ! modify dtmax based upon density change (algorithm copied from sphNG, with slight modifications)
  if (dtmax_log_dratio > 0.0) then
     ratio   = log10(rhomaxnew/rhomaxold)
     ipower  = -(int(ratio/dtmax_log_dratio))
     if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
+    if (iverbose > 0) then
+       write(iprint,'(1x,a,4es10.3,I6)') &
+       "modifying dtmax: inspecting ratio rho_new/rho_old, rho_old, rho_new, ipower: ", &
+       10**dtmax_log_dratio,rhomaxnew/rhomaxold,rhomaxold,rhomaxnew,ipower
+    endif
+
+    if (ipower > 5) ipower = 5 ! limit the largest increase in step size to 2**5 = 32
+    if (ipower == 1) then
+       tempvar = time/(2.0*dtmax)
+       diff    = tempvar - int(tempvar)
+       if (0.25 < diff .and. diff < 0.75) then
+          write(iprint,'(1x,a,4es10.3)') 'modifying dtmax: Synct autochange attempt, but sync ',diff
+          ipower = 0
+       endif
+    endif
     ifactor = 2**abs(ipower)
     if (ipower < 0) then
        ! decrease dtmax
        ifactor = min(ifactor,ifactor_max_dn)
        if (dtmax/ifactor >= dtmax_min ) then
           dtmax_ifactor = ifactor
-          write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase"
+          if (iverbose > 0) then
+             write(iprint,'(1x,a,2(es10.3,a),2es10.3,2I6)') &
+             "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase. rho_old, rho_new, power, ifactor: ", &
+             rhomaxold,rhomaxnew,ipower,ifactor
+          else
+             write(iprint,'(1x,a,2(es10.3,a))') "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase."
+          endif
+
        endif
     elseif (ipower > 0) then
        ! increase dtmax
-       ifactor = ifactor_max_up
+       ifactor = min(ifactor,ifactor_max_up)
        if (dtmax*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
           dtmax_ifactor = -ifactor
-          write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation"
+          if (iverbose > 0) then
+             write(iprint,'(1x,a,2(es10.3,a),a,2es10.3,2I6)') &
+             "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation. ", &
+             "rho_old, rho_new, power, ifactor: ",rhomaxold,rhomaxnew,ipower,ifactor
+          else
+             write(iprint,'(1x,a,2(es10.3,a))') &
+             "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation."
+          endif
        endif
     endif
     rhomaxold = rhomaxnew

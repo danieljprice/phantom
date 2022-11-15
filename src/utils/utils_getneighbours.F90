@@ -109,7 +109,7 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
     ! Get neighbour list for the cell
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache,getj=.true.)
 
-    ! Loop over particles in the cell
+    ! Loop over particles incellsn the cell
     over_parts: do ip = inoderange(1,icell),inoderange(2,icell)
        i = inodeparts(ip)
        if (maxphase==maxp) then

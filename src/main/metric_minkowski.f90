@@ -19,6 +19,8 @@ module metric
  implicit none
  character(len=*), parameter :: metric_type = 'Minkowski'
  integer,          parameter :: imetric     = 1
+ real, public  :: mass1 = 1.       ! mass of central object
+ real, public  :: a     = 0.       ! spin of central object
 
 contains
 
