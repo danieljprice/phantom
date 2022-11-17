@@ -1071,13 +1071,13 @@ subroutine state_to_array(state, array)
     iwrite = iwrite + 1
  endif
  if (idust_opacity == 2) then
-    array(iwrite+2) = state%JKmuS(idgamma)
+    array(iwrite+1) = state%JKmuS(idgamma)
     iwrite = iwrite + 1
  else
     array(iwrite+1) = state%gamma
     iwrite = iwrite + 1
  endif
- if (icooling > 0) array(iwrite) = state%Q
+ if (icooling > 0) array(iwrite+1) = state%Q
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)
