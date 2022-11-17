@@ -99,13 +99,18 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use physcon,          only:pi,Rg
  use io,               only:fatal
  use eos,              only:gmw
- use ptmass_radiation, only:alpha_rad
+ use ptmass_radiation, only:alpha_rad,iget_tdust
  use part,             only:xyzmh_ptmass,iTeff,iReff,ilum
  use dust_formation,   only:kappa_gas,init_muGamma,idust_opacity
  use units,            only:umass,unit_energ,utime,udist
 
  real, intent(in) :: r0, v0, T0, time_end
  type(wind_state), intent(out) :: state
+
+ Tstar     = xyzmh_ptmass(iTeff,wind_emitting_sink)
+ Rstar     = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
+ Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
+ Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%dt = 1000.
  if (time_end > 0.d0) then
@@ -125,7 +130,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0
- state%Tdust  = T0
+ if (iget_tdust == 0) then
+    state%Tdust = T0
+ else
+    state%Tdust = Tstar
+ endif
  state%tau_lucy = 2./3.
  state%kappa  = kappa_gas
  state%Q      = 0.
@@ -134,11 +143,6 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%spcode = 0
  state%nsteps = 1
  state%tau    = 0
-
- Tstar     = xyzmh_ptmass(iTeff,wind_emitting_sink)
- Rstar     = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
- Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
- Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%alpha_Edd = 0.
  state%K2        = 0.
@@ -298,10 +302,8 @@ subroutine wind_step(state)
     state%mu        = state%JKmuS(idmu)
     state%gamma     = state%JKmuS(idgamma)
     state%kappa     = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
-    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
-    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  if (itau_alloc == 1 .and. itauL_alloc == 0.) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
