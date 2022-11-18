@@ -2745,7 +2745,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
              !--store pdV work and shock heating in separate array needed for some applications
              !  this is a kind of luminosity if it were all radiated
              !
-             if (lightcurve .or. (do_radiation .and. implicit_radiation)) then
+             if (lightcurve) then
                 pdv_work = pri*rho1i*rho1i*drhodti
                 if (pdv_work > tiny(pdv_work)) then ! pdv_work < 0 is possible, and we want to ignore this case
                    dudt_radi = fac*pdv_work + fac*fsum(idudtdissi)
@@ -2779,7 +2779,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
           endif
-          if (maxvxyzu >= 4 .and. .not.(do_radiation .and. implicit_radiation)) fxyzu(4,i) = fxyz4
+          if (do_radiation .and. implicit_radiation) then
+             luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
+             !fxyzu(4,i) = 0.
+          else
+             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          endif
        endif
 
        if (mhd) then
