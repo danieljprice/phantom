@@ -124,9 +124,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
- use radiation_utils, only:kappa_cgs
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr
- use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
+ use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr
+ use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -282,11 +283,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
-    call write_inopt(implicit_radiation,'implicit_radiation','do radiation implicitly',iwritein)
+    call write_inopt(implicit_radiation,'implicit_radiation','use implicit integration (Whitehouse, Bate & Monaghan 2005)',iwritein)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
     call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
     if (iopacity_type == 2) call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
+    if (implicit_radiation) then
+       call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
+       call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
+    endif
  endif
 #ifdef GR
  call write_options_metric(iwritein)
@@ -339,10 +344,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation
- use radiation_utils, only:kappa_cgs
+ use ptmass_radiation,   only:read_options_ptmass_radiation
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
 #ifdef WIND
- use ptmass_radiation,only:isink_radiation,alpha_rad
+ use ptmass_radiation,   only:isink_radiation,alpha_rad
 #endif
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
@@ -517,6 +523,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) iopacity_type
     case('kappa_cgs')
        read(valstring,*,iostat=ierr) kappa_cgs
+    case('tol_rad')
+       read(valstring,*,iostat=ierr) tol_rad
+    case('itsmax_rad')
+       read(valstring,*,iostat=ierr) itsmax_rad
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
