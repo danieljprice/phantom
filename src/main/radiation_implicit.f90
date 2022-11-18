@@ -39,8 +39,8 @@ module radiation_implicit
  real, parameter    :: Tdust_threshold = 100.
 
  ! options for the input file, with default values
- real, public       :: tol_rad = 1.e-5
- integer, public    :: nsweepmax = 100
+ real, public       :: tol_rad = 1.e-4
+ integer, public    :: itsmax_rad = 250
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
@@ -55,7 +55,7 @@ contains
 !+
 !---------------------------------------------------------
 subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
- use io, only:fatal,error
+ use io, only:fatal,warning
  integer, intent(in)  :: npart
  real, intent(in)     :: dt,xyzh(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
@@ -66,21 +66,32 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  real, allocatable    :: origEU(:,:),EU0(:,:)
 
  ierr = 0
- nsubsteps = 1
- dtsub = dt
 
  allocate(origEU(2,npart),EU0(2,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','could not allocate memory to origEU and EU0')
 
  call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.false.)
 
- do i = 1,nsubsteps
-    call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
-    if (failed .or. moresweep) then
-       ierr = ierr_failed_to_converge
-       call error('radiation_implicit','failed to converge')
-    endif
-    if (i /= nsubsteps) call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
+ nsubsteps = 1
+ moresweep = .true.
+ do while (moresweep)
+    moresweep = .false.
+    dtsub = dt/nsubsteps
+    over_substeps: do i = 1,nsubsteps
+       call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+       if (failed .or. moresweep) then
+          ierr = ierr_failed_to_converge
+          call warning('radiation_implicit','integration failed - using U and E values anyway')
+          moresweep = .false.
+          !exit over_substeps
+       endif
+       if (i /= nsubsteps) call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
+    enddo over_substeps
+
+    !if (moresweep) then
+   !    call restore_radiation_energies(npart,rad,xyzh,vxyzu,radprop,origEU,.true.)
+   !    nsubsteps = nsubsteps*2
+    !endif
  enddo
 
  deallocate(origEU,EU0)
@@ -119,14 +130,13 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
 
 end subroutine save_radiation_energies
 
-
 !---------------------------------------------------------
 !+
 !  perform single iteration
 !+
 !---------------------------------------------------------
 subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
- use io,      only:fatal,error,iverbose
+ use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use physcon, only:pi
  use kernel,  only:radkern
@@ -136,13 +146,12 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: errorE,errorU,EU0(:,:)
  integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average,nsweep
+ integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average,its
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
  real :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
  logical :: converged
 
  failed = .false.
- nit = 0
  errorE = 0.
  errorU = 0.
  ierr = 0
@@ -170,14 +179,14 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
 
- iterations: do nsweep=1,nsweepmax
+ iterations: do its=1,itsmax_rad
     call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radprop)
     call calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varinew,ierr)
     call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
                                      vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
 
-    if (iverbose >= 2) print*,'iteration: ',nsweep,' error = ',maxerrE2,maxerrU2
+    if (iverbose >= 2) print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
     if (converged) exit iterations
 
@@ -186,9 +195,9 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
 
  if (converged) then
     if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
-          trim(label)//': succeeded with ',nsweep,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
+          trim(label)//': succeeded with ',its,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
-    call error('radiation_implicit','maximum iterations reached')
+    call warning('radiation_implicit','maximum iterations reached')
     moresweep = .true.
  endif
 
@@ -898,8 +907,6 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
        !$omp end critical (moresweepset)
        cycle main_loop
     endif
-
-    !print*,' HERE EU0(2,i)=',i,EU0(2,i)
 
     if (.not. skip_quartic) then
        u1term = u1term/u4term
