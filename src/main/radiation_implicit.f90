@@ -185,7 +185,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  enddo iterations
 
  if (converged) then
-    if (iverbose > 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
+    if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
           trim(label)//': succeeded with ',nsweep,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
     call error('radiation_implicit','maximum iterations reached')
@@ -777,7 +777,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
    !  IF (.NOT.boundaryparticle(i,xyzmh,rhoi)) THEN
     diffusion_numerator = varinew(1,i)
     diffusion_denominator = varinew(2,i)
-    pres_numerator = pdvvisc(i)/massoftype(igas)/dti  ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
+    pres_numerator = pdvvisc(i)/massoftype(igas) ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
     pres_denominator = 0.
     !
     !--Radiation pressure...
