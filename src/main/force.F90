@@ -2779,7 +2779,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
           endif
-          if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          if (maxvxyzu >= 4 .and. .not.(do_radiation .and. implicit_radiation)) fxyzu(4,i) = fxyz4
        endif
 
        if (mhd) then
@@ -2926,8 +2926,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
        dtdrag = 0.9*ts_min
     endif
 
-    if (do_radiation.and.iamgasi) then
-       if (radprop(ithick,i) < 0.5 .or. implicit_radiation) then
+    if (do_radiation.and.iamgasi .and. .not.implicit_radiation) then
+       if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
        else
           if (iopacity_type == 0) then ! infinite opacity equals no radiation diffusion

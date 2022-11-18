@@ -40,6 +40,7 @@ subroutine test_radiation(ntests,npass)
  use units,   only:set_units
  use dim,     only:do_radiation,periodic
  use options, only:implicit_radiation
+ use io,      only:iverbose
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -57,7 +58,11 @@ subroutine test_radiation(ntests,npass)
  else
     call test_implicit_matches_explicit(ntests,npass)
 
+    iverbose = -1
     implicit_radiation = .false.
+    call test_radiation_diffusion(ntests,npass)
+
+    implicit_radiation = .true.
     call test_radiation_diffusion(ntests,npass)
  endif
 
@@ -217,7 +222,7 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  integer, intent(inout) :: ntests,npass
  real(kind=kind(dvdx)), allocatable :: dvdx_explicit(:,:)
  real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
- real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,exact(9),tolh_old,pmassi
+ real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
  integer :: i,j,itry,nerr_e(9),ierr
 
  implicit_radiation = .false.
@@ -296,7 +301,7 @@ subroutine test_radiation_diffusion(ntests,npass)
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
- use options,         only:implicit_radiation
+ use options,         only:implicit_radiation,limit_radiation_flux,implicit_radiation_store_drad
  use mpiutils,        only:reduceall_mpi
  integer, intent(inout) :: ntests,npass
  real :: rhoi,dtext,pmassi,dt,t,kappa_code
@@ -314,8 +319,10 @@ subroutine test_radiation_diffusion(ntests,npass)
 
  tmax = 5.e-22
  dtmax = tmax
+ implicit_radiation_store_drad = .true.
+ limit_radiation_flux = .false.
  do i = 1,2
-    call get_derivs_global(dt_new=dtnew)
+    call get_derivs_global(dt_new=dtnew,dt=1.e-25)
  enddo
 
  nerr_e = 0
@@ -336,7 +343,9 @@ subroutine test_radiation_diffusion(ntests,npass)
     exact_DgrF = -xi0*D0  *0.1*l0*l0*sin(xyzh(1,i)*l0)
     call checkvalbuf(radprop(ifluxx,i),exact_grE,tol_e, '  grad{E}',nerr_e(1),ncheck_e,errmax_e)
     !  this test only works with fixed lambda = 1/3
-    if (.not. implicit_radiation) call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'D*grad{F}',nerr_f(1),ncheck_f,errmax_f)
+    if (.not.limit_radiation_flux) then
+       call checkvalbuf(drad(iradxi,i),exact_DgrF,tol_f,'dxi/dt = -div F = div(D grad E)',nerr_f(1),ncheck_f,errmax_f)
+    endif
  enddo
  call checkvalbuf_end('  grad{E}',ncheck_e,nerr_e(1),errmax_e,tol_e)
  call checkvalbuf_end('D*grad{F}',ncheck_f,nerr_f(1),errmax_f,tol_f)
@@ -351,7 +360,7 @@ subroutine test_radiation_diffusion(ntests,npass)
     degas = degas + fxyzu(4,i)       ! du/dt
     derad = derad + drad(iradxi,i)   ! dxi/dt
  enddo
- de = pmassi*(dekin + degas + derad)
+ de = pmassi*(dekin + degas + derad)/xi0
  de = reduceall_mpi('+',de)
  call checkval(de,0.,4.e-9,nerr_e(1),'dE/dt = 0')
  call update_test_scores(ntests,nerr_e,npass)
@@ -366,11 +375,12 @@ subroutine test_radiation_diffusion(ntests,npass)
  dt = dtnew
  dtext = dt
  if (implicit_radiation) dt = 6.7e-24 ! force the explicit timestep
+ implicit_radiation_store_drad = .false.
 
  call init_step(npart,t,dtmax)
  i = 0
  D0  = c_code*(1./3)/kappa_code/rho0
- print "(/,a,3(es10.3,a))", " exact solution: ",xi0,'*(1 + 0.1*sin(x*',l0,'))*exp(',-l0*l0*D0,'*t)'
+ if (write_output) print "(/,a,3(es10.3,a))", ' exact solution: ',xi0,'*(1 + 0.1*sin(x*',l0,')*exp(',-l0*l0*D0,'*t))'
  do while(t < tmax)
     t = t + dt
     dtext = dt
@@ -380,16 +390,19 @@ subroutine test_radiation_diffusion(ntests,npass)
 
     i = i + 1
 
-    if (mod(i,1) == 0) then
+    if (mod(i,10) == 0) then
        nerr_xi = 0
        ncheck_xi = 0
        errmax_xi = 0.
-       tol_xi = 3.5e-4
+       if (implicit_radiation) then
+          tol_xi = 5.e-3
+       else
+          tol_xi = 3.5e-4
+       endif
        do j = 1,npart
           rhoi = rhoh(xyzh(4,j),pmassi)
           D0  = c_code*(1./3)/kappa_code/rhoi
           exact_xi = xi0*(1.+0.1*sin(xyzh(1,j)*l0)*exp(-l0*l0*t*D0))
-          !if (j==8) print*,i,' xi = ',rad(iradxi,j),' should be ',exact_xi,D0,rhoi
           write (string,"(a,i3.3,a)") 'xi(t_', i, ')'
           call checkvalbuf(rad(iradxi,j),exact_xi,tol_xi,trim(string),&
                            nerr_xi(1),ncheck_xi,errmax_xi)
@@ -405,6 +418,7 @@ subroutine test_radiation_diffusion(ntests,npass)
 
  ! reset various things
  call init_part()
+ limit_radiation_flux = .true.
 
 end subroutine test_radiation_diffusion
 
@@ -467,12 +481,11 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
     radprop(ikappa,i) = kappa_code
     rad(iradxi,i)     = xi0*(1. + 1e-1*sin(xyzh(1,i)*2.*pi/(xmax-xmin)))
     radprop(ithick,i) = 1.
-     !etot = vxyzu(4,i) + rad(iradxi,i)
-     !Tgas = vxyzu(4,i)*cv1
-     !rhoi = rhoh(xyzh(4,i),pmassi)
-     !if (i==1) print*,i,'u=',vxyzu(4,i),'xi=',rad(iradxi,i),rho0
-     !Trad = (rho0*(etot-vxyzu(4,i))/a)**(1./4.)
-     !print*, Tref, Trad, Tgas
+    !etot = vxyzu(4,i) + rad(iradxi,i)
+    !Tgas = vxyzu(4,i)*cv1
+    !rhoi = rhoh(xyzh(4,i),pmassi)
+    !Trad = (rho0*(etot-vxyzu(4,i))/a)**(1./4.)
+    !print*, Tref, Trad, Tgas
  enddo
 
 end subroutine setup_radiation_diffusion_problem_sinusoid

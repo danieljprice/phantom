@@ -78,7 +78,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit
- use options,        only:implicit_radiation
+ use options,        only:implicit_radiation,implicit_radiation_store_drad
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -102,7 +102,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
  real,         intent(inout) :: metrics(:,:,:,:)
- integer                     :: ierr
+ integer                     :: ierr,i
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
  t1    = 0.
@@ -208,9 +208,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
 #endif
 
- if (do_radiation .and. implicit_radiation) then
-    drad(:,1:npart) = 0.
-    fxyzu(4,1:npart) = 0.
+ if (do_radiation .and. implicit_radiation .and. .not.implicit_radiation_store_drad) then
+    !$omp parallel do shared(drad,fxyzu,npart) private(i)
+    do i=1,npart
+       drad(:,i) = 0.
+       fxyzu(4,i) = 0.
+    enddo
+    !$omp end parallel do
  endif
 !
 ! set new timestep from Courant/forces condition
@@ -239,7 +243,7 @@ end subroutine derivs
 !  and store them in the global shared arrays
 !+
 !--------------------------------------
-subroutine get_derivs_global(tused,dt_new)
+subroutine get_derivs_global(tused,dt_new,dt)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                 dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
@@ -247,16 +251,18 @@ subroutine get_derivs_global(tused,dt_new)
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
+ real,         intent(in), optional  :: dt  ! optional argument needed to test implicit radiation routine
  real(kind=4) :: t1,t2
  real :: dtnew
- real :: time,dt
+ real :: time,dti
 
  time = 0.
- dt = 0.
+ dti = 0.
+ if (present(dt)) dti = dt
  call getused(t1)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,eos_vars,&
-             time,dt,dtnew,pxyzu,dens,metrics)
+             time,dti,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1
