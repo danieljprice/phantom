@@ -31,6 +31,7 @@ SHELL = /bin/bash
 VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
 BINDIR= ../bin
 UNAME=${shell uname}
+UNAMEP=${shell uname -p}
 #----------------------------------------------------------------
 # Sensible defaults for phantom configuration
 #----------------------------------------------------------------
