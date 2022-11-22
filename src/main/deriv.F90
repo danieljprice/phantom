@@ -62,11 +62,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use part,           only:massoftype
 #endif
  use dust_formation,   only:calc_kappa_bowen,idust_opacity
- use part,             only:ikappa,nucleation,tau,tau_lucy,itau_alloc,itauL_alloc
+ use part,             only:ikappa,nucleation,tau,tau_lucy,itau_alloc
  use raytracer,        only:get_all_tau
- use raytracer_lucy,   only:get_all_tau_lucy
  use growth,           only:get_growth_rate
- use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution,iget_tdust
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
@@ -188,11 +187,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     !
     ! compute dust temperature based on radiation from sink particles
     !
-    if (itauL_alloc == 1 .and. itau_alloc == 1) then
+    if (iget_tdust == 3) then
        if (idust_opacity == 2) then
-          call get_all_tau_lucy(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
+          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
        else
-          call get_all_tau_lucy(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
+          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
        endif
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp, tau_lucy)
     else
@@ -201,7 +200,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     !
     ! do ray tracing to get optical depth (tau)
     !
-    if (itau_alloc == 1 .and. itauL_alloc == 0) then
+    if (itau_alloc > 0) then
        if (idust_opacity == 2) then
           call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
        else

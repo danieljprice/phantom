@@ -79,7 +79,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
     gmw   = wind_mu
  endif
 
- if (iget_tdust == -12) then
+ if (iget_tdust == -3) then
     !not working
     print *,'get_initial_radius not working'
     call get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
@@ -124,9 +124,9 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  endif
  state%time   = 0.
  state%r_old  = 0.
- state%r0     = r0
+ state%r0     = r0 !r0 set to Rinject in setup_wind
  state%r      = r0
- state%Rstar  = r0
+ state%Rstar  = Rstar
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0
@@ -234,15 +234,17 @@ subroutine wind_step(state)
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  state%tau_lucy = state%tau_lucy &
-      - (state%r-state%r_old) * Rstar**2 &
+      - (state%r-state%r_old) * star%Rstar &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
  !update dust temperature
- if (iget_tdust == 2) then
+ if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 2) then
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
  elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(Rstar/state%r)**tdust_exp
+    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
  else
     state%Tdust = state%Tg
  endif
@@ -342,15 +344,17 @@ subroutine wind_step(state)
  endif
  state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
-      - (state%r-state%r_old) * Rstar**2 &
+      - (state%r-state%r_old) * state%Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
  !update dust temperature
- if (iget_tdust == 2) then
+ if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 2) then
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
  elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(Rstar/state%r)**tdust_exp
+    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
  else
     state%Tdust = state%Tg
  endif
@@ -402,7 +406,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     tau_lucy_last = state%tau_lucy
 
     call wind_step(state)
-    if (iget_tdust == 2 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
+    if (iget_tdust == 3 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
     !if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     if (state%r == state%r_old) state%error = .true.
     !print *,state%time,state%r,state%v/state%c,state%dt,dtmin,state%Tg,Tdust_stop,state%error,state%spcode
@@ -410,50 +414,6 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
 
 end subroutine calc_wind_profile
 
-
-#ifdef TO_BE_REMOVED
-!-----------------------------------------------------------------------
-!+
-!  integrate wind equation up to time=local_time
-!+
-!-----------------------------------------------------------------------
-subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
- !in/out variables in code units (except Jstar,K)
- use units,           only:udist, utime, unit_velocity, unit_density, unit_pressure
- use dust_formation,  only:idust_opacity
- real, intent(in)  :: local_time, GM, T0
- real, intent(inout) :: r, v
- real, intent(out) :: u, rho, e, fdone
- real, optional, intent(out) :: JKmuS(:)
-
- type(wind_state) :: state
- real :: T
-
- T = T0
- r = r*udist
- v = v*unit_velocity
- if (local_time == 0.) then
-    call init_wind(r, v, T, local_time, state)
-    fdone = 1.d0
- else
-    call calc_wind_profile(r, v, T, local_time*utime, state)
-    fdone = state%time/local_time/utime
- endif
- r   = state%r/udist
- v   = state%v/unit_velocity
- rho = state%rho/unit_density
- !u = state%Tg * u_to_temperature_ratio
-#ifndef ISOTHERMAL
- u  = state%p/((state%gamma-1.)*rho)/unit_pressure
-#endif
- e = .5*v**2 - GM/r + state%gamma*u
- if (idust_opacity == 2) then
-    JKmuS(1:n_nucleation-1) = state%JKmuS(1:n_nucleation-1)
-    JKmuS(n_nucleation) = state%kappa
- endif
-
-end subroutine wind_profile
-#endif
 
 !-----------------------------------------------------------------------
 !
@@ -917,7 +877,7 @@ subroutine filewrite_header(iunit,nwrite)
  character (len=20):: fmt
 
  if (itau_alloc == 1) then
-    if (iget_tdust == 2) then
+    if (iget_tdust == 3) then
        if (idust_opacity == 2) then
           if (icooling > 0) then
              nwrite = 23
@@ -930,7 +890,7 @@ subroutine filewrite_header(iunit,nwrite)
              write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
                    'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma'
           endif
-       else 
+       else
           if (icooling > 0) then
              nwrite = 17
              write(fmt,*) nwrite
@@ -971,7 +931,7 @@ subroutine filewrite_header(iunit,nwrite)
        endif
     endif
  else
-    if (iget_tdust == 2) then
+    if (iget_tdust == 3) then
        if (idust_opacity == 2) then
           if (icooling > 0) then
              nwrite = 22
@@ -984,7 +944,7 @@ subroutine filewrite_header(iunit,nwrite)
              write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
                    'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
           endif
-       else 
+       else
           if (icooling > 0) then
              nwrite = 16
              write(fmt,*) nwrite
@@ -1058,7 +1018,7 @@ subroutine state_to_array(state, array)
     array(iwrite+1) = state%mu
     iwrite = iwrite + 1
  endif
- if (iget_tdust == 2) then
+ if (iget_tdust == 3) then
     array(iwrite+1) = state%tau_lucy
     iwrite = iwrite + 1
  endif
@@ -1068,7 +1028,7 @@ subroutine state_to_array(state, array)
     array(iwrite+1) = state%tau
     iwrite = iwrite + 1
  endif
- if (idust_opacity == 2 .or. iget_tdust == 2) then
+ if (idust_opacity == 2 .or. iget_tdust > 1) then
     array(iwrite+1) = state%Tdust
     iwrite = iwrite + 1
  endif

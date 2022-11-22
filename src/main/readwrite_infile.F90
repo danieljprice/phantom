@@ -333,7 +333,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad,iget_Tdust,iray_resolution
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  character(len=*), parameter   :: label = 'read_infile'
@@ -675,6 +675,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+    if (iget_Tdust > 2 .and. iray_resolution < 0 ) &
+         call fatal(label,'To get dust temperature, set iray_resolution > 0')
  endif
  return
 
