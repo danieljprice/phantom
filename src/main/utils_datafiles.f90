@@ -147,7 +147,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  integer,          intent(out) :: ierr
  integer :: ilen,iunit!,ierr1
  logical :: iexist
- character(len=*), parameter :: cmd = 'curl'
+ character(len=*), parameter :: cmd = 'curl -k'
 
  print "(80('-'))"
  print "(a)",'  Downloading '//trim(file)//' from '//trim(url)
