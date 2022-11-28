@@ -147,7 +147,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  integer,          intent(out) :: ierr
  integer :: ilen,iunit!,ierr1
  logical :: iexist
- character(len=*), parameter :: cmd = 'curl'
+ character(len=*), parameter :: cmd = 'curl -Ok'
 
  print "(80('-'))"
  print "(a)",'  Downloading '//trim(file)//' from '//trim(url)
@@ -164,11 +164,11 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
     if (len_trim(dir) > 0) then
        !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file)//' -O '//trim(dir)//trim(file),wait=.true.,&
        !                          exitstat=ierr,cmdstat=ierr1)
-       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(dir)//trim(file))
+       call system(trim(cmd)//' '//trim(url)//trim(file))
        localfile = trim(dir)//trim(file)
     else
        !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file),wait=.true.,exitstat=ierr,cmdstat=ierr1)
-       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(file))
+       call system(trim(cmd)//' '//trim(url)//trim(file))
        localfile = trim(file)
     endif
  endif
