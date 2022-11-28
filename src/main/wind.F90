@@ -51,7 +51,7 @@ contains
 
 subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
  use ptmass_radiation, only:iget_tdust
- use units,            only:umass,utime
+ use units,            only:umass,utime,udist
  use physcon,          only:c,years,pi
  use eos,              only:gamma,gmw
  use dust_formation,   only:set_abundances,init_muGamma,idust_opacity
@@ -60,6 +60,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  real, intent(in)    :: Mstar_cg, Mdot_code, u_to_T
  real, intent(inout) :: r0,v0,T0
  real, intent(out)   :: rsonic, tsonic
+ real :: tau_lucy_init
  real :: rho_cgs, wind_mu!, pH, pH_tot
 
  Mstar_cgs  = Mstar_cg
@@ -82,7 +83,11 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  if (iget_tdust == -3) then
     !not working
     print *,'get_initial_radius not working'
-    call get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
+    call get_initial_radius(r0, T0, v0, Rstar, rsonic, tsonic, stype)
+    print*,Rstar/udist, r0/udist, T0, v0*1e-5, rsonic/udist, tsonic
+    stop
+ elseif (iget_tdust == 3) then
+    call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
  else
     call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  endif
@@ -94,7 +99,7 @@ end subroutine setup_wind
 !  Initialize variables for wind integration
 !
 !-----------------------------------------------------------------------
-subroutine init_wind(r0, v0, T0, time_end, state)
+subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
 ! all quantities in cgs
  use physcon,          only:pi,Rg
  use io,               only:fatal
@@ -105,10 +110,10 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  use units,            only:umass,unit_energ,utime,udist
 
  real, intent(in) :: r0, v0, T0, time_end
+ real, intent(in), optional :: tau_lucy_init
  type(wind_state), intent(out) :: state
 
  Tstar     = xyzmh_ptmass(iTeff,wind_emitting_sink)
- Rstar     = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
  Lstar_cgs = xyzmh_ptmass(ilum,wind_emitting_sink)*unit_energ/utime
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
@@ -126,7 +131,7 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%r_old  = 0.
  state%r0     = r0 !r0 set to Rinject in setup_wind
  state%r      = r0
- state%Rstar  = Rstar
+ state%Rstar  = min(xyzmh_ptmass(iReff,wind_emitting_sink)*udist, r0)
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0
@@ -135,7 +140,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  else
     state%Tdust = Tstar
  endif
- state%tau_lucy = 2./3.
+ if (present(tau_lucy_init)) then
+    state%tau_lucy = tau_lucy_init
+ else
+    state%tau_lucy = 2./3.
+ endif
  state%kappa  = kappa_gas
  state%Q      = 0.
  state%dQ_dr  = 0.
@@ -385,15 +394,25 @@ end subroutine wind_step
 !  Integrate the dusty wind equation up to sonic point
 !
 !-----------------------------------------------------------------------
-subroutine calc_wind_profile(r0, v0, T0, time_end, state)
+subroutine calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
 ! all quantities in cgs
  use ptmass_radiation, only:iget_tdust
  real, intent(in) :: r0, v0, T0, time_end
+ real, intent(inout), optional :: tau_lucy_init
  type(wind_state), intent(out) :: state
  real :: tau_lucy_last
 
  !initialize chemistry and variables
- call init_wind(r0, v0, T0, time_end, state)
+ if (iget_tdust == 3) then
+    if (present(tau_lucy_init)) then
+       call init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
+    else
+       call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+       call init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
+    endif
+ else
+    call init_wind(r0, v0, T0, time_end, state)
+ endif
 
  if (state%v > state%c .and. state%find_sonic_solution) then
     print *,'[wind_profile] for trans-sonic solution, the initial velocity cannot exceed the sound speed : v0=',&
@@ -406,7 +425,7 @@ subroutine calc_wind_profile(r0, v0, T0, time_end, state)
     tau_lucy_last = state%tau_lucy
 
     call wind_step(state)
-    if (iget_tdust == 3 .and. (tau_lucy_last-state%tau_lucy)/tau_lucy_last < 1.e-6 .and. state%tau_lucy < .6) exit
+    if (iget_tdust == 3 .and. state%tau_lucy < 0.) exit
     !if (state%r == state%r_old .or. state%tau_lucy < -1.) state%error = .true.
     if (state%r == state%r_old) state%error = .true.
     !print *,state%time,state%r,state%v/state%c,state%dt,dtmin,state%Tg,Tdust_stop,state%error,state%spcode
@@ -548,7 +567,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     rsonic = state%r
     tsonic = state%time
 
- else
+ elseif (iverbose>1) then
     if (v0 >= cs) then
        print *,' supersonic wind : v0/cs = ',v0/cs
     else
@@ -581,106 +600,202 @@ end subroutine get_initial_wind_speed
 !  Determine the initial stellar radius for a trans-sonic solution
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_radius(r0, T0, v0, rsonic, tsonic, stype)
-!all quantities in cgs
+subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
+ !all quantities in cgs
  use physcon, only:steboltz,pi
  use io,      only:iverbose
+ use units,    only:udist
  real, parameter :: step_factor = 1.1
  integer, intent(in) :: stype
- real, intent(in) :: T0
- real, intent(inout) :: r0
- real, intent(out) :: v0, rsonic, tsonic
+ real, intent(in) :: T0, r0
+ real, intent(inout) :: v0
+ real, intent(out) :: Rst, rsonic, tsonic
 
- real, parameter :: time_end = 1.d9
- real :: r0min, r0max, r0best, v0best, tau_lucy_best, initial_guess
+ real, parameter :: time_end = 1.d10
+ real :: Rstmin, Rstmax, Rstbest, v0best, tau_lucy_best, initial_guess
  integer :: i, nstepsbest
  type(wind_state) :: state
 
  ! Find lower bound for initial radius
  !r0 = sqrt(Lstar_cgs/(4.*pi*steboltz*Tstar**4))
  initial_guess = r0
- r0max = r0
- v0 = 0.
+ Rstmax = r0
+ Rst = r0
  if (iverbose>0) print *, '[get_initial_radius] Searching lower bound for r0'
  do
-    call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
-    if (iverbose>1) print *,' r0 = ', r0, 'tau_lucy = ', state%tau_lucy
+    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call calc_wind_profile(Rst, v0, T0, time_end, state)
+   !  if (iverbose>1) print *,' Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
+    print *,' Rst = ', Rst/udist, 'tau_lucy = ', state%tau_lucy, 'rho = ', Mdot_cgs/(4.*pi * Rst**2 * v0)
     if (state%error) then
        ! something wrong happened!
-       r0 = r0 / step_factor
-       !elseif (r0 < initial_guess/10.) then
-       !   r0min = r0
-       !   print *,'radius getting too small!',r0,step_factor
+      Rst = Rst / step_factor
+       !elseif (Rst < initial_guess/10.) then
+       !   Rstmin = Rst
+       !   print *,'radius getting too small!',Rst,step_factor
        !   exit
     elseif (state%tau_lucy < 0.) then
-       r0min = r0
+       Rstmin = Rst
        exit
     else
-       r0max = r0
-       r0 = r0 / step_factor
+       Rstmax = Rst
+       Rst = Rst / step_factor
     endif
  enddo
- if (iverbose>1) print *, 'Lower bound found for r0 :', r0min
+ if (iverbose>1) print *, 'Lower bound found for Rst :', Rstmin
 
 ! Find upper bound for initial radius
- if (iverbose>1) print *, 'Searching upper bound for r0'
- r0 = r0max
+ if (iverbose>1) print *, 'Searching upper bound for Rst'
+ Rst = Rstmax
  do
-    call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
-    if (iverbose>1) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
+    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call calc_wind_profile(Rst, v0, T0, time_end, state)
+    if (iverbose>1) print *, 'Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
     if (state%error) then
        ! something wrong happened!
-       r0 = r0 * step_factor
+      Rst = Rst * step_factor
     elseif (state%tau_lucy > 0.) then
-       r0max = r0
+       Rstmax = Rst
        exit
     else
-       r0min = max(r0, r0min)
-       r0 = r0 * step_factor
+       Rstmin = max(Rst, Rstmin)
+       Rst = Rst * step_factor
     endif
  enddo
- if (iverbose>1) print *, 'Upper bound found for r0 :', r0max
+ if (iverbose>1) print *, 'Upper bound found for Rst :', Rstmax
 
- ! Find the initial radius by dichotomy between r0min and r0max
- if (iverbose>1) print *, 'Searching r0 by dichotomy'
- r0best = r0
+ ! Find the initial radius by dichotomy between Rstmin and Rstmax
+ if (iverbose>1) print *, 'Searching Rst by dichotomy'
+ Rstbest = Rst
  v0best = v0
  nstepsbest = state%nsteps
  tau_lucy_best = state%tau_lucy
  do i=1,30
-    r0 = (r0min+r0max)/2.
-    call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
-    call calc_wind_profile(r0, v0, T0, time_end, state)
-    if (iverbose>1) print *, 'r0 = ', r0, 'tau_lucy = ', state%tau_lucy
+    Rst = (Rstmin+Rstmax)/2.
+    call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
+    call calc_wind_profile(Rst, v0, T0, time_end, state)
+    if (iverbose>1) print *, 'Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
     if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
        rsonic= state%r
        tsonic= state%time
-       r0best = r0
+       Rstbest = Rst
        v0best = v0
        nstepsbest = state%nsteps
        tau_lucy_best = state%tau_lucy
     endif
     if (.not. state%error) then
        if (state%tau_lucy < 0.) then
-          r0min = r0
+          Rstmin = Rst
        else
-          r0max = r0
+          Rstmax = Rst
        endif
     else
-       r0max = r0max + 12345.
+       Rstmax = Rstmax + 12345.
     endif
-    if (abs(r0min-r0max)/r0max < 1.e-5) exit
+    if (abs(Rstmin-Rstmax)/Rstmax < 1.e-5) exit
  enddo
- r0 = r0best
+ Rst = Rstbest
  v0 = v0best
  if (iverbose>0) then
-    print *,'Best initial radius found: r0=',r0,' , initial_guess=',initial_guess
+    print *,'Best initial radius found: Rst=',Rst,' , initial_guess=',initial_guess
     print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
  endif
 end subroutine get_initial_radius
 
+!-----------------------------------------------------------------------
+!
+!  Determine the initial lucy optical depth
+!
+!-----------------------------------------------------------------------
+subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+   !all quantities in cgs
+   use physcon, only:steboltz,pi
+   use io,      only:iverbose
+   use units,    only:udist
+   real, parameter :: step_factor = 1.1
+   real, intent(in) :: T0, r0, v0
+   real, intent(out) :: tau_lucy_init
+  
+   real, parameter :: time_end = 1.d10
+   real :: tau_lucy_init_min, tau_lucy_init_max, tau_lucy_init_best, tau_lucy_best, initial_guess
+   integer :: i, nstepsbest
+   type(wind_state) :: state
+  
+   ! Find lower bound for initial radius
+   !r0 = sqrt(Lstar_cgs/(4.*pi*steboltz*Tstar**4))
+   initial_guess = 2./3.
+   tau_lucy_init_max = 2./3.
+   tau_lucy_init = 2./3.
+   if (iverbose>0) print *, '[get_initial_tau_lucy] Searching lower bound for tau_lucy'
+   do
+      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+      if (iverbose>1) print *,' tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+      if (state%error) then
+         ! something wrong happened!
+         tau_lucy_init = tau_lucy_init / step_factor
+         !elseif (Rst < initial_guess/10.) then
+         !   Rstmin = Rst
+         !   print *,'radius getting too small!',Rst,step_factor
+         !   exit
+      elseif (state%tau_lucy < 0.) then
+         tau_lucy_init_min = tau_lucy_init
+         exit
+      else
+         tau_lucy_init_max = tau_lucy_init
+         tau_lucy_init = tau_lucy_init / step_factor
+      endif
+   enddo
+   if (iverbose>1) print *, 'Lower bound found for tau_lucy_init :', tau_lucy_init_min
+  
+  ! Find upper bound for initial radius
+   if (iverbose>1) print *, 'Searching upper bound for tau_lucy_init'
+   tau_lucy_init = tau_lucy_init_max
+   do
+      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+      if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+      if (state%error) then
+         ! something wrong happened!
+         tau_lucy_init = tau_lucy_init * step_factor
+      elseif (state%tau_lucy > 0.) then
+         tau_lucy_init_max = tau_lucy_init
+         exit
+      else
+         tau_lucy_init_min = max(tau_lucy_init, tau_lucy_init_min)
+         tau_lucy_init = tau_lucy_init * step_factor
+      endif
+   enddo
+   if (iverbose>1) print *, 'Upper bound found for tau_lucy_init :', tau_lucy_init_max
+  
+   ! Find the initial radius by dichotomy between Rstmin and Rstmax
+   if (iverbose>1) print *, 'Searching tau_lucy_init by dichotomy'
+   tau_lucy_init_best = tau_lucy_init
+   nstepsbest = state%nsteps
+   tau_lucy_best = state%tau_lucy
+   do i=1,30
+      tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
+      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+      if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+      if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
+         tau_lucy_best = state%tau_lucy
+      endif
+      if (.not. state%error) then
+         if (state%tau_lucy < 0.) then
+            tau_lucy_init_min = tau_lucy_init
+         else
+            tau_lucy_init_max = tau_lucy_init
+         endif
+      else
+         tau_lucy_init_max = tau_lucy_init_max + 0.1
+      endif
+      if (abs(tau_lucy_init_min-tau_lucy_init_max)/tau_lucy_init_max < 1.e-5) exit
+   enddo
+   tau_lucy_init = tau_lucy_init_best
+   if (iverbose>0) then
+      print *,'Best initial radius found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
+      print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
+   endif
+  end subroutine get_initial_tau_lucy
+  
 !-----------------------------------------------------------------------
 !
 !  Interpolate 1D wind profile
@@ -784,7 +899,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  character(*), intent(in) :: filename
  real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
- real :: time_end
+ real :: time_end, tau_lucy_init
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
  real, allocatable :: trvurho_temp(:,:)
  real, allocatable :: JKmuS_temp(:,:)
@@ -797,7 +912,8 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  write (*,'("Saving 1D model to ",A)') trim(filename)
  !time_end = tmax*utime
  time_end = tend
- call init_wind(r0, v0, T0, tend, state)
+ call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+ call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
 
  open(unit=1337,file=filename)
  call filewrite_header(1337,nwrite)
