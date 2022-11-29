@@ -1179,6 +1179,7 @@ subroutine copy_particle(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
 
  if (new_part) then
     norig      = norig + 1
@@ -1486,6 +1487,9 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
+    if (do_nucleation) then
+       call fill_buffer(xtemp, nucleation(:,i),nbuf)
+    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1565,6 +1569,9 @@ subroutine unfill_buffer(ipart,xbuf)
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
+ if (do_nucleation) then
+    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
+ endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
