@@ -20,7 +20,7 @@ module datafiles
 !
  implicit none
  character(len=*), parameter :: data_url = &
-  'http://data.phantom.cloud.edu.au/'
+  'https://users.monash.edu.au/~dprice/phantom/'
 
 contains
 
