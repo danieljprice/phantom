@@ -399,18 +399,23 @@ end subroutine set_unifdis_sphereN
 !  Wrapper to set an ellipse
 !+
 !-----------------------------------------------------------------------
-subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,np_requested,mask,xyz_origin)
+
+subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,np,xyzh, &
+                       rhofunc,xyz_origin,nptot,np_requested,mask,dir)
+ use stretchmap, only:set_density_profile
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master,np_requested
  integer,          intent(inout) :: np
  real,             intent(in)    :: r_ellipsoid(3),hfact
  real,             intent(out)   :: xyzh(:,:)
  real,             intent(inout) :: delta
- integer(kind=8),  intent(inout) :: nptot
+ procedure(rho_func), pointer, optional :: rhofunc
+ integer(kind=8),  intent(inout), optional :: nptot
  real,             intent(in),    optional :: xyz_origin(3)
+ integer(kind=8),  intent(in),    optional :: dir
  procedure(mask_prototype), optional :: mask
  procedure(mask_prototype), pointer  :: my_mask
- integer                         :: ierr,i,npin
+ integer                         :: ierr,i,npin,icoord,stretchin_coord
  real                            :: xi,yi,zi,vol_ellipse
 
  if (present(mask)) then
@@ -430,6 +435,22 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np,nptot,n
     vol_ellipse = 4.0*pi/3.0*r_ellipsoid(1)*r_ellipsoid(2)*r_ellipsoid(3)
     call set_unifdis_sphereN(lattice,id,master,-xi,xi,-yi,yi,-zi,zi,delta,hfact,np,np_requested,xyzh, &
                              vol_ellipse,nptot,my_mask,ierr,r_ellipsoid=r_ellipsoid,in_ellipsoid=.true.)
+ endif
+
+ if (present(dir)) then
+    if (dir >= 1 .and. dir <= 3) stretchin_coord = dir
+ endif
+ if (present(rhofunc)) then
+   write(*,*), "stretchin_coord", stretchin_coord
+    if (stretchin_coord==1) then
+      ! Stretch in x-z direction
+      icoord = 1
+      call set_density_profile(np,xyzh,min=0.0,max=r_ellipsoid(1)+xyz_origin(1),rhofunc=rhofunc,&
+                               start=npin,geom=2,coord=icoord)
+      ! icoord = 3
+      ! call set_density_profile(np,xyzh,min=-r_ellipsoid(3)+xyz_origin(3),max=r_ellipsoid(3)+xyz_origin(3),rhofunc=rhofunc,&
+      !                          start=npin,geom=1,coord=icoord)
+    endif
  endif
 
  if (present(xyz_origin)) then

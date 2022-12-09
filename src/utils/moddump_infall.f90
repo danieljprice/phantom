@@ -26,34 +26,41 @@ module moddump
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use partinject, only:add_or_update_particle
- use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass,gravity
- use units,      only:udist,utime,get_G_code
- use io,         only:id,master,fatal
- use spherical,  only:set_sphere,set_ellipse
- use stretchmap, only:rho_func
- use kernel,     only:hfact_default
- use physcon,    only:pi
- use vectorutils,only:rotatevec
+ use partinject,     only:add_or_update_particle
+ use part,           only:igas,isdead_or_accreted,xyzmh_ptmass,nptmass,ihacc,ihsoft,vxyz_ptmass,gravity
+ use units,          only:udist,utime,get_G_code
+ use io,             only:id,master,fatal
+ use spherical,      only:set_sphere,set_ellipse
+ use stretchmap,     only:rho_func
+ use kernel,         only:hfact_default
+ use physcon,        only:pi
+ use vectorutils,    only:rotatevec
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use eos,        only:ieos,isink
+ use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
+ use eos,            only:ieos,isink,get_spsound
+ use velfield,       only:set_velfield_from_cubes
+ use datafiles,      only:find_phantom_datafile
+ use setvfield,      only:normalise_vfield
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real, dimension(:,:), allocatable :: xyzh_add,vxyzu_add,xyzh_add2
- integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star
+ integer :: in_shape,in_orbit,ipart,i,n_add,np,use_star,add_turbulence,ierr
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
  real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega
  real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,accr_star
- real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3)
+ real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3), rellipsoid2(3)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang,n1
  real    :: y1,x1,dx,x_prime,y_prime,theta
- real    :: unit_velocity, G
+ real    :: unit_velocity,G,potenergy,rms_mach,rms_in,vol_obj,rhoi,spsound,rms_curr,factor,my_vrms,vxi,vyi,vzi,inv_n_add
  logical :: lrhofunc,call_prompt
+ character(len=20), parameter :: filevx = 'cube_v1.dat'
+ character(len=20), parameter :: filevy = 'cube_v2.dat'
+ character(len=20), parameter :: filevz = 'cube_v3.dat'
+ character(len=120)           :: filex,filey,filez
  procedure(rho_func), pointer :: prhofunc
 
  r_close = 100.
@@ -73,6 +80,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  b_frac = 1.0
  use_star = 0
  accr_star = 10.
+ add_turbulence = 1
+ rms_mach = 1.0
+ ierr = 0
+ my_vrms = 0.
  ! turn call_prompt to false if you want to run this as a script without prompts
  call_prompt = .true.
 
@@ -231,17 +242,38 @@ endif
  if (in_shape == 0) then
     if (lrhofunc) then
       call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
-        np_requested=n_add, nptot=nptot,rhofunc=prhofunc)
+        np_requested=n_add, nptot=nptot, rhofunc=prhofunc)
     else
        call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
           np_requested=n_add, nptot=nptot)
     endif
  write(*,*), "The sphere has been succesfully initialised."
  elseif (in_shape == 1) then
-    call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,xyzh_add,np,xyz_origin=xp,&
-     np_requested=n_add, nptot=nptot)
+    if (lrhofunc) then
+      write(*,*), "Adding stretchmapped ellipse."
+      ! Need to make the ellipse point in the vertical direction for stretchmapping
+      rellipsoid2(1) = r_in
+      rellipsoid2(2) = r_in
+      rellipsoid2(3) = r_a
+      call set_ellipse('random',id,master,rellipsoid2,delta,hfact_default,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
+       np_requested=n_add,nptot=nptot,rhofunc=prhofunc,dir=1)
+
+       ! Now we rotate it back to the proper position
+       do i = 1,n_add
+          call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./), pi/2)
+       enddo
+
+    else
+      call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
+       np_requested=n_add, nptot=nptot)
+    endif
      print*, "The origin is ", xp
      ! Need to correct the ellipse
+     do i = 1,n_add
+       xyzh_add(1, i) = xyzh_add(1, i) + xp(1)
+       xyzh_add(2, i) = xyzh_add(2, i) + xp(2)
+       xyzh_add(3, i) = xyzh_add(3, i) + xp(3)
+     enddo
      do i = 1,n_add
        x1 = xyzh_add(1, i)
        y1 = xyzh_add(2, i)
@@ -263,6 +295,55 @@ endif
  endif
 endif
 
+!--Set velocities (from pre-made velocity cubes)
+call prompt('Add turbulence to the gas?:', add_turbulence, 0, 1)
+
+vxyzu_add(:,:) = 0.
+
+if (add_turbulence==1) then
+  call prompt('Enter rms Mach number:', rms_mach, 0., 20.)
+  write(*,"(1x,a)") 'Setting up velocity field on the particles...'
+
+  filex = find_phantom_datafile(filevx,'velfield')
+  filey = find_phantom_datafile(filevy,'velfield')
+  filez = find_phantom_datafile(filevz,'velfield')
+
+  call set_velfield_from_cubes(xyzh_add,vxyzu_add,n_add,filex,filey,filez,1.,r_in,.false.,ierr)
+
+ ! if (in_shape == 1) then
+ !   vxyzu_add(1, :) = vxyzu_add(1, :) * r_a/r_in
+ ! endif
+
+  if (ierr /= 0) call fatal('setup','error setting up velocity field')
+
+  if (in_shape == 0) then
+    vol_obj = 4/3*pi*r_in**3
+  elseif (in_shape == 1) then
+    vol_obj = 4/3*pi*r_in*r_in*r_a
+  endif
+
+  rhoi = in_mass/vol_obj
+  spsound = get_spsound(ieos,xp,rhoi,vxyzu_add(:,1)) ! eos_type,xyzi,rhoi,vxyzui
+  rms_in = spsound*rms_mach
+
+  !--Normalise the energy
+  ! rms_curr = sqrt( 1/float(n_add)*sum( (vxyzu_add(1,:)**2 + vxyzu_add(2,:)**2 + vxyzu_add(3,:)**2) ) )
+
+  do i=1,n_add
+    vxi  = vxyzu_add(1,i)
+    vyi  = vxyzu_add(2,i)
+    vzi  = vxyzu_add(3,i)
+    my_vrms = my_vrms + vxi*vxi + vyi*vyi + vzi*vzi
+ enddo
+
+ ! Normalise velocity field
+ my_vrms = sqrt(1/float(n_add) * my_vrms)
+ factor = rms_in/my_vrms
+  do i=1,n_add
+     vxyzu_add(1:3,i) = vxyzu_add(1:3,i)*factor
+  enddo
+endif
+
  ! Set up velocities
  if (in_orbit == 1) then
 
@@ -275,9 +356,9 @@ endif
     if (use_star==0) then
       if (in_shape == 0) then
         ! Initiate initial velocity of the particles in the shape
-        vxyzu_add(1, :) = vx0
-        vxyzu_add(2, :) = vy0
-        vxyzu_add(3, :) = vz0
+        vxyzu_add(1, :) = vxyzu_add(1, :) + vx0
+        vxyzu_add(2, :) = vxyzu_add(2, :) + vy0
+        vxyzu_add(3, :) = vxyzu_add(3, :) + vz0
 
       elseif (in_shape == 1) then
         do i=1,n_add
@@ -290,9 +371,9 @@ endif
           vy0 = -(x0/r0)*sqrt(mtot/pf)
           vz0 = 0.0
 
-          vxyzu_add(1, i) = vx0
-          vxyzu_add(2, i) = vy0
-          vxyzu_add(3, i) = vz0
+          vxyzu_add(1, i) = vxyzu_add(1, i) + vx0
+          vxyzu_add(2, i) = vxyzu_add(2, i) + vy0
+          vxyzu_add(3, i) = vxyzu_add(3, i) + vz0
 
         enddo
       vxyzu_add(4, :) = vxyzu(4, 1)
@@ -308,9 +389,9 @@ endif
     vz0 = 0.0
     vp = (/vx0, vy0, vz0/)
     if (use_star==0) then
-      vxyzu_add(1, :) = vx0
-      vxyzu_add(2, :) = vy0
-      vxyzu_add(3, :) = vz0
+      vxyzu_add(1, :) = vxyzu_add(1, :) + vx0
+      vxyzu_add(2, :) = vxyzu_add(2, :) + vy0
+      vxyzu_add(3, :) = vxyzu_add(3, :) + vz0
       vxyzu_add(4, :) = vxyzu(4, 1)
     endif
   endif
@@ -327,6 +408,7 @@ endif
       ! Rotate particle to correct position and velocity
       ! First rotate to get the right initial position
       ! Need to do this due to the parabolic orbit notation
+      ! xyzh_add(4,i) = 1.0
       call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
       call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
 
@@ -385,7 +467,7 @@ end subroutine modify_dump
 real function rhofunc(r)
  real, intent(in) :: r
 
- rhofunc = 1./(r + r_soft)**(r_slope)
+ rhofunc = 1./(abs(r) + r_soft)**(r_slope)
 
 end function rhofunc
 
