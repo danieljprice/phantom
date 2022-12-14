@@ -18,10 +18,10 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checkconserved, dim, dump_utils, dust, eos,
-!   externalforces, fileutils, io, krome_user, lumin_nsdisc, memory, mpi,
-!   mpiutils, options, part, readwrite_dumps_common, setup_params,
-!   sphNGutils, timestep, units
+! :Dependencies: boundary, checkconserved, dim, dump_utils, dust,
+!   dust_formation, eos, externalforces, fileutils, io, krome_user,
+!   lumin_nsdisc, memory, mpi, mpiutils, options, part,
+!   readwrite_dumps_common, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -219,9 +219,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,&
-                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation
- use options,    only:use_dustfrac,use_var_comp
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
+                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc
+ use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -253,7 +253,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: ipass,k,l
- integer            :: ierr,ierrs(29)
+ integer            :: ierr,ierrs(30)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot
  logical            :: sphNGdump,write_itype,use_gas
@@ -373,8 +373,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature) then
+       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature .or. icooling > 0) then
           call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
        endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
@@ -430,6 +431,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #endif
        if (do_nucleation) then
           call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
+       endif
+       If (itau_alloc == 1) then
+          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
        endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
@@ -1110,7 +1114,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
-                      nucleation,nucleation_label,n_nucleation,ikappa,ithick,itemp,igasP,iorig
+                      nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,ithick,itemp,igasP,iorig
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1133,7 +1137,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu,got_x,got_z,got_mu
- logical               :: got_nucleation(n_nucleation)
+ logical               :: got_nucleation(n_nucleation),got_ray_tracer
  logical               :: got_psi,got_gasP,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
                           got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
@@ -1168,6 +1172,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_z           = .false.
  got_mu          = .false.
  got_nucleation  = .false.
+ got_ray_tracer  = .false.
  got_raden       = .false.
  got_kappa       = .false.
  got_pxyzu       = .false.
@@ -1217,6 +1222,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
 #endif
              if (do_nucleation) then
                 call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (itau_alloc == 1) then
+                call read_array(tau,'tau',got_ray_tracer,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1275,7 +1283,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                    got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
+                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_nucleation,got_iorig,iphase,&
                    xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
 
  return
@@ -1498,9 +1506,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dim,            only:use_dust,maxtypes,use_dustgrowth, &
+ use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
  use units,          only:udist,umass,utime,unit_Bfield
+ use dust_formation, only:write_headeropts_dust_formation
+
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
  integer(kind=8), intent(in)    :: nparttot,npartoftypetot(:)
@@ -1570,6 +1580,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(alphau,'alphau',hdr,ierr)
     call add_to_rheader(alphaB,'alphaB',hdr,ierr)
     call add_to_rheader(massoftype,'massoftype',hdr,ierr) ! array
+    if (do_nucleation) call write_headeropts_dust_formation(hdr,ierr)
     call add_to_rheader(Bextx,'Bextx',hdr,ierr)
     call add_to_rheader(Bexty,'Bexty',hdr,ierr)
     call add_to_rheader(Bextz,'Bextz',hdr,ierr)
@@ -1617,7 +1628,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxvxyzu,use_dust,use_dustgrowth,use_krome
+ use dim,            only:maxvxyzu,nElements,use_dust,use_dustgrowth,use_krome,do_nucleation
  use eos,            only:extract_eos_from_hdr, read_headeropts_eos
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -1630,6 +1641,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
  use timestep,       only:dtmax0
+ use dust_formation, only:read_headeropts_dust_formation
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile,nptmass
@@ -1673,6 +1685,11 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
        write(*,*) '*** ERROR reading massoftype from dump header ***'
        ierr = 4
     endif
+    if (do_nucleation) then
+       call read_headeropts_dust_formation(hdr,ierr)
+       if (ierr /= 0) ierr = 6
+    endif
+
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
     if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then

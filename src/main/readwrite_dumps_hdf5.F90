@@ -496,6 +496,7 @@ subroutine read_any_dump_hdf5(                                                  
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
  integer,           intent(out) :: ierr
+ integer(kind=8)                :: nparttot
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
  logical, optional, intent(in)  :: acceptsmall

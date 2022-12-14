@@ -15,8 +15,8 @@ module testeos
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, eos, eos_barotropic, eos_gasradrec, eos_helmholtz,
-!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon, testutils,
-!   units
+!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon,
+!   testeos_stratified, testutils, units
 !
  implicit none
  public :: test_eos
@@ -35,6 +35,7 @@ subroutine test_eos(ntests,npass)
  use physcon,       only:solarm
  use units,         only:set_units
  use eos_gasradrec, only:irecomb
+ use testeos_stratified, only:test_eos_stratified
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -49,6 +50,8 @@ subroutine test_eos(ntests,npass)
  do irecomb = 0,3
     call test_hormone(ntests,npass)
  enddo
+
+ call test_eos_stratified(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 

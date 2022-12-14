@@ -50,6 +50,7 @@ module mpimemory
  public :: pop_off_stack
  public :: reserve_stack
  public :: reset_stacks
+ public :: increase_mpi_memory
 
  ! stacks to be referenced from density and force routines
  type(stackdens),  public :: dens_stack_1
@@ -58,9 +59,9 @@ module mpimemory
  type(stackforce), public :: force_stack_1
  type(stackforce), public :: force_stack_2
 
- private
+ integer, public :: stacksize
 
- integer :: stacksize
+ private
 
  ! primary chunk of memory requested using alloc
  type(celldens),  allocatable, target :: dens_cells(:,:)
@@ -159,7 +160,7 @@ subroutine calculate_stacksize(npart)
  ! number of particles per cell, divided by number of tasks
  if (mpi .and. nprocs > 1) then
     ! assume that every cell will be exported, with some safety factor
-    stacksize = (npart / minpart / nprocs) * 4
+    stacksize = (npart / minpart / nprocs) * safety
 
     if (id == master) then
        write(iprint, *) 'MPI memory stack size = ', stacksize

@@ -10,7 +10,7 @@ module cons2prim
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Elisabeth Borchert
 !
 ! :Runtime parameters: None
 !
@@ -33,8 +33,8 @@ contains
 !-------------------------------------
 
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
- use part,         only:isdead_or_accreted
- use options,      only:ien_type
+ use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
+ use eos,  only:gamma,ieos
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:),metrics(:,:,:,:),vxyzu(:,:)
  real,    intent(inout) :: dens(:)
@@ -42,6 +42,7 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  logical, intent(in), optional :: use_dens
  logical :: usedens
  integer :: i
+ real    :: pri,tempi
 
 !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
 !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -53,29 +54,39 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  endif
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type) &
-!$omp private(i)
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,usedens,ien_type,eos_vars,gamma,ieos) &
+!$omp private(i,pri,tempi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pxyzu(:,i),usedens,ien_type)
+       call prim2consi(xyzh(:,i),metrics(:,:,:,i),vxyzu(:,i),dens(i),pri,tempi,pxyzu(:,i),usedens,ien_type)
+
+       ! save eos vars for later use
+       eos_vars(igasP,i)  = pri
+       eos_vars(itemp,i)  = tempi
+       if (vxyzu(4,i) > 0. .and. ieos == 12) then
+          eos_vars(igamma,i) = 1. + pri/(dens(i)*vxyzu(4,i))
+       else
+          ! prevent getting NaN or Infinity when u = 0
+          eos_vars(igamma,i) = gamma
+       endif
     endif
  enddo
 !$omp end parallel do
 
 end subroutine prim2consall
 
-subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens,ien_type)
+subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_type)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
  use eos,             only:equationofstate,ieos
  real, dimension(4), intent(in)  :: xyzhi, vxyzui
  real,               intent(in)  :: metrici(:,:,:)
- real, intent(inout)             :: dens_i
+ real, intent(inout)             :: dens_i,pri,tempi
  integer,            intent(in)  :: ien_type
  real, dimension(4), intent(out) :: pxyzui
  logical, intent(in), optional   :: use_dens
  logical :: usedens
- real    :: rhoi,Pi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi,temperaturei
+ real    :: rhoi,ui,xyzi(1:3),vi(1:3),pondensi,spsoundi,densi
 
  !  By default, use the smoothing length to compute primitive density, and then compute the conserved variables.
  !  (Alternatively, use the provided primitive density to compute conserved variables.
@@ -95,9 +106,9 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pxyzui,use_dens,ien_type)
     call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
     dens_i = densi                      ! Feed the newly computed dens back out of the routine
  endif
- call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),temperaturei,ui)
- pi = pondensi*densi
- call primitive2conservative(xyzi,metrici,vi,densi,ui,Pi,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
+ call equationofstate(ieos,pondensi,spsoundi,densi,xyzi(1),xyzi(2),xyzi(3),tempi,ui)
+ pri = pondensi*densi
+ call primitive2conservative(xyzi,metrici,vi,densi,ui,pri,rhoi,pxyzui(1:3),pxyzui(4),ien_type)
 
 end subroutine prim2consi
 
@@ -109,33 +120,39 @@ end subroutine prim2consi
 
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
- use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics
+ use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
+                           itemp,igamma
  use io,              only:fatal
- use eos,             only:equationofstate,ieos,gamma,done_init_eos,init_eos
- use options,         only:ien_type
+ use eos,             only:ieos,gamma,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,pondens,spsound,temperaturei
+ real    :: p_guess,rhoi,pondens,spsound,tempi,gammai
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
 !$omp shared(ieos,gamma,eos_vars,ien_type) &
-!$omp private(i,ierr,spsound,pondens,p_guess,rhoi,temperaturei)
+!$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       ! Construct a guess for pressure (dens is already passed in and is also a guess coming in, but correct value gets passed out)
-       call equationofstate(ieos,pondens,spsound,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),temperaturei,vxyzu(4,i))
-       p_guess = pondens*dens(i)
+       ! get pressure, temperature and gamma from previous step as the initial guess
+       p_guess = eos_vars(igasP,i)
+       tempi   = eos_vars(itemp,i)
+       gammai  = eos_vars(igamma,i)
        rhoi    = rhoh(xyzh(4,i),massoftype(igas))
+
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
-                                  p_guess,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
-       eos_vars(igasP,i) = p_guess
-       eos_vars(ics,i)   = spsound
+                                  p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
+
+       ! store results
+       eos_vars(igasP,i)  = p_guess
+       eos_vars(ics,i)    = get_spsound(ieos,xyzh(1:3,i),dens(i),vxyzu(:,i),gammai)
+       eos_vars(itemp,i)  = tempi
+       eos_vars(igamma,i) = gammai
        if (ierr > 0) then
           print*,' pmom =',pxyzu(1:3,i)
           print*,' rho* =',rhoh(xyzh(4,i),massoftype(igas))
@@ -160,7 +177,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa,idmu,idgamma
  use part,              only:nucleation,gamma_chem
- use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma,&
+                             utherm
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome
@@ -176,7 +194,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  real,         intent(out)   :: eos_vars(:,:),radprop(:,:),Bxyz(:,:),dustfrac(:,:)
  integer      :: i,iamtypei,ierr
  integer      :: ierrlist(n_warn)
- real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,pmassi
+ real         :: rhoi,spsound,p_on_rhogas,rhogas,gasfrac,pmassi,uui
  real         :: Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,mui,X_i,Z_i,gammai
  real         :: xi,yi,zi,hi
  logical      :: iactivei,iamgasi,iamdusti
@@ -201,7 +219,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation) &
-!$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac) &
+!$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
 !$omp firstprivate(iactivei,iamtypei,iamgasi,iamdusti,mui,gammai,X_i,Z_i) &
@@ -249,8 +267,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        endif
        if (use_krome) gammai = gamma_chem(i)
        if (maxvxyzu >= 4) then
-          if (vxyzu(4,i) < 0.) call warning('cons2prim','Internal energy < 0',i,'u',vxyzu(4,i))
-          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=vxyzu(4,i),&
+          uui = utherm(vxyzu(:,i),rhogas,gammai)
+          if (uui < 0.) call warning('cons2prim','Internal energy < 0',i,'u',uui)
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
        else
           !isothermal
