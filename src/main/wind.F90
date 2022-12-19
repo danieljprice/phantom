@@ -261,7 +261,11 @@ subroutine wind_step(state)
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+    if (itau_alloc == 1) then
+      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+    else
+      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+    endif
  elseif (iget_tdust == 1) then
     state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
  else
@@ -380,7 +384,11 @@ subroutine wind_step(state)
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
-    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+   if (itau_alloc == 1) then
+     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+   else
+     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+   endif
  elseif (iget_tdust == 1) then
     state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
  else

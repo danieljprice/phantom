@@ -188,12 +188,17 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     ! compute dust temperature based on radiation from sink particles
     !
     if (iget_tdust == 3) then
+       ! tau_Lucy is nessecary to calculate the dust temperature, so calculate tau_Lucy first
        if (idust_opacity == 2) then
           call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
        else
           call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
        endif
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp, tau_lucy)
+       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
+    else if (iget_tdust == 2 .and. itau_alloc == 1) then
+       ! The absorbtion of the stellar luminocity is taken into account, and therefore is nessecary in the dust temperature calculation.
+       ! For this use tau of the last timestep.
+       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
     else
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
     endif
@@ -206,6 +211,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        else
           call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
        endif
+    endif
+    ! As tau is recalculated, the dust temperature should be updated as well
+    if (iget_tdust == 2 .and. itau_alloc == 1) then
+       ! The absorbtion of the stellar luminocity is taken into account, and therefore is nessecary in the dust temperature calculation.
+       ! For this use tau of the last timestep.
+       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
     endif
  endif
 !
