@@ -173,7 +173,6 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error    = .false.
-
 end subroutine init_wind
 
 #ifdef CALC_HYDRO_THEN_CHEM
@@ -232,9 +231,20 @@ subroutine wind_step(state)
     state%kappa     = calc_kappa_bowen(state%Tdust)
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
- state%alpha     = state%alpha_Edd+alpha_rad
- state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
-
+ select case (isink_radiation)
+ case (1)
+    state%alpha     = alpha_rad
+    state%dalpha_dr = (alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+ case (2)
+    state%alpha     = state%alpha_Edd
+    state%dalpha_dr = (state%alpha_Edd-alpha_old)/(1.e-10+state%r-state%r_old)
+ case (3)
+    state%alpha     = state%alpha_Edd+alpha_rad
+    state%dalpha_dr = (state%alpha_Edd+alpha_rad-alpha_old)/(1.e-10+state%r-state%r_old)
+ case default
+    state%alpha     = 0.
+    state%dalpha_dr = 0.
+ end select
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%p    = state%rho*Rg*state%Tg/state%mu
 #ifndef ISOTHERMAL
@@ -291,7 +301,7 @@ subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
@@ -321,7 +331,16 @@ subroutine wind_step(state)
  else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
- state%alpha = state%alpha_Edd+alpha_rad
+ select case (isink_radiation)
+ case (1)
+    state%alpha     = alpha_rad
+ case (2)
+    state%alpha     = state%alpha_Edd
+ case (3)
+    state%alpha     = state%alpha_Edd+alpha_rad
+ case default
+    state%alpha     = 0.
+ end select
  if (idust_opacity == 2) state%JKmuS(idalpha) = state%alpha
  if (state%time > 0.)    state%dalpha_dr      = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
  rvT(1) = state%r
@@ -891,9 +910,9 @@ end function interp_1d
 !
 !-----------------------------------------------------------------------
 subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
- use physcon,  only:au
- !use units,    only:utime
- use dust_formation, only:idust_opacity
+ use physcon,          only:au
+ use dust_formation,   only:idust_opacity
+ use ptmass_radiation, only:iget_tdust
  real, intent(in) :: r0, v0, T0, tend, rout
  real, intent(out) :: tcross          !time to cross the entire integration domain
  character(*), intent(in) :: filename
@@ -912,8 +931,12 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  write (*,'("Saving 1D model to ",A)') trim(filename)
  !time_end = tmax*utime
  time_end = tend
- call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
- call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
+ if (iget_tdust == 3) then
+    call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
+    call init_wind(r0, v0, T0, tend, state, tau_lucy_init)
+ else
+    call init_wind(r0, v0, T0, tend, state)
+ endif
 
  open(unit=1337,file=filename)
  call filewrite_header(1337,nwrite)
@@ -984,131 +1007,20 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
 end subroutine save_windprofile
 
 subroutine filewrite_header(iunit,nwrite)
- use options,        only:icooling
- use dust_formation, only:idust_opacity
- use ptmass_radiation, only:iget_tdust
- use dim,              only:itau_alloc
  integer, intent(in) :: iunit
  integer, intent(out) :: nwrite
  character (len=20):: fmt
 
- if (itau_alloc == 1) then
-    if (iget_tdust == 3) then
-       if (idust_opacity == 2) then
-          if (icooling > 0) then
-             nwrite = 23
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma','Q'
-          else
-             nwrite = 22
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma'
-          endif
-       else
-          if (icooling > 0) then
-             nwrite = 17
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','tau_lucy','kappa','tau','Tdust','gamma','Q'
-          else
-             nwrite = 16
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','tau_lucy','kappa','tau','Tdust','gamma'
-          endif
-       endif
-    else
-       if (idust_opacity == 2) then
-          if (icooling > 0) then
-             nwrite = 22
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','kappa','tau','Tdust','gamma','Q'
-          else
-             nwrite = 21
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','kappa','tau','Tdust','gamma'
-          endif
-       else
-          if (icooling > 0) then
-             nwrite = 15
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','kappa','tau','gamma','Q'
-          else
-             nwrite = 14
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','kappa','tau','gamma'
-          endif
-       endif
-    endif
- else
-    if (iget_tdust == 3) then
-       if (idust_opacity == 2) then
-          if (icooling > 0) then
-             nwrite = 22
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma','Q'
-          else
-             nwrite = 21
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','Tdust','gamma'
-          endif
-       else
-          if (icooling > 0) then
-             nwrite = 16
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','tau_lucy','kappa','Tdust','gamma','Q'
-          else
-             nwrite = 15
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','tau_lucy','kappa','Tdust','gamma'
-          endif
-       endif
-    else
-       if (idust_opacity == 2) then
-          if (icooling > 0) then
-             nwrite = 21
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','kappa','Tdust','gamma','Q'
-          else
-             nwrite = 20
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
-                   'mu','S','Jstar','K0','K1','K2','K3','kappa','Tdust','gamma'
-          endif
-       else
-          if (icooling > 0) then
-             nwrite = 14
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma','Q'
-          else
-             nwrite = 13
-             write(fmt,*) nwrite
-             write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
-          endif
-       endif
-    endif
- endif
+ nwrite = 23
+ write(fmt,*) nwrite
+ write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a',&
+       'mu','S','Jstar','K0','K1','K2','K3','tau_lucy','kappa','tau','Tdust','gamma','Q'
 end subroutine filewrite_header
 
 subroutine state_to_array(state, array)
  use dust_formation, only:idust_opacity
- use options,        only:icooling
- use ptmass_radiation, only:iget_tdust
- use dim,              only:itau_alloc
  type(wind_state), intent(in) :: state
  real, intent(out) :: array(:)
- integer           :: iwrite
 
  array(1)  = state%time
  array(2)  = state%r
@@ -1120,42 +1032,27 @@ subroutine state_to_array(state, array)
  array(8)  = state%rho
  array(9)  = state%alpha
  array(10) = state%a
- iwrite = 10
  if (idust_opacity == 2) then
-    array(iwrite+1) = state%JKmuS(idmu)
-    array(iwrite+2) = state%JKmuS(idsat)
-    array(iwrite+3) = state%JKmuS(idJstar)
-    array(iwrite+4) = state%JKmuS(idK0)
-    array(iwrite+5) = state%JKmuS(idK1)
-    array(iwrite+6) = state%JKmuS(idK2)
-    array(iwrite+7) = state%JKmuS(idK3)
-    iwrite = iwrite + 7
+    array(11) = state%JKmuS(idmu)
  else
-    array(iwrite+1) = state%mu
-    iwrite = iwrite + 1
+    array(11) = state%mu
  endif
- if (iget_tdust == 3) then
-    array(iwrite+1) = state%tau_lucy
-    iwrite = iwrite + 1
- endif
- array(iwrite+1) = state%kappa
- iwrite = iwrite + 1
- if (itau_alloc == 1) then
-    array(iwrite+1) = state%tau
-    iwrite = iwrite + 1
- endif
- if (idust_opacity == 2 .or. iget_tdust > 1) then
-    array(iwrite+1) = state%Tdust
-    iwrite = iwrite + 1
- endif
+ array(12) = state%JKmuS(idsat)
+ array(13) = state%JKmuS(idJstar)
+ array(14) = state%JKmuS(idK0)
+ array(15) = state%JKmuS(idK1)
+ array(16) = state%JKmuS(idK2)
+ array(17) = state%JKmuS(idK3)
+ array(18) = state%tau_lucy
+ array(19) = state%kappa
+ array(20) = state%tau
+ array(21) = state%Tdust
  if (idust_opacity == 2) then
-    array(iwrite+1) = state%JKmuS(idgamma)
-    iwrite = iwrite + 1
+    array(22) = state%JKmuS(idgamma)
  else
-    array(iwrite+1) = state%gamma
-    iwrite = iwrite + 1
+    array(22) = state%gamma
  endif
- if (icooling > 0) array(iwrite+1) = state%Q
+ array(23) = state%Q
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)
