@@ -814,11 +814,11 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
       else
          tau_lucy_init_max = tau_lucy_init_max + 0.1
       endif
-      if (abs(tau_lucy_init_min-tau_lucy_init_max)/tau_lucy_init_max < 1.e-5) exit
+      if (abs(tau_lucy_init_min-tau_lucy_init_max)/tau_lucy_init_max < 1.e-10) exit
    enddo
-   tau_lucy_init = tau_lucy_init_best
+   tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
    if (iverbose>0) then
-      print *,'Best initial radius found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
+      print *,'Best initial Lucy optical depth found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
       print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
    endif
   end subroutine get_initial_tau_lucy
