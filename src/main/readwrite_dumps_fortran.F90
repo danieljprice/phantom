@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -811,8 +811,8 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     if (.not. phantomdump) then
        print *, "allocating arrays for nptmass=", nptmass
        allocate(mass_sphng(maxp_hard))
-    end if
-    
+    endif
+
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
                           tfile,alphafile,idisk1,iprint,ierr)
@@ -1207,7 +1207,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (.not. phantomdump) then
                 call read_array(iphase,'iphase',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(mass_sphng,'m',got_mass,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             end if
+             endif
              if (gr) call read_array(pxyzu,pxyzu_label,got_pxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1294,8 +1294,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
                    xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  if (.not. phantomdump) then
-   print *, "Calling set_gas_particle_mass"
-   call set_gas_particle_mass(mass_sphng)
+    print *, "Calling set_gas_particle_mass"
+    call set_gas_particle_mass(mass_sphng)
  endif
  return
 100 continue
@@ -1911,10 +1911,10 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
-    if (itype .gt. 8) then
+    if (itype  >  8) then
        print *, "particle i=", i,"is type", itype
        cycle
-    end if
+    endif
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 

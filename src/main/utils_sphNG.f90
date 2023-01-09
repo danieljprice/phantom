@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module sphNGutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: dim, part
 !
  implicit none
  ! labels for sphNG types, used when converting dumps (these cannot duplicate current itypes)
@@ -87,7 +87,8 @@ end function is_sphNG_sink
 !+
 !--------------------------------------------------------------
 subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,ierr)
- use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz,npartoftype,iunknown,isdead,shuffle_part
+ use part, only:iamtype,ihacc,ihsoft,set_particle_type,igas,kill_particle,ispinx,ispiny,ispinz,&
+       npartoftype,iunknown,isdead,shuffle_part
  integer :: i,nsink
  integer, intent(inout)    :: npart
  integer, intent(inout) :: nptmass
@@ -95,7 +96,7 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,         intent(out)   :: ierr
  integer :: gascount,unkncount,othercount
- 
+
  nsink = 0
  ierr = 0
  do i=1,npart
@@ -140,9 +141,9 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
  unkncount = 0
  othercount = 0
  do i=1,npart
-    if (iamtype(iphase(i)) .eq. igas) then
+    if (iamtype(iphase(i)) == igas) then
        gascount = gascount+1
-    elseif (iamtype(iphase(i)) .eq. iunknown) then
+    elseif (iamtype(iphase(i)) == iunknown) then
        unkncount = unkncount + 1
     else
        othercount = othercount + 1
@@ -152,14 +153,14 @@ subroutine convert_sinks_sphNG(npart,nptmass,iphase,xyzh,vxyzu,xyzmh_ptmass,vxyz
     endif
  enddo
 
-  call shuffle_part(npart) !to remove killed particles                           
+ call shuffle_part(npart) !to remove killed particles
  gascount = 0
  unkncount = 0
  othercount = 0
  do i=1,npart
-    if (iamtype(iphase(i)) .eq. igas) then
+    if (iamtype(iphase(i)) == igas) then
        gascount = gascount+1
-    elseif (iamtype(iphase(i)) .eq. iunknown) then
+    elseif (iamtype(iphase(i)) == iunknown) then
        unkncount = unkncount + 1
     else
        othercount = othercount + 1
@@ -176,7 +177,7 @@ subroutine set_gas_particle_mass(mass_sphng)
  use part, only: massoftype,igas,iphase,iamtype,hfact
  use dim, only: maxp
  real,intent(in) :: mass_sphng(maxp)
- integer :: i   
+ integer :: i
 
  if (hfact < 1) then
     hfact = 1.2
@@ -184,17 +185,17 @@ subroutine set_gas_particle_mass(mass_sphng)
  endif
  print *, "Setting gas particle mass"
  do i=1,maxp
-    if (iamtype(iphase(i)) .eq. igas) then
+    if (iamtype(iphase(i)) == igas) then
        massoftype(igas) = mass_sphng(i)
        print *, "Mass of gas particles =", massoftype(igas)
        exit
-    end if
- end do
- if (i .eq. maxp) then
+    endif
+ enddo
+ if (i == maxp) then
     print *, "gas part mass not set!"
  else
     print *, "in set_gas...: i= ",i
- end if
+ endif
 end subroutine set_gas_particle_mass
 
 end module sphNGutils
