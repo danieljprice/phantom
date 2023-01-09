@@ -14,9 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, linklist, metric_tools, part, photoevap,
-!   ptmass, ptmass_radiation, timestep, timestep_ind, timing
+! :Dependencies: cons2prim, densityforce, derivutils, dim, dust_formation,
+!   externalforces, forces, forcing, growth, io, linklist, metric_tools,
+!   part, photoevap, ptmass, ptmass_radiation, raytracer, timestep,
+!   timestep_ind, timing
 !
  implicit none
  character(len=80), parameter, public :: &  ! module version
@@ -38,14 +39,15 @@ contains
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
- use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
+ use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,&
+                          sink_radiation,use_dustgrowth,itau_alloc
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
- use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass
+ use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
-                          nptmass,xyzmh_ptmass,sinks_have_heating
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -59,21 +61,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
 #endif
-#ifdef DUSTGROWTH
- use growth,         only:get_growth_rate
- use part,           only:VrelVf
-#endif
-#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
- use ptmass_radiation, only:get_dust_temperature_from_ptmass
- use part,             only:dust_temp
-#endif
-#ifdef PERIODIC
- use ptmass,         only:ptmass_boundary_crossing
-#endif
- use part,           only:mhd,gradh,alphaind,igas
+ use dust_formation,   only:calc_kappa_bowen,idust_opacity
+ use part,             only:ikappa,tau,nucleation
+ use raytracer
+ use growth,           only:get_growth_rate
+ use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
@@ -131,9 +126,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
     endif
 
-#ifdef PERIODIC
-    if (nptmass > 0) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
-#endif
+    if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
  endif
 
  call do_timing('link',tlast,tcpulast,start=.true.)
@@ -165,11 +158,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_timing('dens',tlast,tcpulast)
  endif
 
-#ifdef GR
- call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-#else
- call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
-#endif
+ if (gr) then
+    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+ else
+    call cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,Bevol,Bxyz,dustevol,dustfrac,alphaind)
+ endif
  call do_timing('cons2prim',tlast,tcpulast)
 !
 ! compute forces
@@ -186,15 +179,26 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 
-#ifdef DUSTGROWTH
- ! compute growth rate of dust particles
- call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
-#endif
+ if (use_dustgrowth) then ! compute growth rate of dust particles
+    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ endif
 
-#if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
- !compute dust temperature
- call get_dust_temperature_from_ptmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,dust_temp)
-#endif
+ if (sink_radiation .and. maxvxyzu == 4) then
+    !
+    ! compute dust temperature based on radiation from sink particles
+    !
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
+    !
+    ! do ray tracing to get optical depth (tau)
+    !
+    if (itau_alloc == 1) then
+       if (idust_opacity == 2) then
+          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
+       else
+          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
+       endif
+    endif
+ endif
 !
 ! set new timestep from Courant/forces condition
 !
@@ -204,10 +208,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  dtnew = min(dtforce,dtcourant,dtrad,dtmax)
 #endif
 
-
  call do_timing('total',t1,tcpu1,lunit=iprint)
-
- return
 
 end subroutine derivs
 

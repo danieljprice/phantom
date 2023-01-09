@@ -30,9 +30,10 @@ module part
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
+               inucleation,itau_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -129,9 +130,17 @@ module part
                        imu   = 4, &
                        iX    = 5, &
                        iZ    = 6, &
-                       maxeosvars = 6
+                       igamma = 7, &
+                       maxeosvars = 7
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+!
+!--energy_variables
+!
+ integer, public :: ien_type
+ integer, public, parameter :: ien_entropy = 1, &
+                               ien_etotal  = 2, &
+                               ien_entropy_s = 3
 !
 !--one-fluid dust (small grains)
 !
@@ -194,6 +203,10 @@ module part
 #ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
+!
+!-- Ray tracing : optical depth
+!
+ real, allocatable :: tau(:)
 !
 !--Dust formation - theory of moments
 !
@@ -362,6 +375,7 @@ module part
    +maxeosvars                          &  ! eos_vars
 #ifdef SINK_RADIATION
    +1                                   &  ! dust temperature
+   +1                                   &  ! optical depth
 #endif
 #ifdef GRAVITY
  +1                                   &  ! poten
@@ -487,7 +501,8 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
- call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
+ call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
+ call allocate_array('tau', tau, maxp*itau_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -552,6 +567,7 @@ subroutine deallocate_part
  if (allocated(twas))         deallocate(twas)
 #endif
  if (allocated(nucleation))   deallocate(nucleation)
+ if (allocated(tau))          deallocate(tau)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -1163,6 +1179,7 @@ subroutine copy_particle(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
 
  if (new_part) then
     norig      = norig + 1
@@ -1261,6 +1278,7 @@ subroutine copy_particle_all(src,dst,new_part)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+ if (itau_alloc == 1) tau(dst) = tau(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
@@ -1469,6 +1487,9 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
+    if (do_nucleation) then
+       call fill_buffer(xtemp, nucleation(:,i),nbuf)
+    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
@@ -1548,6 +1569,9 @@ subroutine unfill_buffer(ipart,xbuf)
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
+ if (do_nucleation) then
+    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
+ endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif

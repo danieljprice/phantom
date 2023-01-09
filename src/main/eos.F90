@@ -38,13 +38,15 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   infile_utils, io, mesa_microphysics, part, physcon, units
+!   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
+!   units
 !
+ use part, only:ien_etotal,ien_entropy,ien_type
+ use dim, only:gr
  implicit none
  integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
- logical, parameter, public :: use_entropy = .false.
  logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0.
 
@@ -55,7 +57,7 @@ module eos
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s
+ public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
 
@@ -79,6 +81,10 @@ module eos
     ierr_units_not_set   = 3, &
     ierr_isink_not_set   = 4
 
+!
+! Default temperature prescription for vertical stratification (0=MAPS, 1=Dartois)
+!
+ integer, public:: istrat = 0.
 !
 ! 2D temperature structure fit parameters for HD 163296
 !
@@ -105,6 +111,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_shen,      only:eos_shen_NL3
  use eos_idealplusrad
  use eos_gasradrec, only:equationofstate_gasradrec
+ use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
  integer, intent(in)    :: eos_type
@@ -119,7 +126,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
- real    :: zq,cs2atm,cs2mid,cs2
 #ifdef GR
  real    :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
@@ -171,9 +177,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
           !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
           call fatal('eos','utherm < 0',var='u',val=eni)
        endif
-       if (use_entropy) then
-          ponrhoi = eni*rhoi**(gammai-1.)  ! use this if en is entropy
-       elseif (gammai > 1.0001) then
+       if (gammai > 1.0001) then
           ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
        else
           ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
@@ -217,15 +221,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !-- z-dependent locally isothermal eos
 !
-    r2 = xi**2 + yi**2
-    cs2mid = polyk * r2**(-qfacdisc)
-    cs2atm = polyk2 * r2**(-qfacdisc2)
-    zq = z0 * r2**(0.5*beta_z)
-
-    ! modified equation 6 from Law et al. (2021)
-    cs2      = (cs2mid**4 + 0.5*(1 + tanh((abs(zi) - alpha_z*zq)/zq))*cs2atm**4)**(1./4.)
-    ponrhoi  = cs2
-    spsoundi = sqrt(cs2)
+    call get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
     tempi    = temperature_coef*mui*ponrhoi
 
  case(8)
@@ -615,17 +611,21 @@ end function get_local_u_internal
 !  of the entropy instead of the thermal energy
 !+
 !-----------------------------------------------------------------------
-real function utherm(en,rho)
- real, intent(in) :: en, rho
- real             :: gamm1
+real function utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,en
 
- if (use_entropy) then
-    gamm1 = gamma - 1.
+ en = vxyzui(4)
+ if (gr) then
+    utherm = en
+ elseif (ien_type == ien_entropy) then
     if (gamm1 > tiny(gamm1)) then
        utherm = (en/gamm1)*rho**gamm1
     else
        stop 'gamma=1 using entropy evolution'
     endif
+ elseif (ien_type == ien_etotal) then
+    utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     utherm = en
  endif
@@ -638,17 +638,22 @@ end function utherm
 !  instead of the thermal energy
 !+
 !-----------------------------------------------------------------------
-real function en_from_utherm(utherm,rho)
- real, intent(in) :: utherm, rho
- real             :: gamm1
+real function en_from_utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,utherm
 
- if (use_entropy) then
-    gamm1 = gamma - 1.
+ utherm = vxyzui(4)
+ if (gr) then
+    en_from_utherm = utherm
+ elseif (ien_type == ien_entropy) then
+    gamm1 = gammai - 1.
     if (gamm1 > tiny(gamm1)) then
        en_from_utherm = gamm1*utherm*rho**(1.-gamma)
     else
        stop 'gamma=1 using entropy evolution'
     endif
+ elseif (ien_type == ien_etotal) then
+    en_from_utherm = utherm + 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     en_from_utherm = utherm
  endif
@@ -738,13 +743,13 @@ end subroutine calc_temp_and_ene
 !+
 !-----------------------------------------------------------------------
 function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
- use io,                only:fatal
+ use io,                only:fatal,warning
  use physcon,           only:radconst,kb_on_mh
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
- real,    intent(in)            :: rho,pres
- real,    intent(in),  optional :: mu_in,eint_in
+ real,    intent(in)            :: rho,pres,mu_in
+ real,    intent(in),  optional :: eint_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
  real                           :: mu,entropy,logentropy,temp,eint
@@ -784,7 +789,32 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
 
+ ! check temp
+ if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
+
 end function entropy
+
+real function get_entropy(rho,pres,mu_in,ieos)
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ use physcon, only:kboltz
+ integer, intent(in) :: ieos
+ real, intent(in)    :: rho,pres,mu_in
+ real                :: cgsrho,cgspres,cgss
+
+ cgsrho = rho * unit_density
+ cgspres = pres * unit_pressure
+ select case (ieos)
+ case (12)
+    cgss = entropy(cgsrho,cgspres,mu_in,2)
+ case (10, 20)
+    cgss = entropy(cgsrho,cgspres,mu_in,3)
+ case default
+    cgss = entropy(cgsrho,cgspres,mu_in,1)
+ end select
+ cgss = cgss/kboltz ! s/kb
+ get_entropy = cgss/unit_ergg
+
+end function get_entropy
 
 !-----------------------------------------------------------------------
 !+
@@ -816,6 +846,66 @@ subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
  rho = srho**2
 
 end subroutine get_rho_from_p_s
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate temperature given density and entropy using Newton-Raphson
+!  method
+!+
+!-----------------------------------------------------------------------
+subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
+ use physcon, only:kb_on_mh,radconst,rg,mass_proton_cgs,kboltz
+ use io,      only:fatal
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ real, intent(in)    :: S,mu,rho
+ real, intent(inout) :: temp
+ real, intent(out)   :: P
+ integer, intent(in) :: ieos
+ real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
+ real,    parameter  :: eoserr=1d-12
+ integer             :: niter
+ integer, parameter  :: nitermax = 1000
+
+ ! change to cgs unit
+ cgsrho = rho*unit_density
+ cgss   = s*unit_ergg
+
+ niter = 0
+ select case (ieos)
+ case (2)
+    temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
+    cgsP = cgsrho*kb_on_mh*temp / mu
+ case (12)
+    corr = huge(corr)
+    do while (abs(corr) > eoserr .and. niter < nitermax)
+       f = 1. / (mu*mass_proton_cgs) * log(temp**1.5/cgsrho) + 4.*radconst*temp**3 / (3.*cgsrho*kboltz) - cgss
+       df = 1.5 / (mu*temp*mass_proton_cgs) + 4.*radconst*temp**2 / (cgsrho*kboltz)
+       corr = f/df
+       temp_new = temp - corr
+       if (temp_new > 1.2 * temp) then
+          temp = 1.2 * temp
+       elseif (temp_new < 0.8 * temp) then
+          temp = 0.8 * temp
+       else
+          temp = temp_new
+       endif
+       niter = niter + 1
+    enddo
+    call get_idealplusrad_pres(cgsrho,temp,mu,cgsP)
+ case default
+    cgsP = 0.
+    call fatal('eos','[get_p_from_rho_s] only implemented for eos 2 and 12')
+ end select
+
+ ! check temp
+ if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
+                                 &considering reducing entropy factor C_ent')
+
+ ! change back to code unit
+ P = cgsP / unit_pressure
+
+end subroutine get_p_from_rho_s
 
 !-----------------------------------------------------------------------
 !+
@@ -989,14 +1079,13 @@ end function eos_outputs_gasP
 !+
 !-----------------------------------------------------------------------
 subroutine eosinfo(eos_type,iprint)
- use dim,            only:maxvxyzu,gr
+ use dim,            only:maxvxyzu
  use io,             only:fatal,id,master
  use eos_helmholtz,  only:eos_helmholtz_eosinfo
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
  integer, intent(in) :: eos_type,iprint
- real, parameter     :: uthermcheck = 3.14159, rhocheck = 23.456
 
  if (id/=master) return
 
@@ -1009,27 +1098,9 @@ subroutine eosinfo(eos_type,iprint)
     endif
     if (eos_type==11) write(iprint,*) ' (ZERO PRESSURE) '
  case(2)
-    if (use_entropy) then
-       write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving ENTROPY): polyk = ',polyk,&
-                                                   ' gamma = ',gamma,' gmw = ',gmw
-!
-!--run a unit test on the en-> utherm and utherm-> en conversion utilities
-!
-       write(iprint,"(a)",ADVANCE='NO') ' checking utherm -> entropy -> utherm conversion ...'
-       if (abs(utherm(en_from_utherm(uthermcheck,rhocheck),rhocheck)-uthermcheck) > epsilon(uthermcheck)) then
-          call fatal('eosinfo','failed consistency check in eos: utherm0 -> entropy -> utherm  /=  utherm0')
-       elseif (abs(en_from_utherm(utherm(uthermcheck,rhocheck),rhocheck)-uthermcheck) > epsilon(uthermcheck)) then
-          call fatal('eosinfo','failed consistency check in eos: entropy0 -> utherm -> entropy  /=  entropy0')
-       else
-          write(iprint,*) 'OK'
-       endif
-    elseif (maxvxyzu >= 4) then
-       if (gr) then
-          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state with gamma = ',gamma,' gmw = ',gmw
-       else
-          write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state (evolving UTHERM): P = (gamma-1)*rho*u, gamma = ',&
+    if (maxvxyzu >= 4) then
+       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state: P = (gamma-1)*rho*u, gamma = ',&
                                               gamma,' gmw = ',gmw
-       endif
     else
        write(iprint,"(/,a,f10.6,a,f10.6,a,f10.6)") ' Polytropic equation of state: P = ',polyk,'*rho^',gamma,' gmw = ',gmw
     endif
@@ -1079,6 +1150,7 @@ subroutine write_headeropts_eos(ieos,hdr,ierr)
  call add_to_rheader(qfacdisc2,'qfacdisc2',hdr,ierr)
 
  if (ieos==7) then
+    call add_to_iheader(istrat,'istrat',hdr,ierr)
     call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
     call add_to_rheader(beta_z,'beta_z',hdr,ierr)
     call add_to_rheader(z0,'z0',hdr,ierr)
@@ -1137,11 +1209,12 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
  endif
 
  if (ieos==7) then
+    call extract('istrat',istrat,hdr,ierr)
     call extract('alpha_z',alpha_z,hdr,ierr)
     call extract('beta_z', beta_z, hdr,ierr)
     call extract('z0',z0,hdr,ierr)
-    if (qfacdisc2 <= tiny(qfacdisc2)) then
-       if (id==master) write(iprint,*) 'ERROR: qfacdisc2 <= 0'
+    if (abs(qfacdisc2) <= tiny(qfacdisc2)) then
+       if (id==master) write(iprint,*) 'ERROR: qfacdisc2 == 0'
        ierr = 2
     else
        if (id==master) write(iprint,*) 'qfacdisc2 = ',qfacdisc2

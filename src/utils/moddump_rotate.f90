@@ -29,7 +29,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                :: i
 
  ! Assume rotation axis is the z-axis
- omega = 4.12e-2  ! Omega in code units
+ omega = 7.92e-3  ! Omega in code units
+
+ print*,"Adding solid body rotation with omega = ",omega
 
  do i = 1,npart
     R = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
