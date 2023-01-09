@@ -6,16 +6,8 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! This module sets up sphere(s).  There are multiple options, including
-!    1) uniform unit sphere
-!    2) single polytrope
-!    3) binary polytrope (decommissioned)
-!    4) neutron star from file
-!    5) red giant (Macquarie)
-!    6) neutron star using a piecewise polytrope EOS
-!    7) Evrard sphere
-!    8) KEPLER star from file
-!    9) Helmholtz Equation of state
+! This module sets up sphere(s).  There are multiple options,
+! as listed in set_sphere.
 !
 ! :References: None
 !
@@ -95,6 +87,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use centreofmass,    only:reset_centreofmass
+ use dim,             only:do_radiation
  use units,           only:set_units,select_unit,utime,unit_density
  use kernel,          only:hfact_default
  use extern_densprofile, only:write_rhotab,rhotabfile,read_rhotab_wrapper
@@ -102,7 +95,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_piecewise,   only:init_eos_piecewise_preset
  use setstar,         only:set_stellar_core,read_star_profile,set_star_density, &
                            set_star_composition,set_star_thermalenergy
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,igas
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,igas,imu
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
  use relaxstar,       only:relax_star
  use mpiutils,        only:reduceall_mpi
  use mpidomain,       only:i_belong
@@ -150,17 +144,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Z_in        = 0.02
  isoftcore   = 0
  isinkcore   = .false.
- hsoft         = 0.
- rcore         = 0.
- mcore         = 0.
- isofteningopt = 1 ! By default, specify rcore
- input_profile = 'P12_Phantom_Profile.data'
+ hsoft          = 0.
+ rcore          = 0.
+ mcore          = 0.
+ isofteningopt  = 1 ! By default, specify rcore
+ input_profile  = 'P12_Phantom_Profile.data'
  outputfilename = 'mysoftenedstar.dat'
- dens_profile = 'density-profile.tab'
+ dens_profile   = 'density-profile.tab'
  !
  ! defaults needed for error checking
  !
- need_iso    = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
+ need_iso = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
  ! determine if an .in file exists
  !
@@ -263,6 +257,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,&
                                               eos_vars,relax_star_in_setup,use_var_comp,initialtemp)
+
+ if (do_radiation) then
+    if (eos_outputs_mu(ieos)) then
+       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,eos_vars(imu,:))
+    else
+       call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+    endif
+ endif
 
  call finish_eos(ieos,ierr)
  !

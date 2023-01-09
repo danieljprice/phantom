@@ -40,19 +40,20 @@ end subroutine init_wind_equations
 
 subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, spcode, dt_force, dt_next)
 !all quantities in cgs
- use physcon, only:au
+ use physcon, only:au,Rg
  logical, intent(in) :: dt_force
  real, intent(in) :: mu, gamma, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
  real, intent(inout) :: dt, rvT(3)
  integer, intent(out) :: spcode
  real, intent(out) :: dt_next
 
- real :: err, new_rvT(3), numerator, denominator, rold, errmax
+ real :: err, new_rvT(3), numerator, denominator, rold, errmax,cs
  real, parameter :: num_tol = 1.e-4, denom_tol = 1.e-2
  real, parameter :: dt_tol = 1.e-3
  real, parameter :: rvt_tol = 1.e-2, safety = 0.9, pshrnk = -0.25, errcon = 1.89e-4, pgrow = -0.2
  character(len=3), parameter :: RK_solver = 'RK4'
 
+ cs = sqrt(gamma*Rg*rvT(2)/mu)
  rold = rvT(1)
  err = 1.
  do while (err > rvt_tol)
@@ -61,8 +62,6 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
     else
        call RK6_step_dr(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_dr, Q, dQ_dr, err, new_rvT, numerator, denominator)
     endif
-!  print *,dt,err,err/rvt_tol
-!my method, requires slightly less iterations
     if (dt < 1.0) then
        dt_next = 1.
        exit
@@ -71,29 +70,20 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
        dt_next = 0.
        exit
     endif
-    !original
-    ! if (err > 0.01) then
-    !    dt = dt * 0.9
+
+    ! my empirical method requires slightly less iterations
+    ! if (err > rvt_tol) then
+    !    dt = dt * 0.1
     ! else
     !    if (err < 1.d-3) then
     !       !dt_next = dt * 1.05
-    !       dt_next = min(dt*1.05,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
+    !       dt_next = min(dt*1.25,5.*abs(rold-new_rvT(1))/(1.d-4+rvT(2)))
     !       !dt_next = min(dt*1.05,0.03*(new_rvT(1))/(1.d-3+rvT(2)))
     !    else
     !       dt_next = dt
     !    endif
     !    exit
     ! endif
-!    if (err > rvt_tol) then
-!       dt = dt * 0.9
-!    else
-! !constrain timestep so the changes in r,v & T do not exceed dt_tol
-!       dt_next = min(dt*1.05,3.d-3*au/new_rvt(2),dt_tol*dt/(1.d-10+err)
-!       ! dt_next = min(dt*1.05,3.d-3*au/new_rvt(2),&
-!       ! dt_tol*dt*abs(rvt(1)/(1.d-10+new_rvt(1)-rvt(1))),&
-!       ! dt_tol*dt*abs(rvt(2)/(1.d-10+new_rvt(2)-rvt(2))),&
-!       ! dt_tol*dt*abs(rvt(3)/(1.d-10+new_rvt(3)-rvt(3))))
-!    endif
 
     !rkqs version
     errmax = err/rvt_tol
@@ -104,9 +94,14 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
        if (errmax > errcon) then
           dt_next = safety*dt*(errmax**pgrow)
        else
-          dt_next = 5.*dt
+          !limit increase in dt to obtain a smooth solution
+          if (abs(log(new_rvT(2)/cs)) > 1.10) then
+             dt_next = dt
+          else
+             dt_next = 5.*dt
+          endif
+          !print *,new_rvt(1),(new_rvt(2)/cs),abs(log(new_rvt(2)/cs)),dt_next/dt
        endif
-       !print *,'solver = ',RK_solver,dt,dt_next
        exit
     endif
 
@@ -122,7 +117,7 @@ subroutine evolve_hydro(dt, rvT, Rstar_cgs, Mdot_cgs, mu, gamma, alpha, dalpha_d
  spcode = 0
  if (numerator < -num_tol .and. denominator > -denom_tol) spcode = 1  !no solution for stationary wind
  if (numerator > -num_tol .and. denominator < -denom_tol) spcode = -1 !breeze solution
- if (denominator > denom_tol) spcode = 2
+ if (denominator > denom_tol) spcode = 2                              !supersonic solution
 
 end subroutine evolve_hydro
 
@@ -302,7 +297,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
  real, intent(out) :: numerator, denominator
 
  real :: AA, BB, CC, c2, T, mu, gamma, pH, pH_tot, rho_cgs
- real, parameter :: denom_tol = 3.d-2 !the solution is very sensitive to this parameter!
+ real, parameter :: switch_tol = 3.d-2 !the solution is very sensitive to this parameter!
 
  T = T0
  mu = mu0
@@ -318,7 +313,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = ((2.+expT)*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v)
-    if (abs(denominator) < denom_tol) then
+    if (abs(denominator) < switch_tol) then
        AA = 2.*c2/v**3
        BB = (expT*c2+c2*(2.+expT)-Gg*Mstar_cgs*(1.-alpha)/r)/(r*v**2)
        CC = ((2.+expT)*(1.+expT)*c2-Gg*Mstar_cgs*(2.*(1.-alpha)/r+dalpha_dr))/(v*r**2)
@@ -333,7 +328,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1. - alpha))/(r**2*v)
-    if (abs(denominator) < denom_tol) then
+    if (abs(denominator) < switch_tol) then
        AA = ( 1.+gamma)*c2/v**3
        BB = ((4.*gamma-2.)*r*c2-Gg*Mstar_cgs*(1.-alpha))/(r**2*v**2)
        CC = ((4.*gamma-2.)*r*c2-Gg*Mstar_cgs*(2.-2.*alpha+r*dalpha_dr))/(r**3*v)
@@ -347,7 +342,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
     c2 = gamma*Rg*T/mu
     denominator = 1.-c2/v**2
     numerator = (2.*r*c2 - Gg*Mstar_cgs*(1.-alpha))/(r**2*v) + Q*(1.-gamma)/v**2
-    if (abs(denominator) < denom_tol) then
+    if (abs(denominator) < switch_tol) then
        AA = ( 1.+gamma)*c2/v**3
        BB = ((4.*gamma-2.)*r*c2-Gg*Mstar_cgs*(1.-alpha))/(r**2*v**2) &
                + (1.-gamma)*(2.+gamma)*Q/v**3
