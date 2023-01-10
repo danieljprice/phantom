@@ -17,7 +17,7 @@ program phantomanalysis
 ! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, part,
 !   readwrite_dumps
 !
- use dim,             only:tagline
+ use dim,             only:tagline,do_nucleation,inucleation
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
  use io,              only:set_io_unit_numbers,iprint,idisk1,ievfile,ianalysis
  use readwrite_dumps, only:init_readwrite_dumps,read_dump,read_smalldump,is_small_dump
@@ -26,7 +26,7 @@ program phantomanalysis
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
  implicit none
- integer            :: nargs,iloc,ierr,iarg,i
+ integer            :: nargs,iloc,ierr,iarg,i,idust_opacity
  real               :: time
  logical            :: iexist
  character(len=120) :: dumpfile,fileprefix,infile
@@ -69,6 +69,11 @@ program phantomanalysis
        if (iexist) then
           call open_db_from_file(db,infile,ianalysis,ierr)
           call read_inopt(ieos,'ieos',db,ierr)
+          call read_inopt(idust_opacity,'idust_opacity',db,ierr)
+          if (idust_opacity == 2) then
+             do_nucleation = .true.
+             inucleation = 1
+          endif
           call close_db(db)
           close(ianalysis)
        endif
