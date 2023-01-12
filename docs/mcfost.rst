@@ -154,11 +154,11 @@ and mcfost2phantom.mod into /usr/local/include. You can then compile phantom
 linked against MCFOST by overriding the linker flags as follows::
 
    ~/phantom/scripts/writemake.sh disc > Makefile
-   make MCFOST=yes MCFOST_DIR=/usr/local/lib MCFOST_INCLUDE=/usr/local/include HDF5ROOT=/usr/local MCFOST_INSTALL=/usr/local MCFOST_LIBS=/usr/local MCFOST_LIB=/usr/local/lib LIBCXX=-lc++
-   make setup MCFOST=yes MCFOST_DIR=/usr/local/lib MCFOST_INCLUDE=/usr/local/include HDF5ROOT=/usr/local MCFOST_INSTALL=/usr/local MCFOST_LIBS=/usr/local MCFOST_LIB=/usr/local/lib LIBCXX=-lc++
+   make MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
+   make setup MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
    ./phantomsetup disc
    
-To run the code with MCFOST you will need to create a directory where MCFOST utilities can be installed:
+To run the code with MCFOST you will need to create a directory where MCFOST utilities can be installed::
 
    mkdir -p ~/mcfost-utils/
    export MCFOST_UTILS=~/mcfost-utils

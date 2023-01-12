@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -44,8 +44,9 @@ module setup
 !
 ! :Dependencies: centreofmass, dim, eos, eos_gasradrec, eos_piecewise,
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
-!   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
-!   setsoftenedcore, setstar, setup_params, timestep, units
+!   mpidomain, mpiutils, options, part, physcon, prompting,
+!   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
+!   timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity,ihsoft
