@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,7 +17,6 @@ module cooling_solver
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - T0             : *temperature to cool towards*
 !   - T1_factor      : *factor by which T0 is increased (T1= T1_factor*T0)*
 !   - bowen_Cprime   : *radiative cooling rate (g.s/cm³)*
 !   - dust_collision : *dust collision (1=on/0=off)*
