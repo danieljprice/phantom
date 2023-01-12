@@ -2701,7 +2701,7 @@ subroutine planet_destruction(time,npart,particlemass,xyzh,vxyzu)
        allocate(time_old)
        allocate(particleRho(npart))
        allocate(currentKhAblatedMass(nptmass))
-      
+
        time_old=0.0
        particleRho=getParticleRho(xyzh(4,:),particlemass)
        currentKhAblatedMass=0.0
@@ -2746,31 +2746,31 @@ subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
  real, intent(in)     :: time,particlemass
  integer, intent(in)  :: num,npart
  real, intent(in)     :: xyzh(4,npart),vxyzu(4,npart)
- 
+
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: profile(:,:)
  integer                        :: ncols,i,j,iorder(npart)
  real                           :: currentInteriorMass,currentParticleGPE,currentCoreParticleSeparation
  real                           :: previousBindingEnergy,previousBindingEnergyU
- 
+
  ncols=3
  allocate(columns(ncols))
  allocate(profile(ncols,npart))
- columns=(/"      radius",& 
+ columns=(/"      radius",&
            "     bEnergy",& !Binding energy without internal energy.
            " bEnergy (u)"/) !Binding energy with internal energy.
-           
-           
+
+
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  currentInteriorMass=xyzmh_ptmass(4,1)+(npart*particlemass) !Initally set to the entire mass of the star.
-           
+
  do i=npart,1,-1 !Loops over all particles from outer to inner.
     j=iorder(i)
     currentInteriorMass=currentInteriorMass-particlemass
     currentCoreParticleSeparation=separation(xyzmh_ptmass(1:3,1),xyzh(1:3,j))
     currentParticleGPE=(currentInteriorMass*particlemass)/currentCoreParticleSeparation
-    
+
     !The binding energy at a particular radius is the sum of the gravitational potential energies
     !(and internal energies in the case of the third column) of all particles beyond that radius.
     if (i==npart) then
@@ -2780,13 +2780,13 @@ subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
        previousBindingEnergy=profile(2,i+1)
        previousBindingEnergyU=profile(3,i+1)
     endif
-       
+
     profile(1,i)=currentCoreParticleSeparation
     profile(2,i)=previousBindingEnergy+currentParticleGPE
     profile(3,i)=previousBindingEnergyU+currentParticleGPE-(vxyzu(4,j)*particlemass)
  enddo
- 
- 
+
+
  call write_file('bEnergyProfile','bEnergyProfiles',columns,profile,npart,ncols,num)
 end subroutine create_bindingEnergy_profile
 
@@ -3627,34 +3627,34 @@ function sphInterpolation(npart,particlemass,particleRho,particleXyzh,interpolat
  real, intent(in)    :: interpolateXyz(3)
  real, intent(in)    :: toInterpolate(:,:)
  real                :: interpolatedData(size(toInterpolate,1))
-  
+
  integer             :: i,j,iorder(npart)
  real                :: currentR,currentQ,currentQ2
  real                :: nearestSphH
  real                :: currentParticleRho,currentSphSummandFactor
-  
- interpolatedData=0.0 
+
+ interpolatedData=0.0
  call set_r2func_origin(interpolateXyz(1),interpolateXyz(2),interpolateXyz(3))
  call indexxfunc(npart,r2func_origin,particleXyzh,iorder) !Gets the order of SPH particles from the interpolation point.
  nearestSphH=particleXyzh(4,iorder(1)) !The smoothing length of the nearest SPH particle to the ineterpolation point.
-  
+
  do i=1,npart
     j=iorder(i)
-    
+
     currentR=separation(interpolateXyz,particleXyzh(1:3,j))
     currentQ=currentR/nearestSphH !currentR is scaled in units of nearestSphH
     currentQ2=currentQ**2.0
-    
+
     !All SPH particles beyond 2 smoothing lengths are ignored.
     if (currentQ>2) then
        exit
     endif
-       
+
     !SPH interpolation is done below.
     currentParticleRho=particleRho(j)
     currentSphSummandFactor=(particlemass/currentParticleRho)*((1.0/((nearestSphH**3.0)*pi))*wkern(currentQ2,currentQ))
     interpolatedData=interpolatedData+(currentSphSummandFactor*toInterpolate(:,j))
- enddo    
+ enddo
 end function sphInterpolation
 
 !Sorting routines

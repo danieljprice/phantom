@@ -543,7 +543,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        elseif (icompanion_grav == 1) then
           primarycore_mass = xyzmh_ptmass(4,1)
        else
-          call fatal('companion_gravity','icompanion_grav not equal to 1 or 2') 
+          call fatal('companion_gravity','icompanion_grav not equal to 1 or 2')
        endif
        call close_db(db)
 
