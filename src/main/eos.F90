@@ -900,7 +900,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  ! check temp
  if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
-                                 &considering reducing entropy factor C_ent')
+ &considering reducing entropy factor C_ent')
 
  ! change back to code unit
  P = cgsP / unit_pressure

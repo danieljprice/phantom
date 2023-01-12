@@ -3612,8 +3612,8 @@ end function separation
 
 !Creates an array of SPH particle densities for each value of h.
 elemental real function getParticleRho(h,particlemass)
-  real, intent(in) :: h,particlemass
-  getParticleRho=rhoh(h,particlemass)
+ real, intent(in) :: h,particlemass
+ getParticleRho=rhoh(h,particlemass)
 end function getParticleRho
 
 !Performs SPH interpolation on the SPH particle property toInterpolate at the location interpolateXyz.
