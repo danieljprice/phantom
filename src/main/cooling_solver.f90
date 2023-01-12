@@ -150,10 +150,10 @@ subroutine implicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  T_on_u  = (gamma-1.)*mu*unit_ergg/Rg
  T       = ui*T_on_u
  call calc_cooling_rate(Q,dlnQ_dlnT, rho, T, Tdust, mu, gamma, K2, kappa)
-  !cooling negligible, return
+ !cooling negligible, return
  if (abs(Q) < tiny(0.)) then
-   dudt = 0.
-   return
+    dudt = 0.
+    return
  endif
  T0   = T
  f0   = -Q*dt*T_on_u
