@@ -71,7 +71,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV_and_Lshock
+                     mcfost_uses_PdV
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -236,7 +236,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
  call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
       'Should mcfost compute the accretion luminosity',iwritein)
- call write_inopt(mcfost_uses_PdV_and_Lshock,'mcfost_uses_PdV_and_Lshock',&
+ call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
       'Should mcfost use the PdV work and shock heating?',iwritein)
 #endif
 
@@ -500,8 +500,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
     case('mcfost_computes_Lacc')
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
-    case('mcfost_uses_PdV_and_Lshock')
-       read(valstring,*,iostat=ierr) mcfost_uses_PdV_and_Lshock
+    case('mcfost_uses_PdV')
+       read(valstring,*,iostat=ierr) mcfost_uses_PdV
 #endif
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy

@@ -43,7 +43,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV_and_Lshock
+                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -96,7 +96,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- if (lightcurve .and. mcfost_uses_PdV_and_Lshock) then
+ if (lightcurve .and. mcfost_uses_PdV) then
     nlum = npart
  else
     nlum =  0
