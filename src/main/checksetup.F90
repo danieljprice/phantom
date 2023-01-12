@@ -345,7 +345,7 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90'
+          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
