@@ -42,9 +42,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use io,             only:fatal,iprint
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
- use timestep,       only:dtmax
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc
+                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV_and_Lshock
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -66,7 +65,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
-
 
  if (.not. use_mcfost) return
 
@@ -98,12 +96,16 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     dustfluidtype = 2
  endif
 
- nlum = npart
+ if (lightcurve .and. mcfost_uses_PdV_and_Lshock) then
+    nlum = npart
+ else
+    nlum =  0
+ endif
  allocate(dudt(nlum))
  if (lightcurve) then
     dudt(1:nlum) = luminosity(1:nlum)
  else
-    dudt(1:nlum) = vxyzu(4,1:nlum) * massoftype(igas) / dtmax
+    dudt(1:nlum) = 0.
  endif
 
  if (gamma <= 1.) then
@@ -114,7 +116,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
 
  ! this this the factor needed to compute u^(n+1)/dtmax from temperature
- ! T_to_u = factor * massoftype(igas) /dtmax
+ ! T_to_u = factor * massoftype(igas)
 
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
@@ -219,12 +221,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if (allocated(dudt)) deallocate(dudt)
  write(*,*) "End of analysis mcfost"
 
- return
-
 end subroutine do_analysis
 
 subroutine growth_to_fake_multi(npart)
-
  use growth, only:bin_to_multi,f_smax,size_max,b_per_dex
  use deriv,  only:get_derivs_global
 
@@ -236,8 +235,6 @@ subroutine growth_to_fake_multi(npart)
  !-- recompute density
  call get_derivs_global()
 
- return
-
 end subroutine growth_to_fake_multi
 
 subroutine back_to_growth(npart)
@@ -247,7 +244,6 @@ subroutine back_to_growth(npart)
  use energies, only:mdust
  integer, intent(in)    :: npart
  integer                :: i,j,ndustold,itype
-
 
  ndustold = sum(npartoftype(idust:))
  do i=1,npart
@@ -274,8 +270,6 @@ subroutine back_to_growth(npart)
     write(*,*) 'ERROR! npartoftype not conserved'
     write(*,*) npartoftype(idust), " <-- new vs. old --> ",ndustold
  endif
-
- return
 
 end subroutine back_to_growth
 
