@@ -47,7 +47,7 @@ module options
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV_and_Lshock
+ logical, public :: mcfost_uses_PdV
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
@@ -143,7 +143,7 @@ subroutine set_default_options
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
  mcfost_computes_Lacc = .false.
- mcfost_uses_PdV_and_Lshock = .true.
+ mcfost_uses_PdV = .true.
 
  ! radiation
  if (do_radiation) then
