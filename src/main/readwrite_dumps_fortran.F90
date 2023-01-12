@@ -640,7 +640,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
- use sphNGutils, only:convert_sinks_sphNG
+ use sphNGutils, only:convert_sinks_sphNG,mass_sphng
  use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
@@ -812,6 +812,11 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
     endif
 
+    if (.not. phantomdump) then
+       print *, "allocating arrays for nptmass=", nptmass
+       allocate(mass_sphng(maxp_hard))
+    endif
+
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
                           tfile,alphafile,idisk1,iprint,ierr)
@@ -821,9 +826,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  enddo overblocks
 
  !
- ! check npartoftype
+ ! check npartoftype- breaks for sphng "type19" sinks
+ ! post-itype conversion
  !
- if (maxphase==maxp) then
+ if (maxphase==maxp .and. phantomdump) then
     npartoftypetot = npartoftype
     call count_particle_types(npartoftype)
     npartoftypetotact = reduceall_mpi('+',npartoftype)
@@ -845,6 +851,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  endif
 
  call check_npartoftype(npartoftype,npart)
+ if (.not. phantomdump) then
+    deallocate(mass_sphng)
+ endif
+
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -1114,7 +1124,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
+
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,ithick,itemp,igasP,iorig
+ use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
@@ -1198,6 +1210,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (maxphase==maxp) call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (.not. phantomdump) then
+                call read_array(iphase,'iphase',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(mass_sphng,'m',got_mass,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (gr) call read_array(pxyzu,pxyzu_label,got_pxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1262,6 +1278,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
+             print *, "case 2. Tag:", tag
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
           case(4)
@@ -1285,7 +1302,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                    got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_nucleation,got_iorig,iphase,&
                    xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
-
+ if (.not. phantomdump) then
+    print *, "Calling set_gas_particle_mass"
+    call set_gas_particle_mass(mass_sphng)
+ endif
  return
 100 continue
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
@@ -1909,6 +1929,10 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
+    if (itype  >  8) then
+       print *, "particle i=", i,"is type", itype
+       cycle
+    endif
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 
