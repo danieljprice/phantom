@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -345,7 +345,7 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90'
+          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
@@ -635,10 +635,10 @@ subroutine check_setup_nucleation(npart,nerror)
     if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
 
     if (any(isnan(nucleation(:,i)))) then
-      do j = 1,n_nucleation
-         if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
-      enddo
-      nerror = nerror + 1
+       do j = 1,n_nucleation
+          if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
+       enddo
+       nerror = nerror + 1
     endif
  enddo
 
