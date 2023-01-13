@@ -47,7 +47,7 @@ subroutine test_eos(ntests,npass)
 !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
 
- do irecomb = 2,2!0,3
+ do irecomb = 0,3
     call test_hormone(ntests,npass)
  enddo
 
@@ -191,15 +191,10 @@ subroutine test_hormone(ntests, npass)
  tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
-
-! d=   3.2276168501594796E-015 eint=   764437650.64783347      Tguess=   14.312826297105179
-
- tempi=1.!13.793749359334543
+ tempi = 1.
  eni_code =  764437650.64783347/unit_ergg
  rhocodei = 3.2276168501594796E-015/unit_density
- call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi&
- ,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
- stop
+ call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T
