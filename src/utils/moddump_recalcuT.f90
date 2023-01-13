@@ -52,8 +52,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  do i = 1,npart
     densi = rhoh(xyzh(4,i),massoftype(igas))
-
-    ! Get pressure
     eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
@@ -61,10 +59,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! Comment out to leave quantity unchanged
  ieos = 2
  gamma = 5./3.
- gmw = 0.60319
- irecomb = 2
+ gmw = 0.6175
+ irecomb = 3
  if (ieos == 10) then
-    X_in = 0.69843
+    X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
     Z_in = 0.01426
  endif
  !-------------------------------

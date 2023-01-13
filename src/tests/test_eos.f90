@@ -164,7 +164,7 @@ end subroutine test_idealplusrad
 !----------------------------------------------------------------------------
 subroutine test_hormone(ntests, npass)
  use io,        only:id,master,stdout
- use eos,       only:init_eos,equationofstate,done_init_eos
+ use eos,       only:init_eos,equationofstate
  use eos_idealplusrad, only:get_idealplusrad_enfromtemp,get_idealplusrad_pres
  use eos_gasradrec, only:calc_uT_from_rhoP_gasradrec
  use ionization_mod, only:get_erec,get_imurec
@@ -179,8 +179,8 @@ subroutine test_hormone(ntests, npass)
  if (id==master) write(*,"(/,a)") '--> testing HORMONE equation of states'
 
  ieos = 20
- X = 0.7
- Z = 0.02
+ X = 0.69843
+ Z = 0.01426
  gamma = 5./3.
 
  call get_rhoT_grid(npts,rhogrid,Tgrid)
@@ -191,7 +191,10 @@ subroutine test_hormone(ntests, npass)
  tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
-
+ tempi = 1.
+ eni_code =  764437650.64783347/unit_ergg
+ rhocodei = 3.2276168501594796E-015/unit_density
+ call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T
@@ -204,7 +207,7 @@ subroutine test_hormone(ntests, npass)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate P, T from rho, u, mu
-       tempi = -1.
+       tempi = 1.
        eni_code = eni/unit_ergg
        rhocodei = rhogrid(i)/unit_density
        call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
