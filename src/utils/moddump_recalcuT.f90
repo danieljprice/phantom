@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -23,7 +23,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
-                         gmw,X_in,Z_in,gamma,eosinfo,equationofstate
+                         gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
  use part,          only:rhoh,eos_vars,itemp,igasP,igas
@@ -32,9 +32,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,ierr
- real :: densi,eni,tempi,ponrhoi,temp_residual,ene_residual
- real :: dum1,dum2,dum3,dum4
+ integer                :: i,ierr
+ real                   :: densi,eni,tempi
 
  !-SET-EOS-OF-INPUT-DUMP--------
  ieos = 12
@@ -51,26 +50,21 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Check if this is correct. Enter to proceed'
  read*
 
- dum1 = 0.
- dum2 = 0.
- dum3 = 0.
- dum4 = 0.
- tempi = 0.
  do i = 1,npart
     densi = rhoh(xyzh(4,i),massoftype(igas))
-    ! Get pressure
-    call equationofstate(ieos,ponrhoi,dum1,densi,dum2,dum3,dum4,tempi,vxyzu(4,i))
-    eos_vars(igasP,i) = ponrhoi * densi
+    eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
  ! Comment out to leave quantity unchanged
- ieos = 12
+ ieos = 2
  gamma = 5./3.
  gmw = 0.6175
  irecomb = 3
- X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
- Z_in = 0.01426
+ if (ieos == 10) then
+    X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
+    Z_in = 0.01426
+ endif
  !-------------------------------
 
  write(iprint,"(/,a,i2)")'Changing to ieos = ',ieos
@@ -78,18 +72,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call eosinfo(ieos,iprint)
  print*,'Check if this is correct. Enter to proceed'
  read*
-
- !!!! BEGIN CHECKING COMPOSITION
-!  tempi = 0.
-!  do i = 1,npart
-!     densi = rhoh(xyzh(4,i),massoftype(igas))
-!     call calc_temp_and_ene(20,densi*unit_density,eos_vars(igasP,i)*unit_pressure,eni,tempi,ierr)
-!     temp_residual = abs( tempi / eos_vars(itemp,i) - 1. )  ! (Tnew-Told)/Told
-!     ene_residual = abs( eni / unit_ergg / vxyzu(4,i) - 1. )
-!     print*, 'i = ',i,' dT/T = ',temp_residual,' du/u = ',ene_residual
-!  enddo
-!  stop
-!!!! END CHECKING COMPOSITION
 
  tempi = 0.
  do i = 1,npart
