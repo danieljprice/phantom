@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -70,7 +70,8 @@ module readwrite_infile
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
-                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc
+                     exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
+                     mcfost_uses_PdV
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -235,6 +236,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Fix the stellar parameters to mcfost values or update using sink mass',iwritein)
  call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
       'Should mcfost compute the accretion luminosity',iwritein)
+ call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
+      'Should mcfost use the PdV work and shock heating?',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -497,6 +500,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
     case('mcfost_computes_Lacc')
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
+    case('mcfost_uses_PdV')
+       read(valstring,*,iostat=ierr) mcfost_uses_PdV
 #endif
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
