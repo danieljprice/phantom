@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -47,6 +47,7 @@ module options
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
+ logical, public :: mcfost_uses_PdV
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
@@ -142,6 +143,7 @@ subroutine set_default_options
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
  mcfost_computes_Lacc = .false.
+ mcfost_uses_PdV = .true.
 
  ! radiation
  if (do_radiation) then
