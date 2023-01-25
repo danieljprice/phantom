@@ -14,7 +14,8 @@ module cooling
 !     3 = Gammie cooling                  [explicit]
 !     5 = Koyama & Inutuska (2002)        [explicit]
 !     6 = Koyama & Inutuska (2002)        [implicit]
-!
+!     7 = Stamatellos et al. (2007)       [semi-implicit]
+!  
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
@@ -67,7 +68,8 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_molecular,      only:init_cooling_molec
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
-
+ use cooling_stamatellos,      only:init_cooling_S07
+ 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
 
@@ -79,6 +81,8 @@ subroutine init_cooling(id,master,iprint,ierr)
     call init_cooling_ism()
  else
     select case(icooling)
+    case(7)
+       call init_cooling_S07(ierr)
     case(6)
        call init_cooling_KI02(ierr)
     case(5)
@@ -103,6 +107,8 @@ subroutine init_cooling(id,master,iprint,ierr)
        ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
     endif
     if (maxvxyzu < 4) ierr = 1
+ elseif (icooling == 7) then
+    ufloor = 0. ! because we use the umin(:) array
  else
     ufloor = 0.
  endif
@@ -179,7 +185,7 @@ subroutine write_options_cooling(iunit)
     if (icooling > 0) call write_options_cooling_ism(iunit)
  else
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling library (step), 2=cooling library (force),'// &
-                     '3=Gammie, 5,6=KI02)',iunit)
+                     '3=Gammie, 5,6=KI02,7=stamatellos)',iunit)
     select case(icooling)
     case(0,4,5,6)
        ! do nothing

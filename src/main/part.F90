@@ -57,6 +57,14 @@ module part
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
+
+!
+!--Stamatellos cooling
+!
+ real,allocatable :: ttherm(:) ! Thermalisation time
+ real,allocatable :: uequil(:) ! Equilibrium energy
+ real,allocatable :: umin(:)   ! Minimum energy set by Tmin
+ 
 !
 !--tracking particle IDs
 !
@@ -512,7 +520,9 @@ subroutine allocate_part
  call allocate_array('mu_chem', mu_chem, maxp_krome)
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('dudt_chem', dudt_chem, maxp_krome)
-
+ call allocate_array('ttherm', ttherm, maxp)
+ call allocate_array('uequil', uequil, maxp)
+ call allocate_array('umin', umin, maxp)
 
 end subroutine allocate_part
 
@@ -582,7 +592,11 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(ttherm))       deallocate(ttherm)
+ if (allocated(uequil))       deallocate(uequil)
+ if (allocated(umin))         deallocate(umin)
 
+ 
 end subroutine deallocate_part
 
 !----------------------------------------------------------------

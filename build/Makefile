@@ -507,6 +507,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
          cooling_molecular.f90 \
          cooling_functions.f90 \
          cooling_solver.f90 \
+	 interp_optab.F90 cooling_stamatellos.f90 \
          h2chem.f90 cooling.F90
 #
 # equations of state

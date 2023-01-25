@@ -1,23 +1,23 @@
 !--------------------------------------------------------------------------
-! Scrript to interpolate the opacity table myeos.dat
+! Script to interpolate the opacity table myeos.dat
 !--------------------------------------------------------------------------
 
 module interp_optab
 implicit none
 contains
-subroutine read_optab(OPTABLE)
+subroutine read_optab(OPTABLE,ierr)
  use datafiles, only:find_phantom_datafile
 
  real, intent(out) :: OPTABLE(260,1001,6)
+ integer, intent(out) :: ierr
  integer i,j,nx,ny
  character(len=120) :: filepath
- !haracter(len=*), parameter :: tab_eos_file='myeos.dat'
- !COMMON /optable/ OPTABLE
 
  ! read in data file for interpolation
  filepath=find_phantom_datafile('myeos.dat','cooling')
  print *,"FILEPATH:",filepath 
- open(10, file=filepath, form="formatted", status="old")
+ open(10, file=filepath, form="formatted", status="old",iostat=ierr)
+ if (ierr > 0) return
  read(10, *) nx, ny
  do i = 1,nx
   do j = 1,ny
