@@ -100,8 +100,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo aparts
  angtota = sqrt(angxa*angxa + angya*angya + angza*angza)
  !
- !--Set bins (log or linear)
- if ( logr ) then
+ !--Set bins (linear or log)
+ if ( .not. logr ) then
     dr   = rmax/float(nbins)
     do i = 1,nbins
        rbins(i) = float(i)*dr
