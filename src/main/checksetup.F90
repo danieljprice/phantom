@@ -780,12 +780,13 @@ end subroutine check_for_identical_positions
 !+
 ! 1) check for optically thin particles when mcfost is disabled,
 ! as the particles will then be overlooked if they are flagged as thin
-! 2) To do! : check that radiation energy is never negative to begin with
+! 2) check that radiation energy is never negative to begin with
+! 3) check for NaNs
 !+
 !------------------------------------------------------------------
 
 subroutine check_setup_radiation(npart, nerror, radprop, rad)
- use part,      only:ithick, iradxi, ikappa
+ use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: rad(:,:), radprop(:,:)
