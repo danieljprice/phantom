@@ -228,13 +228,14 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  integer, parameter                :: maxcellcache = 10000
  integer, save, allocatable        :: neighlist(:)
  real                              :: dx,dy,dz,hi21,rij2,q2i
- real, save                        :: xyzcache(maxcellcache,3)
+ real, save, allocatable           :: xyzcache(:,:)
+ !real, save                        :: xyzcache(maxcellcache,3)
  !$omp threadprivate(xyzcache,neighlist)
  logical                           :: iactivei,iamdusti,iamgasi
 
  if (.not. allocated(neighlist)) then
     !$omp parallel
-    allocate(neighlist(size(xyzh(1,:))))
+    allocate(neighlist(size(xyzh(1,:))),xyzcache(maxcellcache,3))
     !$omp end parallel
  endif
 
