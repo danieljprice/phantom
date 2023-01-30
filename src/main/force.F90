@@ -177,7 +177,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
-                 ipart_rhomax,stressmax,eos_vars,dens,metrics)
+                 ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
 
  use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -234,7 +234,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(out)   :: dBevol(:,:)
  real(kind=4), intent(inout) :: divcurlv(:,:)
  real(kind=4), intent(in)    :: divcurlB(:,:)
- real,         intent(in)    :: stressmax
+ real,         intent(in)    :: dt,stressmax
  integer,      intent(out)   :: ipart_rhomax ! test this particle for point mass creation
  real,         intent(in)    :: rad(:,:)
  real,         intent(out)   :: drad(:,:)
@@ -388,6 +388,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(divBsymm) &
 !$omp shared(dBevol) &
 !$omp shared(eos_vars) &
+!$omp shared(dt) &
 !$omp shared(nprocs,icall) &
 !$omp shared(poten) &
 !$omp private(icell,i) &
@@ -485,7 +486,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (do_export) then
        stack_waiting%cells(cell%waiting_index) = cell
     else
-       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,&
+       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -566,7 +567,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     over_waiting: do i = 1, stack_waiting%n
        cell = stack_waiting%cells(i)
 
-       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx, &
+       call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -2407,7 +2408,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
 end subroutine compute_cell
 
-subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,&
+subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
@@ -2433,7 +2434,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
                           store_dust_temperature,do_nucleation
  use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,icooling,ien_type,ien_entropy,ien_etotal,implicit_radiation
+                          use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
                           nucleation,idK2,idmu,idkappa,idgamma,dust_temp
@@ -2477,6 +2478,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dvdx,
  real,               intent(inout) :: fxyzu(:,:)
  real,               intent(in)    :: xyzh(:,:)
  real,               intent(inout) :: vxyzu(:,:)
+ real,               intent(in)    :: dt
  real(kind=4),       intent(in)    :: dvdx(:,:)
  real(kind=4),       intent(out)   :: poten(:)
  real(kind=4),       intent(out)   :: divBsymm(:)
