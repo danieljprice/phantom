@@ -407,13 +407,10 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     hi21 = 1./(hi*hi)
     hi41 = hi21*hi21
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
-   !  print*,n,'i=',i,' nneigh=',ivar(1,n)
-   !  read*
+
     do k = 1,ivar(1,n) ! Looping from 1 to nneigh
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
-      !  print*,'  j=',j,' r/h =',sqrt(dot_product(xyzh(1:3,i)-xyzh(1:3,j),xyzh(1:3,i)-xyzh(1:3,j)))/xyzh(4,i)
-      !  read*
        !
        !--Need to make sure that E and U values are loaded for non-active neighbours
        !
@@ -488,7 +485,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !
        !--Calculates density(i) times the gradient of velocity
        !
-       !if (i==48 .and. j==81) print*,i,j,dvx,dx*rij1,pmjdWrunix/(cnormk*pmi*gradh(1,i)/rhoi*hi41),hi41 !*rij1
        dvxdxi = dvxdxi - dvx*pmjdWrunix
        dvxdyi = dvxdyi - dvx*pmjdWruniy
        dvxdzi = dvxdzi - dvx*pmjdWruniz
@@ -1498,10 +1494,10 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  integer, intent(out)   :: ierr
  logical, intent(inout) :: moresweep
  real,    intent(out)   :: soln
- real :: a(0:4)
+ real :: a(0:3)
 
  ! Between eq 22 & 23
- a(4) = 1.
+ ! a4 = 1. but this is already assumed in the solver
  a(3) = 0.
  a(2) = 0.
  a(1) = u1term
