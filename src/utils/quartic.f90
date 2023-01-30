@@ -293,28 +293,28 @@ subroutine quarticsolve(a,uold,soln,moresweep,ierr)
     soln = z1(1) ! at least return one of them...
     ierr = 1
     return
-   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-   !     rtst = rtst + 1
-   !     soln = z1(1)
-   !  endif
-   !  if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
-   !     rtst = rtst + 1
-   !     soln = z2(1)
-   !  endif
-   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-   !     rtst = rtst + 1
-   !     soln = z3(1)
-   !  endif
-   !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
-   !     rtst = rtst + 1
-   !     soln = z4(1)
-   !  endif
+    !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+    !     rtst = rtst + 1
+    !     soln = z1(1)
+    !  endif
+    !  if (tsoln2 >= 0. .and. tsoln2 >= tmin .and. tsoln2 <= tmax) then
+    !     rtst = rtst + 1
+    !     soln = z2(1)
+    !  endif
+    !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+    !     rtst = rtst + 1
+    !     soln = z3(1)
+    !  endif
+    !  if (tsoln1 >= 0. .and. tsoln1 >= tmin .and. tsoln1 <= tmax) then
+    !     rtst = rtst + 1
+    !     soln = z4(1)
+    !  endif
 
     if (rtst /= 1) then
        print*,"quartic4: there are four solutions and i'm incapable of"
        print*,"picking one. solns are: "
        print*,z1(1),z2(1),z3(1),z4(1)
-      !  print*,tsoln1,tsoln2,tsoln3,tsoln4
+       !  print*,tsoln1,tsoln2,tsoln3,tsoln4
        print*,"min..max t :",tmin,tmax
        print*,"i'm going back with moresweep2=.true."
        moresweep = .true.

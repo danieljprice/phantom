@@ -90,8 +90,8 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     enddo over_substeps
 
     !if (moresweep) then
-   !    call restore_radiation_energies(npart,rad,xyzh,vxyzu,radprop,origEU,.true.)
-   !    nsubsteps = nsubsteps*2
+    !    call restore_radiation_energies(npart,rad,xyzh,vxyzu,radprop,origEU,.true.)
+    !    nsubsteps = nsubsteps*2
     !endif
  enddo
 
@@ -304,17 +304,17 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
           !--do interaction if r/h < compact support size
           !
           is_sph_neighbour: if (q2i < radkern2) then ! .or. q2j < radkern2) then
-              nneigh = nneigh + 1
-              neighlist(nneigh) = j
+             nneigh = nneigh + 1
+             neighlist(nneigh) = j
           endif is_sph_neighbour
 
-        enddo loop_over_neigh
+       enddo loop_over_neigh
 
 !$omp critical(listcompact)
-        ncompact = ncompact + 1
-        ncompact_private = ncompact
-        icompact_private = icompact
-        icompact = icompact + nneigh
+       ncompact = ncompact + 1
+       ncompact_private = ncompact
+       icompact_private = icompact
+       icompact = icompact + nneigh
 !$omp end critical (listcompact)
        if (icompact_private+nneigh > icompactmax) then
           print*,'i=',i,'nneigh=',nneigh,'desired size=',icompact_private+nneigh,' actual size=',icompactmax
@@ -376,7 +376,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
 
  do n = 1,ncompact
     i = ivar(3,n)
-   !  if (iphase(i) == 0) then
+    !  if (iphase(i) == 0) then
     EU0(1,i) = rad(iradxi,i)
     EU0(2,i) = vxyzu(4,i)
     rhoi = rhoh(xyzh(4,i), massoftype(igas))
@@ -517,7 +517,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
 
     vari(1,n) = dti
     vari(2,n) = rhoi
- ! endif
+    ! endif
  enddo
  !$omp end parallel do
 
@@ -546,8 +546,8 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radpro
     i = ivar(3,n)
     varinew(1,i) = 0.
     varinew(2,i) = 0.
-   !varinew(3,i) = 0.
-   !          if (iphase(i)==0) then
+    !varinew(3,i) = 0.
+    !          if (iphase(i)==0) then
     dedxi = 0.
     dedyi = 0.
     dedzi = 0.
@@ -654,7 +654,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varine
  !$omp reduction(max:ierr)
  do n = 1,ncompact
     i = ivar(3,n)
-   !  if (iphase(i) == 0) then
+    !  if (iphase(i) == 0) then
     rhoi = vari(2,n)
     !
     !--NOTE: Needs to do this loop even for boundaryparticles because active
@@ -706,7 +706,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varine
        !
        !--If particle j is active, need to add contribution due to i for hj
        !
-      !  if (iactive(iphase(j))) then  !
+       !  if (iactive(iphase(j))) then  !
        tempval1 = 0.5*dWiidrlightrhorhom*b1
        tempval2 = tempval1*rhoj
        tempval1 = tempval1*EU0(1,i)*rhoi
@@ -714,11 +714,11 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varine
        varinew(1,j) = varinew(1,j) - tempval1
        !$omp atomic
        varinew(2,j) = varinew(2,j) + tempval2
-      !  else
-      !     diffusion_numerator = diffusion_numerator - 0.5*dWjdrlightrhorhom*b1*EU0(1,J)*rhoj
-      !     diffusion_denominator = diffusion_denominator + 0.5*dWjdrlightrhorhom*b1*rhoi
-      !  endif
-                     ! ENDIF         !--iphase(j)==0
+       !  else
+       !     diffusion_numerator = diffusion_numerator - 0.5*dWjdrlightrhorhom*b1*EU0(1,J)*rhoj
+       !     diffusion_denominator = diffusion_denominator + 0.5*dWjdrlightrhorhom*b1*rhoi
+       !  endif
+       ! ENDIF         !--iphase(j)==0
     enddo
     !$omp atomic
     varinew(1,i) = varinew(1,i) + diffusion_numerator
@@ -777,10 +777,10 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
 
-      ! if (iphase(i)==0) then
+    ! if (iphase(i)==0) then
     dti = vari(1,n)
     rhoi = vari(2,n)
-   !  if (.NOT.boundaryparticle(i,xyzmh,rhoi)) then
+    !  if (.NOT.boundaryparticle(i,xyzmh,rhoi)) then
     diffusion_numerator = varinew(1,i)
     diffusion_denominator = varinew(2,i)
     pres_numerator = pdvvisc(i)/massoftype(igas) ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
@@ -986,7 +986,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
        xchange = abs((origEU(1,i) + (dEcomb)*dti - E1i)/E1i)
        maxerrE2 = max(maxerre2,xchange)
        residualE = origEU(1,i) + (dEcomb)*dti - E1i
-   endif
+    endif
 
     if (Tgas >= 2000.) then
        maxerrU2 = max(maxerrU2, 1.*abs((EU0(2,i) - U1i)/U1i))
@@ -1203,19 +1203,19 @@ subroutine set_heating_cooling_low_rhoT(i,eradi,ugasi,orig_eradi,orig_ugasi,cvi,
        enddo
 !$omp critical(quart)
        print *,"N-R failed for ieqtype=3, try again"
-      !  print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
-      !  print *,"    ",rhoi,dti
-      !  print *,"    ",diffusion_denominator,diffusion_numerator
-      !  print *,"    ",pres_denominator,pres_numerator,uradconst
-      !  print *,"    ",radpresdenom,eradi,egasi,cvi
+       !  print *,"ngs ",u4term,u1term,u0term,betaval,chival,gammaval
+       !  print *,"    ",rhoi,dti
+       !  print *,"    ",diffusion_denominator,diffusion_numerator
+       !  print *,"    ",pres_denominator,pres_numerator,uradconst
+       !  print *,"    ",radpresdenom,eradi,egasi,cvi
        print *,"    ",orig_eradi,orig_ugasi
-      !  print *,"    ",dti*gas_dust_val*dust_tempi
-      !  print *,"    ",dti*dust_heating,dti*gas_dust_val*dust_tempi
-      !  print *,"    ",dti*cosmic_ray,dti*cooling_line
-      !  print *,"    ",dti*photoelectric,dti*dust_term
-      !  print *,"    ",ieqtype,u_found,u_last,u_plus,cv1
-      !  print *,"    ",cooling_line1,cooling_line2,dline_du,func
-      !  print *,"    ",derivative,h2form1,h2form2,dh2form_dt
+       !  print *,"    ",dti*gas_dust_val*dust_tempi
+       !  print *,"    ",dti*dust_heating,dti*gas_dust_val*dust_tempi
+       !  print *,"    ",dti*cosmic_ray,dti*cooling_line
+       !  print *,"    ",dti*photoelectric,dti*dust_term
+       !  print *,"    ",ieqtype,u_found,u_last,u_plus,cv1
+       !  print *,"    ",cooling_line1,cooling_line2,dline_du,func
+       !  print *,"    ",derivative,h2form1,h2form2,dh2form_dt
 !$omp end critical(quart)
        if (itry == 2) ierr = 1  ! if itry=1, try again, otherwise quit
     enddo try_loop
