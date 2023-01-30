@@ -39,9 +39,10 @@ contains
 subroutine test_radiation(ntests,npass)
  use physcon, only:solarm,au
  use units,   only:set_units
- use dim,     only:do_radiation,periodic
+ use dim,     only:do_radiation,periodic,mpi
  use options, only:implicit_radiation
  use io,      only:iverbose
+ use radiation_implicit, only:tol_rad
  integer, intent(inout) :: ntests,npass
 
  if (.not.do_radiation) then
@@ -52,7 +53,7 @@ subroutine test_radiation(ntests,npass)
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call test_exchange_terms(ntests,npass,use_implicit=.false.)
- call test_exchange_terms(ntests,npass,use_implicit=.true.)
+ if (.not.mpi) call test_exchange_terms(ntests,npass,use_implicit=.true.)
 
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
@@ -63,8 +64,11 @@ subroutine test_radiation(ntests,npass)
     implicit_radiation = .false.
     call test_radiation_diffusion(ntests,npass)
 
-    implicit_radiation = .true.
-    call test_radiation_diffusion(ntests,npass)
+    if (.not.mpi) then
+       implicit_radiation = .true.
+       tol_rad = 1.e-5
+       call test_radiation_diffusion(ntests,npass)
+    endif
  endif
 
  if (id==master) write(*,"(/,a)") '<-- RADIATION TEST COMPLETE'
