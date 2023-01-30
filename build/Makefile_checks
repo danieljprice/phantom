@@ -105,7 +105,11 @@ checkmcfost:
    ifneq ("X$(MCFOST_DIR)","X")
 	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
    else
-	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+      ifneq ("X$(PREFIX)","X")
+		@echo; echo "assuming MCFOST directory is "$(PREFIX)" from PREFIX env variable"; echo;
+      else
+		@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+      endif
    endif
 
 checksmol:
