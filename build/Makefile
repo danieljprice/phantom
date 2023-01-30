@@ -143,7 +143,7 @@ ifeq ($(MCFOST), yes)
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-   -L$(HDF5ROOT) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
+   -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
 	#-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran
 endif
 
@@ -993,7 +993,7 @@ phantom2mcfost: checkmcfost
         ANALYSISBIN=$@ ANALYSISONLY=yes LDFLAGS="-L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)"
 
 analysis_mcfost.o: analysis_mcfost.f90
-	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) $< -o $@
+	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) -I$(MCFOST_DIR)/src $< -o $@
 
 analysis_mcfost.o: checkmcfost
 
