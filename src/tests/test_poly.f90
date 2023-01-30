@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module testpoly
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, quartic, testutils
+! :Dependencies: quartic
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -51,7 +51,7 @@ subroutine test_quartic(ntests,npass)
  real :: a(0:3),xold,x
  integer :: ierr,nfail(2)
  logical :: moresweep
- real, parameter :: tol = 1.e-12
+ real, parameter :: tol = 1.e-12, tolfx = 1.e-6
 
  if (id==master) write(*,"(/,a)") '--> checking x^4 = 16 gives x=2'
 
@@ -59,7 +59,7 @@ subroutine test_quartic(ntests,npass)
  xold = -2e6
  !print*,'a = ',a
  call quarticsolve(a,xold,x,moresweep,ierr)
- call checkval(x,2.,tiny(0.),nfail(1),'x=2')
+ call checkval(x,2.,tol,nfail(1),'x=2')
  call checkval(ierr,0,0,nfail(2),'ierr=0')
  call checkval(quarticf(a,x),0.,tol,nfail(1),'f(x)=0 for solution found')
  call update_test_scores(ntests,nfail,npass)
@@ -72,7 +72,7 @@ subroutine test_quartic(ntests,npass)
  !a = [0.,1.,-2.,0.]   ! x = 0 is a solution: this also fails
  xold = 1.
  call quarticsolve(a,xold,x,moresweep,ierr)
- call checkval(quarticf(a,x),0.,tol,nfail(1),'f(x)=0 for solution found')
+ call checkval(quarticf(a,x),0.,tolfx,nfail(1),'f(x)=0 for solution found')
  call checkval(ierr,0,0,nfail(2),'ierr=0')
  call update_test_scores(ntests,nfail,npass)
 

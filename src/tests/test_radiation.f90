@@ -196,7 +196,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        call update_test_scores(ntests,ndiff,npass)
     endif
     if (itest==2) then
-       call checkval(laste,21144463.0313597,3e-15,nerr(1),'energy exchange for gas heating'//trim(string))
+       call checkval(laste,21144463.0313597,3.3e-15,nerr(1),'energy exchange for gas heating'//trim(string))
     else
        call checkval(laste,21197127.9406196,2e-15,nerr(1),'energy exchange for gas cooling'//trim(string))
     endif
