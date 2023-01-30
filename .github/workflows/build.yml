@@ -35,7 +35,7 @@ jobs:
       nbatch: ${{ steps.set-sequence.outputs.nbatch }}
     steps:
     - name: Check out repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Generate sequence of batch numbers for normal tests, or run sequentially for scheduled tests
       id: set-sequence
       run: |
@@ -103,10 +103,10 @@ jobs:
         printenv >> $GITHUB_ENV
 
     - name: "Clone phantom"
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: "Grab a copy of splash source code"
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: danieljprice/splash
         path: splash
