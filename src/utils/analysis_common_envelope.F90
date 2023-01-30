@@ -1357,11 +1357,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
        case(6,7) ! Calculate MESA EoS entropy
           entropyi = 0.
-<<<<<<< HEAD
-=======
           rhopart = rhoh(xyzh(4,i), particlemass)
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
->>>>>>> master
           if (ieos==10) then
              call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
              mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
@@ -3387,19 +3384,11 @@ end subroutine analyse_disk
 !  Recombination energy vs. time
 !+
 !----------------------------------------------------------------
-<<<<<<< HEAD
-subroutine erec_vs_t(time,npart,particlemass,xyzh,vxyzu)
- use ionization_mod, only:get_erec_components
- integer, intent(in) :: npart
- real, intent(in)    :: time,particlemass
- real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
-=======
 subroutine erec_vs_t(time,npart,particlemass,xyzh)
  use ionization_mod, only:get_erec_components
  integer, intent(in) :: npart
  real, intent(in)    :: time,particlemass
  real, intent(inout) :: xyzh(:,:)
->>>>>>> master
  character(len=17)   :: filename,columns(4)
  integer             :: i
  real                :: ereci(4),erec(4),tempi,rhoi
