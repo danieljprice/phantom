@@ -263,7 +263,7 @@ real function get_1overmu_mesa(rho,u,Rg) result(rmu)
  real, intent(in) :: rho,u,Rg
  real :: temp,pgas
  integer :: ierr
- 
+
  call getvalue_mesa(rho,u,3,pgas,ierr) ! Get gas pressure
  call getvalue_mesa(rho,u,4,temp,ierr) ! Get gas pressure
  rmu = pgas / (rho*Rg*temp)
