@@ -284,14 +284,14 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (do_radiation) then
           radprop(icv,i) = vxyzu(4,i)/temperaturei
           if (.not. implicit_radiation) then
-              !
-              ! Get the opacity from the density and temperature if required
-              !
-              if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
-              !
-              ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
-              !
-           call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+             !
+             ! Get the opacity from the density and temperature if required
+             !
+             if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+             !
+             ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+             !
+             call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
           endif
        endif
        !

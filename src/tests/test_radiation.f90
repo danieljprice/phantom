@@ -172,7 +172,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     ierrmax = 0
     do while(t < maxt/utime)
        dt = max(1d-18*seconds/utime,0.05d0*t)
-      !  dt = maxt/utime
+       !  dt = maxt/utime
        if (use_implicit) then
           if (i > 1) dt = 0.05*maxt/utime ! use large timesteps for implicit version
           call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
@@ -267,19 +267,19 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  nerr_e = 0
  errmax_e = 0.
  do j=1,3
-   call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
+    call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
  enddo
  call update_test_scores(ntests,nerr_e,npass)
  !write(1,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
  !write(2,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
  !do i=1,npart
-    !write(1,*) xyzh(1:3,i),radprop(ifluxx:ifluxz,i)
-    !write(2,*) xyzh(1:3,i),flux_explicit(:,i)
-    !if (i==1496) print*,i,' flux is  : ',radprop(ifluxx:ifluxz,i)
-    !if (i==1496) print*,i,' should be: ',flux_explicit(:,i)
-    !exact = [ 0.1*2.*pi/(xmax-xmin)*cos((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin)),0.,0.,&
-      !       0.,-0.1*2.*pi/(ymax-ymin)*sin((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin)),0.,&
-      !       0.,0., 0.1*2.*pi/(zmax-zmin)*cos((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))]
+ !write(1,*) xyzh(1:3,i),radprop(ifluxx:ifluxz,i)
+ !write(2,*) xyzh(1:3,i),flux_explicit(:,i)
+ !if (i==1496) print*,i,' flux is  : ',radprop(ifluxx:ifluxz,i)
+ !if (i==1496) print*,i,' should be: ',flux_explicit(:,i)
+ !exact = [ 0.1*2.*pi/(xmax-xmin)*cos((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin)),0.,0.,&
+ !       0.,-0.1*2.*pi/(ymax-ymin)*sin((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin)),0.,&
+ !       0.,0., 0.1*2.*pi/(zmax-zmin)*cos((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))]
 !    write(3,*) xyzh(1:3,i),exact(:)
  !enddo
 

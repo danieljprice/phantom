@@ -2403,7 +2403,7 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  print*,'dump_number=',dump_number
  ! Trick write_time_file into writing my data table
  if (dump_number == 167) then
-   temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
+    temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
     final_count = 0
     do i=1,npart
        if (temp_unbound(i) > 1.e-15) then
