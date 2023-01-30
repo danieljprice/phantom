@@ -546,7 +546,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radpro
     varinew(1,i) = 0.
     varinew(2,i) = 0.
    !varinew(3,i) = 0.
-   !          IF (iphase(i).EQ.0) THEN
+   !          IF (iphase(i)==0) THEN
     dedxi = 0.
     dedyi = 0.
     dedzi = 0.
@@ -717,7 +717,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varine
       !     diffusion_numerator = diffusion_numerator - 0.5*dWjdrlightrhorhom*b1*EU0(1,J)*rhoj
       !     diffusion_denominator = diffusion_denominator + 0.5*dWjdrlightrhorhom*b1*rhoi
       !  endif
-                     ! ENDIF         !--iphase(j).EQ.0
+                     ! ENDIF         !--iphase(j)==0
     enddo
     !$omp atomic
     varinew(1,i) = varinew(1,i) + diffusion_numerator
@@ -776,7 +776,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
 
-      ! IF (iphase(i).EQ.0) THEN
+      ! IF (iphase(i)==0) THEN
     dti = vari(1,n)
     rhoi = vari(2,n)
    !  IF (.NOT.boundaryparticle(i,xyzmh,rhoi)) THEN
