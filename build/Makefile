@@ -70,7 +70,7 @@ LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
 SRCPHOTO=
-LIBTOOL=libtool
+LIBTOOL=ar rcs
 
 #----------------------------------------------------------------
 # here follows specific configuration options used
@@ -349,8 +349,6 @@ ifeq ($(LIVE_ANALYSIS), yes)
 else
     SRCAN=
 endif
-
-LIBTOOL=libtool -static -o
 
 #
 # MPI flavour (mostly openmpi these days)
