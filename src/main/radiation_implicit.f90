@@ -546,7 +546,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radpro
     varinew(1,i) = 0.
     varinew(2,i) = 0.
    !varinew(3,i) = 0.
-   !          IF (iphase(i)==0) THEN
+   !          if (iphase(i)==0) then
     dedxi = 0.
     dedyi = 0.
     dedzi = 0.
@@ -776,10 +776,10 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
  main_loop: do n = 1,ncompactlocal
     i = ivar(3,n)
 
-      ! IF (iphase(i)==0) THEN
+      ! if (iphase(i)==0) then
     dti = vari(1,n)
     rhoi = vari(2,n)
-   !  IF (.NOT.boundaryparticle(i,xyzmh,rhoi)) THEN
+   !  if (.NOT.boundaryparticle(i,xyzmh,rhoi)) then
     diffusion_numerator = varinew(1,i)
     diffusion_denominator = varinew(2,i)
     pres_numerator = pdvvisc(i)/massoftype(igas) ! in phantom pdvvisc->luminosity which is m*du/dt not du/dt
@@ -1451,10 +1451,10 @@ end function electron_fraction
 !+
 !  Returns the first bit of the gas-dust collisional heating/cooling
 !  term used by Keto & Field (2005), which is
-!  Lambda_gd = 1.0E-33 * n_H2**2 * SQRT(T_gas) * (T_gas - T_dust)
+!  Lambda_gd = 1.0E-33 * n_H2**2 * sqrt(T_gas) * (T_gas - T_dust)
 !  or the coupling term used by Glover & Clark (2012), which is
-!  Lambda_gd = 1.5E-32 * n_H2**2 * SQRT(T_gas) * (T_gas - T_dust) *
-!              (1.0 + 0.8*EXP(-75.0/T_gas)
+!  Lambda_gd = 1.5E-32 * n_H2**2 * sqrt(T_gas) * (T_gas - T_dust) *
+!              (1.0 + 0.8*exp(-75.0/T_gas)
 !  in erg/cm^3/s.  This function also includes a metallicity term
 !  which essentially assumes that the dust number density depends
 !  linearly on the metallicity.

@@ -179,7 +179,7 @@ subroutine quarticsolve(a,uold,soln,moresweep,ierr)
     z3(2) = 1
     z4(2) = 1
  elseif (ub2**2 - 4.*uc2 < 0. .and. ub1**2 - 4.*uc1 < 0.) then
-    !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE RETURNED ANALYTICALLY !!
+    !!  NUMERICAL SOLUTION IF ONLY IMAGINARY ARE returnED ANALYTICALLY !!
     print*,"QUARTIC4: All imaginary roots for quartic"
     ierr = 5
     return
