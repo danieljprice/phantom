@@ -34,13 +34,16 @@ module readwrite_infile
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
-!   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
 !   - ireconav           : *use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
 !   - ishock_heating     : *shock heating (0=off, 1=on)*
+!   - itsmax_rad         : *max number of iterations allowed in implicit solver*
 !   - iverbose           : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
 !   - logfile            : *file to which output is directed*
 !   - nfulldump          : *full dump every n dumps*
 !   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
@@ -53,6 +56,7 @@ module readwrite_infile
 !   - rkill              : *deactivate particles outside this radius (<0 is off)*
 !   - shearparam         : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
 !   - tmax               : *end time*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !   - tolh               : *tolerance on h-rho iterations*
 !   - tolv               : *tolerance on v iterations in timestepping*
 !   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
@@ -62,7 +66,8 @@ module readwrite_infile
 ! :Dependencies: cooling, damping, dim, dust, dust_formation, eos,
 !   externalforces, forcing, gravwaveutils, growth, infile_utils, inject,
 !   io, linklist, metric, nicil_sup, options, part, photoevap, ptmass,
-!   ptmass_radiation, timestep, viscosity
+!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
+!   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &

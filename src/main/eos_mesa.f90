@@ -10,11 +10,11 @@ module eos_mesa
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics
+! :Dependencies: mesa_microphysics, physcon
 !
 
  use mesa_microphysics

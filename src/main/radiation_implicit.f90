@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,11 +14,12 @@ module radiation_implicit
 !   Whitehouse & Bate (2004), MNRAS 353, 1078-1094
 !   Bate & Keto (2015), MNRAS 449, 2643-2667
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: boundary, dim, eos, io, kdtree, kernel, linklist, options,
+!   part, physcon, quartic, radiation_utils, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type

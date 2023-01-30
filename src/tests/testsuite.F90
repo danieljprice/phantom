@@ -18,7 +18,7 @@ module test
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
 !   testcorotate, testderivs, testdust, testeos, testexternf, testgeometry,
 !   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
-!   testkernel, testlink, testmath, testmpi, testnimhd, testpart,
+!   testkernel, testlink, testmath, testmpi, testnimhd, testpart, testpoly,
 !   testptmass, testradiation, testrwdump, testsedov, testsetdisc,
 !   testsmol, teststep, timing
 !
