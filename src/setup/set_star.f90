@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -76,7 +76,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
  real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:)
  integer,           intent(out)   :: npts
- real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre
+ real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
  integer :: ierr,i
