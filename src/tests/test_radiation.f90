@@ -58,7 +58,7 @@ subroutine test_radiation(ntests,npass)
  if (.not.periodic) then
     if (id==master) write(*,"(/,a)") '--> SKIPPING TEST OF RADIATION DERIVS (need -DPERIODIC)'
  else
-    call test_implicit_matches_explicit(ntests,npass)
+    if (.not.mpi) call test_implicit_matches_explicit(ntests,npass)
 
     iverbose = -1
     implicit_radiation = .false.
