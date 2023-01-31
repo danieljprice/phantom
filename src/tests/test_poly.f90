@@ -51,7 +51,7 @@ subroutine test_quartic(ntests,npass)
  real :: a(0:3),xold,x
  integer :: ierr,nfail(2)
  logical :: moresweep
- real, parameter :: tol = 1.e-12, tolfx = 1.e-6
+ real, parameter :: tol = 1.e-6
 
  if (id==master) write(*,"(/,a)") '--> checking x^4 = 16 gives x=2'
 
@@ -72,7 +72,7 @@ subroutine test_quartic(ntests,npass)
  !a = [0.,1.,-2.,0.]   ! x = 0 is a solution: this also fails
  xold = 1.
  call quarticsolve(a,xold,x,moresweep,ierr)
- call checkval(quarticf(a,x),0.,tolfx,nfail(1),'f(x)=0 for solution found')
+ call checkval(quarticf(a,x),0.,tol,nfail(1),'f(x)=0 for solution found')
  call checkval(ierr,0,0,nfail(2),'ierr=0')
  call update_test_scores(ntests,nfail,npass)
 
