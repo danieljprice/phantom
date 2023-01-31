@@ -63,7 +63,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #endif
  use dust_formation,   only:calc_kappa_bowen,idust_opacity
  use part,             only:ikappa,nucleation,tau,tau_lucy,itau_alloc
+#ifdef SINK_RADIATION
  use raytracer,        only:get_all_tau
+#endif
  use growth,           only:get_growth_rate
  use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution,iget_tdust
  use timing,         only:get_timings
@@ -183,6 +185,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
  endif
 
+#ifdef SINK_RADIATION
  if (sink_radiation .and. maxvxyzu == 4) then
     !
     ! compute dust temperature based on previous value of tau ot tau_lucy
@@ -228,6 +231,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
     endif
  endif
+#endif
 !
 ! set new timestep from Courant/forces condition
 !
