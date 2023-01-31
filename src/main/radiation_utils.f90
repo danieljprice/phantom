@@ -113,7 +113,7 @@ real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  real, intent(in)    :: rho,etot,gamma,gmw
  real                :: a,cv1
  real                :: numerator,denominator,correction
- real, parameter     :: tolerance = 1d-15
+ real, parameter     :: tolerance = 1e-15
 
  a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -458,7 +458,7 @@ real function get_1overmu(rho,u,mu_type) result(rmu)
  case(2) ! mu from MESA EoS tables
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
-    rmu = get_1overmu_mesa(rho_cgs,u_cgs,Rg)
+    rmu = get_1overmu_mesa(rho_cgs,u_cgs,real(Rg))
  case default
     rmu = 1./gmw
  end select
