@@ -121,6 +121,8 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
     string = ' explicit'
  endif
 
+ if (id==master) write(*,"(/,a)") '--> checking radiation exchange terms'//trim(string)
+
  psep = 1./16.
  hfact = hfact_default
  npart = 0
@@ -223,6 +225,7 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  use physcon,  only:pi
  use deriv,    only:get_derivs_global
  use io,       only:iverbose
+ use timestep, only:dtmax
  use radiation_implicit, only:do_radiation_implicit
  integer, intent(inout) :: ntests,npass
  real(kind=kind(dvdx)), allocatable :: dvdx_explicit(:,:)
@@ -230,11 +233,14 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
  integer :: i,j,itry,nerr_e(9),ierr
 
+ if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for dvdx/flux terms'
+
  implicit_radiation = .false.
  iverbose = 0
  call init_part()
  tolh_old = tolh
  tolh = 1.e-8
+ dtmax = 5.e-22
  do itry = 1,2
     if (itry == 2) implicit_radiation = .true.
     call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
@@ -274,18 +280,6 @@ subroutine test_implicit_matches_explicit(ntests,npass)
     call checkval(npart,radprop(ifluxx+j-1,:),flux_explicit(j,:),tol_e,nerr_e(j),radprop_label(ifluxx+j-1))
  enddo
  call update_test_scores(ntests,nerr_e,npass)
- !write(1,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
- !write(2,"('# ',12(a,','))") xyzh_label(1:3),radprop_label(ifluxx:ifluxz)
- !do i=1,npart
- !write(1,*) xyzh(1:3,i),radprop(ifluxx:ifluxz,i)
- !write(2,*) xyzh(1:3,i),flux_explicit(:,i)
- !if (i==1496) print*,i,' flux is  : ',radprop(ifluxx:ifluxz,i)
- !if (i==1496) print*,i,' should be: ',flux_explicit(:,i)
- !exact = [ 0.1*2.*pi/(xmax-xmin)*cos((xyzh(1,i)-xmin)*2.*pi/(xmax-xmin)),0.,0.,&
- !       0.,-0.1*2.*pi/(ymax-ymin)*sin((xyzh(2,i)-ymin)*2.*pi/(ymax-ymin)),0.,&
- !       0.,0., 0.1*2.*pi/(zmax-zmin)*cos((xyzh(3,i)-zmin)*2.*pi/(zmax-zmin))]
-!    write(3,*) xyzh(1:3,i),exact(:)
- !enddo
 
  vxyzu(1:3,:) = 0.  ! zero velocities again
  tolh = tolh_old
@@ -318,6 +312,8 @@ subroutine test_radiation_diffusion(ntests,npass)
  integer :: nactive,nerr_e(1),ncheck_e,nerr_f(1),ncheck_f,nerr_xi(1),ncheck_xi
  character(len=20) :: string,filename
  logical, parameter :: write_output = .false.
+
+ if (id==master) write(*,"(/,a)") '--> checking radiation diffusion on sine function'//get_tag(implicit_radiation)
 
  call init_part()
  call setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0,pmassi)
@@ -494,5 +490,22 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  enddo
 
 end subroutine setup_radiation_diffusion_problem_sinusoid
+!---------------------------------------------------------
+!+
+!  function to return 'implicit' or 'explicit' string
+!  based on logical flag
+!+
+!---------------------------------------------------------
+function get_tag(implicit_flag) result(str)
+ logical, intent(in) :: implicit_flag
+ character(len=9) :: str
+
+ if (implicit_flag) then
+    str = ' implicit'
+ else
+    str = ' explicit'
+ endif
+
+end function get_tag
 
 end module testradiation

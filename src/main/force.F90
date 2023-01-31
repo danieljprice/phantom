@@ -2991,7 +2991,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtdrag = 0.9*ts_min
     endif
 
-    if (do_radiation.and.iamgasi .and. .not.implicit_radiation) then
+    if (do_radiation .and. iamgasi .and. .not.implicit_radiation) then
        if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
        else
