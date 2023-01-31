@@ -1057,22 +1057,15 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 utils_timing.f90 dtype_kdtree.F90 ${SRCFASTMATH} \
-          units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 setup_params.f90 \
-          utils_filenames.f90 utils_mathfunc.f90 utils_system.f90 utils_vectors.f90 \
-          utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 utils_infiles.f90 \
-          ${SRCEOS} viscosity.f90 options.f90 damping.f90 utils_gravwave.f90 \
-          utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
-          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_memory.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
-          checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
+SRCMULT = prompting.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
 
-multirun: checksystem checkparams $(OBJMULT)
+multirun: checksystem checkparams libphantom $(OBJMULT)
 	@echo ""
 	@echo "multirun: your hope is our desire"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJMULT)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJMULT) $(LIBPHANTOM) $(LDFLAGS)
 
 cleanmultirun:
 	rm -f $(BINDIR)/multirun
