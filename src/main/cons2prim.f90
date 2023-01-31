@@ -282,7 +282,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation) eos_vars(imu,i) = mui
 
        if (do_radiation) then
-          radprop(icv,i) = vxyzu(4,i)/temperaturei
+          if (temperaturei > tiny(0.)) then
+             radprop(icv,i) = vxyzu(4,i)/temperaturei
+          else
+             radprop(icv,i) = 1. ! arbitrary, but should give zero for u when u=cv*T
+          endif
           if (.not. implicit_radiation) then
              !
              ! Get the opacity from the density and temperature if required
