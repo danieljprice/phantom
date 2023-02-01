@@ -88,7 +88,7 @@ Compile `showarrays <https://github.com/danieljprice/phantom/blob/master/src/uti
 Reading datafiles into Python (recommended way)
 ------------------------------------------------
 The simplest way to read the raw datafiles into Python is to use the
-:doc:`sarracen <sarracen>` package::
+:doc:`sarracen <sarracen>` package:
 
    - https://github.com/ttricco/sarracen
 
