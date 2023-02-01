@@ -52,12 +52,13 @@ module eos
 
 
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
- public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure
+ public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
 #ifdef KROME
  public  :: get_local_u_internal
 #endif
- public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_entropy,get_p_from_rho_s
+ public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
+ public  :: get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
 
@@ -461,7 +462,7 @@ end subroutine finish_eos
 !-----------------------------------------------------------------------
 !+
 !  Calculate gas temperature, sound speed, and pressure.
-!  This will be required for various analysis routines is eos_vars
+!  This will be required for various analysis routines if eos_vars
 !  is not saved in the dump files
 !+
 !-----------------------------------------------------------------------
@@ -604,6 +605,33 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
+
+
+!-----------------------------------------------------------------------
+!+
+!  get u from rho, T
+!+
+!-----------------------------------------------------------------------
+real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
+ use eos_mesa, only:get_eos_u_from_rhoT_mesa
+ integer, intent(in)        :: eos_type
+ real, intent(in)           :: rho,temp
+ real, intent(in), optional :: uguess
+
+ select case (eos_type)
+ case(10) ! MESA EoS
+    if (present(uguess)) then
+       call get_eos_u_from_rhoT_mesa(rho,temp,u,uguess)
+    else
+       call get_eos_u_from_rhoT_mesa(rho,temp,u)
+    endif
+
+ case default
+    u = temp/(gmw*temperature_coef*(gamma-1.))
+ end select
+
+end function get_u_from_rhoT
+
 
 !-----------------------------------------------------------------------
 !+
@@ -921,6 +949,32 @@ real function get_mean_molecular_weight(XX,ZZ) result(mu)
  mu = 1./(2.*XX + 0.75*YY + 0.5*ZZ)
 
 end function get_mean_molecular_weight
+
+!---------------------------------------------------------
+!+
+!  return cv from rho, u in code units
+!+
+!---------------------------------------------------------
+real function get_cv(rho,u,eos_type) result(cv)
+ use mesa_microphysics, only:getvalue_mesa
+ use units,             only:unit_ergg,unit_density
+ use physcon,           only:Rg
+ real, intent(in)    :: rho,u
+ integer, intent(in) :: eos_type
+ real                :: rho_cgs,u_cgs,temp
+
+ select case (eos_type)
+
+ case(10)  ! MESA EoS
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    call getvalue_mesa(rho_cgs,u_cgs,4,temp)
+    cv = u_cgs/temp / unit_ergg
+ case default  ! constant cv
+    cv = Rg/((gamma-1.)*gmw*unit_ergg)
+ end select
+
+end function get_cv
 
 !-----------------------------------------------------------------------
 !+

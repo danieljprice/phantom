@@ -15,8 +15,9 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, energies, eos, eos_gasradrec, eos_mesa,
-!   extern_corotate, ionization_mod, kernel, mesa_microphysics, part,
-!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
+!   extern_corotate, io, ionization_mod, kernel, mesa_microphysics, part,
+!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units,
+!   vectorutils
 !
 
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
@@ -123,7 +124,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
- ! List of analysis options that require specifying EOS options 
+ ! List of analysis options that require specifying EOS options
  requires_eos_opts = any((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32,33,35/) == analysis_to_perform)
  if (dump_number == 0 .and. requires_eos_opts) call set_eos_options(analysis_to_perform)
 
@@ -351,7 +352,7 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
              '          m5', &
              '      rhomax', &
              '        smin'/)
- 
+
  if (dump_number == 0) call get_planetIDs(nplanet,planetIDs)
  isfulldump = (vxyzu(4,1) > 0.)
 
@@ -441,7 +442,7 @@ subroutine planet_mass_distribution(time,num,npart,xyzh)
  maxa = 4.2
 
  allocate(rad_part(nplanet),dist_part(nplanet),hist_var(nbins))
- filename = ' planet_m_dist.ev' 
+ filename = ' planet_m_dist.ev'
  xyz_origin = xyzmh_ptmass(1:3,1)
 
  dist_part = 0.
@@ -1609,6 +1610,75 @@ end subroutine tau_profile
 
 !----------------------------------------------------------------
 !+
+!  Sound crossing time profile
+!+
+!----------------------------------------------------------------
+subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part,  only:itemp
+ use eos,   only:get_spsound
+ use units, only:unit_velocity
+ integer, intent(in)    :: npart,num
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: rad_part,cs_part
+ real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
+ real                   :: maxloga,minloga,rhoi
+ character(len=17)      :: filename
+ character(len=40)      :: data_formatter
+ integer                :: i,unitnum
+
+ call compute_energies(time)
+ nbins      = 500
+ rad_part   = 0.
+ cs_part   = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+
+ allocate(cs_hist(nbins),sepbins(nbins),tconv(nbins))
+ filename = '    grid_tconv.ev'
+
+ do i=1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    cs_part(i) = get_spsound(eos_type=ieos,xyzi=xyzh(:,i),rhoi=rhoi,vxyzui=vxyzu(:,i),gammai=gamma,mui=gmw,Xi=X_in,Zi=Z_in)
+ enddo
+
+ call histogram_setup(rad_part(1:npart),cs_part,cs_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+
+ ! Integrate sound-crossing time from surface inwards
+ sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ ! Convert to cgs units
+ cs_hist = cs_hist * unit_velocity
+ sepbins = sepbins * udist ! udist should be Rsun in cm
+
+ tconv(nbins) = 0.
+ do i=nbins,2,-1
+    if (cs_hist(i) < tiny(1.)) then
+       tconv(i-1) = tconv(i)
+    else
+       tconv(i-1) = tconv(i) + (sepbins(i+1) - sepbins(i)) / cs_hist(i)
+    endif
+ enddo
+
+ ! Write data row
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    unitnum = 1000
+    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    write(unitnum, "(a)") '# Sound crossing time profile'
+    close(unit=unitnum)
+ endif
+ unitnum=1002
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,tconv
+ close(unit=unitnum)
+
+end subroutine tconv_profile
+
+
+!----------------------------------------------------------------
+!+
 !  Histogram of optical depth at hydrogen recombination
 !+
 !----------------------------------------------------------------
@@ -2026,7 +2096,7 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  write(data_formatter, "(a,I6.6,a)") "(", ncols+1, "(2x,es18.11e2))"
  file_name1 = "vel_bound.ev"
  file_name2 = "vel_unbound.ev"
- 
+
  if (dump_number == 0) then
     open(newunit=iu1, file=file_name1, status='replace')
     open(newunit=iu2, file=file_name2, status='replace')
@@ -2034,12 +2104,12 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
     open(newunit=iu1, file=file_name1, position='append')
     open(newunit=iu2, file=file_name2, position='append')
  endif
- 
+
  write(iu1,data_formatter) time,vbound
  write(iu2,data_formatter) time,vunbound
  close(unit=iu1)
  close(unit=iu2)
-  
+
 end subroutine velocity_histogram
 
 
@@ -2305,23 +2375,23 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
                                ponrhoi,spsoundi,temp_bins(7)
  logical, allocatable, save :: prev_unbound(:),prev_bound(:)
  real, allocatable, save    :: temp_unbound(:)
- 
+
  columns = (/'         temp'/)
- 
+
  if (dump_number == 0) then
     allocate(prev_unbound(npart),prev_bound(npart),temp_unbound(npart))
     prev_bound   = .false.
     prev_unbound = .false.
     temp_unbound = 0. ! Initialise temperatures to 0.
  endif
- 
+
  do i=1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),eos_vars(itemp,i),vxyzu(4,i))
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),gamma,ethi)
     etoti = ekini + epoti + ethi
- 
+
     if ((etoti > 0.) .and. (.not. prev_unbound(i))) then
        temp_unbound(i) = eos_vars(itemp,i)
        prev_unbound(i) = .true.
@@ -2329,11 +2399,11 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
        prev_unbound(i) = .false.
     endif
  enddo
- 
+
  print*,'dump_number=',dump_number
  ! Trick write_time_file into writing my data table
  if (dump_number == 167) then
-   temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
+    temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
     final_count = 0
     do i=1,npart
        if (temp_unbound(i) > 1.e-15) then
