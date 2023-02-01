@@ -253,9 +253,12 @@ module part
                        inumph = 6, &
                        ivorcl = 7, &
                        iradP  = 8, &
-                       maxradprop = 8
+                       ilambda = 9, &
+                       iedd   = 10, &
+                       icv    = 11, &
+                       maxradprop = 11
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
+    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    '/)
 !
 !--lightcurves
 !

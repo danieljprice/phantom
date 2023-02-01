@@ -222,6 +222,7 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  logical         :: iallow_decrease,ilimit_maxbin
  real, parameter :: vsmall = epsilon(vsmall)
  real, parameter :: dlog2 = 1.4426950408889634d0 ! dlog2 = 1./log(2.)
+ character(len=12) :: str
 
  if (present(allow_decrease)) then
     iallow_decrease = allow_decrease
@@ -246,12 +247,12 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  endif
  if (ibin_newi > maxbins .and. ilimit_maxbin) then
     if (present(dtchar)) then
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(0)   = ', dtmax
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(max) = ', dtmax/2**(maxbins-1)
-       write(*,'(2a)'      ) 'get_newbin: dt = ', dtchar
+       str = dtchar
+    else
+       str = 'dt'
     endif
     dt_too_small = .true.
-    call warning('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
+    call warning('get_newbin','step too small: bin would exceed maximum',var=str,val=dti)
  endif
 
  if (ibin_newi > ibin_oldi) then

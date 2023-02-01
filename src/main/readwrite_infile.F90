@@ -34,13 +34,16 @@ module readwrite_infile
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
-!   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
 !   - ireconav           : *use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
 !   - ishock_heating     : *shock heating (0=off, 1=on)*
+!   - itsmax_rad         : *max number of iterations allowed in implicit solver*
 !   - iverbose           : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
 !   - logfile            : *file to which output is directed*
 !   - nfulldump          : *full dump every n dumps*
 !   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
@@ -53,6 +56,7 @@ module readwrite_infile
 !   - rkill              : *deactivate particles outside this radius (<0 is off)*
 !   - shearparam         : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
 !   - tmax               : *end time*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !   - tolh               : *tolerance on h-rho iterations*
 !   - tolv               : *tolerance on v iterations in timestepping*
 !   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
@@ -62,7 +66,8 @@ module readwrite_infile
 ! :Dependencies: cooling, damping, dim, dust, dust_formation, eos,
 !   externalforces, forcing, gravwaveutils, growth, infile_utils, inject,
 !   io, linklist, metric, nicil_sup, options, part, photoevap, ptmass,
-!   ptmass_radiation, timestep, viscosity
+!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
+!   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
@@ -71,7 +76,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV
+                     mcfost_uses_PdV,implicit_radiation
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -121,8 +126,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
- use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
+ use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
+ use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -283,9 +290,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
+    call write_inopt(implicit_radiation,'implicit_radiation','use implicit integration (Whitehouse, Bate & Monaghan 2005)',iwritein)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
-    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,-1=preserve)',iwritein)
+    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
+    if (iopacity_type == 2) call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
+    if (implicit_radiation) then
+       call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
+       call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
+    endif
  endif
 #ifdef GR
  call write_options_metric(iwritein)
@@ -304,7 +317,8 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,itau_alloc
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
+                           itau_alloc,store_dust_temperature
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -336,7 +350,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  character(len=*), parameter   :: label = 'read_infile'
@@ -503,12 +519,21 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_uses_PdV')
        read(valstring,*,iostat=ierr) mcfost_uses_PdV
 #endif
+    case('implicit_radiation')
+       read(valstring,*,iostat=ierr) implicit_radiation
+       if (implicit_radiation) store_dust_temperature = .true.
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
     case('flux_limiter')
        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
        read(valstring,*,iostat=ierr) iopacity_type
+    case('kappa_cgs')
+       read(valstring,*,iostat=ierr) kappa_cgs
+    case('tol_rad')
+       read(valstring,*,iostat=ierr) tol_rad
+    case('itsmax_rad')
+       read(valstring,*,iostat=ierr) itsmax_rad
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
