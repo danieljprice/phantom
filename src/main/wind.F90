@@ -135,10 +135,19 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0
+ if (present(tau_lucy_init)) then
+    state%tau_lucy = tau_lucy_init
+ else
+    state%tau_lucy = 2./3.
+ endif
  if (iget_tdust == 0) then
     state%Tdust = T0
- else
+ else if (iget_tdust == 1) then
     state%Tdust = Tstar
+ else if (iget_tdust == 2) then
+    state%Tdust = Tstar*(.5)**(1./4.)
+ else if (iget_tdust == 3) then
+    state%Tdust = Tstar*(.5+3./2.*state%tau_lucy)**(1./4.)
  endif
  if (present(tau_lucy_init)) then
     state%tau_lucy = tau_lucy_init
@@ -179,14 +188,14 @@ end subroutine init_wind
 
 !-----------------------------------------------------------------------
 !
-!  Integrate chemistry, cooling and hydro over one time step
+!  Integrate chemistry, cooling and hydro over one time step - CALC_HYDRO_THEN_CHEM
 !
 !-----------------------------------------------------------------------
 subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
@@ -194,6 +203,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
+ use dim,              only:itau_alloc
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
@@ -225,10 +235,13 @@ subroutine wind_step(state)
     state%mu             = state%JKmuS(idmu)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
-    state%alpha_Edd      = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
     state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
+ endif
+ if (itau_alloc == 1) then
+    state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
+ else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
  endif
  select case (isink_radiation)
@@ -252,8 +265,30 @@ subroutine wind_step(state)
 #endif
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
+ !update dust temperature
+ if (iget_tdust == 3) then
+    tau_lucy_bounded = max(0., state%tau_lucy)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 2) then
+    if (itau_alloc == 1) then
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+    else
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+    endif
+ elseif (iget_tdust == 1) then
+    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
+ else
+    state%Tdust = state%Tg
+ endif
+ if (idust_opacity == 2) then
+    state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
+ elseif (idust_opacity == 1) then
+    state%kappa = calc_kappa_bowen(state%Tdust)
+ endif
+ 
+ state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
-      - (state%r-state%r_old) * star%Rstar &
+      - (state%r-state%r_old) * state%Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
  !update dust temperature
@@ -262,9 +297,9 @@ subroutine wind_step(state)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
     if (itau_alloc == 1) then
-      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
     else
-      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
  elseif (iget_tdust == 1) then
     state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
@@ -298,7 +333,7 @@ end subroutine wind_step
 
 !-----------------------------------------------------------------------
 !
-!  Integrate chemistry, cooling and hydro over one time step - OLD VERSION
+!  Integrate chemistry, cooling and hydro over one time step - NOT CALC_HYDRO_THEN_CHEM
 !
 !-----------------------------------------------------------------------
 subroutine wind_step(state)
@@ -313,7 +348,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc, itauL_alloc
+ use dim,              only:itau_alloc
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
@@ -330,7 +365,8 @@ subroutine wind_step(state)
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
  endif
- if (itau_alloc == 1 .and. itauL_alloc == 0.) then
+
+ if (itau_alloc == 1) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
@@ -347,6 +383,7 @@ subroutine wind_step(state)
  end select
  if (idust_opacity == 2) state%JKmuS(idalpha) = state%alpha
  if (state%time > 0.)    state%dalpha_dr      = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
+ 
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
@@ -369,11 +406,27 @@ subroutine wind_step(state)
  state%u    = state%p/((state%gamma-1.)*state%rho)
 #endif
 
+ !update dust temperature
+ if (iget_tdust == 3) then
+    tau_lucy_bounded = max(0., state%tau_lucy)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
+ elseif (iget_tdust == 2) then
+    if (itau_alloc == 1) then
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+    else
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
+    endif
+ elseif (iget_tdust == 1) then
+    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
+ else
+    state%Tdust = state%Tg
+ endif
  if (idust_opacity == 2) then
     state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
  elseif (idust_opacity == 1) then
     state%kappa = calc_kappa_bowen(state%Tdust)
  endif
+ 
  state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%Rstar**2 &
@@ -738,7 +791,6 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
    !all quantities in cgs
    use physcon, only:steboltz,pi
    use io,      only:iverbose
-   use units,    only:udist
    real, parameter :: step_factor = 1.1
    real, intent(in) :: T0, r0, v0
    real, intent(out) :: tau_lucy_init
@@ -798,7 +850,7 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
    tau_lucy_init_best = tau_lucy_init
    nstepsbest = state%nsteps
    tau_lucy_best = state%tau_lucy
-   do i=1,30
+   do i=1,60
       tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
       call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
       if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
