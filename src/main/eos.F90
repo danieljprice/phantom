@@ -25,7 +25,9 @@ module eos
 !    16 = Shen eos
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !
-! :References: None
+! :References:
+!    Lodato & Pringle (2007)
+!    Hirai et al. (2020)
 !
 ! :Owner: Daniel Price
 !
@@ -147,7 +149,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  select case(eos_type)
  case(1)
 !
-!--isothermal eos
+!--Isothermal eos
+!
+!  :math:`P = c_s^2 \rho`
+!
+!  where :math:`cs^2 \equiv K` is a constant stored in the dump file header
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
@@ -155,10 +161,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(2)
 !
-!--adiabatic/polytropic eos
-!  (polytropic using polyk if energy not stored, adiabatic if utherm stored)
+!--Adiabatic equation of state (code default)
 !
-!   check value of gamma
+!  :math:`P = (\gamma - 1) \rho u`
+!
+!  if the code is compiled with ISOTHERMAL=yes, ieos=2 gives a polytropic eos:
+!
+!  :math:`P = K \rho^\gamma`
+!
+!  where K is a global constant specified in the dump header
+!
     if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
 #ifdef GR
@@ -193,17 +205,24 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(3)
 !
-!--this is for a locally isothermal disc as in Lodato & Pringle (2007)
-!   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
+!--Locally isothermal disc as in Lodato & Pringle (2007) where
 !
-    ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc)
+!  :math:`P = c_s^2 (r) \rho`
+!
+!  sound speed (temperature) is prescribed as a function of radius using:
+!
+!  :math:`c_s = c_{s,0} r^{-q}` where :math:`r = \sqrt{x^2 + y^2 + z^2}`
+!
+    ponrhoi  = polyk*(xi**2 + yi**2 + zi**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
-!
-!--GR isothermal
-!
  case(4)
+!
+!--Isothermal equation of state for GR, enforcing cs = constant
+!
+!  .. WARNING:: this is experimental: use with caution
+!
     uthermconst = polyk
     ponrhoi  = (gammai-1.)*uthermconst
     spsoundi = sqrt(ponrhoi/(1.+uthermconst))
@@ -211,16 +230,24 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(6)
 !
-!--this is for a locally isothermal disc as in Lodato & Pringle (2007), centered on a sink particle
-!   cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)
+!--Locally isothermal disc centred on sink particle
+!
+!  As in ieos=3 but in this version radius is taken with respect to a designated
+!  sink particle (by default the first sink particle in the simulation)
+!
     ponrhoi  = polyk*((xi-xyzmh_ptmass(1,isink))**2 + (yi-xyzmh_ptmass(2,isink))**2 + &
-                      (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc)
+                      (zi-xyzmh_ptmass(3,isink))**2)**(-qfacdisc) ! polyk is cs^2, so this is (R^2)^(-q)
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
  case(7)
 !
-!-- z-dependent locally isothermal eos
+!--Vertically stratified equation of state
+!
+!  sound speed is prescribed as a function of (cylindrical) radius R and
+!  height z above the x-y plane
+!
+!  .. WARNING:: should not be used for misaligned discs
 !
     call get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
     tempi    = temperature_coef*mui*ponrhoi
@@ -229,6 +256,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--Barotropic equation of state
 !
+!  :math:`P = K \rho^\gamma`
+!
+!  where the value of gamma (and K) are a prescribed function of density
+!
     call get_eos_barotropic(rhoi,polyk,polyk2,ponrhoi,spsoundi,gammai)
     tempi = temperature_coef*mui*ponrhoi
 
@@ -236,12 +267,22 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--Piecewise Polytropic equation of state
 !
+!  :math:`P = K \rho^\gamma`
+!
+!  where the value of gamma (and K) are a prescribed function of density.
+!  Similar to ieos=8 but with different defaults and slightly different
+!  functional form
+!
     call get_eos_piecewise(rhoi,ponrhoi,spsoundi,gammai)
     tempi = temperature_coef*mui*ponrhoi
 
  case(10)
 !
-!--MESA eos
+!--MESA equation of state
+!
+!  a tabulated equation of state including gas, radiation pressure
+!  and ionisation/dissociation. MESA is a stellar evolution code, so
+!  this equation of state is designed for matter inside stars
 !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg
@@ -255,7 +296,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(11)
 !
-!--isothermal eos with zero pressure
+!--Isothermal equation of state with pressure and temperature equal to zero
+!
+!  :math:`P = 0`
+!
+!  useful for simulating test particle dynamics using SPH particles
 !
     ponrhoi  = 0.
     spsoundi = sqrt(polyk)
@@ -263,7 +308,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(12)
 !
-!--ideal gas plus radiation pressure
+!--Ideal gas plus radiation pressure
+!
+!  :math:`P = (\gamma - 1) \rho u`
+!
+!  but solved by first solving the quartic equation:
+!
+!  :math:`u = \frac32 \frac{k_b T}{\mu m_H} +  \frac13 a T^4`
+!
+!  for temperature (given u), then solving for pressure using
+!
+!  :math:`P = \frac{k_b T}{\mu m_H} + a T^4`
+!
+!  hence in this equation of state gamma (and temperature) are an output
 !
     temperaturei = tempi  ! Required as initial guess
     cgsrhoi      = rhoi * unit_density
@@ -279,7 +336,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(14)
 !
-!--locally isothermal prescription from Farris et al. (2014) for binary system
+!--Locally isothermal eos from Farris et al. (2014) for binary system
+!
+!  uses the locations of the first two sink particles
 !
     r1 = sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
     r2 = sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
@@ -289,30 +348,38 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(15)
 !
-!--helmholtz free energy eos
+!--Helmholtz equation of state (computed live, not tabulated)
+!
+!  .. WARNING:: not widely tested in phantom, better to use ieos=10
 !
     call eos_helmholtz_pres_sound(tempi, rhoi, ponrhoi, spsoundi, eni)
 
  case(16)
 !
-!--shen eos
+!--Shen (2012) equation of state for neutron stars
 !
-!    if (present(enei)) then
-    cgsrhoi = rhoi * unit_density
-    !note eni is actually tempi
-    call eos_shen_NL3(cgsrhoi,eni,0.05,cgspresi,cgsspsoundi)
-    spsoundi=cgsspsoundi / unit_velocity
-    presi = cgspresi / unit_pressure
-    ponrhoi = presi / rhoi
-    tempi = eni
-    call warning('eos','Not sure if this is correct now that temperature is always passed into eos')
-!    else
-!       call fatal('eos','tried to call NL3 eos without passing temperature')
-!    endif
+!  this equation of state requires evolving temperature as the energy variable
+!
+!  .. WARNING:: not tested: use with caution
+!
+    if (present(enei)) then
+       cgsrhoi = rhoi * unit_density
+       !note eni is actually tempi
+       call eos_shen_NL3(cgsrhoi,eni,0.05,cgspresi,cgsspsoundi)
+       spsoundi=cgsspsoundi / unit_velocity
+       presi = cgspresi / unit_pressure
+       ponrhoi = presi / rhoi
+       tempi = eni
+       call warning('eos','Not sure if this is correct now that temperature is always passed into eos')
+    else
+       call fatal('eos','tried to call NL3 eos without passing temperature')
+    endif
 
  case(20)
 !
-!--gas + radiation + various forms of recombination (from HORMONE, Hirai+20)
+!--Gas + radiation + various forms of recombination
+!
+!  from HORMONE, Hirai+2020, as used in Lau+2022b
 !
     cgsrhoi = rhoi * unit_density
     cgseni  = eni * unit_ergg

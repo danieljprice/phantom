@@ -20,11 +20,11 @@ while (<FILE>) {
         $case_num = $1;
         $printed_case_num = 0;
         #exit();
-     } elsif (m/^\!\s*$/) {
+     } elsif (m/^\!\s*$/ and !$printed_case_num) {
         next;
-     } elsif (m/^\!--\s*(.*)/ or m/^\!(.*)/) {
+     } elsif (m/^\!--\s*(.*)/ or m/^\!\s*(.*)/) {
         if (!$printed_case_num) {
-           printf("| %-2d        | %-80s |\n",$case_num,substr($1, 0, 80));
+           printf("| %-2d        | %-80s |\n",$case_num,substr("**$1**", 0, 80));
            $printed_case_num = 1;
         } else {
            printf("|           | %-80s |\n",substr($1, 0, 80)); # additional comments
