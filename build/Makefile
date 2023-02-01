@@ -118,9 +118,22 @@ ifeq ($(MCFOST), yes)
     ISOTHERMAL=no
     MCFOST=yes
 
-    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
-    MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
-
+    #--if PREFIX is set (e.g. to /usr/local) set all the flags needed for mcfost
+    ifneq ("X$(PREFIX)", "X")
+       MCFOST_LIBS = $(PREFIX)/lib
+       MCFOST_LIB = $(PREFIX)/lib
+       MCFOST_INCLUDE = $(PREFIX)/include
+       ifeq ("X$(HDF5ROOT)","X")
+           HDF5ROOT=$(PREFIX)
+       endif
+    else
+    #--otherwise assume the source code is lying around somewhere
+       MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
+       MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
+       ifeq ("X$(MCFOST_LIB)","X")
+          MCFOST_LIB = $(MCFOST_DIR)/src
+       endif
+    endif
     ifeq ($(MCFOST_XGBOOST), yes)
         LXGBOOST= -lxgboost -ldmlc -lrabit
     else
@@ -129,8 +142,9 @@ ifeq ($(MCFOST), yes)
 
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
-	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5_fortran -lhdf5 -lz $(LXGBOOST)
+	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
+   -L$(HDF5ROOT) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
+	#-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran
 endif
 
 include Makefile_systems
@@ -979,7 +993,7 @@ phantom2mcfost: checkmcfost
         ANALYSISBIN=$@ ANALYSISONLY=yes LDFLAGS="-L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)"
 
 analysis_mcfost.o: analysis_mcfost.f90
-	$(FC) -c $(FFLAGS) -I$(MCFOST_DIR)/src $< -o $@
+	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) $< -o $@
 
 analysis_mcfost.o: checkmcfost
 

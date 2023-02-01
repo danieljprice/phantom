@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -53,7 +53,7 @@ subroutine get_all_tau_adaptive(npart, primary, xyzh, kappa, Rstar, minOrder,&
  real, intent(in)    :: primary(3), kappa(:), xyzh(:,:), Rstar
  real, optional      :: Rcomp, companion(3)
  real, intent(out)   :: taus(:)
- 
+
  integer     :: i, nrays, nsides, index
  real        :: normCompanion, theta0, unitCompanion(3), theta, root, dist, vec(3), dir(3)
  real, dimension(:,:), allocatable :: dirs
@@ -91,7 +91,7 @@ subroutine get_all_tau_adaptive(npart, primary, xyzh, kappa, Rstar, minOrder,&
        listsOfDists(:,i) = dists
     enddo
     !$omp end parallel do
-    
+
     nsides = 2**(minOrder+refineLevel)
     taus = 0.
     !$omp parallel do private(index,vec)
@@ -124,7 +124,7 @@ end subroutine get_all_tau_adaptive
 !                       sampled deeper
 !  IN: refineScheme:    The refinement scheme used for adaptive ray selection
 !+
-!  OUT: rays:           A list containing the rays that need to be traced 
+!  OUT: rays:           A list containing the rays that need to be traced
 !                       in the adaptive ray-tracing scheme
 !  OUT: indices:        A list containing a link between the index in the
 !                       deepest order and the rays in the adaptive ray-tracing scheme
@@ -342,7 +342,7 @@ subroutine get_all_tau_outwards(npart, primary, xyzh, kappa, Rstar, order, raypo
     call get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order, raypolation, taus)
  endif
 end subroutine get_all_tau_outwards
-   
+
 !--------------------------------------------------------------------------
 !+
 !  Calculates the optical depth to each SPH particle, using the uniform outwards
@@ -968,7 +968,7 @@ end subroutine get_all_tau_inwards
 !  IN: npart:           The number of SPH particles
 !  IN: primary:         The xyz coordinates of the primary star
 !  IN: xyzh:            The array containing the particles position+smooting lenght
-!  IN: neighbors:       A list containing the indices of the neighbors of 
+!  IN: neighbors:       A list containing the indices of the neighbors of
 !                       each particle
 !  IN: kappa:           The array containing the opacity of all the SPH particles
 !  IN: Rstar:           The radius of the primary star
@@ -998,7 +998,7 @@ end subroutine get_all_tau_inwards_single
 !  IN: npart:           The number of SPH particles
 !  IN: primary:         The xyz coordinates of the primary star
 !  IN: xyzh:            The array containing the particles position+smooting lenght
-!  IN: neighbors:       A list containing the indices of the neighbors of 
+!  IN: neighbors:       A list containing the indices of the neighbors of
 !                       each particle
 !  IN: kappa:           The array containing the opacity of all the SPH particles
 !  IN: Rstar:           The radius of the primary star
@@ -1039,7 +1039,7 @@ subroutine get_all_tau_inwards_companion(npart, primary, xyzh, neighbors, kappa,
  enddo
  !$omp end parallel do
 end subroutine get_all_tau_inwards_companion
-    
+
 !--------------------------------------------------------------------------
 !+
 !  Calculate the optical depth for a given particle, using the inwards ray-
@@ -1048,7 +1048,7 @@ end subroutine get_all_tau_inwards_companion
 !  IN: point:           The index of the point that needs to be calculated
 !  IN: primary:         The location of the primary star
 !  IN: xyzh:            The array containing the particles position+smooting lenght
-!  IN: neighbors:       A list containing the indices of the neighbors of 
+!  IN: neighbors:       A list containing the indices of the neighbors of
 !                       each particle
 !  IN: kappa:           The array containing the opacity of all the SPH particles
 !  IN: Rstar:           The radius of the star

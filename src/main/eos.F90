@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -900,7 +900,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  ! check temp
  if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
-                                 &considering reducing entropy factor C_ent')
+ &considering reducing entropy factor C_ent')
 
  ! change back to code unit
  P = cgsP / unit_pressure
