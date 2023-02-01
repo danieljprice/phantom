@@ -1,40 +1,116 @@
 +-----------+----------------------------------------------------------------------------------+
 | ieos      | Description                                                                      | 
 +===========+==================================================================================+
-| 1         | isothermal eos                                                                   |
+| 1         | **Isothermal eos**                                                               |
+|           |                                                                                  |
+|           | :math:`P = c_s^2 \rho`                                                           |
+|           |                                                                                  |
+|           | where :math:`cs^2 \equiv K` is a constant stored in the dump file header         |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 2         | adiabatic/polytropic eos                                                         |
-|           |   (polytropic using polyk if energy not stored, adiabatic if utherm stored)      |
-|           |    check value of gamma                                                          |
+| 2         | **Adiabatic equation of state (code default)**                                   |
+|           |                                                                                  |
+|           | :math:`P = (\gamma - 1) \rho u`                                                  |
+|           |                                                                                  |
+|           | if the code is compiled with ISOTHERMAL=yes, ieos=2 gives a polytropic eos:      |
+|           |                                                                                  |
+|           | :math:`P = K \rho^\gamma`                                                        |
+|           |                                                                                  |
+|           | where K is a global constant specified in the dump header                        |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 3         | this is for a locally isothermal disc as in Lodato & Pringle (2007)              |
-|           |    cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)                      |
-|           | GR isothermal                                                                    |
+| 3         | **Locally isothermal disc as in Lodato & Pringle (2007) where**                  |
+|           |                                                                                  |
+|           | :math:`P = c_s^2 (r) \rho`                                                       |
+|           |                                                                                  |
+|           | sound speed (temperature) is prescribed as a function of radius using:           |
+|           |                                                                                  |
+|           | :math:`c_s = c_{s,0} r^{-q}` where :math:`r = \sqrt{x^2 + y^2 + z^2}`            |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 6         | this is for a locally isothermal disc as in Lodato & Pringle (2007), centered on |
-|           |    cs = cs_0*R^(-q) -- polyk is cs^2, so this is (R^2)^(-q)                      |
+| 4         | **Isothermal equation of state for GR, enforcing cs = constant**                 |
+|           |                                                                                  |
+|           | .. WARNING:: this is experimental: use with caution                              |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 7         | z-dependent locally isothermal eos                                               |
+| 6         | **Locally isothermal disc centred on sink particle**                             |
+|           |                                                                                  |
+|           | As in ieos=3 but in this version radius is taken with respect to a designated    |
+|           | sink particle (by default the first sink particle in the simulation)             |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 8         | Barotropic equation of state                                                     |
+| 7         | **Vertically stratified equation of state**                                      |
+|           |                                                                                  |
+|           | sound speed is prescribed as a function of (cylindrical) radius R and            |
+|           | height z above the x-y plane                                                     |
+|           |                                                                                  |
+|           | .. WARNING:: should not be used for misaligned discs                             |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 9         | Piecewise Polytropic equation of state                                           |
+| 8         | **Barotropic equation of state**                                                 |
+|           |                                                                                  |
+|           | :math:`P = K \rho^\gamma`                                                        |
+|           |                                                                                  |
+|           | where the value of gamma (and K) are a prescribed function of density            |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 10        | MESA eos                                                                         |
+| 9         | **Piecewise Polytropic equation of state**                                       |
+|           |                                                                                  |
+|           | :math:`P = K \rho^\gamma`                                                        |
+|           |                                                                                  |
+|           | where the value of gamma (and K) are a prescribed function of density.           |
+|           | Similar to ieos=8 but with different defaults and slightly different             |
+|           | functional form                                                                  |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 11        | isothermal eos with zero pressure                                                |
+| 10        | **MESA equation of state**                                                       |
+|           |                                                                                  |
+|           | a tabulated equation of state including gas, radiation pressure                  |
+|           | and ionisation/dissociation. MESA is a stellar evolution code, so                |
+|           | this equation of state is designed for matter inside stars                       |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 12        | ideal gas plus radiation pressure                                                |
+| 11        | **Isothermal equation of state with pressure and temperature equal to zero**     |
+|           |                                                                                  |
+|           | :math:`P = 0`                                                                    |
+|           |                                                                                  |
+|           | useful for simulating test particle dynamics using SPH particles                 |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 14        | locally isothermal prescription from Farris et al. (2014) for binary system      |
+| 12        | **Ideal gas plus radiation pressure**                                            |
+|           |                                                                                  |
+|           | :math:`P = (\gamma - 1) \rho u`                                                  |
+|           |                                                                                  |
+|           | but solved by first solving the quartic equation:                                |
+|           |                                                                                  |
+|           | :math:`u = \frac32 \frac{k_b T}{\mu m_H} +  \frac13 a T^4`                       |
+|           |                                                                                  |
+|           | for temperature (given u), then solving for pressure using                       |
+|           |                                                                                  |
+|           | :math:`P = \frac{k_b T}{\mu m_H} + a T^4`                                        |
+|           |                                                                                  |
+|           | hence in this equation of state gamma (and temperature) are an output            |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 15        | helmholtz free energy eos                                                        |
+| 14        | **Locally isothermal eos from Farris et al. (2014) for binary system**           |
+|           |                                                                                  |
+|           | uses the locations of the first two sink particles                               |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 16        | shen eos                                                                         |
-|           |     if (present(enei)) then                                                      |
-|           |     else                                                                         |
-|           |        call fatal('eos','tried to call NL3 eos without passing temperature')     |
-|           |     endif                                                                        |
+| 15        | **Helmholtz equation of state (computed live, not tabulated)**                   |
+|           |                                                                                  |
+|           | .. WARNING:: not widely tested in phantom, better to use ieos=10                 |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
-| 20        | gas + radiation + various forms of recombination (from HORMONE, Hirai+20)        |
+| 16        | **Shen (2012) equation of state for neutron stars**                              |
+|           |                                                                                  |
+|           | this equation of state requires evolving temperature as the energy variable      |
+|           |                                                                                  |
+|           | .. WARNING:: not tested: use with caution                                        |
+|           |                                                                                  |
++-----------+----------------------------------------------------------------------------------+
+| 20        | **Gas + radiation + various forms of recombination**                             |
+|           |                                                                                  |
+|           | from HORMONE, Hirai+2020, as used in Lau+2022b                                   |
+|           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
