@@ -8,7 +8,7 @@ There are several external utilities that are useful with Phantom.
 
    phantom-config
    mcfost
+   sarracen
    plonk
    imorbel
    fortree
-
