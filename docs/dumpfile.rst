@@ -18,7 +18,7 @@ from the code. It reads the raw data files and gives you plots and visualisation
 
 sarracen
 ~~~~~~~~
-:doc:`<sarracen>` is a package with similar functionality to splash but done in Python::
+:doc:`Sarracen <sarracen>` is a package with similar functionality to splash but done in Python::
 
    import sarracen
    sdf = sarracen.read_phantom('file_00000')
@@ -88,9 +88,9 @@ Compile `showarrays <https://github.com/danieljprice/phantom/blob/master/src/uti
 Reading datafiles into Python (recommended way)
 ------------------------------------------------
 The simplest way to read the raw datafiles into Python is to use the
-:doc:`<sarracen>` package::
+:doc:`sarracen <sarracen>` package::
 
-   https://github.com/ttricco/sarracen
+   - https://github.com/ttricco/sarracen
 
 Reading datafiles into Python (other ways)
 ------------------------------------------------
@@ -124,7 +124,7 @@ which can be plotted with::
 
 An alternative to splash with similar functionality in Python is Plonk. The main
 limitation is that currently Plonk cannot read the native file format
-and requires conversion to hdf5 format first (the best way is using the `readPhantomDump.py <https://github.com/danieljprice/phantom/blob/master/scripts/readPhantomDump.py>`__ Python script).
+and requires conversion to hdf5 format first.
 
 A portable Fortran module for reading the datafiles
 ----------------------------------------------------
