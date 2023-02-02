@@ -5,7 +5,7 @@
 |           |                                                                                  |
 |           | :math:`P = c_s^2 \rho`                                                           |
 |           |                                                                                  |
-|           | where :math:`cs^2 \equiv K` is a constant stored in the dump file header         |
+|           | where :math:`c_s^2 \equiv K` is a constant stored in the dump file header        |
 |           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
 | 2         | **Adiabatic equation of state (code default)**                                   |
