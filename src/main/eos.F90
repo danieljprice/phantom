@@ -153,7 +153,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  :math:`P = c_s^2 \rho`
 !
-!  where :math:`cs^2 \equiv K` is a constant stored in the dump file header
+!  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
 !
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
