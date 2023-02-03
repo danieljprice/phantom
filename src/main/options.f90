@@ -25,7 +25,7 @@ module options
 ! and read from the input file
 !
  real, public :: avdecayconst
- integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
+ integer, public :: nfulldump,nmaxdumps,iexternalforce
  real, public :: tolh,damp,rkill
  real(kind=4), public :: twallmax
 
@@ -87,7 +87,6 @@ subroutine set_default_options
  Bexty     = 0.
  Bextz     = 0.
  tolh      = 1.e-4           ! tolerance on h iterations
- idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
