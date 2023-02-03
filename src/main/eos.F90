@@ -362,7 +362,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !  .. WARNING:: not tested: use with caution
 !
-    if (present(enei)) then
+    if (present(eni)) then
        cgsrhoi = rhoi * unit_density
        !note eni is actually tempi
        call eos_shen_NL3(cgsrhoi,eni,0.05,cgspresi,cgsspsoundi)
