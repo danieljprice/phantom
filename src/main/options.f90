@@ -18,7 +18,8 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
- use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use damping, only:idamp ! so this is available via options module
  implicit none
 !
 ! these are parameters which may be changed by the user
@@ -55,7 +56,7 @@ module options
  logical, public :: implicit_radiation_store_drad
 
  public :: set_default_options
- public :: ieos
+ public :: ieos,idamp
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
 
@@ -118,6 +119,7 @@ subroutine set_default_options
  endif
  alphamax = 1.0
  call set_defaults_viscosity
+ idamp = 0
 
  ! artificial thermal conductivity
  alphau = 1.
