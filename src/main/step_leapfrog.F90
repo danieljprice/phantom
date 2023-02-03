@@ -986,7 +986,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           dtextforce_min = min(dtextforce_min,C_force*dtf)
 
           if (idamp > 0) then
-             call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), damp_fac)
+             call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
           endif
 
           !
@@ -1292,7 +1292,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              endif
           endif
           if (idamp > 0) then
-             call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), damp_fac)
+             call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
           endif
           fext(1,i) = fextx
           fext(2,i) = fexty
