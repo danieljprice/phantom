@@ -43,7 +43,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  do while (isinkpart /= 0)
     call prompt('Enter the sink particle number to modify:',isinkpart,0,nptmass)
     if (isinkpart <= 0) exit
- 
+
     mass = xyzmh_ptmass(4,isinkpart)
     mass_old = mass
     call prompt('Enter new mass for the sink:',mass,0.)

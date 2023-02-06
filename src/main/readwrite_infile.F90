@@ -321,7 +321,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                            itau_alloc,store_dust_temperature
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
- use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
+ use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
  use forcing,         only:read_options_forcing,write_options_forcing
@@ -377,6 +377,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  if (idot <= 1) idot = len_trim(infile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
+ fileprefix = infile(1:idot)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
