@@ -623,7 +623,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
-         viscosity.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
+         viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS} \
          utils_sort.f90 sort_particles.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
@@ -659,7 +659,7 @@ SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 set_star.f90 relax_star.f90 \
           set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
-          set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
+          set_Bfield.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 ifeq ($(KROME), krome)
