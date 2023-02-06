@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -35,7 +35,7 @@ module forces
 !  GR:
 !      Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: Conrad Chan
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -215,9 +215,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb
-#ifdef LIGHTCURVE
- use part,         only:luminosity
-#endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
  use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
@@ -2458,9 +2455,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           store_dust_temperature,do_nucleation
  use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,icooling
+                          use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating, &
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
                           nucleation,idK2,idmu,idkappa,idgamma,dust_temp
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
@@ -2478,9 +2475,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density,unit_velocity
  use eos_shen,       only:eos_shen_get_dTdu
-#ifdef LIGHTCURVE
- use part,           only:luminosity
-#endif
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -2545,9 +2539,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
  real    :: dTdui,dTdui_cgs,rho_cgs
-#ifdef LIGHTCURVE
  real    :: dudt_radi
-#endif
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
 #endif
@@ -2789,9 +2781,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef ISENTROPIC
              fxyz4 = 0.
 #endif
-#ifdef LIGHTCURVE
-             luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
-#endif
+             if (lightcurve) then
+                luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
+             endif
 #endif
           elseif (ieos==16) then ! here eni is the temperature
              if (abs(damp) < tiny(damp)) then
@@ -2814,7 +2806,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                    call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif
-#ifdef LIGHTCURVE
+             !
+             !--store pdV work and shock heating in separate array needed for some applications
+             !  this is a kind of luminosity if it were all radiated
+             !
              if (lightcurve) then
                 pdv_work = pri*rho1i*rho1i*drhodti
                 if (pdv_work > tiny(pdv_work)) then ! pdv_work < 0 is possible, and we want to ignore this case
@@ -2822,9 +2817,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 else
                    dudt_radi = fac*fsum(idudtdissi)
                 endif
-                luminosity(i) = pmassi*dudt_radi
+                luminosity(i) = real(pmassi*dudt_radi,kind=kind(luminosity))
              endif
-#endif
              if (mhd_nonideal) then
                 call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi)
                 fxyz4 = fxyz4 + fac*dudtnonideal
@@ -2859,7 +2853,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
           endif
-          if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          if (do_radiation .and. implicit_radiation) then
+             luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
+             !fxyzu(4,i) = 0.
+          else
+             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          endif
        endif
 
        if (mhd) then
@@ -3013,11 +3012,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtdrag = 0.9*ts_min
     endif
 
-    if (do_radiation.and.iamgasi) then
+    if (do_radiation .and. iamgasi .and. .not.implicit_radiation) then
        if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
        else
-          if (iopacity_type == 0) then
+          if (iopacity_type == 0) then ! infinite opacity equals no radiation diffusion
              drad(iradxi,i) = radprop(iradP,i)*drhodti*rho1i*rho1i
              dtradi = bignumber
           else

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -38,11 +38,11 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
  real, intent(out)   :: p,cf
- real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,gamma_eff
+ real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,gamma_eff,Tguess
  real, parameter     :: W4err=1.e-2,eoserr=1.e-13
  integer n
 
- corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9
+ corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9; Tguess=T
  do n = 1,500
     call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
     if (d*erec>=eint) then ! avoid negative thermal energy
@@ -50,8 +50,8 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     endif
     corr = (eint-(radconst*T**3+1.5*Rg*d*imu)*T-d*erec) &
            / ( -4.*radconst*T**3-d*(1.5*Rg*(imu+dimurecdT*T)+derecdT) )
-    if (-corr > 1.e3*T) then  ! do not let temperature guess increase by more than a factor of 1000
-       T = 1.e3*T
+    if (-corr > 10.*T) then  ! do not let temperature guess increase by more than a factor of 1000
+       T = 10.*T
        Tdot = 0.
     elseif (abs(corr) > W4err*T) then
        T = T + Tdot*dt
@@ -64,7 +64,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if (n>50) dt=0.5
  enddo
  if (n > 500) then
-    print*,'d=',d,'eint=',eint/d,'mu=',1./imu
+    print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif
  p = ( Rg*imu*d + radconst*T**3/3. )*T

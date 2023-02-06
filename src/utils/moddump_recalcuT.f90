@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -23,7 +23,7 @@ contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,           only:get_pressure,ieos,init_eos,done_init_eos,calc_temp_and_ene,finish_eos,&
-                         gmw,X_in,Z_in,irecomb,gamma,eosinfo
+                         gmw,X_in,Z_in,gamma,eosinfo
  use eos_gasradrec, only:irecomb
  use io,            only:iprint
  use part,          only:rhoh,eos_vars,itemp,igasP,igas
@@ -32,8 +32,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer :: i,ierr
- real    :: densi,eni,tempi
+ integer                :: i,ierr
+ real                   :: densi,eni,tempi
+
+ !-SET-EOS-OF-INPUT-DUMP--------
+ ieos = 12
+ gamma = 5./3.
+ gmw = 0.60319
+ irecomb = 0
+ X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
+ Z_in = 0.01426
+ !-------------------------------
 
  write(iprint,"(/,a,i2)") 'Assuming input dump has ieos = ',ieos
  if (.not. done_init_eos) call init_eos(ieos,ierr)
@@ -41,22 +50,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Check if this is correct. Enter to proceed'
  read*
 
- dum = 0.0
  do i = 1,npart
     densi = rhoh(xyzh(4,i),massoftype(igas))
-
-    ! Get pressure
     eos_vars(igasP,i) = get_pressure(ieos,xyzh(:,i),densi,vxyzu(:,i))
  enddo
 
  !-SET-EOS-OF-OUTPUT-DUMP--------
- ! Comment out to leave quantity
+ ! Comment out to leave quantity unchanged
  ieos = 2
  gamma = 5./3.
- gmw = 0.60319
- irecomb = 2
+ gmw = 0.6175
+ irecomb = 3
  if (ieos == 10) then
-    X_in = 0.69843
+    X_in = 0.69843  ! Set X and Z. Only relevant for ieos = 10, 20
     Z_in = 0.01426
  endif
  !-------------------------------
