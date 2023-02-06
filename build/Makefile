@@ -540,7 +540,8 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          partinject.F90 utils_inject.f90 dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
          mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
          radiation_implicit.f90 ${SRCTURB} \
-         ${SRCPHOTO} ${SRCINJECT} utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
+         utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \

@@ -16,7 +16,8 @@ module options
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
+! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
+!   viscosity
 !
  use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  use damping, only:idamp ! so this is available via options module

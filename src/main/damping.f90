@@ -14,14 +14,18 @@ module damping
 !   Reichardt et al. (2019) MNRAS 484, 631 (used idamp=2)
 !   González-Bolívar et al. (2022) MNRAS 517, 3181 (making idamp=2 obsolete)
 !
-! :Owner: Thomas Reichardt
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - damp   : *artificial damping of velocities (if on, v=0 initially)*
-!   - idamp  : *artificial damping of velocities (0=off, 1=constant, 2=star)*
+!   - damp   : *damping timescale as fraction of orbital timescale*
+!   - idamp  : *artificial damping of velocities (0=off, 1=constant, 2=star, 3=disc)*
+!   - r1in   : *inner boundary of inner disc damping zone*
+!   - r1out  : *inner boundary of outer disc damping zone*
+!   - r2in   : *outer boundary of inner disc damping zone*
+!   - r2out  : *outer boundary of outer disc damping zone*
 !   - tdyn_s : *dynamical timescale of star in seconds - damping is dependent on it*
 !
-! :Dependencies: eos_helmholtz, infile_utils, io, units
+! :Dependencies: infile_utils, io, physcon, units
 !
  implicit none
 

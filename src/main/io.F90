@@ -56,6 +56,7 @@ module io
 
  integer, parameter, private :: lenmsg = 120
  integer, parameter, private :: lenwhere = 20
+ integer, parameter, public :: lenprefix = 120
 
  type warningdb_entry
     character(len=lenwhere) :: wherefrom
@@ -63,6 +64,8 @@ module io
     integer(kind=8)         :: ncount
     integer :: level
  end type warningdb_entry
+
+ character(len=lenprefix), public :: fileprefix
 
  integer, parameter :: maxwarningdb = 20
  type(warningdb_entry) :: warningdb(maxwarningdb)
@@ -107,6 +110,7 @@ subroutine set_io_unit_numbers
  iscfile    = 32 ! for writing details of sink creation
  iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
  iverbose   = 0
+ fileprefix = '' ! blank by default, set to name of .in file
 
 end subroutine set_io_unit_numbers
 

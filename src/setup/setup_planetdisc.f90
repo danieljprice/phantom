@@ -15,18 +15,18 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - HoverRinput  : *H/R at R_in*
-!   - R_in         : *inner radius*
-!   - R_out        : *outer radius*
-!   - accradius1   : *primary accretion radius*
-!   - accradius2   : *secondary accretion radius*
-!   - alphaSS      : *desired alpha_SS*
-!   - mplanet      : *m1/(m1+m2)*
-!   - norbits      : *number of orbits*
-!   - np           : *number of particles*
-!   - p_indexinput : *surface density profile*
-!   - q_indexinput : *temperature profile*
-!   - sig0         : *disc surface density*
+!   - HoverR     : *H/R at R_in*
+!   - R_in       : *inner radius*
+!   - R_out      : *outer radius*
+!   - accradius1 : *primary accretion radius*
+!   - accradius2 : *secondary accretion radius*
+!   - alphaSS    : *desired alpha_SS*
+!   - mplanet    : *m1/(m1+m2)*
+!   - norbits    : *number of orbits*
+!   - np         : *number of particles*
+!   - p_index    : *surface density profile*
+!   - q_index    : *temperature profile*
+!   - sig0       : *disc surface density*
 !
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
 !   physcon, prompting, setdisc, timestep, units
