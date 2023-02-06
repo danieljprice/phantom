@@ -714,6 +714,7 @@ real function utherm(vxyzui,rho,gammai)
  if (gr) then
     utherm = en
  elseif (ien_type == ien_entropy) then
+    gamm1 = (gammai - 1.)
     if (gamm1 > tiny(gamm1)) then
        utherm = (en/gamm1)*rho**gamm1
     else
@@ -857,10 +858,16 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     temp = pres * mu / (rho * kb_on_mh)
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
+    ! check temp
+    if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
+
  case(2) ! Include both gas and radiation entropy (up to additive constants)
     temp = pres * mu / (rho * kb_on_mh) ! Guess for temp
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
     entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
+
+    ! check temp
+    if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')
@@ -883,9 +890,6 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
     entropy = 0.
     call fatal('eos','Unknown ientropy (can only be 1, 2, or 3)')
  end select
-
- ! check temp
- if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
 
 end function entropy
 

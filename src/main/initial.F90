@@ -15,11 +15,11 @@ module initial
 ! :Runtime parameters: None
 !
 ! :Dependencies: analysis, boundary, centreofmass, checkconserved,
-!   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
-!   deriv, dim, dust, dust_formation, energies, eos, evwrite, extern_gr,
-!   externalforces, fastmath, fileutils, forcing, growth, inject, io,
-!   io_summary, krome_interface, linklist, metric_tools, mf_write,
-!   mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
+!   checkoptions, checksetup, cons2prim, cooling, cpuinfo, damping,
+!   densityforce, deriv, dim, dust, dust_formation, energies, eos, evwrite,
+!   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
+!   inject, io, io_summary, krome_interface, linklist, metric_tools,
+!   mf_write, mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
 !   nicil_sup, omputils, options, part, photoevap, ptmass, radiation_utils,
 !   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
 !   timestep_sts, timing, units, writeheader
@@ -119,7 +119,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, &
@@ -212,6 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
+ use damping,          only:idamp
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -325,7 +326,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !  this will initialise all cooling variables, including if h2chemistry = true
  if (icooling > 0) call init_cooling(id,master,iprint,ierr)
 
- if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
+ if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
