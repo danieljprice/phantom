@@ -70,7 +70,7 @@ module readwrite_infile
 !   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
- use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
+ use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
@@ -216,7 +216,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) then
     call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
  endif
- call write_options_damping(iwritein,idamp)
+ call write_options_damping(iwritein)
 
  !
  ! thermodynamics
@@ -321,7 +321,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                            itau_alloc,store_dust_temperature
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
- use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
+ use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
  use forcing,         only:read_options_forcing,write_options_forcing
@@ -377,6 +377,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  if (idot <= 1) idot = len_trim(infile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
+ fileprefix = infile(1:idot)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
@@ -566,7 +567,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
-       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr,idamp)
+       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
        if (maxptmass > 0) then
           if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotallptmass,ierr)
           !
