@@ -394,6 +394,8 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     tol       = 1.d-3
     converged = .false.
     isolve    = 0
+    pH_tot    = rho_cgs*T*kboltz/(patm*mass_per_H) ! to avoid compiler warning
+    pH        = pH_tot ! arbitrary value, overwritten below, to avoid compiler warning
     !T = atomic_mass_unit*mu*(gamma-1)*u/kboltz
     i = 0
     do while (.not. converged .and. i < itermax)
