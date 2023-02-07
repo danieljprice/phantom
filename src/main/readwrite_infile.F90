@@ -76,7 +76,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV,implicit_radiation
+                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -245,6 +245,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Should mcfost compute the accretion luminosity',iwritein)
  call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
       'Should mcfost use the PdV work and shock heating?',iwritein)
+ call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
+      'Fraction of particles to keep for MCFOST',iwritein)
+      call write_inopt(ISM,'ISM',&
+      'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -519,6 +523,10 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
     case('mcfost_uses_PdV')
        read(valstring,*,iostat=ierr) mcfost_uses_PdV
+    case('mcfost_keep_part')
+       read(valstring,*,iostat=ierr) mcfost_keep_part
+    case('ISM')
+         read(valstring,*,iostat=ierr) ISM
 #endif
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
