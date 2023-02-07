@@ -24,7 +24,7 @@ module cooling_stamatellos
  contains
 
    subroutine init_cooling_S07(ierr)
-     use interp_optab,   only:read_optab
+     use eos_stamatellos,   only:read_optab
      integer, intent(out) :: ierr
      
      call read_optab(optable,ierr)
@@ -37,7 +37,7 @@ module cooling_stamatellos
      use io,       only:warning
      use physcon,  only:steboltz,pi,solarl
      use units,    only:umass,udist,unit_density,unit_ergg,utime
-     use interp_optab, only:getopac_opdep,getintenerg_opdep
+     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep
      use part,       only:poten
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
@@ -49,7 +49,7 @@ module cooling_stamatellos
      poti = poten(i)
 !    Tfloor is from input parameters and is background heating
 !    Add to stellar heating. Just assuming one star at (0,0,0) for now
-     Lstar = 0.1 !in Lsun
+     Lstar = 0.0 !in Lsun
      ri2 = xi*xi + yi*yi + zi*zi
      ri2 = ri2 *udist*udist
      Tirri = (Lstar*solarl/(4d0*pi*steboltz)/ri2)**0.25
@@ -90,10 +90,11 @@ module cooling_stamatellos
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
      if (isnan(dudti_cool)) then
-        print *, "poti=",poti, "rhoi=",rhoi
-        print *, "tcool=",tcool,"coldensi=",coldensi
+        print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
+        print *, "poti=",poti, "rhoi=",rhoi, "Ti=", Ti
+        print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
         print *, "Teqi=",Teqi, "dt=",dt,"tthermi=", tthermi,"ueqi=", ueqi
-        call warning("In Stamatellos cooling","dudticool=NaN",val=ui)
+        call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
      endif
      
    end subroutine cooling_S07

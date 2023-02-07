@@ -2,7 +2,7 @@
 ! Script to interpolate the opacity table myeos.dat
 !--------------------------------------------------------------------------
 
-module interp_optab
+module eos_stamatellos
 implicit none
 contains
 subroutine read_optab(OPTABLE,ierr)
@@ -188,6 +188,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi, OPTABLE)
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
 
-end module interp_optab
+end module eos_stamatellos
 
 
