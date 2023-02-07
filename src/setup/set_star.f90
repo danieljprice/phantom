@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -72,11 +72,11 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
- real,              intent(inout) :: gamma,polyk
+ real,              intent(inout) :: gamma,polyk,hsoft
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
  real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:)
  integer,           intent(out)   :: npts
- real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre,hsoft
+ real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
  integer :: ierr,i
@@ -226,11 +226,22 @@ end subroutine set_star_density
 !  Add a sink particle as a stellar core
 !+
 !-----------------------------------------------------------------------
-subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
- integer, intent(out) :: nptmass
+subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,ierr)
+ integer, intent(out) :: nptmass,ierr
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(in)     :: mcore,hsoft
  integer              :: n,ihsoft
+
+ ierr = 0
+ ! Check for sensible values
+ if (mcore < tiny(mcore)) then
+    ierr = 1
+    return
+ endif
+ if (hsoft < tiny(hsoft)) then
+    ierr = 2
+    return
+ endif
 
  nptmass                = 1
  n                      = nptmass

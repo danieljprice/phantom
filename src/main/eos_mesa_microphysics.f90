@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -258,6 +258,17 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 
 end subroutine get_kappa_mesa
 
+
+real function get_1overmu_mesa(rho,u,Rg) result(rmu)
+ real, intent(in) :: rho,u,Rg
+ real :: temp,pgas
+ integer :: ierr
+
+ call getvalue_mesa(rho,u,3,pgas,ierr) ! Get gas pressure
+ call getvalue_mesa(rho,u,4,temp,ierr) ! Get gas pressure
+ rmu = pgas / (rho*Rg*temp)
+
+end function get_1overmu_mesa
 
 
 ! Get the constants to be used in the MESA EoS
