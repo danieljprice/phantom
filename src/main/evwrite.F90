@@ -336,7 +336,7 @@ end subroutine fill_ev_header
 !+
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
- use timestep,      only:dtmax
+ use timestep,      only:dtmax_user
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
 #ifndef GR
@@ -354,7 +354,7 @@ subroutine write_evfile(t,dt)
     !--fill in additional details that are not calculated in energies.f
 #ifndef GR
     ev_data(iev_sum,iev_dt)  = dt
-    ev_data(iev_sum,iev_dtx) = dtmax
+    ev_data(iev_sum,iev_dtx) = dtmax_user
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2

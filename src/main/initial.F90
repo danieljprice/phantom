@@ -112,7 +112,7 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -151,10 +151,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
- use timestep,         only:time,dt,dtextforce,C_force,dtmax
+ use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
  use timing,           only:get_timings
 #ifdef IND_TIMESTEPS
- use timestep,         only:dtmax
  use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
@@ -216,7 +215,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
- integer         :: ierr,i,j,nerr,nwarn,ialphaloc,merge_n,merge_ij(maxptmass)
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -271,7 +270,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call warning('initial','WARNINGS from particle data in file',var='# of warnings',ival=nwarn)
     endif
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+!
+!--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
+
+
+    irestart = index(dumpfile,'.restart')
+    if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif
+!
+!--reset dtmax (required only to permit restart dumps)
+!
+ dtmax_user = dtmax           ! the user defined dtmax
+ dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
 !
 !--initialise values for non-ideal MHD
 !
