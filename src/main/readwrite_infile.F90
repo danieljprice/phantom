@@ -76,7 +76,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV,implicit_radiation,,mcfost_keep_part,ISM
+                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type

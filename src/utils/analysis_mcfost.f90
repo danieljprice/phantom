@@ -64,7 +64,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,         dimension(:),     allocatable :: dudt
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
-!  integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
 
@@ -133,7 +132,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  Tmin = minval(Tdust, mask=(Tdust > 1.))
  Tmax = maxval(Tdust)
- write(*,*) 'Number of particles with T > 1 =', count(Tdust > 1.)
  write(*,*) ''
  write(*,*) 'Minimum temperature = ', Tmin
  write(*,*) 'Maximum temperature = ', Tmax
