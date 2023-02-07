@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -149,7 +149,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call set_sinkproperties(xyzmh_ptmass)
     end select
 
- else
+ else  ! One or fewer point masses
     !choose what to do with the star: set a binary or setup a magnetic field
     print "(9(/,a))",'1) Set up a binary system by adding a sink companion', &
                      '2) Set up a magnetic field in the star', &
@@ -160,7 +160,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                      '7) Set up binary after relaxation in corotating frame with companion potential', &
                      '8) Set up a binary system with a star from another dumpfile', &
                      '9) (Re)set sink properties'
-
     setup_case = 1
     call prompt('Choose a setup option ',setup_case,1,9)
 
@@ -543,7 +542,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        elseif (icompanion_grav == 1) then
           primarycore_mass = xyzmh_ptmass(4,1)
        else
-          call fatal('companion_gravity','icompanion_grav not equal to 1 or 2') 
+          call fatal('companion_gravity','icompanion_grav not equal to 1 or 2')
        endif
        call close_db(db)
 
