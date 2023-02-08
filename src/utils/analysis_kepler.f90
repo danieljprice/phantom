@@ -80,7 +80,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  write(output,"(a4,i5.5)") 'ptok',numfile
  write(*,'("Output file name is ",A)') output
-
+print*,ngrid,"NGRID*****"
  !open the output file and save the data in the format kepler likes. Using same labels as kepler.
  open(iunit,file=output)
  write(iunit,'("# ",i5,"   # Version")') 10000
@@ -122,7 +122,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  print*,"Important summary"
  print*,rad_grid(ngrid)*udist, 'radius of star',rad_grid(ngrid)
  print*,mass(ngrid)*umass, 'total mass of star',mass(ngrid)
- print*,density(1),'maximum density of star'
+ print*,density(1)*unit_density,'maximum density of star'
 end subroutine do_analysis
 
  !----------------------------------------------------------------
@@ -135,7 +135,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
                                     density,temperature,entropy_array,int_eng,velocity_3D,bin_mass,&
                                     y_e,a_bar,composition_kepler,comp_label,columns_compo,correct_ngrid,rad_mom,&
                                     angular_vel_3D,numfile)
- use units , only: udist,umass,unit_velocity,utime,unit_energ
+ use units , only: udist,umass,unit_velocity,utime,unit_energ,unit_density
  use vectorutils,     only : cross_product3D
  use part,            only : rhoh,poten
  use centreofmass,    only : get_centreofmass
@@ -143,8 +143,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
  use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
  use orbits_data,     only : escape, orbital_parameters
-
-
+! use linalg,          only : inverse
+use linearalgebra , only : inverse
  integer,intent(in)               :: npart,numfile
  integer,intent(out)              :: correct_ngrid
  real,intent(in)                  :: xyzh(:,:),vxyzu(:,:)
@@ -157,7 +157,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
 
  integer :: no_in_bin !this stores the number of particles in bin after each loop.
  integer :: ibin
- integer :: iorder(npart),j,i,s,m
+ integer :: iorder(npart),j,i,s,m,last_particle_with_neg_e
  integer :: number_particle,ieos,ierr
  integer :: columns_compo,location
  integer :: ngrid
@@ -177,7 +177,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real :: ponrhoi,spsoundi,vel_sum(3),Li(3)
  real :: velocity_norm,escape_vel,kinetic_add
  real :: Y_in,mu
- real :: bh_mass
+ real :: bh_mass,L(3)
  real :: tot_energy
  real :: potential_i,kinetic_i,energy_i,energy_total,angular_momentum_h(3)
  real :: velocity_wrt_bh(3),rad_test,velocity_bh,com_star(3),position_bh
@@ -187,22 +187,50 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,pressure,rad_gri
  real :: mass_star
  real :: omega_val(3),val_omega, den_all(npart)
  integer :: count_new,skip_breakup
- print*,utime,'time!!','this is analysis_test file!'
+ real :: tot_thermal_energy, tot_internal_energy
+ real ::delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3),final_val_omega(3)
+ real ::i_matrix(3,3),inverse_of_i(3,3),omega_reshape(3,1),matrix_result(3,1)
+ real :: radius_last 
+ logical                 :: iexist
+
+print*,utime,'time!!','this is analysis_test file!'
  !The star is not on the origin as BH exists at that point.
  !minimum h value corresponds to position of maximum density.
  !COM is not a good option as it does not work for severe disruptione events.
+print*,"Before location is determined"
  location = minloc(xyzh(4,:),dim=1)
+ print*,"This is where issue happend",location,"location",size(xyzh)
  star_centre(:) = xyzh(1:3,location)
-
+print*,"issue happened"
+print*, location, "INITIAL LOCATION BASED ON h"
 do j = 1,npart 
   den_all(j) = rhoh(xyzh(4,j),pmass)
 enddo
 location = maxloc(den_all,dim=1)
 star_centre(:) = xyzh(1:3,location)
-print*,maxval(den_all),"MAX DEN VAL IN ARRAY",location
+print*,"**********"
+print*,location
+print*,maxval(den_all),"MAX DEN VAL IN ARRAY",location,star_centre,"centre"
  !we use the equation number 12 for Newtonian and 2 for GR analysis.
 print*,rhoh(xyzh(4,location),pmass),"MAX DENSITY",location,"location"
-print*,"__________________________________________" 
+print*,"__________________________________________"
+inquire(file="Distance_from_BH",exist=iexist)
+ if (.not. iexist) then
+
+    open(121,file="Distance_from_BH",status='new',action='write',form='formatted')
+    write(121,"(5(a))") "[x]"," ","[y]"," ","[z]"
+    write(121,"(3(1x,es12.5))") xyzh(1,location)*udist,xyzh(2,location)*udist,xyzh(3,location)*udist 
+    close(121)
+
+  else
+
+    open(121,file="Distance_from_BH",status='old',action='write',form='formatted',position="append")
+    write(121,"(3(1x,es12.5))") xyzh(1,location)*udist,xyzh(2,location)*udist,xyzh(3,location)*udist  
+
+  close(121)
+
+  endif
+ 
  ieos = 2
 !print*,maxval(rhoh(xyzh(4,:),pmass)),"MAX DENSITU FROM MAX RHO"
  call init_eos(ieos,ierr)
@@ -233,9 +261,9 @@ print*,"__________________________________________"
  !ngrid = npart/number_particle
  number_particle = 0
  energy_verified_no = 0
- if (mod(npart,number_particle) > 0) then
-    ngrid = ngrid + 1
- endif
+ !if (mod(npart,number_particle) > 0) then
+  !  ngrid = ngrid + 1
+ !endif
 print*,"**********************************"
  print"(a,i5)", 'number of bins = ',ngrid
 
@@ -263,27 +291,38 @@ print*,"**********************************"
     !if energy is less than 0, we have bound system. We can accept these particles.
     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
       energy_verified_no = energy_verified_no + 1
+      last_particle_with_neg_e = j
     endif
 
  enddo
-
+ 
  !based on the number of particles that satisfy the energy distribution formula, we will chose the
  !number of particles per bin
- if (energy_verified_no >= 1e6) then
-    number_particle = 500
- elseif (energy_verified_no >= 1e5) then
-    number_particle = 100
- elseif (energy_verified_no >= 1e4) then
-    number_particle = 20
- elseif (energy_verified_no >= 1e3) then
-    number_particle = 100
- else
+ !mod(npart,number_particle) > 0
+print*,mod(energy_verified_no,500),"mod(energy_verified_no,500)"
+ if (mod(energy_verified_no,500)>0) then
+    number_particle = energy_verified_no/500 + 1
+ print*,number_particle,"indie"
+    print*,energy_verified_no/500,"energy verified no/500"
+    if ((energy_verified_no/number_particle>=500.) .or. (energy_verified_no < 500) ) then 
+        number_particle=number_particle
+    else 
+        number_particle = energy_verified_no/500
+    endif
+    print*,"We use 2 particles?)",number_particle
+ elseif (mod(energy_verified_no,500)==0) then
+    print*,"HERE WE ARE" 
+    number_particle = energy_verified_no/500
+ else  
     number_particle = 1
+    print*,"HEREMwemare"
  endif
-
+ 
+ print*,number_particle,"NUmber Particle", "Number of particles veritifed",energy_verified_no
  !we allocate arrays that can save 2000 data points.
- ngrid = 2000
-
+ ngrid = 5000
+ print*,"YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+ print*,number_particle,"number_particle"
  allocate(rad_grid(ngrid),mass(ngrid),density(ngrid),energy_tot(npart))!rad_grid stores radius, stores radial velocity
  allocate(temperature(ngrid),entropy_array(ngrid),int_eng(ngrid),bin_mass(ngrid),rad_mom(ngrid))
  allocate(pressure(ngrid),y_e(ngrid),a_bar(ngrid),velocity_3D(3,ngrid),angular_vel_3D(3,ngrid))
@@ -304,8 +343,11 @@ print*,"**********************************"
  gmw                = 0.61 !mean molecular weight. Setting default value as gmw of sun.
  com_star(:)        = 0.
  bh_mass            = 1e6 !change the mass of the black hole here.
- count_new          = 1 
- print*,"columns_compo",columns_compo,ngrid,"ngrid"
+ count_new          = 1
+ delta = reshape((/1,0,0,0,1,0,0,0,1/),shape(delta)) 
+ i_matrix(:,:) = 0. 
+L(:) = 0.
+print*,"columns_compo",columns_compo,ngrid,"ngrid"
  skip_breakup = 0
  call assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  print*,A_array,"A_array",Z_array,"Z_array"
@@ -318,8 +360,18 @@ print*,"**********************************"
  composition_sum(:) = 0.
  composition_i(:) = 0.
  c_particle = 0 !no of particles that are bound the star.
+ tot_thermal_energy = 0.
+ tot_internal_energy = 0. 
+ open(21,file="saving_pos",form='formatted')
+ write(21,*) "[x]"," ","[y]", " ","[z]"
+open(121,file="bin_angular_data") 
+write(121,*) "[angular]"," ","[radius]"
+open(10,file="Angular_data")
+write(10,*) "[ANgular vel]"," ","[Radius]"
+open(101,file="angular_analysis") 
+write(101,"(15(a))") "[vx]"," ","[vy]"," ","[vz]", " ","[x]"," ","[y]"," ","[z]"," ","[pmass]"," ","[density]"
 
- do j = 1, npart
+do j = 1, npart
    ! print*,rhoh(xyzh(4,j),pmass),"rhoh(xyzh(4,j),pmass",j,"j"
     !print*,"*******************************"
     i  = iorder(j) !Access the rank of each particle in radius.
@@ -331,11 +383,9 @@ print*,"**********************************"
     !calculate the position which is the location of the particle.
     rad_test    = sqrt(dot_product(pos(:),pos(:)))
     potential_i = poten(i)
-
     !velocity
     vel(:)     = vxyzu(1:3,i) - vpos(:)
     vel_sum(:) = vel_sum(:) + vel(:)
-
     velocity_norm = dot_product(vel(:),vel(:))
     kinetic_i     = 0.5*pmass*(velocity_norm)
 
@@ -345,28 +395,23 @@ print*,"**********************************"
    call cross_product3D(pos(:),vel(:),Li)
     omega_val(:) =(Li(:)*unit_velocity*udist)/((rad_test*udist)**2)
     val_omega = dot_product(omega_val(:),omega_val(:))
+    
+
     !if (j .ne. 1) then 
          if (val_omega < (gg*pmass*j*umass)/((rad_test*udist)**3)) then 
            count_new = count_new+1
           endif 
     !endif 
-    if (j==1 .or. j==612 .or. j==613) then
-      print*,"------------------"
-      print*,"j",j 
-      print*,val_omega,"val_omega",(gg*pmass*j*umass)/(rad_test*udist)**3
-      print*,kinetic_i,"kinetic",potential_i,"potential_i",energy_i
-    endif
     
     if (j==1) then 
        val_omega = 0.
     endif
     !if energy is less than 0, we have bound system. We can accept these particles.
-    
    ! print*, energy_i,"energy_i",kinetic_i,"kinetic_i",potential_i,"potential_i"
     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i) ) then
-       if (j==1) then 
-         print*,"WORKED"
-       endif
+    tot_thermal_energy = tot_thermal_energy + kinetic_i
+    write(21,*) xyzh(1:3,i)
+
        rad  = rad_test
        c_particle = 1+c_particle
        !print*,"c_particle",j,"j"
@@ -388,18 +433,43 @@ print*,"**********************************"
 
        !angular velocity of the shells of the star.
        call cross_product3D(pos(:),vel(:),Li)
-       moment_of_inertia = moment_of_inertia + rad**2*pmass*(2./3.) !moment of intertia
-       omega(:)          = Li(:)*pmass
-       omega_sum(:)      = omega_sum(:) + omega(:)
+       moment_of_inertia = moment_of_inertia + rad**2*pmass  !moment of intertia
+       L(:)          = Li(:)*pmass
+       omega_sum(:)      = omega_sum(:) + L(:)
+      
+       !print*,"++++++++++++++++++++++++++++++++++"
+      
+        val_omega = sqrt(dot_product(L(:),L(:)))
 
-       !density
+       !moment of inertia matrix
+       matrix1=reshape(pos,shape(matrix1))
+       matrix2=reshape(pos,shape(matrix2))
+       result_matrix = matmul(matrix1,matrix2)
+       !print*,"i_matrix",i_matrix,"j",j
+       i_matrix = i_matrix + pmass*(rad**2*delta - result_matrix) 
+       
+!print*,"**********************************"
+ !print*,i_matrix*umass*udist**2,"i_matrix"
+!print*,inverse(i_matrix*umass*udist**2, 3),"inverse(i_matrix, 3)"
+ ! print*,"**********",j,"j" 
+
+      !density
+      
        density_i   = rhoh(xyzh(4,i),pmass)
+       print*,density_i,"density_i",j,"j"
        density_sum = density_sum + density_i
-
+       if (j==1) then 
+          val_omega = 0. 
+       endif
+       write(10,*) (val_omega/(rad**2*pmass))*(1/utime),rad*udist
+!print*,"PPPPPPPPPPPPPPPPP"
+      ! print*,val_omega/(rad**2*pmass),"val_omega/(rad**2*pmass)",j,"j"
        !internal energy
        u_i   = vxyzu(4,i)
        u_sum = u_sum + u_i
-
+       
+       tot_internal_energy = tot_internal_energy + u_i
+       
        !composition
        if (columns_compo /= 0) then
           composition_i(:) = interpolate_comp(:,i)
@@ -413,7 +483,7 @@ print*,"**********************************"
        call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
 
        gmw = 1./mu
-
+        write(101,"(8(1x,es12.5))") vel(:)*unit_velocity,pos(:)*udist,pmass*umass,density_i*unit_density
 
        eni_input = u_i
        !call eos routine
@@ -426,10 +496,10 @@ print*,"**********************************"
        !print*,j,'j'
     endif
     !now, if the bin has the same number of particles as we specified initially, we save the values
-    if (no_in_bin == number_particle) then
+    if ((no_in_bin == number_particle) .and. (j .ne. npart) .and. (j .ne. last_particle_with_neg_e)) then
+
        !calculate the position which is the location of the particle.
        do index_i = j,npart-1
-
           !we check that the first particle in the next bin is bound and if it is we calculate the radius as average
           s              = index_i + 1 !we consider the first particle in the i+1 bin and then use it.
           m              = iorder(s)
@@ -440,26 +510,32 @@ print*,"**********************************"
           kinetic_i      = 0.5*pmass*(velocity_norm)
           energy_i       = potential_i + kinetic_i
           if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
-          !if (energy_i < 0.) then   
              rad_next     = sqrt(dot_product(pos(:),pos(:)))
              exit
           endif
        enddo
+       print*,"_______________________________________"
+       print*,j,"j",rad*udist,"rad",rad_next*udist,"rad_next",s,"s"
+       print*,"______________________________________"
        rad_grid(ibin)   = (rad + rad_next)/2
-
+   elseif (j == last_particle_with_neg_e)  then
+       rad_grid(ibin) = rad
+       print*,"__________________________"
+       print*,rad*udist,"last rad"
+       print*,"__________________________"
        !if number of bin does not have the same number of particles we loop again. so cycle for j<npart
     elseif (j<npart) then
        cycle
-
+endif 
        !elseif j is last then save the last bin if the number of particle /= no_in_bin
-    elseif (j == npart) then
-       rad_grid(ibin) = rad
-    endif
+    !elseif (j == last_particle_with_neg_e)  then
+       !rad_grid(ibin) = rad
+!print*,"HERE"
+ !      print*,"------------------------"
+  !     print*,rad,"rad",j,"j",ibin,"ibin"
+   ! endif
 
-    if (no_in_bin == number_particle .or. j == npart) then
-      print*,"-----------------------------------------------------------**"
-      print*,"j",j,"no_in_bin",no_in_bin,"number_particle",number_particle
-
+    if (no_in_bin == number_particle .or. j == last_particle_with_neg_e) then
        bin_mass(ibin)             = no_in_bin*pmass !bin mass
        mass(ibin)                 = (c_particle)*pmass !mass of paricles < r.
        density(ibin)              = density_sum / no_in_bin
@@ -472,8 +548,41 @@ print*,"**********************************"
        rad_mom(ibin)     = rad_vel_sum
        y_e(ibin)         = (X_in/(1.*avogadro*atomic_mass_unit)) + (Y_in/(4.*avogadro*atomic_mass_unit))
        a_bar(ibin)       = X_in + (4.*Y_in) !average atomic mass in each bin.
-       angular_vel_3D(:,ibin) = omega_sum(:) / moment_of_inertia !omega_sum is L_sum
-
+       inverse_of_i      = inverse(i_matrix, 3)
+       !print*,ibin,"ibin","///////////////////"
+       !print*,"-------------------------------------------"
+     !  print*,j,"j"
+     !print*,"i_matrix"
+      ! print*,i_matrix*umass*udist**2
+      
+       omega_reshape = reshape(omega_sum(:),(/3,1/))
+       !print*,"----------------------------------------"
+       !print*,"omega reshape"
+       !print*,omega_reshape
+       !print*,"_---------------------------------------"
+       !print*,"inverse of i"
+       !print*,inverse_of_i
+        
+       matrix_result = matmul(inverse_of_i,omega_reshape)  !omega_sum is L_sum
+       final_val_omega = reshape(matrix_result,(/3/))
+       !print*,"MATRIX INVERSE"
+    
+     ! print*,inverse(i_matrix*umass*udist**2,3)
+    !  print*,matmul(inverse_of_i,i_matrix)
+       if (no_in_bin == 1) then 
+          if (rad==0.) then 
+             angular_vel_3D(:,ibin) = omega_sum(:)
+          else
+              angular_vel_3D(:,ibin) = omega_sum(:) / (rad**2*pmass*no_in_bin)
+          endif
+       else
+           angular_vel_3D(:,ibin) = final_val_omega
+       endif
+       val_omega = sqrt(dot_product(angular_vel_3D(:,ibin),angular_vel_3D(:,ibin)))
+       write(121,*) val_omega/utime,rad_grid(ibin)*udist
+        
+     !  print*,"ANgular vel 3D"
+     !  print*,angular_vel_3D(:,ibin)/utime
        !calculating entropy
        !implementing entropy from the Sackur-Tetrode equation.
        entropy_array(ibin) = entropy(density(ibin),pressure(ibin),mu,ientropy=2,ierr=ierr)
@@ -481,7 +590,9 @@ print*,"**********************************"
        if (ierr/=0) then
           print*, 'Entropy is calculated incorrectly'
        endif
-
+       !print*,"YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
+       !print*,ibin,"IBIN",j,"j"
+       !print*,"YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY"
        tot_energy         = 0
        no_in_bin          = 0
        ibin               = ibin + 1
@@ -495,14 +606,20 @@ print*,"**********************************"
        omega_sum(:)       = 0.
        moment_of_inertia  = 0.
        kinetic_add        = 0.
+       i_matrix(:,:)      = 0.
     endif
  enddo
- close(1)
+ !close(1)
+close(21)
+close(121)
+close(10)
+close(101)
  correct_ngrid = ibin-1
  print*,c_particle,'c_particle',npart-c_particle
  print*,'----------------------------------------------------------------------'
  print*,'orbit parameters'
-
+print*,";;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;"
+print*,"PMASS",pmass
  !this is centre of mass of the star
  print*,star_centre*udist,'center of star'
  com_star(:) = (com_star(:)/(c_particle*pmass))*udist
@@ -538,7 +655,9 @@ print*,"here2"
  print*,npart-count_new,"count_new"
  print*,'----------------------------------------------------------------------'
 print*,"here3",mass_star,"mass_star"
- call write_mass_of_star_and_no(numfile,mass_star,star_centre(:),maxval(den_all(:)))
+print*,"*******************"
+print*,tot_thermal_energy,"tot_thermal"
+ call write_mass_of_star_and_no(numfile,mass_star,star_centre(:),maxval(den_all(:)),tot_thermal_energy, tot_internal_energy,rad_grid(correct_ngrid),energy_verified_no)
 print*,"here4"
 end subroutine phantom_to_kepler_arrays
 
@@ -749,29 +868,31 @@ end subroutine calculate_mu
 !  evolution time.
 !+
 !----------------------------------------------------------------
-subroutine write_mass_of_star_and_no(numfile,mass_star,central_position,central_den)
- use units, only:umass,udist
- integer, intent(in)  :: numfile
- real,    intent(in)  :: mass_star
+subroutine write_mass_of_star_and_no(numfile,mass_star,central_position,central_den,tot_thermal_energy, tot_internal_energy,radius,energy_verified_no)
+ use units, only:umass,udist,unit_energ
+ integer, intent(in)  :: numfile,energy_verified_no
+ real,    intent(in)  ::mass_star,tot_thermal_energy,tot_internal_energy,radius
  character(len=120)   :: filename
 logical                 :: iexist
 real :: central_position(:),central_den
  filename = 'all_analysis.dat'
 print*,udist,"UDIST"
 print*,mass_star,"mass_star"
+print*,"________"
+print*,energy_verified_no,"energy verified no"
 !  if (numfile==00000) then
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then 
 
     open(21,file=filename,status='new',action='write',form='formatted')
-    write(21,*) "[Mass of remnant]"," ", "[File numbe]"," ","[Central Positioni]"," ","[Central Density]"
-    write(21,*) mass_star*umass, numfile, central_position,central_den
+    write(21,"(13(a))") "[Mass of remnant]"," ", "[File numbe]"," ","[Central Density]"," ","[Tot thermal Energy]"," ","[Tot Internal Energy]"," ","[Radius in cm]"," ","[No of particles in star]"
+    write(21,"(es12.5,1x,i4,4(1x,es12.5),1x,i4)") mass_star*umass, numfile,central_den,tot_thermal_energy*unit_energ, tot_internal_energy*unit_energ,radius*udist,energy_verified_no
     close(21)
     
   else
 
     open(21,file=filename,status='old',action='write',form='formatted',position="append")
-    write(21,*) mass_star*umass, numfile, central_position,central_den
+     write(21,"(es12.5,1x,i4,4(1x,es12.5),1x,i4)") mass_star*umass, numfile,central_den,tot_thermal_energy*unit_energ, tot_internal_energy*unit_energ,radius*udist,energy_verified_no
     close(21)
 
   endif
