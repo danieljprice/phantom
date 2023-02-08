@@ -271,3 +271,5 @@ subroutine get_angmom(ltot,npart,xyzh,vxyzu)
  print*,''
 
 end subroutine get_angmom
+
+end module moddump
