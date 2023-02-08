@@ -548,7 +548,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
 #ifdef DRIVING
-       /f (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
+       if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
 #endif
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
 #ifdef DUST
