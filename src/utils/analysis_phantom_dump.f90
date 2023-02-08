@@ -36,14 +36,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use prompting,       only : prompt
  use readwrite_dumps, only : opened_full_dump
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
-
+ real,intent(in)                   :: pmass,time
  integer,  intent(in) :: numfile,npart,iunit
  integer              :: i,j,location
  integer              :: ngrid = 0
  real :: xpos(3),pos(3),rad_test
-
-
-
+ real,intent(in)                   :: xyzh(:,:),vxyzu(:,:)
+ integer :: iorder(npart)
+ real :: all_radius(npart) 
 
  character(len=120)                :: output
  character(len=*),intent(in)       :: dumpfile
@@ -66,7 +66,6 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  location = minloc(xyzh(4,:),dim=1)
  xpos(:) = xyzh(1:3,location)
  do j = 1, npart
-
     i  = iorder(j) !Access the rank of each particle in radius.
 
     !the position of the particle is calculated by subtracting the point of highest density.
@@ -75,11 +74,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
     !calculate the position which is the location of the particle.
     rad_test    = sqrt(dot_product(pos(:),pos(:)))
-
-    if (i==npart) then
-      print*,"radius max", rad_test*udist
-      print*,pmass*i*umass,"total mass"
-    endif 
-
+    !if (i==npart) then
+     ! print*,"radius max", rad_test*udist
+      !print*,pmass*i*umass,"total mass"
+    !endif 
+    all_radius(j) = rad_test
   enddo
+  print*,"HEYYY"
+
+  print*, maxval(all_radius,dim=1)*udist, j*pmass*umass
 end subroutine do_analysis
+end module analysis

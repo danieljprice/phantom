@@ -51,7 +51,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use units,          only:umass,udist,get_c_code
  use metric,         only:a
  use orbits_data,    only:isco_kerr
-
+ use vectorutils,   only:rotatevec
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -62,10 +62,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3)
  real                    :: rp,rt
  real                    :: x,y,z,vx,vy,vz
- real                    :: x0,y0,vx0,vy0,alpha
+ real                    :: x0,y0,vx0,vy0,alpha,z0,vz0
  real                    :: c_light
  real                    :: unit_ltot(3),unit_L_sum(3),ltot_mag,L_mag
- real                    :: dot_value_angvec,angle_btw_vec
+ real                    :: dot_value_angvec,angle_btw_vec,xyzstar(3),vxyzstar(3)
 !
 !-- Default runtime parameters
 !
@@ -100,79 +100,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
  rt = (Mh/Ms)**(1./3.) * rs         ! tidal radius
  rp = rt/beta                       ! pericenter distance
-
+ theta=theta*pi/180.0
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
-
- phi   = 0.
- theta = 0.
-
  call get_angmom(ltot,npart,xyzh,vxyzu)
- Lx = ltot(1)
- Ly = ltot(2)
- Lz = ltot(3)
- !first rotate the vector in xz plane with phi
- Lp = sqrt(Lx**2.0+Lz**2.0)
- if (Lx > 0.) then
-    phi=acos(Lz/Lp)
- elseif (Lx < 0.) then
-    phi=-acos(Lz/Lp)
- endif
-
-!
-!--Rotate the star so the momentum lies in the yz plan
-! rotation is performed in counter-clockwise direction
-!
- print*,'tilting along y axis: ',(phi*180/pi),'degrees'
- do i=1,npart
-    x=xyzh(1,i)
-    z=xyzh(3,i)
-    xyzh(1,i)=x*cos(-phi)+z*sin(-phi)
-    xyzh(3,i)=-x*sin(-phi)+z*cos(-phi)
-    vx=vxyzu(1,i)
-    vz=vxyzu(3,i)
-    vxyzu(1,i)=vx*cos(-phi)+vz*sin(-phi)
-    vxyzu(3,i)=-vx*sin(-phi)+vz*cos(-phi)
- enddo
-
-!
-!--Recheck the stellar angular momentum
-!
- call get_angmom(ltot,npart,xyzh,vxyzu)
- lx = ltot(1)
- ly = ltot(2)
- lz = ltot(3)
- !rotate in xy plane by theta 
- L  = sqrt(Lx**2.0+Ly**2.0+Lz**2.0)
- if (Ly < 0.) then
-    theta=acos(Lz/L)
- elseif (Ly > 0.) then
-    theta=-acos(Lz/L)
- endif
-
-!
-!--Rotate the star so the momentum lies along the z axis
-!
- print*, 'tilting along x axis: ',(theta*180/pi),'degrees'
- do i=1,npart
-    y=xyzh(2,i)
-    z=xyzh(3,i)
-    xyzh(2,i)=y*cos(-theta)-z*sin(-theta)
-    xyzh(3,i)=y*sin(-theta)+z*cos(-theta)
-    vy=vxyzu(2,i)
-    vz=vxyzu(3,i)
-    vxyzu(2,i)=vy*cos(-theta)-vz*sin(-theta)
-    vxyzu(3,i)=vy*sin(-theta)+vz*cos(-theta)
- enddo
-
-!
-!--Recheck the stellar angular momentum
-!
-
- call get_angmom(ltot,npart,xyzh,vxyzu)
- print*,'Stellar spin should now be along the z axis.'
-
- print*, ' '
  if (ecc<1.) then
     print*, 'Eliptical orbit'
     alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
@@ -184,10 +115,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print*, 'Parabolic orbit'
     y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
+    z0    = 0.
     vx0   = sqrt(2*Mh/r0) * 2*rp / sqrt(4*rp**2 + x0**2)
     vy0   = sqrt(2*Mh/r0) * x0   / sqrt(4*rp**2 + x0**2)
+    vz0   = 0.
+    xyzstar = (/x0,y0,z0/)
+    vxyzstar = (/vx0,vy0,vz0/)
  endif
-
  !--Set input file parameters
  if (.not. gr) then
     mass1          = Mh
@@ -203,45 +137,28 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call isco_kerr(a,mass1,accradius1)
     accradius1_hard = accradius1
  endif
-
+ if (theta /= 0.) then
+ !--Tilting the star around y axis, i.e., in xz place with angle theta
+   call rotatevec(xyzstar,(/0.,1.,0./),theta)
+   call rotatevec(vxyzstar,(/0.,1.,0./),theta)
+   x0 = xyzstar(1)
+   y0 = xyzstar(2)
+   z0 = xyzstar(3)
+   vx0 = vxyzstar(1)
+   vy0 = vxyzstar(2)
+   vz0 = vxyzstar(3)
+ endif
  !--Tilting the star
- theta=theta*pi/180.0
- phi=phi*pi/180.0
-
- if (theta  /=  0.) then
-    do i=1,npart
-       y=xyzh(2,i)
-       z=xyzh(3,i)
-       xyzh(2,i)=y*cos(theta)-z*sin(theta)
-       xyzh(3,i)=y*sin(theta)+z*cos(theta)
-       vy=vxyzu(2,i)
-       vz=vxyzu(3,i)
-       vxyzu(2,i)=vy*cos(theta)-vz*sin(theta)
-       vxyzu(3,i)=vy*sin(theta)+vz*cos(theta)
-    enddo
- endif
- if (phi  /=  0.) then
-    do i=1,npart
-       x=xyzh(1,i)
-       z=xyzh(3,i)
-       xyzh(1,i)=x*cos(phi)+z*sin(phi)
-       xyzh(3,i)=-x*sin(phi)+z*cos(phi)
-       vx=vxyzu(1,i)
-       vz=vxyzu(3,i)
-       vxyzu(1,i)=vx*cos(phi)+vz*sin(phi)
-       vxyzu(3,i)=-vx*sin(phi)+vz*cos(phi)
-    enddo
- endif
-
  !--Putting star into orbit
  do i = 1, npart
     xyzh(1,i)  = xyzh(1,i)  + x0
     xyzh(2,i)  = xyzh(2,i)  + y0
+    xyzh(3,i)  = xyzh(3,i)  + z0
     vxyzu(1,i) = vxyzu(1,i) + vx0
     vxyzu(2,i) = vxyzu(2,i) + vy0
+    vxyzu(3,i) = vxyzu(3,i) + vz0
  enddo
  !check angular momentum after putting star on orbit
- print*, "Angular momentum after putting on orbit i.e., wrt BH: "
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
  !find angular momentum of star on the orbit
@@ -252,18 +169,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  unit_ltot = ltot(:)/ltot_mag
  dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
  angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees
-
- theta = theta*pi/180.
- phi   = phi*pi/180.
-
+ theta=theta*180.0/pi
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
  write(*,'(a,Es12.5,a)') ' Tidal radius        = ',rt,' code units'
  write(*,'(a,Es12.5,a)') ' Radius of star      = ',rs,' code units'
  write(*,'(a,Es12.5,a)') ' Starting distance   = ',r0,' code units'
  write(*,'(a,Es12.5,a)') ' Stellar mass        = ',Ms,' code units'
- write(*,'(a,Es12.5,a)') ' Tilting along x     = ',theta,' degrees'
- write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
+ write(*,'(a,Es12.5,a)') ' Tilting along y axis     = ',theta,' degrees'
+ !write(*,'(a,Es12.5,a)') ' Tilting along y     = ',phi,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity        = ',ecc
  if (gr) then
     write(*,'(a,Es12.5,a)') ' Spin of black hole "a"       = ',a
@@ -290,8 +204,7 @@ subroutine write_setupfile(filename)
  call write_inopt(mh,    'mh',    'mass of black hole (code units)',                     iunit)
  call write_inopt(ms,    'ms',    'mass of star       (code units)',                     iunit)
  call write_inopt(rs,    'rs',    'radius of star     (code units)',                     iunit)
- call write_inopt(theta, 'theta', 'stellar rotation with respect to x-axis (in degrees)',iunit)
- call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
+ call write_inopt(theta, 'theta', 'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
  if (gr) then
@@ -320,7 +233,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(ms,    'ms',    db,min=0.,errcount=nerr)
  call read_inopt(rs,    'rs',    db,min=0.,errcount=nerr)
  call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
- call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
+ !call read_inopt(phi,   'phi',   db,min=0.,errcount=nerr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
  call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
  if (gr) then

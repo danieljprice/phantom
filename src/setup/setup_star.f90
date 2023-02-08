@@ -258,6 +258,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
  endif
+
  !
  ! set composition (X,Z,mu, if using variable composition) of each particle by interpolating from table
  !
@@ -285,13 +286,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     endif
  endif
-
+ 
  call finish_eos(ieos,ierr)
  !
  ! Reset centre of mass (again)
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
+ if (gr) then 
+    xyzh(1,:)=xyzh(1,:)+10.
+    xyzh(2,:)=xyzh(2,:)+10.
+ endif
  !
  ! Print summary to screen
  !
