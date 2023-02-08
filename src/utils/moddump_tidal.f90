@@ -161,14 +161,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
- !find angular momentum of star on the orbit
- call angmom_star(xyzh,vxyzu,npart,L_sum,L_mag)
-
- unit_L_sum = L_sum(:)/L_mag
- ltot_mag = sqrt(dot_product(ltot,ltot))
- unit_ltot = ltot(:)/ltot_mag
- dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
- angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees
  theta=theta*180.0/pi
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
