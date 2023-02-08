@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -175,7 +175,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
  use part,              only:nucleation,gamma_chem
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma,&
                              utherm
@@ -185,7 +185,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
- use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp
+ use options,           only:alpha,alphamax,use_dustfrac,iopacity_type,use_var_comp,implicit_radiation
  integer,      intent(in)    :: npart
  real,         intent(in)    :: xyzh(:,:),rad(:,:),Bevol(:,:),dustevol(:,:)
  real(kind=4), intent(in)    :: dvdx(:,:)
@@ -218,7 +218,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_var_comp,do_nucleation) &
+!$omp shared(iopacity_type,use_var_comp,do_nucleation,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
@@ -282,14 +282,21 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation) eos_vars(imu,i) = mui
 
        if (do_radiation) then
-          !
-          ! Get the opacity from the density and temperature if required
-          !
-          if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
-          !
-          ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
-          !
-          call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+          if (temperaturei > tiny(0.)) then
+             radprop(icv,i) = vxyzu(4,i)/temperaturei
+          else
+             radprop(icv,i) = 1. ! arbitrary, but should give zero for u when u=cv*T
+          endif
+          if (.not. implicit_radiation) then
+             !
+             ! Get the opacity from the density and temperature if required
+             !
+             if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+             !
+             ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+             !
+             call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
+          endif
        endif
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc

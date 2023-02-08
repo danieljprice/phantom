@@ -6,6 +6,11 @@
 phantomdir='../../'
 url="https://github.com/danieljprice/phantom/blob/master/"
 echo ""
+echo ".. tabularcolumns:: |p{3cm}|p{10cm}|p{5cm}|p{5cm}|"
+echo ""
+echo ".. table:: List of pre-cooked SETUP configurations"
+echo "   :widths: auto"
+echo ""
 printf "+"
 printf -- '-%.0s' {1..18}
 printf "+"
@@ -53,6 +58,6 @@ else
    listofsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | sort`
 fi
 for setup in $listofsetups; do
-    print_setup $setup;
+    print_setup $setup
 done
 echo
