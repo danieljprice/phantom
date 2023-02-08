@@ -103,16 +103,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta=theta*pi/180.0
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
-print*,"theta",theta,"phi",phi
-print*,"************************"
- !phi   = 0.
- !theta = 0.
-
  call get_angmom(ltot,npart,xyzh,vxyzu)
- print*,"----------------------------------------------------"
- print*,"Angular momentum just before setting up the orbit"
- print*,"---------------------------------------"
- print*, ' '
  if (ecc<1.) then
     print*, 'Eliptical orbit'
     alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
@@ -130,13 +121,7 @@ print*,"************************"
     vz0   = 0.
     xyzstar = (/x0,y0,z0/)
     vxyzstar = (/vx0,vy0,vz0/)
- print*,"------------------"
- print*, "xyzstar and vxyzstar before rotation formula"
- print*,xyzstar, vxyzstar
  endif
- print*,"------------------"
- print*, "xyzstar and vxyzstar before rotation formula" 
- print*,xyzstar, vxyzstar
  !--Set input file parameters
  if (.not. gr) then
     mass1          = Mh
@@ -156,36 +141,24 @@ print*,"************************"
  !--Tilting the star around y axis, i.e., in xz place with angle theta
    call rotatevec(xyzstar,(/0.,1.,0./),theta)
    call rotatevec(vxyzstar,(/0.,1.,0./),theta)
-   print*,"------------------"
-   print*, "xyzstar and vxyzstar after rotation formula"
-   print*,xyzstar, vxyzstar
    x0 = xyzstar(1)
    y0 = xyzstar(2)
    z0 = xyzstar(3)
-
    vx0 = vxyzstar(1)
    vy0 = vxyzstar(2)
    vz0 = vxyzstar(3)
-   print*,"-----------------------------------"
-   print*,x0,y0,z0,"x0,y0,z0",vx0,vy0,vz0,"vel"
  endif
  !--Tilting the star
-print*,"****************"
  !--Putting star into orbit
  do i = 1, npart
-    !print*,xyzh(1,i),xyzh(2,i),xyzh(3,i),"position initial"
     xyzh(1,i)  = xyzh(1,i)  + x0
     xyzh(2,i)  = xyzh(2,i)  + y0
     xyzh(3,i)  = xyzh(3,i)  + z0
-    !print*,vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),"velocity vector before"
     vxyzu(1,i) = vxyzu(1,i) + vx0
     vxyzu(2,i) = vxyzu(2,i) + vy0
     vxyzu(3,i) = vxyzu(3,i) + vz0
-    !print*,vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),"velocity vector after"
  enddo
-
  !check angular momentum after putting star on orbit
- print*, "Angular momentum after putting on orbit i.e., wrt BH: "
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
  !find angular momentum of star on the orbit
@@ -196,7 +169,6 @@ print*,"****************"
  unit_ltot = ltot(:)/ltot_mag
  dot_value_angvec = dot_product(unit_L_sum,unit_ltot)
  angle_btw_vec = asin(dot_value_angvec)*57.2958 !convert to degrees
- print*,cos(theta),"COS THETA VAL"
  theta=theta*180.0/pi
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
@@ -233,7 +205,6 @@ subroutine write_setupfile(filename)
  call write_inopt(ms,    'ms',    'mass of star       (code units)',                     iunit)
  call write_inopt(rs,    'rs',    'radius of star     (code units)',                     iunit)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to y-axis (in degrees)',iunit)
- !call write_inopt(phi,   'phi',   'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity (1 for parabolic)',                      iunit)
  if (gr) then

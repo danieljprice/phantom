@@ -726,7 +726,7 @@ ifeq ($(SETUP), grstar)
     MODFILE= moddump_tidal.f90 
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
-    MAXP=10000000
+    MAXP=100000000
     GRAVITY=yes
 endif
 
