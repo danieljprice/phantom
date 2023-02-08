@@ -97,7 +97,6 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  mstar = mr(nt)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
  print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
- print*,gr,"gr",gravity,"gravity",iexternalforce,"iexternalforce"
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
  !
