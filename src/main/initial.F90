@@ -152,10 +152,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use timestep,         only:time,dt,dtextforce,C_force,dtmax
+ use timestep_ind,     only:istepfrac
  use timing,           only:get_timings
 #ifdef IND_TIMESTEPS
- use timestep,         only:dtmax
- use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
+ use timestep_ind,     only:ibinnow,maxbins,init_ibin
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
