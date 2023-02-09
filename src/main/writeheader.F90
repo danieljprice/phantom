@@ -78,7 +78,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity
  use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
@@ -170,6 +170,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
+    if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
     if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
     if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
     if (ufloor > 0.) then

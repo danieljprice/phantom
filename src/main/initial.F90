@@ -128,7 +128,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
+                            Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -172,6 +172,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dust,             only:init_drag
 #ifdef DUSTGROWTH
  use growth,           only:init_growth
+ use porosity,         only:init_porosity,init_filfac
+ use options,          only:use_porosity
 #endif
 #endif
 #ifdef MFLOW
@@ -314,6 +316,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef DUSTGROWTH
  call init_growth(ierr)
  if (ierr /= 0) call fatal('initial','error initialising growth variables')
+ if (use_porosity) then
+    call init_porosity(ierr)
+    if (ierr /= 0) call fatal('initial','error initialising porosity variables')
+    call init_filfac(npart,xyzh,vxyzu)
+ endif
 #endif
 #endif
 !
@@ -567,8 +574,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  eos_vars(3,:) = -1.0 ! initial guess for temperature overridden in eos
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
-                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
+                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)

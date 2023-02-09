@@ -218,10 +218,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
-                 VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
+                 VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation
- use options,    only:use_dustfrac,use_var_comp
+ use options,    only:use_dustfrac,use_porosity,use_var_comp
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
@@ -360,6 +360,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierrs(3))
           call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
+          if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,ierrs(3))
        endif
        if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
        if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
@@ -498,13 +499,15 @@ end subroutine write_fulldump_fortran
 
 subroutine write_smalldump_fortran(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
+ use options,    only:use_porosity
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,Bxyz,Bxyz_label,&
                       npartoftypetot,update_npartoftypetot,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
-                      dustprop,dustprop_label,dustfrac_label,ndusttypes,&
+                      dustprop,dustprop_label,dustfrac_label,&
+                      filfac,filfac_label,ndusttypes,&
                       rad,rad_label,do_radiation,maxirad
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
@@ -580,6 +583,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
        call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_dustgrowth) then
           call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+          if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        endif
        if (h2chemistry .and. nabundances >= 1) &
           call write_array(1,abundance,abundance_label,1,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
@@ -1108,10 +1112,12 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
-                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
-                      nucleation,nucleation_label,n_nucleation,ikappa,ithick,itemp,igasP,iorig
+                      VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label, &
+                      pxyzu,pxyzu_label,dust_temp,rad,rad_label,radprop,radprop_label, &
+                      do_radiation,maxirad,maxradprop,nucleation,nucleation_label,n_nucleation, &
+                      ikappa,ithick,itemp,igasP,iorig
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
+ use options,    only:use_porosity
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
@@ -1135,7 +1141,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu,got_x,got_z,got_mu
  logical               :: got_nucleation(n_nucleation)
  logical               :: got_psi,got_gasP,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
-                          got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
+                          got_filfac,got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
 
@@ -1157,6 +1163,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_temp        = .false.
  got_dustprop    = .false.
  got_VrelVf      = .false.
+ got_filfac      = .false.
  got_dustgasprop = .false.
  got_divcurlv    = .false.
  got_Tdust       = .false.
@@ -1198,6 +1205,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(VrelVf,VrelVf_label,got_VrelVf,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(dustgasprop,dustgasprop_label,got_dustgasprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                if (use_porosity) call read_array(filfac,filfac_label,got_filfac,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then

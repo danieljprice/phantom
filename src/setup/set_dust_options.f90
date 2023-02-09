@@ -245,6 +245,7 @@ end subroutine set_log_dist_options
 !--------------------------------------------------------------------------
 subroutine read_dust_setup_options(db,nerr)
  use growth,        only:read_growth_setup_options
+ use porosity,      only:read_porosity_setup_options
  use infile_utils,  only:inopts,read_inopt
  use io,            only:error
  use fileutils,     only:make_tags_unique
@@ -441,8 +442,10 @@ subroutine read_dust_setup_options(db,nerr)
     call read_inopt(graindensinp(1),'graindensinp',db,min=0.,errcount=nerr)
  endif
 
- if (use_dustgrowth) call read_growth_setup_options(db,nerr)
-
+ if (use_dustgrowth) then
+    call read_growth_setup_options(db,nerr)
+    call read_porosity_setup_options(db,nerr)
+ endif
 end subroutine read_dust_setup_options
 
 !--------------------------------------------------------------------------
@@ -526,6 +529,7 @@ end subroutine read_log_dist_options
 !--------------------------------------------------------------------------
 subroutine write_dust_setup_options(iunit)
  use growth,        only:write_growth_setup_options
+ use porosity,      only:write_porosity_setup_options
  use infile_utils,  only:write_inopt
  use fileutils,     only:make_tags_unique
 
@@ -723,8 +727,11 @@ subroutine write_dust_setup_options(iunit)
  call write_inopt(isetdust,'isetdust', &
     'how to set dust density profile (0=equal to gas,1=custom,2=equal to gas with cutoffs)',iunit)
 
- if (use_dustgrowth) call write_growth_setup_options(iunit)
-
+ if (use_dustgrowth) then
+    call write_growth_setup_options(iunit)
+    call write_porosity_setup_options(iunit)
+ endif
+ 
 end subroutine write_dust_setup_options
 
 !--------------------------------------------------------------------------

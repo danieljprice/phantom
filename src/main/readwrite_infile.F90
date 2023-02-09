@@ -100,6 +100,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dust,            only:write_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:write_options_growth
+ use porosity,        only:write_options_porosity
 #endif
 #endif
 #ifdef PHOTO
@@ -249,6 +250,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_dust(iwritein)
 #ifdef DUSTGROWTH
  call write_options_growth(iwritein)
+ call write_options_porosity(iwritein)
 #endif
 #endif
 
@@ -311,6 +313,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dust,            only:read_options_dust
 #ifdef DUSTGROWTH
  use growth,          only:read_options_growth
+ use porosity,        only:read_options_porosity
 #endif
 #endif
 #ifdef GR
@@ -347,7 +350,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
- logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
+ logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
  logical :: igotallprad,igotalldustform,igotallgw
  integer, parameter :: nrequired = 1
@@ -363,6 +366,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallturb     = .true.
  igotalldust     = .true.
  igotallgrowth   = .true.
+ igotallporosity = .true.
  igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
@@ -513,6 +517,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
 #ifdef DUSTGROWTH
        if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
 #endif
 #endif
 #ifdef GR
@@ -556,11 +561,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  enddo
  close(unit=ireadin)
 
- igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
-                    .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
-                    .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallphoto  .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw
+ igotallrequired = (ngot  >=  nrequired) .and. igotalllink    .and. igotallbowen   .and. igotalldust &
+                    .and. igotalleos    .and. igotallcooling  .and. igotallextern  .and. igotallturb &
+                    .and. igotallptmass .and. igotallinject   .and. igotallionise  .and. igotallnonideal &
+                    .and. igotallphoto  .and. igotallgrowth   .and. igotalldamping .and. igotallporosity &
+                    .and. igotallprad   .and. igotalldustform .and. igotallgw
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -578,6 +583,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
+          if (.not.igotallporosity) write(*,*) 'missing porosity options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
           if (.not.igotallextern) write(*,*) 'missing external force options'
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'

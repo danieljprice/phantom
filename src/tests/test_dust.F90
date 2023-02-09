@@ -171,6 +171,9 @@ subroutine test_dustybox(ntests,npass)
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
  real :: tol,tolvg,tolfg,tolfd
+ logical :: write_output = .false.
+ character(len=60) :: filename
+ integer, parameter :: lu = 36
 
  if (index(kernelname,'quintic') /= 0) then
     tol = 1.e-5; tolvg = 2.5e-5; tolfg = 3.3e-4; tolfd = 3.3e-4
@@ -274,18 +277,28 @@ subroutine test_dustybox(ntests,npass)
     vg = 0.5*(1. - deltav)
     vd = 0.5*(1. + deltav)
     fd = K_code(1)*(vg - vd)
+    if (write_output) then
+       write(filename,"(a,1pe8.2,a)") 'dustybox_t',t,'.out'
+       open(unit=lu,file=filename,status='replace')
+       print "(a)",' writing '//trim(filename)
+    endif
+    
     do j=1,npart
        if (iamdust(iphase(j))) then
           call checkvalbuf(vxyzu(1,j),vd,tol,'vd',nerr(1),ncheck(1),errmax(1))
           call checkvalbuf(fxyzu(1,j),fd,tolfd,'fd',nerr(2),ncheck(2),errmax(2))
+          if (write_output) write(lu,*) vxyzu(1,j),fxyzu(1,j),vd,fd          
 #ifdef DUSTGROWTH
           call checkvalbuf(dustgasprop(4,j),deltav,toldv,'dv',nerr(6),ncheck(6),errmax(6))
 #endif
        else
           call checkvalbuf(vxyzu(1,j),vg,tolvg,'vg',nerr(3),ncheck(3),errmax(3))
           call checkvalbuf(fxyzu(1,j),-fd,tolfg,'fg',nerr(4),ncheck(4),errmax(4))
+          if (write_output) write(lu,*) vxyzu(1,j),fxyzu(1,j),vg,-fd          
        endif
     enddo
+    if (write_output) close(lu)
+    
     !call checkval(npart/2-1,vxyzu(1,1:npart),vg,tolvg,nerr(2),'vg')
     ekin_exact = 0.5*totmass*(vd**2 + vg**2)
     !print*,' step ',i,'t = ',t,' ekin should be ',ekin_exact, ' got ',ekin,(ekin-ekin_exact)/ekin_exact

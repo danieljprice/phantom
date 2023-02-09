@@ -106,18 +106,19 @@ module forces
        icurlBxi    = 42, &
        icurlByi    = 43, &
        icurlBzi    = 44, &
-       igrainsizei = 45, &
+       igrainmassi = 45, &
        igraindensi = 46, &
-       idvxdxi     = 47, &
-       idvzdzi     = 55, &
+       ifilfaci    = 47, &
+       idvxdxi     = 48, &
+       idvzdzi     = 56, &
  !--dust arrays initial index
-       idustfraci    = 56, &
+       idustfraci    = 57, &
  !--dust arrays final index
-       idustfraciend = 56 + (maxdusttypes - 1), &
-       itstop        = 57 + (maxdusttypes - 1), &
-       itstopend     = 57 + 2*(maxdusttypes - 1), &
+       idustfraciend = 57 + (maxdusttypes - 1), &
+       itstop        = 58 + (maxdusttypes - 1), &
+       itstopend     = 58 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
+       lastxpvdust   = 58 + 2*(maxdusttypes - 1), &
        iradxii        = lastxpvdust + 1, &
        iradfxi        = lastxpvdust + 2, &
        iradfyi        = lastxpvdust + 3, &
@@ -184,7 +185,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
-                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype
+                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,&
+                        dragreg,filfac
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -372,6 +374,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(ncells,ifirstincell) &
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
+!$omp shared(dragreg) &
+!$omp shared(filfac) &
 !$omp shared(dustgasprop) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
@@ -479,7 +483,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        stack_waiting%cells(cell%waiting_index) = cell
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,dragreg,filfac,&
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -554,7 +558,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        cell = stack_waiting%cells(i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
+                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,dragreg,filfac,&
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -842,6 +846,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
+ use part,        only:ndustsmall,grainsize,graindens,filfac
+ use options,     only:use_porosity
+ use growth,      only:get_size
 #ifdef DUSTGROWTH
  use growth,      only:wbymass
  use kernel,      only:wkern,cnormk
@@ -940,7 +947,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: pri,pro2i
  real    :: etaohmi,etahalli,etaambii
  real    :: jcbcbi(3),jcbi(3)
- real    :: alphai,grainsizei,graindensi
+ real    :: alphai,grainmassi,graindensi,filfaci
  logical :: usej
  integer :: iamtypei
  real    :: radFi(3),radFj(3),radRj,radDFWi,radDFWj,c_code,radkappai,radkappaj,&
@@ -1003,8 +1010,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  endif
 
  if (use_dustgrowth) then
-    grainsizei = xpartveci(igrainsizei)
+    grainmassi = xpartveci(igrainmassi)
     graindensi = xpartveci(igraindensi)
+    filfaci    = xpartveci(ifilfaci)
  endif
  dvdxi(1:9)    = xpartveci(idvxdxi:idvzdzi)
 
@@ -1673,7 +1681,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              do l=1,ndustsmall
                 ! get stopping time - for one fluid dust we do not know deltav, but it is small by definition
                 if (use_dustgrowth) then !- only work for ndustsmall=1 though
-                   call get_ts(idrag,l,grainsizei,graindensi,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                   if (use_porosity) then
+                      call get_ts(idrag,l,get_size(grainmassi,graindensi,filfaci),&
+                      graindensi*filfaci,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                   else
+                      call get_ts(idrag,l,get_size(grainmassi,graindensi),&
+                      graindensi,rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
+                   endif
                 else
                    call get_ts(idrag,l,grainsize(l),graindens(l),rhogasj,rhoj*dustfracjsum,spsoundj,0.,tsj(l),iregime)
                 endif
@@ -1742,7 +1756,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 if (use_dustgrowth) then
-                   call get_ts(idrag,1,dustprop(1,j),dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   if (use_porosity) then
+                      call get_ts(idrag,1,get_size(dustprop(1,j),dustprop(2,j),filfac(j)),&
+                      dustprop(2,j)*filfac(j),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   else
+                      call get_ts(idrag,1,get_size(dustprop(1,j),dustprop(2,j)),&
+                      dustprop(2,j),rhoi,rhoj,spsoundi,dv2,tsijtmp,iregime)
+                   endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
                    idusttype = iamtypej - idust + 1
@@ -1771,7 +1791,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    wdrag = wkern_drag(q2j,qj)*hj21*hj1*cnormk_drag
                 endif
                 if (use_dustgrowth) then
-                   call get_ts(idrag,1,grainsizei,graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   if (use_porosity) then
+                      call get_ts(idrag,1,get_size(grainmassi,graindensi,filfaci),&
+                      graindensi*filfaci,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   else
+                      call get_ts(idrag,1,get_size(grainmassi,graindensi),graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
+                   endif
 #ifdef DUSTGROWTH
                    if (q2i < q2j) then
                       winter = wkern(q2i,qi)*hi21*hi1*cnormk
@@ -1959,7 +1984,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use viscosity, only:irealvisc,bulkvisc
 #ifdef DUST
  use dust,      only:get_ts,idrag
- use part,      only:grainsize,graindens
+ use options,   only:use_porosity
+ use part,      only:grainsize,graindens,filfac
+ use growth,    only:get_size
 #endif
  use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
@@ -2106,7 +2133,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           tstopi = 0.
           do j=1,ndustsmall
              if (use_dustgrowth) then
-                call get_ts(idrag,j,dustprop(1,i),dustprop(2,i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+                if (use_porosity) then 
+                   call get_ts(idrag,j,get_size(dustprop(1,i),dustprop(2,i),filfac(j)),&
+                   dustprop(2,i)*filfac(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+                else
+                   call get_ts(idrag,j,get_size(dustprop(1,i),dustprop(2,i)),&
+                   dustprop(2,i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
+                endif
              else
                 call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
              endif
@@ -2234,8 +2267,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
 #ifdef DUSTGROWTH
-    cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
+    cell%xpartvec(igrainmassi,cell%npcell)        = dustprop(1,i)
     cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
+    cell%xpartvec(ifilfaci,cell%npcell)           = filfac(i)
 #endif
 
     cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
@@ -2354,7 +2388,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
+                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,dragreg,filfac,&
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2406,8 +2440,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use utils_gr,       only:get_u0
  use io,             only:error
 #ifdef DUSTGROWTH
- use growth,         only:wbymass
+ use growth,         only:wbymass,get_size
  use dust,           only:idrag,get_ts
+ use physcon,        only:fourpi
+ use options,        only:use_porosity
  use part,           only:Omega_k
 #endif
  use io,             only:warning
@@ -2429,6 +2465,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: ddustevol(:,:)
  real,               intent(out)   :: deltav(:,:,:)
  real,               intent(out)   :: dustgasprop(:,:)
+ real,               intent(in)    :: filfac(:)
+ integer,            intent(out)   :: dragreg(:)
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
@@ -2476,7 +2514,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  character(len=16)     :: dtchar
 #endif
 #ifdef DUSTGROWTH
- real    :: tstopint,gsizei,gdensi
+ real    :: tstopint,gmassi,gdensi
  integer :: ireg
 #endif
  integer               :: ip,i
@@ -2859,9 +2897,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)
           gdensi           = xpartveci(igraindensi)
-          gsizei           = xpartveci(igrainsizei)
-          call get_ts(idrag,1,gsizei,gdensi,dustgasprop(2,i),rhoi,dustgasprop(1,i),&
-               dustgasprop(4,i)**2,tstopint,ireg)
+          gmassi           = xpartveci(igrainmassi)
+          if (use_porosity) then
+             call get_ts(idrag,1,get_size(gmassi,gdensi,filfac(i)),gdensi*filfac(i),&
+             dustgasprop(2,i),rhoi,dustgasprop(1,i),dustgasprop(4,i)**2,tstopint,ireg)
+             dragreg(i) = ireg
+          else
+             call get_ts(idrag,1,get_size(gmassi,gdensi),gdensi,&
+             dustgasprop(2,i),rhoi,dustgasprop(1,i),dustgasprop(4,i)**2,tstopint,ireg)
+          endif
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
        endif
 #endif

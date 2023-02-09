@@ -283,7 +283,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    write(*,*) 'ERROR! using dustgrowth, but no grain mass found in dump file'
     return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then

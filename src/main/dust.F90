@@ -46,6 +46,7 @@ module dust
  public :: print_dustinfo
  public :: write_options_dust
  public :: read_options_dust
+ public :: get_viscmol_nu
 
  real, private :: cste_mu,coeff_gei_1,seff
  private
@@ -414,5 +415,12 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  if (all(ineed == igot)) igotall = .true.
 
 end subroutine read_options_dust
+
+real function get_viscmol_nu(spsoundgas,rhogas)
+ real,intent(in)  :: spsoundgas,rhogas
+
+ get_viscmol_nu = cste_mu*seff*spsoundgas/rhogas
+
+end function get_viscmol_nu
 
 end module dust

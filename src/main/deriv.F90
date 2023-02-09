@@ -37,7 +37,7 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                  dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
+                  dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr
  use io,             only:iprint,fatal
  use linklist,       only:set_linklist
@@ -61,7 +61,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #endif
 #ifdef DUSTGROWTH
  use growth,         only:get_growth_rate
+ use porosity,       only:get_disruption,get_probastick
  use part,           only:VrelVf
+ use options,        only:use_porosity
 #endif
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
  use ptmass_radiation, only:get_dust_temperature_from_ptmass
@@ -96,6 +98,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: dustfrac(:,:)
  real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
+ real,         intent(inout) :: filfac(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
@@ -148,6 +151,14 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  call photo_ionize(vxyzu,npart)
 #endif
+
+#ifdef DUSTGROWTH
+ !
+ ! compute disruption of dust particles
+ !
+ if (use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
+#endif
+
 !
 ! calculate density by direct summation
 !
@@ -188,7 +199,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
 #ifdef DUSTGROWTH
  ! compute growth rate of dust particles
- call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+ call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
+ ! compute growth rate and probability of sticking/bouncing of porous dust
+ if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
 #endif
 
 #if defined(SINK_RADIATION) && !defined(ISOTHERMAL)
@@ -224,7 +237,7 @@ end subroutine derivs
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                 dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
  use timing, only:printused,getused
  use io,     only:id,master
@@ -238,8 +251,8 @@ subroutine get_derivs_global(tused,dt_new)
  dt = 0.
  call getused(t1)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,eos_vars,&
-             time,dt,dtnew,pxyzu,dens,metrics)
+             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
+             eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

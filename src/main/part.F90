@@ -69,12 +69,20 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:) !- size and intrinsic density
+ real, allocatable :: dustprop(:,:) !- mass and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
  real, allocatable :: VrelVf(:)
- character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+
+ !- porosity
+ integer, allocatable :: dragreg(:)    !- drag regime
+ real, allocatable    :: mprev(:)      !- previous mass
+ real, allocatable    :: filfacprev(:) !- previous filling factor needed for minimum St condition
+ real, allocatable    :: filfac(:)     !- filling factor
+ real, allocatable    :: probastick(:) !-probabily of sticking, when bounce is on
+ character(len=*), parameter :: filfac_label = 'filfac'
  !- options
  logical, public             :: this_is_a_test  = .false.
  logical, public             :: this_is_a_flyby = .false.
@@ -255,9 +263,9 @@ module part
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
- real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: ddustprop(:,:) !--grainmass is the only prop that evolves for now
  real, allocatable         :: drad(:,:)
- character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
+ character(len=*), parameter :: ddustprop_label(2) = (/' dm/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
 !
@@ -266,6 +274,7 @@ module part
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
+ real, allocatable   :: filfacpred(:)
  real, allocatable   :: radpred(:,:)
 #ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
@@ -338,6 +347,7 @@ module part
    +2                                   &  ! dustprop
    +2                                   &  ! dustproppred
    +4                                   &  ! dustgasprop
+   +1                                   &  ! filfacpred
 #endif
 #endif
 #ifdef H2CHEM
@@ -445,6 +455,11 @@ subroutine allocate_part
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
  call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
+ call allocate_array('dragreg', dragreg, maxp_growth)
+ call allocate_array('filfac', filfac, maxp_growth)
+ call allocate_array('mprev', mprev, maxp_growth)
+ call allocate_array('filfacprev', filfacprev, maxp_growth)
+ call allocate_array('probastick', probastick, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
  call allocate_array('dens', dens, maxgr)
@@ -467,6 +482,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
+ call allocate_array('filfacpred', filfacpred, maxp_growth)
  call allocate_array('dust_temp',dust_temp,maxTdust)
  call allocate_array('rad', rad, maxirad, maxprad)
  call allocate_array('radpred', radpred, maxirad, maxprad)
@@ -522,6 +538,11 @@ subroutine deallocate_part
  if (allocated(dustevol))     deallocate(dustevol)
  if (allocated(ddustevol))    deallocate(ddustevol)
  if (allocated(ddustprop))    deallocate(ddustprop)
+ if (allocated(dragreg))      deallocate(dragreg)
+ if (allocated(filfac))       deallocate(filfac)
+ if (allocated(mprev))        deallocate(mprev)
+ if (allocated(filfacprev))   deallocate(filfacprev)
+ if (allocated(probastick))   deallocate(probastick)
  if (allocated(deltav))       deallocate(deltav)
  if (allocated(pxyzu))        deallocate(pxyzu)
  if (allocated(dens))         deallocate(dens)
@@ -544,6 +565,7 @@ subroutine deallocate_part
  if (allocated(dustpred))     deallocate(dustpred)
  if (allocated(Bpred))        deallocate(Bpred)
  if (allocated(dustproppred)) deallocate(dustproppred)
+ if (allocated(filfacpred))   deallocate(filfacpred)
 #ifdef IND_TIMESTEPS
  if (allocated(ibin))         deallocate(ibin)
  if (allocated(ibin_old))     deallocate(ibin_old)
@@ -1255,6 +1277,7 @@ subroutine copy_particle_all(src,dst,new_part)
        dustgasprop(:,dst) = dustgasprop(:,src)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
+       filfacpred(dst) = filfacpred(src)
     endif
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
@@ -1694,18 +1717,44 @@ end subroutine delete_particles_outside_box
 !  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center,radius,np)
+subroutine delete_particles_outside_sphere(center,radius,np,revert,mytype)
  use io, only:fatal
  real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: np
+ logical, intent(in), optional :: revert
+ integer, intent(in), optional :: mytype
+
  integer :: i
- real :: r(3), radius_squared
+ real    :: r(3), radius_squared
+ logical :: use_revert
+
+ if (present(revert)) then
+    use_revert = revert
+ else
+    use_revert = .false.
+ endif
 
  radius_squared = radius**2
- do i=1,np
-    r = xyzh(1:3,i) - center
-    if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
- enddo
+
+ if (present(mytype)) then 
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       endif
+    enddo
+ else
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
+       endif
+      enddo 
+ endif
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 

@@ -53,6 +53,7 @@ module growth
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
+ real, public           :: stmin
 
  logical, public        :: wbymass         = .true.
 
@@ -65,7 +66,7 @@ module growth
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
  public                 :: vrelative,read_growth_setup_options,write_growth_setup_options
- public                 :: comp_snow_line,bin_to_multi,convert_to_twofluid
+ public                 :: comp_snow_line,bin_to_multi,convert_to_twofluid,get_size
 
 contains
 
@@ -76,7 +77,9 @@ contains
 !------------------------------------------------
 subroutine init_growth(ierr)
  use io,        only:error
+ use physcon,   only:fourpi
  use viscosity, only:irealvisc,shearparam
+ use dust,      only:grainsizecgs
  integer, intent(out) :: ierr
 
  ierr = 0
@@ -88,10 +91,15 @@ subroutine init_growth(ierr)
  vfragout       = vfragoutSI * 100 / unit_velocity
  rsnow          = rsnow * au / udist
  grainsizemin   = gsizemincgs / udist
+ stmin          = gsizemincgs
 
  if (ifrag > 0) then
     if (grainsizemin < 0.) then
        call error('init_growth','grainsizemin < 0',var='grainsizemin',val=grainsizemin)
+       ierr = 1
+    endif
+    if (gsizemincgs > grainsizecgs) then
+       call error('init_growth','grainsizemin > grainsize',var='grainsizemin',val=grainsizemin)
        ierr = 1
     endif
     select case(isnow)
@@ -145,8 +153,8 @@ subroutine print_growthinfo(iprint)
 
  integer, intent(in) :: iprint
 
- if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where ds = + vrel*rhod/graindens*dt    '
- if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where ds = (+ or -) vrel*rhod/graindens*dt   '
+ if (ifrag == 0) write(iprint,"(a)")    ' Using pure growth model where dm/dt = + 4pi*rhod*s**2*vrel*dt    '
+ if (ifrag == 1) write(iprint,"(a)")    ' Using growth/frag where dm/dt = (+ or -) 4pi*rhod*s**2*vrel*dt   '
  if (ifrag == 2) write(iprint,"(a)")    ' Using growth/frag with Kobayashi fragmentation model '
  if (ifrag > -1) write(iprint,"((a,1pg10.3))")' Computing Vrel with alphaSS = ',shearparam
  if (ifrag > 0) then
@@ -171,31 +179,33 @@ end subroutine print_growthinfo
 
 !-----------------------------------------------------------------------
 !+
-!  Main routine that returns ds/dt and calculate Vrel/Vfrag.
+!  Main routine that returns dm/dt and calculate Vrel/Vfrag.
 !  This growth model is currently only available for the
 !  two-fluid dust method.
 !+
 !-----------------------------------------------------------------------
-subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
+subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,dmdt)
  use part,            only:rhoh,idust,igas,iamtype,iphase,isdead_or_accreted,&
                            massoftype,Omega_k,dustfrac,tstop,deltav
- use options,         only:use_dustfrac
+ use options,         only:use_dustfrac,use_porosity
+ use physcon,         only:fourpi
  use eos,             only:ieos,get_spsound
  real, intent(in)     :: dustprop(:,:)
  real, intent(inout)  :: dustgasprop(:,:)
  real, intent(in)     :: xyzh(:,:)
+ real, intent(in)     :: filfac(:)
  real, intent(inout)  :: VrelVf(:),vxyzu(:,:)
- real, intent(out)    :: dsdt(:)
+ real, intent(out)    :: dmdt(:)
  integer, intent(in)  :: npart
  !
- real                 :: rhog,rhod,vrel,rho
+ real                 :: rhog,rhod,vrel,rho,sdust
  integer              :: i,iam
 
  vrel = 0.
  rhod = 0.
  rho  = 0.
 
- !--get ds/dt over all particles
+ !--get dm/dt over all particles
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
@@ -215,27 +225,34 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
              rhod = rhoh(xyzh(4,i),massoftype(idust))
           endif
 
+          !--dust size from mass and filling factor
+          if (use_porosity) then
+             sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+          else
+             sdust = get_size(dustprop(1,i),dustprop(2,i))
+          endif
+
           call get_vrelonvfrag(xyzh(:,i),vxyzu(:,i),vrel,VrelVf(i),dustgasprop(:,i))
 
           !
-          !--dustprop(1)= size, dustprop(2) = intrinsic density,
+          !--dustprop(1) = mass, dustprop(2) = intrinsic density,
           !
-          !--if statements to compute ds/dt
+          !--if statements to compute dm/dt
           !
-          if (ifrag == -1) dsdt(i) = 0.
+          if (ifrag == -1) dmdt(i) = 0.
           if ((VrelVf(i) < 1. .or. ifrag == 0) .and. ifrag /= -1) then ! vrel/vfrag < 1 or pure growth --> growth
-             dsdt(i) = rhod/dustprop(2,i)*vrel
+             dmdt(i) = fourpi*sdust**2*rhod*vrel
           elseif (VrelVf(i) >= 1. .and. ifrag > 0) then ! vrel/vfrag > 1 --> fragmentation
              select case(ifrag)
              case(1)
-                dsdt(i) = -rhod/dustprop(2,i)*vrel ! Symmetrical of Stepinski & Valageas
+                dmdt(i) = -fourpi*sdust**2*rhod*vrel ! Symmetrical of Stepinski & Valageas
              case(2)
-                dsdt(i) = -rhod/dustprop(2,i)*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
+                dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
           endif
        endif
     else
-       dsdt(i) = 0.
+       dmdt(i) = 0.
     endif
  enddo
 
@@ -325,7 +342,7 @@ subroutine write_options_growth(iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  if (ifrag /= 0) then
-    call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
+    call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm (min St if porosity)',iunit)
     call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
     if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
     if (isnow == 2) call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
@@ -487,20 +504,35 @@ end subroutine read_growth_setup_options
 
 !-----------------------------------------------------------------------
 !+
-!  In case of fragmentation, limit sizes to a minimum value
+!  In case of fragmentation, limit masses to a minimum value
 !+
 !-----------------------------------------------------------------------
-subroutine check_dustprop(npart,size)
- use part,                only:iamtype,iphase,idust,igas
- use options,              only:use_dustfrac
- real,intent(inout)        :: size(:)
+subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
+ use part,                 only:iamtype,iphase,idust,igas,dustgasprop
+ use options,              only:use_dustfrac,use_porosity
+ real,intent(inout)        :: dustprop(:,:)
  integer,intent(in)        :: npart
+ real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
+ real                      :: stnew,sdustprev,sdustmin,sdust
 
  do i=1,npart
     iam = iamtype(iphase(i))
-    if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
-       if (ifrag > 0 .and. size(i) < grainsizemin) size(i) = grainsizemin
+    if ((iam == idust .or. (use_dustfrac .and. iam == igas))  .and. ifrag > 0 .and. dustprop(1,i) <= mprev(i)) then
+       if (use_porosity) then
+          sdustprev = get_size(mprev(i),dustprop(2,i),filfacprev(i))
+          sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+          stnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)
+          if (stnew < stmin) then
+            sdustmin = stmin*sdustprev*filfacprev(i)/filfac(i)/dustgasprop(3,i)
+            dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
+          endif
+       else
+          sdust = get_size(dustprop(1,i),dustprop(2,i))
+          if (sdust < grainsizemin) then
+             dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3.   ! fragmentation at constant density and filling factor
+          endif
+      endif
     endif
  enddo
 
@@ -511,15 +543,35 @@ end subroutine check_dustprop
 !  Set dustprop (used by moddump)
 !+
 !-----------------------------------------------------------------------
-subroutine set_dustprop(npart)
- use dust, only:grainsizecgs,graindenscgs
- use part, only:dustprop
- integer,intent(in) :: npart
- integer            :: i
+subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
+ use dust,    only:grainsizecgs,graindenscgs
+ use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick
+ use physcon, only:fourpi
+ use options, only:use_dustfrac
+ integer, intent(in)           :: npart
+ real, intent(in)              :: xyzh(:,:)
+ integer                       :: i,iam
+ real                          :: r,z,h
+ logical, optional, intent(in) :: sizedistrib
+ real, optional, intent(in)    :: pwl_sizedistrib,R_ref,H_R_ref,q_index
 
  do i=1,npart
-    dustprop(1,i) = grainsizecgs / udist
-    dustprop(2,i) = graindenscgs / unit_density
+    iam = iamtype(iphase(i))
+    if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
+       dustprop(2,i) = graindenscgs / unit_density
+       r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+       h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
+       if (sizedistrib) then 
+          dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
+          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
+       else
+          dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
+       endif
+    else
+       dustprop(:,i) = 0.
+    endif
+    filfac(i) = 0.
+    probastick(i) = 1.
  enddo
 
 end subroutine set_dustprop
@@ -532,7 +584,8 @@ end subroutine set_dustprop
 subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use part,           only:npart,npartoftype,massoftype,ndusttypes,&
                           ndustlarge,grainsize,dustprop,graindens,&
-                          iamtype,iphase,set_particle_type,idust
+                          iamtype,iphase,set_particle_type,idust,filfac
+ use options,        only:use_porosity
  use units,          only:udist
  use table_utils,    only:logspace
  use io,             only:fatal
@@ -545,7 +598,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
                            mdustold,mdustnew,code_to_mum
  logical                :: init
  integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
- real, allocatable, dimension(:) :: grid
+ real, allocatable, dimension(:) :: grid, sdust
  character(len=20)               :: outfile = "bin_distrib.dat"
 
  !- initialise
@@ -566,13 +619,18 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  do i = 1,npart
     itype = iamtype(iphase(i))
     if (itype==idust) then
-       if (dustprop(1,i) < smintmp) smintmp = dustprop(1,i)
-       if (dustprop(1,i) > smaxtmp) smaxtmp = dustprop(1,i)
+       if (use_porosity) then
+             sdust(i) = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+          else
+             sdust(i) = get_size(dustprop(1,i),dustprop(2,i))
+          endif
+       if (sdust(i) < smintmp) smintmp = sdust(i)
+       if (sdust(i) > smaxtmp) smaxtmp = sdust(i)
     endif
  enddo
 
  !- overrule force_smax if particles are small, avoid empty bins
- if ((maxval(dustprop(1,:))*udist < smax_user) .and. force_smax) then
+ if ((maxval(sdust(:))*udist < smax_user) .and. force_smax) then
     force_smax = .false.
     write(*,*) "Overruled force_smax from T to F"
  endif
@@ -617,7 +675,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
        if (itype==idust) then
           !- figure out which bin
           do j=1,ndusttypes
-             if ((dustprop(1,i) >= grid(j)) .and. (dustprop(1,i) < grid(j+1))) then
+             if ((sdust(i) >= grid(j)) .and. (sdust(i) < grid(j+1))) then
                 if (j > 1) then
                    npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
                    npartoftype(idust)     = npartoftype(idust) - 1
@@ -625,7 +683,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
                 endif
              endif
              !- if smax has been forced, put larger grains inside last bin
-             if ((j==ndusttypes) .and. force_smax .and. (dustprop(1,i) >= grid(j+1))) then
+             if ((j==ndusttypes) .and. force_smax .and. (sdust(i) >= grid(j+1))) then
                 npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
                 npartoftype(idust)     = npartoftype(idust) - 1
                 call set_particle_type(i,idust+j-1)
@@ -776,8 +834,8 @@ end subroutine merge_bins
 !-----------------------------------------------------------------------
 subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,dust_to_gas)
  use part,            only: dustprop,dustgasprop,ndustlarge,ndustsmall,igas,idust,VrelVf,&
-                             dustfrac,iamtype,iphase,deltav,set_particle_type
- use options,         only: use_dustfrac
+                             dustfrac,iamtype,iphase,deltav,set_particle_type,filfac
+ use options,         only: use_dustfrac,use_porosity
  use dim,             only: update_max_sizes
  integer, intent(inout)  :: npart,npartoftype(:)
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:),massoftype(:)
@@ -816,6 +874,9 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
     dustgasprop(3,ipart) = dustgasprop(3,iloc)
     dustgasprop(4,ipart) = dustgasprop(4,iloc)
     VrelVf(ipart)        = VrelVf(iloc)
+    if (use_porosity) then
+       filfac(ipart)     = filfac(iloc)
+    endif
 
     call set_particle_type(ipart,idust)
  enddo
@@ -830,6 +891,19 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
        vxyzu(1,j) = vxyzu(1,j) - dustfrac(1,j) * deltav(1,1,j)
        vxyzu(2,j) = vxyzu(2,j) - dustfrac(1,j) * deltav(2,1,j)
        vxyzu(3,j) = vxyzu(3,j) - dustfrac(1,j) * deltav(3,1,j)
+
+       !- reset dust quantities of the mixture
+       dustprop(1,j)    = 0.
+       dustprop(2,j)    = 0.
+       dustgasprop(1,j) = 0.
+       dustgasprop(2,j) = 0.
+       dustgasprop(3,j) = 0.
+       dustgasprop(4,j) = 0.
+       VrelVf(j)        = 0.
+       if (use_porosity) then
+          filfac(j)     = 0.
+       endif
+
     endif
  enddo
 
@@ -840,6 +914,7 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
  use_dustfrac       = .false.
 
 end subroutine convert_to_twofluid
+
 !--Compute the relative velocity following Stepinski & Valageas (1997)
 real function vrelative(dustgasprop,Vt)
  use physcon,     only:roottwo
@@ -858,5 +933,22 @@ real function vrelative(dustgasprop,Vt)
  if (Sc > 0.) vrelative = roottwo*Vt*sqrt(Sc-1.)/(Sc)
 
 end function vrelative
+
+!--Compute size from mass and filling factor
+real function get_size(mass,dens,filfac)
+ use physcon,            only:fourpi
+ real, intent(in)           :: mass,dens
+ real, optional, intent(in) :: filfac
+ real                       :: f
+
+ if (present(filfac)) then
+    f = filfac
+ else
+    f = 1.0
+ endif
+
+ get_size = ( 3.*mass / (fourpi*dens*f) )**(1./3.)
+
+end function get_size
 
 end module growth
