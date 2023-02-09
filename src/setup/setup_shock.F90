@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,7 +20,7 @@ module setup
 !   - dtg         : *Dust to gas ratio*
 !   - dtmax       : *time between dumps*
 !   - dust_method : *1=one fluid, 2=two fluid*
-!   - gamma       : *Adiabatic index*
+!   - gamma       : *Adiabatic index (no effect if ieos=12)*
 !   - gmw         : *mean molecular weight*
 !   - ieos        : *equation of state option*
 !   - kappa       : *opacity in cm^2/g*
@@ -35,9 +35,10 @@ module setup
 !   - xleft       : *x min boundary*
 !   - xright      : *x max boundary*
 !
-! :Dependencies: boundary, dim, dust, eos, infile_utils, io, kernel,
-!   mpiutils, nicil, options, part, physcon, prompting, radiation_utils,
-!   set_dust, setshock, setup_params, timestep, unifdis, units
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
+!   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,
+!   prompting, radiation_utils, set_dust, setshock, setup_params, timestep,
+!   unifdis, units
 !
  use dim,       only:maxvxyzu,use_dust,do_radiation
  use options,   only:use_dustfrac
@@ -89,19 +90,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
  use mpiutils,        only:bcast_mpi
  use dim,             only:ndim,mhd
- use options,         only:use_dustfrac
+ use options,         only:use_dustfrac,icooling,ieos
  use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
                            periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,            only:rad,radprop,iradxi,ikappa
  use kernel,          only:radkern,hfact_default
  use prompting,       only:prompt
  use set_dust,        only:set_dustfrac
- use units,           only:set_units,unit_opacity
+ use units,           only:set_units,unit_opacity,unit_pressure,unit_density,unit_ergg
  use dust,            only:idrag
  use unifdis,         only:is_closepacked,is_valid_lattice
  use physcon,         only:au,solarm
  use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
+ use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use eos,             only:temperature_coef,init_eos
+ use cooling,         only:T0_value
 #ifdef NONIDEALMHD
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
 #endif
@@ -115,13 +119,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real                             :: delta,gam1,xshock,fac,dtg
- real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright,rholeft,rhoright
+ real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright
+ real                             :: rholeft,rhoright,denscgs,Pcgs,ucgs,temp
  integer                          :: i,ierr,nbpts,iverbose
  character(len=120)               :: shkfile, filename
  logical                          :: iexist,jexist,use_closepacked
 
- if (gr) call set_units(dist=100.*au,c=1.)
- if (do_radiation) call set_units(dist=au,mass=solarm,G=1.d0)
+ if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
+ if (do_radiation .or. icooling > 0) call set_units(dist=au,mass=solarm,G=1.d0)
  !
  ! quit if not periodic
  !
@@ -252,13 +257,26 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! now set particle properties
  !
- gam1 = gamma - 1.
- if (abs(gam1) > 1.e-3) then
-    uuleft  = leftstate(ipr)/(gam1*leftstate(idens))
-    uuright = rightstate(ipr)/(gam1*rightstate(idens))
+ if (ieos == 12) then
+    Pcgs = leftstate(ipr) * unit_pressure
+    denscgs = leftstate(idens) * unit_density
+    call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    uuleft = ucgs/unit_ergg
+    Pcgs = rightstate(ipr) * unit_pressure
+    denscgs = rightstate(idens) * unit_density
+    call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    uuright = ucgs/unit_ergg
  else
-    uuleft  = 3.*leftstate(ipr)/(2.*leftstate(idens))
-    uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
+    gam1 = gamma - 1.
+    if (abs(gam1) > 1.e-3) then
+       uuleft  = leftstate(ipr)/(gam1*leftstate(idens))
+       uuright = rightstate(ipr)/(gam1*rightstate(idens))
+    else
+       uuleft  = 3.*leftstate(ipr)/(2.*leftstate(idens))
+       uuright = 3.*rightstate(ipr)/(2.*rightstate(idens))
+    endif
  endif
 
  Bxyz = 0.
@@ -313,6 +331,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     eta_const_type = icnstsemi
     rho_i_cnst     = rho_i_cnst * rhozero  ! Modify ion density from fraction to physical (for ambipolar diffusion)
 #endif
+ endif
+ !
+ ! set cooling function information from initial conditions
+ !
+ if (iexist .and. icooling > 0) then
+    call init_eos(ieos,ierr)
+    T0_value = temperature_coef*gmw*rightstate(ipr)/rightstate(idens)
+    print*,' Setting T0 in cooling function to ',T0_value
  endif
 
 end subroutine setpart
@@ -690,7 +716,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  if (ierr1 /= 0) write(*,*) 'ERROR writing nx'
 
  write(lu,"(/,a)") '# Equation-of-state properties'
- call write_inopt(gamma,'gamma','Adiabatic index',lu,ierr1)
+ call write_inopt(gamma,'gamma','Adiabatic index (no effect if ieos=12)',lu,ierr1)
  if (maxvxyzu==3) then
     call write_inopt(polyk,'polyk','square of the isothermal sound speed',lu,ierr1)
  endif
@@ -713,7 +739,8 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  call write_inopt(tmax,'tmax','maximum runtime',lu,ierr1)
  call write_inopt(dtmax,'dtmax','time between dumps',lu,ierr1)
  call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
- if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
+ !if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
 #ifdef NONIDEALMHD
  call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
  call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
@@ -773,7 +800,8 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(tmax,'tmax',db,errcount=nerr)
  call read_inopt(dtmax,'dtmax',db,errcount=nerr)
  call read_inopt(ieos,'ieos',db,errcount=nerr)
- if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
+ call read_inopt(gmw,'gmw',db,errcount=nerr)
+ !if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
 #ifdef NONIDEALMHD
  call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
  call read_inopt(use_hall,'use_hall',db,errcount=nerr)

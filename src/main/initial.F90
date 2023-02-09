@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,14 +15,14 @@ module initial
 ! :Runtime parameters: None
 !
 ! :Dependencies: analysis, boundary, centreofmass, checkconserved,
-!   checkoptions, checksetup, cons2prim, cooling, cpuinfo, densityforce,
-!   deriv, dim, dust, energies, eos, evwrite, extern_gr, externalforces,
-!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpiderivs, mpidomain, mpimemory, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, photoevap, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing, units,
-!   writeheader
+!   checkoptions, checksetup, cons2prim, cooling, cpuinfo, damping,
+!   densityforce, deriv, dim, dust, dust_formation, energies, eos, evwrite,
+!   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
+!   inject, io, io_summary, krome_interface, linklist, metric_tools,
+!   mf_write, mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, photoevap, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -111,18 +111,18 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, &
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi
+ use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
- use options,          only:iexternalforce,idamp,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
+ use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
@@ -188,6 +188,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
+ use dust_formation,   only:init_nucleation
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
 #endif
@@ -213,6 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
+ use damping,          only:idamp
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -227,9 +229,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
- integer :: ncount(maxtypes)
- character(len=len(dumpfile)) :: dumpfileold,file1D
+ character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
+#ifdef INJECT_PARTICLES
+ character(len=len(dumpfile)) :: file1D
+#endif
+
 
  read_input_files = .true.
  if (present(noread)) read_input_files = .not.noread
@@ -328,7 +333,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !  this will initialise all cooling variables, including if h2chemistry = true
  if (icooling > 0) call init_cooling(id,master,iprint,ierr)
 
- if (idamp > 0 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
+ if (idamp > 0 .and. idamp < 3 .and. any(abs(vxyzu(1:3,:)) > tiny(0.)) .and. abs(time) < tiny(time)) then
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
@@ -526,6 +531,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (r_merge_uncond < 2.0*h_acc) then
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
+ endif
+ if (abs(time) <= tiny(0.)) then
+    !initialize nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    !initialize optical depth array tau
+    if (itau_alloc == 1) tau = 0.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -120,7 +120,7 @@ contains
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
                           fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
-                     use_dust,fast_divcurlB,mpi
+                     use_dust,fast_divcurlB,mpi,gr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
  use linklist,  only:ifirstincell,ncells,get_neighbour_list,get_hmaxcell,&
                      listneigh,get_cell_location,set_hmaxcell,sync_hmax_mpi
@@ -137,6 +137,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  use part,      only:ngradh
  use viscosity, only:irealvisc
  use io_summary,only:summary_variable,iosumhup,iosumhdn
+ use timing,    only:increment_timer,get_timings,itimer_dens_local,itimer_dens_remote
  integer,      intent(in)    :: icall,npart,nactive
  real,         intent(inout) :: xyzh(:,:)
  real,         intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:)
@@ -175,6 +176,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real                      :: ntotal
  logical                   :: iterations_finished,do_export
 
+ real(kind=4)              :: t1,t2,tcpu1,tcpu2
+
  if (mpi) then
     call init_cell_exchange(xrecvbuf,irequestrecv)
     call reset_stacks
@@ -197,7 +200,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  !
  realviscosity = (irealvisc > 0)
  getdv = ((maxalpha==maxp .or. ndivcurlv >= 4) .and. (icall <= 1 .or. icall==3)) .or. &
-         (maxdvdx==maxp .and. (use_dust .or. realviscosity))
+         (maxdvdx==maxp .and. (use_dust .or. realviscosity .or. gr))
  if (getdv .and. ndivcurlv < 1) call fatal('densityiterate','divv not stored but it needs to be')
  getdB = (mhd .and. (ndivcurlB >= 4 .or. mhd_nonideal))
 
@@ -258,6 +261,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(stack_redo) &
 !$omp shared(iterations_finished) &
 !$omp shared(n_remote_its) &
+!$omp shared(t1) &
+!$omp shared(t2) &
+!$omp shared(tcpu1) &
+!$omp shared(tcpu2) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(j) &
@@ -285,7 +292,11 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:rhomax) &
 !$omp private(i)
 
-!$omp do schedule(runtime)
+ !$omp single
+ call get_timings(t1,tcpu1)
+ !$omp end single
+
+ !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
 
@@ -364,16 +375,22 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        endif
     endif
  enddo over_cells
-!$omp enddo
+ !$omp enddo
 
-!$omp barrier
+ !$omp barrier
 
-!$omp single
+ !$omp single
  if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
  call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
-!$omp end single
+ !$omp end single
 
-!$omp single
+ !$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_dens_local,t2-t1,tcpu2-tcpu1)
+ call get_timings(t1,tcpu1)
+ !$omp end single
+
+ !$omp single
  if (iverbose>=6) then
     ntotal = real(nlocal) + real(stack_waiting%n)
     if (ntotal > 0) then
@@ -385,7 +402,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  n_remote_its = 0
  iterations_finished = .false.
-!$omp end single
+ !$omp end single
 
  remote_its: do while(.not. iterations_finished)
 
@@ -499,7 +516,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  enddo remote_its
 
-!$omp end parallel
+ !$omp single
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_dens_remote,t2-t1,tcpu2-tcpu1)
+ !$omp end single
+
+ !$omp end parallel
 
  if (mpi) then
     call finish_cell_exchange(irequestrecv,xsendbuf)
@@ -551,6 +573,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
+ use options,  only:implicit_radiation
  integer,      intent(in)    :: i
  real,         intent(in)    :: xpartveci(:)
  real(kind=8), intent(in)    :: hi,hi1,hi21
@@ -780,7 +803,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 rhosum(idBzdzi) = rhosum(idBzdzi) + dBz*runiz
              endif
 
-             if (do_radiation .and. gas_gas) then
+             if (do_radiation .and. gas_gas .and. .not. implicit_radiation) then
                 rhoi = rhoh(real(hi), massoftype(igas))
                 rhoj = rhoh(xyzh(4,j), massoftype(igas))
                 dradenij = rad(iradxi,j)*rhoj - xpartveci(iradxii)*rhoi
@@ -1440,7 +1463,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                        maxgradh,idust,ifluxx,ifluxz,ithick
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation
- use options,     only:use_dustfrac
+ use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
  use kernel,      only:radkern
@@ -1581,7 +1604,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           dvdx(:,lli) = real(dvdxi(:),kind=kind(dvdx))
        endif
 
-       if (do_radiation .and. iamgasi) radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
+       if (do_radiation .and. iamgasi .and. .not. implicit_radiation) then
+          radprop(ifluxx:ifluxz,lli) = cell%rhosums(iradfxi:iradfzi,i)*term
+       endif
     endif
 
     if (calculate_density) then

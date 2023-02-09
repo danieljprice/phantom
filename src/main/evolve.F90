@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -35,9 +35,10 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
-                            init_conservation_checks,check_conservation_error
+                            init_conservation_checks,check_conservation_error,&
+                            check_magnetic_stability
  use dim,              only:maxvxyzu,mhd,periodic
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
@@ -45,8 +46,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
  use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
- setup_timers,timers,reduce_timers,itimer_fromstart,itimer_lastdump,itimer_step,itimer_ev,&
- itimer_dens,itimer_force,itimer_link,itimer_balance,itimer_extf,itimer_io
+                            setup_timers,timers,reduce_timers,ntimers,&
+                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef IND_TIMESTEPS
  use part,             only:ibin,iphase
@@ -74,7 +75,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use partinject,       only:update_injected_particles
 #endif
  use dim,              only:do_radiation
- use options,          only:exchange_radiation_energy
+ use options,          only:exchange_radiation_energy,implicit_radiation
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
@@ -103,7 +104,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
- integer         :: noutput,noutput_dtmax,nsteplast,ncount_fulldumps
+ integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
  real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
@@ -260,7 +261,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! Strang splitting: implicit update for half step
     !
-    if (do_radiation.and.exchange_radiation_energy) then
+    if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
     nsteps = nsteps + 1
@@ -277,7 +278,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! Strang splitting: implicit update for another half step
     !
-    if (do_radiation.and.exchange_radiation_energy) then
+    if (do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
 
@@ -375,6 +376,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
+       if (mhd) call check_magnetic_stability(hdivBB_xa)
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
@@ -542,16 +544,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
        twalllast = t2
        tcpulast = tcpu2
-       call reset_timer(itimer_fromstart)
-       call reset_timer(itimer_lastdump )
-       call reset_timer(itimer_step     )
-       call reset_timer(itimer_link     )
-       call reset_timer(itimer_balance  )
-       call reset_timer(itimer_dens     )
-       call reset_timer(itimer_force    )
-       call reset_timer(itimer_extf     )
-       call reset_timer(itimer_io       )
-       call reset_timer(itimer_ev       )
+       do i = 1,ntimers
+          call reset_timer(i)
+       enddo
 
        noutput_dtmax = noutput_dtmax + 1
        noutput       = noutput + 1
@@ -609,7 +604,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
        trim(adjustl(string)),trim(string1),trim(string2),trim(string3)
 
  time_fullstep = timers(itimer_lastdump)%wall + timers(itimer_ev)%wall + timers(itimer_io)%wall
- write(iprint,"(/,25x,a)") 'wall        cpu  cpu/wall     frac'
+ write(iprint,"(/,25x,a)") '  wall         cpu  cpu/wall  load bal      frac'
 
  ! skip the first 2 timers
  ! 1: from start

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,7 @@ module units
  real(kind=8), public :: udist = 1.d0, umass = 1.d0, utime = 1.d0
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
- real(kind=8), public :: unit_ergg, unit_energ, unit_opacity
+ real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
 
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
@@ -132,12 +132,13 @@ subroutine set_units_extra()
  unit_charge   = sqrt(umass*udist/cgsmu0)
  unit_Bfield   = umass/(utime*unit_charge)
 
- unit_velocity = udist/utime
- unit_density  = umass/udist**3
- unit_pressure = umass/(udist*utime**2)
- unit_ergg     = unit_velocity**2
- unit_energ    = umass*unit_ergg
- unit_opacity  = udist**2/umass
+ unit_velocity   = udist/utime
+ unit_density    = umass/udist**3
+ unit_pressure   = umass/(udist*utime**2)
+ unit_ergg       = unit_velocity**2
+ unit_energ      = umass*unit_ergg
+ unit_opacity    = udist**2/umass
+ unit_luminosity = unit_energ/utime
 
 end subroutine set_units_extra
 
@@ -157,12 +158,13 @@ subroutine print_units(unit)
     lu = 6
  endif
 
- write(lu,"(a)") ' --- code units --- '
+ write(lu,"(/,a)") ' --- code units --- '
  write(lu,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm    Time: ',utime,'s'
  write(lu,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg   En/m: ',unit_ergg,'erg/g'
- write(lu,"(2(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G'
- write(lu,"(3(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
-                                 '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  opacity: ',unit_opacity,'cm^2/g'
+ write(lu,"(3(a,es10.3,1x))") '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
+                                '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(2(a,es10.3,1x),/)") '        a: ',get_radconst_code(),      '         kB/mH: ',get_kbmh_code()
 
 end subroutine print_units
 
@@ -302,6 +304,7 @@ real(kind=8) function get_radconst_code() result(radconst_code)
  use physcon, only:radconst
 
  radconst_code = radconst/unit_energ*udist**3
+
 end function get_radconst_code
 
 !---------------------------------------------------------------------------

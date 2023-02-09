@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -222,6 +222,7 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  logical         :: iallow_decrease,ilimit_maxbin
  real, parameter :: vsmall = epsilon(vsmall)
  real, parameter :: dlog2 = 1.4426950408889634d0 ! dlog2 = 1./log(2.)
+ character(len=12) :: str
 
  if (present(allow_decrease)) then
     iallow_decrease = allow_decrease
@@ -246,12 +247,12 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  endif
  if (ibin_newi > maxbins .and. ilimit_maxbin) then
     if (present(dtchar)) then
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(0)   = ', dtmax
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(max) = ', dtmax/2**(maxbins-1)
-       write(*,'(2a)'      ) 'get_newbin: dt = ', dtchar
+       str = dtchar
+    else
+       str = 'dt'
     endif
     dt_too_small = .true.
-    call warning('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
+    call warning('get_newbin','step too small: bin would exceed maximum',var=str,val=dti)
  endif
 
  if (ibin_newi > ibin_oldi) then
@@ -276,8 +277,7 @@ end subroutine get_newbin
 !  This can only occur at full dumps, thus particles are synchronised
 !+
 !----------------------------------------------------------------
-subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,&
-                          ibin_dts)
+subroutine decrease_dtmax(npart,nbins,time,dtmax_ifactor,dtmax,ibin,ibin_wake,ibin_sts,ibin_dts)
  integer,         intent(in)    :: npart,nbins,dtmax_ifactor
  integer(kind=1), intent(inout) :: ibin(:),ibin_wake(:),ibin_sts(:)
  real,            intent(in)    :: time
@@ -466,7 +466,7 @@ subroutine print_dtlog_ind(iprint,ifrac,nfrac,time,dt,nactive,tcpu,np)
  integer(kind=8), intent(in) :: np
  character(len=120) :: string
  character(len=14) :: tmp
- integer, save :: nplast = 0
+ integer(kind=8), save :: nplast = 0
 
  call formatint(ifrac,tmp)
  string = '> step '//tmp

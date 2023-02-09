@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -443,7 +443,7 @@ subroutine write_evlog(iprint)
 
  if (use_dustfrac) then
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
-         'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg)
+         'dust2gas ',ev_data(iev_max,iev_dtg),ev_data(iev_ave,iev_dtg),ev_data(iev_min,iev_dtg)
     write(iprint,"(3x,a,'(mean)=',es10.3,1x,'(min)=',es10.3)") 't_stop ',ev_data(iev_ave,iev_ts),ev_data(iev_min,iev_ts)
  endif
  if (use_dust) then

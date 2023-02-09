@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -172,16 +172,16 @@ subroutine allocate_array_integer4_1d(name, x, n1)
 end subroutine allocate_array_integer4_1d
 
 subroutine allocate_array_integer4_1d_long(name, x, n1)
-   character(len=*),               intent(in)     :: name
-   integer(kind=4), allocatable,   intent(inout)  :: x(:)
-   integer(kind=8),                intent(in)     :: n1
-   integer                                        :: allocstat
+ character(len=*),               intent(in)     :: name
+ integer(kind=4), allocatable,   intent(inout)  :: x(:)
+ integer(kind=8),                intent(in)     :: n1
+ integer                                        :: allocstat
 
-   allocate(x(n1), stat = allocstat)
-   call check_allocate(name, allocstat)
-   call print_allocation_stats(name, (/n1/), 'integer(4)')
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1/), 'integer(4)')
 
-  end subroutine allocate_array_integer4_1d_long
+end subroutine allocate_array_integer4_1d_long
 
 subroutine allocate_array_integer4_2d(name, x, n1, n2)
  character(len=*),               intent(in)     :: name
@@ -256,14 +256,14 @@ subroutine allocate_array_kdnode_1d(name, x, n1)
 end subroutine allocate_array_kdnode_1d
 
 subroutine allocate_array_kdnode_1d_long(name, x, n1)
-   character(len=*),               intent(in)     :: name
-   type(kdnode), allocatable,      intent(inout)  :: x(:)
-   integer(kind=8),                intent(in)     :: n1
-   integer                                        :: allocstat
+ character(len=*),               intent(in)     :: name
+ type(kdnode), allocatable,      intent(inout)  :: x(:)
+ integer(kind=8),                intent(in)     :: n1
+ integer                                        :: allocstat
 
-   allocate(x(n1), stat = allocstat)
-   call check_allocate(name, allocstat)
-   call print_allocation_stats(name, (/n1/), 'kdnode')
+ allocate(x(n1), stat = allocstat)
+ call check_allocate(name, allocstat)
+ call print_allocation_stats(name, (/n1/), 'kdnode')
 
 end subroutine allocate_array_kdnode_1d_long
 

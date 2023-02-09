@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -56,6 +56,7 @@ module setup
 !   - flyby_i       : *inclination (deg)*
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
+!   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - m1            : *first hierarchical level primary mass*
 !   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
@@ -68,7 +69,6 @@ module setup
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
-!   - setplanets    : *add planets? (0=no,1=yes)*
 !   - subst         : *star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - temp_atm0     : *atmosphere temperature scaling factor*
@@ -184,8 +184,8 @@ module setup
  character(len=*), dimension(maxplanets), parameter :: planets = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
- logical :: questplanets,istratify
- integer :: nplanets,setplanets, discstrat
+ logical :: istratify
+ integer :: nplanets,discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
  real    :: period_planet_longest
@@ -429,8 +429,6 @@ subroutine set_default_options()
  np_dust = np/maxdustlarge/5
 
  !--planets
- questplanets  = .false.
- setplanets    = 0
  nplanets      = 0
  mplanet       = 1.
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
@@ -580,9 +578,14 @@ subroutine equation_of_state(gamma)
  integer :: i
 
  is_isothermal = (maxvxyzu==3)
- if (use_mcfost) then
-    is_isothermal = .false.
-    nfulldump = 1
+
+ if (compiled_with_mcfost) then
+    if (use_mcfost) then
+       is_isothermal = .false.
+       nfulldump = 1
+    else
+       is_isothermal = .true.
+    endif
  endif
 
  if (is_isothermal) then
@@ -1550,7 +1553,7 @@ subroutine set_planets(npart,massoftype,xyzh)
  real    :: u(3)
 
  period_planet_longest = 0.
- if (setplanets==1) then
+ if (nplanets > 0) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
 
@@ -1686,7 +1689,7 @@ subroutine set_tmax_dtmax()
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
     period = get_T_flyby(m1,m2,flyby_a,flyby_d)
- elseif (setplanets==1) then
+ elseif (nplanets > 0) then
     !--outer planet orbital period
     period = period_planet_longest
  elseif (iwarp(onlydisc)) then
@@ -2047,18 +2050,13 @@ subroutine setup_interactive()
  print "(/,a)",'================='
  print "(a)",  '+++  PLANETS  +++'
  print "(a)",  '================='
- call prompt('Do you want to add planets?',questplanets)
- if (questplanets) then
-    setplanets = 1
-    nplanets   = 1
-    call prompt('Enter the number of planets',nplanets,1,maxplanets)
- endif
+ call prompt('How many planets?',nplanets,0,maxplanets)
 
  !--simulation time
  print "(/,a)",'================'
  print "(a)",  '+++  OUTPUT  +++'
  print "(a)",  '================'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call prompt('Enter time between dumps as fraction of outer planet period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
@@ -2089,7 +2087,7 @@ end subroutine setup_interactive
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  character(len=*), intent(in) :: filename
@@ -2367,9 +2365,8 @@ subroutine write_setupfile(filename)
  endif
  !--planets
  write(iunit,"(/,a)") '# set planets'
- call write_inopt(setplanets,'setplanets','add planets? (0=no,1=yes)',iunit)
- if (setplanets==1) then
-    call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ call write_inopt(nplanets,'nplanets','number of planets',iunit)
+ if (nplanets > 0) then
     do i=1,nplanets
        write(iunit,"(/,a)") '# planet:'//trim(planets(i))
        call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
@@ -2382,6 +2379,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
+    call write_inopt(istrat,'istrat','temperature prescription (0=MAPS, 1=Dartois)',iunit)
     call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
     call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
     call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
@@ -2392,7 +2390,7 @@ subroutine write_setupfile(filename)
  endif
  !--timestepping
  write(iunit,"(/,a)") '# timestepping'
- if (setplanets==1) then
+ if (nplanets > 0) then
     call write_inopt(norbits,'norbits','maximum number of outer planet orbits',iunit)
  elseif (icentral==1 .and. nsinks>=2 .and. ibinary==0) then
     call write_inopt(norbits,'norbits','maximum number of binary orbits',iunit)
@@ -2423,7 +2421,7 @@ end subroutine write_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
@@ -2559,6 +2557,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  if (discstrat==1) then
+    call read_inopt(istrat,'istrat',db,errcount=nerr)
     call read_inopt(z0_ref,'z0',db,errcount=nerr)
     call read_inopt(alpha_z,'alpha_z',db,errcount=nerr)
     call read_inopt(beta_z,'beta_z',db,errcount=nerr)
@@ -2708,16 +2707,13 @@ subroutine read_setupfile(filename,ierr)
  enddo
  if (maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  !--planets
- call read_inopt(setplanets,'setplanets',db,min=0,max=1,errcount=nerr)
- if (setplanets==1) then
-    call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
-    do i=1,nplanets
-       call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-       call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
-       call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-    enddo
- endif
+ call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
+ do i=1,nplanets
+    call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
+    call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+ enddo
  !--timestepping
  !  following two are optional: not an error if not present
  call read_inopt(norbits,'norbits',db,err=ierr)
