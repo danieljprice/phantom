@@ -1,0 +1,10 @@
+.tight-table td {
+   white-space: normal !important;
+}
+.tight-table {
+   overflow: visible !important;
+}
+
+table.docutils col {
+   width: auto !important;
+}

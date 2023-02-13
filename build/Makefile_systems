@@ -151,12 +151,13 @@ ifeq ($(SYSTEM), nci)
     ifeq ($(MPI),yes)
         NPAR=32
     endif
-    QPROJECT='fu7'
+    QPROJECT=$(PROJECT)
     QNAME='normal'
     WALLTIME='48:00:00'
     MPIEXEC='mpiexec -npernode 1'
     QNODES='ncpus='$(NPAR)
     QEXTRA='-l other=hyperthread'
+    QSTORAGE="gdata/$(QPROJECT)"
 endif
 
 ifeq ($(SYSTEM), gfortran)
