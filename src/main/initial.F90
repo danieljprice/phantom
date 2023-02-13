@@ -152,9 +152,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
+ use timestep_ind,     only:istepfrac
  use timing,           only:get_timings
 #ifdef IND_TIMESTEPS
- use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
+ use timestep_ind,     only:ibinnow,maxbins,init_ibin
+ use timing,           only:get_timings
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
@@ -188,6 +190,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dust_formation,   only:init_nucleation
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
+ use partinject,       only:update_injected_particles
+ use timestep_ind,     only:nbinmax
 #endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
@@ -230,6 +234,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=7) :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
  character(len=len(dumpfile)) :: file1D
+ integer :: npart_old
 #endif
 
 
@@ -558,16 +563,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
     call rename('wind_profile1D.dat',trim(file1D))
  endif
+ npart_old = npart
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
-#ifdef GR
-! call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
- call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
- if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
- endif
-#endif
+ call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 !
 !--set initial chemical abundance values
