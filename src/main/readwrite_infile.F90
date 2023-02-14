@@ -93,7 +93,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
+ use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -160,8 +160,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(trim(dumpfile),'dumpfile','dump file to start from',iwritein)
 
  write(iwritein,"(/,a)") '# options controlling run time and input/output'
+ if (dtmax_user < 0.) dtmax_user = dtmax ! this should only ever be true for phantomsetup
  call write_inopt(tmax,'tmax','end time',iwritein)
- call write_inopt(dtmax,'dtmax','time between dumps',iwritein)
+ call write_inopt(dtmax_user,'dtmax','time between dumps',iwritein)
  call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
  call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
  call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
