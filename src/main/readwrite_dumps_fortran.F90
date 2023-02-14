@@ -1128,7 +1128,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label, &
                       pxyzu,pxyzu_label,dust_temp, rad,rad_label,radprop,radprop_label,do_radiation, &
-                      maxirad,maxradprop,nucleation,nucleation_label,n_nucleation,ikappa,,tau,itau_alloc, &
+                      maxirad,maxradprop,nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc, &
                       ithick,itemp,igasP,iorig
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
