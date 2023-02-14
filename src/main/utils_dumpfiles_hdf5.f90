@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,10 +14,11 @@ module utils_dumpfiles_hdf5
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, part, utils_hdf5
+! :Dependencies: dim, eos, part, utils_hdf5
 !
  use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
  use part,       only:eos_vars_label,igasP,itemp,maxirad
+ use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
                       create_hdf5file,  &
@@ -105,7 +106,7 @@ module utils_dumpfiles_hdf5
                           umass,                         &
                           utime,                         &
                           unit_Bfield
- end type
+ end type header_hdf5
 
  type externalforce_hdf5
     ! extern_binary
@@ -119,7 +120,7 @@ module utils_dumpfiles_hdf5
                direction
     ! extern_gwinspiral
     integer :: Nstar(2)
- end type
+ end type externalforce_hdf5
 
  type got_arrays_hdf5
     logical :: got_iphase,                           &
@@ -150,7 +151,7 @@ module utils_dumpfiles_hdf5
                got_krome_mu,                         &
                got_krome_T,                          &
                got_orig
- end type
+ end type got_arrays_hdf5
 
  type arrays_options_hdf5
     logical :: isothermal,             &
@@ -165,7 +166,6 @@ module utils_dumpfiles_hdf5
                h2chemistry,            &
                lightcurve,             &
                prdrag,                 &
-               store_temperature,      &
                store_dust_temperature, &
                radiation,              &
                krome,                  &
@@ -176,7 +176,7 @@ module utils_dumpfiles_hdf5
                ndivcurlv,         &
                ndustsmall,        &
                ndustlarge
- end type
+ end type arrays_options_hdf5
 
  private
 
@@ -332,7 +332,7 @@ subroutine write_hdf5_arrays( &
    dens,                      &
    gamma_chem,                &
    mu_chem,                   &
-   T_chem,                    &
+   T_gas_cool,                &
    nucleation,                &
    dust_temp,                 &
    rad,                       &
@@ -364,7 +364,7 @@ subroutine write_hdf5_arrays( &
                                 dens(:),           &
                                 gamma_chem(:),     &
                                 mu_chem(:),        &
-                                T_chem(:),         &
+                                T_gas_cool(:),     &
                                 nucleation(:,:),   &
                                 dust_temp(:),      &
                                 rad(:,:),          &
@@ -398,10 +398,10 @@ subroutine write_hdf5_arrays( &
  if (.not.array_options%isothermal) then
     call write_to_hdf5(vxyzu(4,1:npart), 'u', group_id, error)
  endif
- if (ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15) then
+ if (eos_outputs_gasP(ieos)) then
     call write_to_hdf5(eos_vars(igasP,1:npart), eos_vars_label(igasP), group_id, error)
  endif
- if (array_options%store_temperature) then
+ if (eos_is_non_ideal(ieos)) then
     call write_to_hdf5(eos_vars(itemp,1:npart), eos_vars_label(itemp), group_id, error)
  endif
  if (array_options%lightcurve) then
@@ -480,7 +480,7 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(abundance(:,1:npart), 'abundance', group_id, error)
     call write_to_hdf5(gamma_chem(1:npart), 'gamma_chem', group_id, error)
     call write_to_hdf5(mu_chem(1:npart), 'mu_chem', group_id, error)
-    call write_to_hdf5(T_chem(1:npart), 'T_chem', group_id, error)
+    call write_to_hdf5(T_gas_cool(1:npart), 'T_gas_cool', group_id, error)
  endif
 
  ! Nucleation
@@ -491,8 +491,9 @@ subroutine write_hdf5_arrays( &
     call write_to_hdf5(nucleation(4,1:npart), 'nucleation_K2', group_id, error)
     call write_to_hdf5(nucleation(5,1:npart), 'nucleation_K3', group_id, error)
     call write_to_hdf5(nucleation(6,1:npart), 'nucleation_mu', group_id, error)
-    call write_to_hdf5(nucleation(7,1:npart), 'nucleation_S', group_id, error)
-    call write_to_hdf5(nucleation(8,1:npart), 'nucleation_kappa', group_id, error)
+    call write_to_hdf5(nucleation(7,1:npart), 'nucleation_gamma', group_id, error)
+    call write_to_hdf5(nucleation(8,1:npart), 'nucleation_S'    , group_id, error)
+    call write_to_hdf5(nucleation(9,1:npart), 'nucleation_kappa', group_id, error)
  endif
 
  ! Radiation
@@ -787,7 +788,7 @@ subroutine read_hdf5_arrays( &
    pxyzu,                    &
    gamma_chem,               &
    mu_chem,                  &
-   T_chem,                   &
+   T_gas_cool,               &
    nucleation,               &
    dust_temp,                &
    rad,                      &
@@ -817,7 +818,7 @@ subroutine read_hdf5_arrays( &
                                  pxyzu(:,:),        &
                                  gamma_chem(:),     &
                                  mu_chem(:),        &
-                                 T_chem(:),         &
+                                 T_gas_cool(:),     &
                                  nucleation(:,:),   &
                                  dust_temp(:),      &
                                  rad(:,:),          &
@@ -883,7 +884,7 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(vxyzu(4,:), 'u', group_id, got, error)
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
- if (array_options%store_temperature) then
+ if (eos_is_non_ideal(ieos)) then
     call read_from_hdf5(eos_vars(itemp,:), eos_vars_label(itemp), group_id, got_arrays%got_temp, error)
  endif
 
@@ -944,7 +945,7 @@ subroutine read_hdf5_arrays( &
     if (got) got_arrays%got_krome_mols = .true.
     call read_from_hdf5(gamma_chem, 'gamma_chem', group_id, got_arrays%got_krome_gamma, error)
     call read_from_hdf5(mu_chem, 'mu_chem', group_id, got_arrays%got_krome_mu, error)
-    call read_from_hdf5(T_chem, 'T_chem', group_id, got_arrays%got_krome_gamma, error)
+    call read_from_hdf5(T_gas_cool, 'T_gas_cool', group_id, got_arrays%got_krome_gamma, error)
  endif
 
  ! Nucleation
@@ -955,8 +956,9 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(nucleation(4,1:npart), 'nucleation_K2', group_id, got, error)
     call read_from_hdf5(nucleation(5,1:npart), 'nucleation_K3', group_id, got, error)
     call read_from_hdf5(nucleation(6,1:npart), 'nucleation_mu', group_id, got, error)
-    call read_from_hdf5(nucleation(7,1:npart), 'nucleation_S', group_id, got, error)
-    call read_from_hdf5(nucleation(8,1:npart), 'nucleation_kappa', group_id, got, error)
+    call read_from_hdf5(nucleation(7,1:npart), 'nucleation_gamma', group_id, got, error)
+    call read_from_hdf5(nucleation(8,1:npart), 'nucleation_S', group_id, got, error)
+    call read_from_hdf5(nucleation(9,1:npart), 'nucleation_kappa', group_id, got, error)
  endif
 
  ! Radiation

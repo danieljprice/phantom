@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -33,7 +33,7 @@ module physcon
  real(kind=8), parameter :: gg = 6.672041d-8                    !Gravitational constant    dyn cm^2 g^-2
  !                          cm^3 s^-2 g^-1
 
- real(kind=8), parameter :: Rg = 8.314d7                        !Gas constant              erg/K/g
+ real(kind=8), parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
  real(kind=8), parameter :: cgsmu0 = 4.*pi
  real(kind=8), parameter :: mass_electron_cgs = 9.10938291d-28  !Electron mass             g
  real(kind=8), parameter :: mass_proton_cgs = 1.67262158d-24    !Proton mass               g
@@ -51,7 +51,8 @@ module physcon
  real(kind=8), parameter :: steboltz   = 5.67051d-5             !Stefan-Boltzmann constant erg cm^-2K^-4 s^-1
  real(kind=8), parameter :: avogadro   = 6.0221408577d23        !Avogadro's number         mole^-1
  real(kind=8), parameter :: Ro         = 3.00000000             !Rossby number without dimension
-!
+ real(kind=8), parameter :: patm       = 1.013250d6             !Standard atmospheric pressure in cgs
+
 !--Astronomical constants (cgs units)
 !
 !--Solar mass and radius

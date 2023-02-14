@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -207,9 +207,8 @@ end subroutine read_opacity_mesa
 
 
 
-! Return value of kappa for a value of density and temperature
+! Return value of kappa for a value of density and temperature. Assumes inputs are in cgs units
 subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
-
  real, intent(in) :: rho,temp
  real, intent(out) :: kap,kapt,kapr
  real :: opac_k,opac_kd,opac_kt
@@ -220,6 +219,8 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
  logrho = log10(rho)
  logt   = log10(temp)
  logr   = logrho + 18.d0 - 3.d0 * logt
+
+ if (.not.allocated(mesa_opacs_rs)) return ! avoid seg fault, but kappa undefined
 
  ! Get the r and T indices for looking up the table
  dnr = 1.d0 + ((logr - mesa_opacs_rs(1)) / mesa_opacs_dr)
@@ -257,6 +258,17 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 
 end subroutine get_kappa_mesa
 
+
+real function get_1overmu_mesa(rho,u,Rg) result(rmu)
+ real, intent(in) :: rho,u,Rg
+ real :: temp,pgas
+ integer :: ierr
+
+ call getvalue_mesa(rho,u,3,pgas,ierr) ! Get gas pressure
+ call getvalue_mesa(rho,u,4,temp,ierr) ! Get gas pressure
+ rmu = pgas / (rho*Rg*temp)
+
+end function get_1overmu_mesa
 
 
 ! Get the constants to be used in the MESA EoS

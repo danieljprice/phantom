@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,11 +14,11 @@ module testderivs
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, domain,
-!   dust, eos, io, kernel, linklist, mpiutils, nicil, options, part,
+! :Dependencies: boundary, cullendehnen, densityforce, deriv, dim, dust,
+!   eos, io, kernel, linklist, mpidomain, mpiutils, nicil, options, part,
 !   physcon, testutils, timestep_ind, timing, unifdis, units, viscosity
 !
- use part, only:massoftype
+ use part, only:massoftype,ien_type,ien_entropy
  implicit none
 
  public :: test_derivs
@@ -31,9 +31,9 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall,periodic
+                        maxdustsmall,periodic,mpi
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,          only:polyk,gamma,use_entropy,init_eos
+ use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
  use mpiutils,     only:reduceall_mpi
  use options,      only:tolh,alpha,alphau,alphaB,beta,ieos,psidecayfac,use_dustfrac,iopacity_type
@@ -63,7 +63,7 @@ subroutine test_derivs(ntests,npass,string)
 #endif
  use units,        only:set_units
  use testutils,    only:checkval,checkvalf,update_test_scores
- use domain,       only:i_belong
+ use mpidomain,    only:i_belong
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  real              :: psep,time,hzero,totmass
@@ -138,9 +138,7 @@ subroutine test_derivs(ntests,npass,string)
  iverbose = max(iverbose,2)
  psep = dxbound/100.
  npart = nint(dxbound/psep)*nint(dybound/psep)*nint(dzbound/psep)
-#ifndef MPI
- if (npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
-#endif
+ if (.not. mpi .and. npart > maxp) call fatal('testsuite','maxp too low to run derivs test suite')
  icurlvxi = icurlvx ! avoid compiler warnings
  icurlvyi = icurlvy
  icurlvzi = icurlvz
@@ -1117,7 +1115,7 @@ subroutine check_fxyzu(n,nfailed,j)
  call checkvalf(n,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)',checkmask)
  call checkvalf(n,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)',checkmask)
  call checkvalf(n,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)',checkmask)
- if (use_entropy .or. ieos /= 2) then
+ if (ien_type == ien_entropy .or. ieos /= 2) then
     call checkval(n,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt',checkmask)
  else
     allocate(dummy(n))
@@ -1136,7 +1134,7 @@ subroutine check_fxyzu_nomask(n,nfailed,j)
  call checkvalf(nparttest,xyzh,fxyzu(1,:),forcefuncx,1.e-3,nfailed(j+1),'force(x)')
  call checkvalf(nparttest,xyzh,fxyzu(2,:),forcefuncy,1.e-3,nfailed(j+2),'force(y)')
  call checkvalf(nparttest,xyzh,fxyzu(3,:),forcefuncz,1.e-3,nfailed(j+3),'force(z)')
- if (use_entropy .or. ieos /= 2) then
+ if (ien_type == ien_entropy .or. ieos /= 2) then
     call checkval(nparttest,fxyzu(iu,:),0.,epsilon(fxyzu),nfailed(j+4),'den/dt')
  else
     allocate(dummy(nparttest))
@@ -2354,15 +2352,16 @@ end function psi
 
 real function dpsidt(xyzhi)
  use options, only:ieos,psidecayfac
- use eos,     only:equationofstate
+ use eos,     only:get_spsound
  use part,    only:rhoh
  real, intent(in) :: xyzhi(4)
- real :: vsig,spsoundi,ponrhoi
+ real :: vsig,spsoundi,vdummy(3)
 
- call equationofstate(ieos,ponrhoi,spsoundi,rhoh(xyzhi(4),massoftype(1)),xyzhi(1),xyzhi(2),xyzhi(3))
- vsig = sqrt(valfven(xyzhi)**2 + spsoundi**2)
- dpsidt = -vsig**2*divBfunc(xyzhi) - psi(xyzhi)*psidecayfac*vsig/xyzhi(4) &
-          -0.5*psi(xyzhi)*divvfunc(xyzhi)
+ vdummy   = 0.
+ spsoundi = get_spsound(ieos,xyzhi,rhoh(xyzhi(4),massoftype(1)),vdummy)
+ vsig     = sqrt(valfven(xyzhi)**2 + spsoundi**2)
+ dpsidt   = -vsig**2*divBfunc(xyzhi) - psi(xyzhi)*psidecayfac*vsig/xyzhi(4) &
+            -0.5*psi(xyzhi)*divvfunc(xyzhi)
 
 end function dpsidt
 

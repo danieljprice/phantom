@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -92,11 +92,12 @@ end subroutine write_smalldump_hdf5
 !+
 !-------------------------------------------------------------------
 subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
- use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,    &
-                          use_dust,use_dustgrowth,phantom_version_major,      &
-                          phantom_version_minor,phantom_version_micro,        &
-                          store_temperature,phantom_version_string,use_krome, &
-                          store_dust_temperature,do_radiation,gr
+ use dim,            only:maxp,maxvxyzu,gravity,maxalpha,mhd,mhd_nonideal,      &
+                          use_dust,use_dustgrowth,phantom_version_major,        &
+                          phantom_version_minor,phantom_version_micro,          &
+                          phantom_version_string,use_krome,   &
+                          store_dust_temperature,do_radiation,gr,do_nucleation, &
+                          mpi,idumpfile
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -104,15 +105,14 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           alphaind,rhoh,divBsymm,iphase,nptmass,               &
                           xyzmh_ptmass,vxyz_ptmass,get_pmass,abundance,        &
                           divcurlv,divcurlB,poten,dustfrac,deltav,tstop,       &
-                          dustprop,VrelVf,dustgasprop,ndustsmall,  &
+                          dustprop,VrelVf,dustgasprop,ndustsmall,              &
                           luminosity,eta_nimhd,massoftype,hfact,Bextx,Bexty,   &
                           Bextz,ndustlarge,idust,idustbound,grainsize,         &
                           graindens,h2chemistry,lightcurve,ndivcurlB,          &
-                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_chem,      &
-                          dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig
-#ifdef NUCLEATION
+                          ndivcurlv,pxyzu,dens,gamma_chem,mu_chem,T_gas_cool,  &
+                          dust_temp,rad,radprop,itemp,igasP,eos_vars,iorig,    &
+                          npartoftypetot,update_npartoftypetot
  use part,           only:nucleation
-#endif
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
 #endif
@@ -120,7 +120,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
+ use timestep,       only:dtmax,C_cour,C_force,dtmax_user,idtmax_n_next,idtmax_frac_next
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
@@ -135,17 +135,12 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 
  integer            :: i
  integer            :: ierr
- integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8)    :: nparttot
  logical            :: ind_timesteps,const_av,prdrag,isothermal
  real, allocatable  :: dtin(:),beta_pr(:)
  character(len=200) :: fileid,fstr,sstr
  real :: posmh(10)
  real :: vels(6)
-
- ! dummy nucleation array
-#ifndef NUCLEATION
- real :: nucleation(1,1)
-#endif
 
  type (header_hdf5) :: hdr
  type (arrays_options_hdf5) :: array_options
@@ -165,21 +160,22 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
 !--collect global information from MPI threads
 !
 !--allow non-MPI calls to create MPI dump files
-#ifdef MPI
- nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
-#else
- if (present(ntotal)) then
-    nparttot = ntotal
-    npartoftypetot = npartoftype
-    if (all(npartoftypetot==0)) then
-       npartoftypetot(1) = ntotal
-    endif
+
+ if (mpi) then
+    nparttot = reduceall_mpi('+',npart)
+    call update_npartoftypetot
  else
-    nparttot = npart
-    npartoftypetot = npartoftype
+    if (present(ntotal)) then
+       nparttot = ntotal
+       npartoftypetot = npartoftype
+       if (all(npartoftypetot==0)) then
+          npartoftypetot(1) = ntotal
+       endif
+    else
+       nparttot = npart
+       npartoftypetot = npartoftype
+    endif
  endif
-#endif
 
 #ifdef IND_TIMESTEPS
  ind_timesteps = .true.
@@ -254,6 +250,10 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  hdr%ieos = ieos
  hdr%time = t
  hdr%dtmax = dtmax
+ hdr%dtmax_user = dtmax_user
+ hdr%idumpfile = idumpfile
+ hdr%idtmax_n_next = idtmax_n_next
+ hdr%idtmax_frac_next = idtmax_frac_next
  hdr%gamma = gamma
  hdr%rhozero = rhozero
  hdr%polyk = polyk
@@ -324,7 +324,6 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  array_options%h2chemistry = h2chemistry
  array_options%lightcurve = lightcurve
  array_options%prdrag = prdrag
- array_options%store_temperature = store_temperature
  array_options%ndivcurlB = ndivcurlB
  array_options%ndivcurlv = ndivcurlv
  array_options%ndustsmall = ndustsmall
@@ -333,11 +332,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  array_options%radiation = do_radiation
  array_options%krome = use_krome
  array_options%gr = gr
-#ifdef NUCLEATION
- array_options%nucleation = .true.
-#else
- array_options%nucleation = .false.
-#endif
+ array_options%nucleation = do_nucleation
 
  ! write the arrays to file
  if (fulldump) then
@@ -374,7 +369,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                            dens,         & !
                            gamma_chem,   & !
                            mu_chem,      & !
-                           T_chem,       & !
+                           T_gas_cool,   & !
                            nucleation,   & !
                            dust_temp,    & !
                            rad,          & !
@@ -477,9 +472,9 @@ subroutine read_any_dump_hdf5(                                                  
 )
  use boundary,       only:set_boundary
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
-                          h2chemistry,store_temperature,nsinkproperties,     &
+                          h2chemistry,nsinkproperties,     &
                           maxp_hard,use_krome,store_dust_temperature,        &
-                          do_radiation,gr
+                          do_radiation,do_nucleation,gr
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
@@ -490,13 +485,11 @@ subroutine read_any_dump_hdf5(                                                  
                           ndustsmall,grainsize,graindens,Bextx,Bexty,Bextz,    &
                           alphaind,poten,Bxyz,Bevol,dustfrac,deltav,dustprop,  &
                           dustgasprop,VrelVf,eos_vars,abundance,               &
-                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,T_chem, &
-                          dust_temp,rad,radprop,igasP,itemp,iorig
+                          periodic,ndusttypes,pxyzu,gamma_chem,mu_chem,        &
+                          T_gas_cool,dust_temp,nucleation,rad,radprop,igasP,   &
+                          itemp,iorig
 #ifdef IND_TIMESTEPS
  use part,           only:dt_in
-#endif
-#ifdef NUCLEATION
- use part,           only:nucleation
 #endif
  use setup_params,   only:rhozero
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
@@ -507,16 +500,12 @@ subroutine read_any_dump_hdf5(                                                  
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
  integer,           intent(out) :: ierr
+ integer(kind=8)                :: nparttot
  logical, optional, intent(in)  :: headeronly
  logical, optional, intent(in)  :: dustydisc
  logical, optional, intent(in)  :: acceptsmall
 
  real(kind=4), allocatable :: dtind(:)
-
- ! dummy nucleation array
-#ifndef NUCLEATION
- real :: nucleation(1,1)
-#endif
 
  real :: xmin,xmax,ymin,ymax,zmin,zmax
  real :: dtmaxi,tolhfile,C_courfile,C_forcefile,alphafile,alphaufile,alphaBfile
@@ -559,6 +548,10 @@ subroutine read_any_dump_hdf5(                                                  
  ieos = hdr%ieos
  tfile = hdr%time
  dtmaxi = hdr%dtmax
+ dtmax_user = hdr%dtmax_user
+ idumpfile = hdr%idumpfile
+ idtmax_n = hdr%idtmax_n_next
+ idtmax_frac = hdr%idtmax_frac_next
  gamma = hdr%gamma
  rhozero = hdr%rhozero
  polyk = hdr%polyk
@@ -619,7 +612,7 @@ subroutine read_any_dump_hdf5(                                                  
 #ifdef INJECT_PARTICLES
  call allocate_memory(maxp_hard)
 #else
- call allocate_memory(int(npart / nprocs) + 1)
+ call allocate_memory(int(min(nprocs,4)*nparttot/nprocs,8))
 #endif
 
  if (periodic) then
@@ -654,16 +647,11 @@ subroutine read_any_dump_hdf5(                                                  
  array_options%use_dustfrac = use_dustfrac
  array_options%use_dustgrowth = use_dustgrowth
  array_options%h2chemistry = h2chemistry
- array_options%store_temperature = store_temperature
  array_options%store_dust_temperature = store_dust_temperature
  array_options%radiation = do_radiation
  array_options%krome = use_krome
  array_options%gr = gr
-#ifdef NUCLEATION
- array_options%nucleation = .true.
-#else
- array_options%nucleation = .false.
-#endif
+ array_options%nucleation = do_nucleation
 
  allocate(dtind(npart))
  call read_hdf5_arrays(hdf5_file_id,  &
@@ -692,7 +680,7 @@ subroutine read_any_dump_hdf5(                                                  
                        pxyzu,         &
                        gamma_chem,    &
                        mu_chem,       &
-                       T_chem,        &
+                       T_gas_cool,    &
                        nucleation,    &
                        dust_temp,     &
                        rad,           &
@@ -707,6 +695,7 @@ subroutine read_any_dump_hdf5(                                                  
  if (.not.smalldump) then
     call check_arrays(1,                          &
                       npart,                      &
+                      0,                          &
                       npartoftype,                &
                       npart,                      &
                       nptmass,                    &
@@ -723,6 +712,9 @@ subroutine read_any_dump_hdf5(                                                  
                       got_arrays%got_krome_gamma, &
                       got_arrays%got_krome_mu,    &
                       got_arrays%got_krome_T,     &
+                      .false.,                    &
+                      .false.,                    &
+                      .false.,                    &
                       got_arrays%got_abund,       &
                       got_arrays%got_dustfrac,    &
                       got_arrays%got_sink_data,   &

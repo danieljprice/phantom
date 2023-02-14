@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module io
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mpi
+! :Dependencies: dim, mpi
 !
  implicit none
  integer, parameter, public :: stdout = 6
@@ -41,12 +41,12 @@ module io
  !  to real*4 for output
  interface real4
   module procedure realr4,reald4,reali4
- end interface
+ end interface real4
 
  !--generic interface of format int handles both int*4 and int*8
  interface formatint
   module procedure formatint4,formatint8
- end interface
+ end interface formatint
  !
  !--internal storage of warnings database for buffered warnings
  !
@@ -56,13 +56,16 @@ module io
 
  integer, parameter, private :: lenmsg = 120
  integer, parameter, private :: lenwhere = 20
+ integer, parameter, public :: lenprefix = 120
 
  type warningdb_entry
     character(len=lenwhere) :: wherefrom
     character(len=lenmsg)   :: message
     integer(kind=8)         :: ncount
     integer :: level
- end type
+ end type warningdb_entry
+
+ character(len=lenprefix), public :: fileprefix
 
  integer, parameter :: maxwarningdb = 20
  type(warningdb_entry) :: warningdb(maxwarningdb)
@@ -77,14 +80,16 @@ contains
 !+
 !--------------------------------------------------------------------
 subroutine set_io_unit_numbers
+ use dim, only: mpi
 
-#ifdef MPI
- iprint = 6     ! only iprint=6 makes sense for MPI runs
-#else
- iprint = 6 !8     ! for writing log output
- nprocs = 1
- id     = 0
-#endif
+ if (mpi) then
+    iprint = 6      ! only iprint=6 makes sense for MPI runs
+ else
+    iprint = 6 !8   ! for writing log output
+    nprocs = 1
+    id     = 0
+ endif
+
  imflow  = 47
  ivmflow = 48
  ibinpos = 49
@@ -105,6 +110,7 @@ subroutine set_io_unit_numbers
  iscfile    = 32 ! for writing details of sink creation
  iskfile    =407 ! for writing details of the sink particles; opens files iskfile to iskfile+nptmass
  iverbose   = 0
+ fileprefix = '' ! blank by default, set to name of .in file
 
 end subroutine set_io_unit_numbers
 
@@ -297,9 +303,9 @@ subroutine buffer_warning(wherefrom,string,ncount,level)
         .and. warningdb(j)%message(1:ls) == string(1:ls)) then
        !--if warning matches an existing warning in the database
        !  just increase the reference count
-!$omp critical
+!$omp critical (warning_count)
        warningdb(j)%ncount = warningdb(j)%ncount + 1_8
-!$omp end critical
+!$omp end critical (warning_count)
        ncount = warningdb(j)%ncount
        exit over_db
     elseif (len_trim(warningdb(j)%message)==0) then
@@ -379,6 +385,7 @@ end subroutine flush_warnings
 !+
 !--------------------------------------------------------------------
 subroutine warn(wherefrom,string,severity)
+ use dim, only: mpi
  character(len=*), intent(in) :: string,wherefrom
  integer,          intent(in), optional :: severity
  integer :: iseverity
@@ -416,11 +423,11 @@ subroutine warn(wherefrom,string,severity)
        if (iprint /= 6) write(*,"(/' ERROR! ',a,': ',a,/)") trim(wherefrom),trim(string)
     endif
  case(4)
-#ifdef MPI
-    write(iprint,"(/' FATAL ERROR! on thread ',i4,' in ',a,': ',a)") id,trim(wherefrom),trim(string)
-#else
-    write(iprint,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
-#endif
+    if (mpi) then
+       write(iprint,"(/' FATAL ERROR! on thread ',i4,' in ',a,': ',a)") id,trim(wherefrom),trim(string)
+    else
+       write(iprint,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
+    endif
     if (iprint /= 6) write(*,"(/' FATAL ERROR! ',a,': ',a)") trim(wherefrom),trim(string)
     call die
  case default
