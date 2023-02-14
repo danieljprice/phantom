@@ -73,7 +73,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
                     disc_mass,disc_massdust,sig_norm,star_mass,xyz_origin,vxyz_origin, &
                     particle_type,particle_mass,hfact,xyzh,vxyzu,polyk, &
                     position_angle,inclination,ismooth,alpha,rwarp,warp_smoothl, &
-                    bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose)
+                    bh_spin,bh_spin_angle,rref,writefile,ierr,prefix,verbose,mpi_local)
  use io,   only:stdout
  use part, only:maxp,idust,maxtypes
  use centreofmass, only:get_total_angular_momentum
@@ -96,7 +96,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real,              intent(out)   :: xyzh(:,:)
  real,              intent(out)   :: vxyzu(:,:)
  real,              intent(out)   :: polyk,particle_mass
- logical, optional, intent(in)    :: writefile,verbose
+ logical, optional, intent(in)    :: writefile,verbose,mpi_local
  integer, optional, intent(out)   :: ierr
  character(len=20), optional, intent(in) :: prefix
  integer :: itype,npart_tot,npart_start_count,i,npart_set
@@ -108,7 +108,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  real    :: aspin,aspin_angle,posangl,incl,R_warp,H_warp,psimax
  real    :: xorigini(3),vorigini(3),R_ref,L_tot(3),L_tot_mag
  real    :: enc_m(maxbins),rad(maxbins),enc_m_tmp(maxbins),rad_tmp(maxbins)
- logical :: smooth_surface_density,do_write,do_mixture
+ logical :: smooth_surface_density,do_write,do_mixture,do_mpi_local
  logical :: do_verbose,exponential_taper,exponential_taper_dust
  logical :: exponential_taper_alternative,exponential_taper_dust_alternative
 
@@ -186,6 +186,8 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  do_verbose = .true.
  if (present(verbose)) do_verbose = verbose
+ do_mpi_local = .false.
+ if (present(mpi_local)) do_mpi_local = mpi_local
  phi_min = 0.
  phi_max = 2.*pi
  if (present(phimin)) phi_min = phimin
@@ -344,7 +346,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  call set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                          R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                          sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose)
+                         q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,do_verbose,do_mpi_local)
  !
  !--set particle velocities
  !
@@ -355,7 +357,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  call set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,aspin_angle, &
                           clight,cs0,exponential_taper,p_index,q_index,gamma,R_in, &
-                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl)
+                          rad,enc_m,smooth_surface_density,xyzh,vxyzu,incl,mpi_local)
  !
  !--inclines and warps
  !
@@ -378,7 +380,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  rmaxav = R_out
  call get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,star_m,&
-               npart_start_count,npart_tot,do_verbose,R_warp)
+               npart_start_count,npart_tot,do_verbose,mpi_local,R_warp)
 
  if (present(inclination)) then
     !--incline disc at position angle and poss. warp disc
@@ -493,7 +495,7 @@ end function cs_func
 subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,R_out,&
                               R_indust,R_outdust,phi_min,phi_max,sigma_norm,sigma_normdust,&
                               sigmaprofile,sigmaprofiledust,R_c,R_c_dust,p_index,p_inddust,cs0,cs0dust,&
-                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose)
+                              q_index,q_inddust,star_m,G,particle_mass,hfact,itype,xyzh,honH,verbose,mpi_local)
  use io,      only:id,master
  use part,    only:set_particle_type
  use random,  only:ran2
@@ -501,7 +503,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
  real,    intent(in)    :: R_ref,R_in,R_out,phi_min,phi_max
  real,    intent(in)    :: sigma_norm,p_index,cs0,q_index,star_m,G,particle_mass,hfact
  real,    intent(in)    :: sigma_normdust,R_indust,R_outdust,R_c,R_c_dust,p_inddust,q_inddust,cs0dust
- logical, intent(in)    :: do_mixture,verbose
+ logical, intent(in)    :: do_mixture,verbose,mpi_local
  integer, intent(in)    :: itype,sigmaprofile,sigmaprofiledust
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(out)   :: honH
@@ -599,7 +601,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
     if (do_mixture) rhopart = rhopart + rhozmixt
     hpart = hfact*(particle_mass/rhopart)**(1./3.)
 
-    if (i_belong_i4(i)) then
+    if (i_belong_i4(i) .or. mpi_local) then
        ipart = ipart + 1
        !--set positions -- move to origin below
        xyzh(1,ipart) = R*cos(phi)
@@ -609,7 +611,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
        !--set particle type
        call set_particle_type(ipart,itype)
     endif
-    if (i_belong_i4(i+1) .and. i+1 <= npart_tot) then
+    if ((i_belong_i4(i+1) .or. mpi_local) .and. i+1 <= npart_tot) then
        ipart = ipart + 1
        !--set positions -- move to origin below
        xyzh(1,ipart) = -R*cos(phi)
@@ -639,7 +641,8 @@ end subroutine set_disc_positions
 !----------------------------------------------------------------
 subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin, &
                                aspin_angle,clight,cs0,do_sigmapringle,p_index, &
-                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,vxyzu,inclination)
+                               q_index,gamma,R_in,rad,enc_m,smooth_sigma,xyzh,&
+                               vxyzu,inclination,mpi_local)
  use externalforces, only:iext_einsteinprec
  use options,        only:iexternalforce
  use part,           only:gravity
@@ -647,7 +650,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  integer, intent(in)    :: npart_tot,npart_start_count,itype
  real,    intent(in)    :: G,star_m,aspin,aspin_angle,clight,cs0,p_index,q_index
  real,    intent(in)    :: rad(:),enc_m(:),gamma,R_in
- logical, intent(in)    :: do_sigmapringle,smooth_sigma
+ logical, intent(in)    :: do_sigmapringle,smooth_sigma,mpi_local
  real,    intent(in)    :: xyzh(:,:),inclination
  real,    intent(inout) :: vxyzu(:,:)
  real :: term,term_pr,term_bh,det,vr,vphi,cs,R,phi
@@ -657,7 +660,7 @@ subroutine set_disc_velocities(npart_tot,npart_start_count,itype,G,star_m,aspin,
  ierr = 0
  ipart = npart_start_count - 1
  do i=npart_start_count,npart_tot
-    if (i_belong_i4(i)) then
+    if (i_belong_i4(i) .or. mpi_local) then
        ipart = ipart + 1
        !
        !--set velocities to give centrifugal balance:
@@ -986,12 +989,13 @@ end subroutine write_discinfo
 !  Output:
 !   honHmin, honH, honHmax - max mean and min ratio of h/H within range of R
 !-----------------------------------------------------------------------------
-subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i1,i2,verbose,rwarp)
+subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,&
+                    i1,i2,verbose,mpi_local,rwarp)
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(out) :: honHmax,honHmin,honH
  integer, intent(in)  :: i1,i2
  real,    intent(in)  :: cs0,q_index,M_star,rminav,rmaxav,rwarp
- logical, intent(in)  :: verbose
+ logical, intent(in)  :: verbose,mpi_local
 
  integer :: i,ii,iwarp
  real :: G,rmin,rmax,dr,ri
@@ -1032,7 +1036,7 @@ subroutine get_honH(xyzh,rminav,rmaxav,honHmin,honHmax,honH,cs0,q_index,M_star,i
  !--loop over particles putting properties into the correct bin
  ipart = i1 - 1
  do i=i1,i2
-    if (i_belong_i4(i)) then
+    if (i_belong_i4(i) .or. mpi_local) then
        ipart = ipart + 1
        if (xyzh(4,ipart) > tiny(xyzh)) then ! IF ACTIVE
           ri = sqrt(dot_product(xyzh(1:3,ipart),xyzh(1:3,ipart)))

@@ -78,6 +78,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  integer :: ninner,nouter,injected
 
+ if (.not.refill_boundaries) return
  !
  !--count the number of particles with r < R_in or r > R_out
  !
@@ -95,8 +96,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call inject_particles_in_annulus(r1out,r2out,nouter,injected,listouter)
  endif
 
- if (id==master .and. injected > 0) print "(1x,a,es10.3,a,i0,a,g0.2,a,i0,a,g0.2)", &
-      '>> t=',time,': re-injected ',ninner,' parts with R < ',r1in,' and ',nouter,' with R > ',r2out
+ if (injected > 0) print "(1x,a,i0,a,es10.3,a,i0,a,g0.2,a,i0,a,g0.2)", &
+      '>> ',id,' t=',time,': re-injected ',ninner,' parts with R < ',r1in,' and ',nouter,' with R > ',r2out
  !
  !-- no constraint on timestep
  !
@@ -179,7 +180,8 @@ subroutine inject_particles_in_annulus(r1,r2,ninject,injected,list)
                xyzh       = xyzh_inject,  &
                vxyzu      = vxyzu_inject, &
                writefile  = .false., &
-               verbose = .false.)
+               verbose = .false., &
+               mpi_local = .true.)
 
  ! flag that particle properties have been updated
  if (ninject > 0) updated_particle = .true.

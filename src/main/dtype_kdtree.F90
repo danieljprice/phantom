@@ -54,6 +54,7 @@ module dtypekdtree
     integer :: leftchild
     integer :: rightchild
     integer :: parent
+    integer :: ipadding
 #ifdef GRAVITY
     real :: mass
     real :: quads(6)
