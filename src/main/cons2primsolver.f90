@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,18 +14,15 @@ module cons2primsolver
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, utils_gr
+! :Dependencies: eos, io, metric_tools, part, physcon, units, utils_gr
 !
  use eos, only:ieos,polyk
+ use part, only:ien_etotal,ien_entropy,ien_entropy_s
  implicit none
 
  public :: conservative2primitive,primitive2conservative
 
  private :: get_u
-
- integer, public, parameter :: &
-      ien_etotal  = 1, &
-      ien_entropy = 2
 
 
 !!!!!!====================================================
@@ -77,6 +74,7 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
  use utils_gr,     only:get_u0
  use metric_tools, only:unpack_metric
  use io,           only:error
+ use eos,          only:gmw,get_entropy
  real, intent(in)  :: x(1:3),metrici(:,:,:)
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
@@ -109,7 +107,11 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
     enddo
  enddo
 
- if (ien_type == ien_entropy) then
+ if (ien_type == ien_etotal) then
+    en = U0*enth*gvv + (1.+u)/U0
+ elseif (ien_type == ien_entropy_s) then
+    en = get_entropy(dens,P,gmw,ieos)
+ else
     if (u > 0) then
        gam1 = 1. + P/(dens*u)
        en = P/(dens**gam1)
@@ -117,28 +119,33 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
        ! handle the case for u = 0
        en = P/dens
     endif
- else
-    en = U0*enth*gvv + (1.+u)/U0
  endif
 
 end subroutine primitive2conservative
 
-subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
+!----------------------------------------------------------------
+!+
+!  solve for primitive variables from the conserved variables
+!  for equations of state where gamma is constant
+!+
+!----------------------------------------------------------------
+subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
  use metric_tools, only:unpack_metric
- use units,        only:unit_ergg,unit_density,unit_pressure
- use eos,          only:calc_temp_and_ene,ieos
+ use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
+ use io,           only:fatal
+ use physcon,      only:radconst,Rg
+ use units,        only:unit_density,unit_ergg
  real, intent(in)    :: x(1:3),metrici(:,:,:)
- real, intent(inout) :: dens,P,u
+ real, intent(inout) :: dens,P,u,temp,gamma
  real, intent(out)   :: v(1:3)
  real, intent(in)    :: rho,pmom(1:3),en
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
- real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,temp,sqrt_gamma_inv
- real :: ucgs,Pcgs,denscgs
+ real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,cgsdens,cgsu
  integer :: niter, i
- real, parameter :: tol = 1.e-13
+ real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
  logical :: converged
  ierr = 0
@@ -156,12 +163,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
- enth = 1. + u + P/dens
- if (u > tiny(0.)) then
-    gamma = 1. + P/(dens*u)
- else
-    gamma = 5./3. ! use gamma for ideal gas
- endif
+ enth = 1 + gamma/(gamma-1.)*P/dens
 
  niter = 0
  converged = .false.
@@ -176,43 +178,58 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     lorentz_LEO = sqrt(lorentz_LEO2)
     dens = term/lorentz_LEO
 
-    if (ien_type == ien_entropy) then
-       p = en*dens**gamma
+    if (ien_type == ien_etotal) then
+       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
     elseif (ieos==4) then
        p = (gamma-1.)*dens*polyk
+    elseif (ien_type == ien_entropy_s) then
+       call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+       select case(ieos)
+       case (12)
+          cgsdens = dens * unit_density
+          cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
+          u = cgsu / unit_ergg
+          if (u > 0.) then
+             gamma1 = P/(u*dens)
+             gamma = 1. + gamma1
+             gamfac = gamma/gamma1
+          else
+             gamma = gamma_global
+             gamfac = gamma/(gamma-1.)
+          endif
+       case (2)
+       case default
+          call fatal('cons2primsolver','only implemented for eos 2 and 12')
+       end select
     else
-       p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+       p = en*dens**gamma
     endif
 
-    enth = 0.
-    if (p > 0.) then
-      ucgs = u*unit_ergg
-      Pcgs = P*unit_pressure
-      denscgs = dens*unit_density
-
-      call calc_temp_and_ene(denscgs,Pcgs,ucgs,temp,ierr,guesseint=ucgs)
-      u = ucgs/unit_ergg
-
-      enth = 1. + u + P/dens
-      gamma = 1. + P/(u*dens)
-      gamfac = gamma/(gamma-1.)
-    endif
-
-    f = enth-enth_old
+    f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
-    if (ien_type == ien_entropy) then
-       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
+    if (ien_type == ien_etotal) then
+       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
+    elseif (ien_type == ien_entropy_s) then
+       select case (ieos)
+       case (12)
+          df = -1. + (pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
+       case (2)
+          df = -1. + (2.*gamfac*pmom2*P)/(3.*lorentz_LEO2 * enth_old**3 * dens)
+       case default
+          df = 0.
+          call fatal('cons2primsolver','only implemented for eos 2 and 12')
+       end select
     else
-       df= -1.+gamfac*(1.-pmom2*p/(enth_old**3*lorentz_LEO2*dens))
+       df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
     enth = enth_old - f/df
 
     ! Needed in dust case when f/df = NaN casuses enth = NaN
-    if (abs(enth_old-1.)<tiny(enth_old)) enth=1.
+    if (enth-1. < tiny(enth)) enth = 1. + 1.5e-6
 
     niter = niter + 1
 
@@ -224,10 +241,27 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
 
- if (ien_type == ien_entropy) then
-    p = en*dens**gamma
+ if (ien_type == ien_etotal) then
+    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-pm_dot_b),0.)
+ elseif (ieos==4) then
+    p = (gamma-1.)*dens*polyk
+ elseif (ien_type == ien_entropy_s) then
+    call get_p_from_rho_s(ieos,en,dens,gmw,P,temp)
+    select case(ieos)
+    case (12)
+       cgsdens = dens * unit_density
+       cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
+       u = cgsu / unit_ergg
+       if (u > 0.) then
+          gamma = 1. + P/(u*dens)
+       else
+          gamma = gamma_global
+       endif
+    case (2)
+       call get_u(u,P,dens,gamma)
+    end select
  else
-    p = max(rho*sqrtg_inv*(enth*lorentz_LEO*alpha-en-dot_product(pmom,betaUP)),0.)
+    p = en*dens**gamma
  endif
 
  v3d(:) = alpha*pmom(:)/(enth*lorentz_LEO)-betadown(:)
@@ -237,7 +271,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
     v(i) = dot_product(gammaijUP(:,i),v3d(:))
  enddo
 
- call get_u(u,P,dens,gamma)
+ if (ien_type /= ien_entropy_s) call get_u(u,P,dens,gamma)
 
 end subroutine conservative2primitive
 

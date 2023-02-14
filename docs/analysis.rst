@@ -19,7 +19,7 @@ or for a column density rendering:
 .. code-block:: bash
 
    splash -r 6 dump_0*
-   
+
 and press Enter for "Hollywood mode". You can also use splash to convert to ascii:
 
 .. code-block:: bash
@@ -31,7 +31,7 @@ or to interpolate to a 3D grid:
 .. code-block:: bash
 
    splash to grid dump_0*
-   
+
 To make a movie, just give "/png" as the output:
 
 .. code-block:: bash
@@ -84,7 +84,14 @@ The short answer is, do not under any circumstances attempt to do this
 yourself! (If you need convincing, just have a quick look at how long
 the read_data_sphNG.f90 file in splash is). The best way to read/analyse
 phantom dumps, aside from using splash to visualise them, is to use the
-phantomanalysis utility, see below.
+built-in phantomanalysis utility (described below), or the
+:doc:`sarracen <sarracen>` python package. A full description of
+the data format and how to read it can be found :doc:`here <dumpfile>`.
+
+Sarracen
+~~~~~~~~
+
+- See :doc:`How to analyse and visualise phantom data with sarracen <sarracen>`
 
 Phantomanalysis
 ~~~~~~~~~~~~~~~
@@ -96,7 +103,7 @@ Compile the phantomanalysis utility using:
    make analysis
 
 which compiles the phantomanalysis binary using the analysis module you
-specified in phantom/build/Makefile:
+specified in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/master/build/Makefile_setups>`__:
 
 .. code-block:: make
 
@@ -114,21 +121,28 @@ giving
    $ ls
    phantomanalysis*
 
-Phantomanalysis is a simple wrapper that reads all of the dump files on
-the command line in sequence and calls the analysis routine specified in
-the analysis_blah.f90 module.
+Phantomanalysis is a simple wrapper that reads all of the dump files on the command line in sequence and calls the analysis routine specified in the ANALYSIS variable, in this case analysis_disc.f90. For a list of pre-built analysis tools, see the :doc:`list of Phantom
+utilities <utils>`.
+
+Compiling your own phantomanalysis module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can also select the module on the command line using, for example
+
+.. code-block:: bash
+
+   make analysis ANALYSIS=analysis_blah.f90
 
 You can then write an analysis_blah.f90 to do whatever it is you want,
-even if you what you want is: \* something completely trivial (see for
-example analysis_dtheader.f90 which just compares the time from each
-dump file with the time in the previous dump file); or \* conversion to
-another format; or \* actually performing some analysis
-(e.g. analysis_disc.f90 which bins particles into rings for comparison
-with 1D alpha-disc evolution calculations).
+even if you what you want is:
+
+- something completely trivial (see for example `analysis_dtheader.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_dtheader.f90>`__ which just compares the time from each dump file with the time in the previous dump file); or
+- conversion to another format; or
+- actually performing some analysis (e.g. `analysis_disc.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_disc.f90>`__ which bins particles into rings for comparison with 1D alpha-disc evolution calculations).
 
 The call to analysis passes the most useful information on the particles
 (positions, velocities, thermal energy, particle masses and numbers of
-particles). \**Any remaining information can also be accessed via the
+particles). **Any remaining information can also be accessed via the
 usual phantom modules**. For example, you can access sink particle
 arrays using:
 
@@ -136,8 +150,6 @@ arrays using:
 
    use part, only:xyzmh_ptmass,vxyz_ptmass
 
-For a list of pre-built analysis tools, see the :doc:`list of Phantom
-utilities <utils>`.
 
 Converting to another format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -153,10 +165,11 @@ utility in splash. For example, to convert all files to ascii format
 To avoid precision loss, you will need to ensure that splash is compiled
 in double precision (use make DOUBLEPRECISION=yes when compiling splash)
 
-Analysis with Python
-~~~~~~~~~~~~~~~~~~~~
+Analysis with pyanalysis
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Compile the phantom pyanalysis utility using:
+An alternative method for analysis in python is to compile the phantom
+pyanalysis utility using:
 
 .. code-block:: bash
 

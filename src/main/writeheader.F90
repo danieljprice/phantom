@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module writeheader
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, gitinfo, growth, io,
-!   kernel, metric_tools, options, part, physcon, readwrite_infile, units,
-!   viscosity
+!   kernel, metric_tools, mpiutils, options, part, physcon,
+!   readwrite_infile, units, viscosity
 !
  implicit none
  public :: write_header,write_codeinfo
@@ -80,10 +80,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,&
-                            gravity,h2chemistry,periodic,npartoftype,massoftype,&
+                            gravity,h2chemistry,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
+ use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
- use cooling,          only:cooling_implicit,cooling_explicit,Tfloor,ufloor
+ use cooling,          only:cooling_in_step,Tfloor,ufloor
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
@@ -133,9 +134,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (present(ntot)) then
        write(iprint,"(/,' Number of particles = ',i12)") ntot
        do i = 1,maxtypes
-          if (npartoftype(i) > 0) then
+          if (npartoftypetot(i) > 0) then
              write(iprint,"(1x,3a,i12,a,es14.6)") &
-                "Number & mass of ",labeltype(i)," particles: ", npartoftype(i),", ",massoftype(i)
+                "Number & mass of ",labeltype(i)," particles: ", npartoftypetot(i),", ",massoftype(i)
           endif
        enddo
        write(iprint,"(a)") " "
@@ -149,9 +150,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
           write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
        else
-          write(iprint,"(2x,2(a,f10.5))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,f10.5))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,f10.5))")  'zmin = ',zmin,' zmax = ',zmax
+          write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+          write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+          write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
        endif
     else
        write(iprint,"(a)") ' No boundaries set '
@@ -169,8 +170,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
-    if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
-    if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
+    if (cooling_in_step)  then
+       write(iprint,"(1x,a)") 'Cooling is calculated in step'
+    else
+       write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+    endif
     if (ufloor > 0.) then
        write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
        ufloor*unit_ergg,' erg/g = ',ufloor,' code units'

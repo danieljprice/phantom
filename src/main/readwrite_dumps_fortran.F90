@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,10 +18,10 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checkconserved, dim, dump_utils, dust, eos,
-!   externalforces, fileutils, io, krome_user, lumin_nsdisc, memory, mpi,
-!   mpiutils, options, part, readwrite_dumps_common, setup_params,
-!   sphNGutils, timestep, units
+! :Dependencies: boundary, checkconserved, dim, dump_utils, dust,
+!   dust_formation, eos, externalforces, fileutils, io, krome_user,
+!   lumin_nsdisc, memory, mpi, mpiutils, options, part,
+!   readwrite_dumps_common, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -208,21 +208,24 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,store_temperature,use_dustgrowth,store_dust_temperature,gr
- use eos,   only:ieos,eos_is_non_ideal
+                 lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation
+ use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,npartoftype,maxtypes, &
+ use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
+                 npartoftypetot,update_npartoftypetot, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
                  maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
-                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,iorig
- use options,    only:use_dustfrac
+                 rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
+                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc
+ use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
+ use timestep,   only:idtmax_n,idtmax_frac
 #ifdef IND_TIMESTEPS
  use timestep,   only:dtmax
  use part,       only:ibin
@@ -239,10 +242,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #endif
 #ifdef KROME
  use krome_user, only:krome_nmols
- use part,       only:gamma_chem,mu_chem,T_chem
-#endif
-#ifdef NUCLEATION
- use part,       only:nucleation,nucleation_label,n_nucleation
+ use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -253,12 +253,13 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: ipass,k,l
- integer            :: ierr,ierrs(29)
+ integer            :: ipass,k,l,ioffset
+ integer            :: ierr,ierrs(30)
  integer            :: nblocks,nblockarrays,narraylengths
- integer(kind=8)    :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8)    :: nparttot
  logical            :: sphNGdump,write_itype,use_gas
  character(len=lenid)  :: fileid
+ character(len=120)    :: blankarray
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
 !
@@ -267,17 +268,17 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !--allow non-MPI calls to create MPI dump files
 #ifdef MPI
  nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ call update_npartoftypetot
 #else
  if (present(ntotal)) then
     nparttot = ntotal
-    npartoftypetot = npartoftype
+    call update_npartoftypetot
     if (all(npartoftypetot==0)) then
        npartoftypetot(1) = ntotal
     endif
  else
     nparttot = npart
-    npartoftypetot = npartoftype
+    call update_npartoftypetot
  endif
 #endif
  nblocks = nprocs
@@ -306,9 +307,16 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 
-    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
-              "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
-
+    if (idtmax_frac==0) then
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+    else
+       ioffset = max(0,len(trim(dumpfile))-1)
+       write(blankarray,'(a)') ' '
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------')")  &
+       t,trim(dumpfile)
+       write(iprint,"('-------->                        Writing sub-dumps: ',I4,' of',I4,a,'<--------',/)")  &
+       idtmax_frac,idtmax_n,blankarray(1:ioffset)
+    endif
     call open_dumpfile_w(idump,dumpfile,fileid,ierr)
     if (ierr /= 0) then
        call error('write_fulldump','error creating new dumpfile '//trim(dumpfile))
@@ -374,11 +382,22 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
        endif
-       if (store_temperature) call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+       if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature .or. icooling > 0) then
+          call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
+       endif
        call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
        ! write pressure to file
-       if ((ieos==8 .or. ieos==9 .or. ieos==10 .or. ieos==15 .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
+       if ((eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
           call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=igasP)
+       endif
+       ! write X, Z, mu to file
+       if (eos_outputs_mu(ieos)) then
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=imu)
+          if (use_var_comp) then
+             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iX)
+             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iZ)
+          endif
        endif
 
        ! smoothing length written as real*4 to save disk space
@@ -417,11 +436,14 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
        call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
        call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
-       call write_array(1,T_chem,'temp',npart,k,ipass,idump,nums,ierrs(24))
+       call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
 #endif
-#ifdef NUCLEATION
-       call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
-#endif
+       if (do_nucleation) then
+          call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
+       endif
+       If (itau_alloc == 1) then
+          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
+       endif
        if (store_dust_temperature) then
           call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
        endif
@@ -490,7 +512,8 @@ end subroutine write_fulldump_fortran
 subroutine write_smalldump_fortran(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
- use part,       only:xyzh,xyzh_label,npart,npartoftype,Bxyz,Bxyz_label,&
+ use part,       only:xyzh,xyzh_label,npart,Bxyz,Bxyz_label,&
+                      npartoftypetot,update_npartoftypetot,&
                       maxphase,iphase,h2chemistry,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
@@ -508,14 +531,14 @@ subroutine write_smalldump_fortran(t,dumpfile)
  integer         :: nums(ndatatypes,4)
  integer         :: ierr,ipass,k
  integer         :: nblocks,nblockarrays,narraylengths
- integer(kind=8) :: nparttot,npartoftypetot(maxtypes)
+ integer(kind=8) :: nparttot
  logical         :: write_itype
  type(dump_h)    :: hdr
 !
 !--collect global information from MPI threads
 !
  nparttot = reduceall_mpi('+',npart)
- npartoftypetot = reduceall_mpi('+',npartoftype)
+ call update_npartoftypetot
  nblocks = nprocs
 
  narraylengths = 2
@@ -626,7 +649,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                       open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
- use sphNGutils, only:convert_sinks_sphNG
+ use sphNGutils, only:convert_sinks_sphNG,mass_sphng
  use options,    only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
@@ -653,7 +676,6 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr)
-
  !
  ! exit with error if file not readable by current routine
  !
@@ -762,9 +784,9 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !--Allocate main arrays
 !
 #ifdef INJECT_PARTICLES
-       call allocate_memory(maxp_hard)
+       call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
 #else
-       call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+       call allocate_memory(nparttot)
 #endif
     endif
 !
@@ -798,6 +820,11 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
     endif
 
+    if (.not. phantomdump) then
+       print *, "allocating arrays for nptmass=", nptmass
+       allocate(mass_sphng(maxp_hard))
+    endif
+
     call read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,npartoftype,&
                           massoftype,nptmass,nsinkproperties,phantomdump,tagged,.false.,&
                           tfile,alphafile,idisk1,iprint,ierr)
@@ -807,9 +834,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  enddo overblocks
 
  !
- ! check npartoftype
+ ! check npartoftype- breaks for sphng "type19" sinks
+ ! post-itype conversion
  !
- if (maxphase==maxp) then
+ if (maxphase==maxp .and. phantomdump) then
     npartoftypetot = npartoftype
     call count_particle_types(npartoftype)
     npartoftypetotact = reduceall_mpi('+',npartoftype)
@@ -831,6 +859,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  endif
 
  call check_npartoftype(npartoftype,npart)
+ if (.not. phantomdump) then
+    deallocate(mass_sphng)
+ endif
+
  if (narraylengths >= 4) then
     if (id==master) write(iprint,"(a,/)") ' <<< finished reading (MHD) file '
  else
@@ -901,6 +933,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr,singleprec=.true.)
+
  if (ierr /= 0) then
     call error('read_smalldump',get_error_text(ierr))
     if (ierr == ierr_realsize) then
@@ -954,9 +987,9 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  !--Allocate main arrays
  !
 #ifdef INJECT_PARTICLES
- call allocate_memory(maxp_hard)
+ call allocate_memory(int(maxp_hard,kind=8))
 #else
- call allocate_memory(int( min(nprocs,2)*nparttot / nprocs))
+ call allocate_memory(nparttot)
 #endif
 
 !
@@ -1092,25 +1125,24 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                                massoftype,nptmass,nsinkproperties,phantomdump,tagged,singleprec,&
                                tfile,alphafile,idisk1,iprint,ierr)
  use dump_utils, only:read_array,match_tag
- use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, &
-                      store_temperature,use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature
+ use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu, do_nucleation, &
+                      use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
-                      eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,&
+                      eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ikappa,ithick,itemp,iorig
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
+
+                      nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,ithick,itemp,igasP,iorig
+ use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
+ use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
  use part,       only:dt_in
 #endif
 #ifdef KROME
  use krome_user, only: krome_nmols
- use part,       only: gamma_chem,mu_chem,T_chem
-#endif
-#ifdef NUCLEATION
- use part, only:nucleation,nucleation_label,n_nucleation
-#else
- integer, parameter :: n_nucleation = 0
+ use part,       only: gamma_chem,mu_chem,T_gas_cool
 #endif
 #ifndef KROME
  integer, parameter :: krome_nmols = 0
@@ -1125,9 +1157,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: match
  logical               :: got_iphase,got_xyzh(4),got_vxyzu(4),got_abund(nabundances),got_alpha,got_poten
  logical               :: got_sink_data(nsinkproperties),got_sink_vels(3),got_Bxyz(3)
- logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
- logical               :: got_nucleation(n_nucleation)
- logical               :: got_psi,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
+ logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu,got_x,got_z,got_mu
+ logical               :: got_nucleation(n_nucleation),got_ray_tracer
+ logical               :: got_psi,got_gasP,got_temp,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4), &
                           got_divcurlv(4),got_raden(maxirad),got_kappa,got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
@@ -1146,6 +1178,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_sink_vels   = .false.
  got_Bxyz        = .false.
  got_psi         = .false.
+ got_gasP        = .false.
  got_temp        = .false.
  got_dustprop    = .false.
  got_VrelVf      = .false.
@@ -1156,7 +1189,11 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_krome_gamma = .false.
  got_krome_mu    = .false.
  got_krome_T     = .false.
+ got_x           = .false.
+ got_z           = .false.
+ got_mu          = .false.
  got_nucleation  = .false.
+ got_ray_tracer  = .false.
  got_raden       = .false.
  got_kappa       = .false.
  got_pxyzu       = .false.
@@ -1182,6 +1219,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (maxphase==maxp) call read_array(iphase,'itype',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(xyzh, xyzh_label, got_xyzh, ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(vxyzu,vxyzu_label,got_vxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (.not. phantomdump) then
+                call read_array(iphase,'iphase',got_iphase,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(mass_sphng,'m',got_mass,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (gr) call read_array(pxyzu,pxyzu_label,got_pxyzu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (use_dustgrowth) then
                 call read_array(dustprop,dustprop_label,got_dustprop,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1202,17 +1243,26 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(abundance,abundance_label,got_krome_mols,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(gamma_chem,'gamma',got_krome_gamma,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(T_chem,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
 #endif
-#ifdef NUCLEATION
-             call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-#endif
+             if (do_nucleation) then
+                call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (itau_alloc == 1) then
+                call read_array(tau,'tau',got_ray_tracer,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
              if (store_dust_temperature) then
                 call read_array(dust_temp,'Tdust',got_Tdust,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
-             if (store_temperature) then
+             if (eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) then
+                call read_array(eos_vars(igasP,:),eos_vars_label(igasP),got_gasP,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
+             if (eos_is_non_ideal(ieos)) then
                 call read_array(eos_vars(itemp,:),eos_vars_label(itemp),got_temp,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
+             call read_array(eos_vars(iX,:),eos_vars_label(iX),got_x,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(eos_vars(iZ,:),eos_vars_label(iZ),got_z,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             call read_array(eos_vars(imu,:),eos_vars_label(imu),got_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              if (maxalpha==maxp) call read_array(alphaind(1,:),'alpha',got_alpha,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              !
              ! read divcurlv if it is in the file
@@ -1237,6 +1287,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
+             print *, "case 2. Tag:", tag
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
           case(4)
@@ -1254,13 +1305,16 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  !
  ! check for errors
  !
- call check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
+ call check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                    alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                   got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
+                   got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
+                   got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_nucleation,got_iorig,iphase,&
                    xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
-
+ if (.not. phantomdump) then
+    print *, "Calling set_gas_particle_mass"
+    call set_gas_particle_mass(mass_sphng)
+ endif
  return
 100 continue
  write(iprint,"(a,/)") ' <<< ERROR! end of file reached in data read'
@@ -1333,7 +1387,8 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  use dim,        only:maxdustlarge,use_dust
  use io,         only:master ! check this
  use eos,        only:isink
- use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes
+ use part,       only:maxtypes,igas,idust,ndustsmall,ndustlarge,ndusttypes,&
+                      npartoftypetot
  use units,      only:udist,umass,utime,set_units_extra,set_units
  use dump_utils, only:extract,dump_h
  use fileutils,  only:make_tags_unique
@@ -1346,7 +1401,7 @@ subroutine unfill_header(hdr,phantomdump,got_tags,nparttot, &
  integer,         intent(out) :: ierr
  integer         :: nparttoti,npartoftypetoti(maxtypes),ntypesinfile,nptinfile
  integer         :: ierr1,ierrs(3),i,counter
- integer(kind=8) :: npartoftypetot(maxtypes),ntypesinfile8
+ integer(kind=8) :: ntypesinfile8
  character(len=10) :: dust_label(maxdustlarge)
 
  ierr = 0
@@ -1470,19 +1525,21 @@ end subroutine unfill_header
 !+
 !-------------------------------------------------------------------
 subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,ierr)
- use eos,            only:polyk,gamma,polyk2,qfacdisc,isink
+ use eos,            only:write_headeropts_eos,polyk2
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
                           idust,grainsize,graindens,ndusttypes
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
+ use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
- use dim,            only:use_dust,maxtypes,use_dustgrowth, &
-                          phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
+ use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
+                          phantom_version_major,phantom_version_minor,phantom_version_micro,periodic,idumpfile
  use units,          only:udist,umass,utime,unit_Bfield
+ use dust_formation, only:write_headeropts_dust_formation
+
  logical,         intent(in)    :: sphNGdump
  real,            intent(in)    :: t
  integer(kind=8), intent(in)    :: nparttot,npartoftypetot(:)
@@ -1497,11 +1554,13 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(maxtypes,'ntypes',hdr,ierr)
  call add_to_iheader(int(npartoftypetot(1:maxtypes)),'npartoftype',hdr,ierr)
  call add_to_iheader(nblocks,'nblocks',hdr,ierr)
- call add_to_iheader(isink,'isink',hdr,ierr)
  call add_to_iheader(nptmass,'nptmass',hdr,ierr)
  call add_to_iheader(ndustlarge,'ndustlarge',hdr,ierr)
  call add_to_iheader(ndustsmall,'ndustsmall',hdr,ierr)
  call add_to_iheader(idust,'idust',hdr,ierr)
+ call add_to_iheader(idtmax_n_next,'idtmax_n',hdr,ierr)
+ call add_to_iheader(idtmax_frac_next,'idtmax_frac',hdr,ierr)
+ call add_to_iheader(idumpfile,'idumpfile',hdr,ierr)
  call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
  call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
  call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
@@ -1514,13 +1573,12 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  ! int*4
  call add_to_header(iexternalforce,'iexternalforce',hdr,ierr)
  call add_to_header(ieos,'ieos',hdr,ierr)
+ call write_headeropts_eos(ieos,hdr,ierr)
 
  ! default real variables
  call add_to_rheader(t,'time',hdr,ierr)
- call add_to_rheader(dtmax,'dtmax',hdr,ierr)
- call add_to_rheader(gamma,'gamma',hdr,ierr)
+ call add_to_rheader(dtmax_user,'dtmax',hdr,ierr)
  call add_to_rheader(rhozero,'rhozero',hdr,ierr)
- call add_to_rheader(1.5*polyk,'RK2',hdr,ierr)
  if (sphNGdump) then ! number = 23
     call add_to_rheader(0.,'escaptot',hdr,ierr)
     call add_to_rheader(0.,'tkin',hdr,ierr)
@@ -1548,9 +1606,8 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(alpha,'alpha',hdr,ierr)
     call add_to_rheader(alphau,'alphau',hdr,ierr)
     call add_to_rheader(alphaB,'alphaB',hdr,ierr)
-    call add_to_rheader(polyk2,'polyk2',hdr,ierr)
-    call add_to_rheader(qfacdisc,'qfacdisc',hdr,ierr)
     call add_to_rheader(massoftype,'massoftype',hdr,ierr) ! array
+    if (do_nucleation) call write_headeropts_dust_formation(hdr,ierr)
     call add_to_rheader(Bextx,'Bextx',hdr,ierr)
     call add_to_rheader(Bexty,'Bexty',hdr,ierr)
     call add_to_rheader(Bextz,'Bextz',hdr,ierr)
@@ -1598,8 +1655,8 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxvxyzu,use_dust,use_dustgrowth,use_krome
- use eos,            only:polyk,gamma,polyk2,qfacdisc,extract_eos_from_hdr
+ use dim,            only:maxvxyzu,nElements,use_dust,use_dustgrowth,use_krome,do_nucleation,idumpfile
+ use eos,            only:extract_eos_from_hdr, read_headeropts_eos
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
                           maxtypes,grainsize,graindens,ndusttypes
@@ -1610,6 +1667,8 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dump_utils,     only:extract
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
+ use timestep,       only:idtmax_n,idtmax_frac
+ use dust_formation, only:read_headeropts_dust_formation
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
  integer,      intent(in)  :: iprint,ntypesinfile,nptmass
@@ -1618,7 +1677,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
 
  integer, parameter :: lu = 173
  integer            :: ierrs(10),iextern_in_file
- real               :: rk2,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,dtmaxi
+ real               :: xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,dtmaxi
  real               :: alphaufile,alphaBfile,C_courfile,C_forcefile,tolhfile
  logical            :: iexist
 
@@ -1626,23 +1685,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
- call extract('gamma',gamma,hdr,ierr)
+ call extract('idtmax_n',idtmax_n,hdr,ierr)
+ call extract('idtmax_frac',idtmax_frac,hdr,ierr)
+ call extract('idumpfile',idumpfile,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
- call extract('RK2',rk2,hdr,ierr)
- polyk = 2./3.*rk2
- if (id==master) then
-    if (maxvxyzu >= 4) then
-       if (use_krome) then
-          write(iprint,*) 'KROME eos: initial gamma = 1.666667'
-       else
-          write(iprint,*) 'adiabatic eos: gamma = ',gamma
-       endif
-    else
-       write(iprint,*) 'setting isothermal sound speed^2 (polyk) = ',polyk,' gamma = ',gamma
-       if (polyk <= tiny(polyk)) write(iprint,*) 'WARNING! sound speed zero in dump!, polyk = ',polyk
-    endif
- endif
-
  Bextx = 0.
  Bexty = 0.
  Bextz = 0.
@@ -1660,22 +1706,19 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     if (mhd) then
        call extract('alphaB',alphaBfile,hdr,ierr)
     endif
-    call extract('polyk2',polyk2,hdr,ierr)
-    call extract('qfacdisc',qfacdisc,hdr,ierr)
+
     if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
-    if (ieos==3) then
-       if (qfacdisc <= tiny(qfacdisc)) then
-          write(iprint,*) 'ERROR: qfacdisc <= 0'
-          ierr = 2
-       else
-          write(iprint,*) 'qfacdisc = ',qfacdisc
-       endif
-    endif
+
     call extract('massoftype',massoftype(1:ntypesinfile),hdr,ierr)
     if (ierr /= 0) then
        write(*,*) '*** ERROR reading massoftype from dump header ***'
        ierr = 4
     endif
+    if (do_nucleation) then
+       call read_headeropts_dust_formation(hdr,ierr)
+       if (ierr /= 0) ierr = 6
+    endif
+
     call extract('iexternalforce',iextern_in_file,hdr,ierrs(1))
     if (extract_iextern_from_hdr) iexternalforce = iextern_in_file
     if (iexternalforce /= 0) then
@@ -1687,9 +1730,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     endif
  else
     massoftype(1) = 0.
-    polyk2 = 0.
     hfactfile = 0.
  endif
+
+ call read_headeropts_eos(ieos,hdr,ierr)
 
  if (periodic) then
     call extract('xmin',xmini,hdr,ierrs(1))
@@ -1743,9 +1787,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
  endif
- if (abs(gamma-1.) > tiny(gamma) .and. maxvxyzu < 4) then
-    write(*,*) 'WARNING! compiled for isothermal equation of state but gamma /= 1, gamma=',gamma
- endif
+
 
  !--pull grain size and density arrays if they are in the header
  !-- i.e. if dustgrowth is not ON
@@ -1896,6 +1938,10 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
+    if (itype  >  8) then
+       print *, "particle i=", i,"is type", itype
+       cycle
+    endif
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 

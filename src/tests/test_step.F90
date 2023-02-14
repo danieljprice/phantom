@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module teststep
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, domain, eos, io,
+! :Dependencies: boundary, checksetup, deriv, dim, eos, io, mpidomain,
 !   mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
 !   timestep_ind, timing, unifdis, viscosity
 !
@@ -35,7 +35,7 @@ subroutine test_step(ntests,npass)
  use io,       only:iverbose
  use dim,      only:maxp,maxvxyzu,maxalpha,periodic
  use boundary, only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
- use eos,      only:polyk,gamma,use_entropy,init_eos
+ use eos,      only:polyk,gamma,init_eos
  use mpiutils, only:reduceall_mpi
  use options,  only:tolh,alpha,alphau,alphaB,ieos
  use part,     only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
@@ -49,7 +49,7 @@ subroutine test_step(ntests,npass)
  use part,            only:iphase,isetphase,igas
  use timestep,        only:dtmax
  use testutils,       only:checkval,checkvalf,update_test_scores
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  use checksetup,      only:check_setup
  use deriv,           only:get_derivs_global
 #ifdef IND_TIMESTEPS
