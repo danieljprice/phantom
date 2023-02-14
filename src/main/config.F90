@@ -341,6 +341,11 @@ module dim
  integer :: maxphase = 0
  integer :: maxgradh = 0
 
+ !--------------------
+ ! a place to store the number of the dumpfile; required for restart dumps
+ !--------------------
+ integer :: idumpfile = 0
+
 contains
 
 subroutine update_max_sizes(n,ntot)

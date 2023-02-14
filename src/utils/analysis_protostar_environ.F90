@@ -344,6 +344,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ! Reset the centre of mass to the origin
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
        h_acc2 = 0.0
+       msink  = 0.
     else
        ! Reset the centre of mass & velocity to be on sink particle isink
        xyz_tmp  = xyzmh_ptmass(1:3,isink)
@@ -596,6 +597,7 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
  indisc  = .true.
  rmin2   = 0.0
  rmax2   = 0.0
+ rdisc   = 0.0
  mdisc   = 0.0
  notdisc = 0.0
  totmass = 0.0

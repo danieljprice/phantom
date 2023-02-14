@@ -97,7 +97,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           phantom_version_minor,phantom_version_micro,          &
                           phantom_version_string,use_krome,   &
                           store_dust_temperature,do_radiation,gr,do_nucleation, &
-                          mpi
+                          mpi,idumpfile
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -120,7 +120,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
+ use timestep,       only:dtmax,C_cour,C_force,dtmax_user,idtmax_n_next,idtmax_frac_next
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
@@ -250,6 +250,10 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  hdr%ieos = ieos
  hdr%time = t
  hdr%dtmax = dtmax
+ hdr%dtmax_user = dtmax_user
+ hdr%idumpfile = idumpfile
+ hdr%idtmax_n_next = idtmax_n_next
+ hdr%idtmax_frac_next = idtmax_frac_next
  hdr%gamma = gamma
  hdr%rhozero = rhozero
  hdr%polyk = polyk
@@ -544,6 +548,10 @@ subroutine read_any_dump_hdf5(                                                  
  ieos = hdr%ieos
  tfile = hdr%time
  dtmaxi = hdr%dtmax
+ dtmax_user = hdr%dtmax_user
+ idumpfile = hdr%idumpfile
+ idtmax_n = hdr%idtmax_n_next
+ idtmax_frac = hdr%idtmax_frac_next
  gamma = hdr%gamma
  rhozero = hdr%rhozero
  polyk = hdr%polyk

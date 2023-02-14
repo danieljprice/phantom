@@ -225,6 +225,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
+ use timestep,   only:idtmax_n,idtmax_frac
 #ifdef IND_TIMESTEPS
  use timestep,   only:dtmax
  use part,       only:ibin
@@ -252,12 +253,13 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer, parameter :: isteps_sphNG = 0, iphase0 = 0
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
- integer            :: ipass,k,l
+ integer            :: ipass,k,l,ioffset
  integer            :: ierr,ierrs(30)
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot
  logical            :: sphNGdump,write_itype,use_gas
  character(len=lenid)  :: fileid
+ character(len=120)    :: blankarray
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
 !
@@ -305,9 +307,16 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 
-    write(iprint,"(/,/,'-------->   TIME = ',g12.4,"// &
-              "': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
-
+    if (idtmax_frac==0) then
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
+    else
+       ioffset = max(0,len(trim(dumpfile))-1)
+       write(blankarray,'(a)') ' '
+       write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------')")  &
+       t,trim(dumpfile)
+       write(iprint,"('-------->                        Writing sub-dumps: ',I4,' of',I4,a,'<--------',/)")  &
+       idtmax_frac,idtmax_n,blankarray(1:ioffset)
+    endif
     call open_dumpfile_w(idump,dumpfile,fileid,ierr)
     if (ierr /= 0) then
        call error('write_fulldump','error creating new dumpfile '//trim(dumpfile))
@@ -667,7 +676,6 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr)
-
  !
  ! exit with error if file not readable by current routine
  !
@@ -925,6 +933,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  ! open dump file
  !
  call open_dumpfile_r(idisk1,dumpfile,fileidentr,ierr,singleprec=.true.)
+
  if (ierr /= 0) then
     call error('read_smalldump',get_error_text(ierr))
     if (ierr == ierr_realsize) then
@@ -1522,12 +1531,12 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
                           idust,grainsize,graindens,ndusttypes
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,dtmax0,C_cour,C_force
+ use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
-                          phantom_version_major,phantom_version_minor,phantom_version_micro,periodic
+                          phantom_version_major,phantom_version_minor,phantom_version_micro,periodic,idumpfile
  use units,          only:udist,umass,utime,unit_Bfield
  use dust_formation, only:write_headeropts_dust_formation
 
@@ -1549,6 +1558,9 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  call add_to_iheader(ndustlarge,'ndustlarge',hdr,ierr)
  call add_to_iheader(ndustsmall,'ndustsmall',hdr,ierr)
  call add_to_iheader(idust,'idust',hdr,ierr)
+ call add_to_iheader(idtmax_n_next,'idtmax_n',hdr,ierr)
+ call add_to_iheader(idtmax_frac_next,'idtmax_frac',hdr,ierr)
+ call add_to_iheader(idumpfile,'idumpfile',hdr,ierr)
  call add_to_iheader(phantom_version_major,'majorv',hdr,ierr)
  call add_to_iheader(phantom_version_minor,'minorv',hdr,ierr)
  call add_to_iheader(phantom_version_micro,'microv',hdr,ierr)
@@ -1565,12 +1577,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
 
  ! default real variables
  call add_to_rheader(t,'time',hdr,ierr)
- call add_to_rheader(dtmax,'dtmax',hdr,ierr)
- if (dtmax0 > 0.) then
-    call add_to_rheader(dtmax0,'dtmax0',hdr,ierr)
- else
-    call add_to_rheader(dtmax, 'dtmax0',hdr,ierr)
- endif
+ call add_to_rheader(dtmax_user,'dtmax',hdr,ierr)
  call add_to_rheader(rhozero,'rhozero',hdr,ierr)
  if (sphNGdump) then ! number = 23
     call add_to_rheader(0.,'escaptot',hdr,ierr)
@@ -1648,7 +1655,7 @@ end subroutine fill_header
 subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
                           tfile,hfactfile,alphafile,iprint,ierr)
  use io,             only:id,master
- use dim,            only:maxvxyzu,nElements,use_dust,use_dustgrowth,use_krome,do_nucleation
+ use dim,            only:maxvxyzu,nElements,use_dust,use_dustgrowth,use_krome,do_nucleation,idumpfile
  use eos,            only:extract_eos_from_hdr, read_headeropts_eos
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
@@ -1660,7 +1667,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use dump_utils,     only:extract
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
- use timestep,       only:dtmax0
+ use timestep,       only:idtmax_n,idtmax_frac
  use dust_formation, only:read_headeropts_dust_formation
  type(dump_h), intent(in)  :: hdr
  logical,      intent(in)  :: phantomdump
@@ -1678,7 +1685,9 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
- call extract('dtmax0',dtmax0,hdr,ierr)
+ call extract('idtmax_n',idtmax_n,hdr,ierr)
+ call extract('idtmax_frac',idtmax_frac,hdr,ierr)
+ call extract('idumpfile',idumpfile,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
  Bextx = 0.
  Bexty = 0.
