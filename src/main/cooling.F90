@@ -120,7 +120,7 @@ end subroutine init_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in)
+subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,dudti_sph,part_id)
  use io,      only:fatal
  use eos,     only:gmw,gamma
  use physcon, only:Rg
@@ -129,9 +129,12 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
-
+ use cooling_stamatellos,    only:cooling_S07
+ 
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
+ real, intent(in), optional :: dudti_sph ! in code units
+ integer, intent(in),optional :: part_id
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mu,polyIndex,T_on_u,Tgas,Tdust,K2,kappa
 
@@ -150,6 +153,8 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  if (present(kappa_in)) kappa     = kappa_in
 
  select case (icooling)
+ case (7)
+    call cooling_S07(rho,ui,dudt,xi,yi,zi,Tfloor,dudti_sph,dt,part_id)
  case (6)
     call cooling_KoyamaInutsuka_implicit(ui,rho,dt,dudt)
  case (5)

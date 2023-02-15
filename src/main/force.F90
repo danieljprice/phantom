@@ -2805,9 +2805,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (icooling == 7) then
-                call cooling_S07(rhoi,poti,vxyzu(4,i),fxyz4,xi,yi,zi,ttherm(i),uequil(i),umin(i),Tfloor)
-             elseif (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
+             if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
                 if (store_dust_temperature) then
                    if (do_nucleation) then
                       call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i),&

@@ -104,9 +104,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,&
-                          ics,ttherm,uequil,umin
+                          ics
  use cooling,        only:cooling_in_step,ufloor
- use options,        only:avdecayconst,alpha,ieos,alphamax,icooling
+ use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
@@ -156,7 +156,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
  integer, parameter :: maxits = 30
  logical            :: converged,store_itype
- real               :: stama_ustep
 !
 ! set initial quantities
 !
@@ -189,12 +188,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
- !$omp shared(ttherm,uequil,umin,icooling) &
 #ifdef IND_TIMESTEPS
  !$omp shared(ibin,ibin_old,twas,timei) &
 #endif
  !$omp firstprivate(itype) &
- !$omp private(i,hdti,stama_ustep) &
+ !$omp private(i,hdti) &
  !$omp reduction(+:nvfloorp)
  predictor: do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -214,27 +212,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        if (gr) then
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-       elseif (icooling == 7) then
-          vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
        else
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
-
-       if (icooling == 7) then
-          if (ttherm(i) > 0.) then
-             stama_ustep = vxyzu(4,i)*exp(-hdti/ttherm(i)) + uequil(i)*(1.d0-exp(hdti/ttherm(i)))
-             if (stama_ustep < 0.) then
-                vxyzu(4,i) = umin(i)
-             elseif (isnan(stama_ustep)) then
-                call warning("In step:cooling stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-             else
-                vxyzu(4,i) = stama_ustep
-             endif
-          else
-             vxyzu(4,i) = uequil(i)
-          endif
-       endif
-
           
        !--floor the thermal energy if requested and required
        if (ufloor > 0.) then
@@ -295,7 +275,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(ttherm,uequil,umin,icooling) &
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
@@ -306,7 +285,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
-!$omp private(i,spsoundi,alphaloci,divvdti,stama_ustep) &
+!$omp private(i,spsoundi,alphaloci,divvdti) &
 !$omp firstprivate(pmassi,itype,avdecayconst,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
@@ -346,25 +325,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        if (gr) then
           ppred(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-       elseif (icooling == 7) then
-          vpred(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-       endif
-
-       if (icooling == 7) then
-          if (ttherm(i) > 0.) then
-             stama_ustep = vxyzu(4,i)*exp(-hdti/ttherm(i)) + uequil(i)*(1.d0-exp(hdti/ttherm(i)))
-             if (stama_ustep < 0.) then
-                vpred(4,i) = umin(i)
-             elseif (isnan(stama_ustep)) then
-                call warning("In step predictor: stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-             else
-                vpred(4,i) = stama_ustep
-             endif
-          else
-             vpred(4,i) = uequil(i)
-          endif
        endif
 
        !--floor the thermal energy if requested and required
@@ -474,7 +436,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
-!$omp shared(ttherm,uequil,umin,icooling) &
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,iphase,its) &
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
@@ -487,7 +448,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp private(dti,hdti) &
 #endif
 !$omp shared(rad,radpred,drad)&
-!$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi,stama_ustep) &
+!$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
 !$omp reduction(max:errmax) &
@@ -518,25 +479,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
-             elseif (icooling == 7) then
-                vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
              else
                 vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-             endif
-
-             if (icooling == 7) then
-                if (ttherm(i) > 0.) then
-                   stama_ustep = vxyzu(4,i)*exp(-dti/ttherm(i)) + uequil(i)*(1.d0-exp(dti/ttherm(i)))
-                   if (stama_ustep < 0.) then
-                      vxyzu(4,i) = umin(i)
-                   elseif (isnan(stama_ustep)) then
-                      call warning("In step corrector:stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-                   else
-                      vxyzu(4,i) = stama_ustep
-                   endif
-                else
-                   vxyzu(4,i) = uequil(i)
-                endif
              endif
 
              if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
@@ -557,28 +501,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
           if (gr) then
              pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-          elseif (icooling == 7) then
-             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
           else
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
           endif
 
-          if (icooling == 7) then
-             if (ttherm(i) > 0.) then
-                stama_ustep = vxyzu(4,i)*exp(-hdti/ttherm(i)) + uequil(i)*(1.d0-exp(hdti/ttherm(i)))
-                if (stama_ustep < 0.) then
-                   vxyzu(4,i) = umin(i)
-                elseif (isnan(stama_ustep)) then
-                   call warning("In step synchronise: stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-                else
-                   vxyzu(4,i) = stama_ustep
-                endif
-             else
-                vxyzu(4,i) = uequil(i)
-             endif
-          endif
        endif
-
           !--floor the thermal energy if requested and required
           if (ufloor > 0.) then
              if (vxyzu(4,i) < ufloor) then
@@ -635,22 +562,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
              vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
              if (maxvxyzu >= 4) then
-                if (icooling == 7) then
-                   if (ttherm(i) > 0.) then
-                      stama_ustep = vxyzu(4,i)*exp(-hdtsph/ttherm(i)) + uequil(i)*(1.d0-exp(hdtsph/ttherm(i)))
-                      if (stama_ustep < 0.) then
-                         eni = umin(i)
-                      elseif (isnan(stama_ustep)) then
-                         call warning("In step eni: stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-                      else
-                         eni = stama_ustep
-                      endif
-                   else
-                      eni = uequil(i)
-                   endif
-                else
-                   eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
-                endif
+                eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)                
              endif
              
              erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
@@ -734,27 +646,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           !
           if (gr) then
              pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
-          elseif (icooling == 7) then
-             vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
           else
              vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
           endif
-
-          if (icooling == 7) then
-             if (ttherm(i) > 0.) then
-! What should this be?
-                vxyzu(4,i) = (vxyzu(4,i) + uequil(i)*(1.d0-exp(-ABS(hdtsph)/ttherm(i))))/&
-                     exp(-ABS(hdtsph)/ttherm(i))
-                if (vxyzu(4,i) < 0.) then
-                   vxyzu(4,i) = umin(i)
-                elseif (isnan(vxyzu(4,i)) then
-                   call warning("In step last: stama step","stama_ustep = NaN",i=i,val=vxyzu(4,i))
-                endif
-             else
-                vxyzu(4,i) = uequil(i)
-             endif
-          endif
-
           
           if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
           if (itype==igas) then
@@ -1318,7 +1212,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     fonrmax = 0.
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
+    !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype,fxyzu) &
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
@@ -1458,7 +1352,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,poti)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dudti_sph=fxyzu(4,i),part_id=i)
                 endif
              endif
 #endif
