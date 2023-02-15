@@ -3,12 +3,14 @@
 !--------------------------------------------------------------------------
 
 module eos_stamatellos
-implicit none
+ implicit none
+ real, public :: optable(260,1001,6)
+ public :: read_optab,getopac_opdep
 contains
-subroutine read_optab(OPTABLE,ierr)
+
+subroutine read_optab(ierr)
  use datafiles, only:find_phantom_datafile
 
- real, intent(out) :: OPTABLE(260,1001,6)
  integer, intent(out) :: ierr
  integer i,j,nx,ny
  character(len=120) :: filepath
@@ -28,13 +30,11 @@ subroutine read_optab(OPTABLE,ierr)
 
 end subroutine read_optab
 
-subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai,OPTABLE)
+subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi,gammai
- real, intent(in)  :: OPTABLE(260,1001,6)
 
- !real OPTABLE(260,1001,6)
- integer i,j,k,nx,ny
+ integer i,j,nx,ny
  real m,c
  real kbar1,kbar2
  real kappa1,kappa2
@@ -145,7 +145,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi, OPTABLE)
 
  real u1, u2 
  real m, c
- integer i, j, nx, ny
+ integer i, j
  real rhoi_
  real, intent(in)  :: OPTABLE(260,1001,6)
 

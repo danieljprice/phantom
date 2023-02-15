@@ -23,7 +23,8 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
-!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+  !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    21 = read tabulated eos of Stametellos et al. (2007)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -41,12 +42,12 @@ module eos
 ! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
-!   units
+!   units, eos_stamatellos
 !
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim, only:gr
  implicit none
- integer, parameter, public :: maxeos = 20
+ integer, parameter, public :: maxeos = 21
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -117,6 +118,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_stamatellos
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -128,7 +130,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: r1,r2
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
- real    :: uthermconst
+ real    :: uthermconst,kappaBar,kappaPart,gmwi
 #ifdef GR
  real    :: enthi,pondensi
 ! Check to see if adiabatic equation of state is being used.
@@ -395,6 +397,25 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
 
+ case(21)
+!
+!--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=7
+!
+    if (eni < 0.) then                                                                          
+       call fatal('eos','utherm < 0',var='u',val=eni)
+    endif
+    cgsrhoi = rhoi * unit_density
+    cgseni = eni * unit_ergg
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,gmwi,gammai)
+    
+    if (gammai > 1.0001) then
+       ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
+    else
+       ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1 
+    endif
+       
+    spsoundi = sqrt(gammai*ponrhoi)
+    
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -419,6 +440,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
+ use eos_stamatellos,only:optable,read_optab
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -494,7 +516,10 @@ subroutine init_eos(eos_type,ierr)
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
+ case(21)
 
+    call read_optab(ierr)
+    
  end select
  done_init_eos = .true.
 

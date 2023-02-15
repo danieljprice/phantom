@@ -18,17 +18,9 @@ module cooling_stamatellos
 !
  
  implicit none
- public :: init_cooling_S07, cooling_S07
- real, public :: optable(260,1001,6)
+ public :: cooling_S07
  
  contains
-
-   subroutine init_cooling_S07(ierr)
-     use eos_stamatellos,   only:read_optab
-     integer, intent(out) :: ierr
-     
-     call read_optab(optable,ierr)
-   end subroutine init_cooling_S07
 
 !
 ! Do cooling calculation
@@ -37,7 +29,7 @@ module cooling_stamatellos
      use io,       only:warning
      use physcon,  only:steboltz,pi,solarl
      use units,    only:umass,udist,unit_density,unit_ergg,utime
-     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep
+     use eos_stamatellos
      use part,       only:poten
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
@@ -61,16 +53,17 @@ module cooling_stamatellos
      
 ! get opacities & Ti for ui
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-          Ti,gmwi,gammai,optable)
+          Ti,gmwi,gammai)
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini**4.d0 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 ! calculate Teqi
      Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
      Teqi = Teqi/4.d0/steboltz
      Teqi = Teqi + Tmini**4.d0
-     Teqi = Teqi**0.25d0
-     if (Teqi < Tmini) then
+     if (Teqi < Tmini**4.d0) then
         Teqi = Tmini
+     else
+        Teqi = Teqi**0.25d0
      endif
      call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi,optable)
      ueqi = ueqi/unit_ergg
