@@ -56,7 +56,7 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 10000
+ integer, parameter :: maxcellcache = 5000
 
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
