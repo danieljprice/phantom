@@ -665,7 +665,7 @@ subroutine equation_of_state(gamma)
     !--adiabatic
     ieos = 2
     gamma = 5./3.
-    icooling = 1
+    icooling = 3
 
     if (use_mcfost) then
        icooling = 0
