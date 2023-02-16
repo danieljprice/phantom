@@ -1646,7 +1646,7 @@ subroutine pt_open_sinkev(num)
           9,'spinx',   &
          10,'spiny',   &
          11,'spinz',   &
-         12,'macc',    &
+         12,'macc',    &  ! total mass accreted
          13,'fx',      &
          14,'fy',      &
          15,'fz',      &
