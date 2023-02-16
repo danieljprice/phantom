@@ -255,9 +255,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
                 dsdt(i) = -rhod/dustprop(2,i)*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
           endif
-          if (ieros == 1) then
-             dsdt(i) = dsdt(i) - dustgasprop(2,i)*dustgasprop(4,i)**3*dsize**2 / 3. / beta / dustprop(1,i)
-          endif
+          if (ieros == 1) dsdt(i) = dsdt(i) - dustgasprop(2,i)*dustgasprop(4,i)**3*dsize**2 / 3. / beta / dustprop(1,i)
        endif
     else
        dsdt(i) = 0.
