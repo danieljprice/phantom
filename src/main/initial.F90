@@ -19,10 +19,10 @@ module initial
 !   densityforce, deriv, dim, dust, dust_formation, energies, eos, evwrite,
 !   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
 !   inject, io, io_summary, krome_interface, linklist, metric_tools,
-!   mf_write, mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
-!   nicil_sup, omputils, options, part, photoevap, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
-!   timestep_sts, timing, units, writeheader
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, photoevap, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -786,7 +786,7 @@ end subroutine startrun
 !----------------------------------------------------------------
 subroutine finalise()
  use dim, only: mpi
- use mpiderivs, only:finish_tree_comms
+ use mpitree, only:finish_tree_comms
  use mpimemory, only:deallocate_mpi_memory
 
  if (mpi) then

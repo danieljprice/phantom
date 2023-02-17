@@ -35,14 +35,14 @@ module forces
 !  GR:
 !      Liptai & Price (2019), MNRAS 485, 819-842
 !
-! :Owner: Daniel Price
+! :Owner: Conrad Chan
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
 !   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
-!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
+!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omputils, options,
+!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
 !   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
@@ -56,98 +56,98 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 10000
+ integer, parameter :: maxcellcache = 1000
 
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
- integer, parameter :: &
-       ixi  = 1, &
-       iyi  = 2, &
-       izi  = 3, &
-       ihi  = 4, &
-       ivxi = 5, &
-       ivyi = 6, &
-       ivzi = 7, &
-       ieni = 8, &
-       iBevolxi = 9, &
-       iBevolyi = 10, &
-       iBevolzi = 11, &
-       ipsi = 12, &
-       igradhi1    = 13, &
-       igradhi2    = 14, &
-       ialphai     = 15, &
-       ialphaBi    = 16, &
-       ivwavei     = 17, &
-       irhoi       = 18, &
-       irhogasi    = 19, &
-       ispsoundi   = 20, &
-       itempi      = 21, &
-       isxxi       = 22, &
-       isxyi       = 23, &
-       isxzi       = 24, &
-       isyyi       = 25, &
-       isyzi       = 26, &
-       iszzi       = 27, &
+ integer, parameter ::       &
+       ixi             = 1,  &
+       iyi             = 2,  &
+       izi             = 3,  &
+       ihi             = 4,  &
+       ivxi            = 5,  &
+       ivyi            = 6,  &
+       ivzi            = 7,  &
+       ieni            = 8,  &
+       iBevolxi        = 9,  &
+       iBevolyi        = 10, &
+       iBevolzi        = 11, &
+       ipsi            = 12, &
+       igradhi1        = 13, &
+       igradhi2        = 14, &
+       ialphai         = 15, &
+       ialphaBi        = 16, &
+       ivwavei         = 17, &
+       irhoi           = 18, &
+       irhogasi        = 19, &
+       ispsoundi       = 20, &
+       itempi          = 21, &
+       isxxi           = 22, &
+       isxyi           = 23, &
+       isxzi           = 24, &
+       isyyi           = 25, &
+       isyzi           = 26, &
+       iszzi           = 27, &
        ivisctermisoi   = 28, &
        ivisctermanisoi = 29, &
-       ipri        = 30, &
-       ipro2i      = 31, &
-       ietaohmi    = 32, &
-       ietahalli   = 33, &
-       ietaambii   = 34, &
-       ijcbcbxi    = 35, &
-       ijcbcbyi    = 36, &
-       ijcbcbzi    = 37, &
-       ijcbxi      = 38, &
-       ijcbyi      = 39, &
-       ijcbzi      = 40, &
-       idivBi      = 41, &
-       icurlBxi    = 42, &
-       icurlByi    = 43, &
-       icurlBzi    = 44, &
-       igrainsizei = 45, &
-       igraindensi = 46, &
-       idvxdxi     = 47, &
-       idvzdzi     = 55, &
+       ipri            = 30, &
+       ipro2i          = 31, &
+       ietaohmi        = 32, &
+       ietahalli       = 33, &
+       ietaambii       = 34, &
+       ijcbcbxi        = 35, &
+       ijcbcbyi        = 36, &
+       ijcbcbzi        = 37, &
+       ijcbxi          = 38, &
+       ijcbyi          = 39, &
+       ijcbzi          = 40, &
+       idivBi          = 41, &
+       icurlBxi        = 42, &
+       icurlByi        = 43, &
+       icurlBzi        = 44, &
+       igrainsizei     = 45, &
+       igraindensi     = 46, &
+       idvxdxi         = 47, &
+       idvzdzi         = 55, &
  !--dust arrays initial index
-       idustfraci    = 56, &
+       idustfraci      = 56, &
  !--dust arrays final index
-       idustfraciend = 56 + (maxdusttypes - 1), &
-       itstop        = 57 + (maxdusttypes - 1), &
-       itstopend     = 57 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 56 + (maxdusttypes - 1), &
+       itstop          = 57 + (maxdusttypes - 1), &
+       itstopend       = 57 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
-       iradxii        = lastxpvdust + 1, &
-       iradfxi        = lastxpvdust + 2, &
-       iradfyi        = lastxpvdust + 3, &
-       iradfzi        = lastxpvdust + 4, &
-       iradkappai     = lastxpvdust + 5, &
-       iradlambdai    = lastxpvdust + 6, &
-       iradrbigi      = lastxpvdust + 7, &
+       lastxpvdust     = 57 + 2*(maxdusttypes - 1), &
+       iradxii         = lastxpvdust + 1, &
+       iradfxi         = lastxpvdust + 2, &
+       iradfyi         = lastxpvdust + 3, &
+       iradfzi         = lastxpvdust + 4, &
+       iradkappai      = lastxpvdust + 5, &
+       iradlambdai     = lastxpvdust + 6, &
+       iradrbigi       = lastxpvdust + 7, &
  !--final radiation index
-       lastxpvrad     = lastxpvdust + 7, &
+       lastxpvrad      = lastxpvdust + 7, &
  !--gr primitive density
-       idensGRi      = lastxpvrad + 1, &
+       idensGRi        = lastxpvrad + 1, &
  !--gr metrics
-       imetricstart  = idensGRi + 1, &
-       imetricend    = imetricstart + 31
+       imetricstart    = idensGRi + 1, &
+       imetricend      = imetricstart + 31
 
  !--indexing for fsum array
- integer, parameter :: &
-       ifxi        = 1, &
-       ifyi        = 2, &
-       ifzi        = 3, &
-       ipot        = 4, &
-       idrhodti    = 5, &
-       idudtdissi  = 6, &
-       idendtdissi = 7, &
-       idivBsymi   = 8, &
-       idBevolxi   = 9, &
-       idBevolyi   = 10, &
-       idBevolzi   = 11, &
-       idivBdiffi  = 12, &
-       ihdivBBmax  = 13, &
+ integer, parameter ::   &
+       ifxi           = 1,  &
+       ifyi           = 2,  &
+       ifzi           = 3,  &
+       ipot           = 4,  &
+       idrhodti       = 5,  &
+       idudtdissi     = 6,  &
+       idendtdissi    = 7,  &
+       idivBsymi      = 8,  &
+       idBevolxi      = 9,  &
+       idBevolyi      = 10, &
+       idBevolzi      = 11, &
+       idivBdiffi     = 12, &
+       ihdivBBmax     = 13, &
  !--dust array indexing
        iddustevoli    = 14, &
        iddustevoliend = 14 +   (maxdustsmall-1), &
@@ -216,12 +216,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
  use nicil,        only:nimhd_get_jcbcb
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters
- use mpimemory,    only:reserve_stack,reset_stacks
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+ use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
+ use omputils,     only:omp_thread_num,omp_num_threads
+
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -257,7 +259,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer :: iamtypei
 #endif
 #ifdef DUST
- real    :: frac_stokes, frac_super
+ real    :: frac_stokes,frac_super
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -273,9 +275,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
 #endif
  integer(kind=1)           :: ibinnow_m1
- logical                   :: remote_export(nprocs), do_export
- type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
+
+ type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
+ integer                   :: mpitype
+ logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
 
@@ -355,12 +360,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     call reset_stacks
-    call reset_cell_counters
-    call init_cell_exchange(xrecvbuf,irequestrecv)
+    call reset_cell_counters(cell_counters)
  endif
 
 !
 !-- verification for non-ideal MHD
+!
  if (mhd_nonideal .and. ndivcurlB < 4) call fatal('force','non-ideal MHD needs curl B stored, but ndivcurlB < 4')
 !
 !--check that compiled options are compatible with this routine
@@ -394,7 +399,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(icell,i) &
 !$omp private(cell) &
 !$omp private(remote_export) &
+!$omp private(idone) &
 !$omp private(nneigh) &
+!$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
 #ifdef GRAVITY
@@ -408,9 +415,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp shared(irequestrecv,irequestsend) &
-!$omp shared(stack_remote,stack_waiting) &
-!$omp shared(xsendbuf,xrecvbuf) &
+!$omp private(irequestrecv) &
+!$omp private(irequestsend) &
+!$omp private(xrecvbuf) &
+!$omp private(xsendbuf) &
+!$omp shared(cell_counters) &
+!$omp shared(thread_complete) &
+!$omp shared(ncomplete_mpi) &
+!$omp shared(stack_remote) &
+!$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -437,9 +450,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
 
- !$omp single
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
+
+ !$omp master
  call get_timings(t1,tcpu1)
- !$omp end single
+ !$omp end master
+
+ !--initialise send requests to 0
+ irequestsend = 0
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -456,26 +474,28 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
-    !
-    !--get the neighbour list and fill the cell cache
-    !
 
+    !--get the neighbour list and fill the cell cache
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
-    cell%owner                   = id
-
+    cell%owner = id
     do_export = any(remote_export)
 
     if (mpi) then
-       !$omp critical (send_and_recv_remote)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
        if (do_export) then
-          if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
+          if (stack_waiting%n > 0) then
+             !--wait for broadcast to complete, continue to receive whilst doing so
+             idone(:) = .false.
+             do while(.not.all(idone))
+                call check_send_finished(irequestsend,idone)
+                call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+             enddo
+          endif
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send to remote
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
        endif
-       !$omp end critical (send_and_recv_remote)
     endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
@@ -484,7 +504,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                       rad,radprop,dens,metrics)
 
     if (do_export) then
-       stack_waiting%cells(cell%waiting_index) = cell
+       call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -508,24 +528,28 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  enddo over_cells
  !$omp enddo
 
- !$omp barrier
+ if (stack_waiting%n > 0) then
+    idone(:) = .false.
+    do while(.not.all(idone))
+       call check_send_finished(irequestsend,idone)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+    enddo
+ endif
 
- !$omp single
- if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
- call reset_cell_counters
- !$omp end single
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ call reset_cell_counters(cell_counters)
 
- !$omp single
+ !$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
- !$omp end single
+ !$omp end master
+ !$omp barrier
 
  igot_remote: if (stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
-       cell = stack_remote%cells(i)
+       cell = get_cell(stack_remote,i)
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                                getj=.true.,f=cell%fgrav,&
@@ -538,34 +562,36 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
-       !$omp critical (send_and_recv_waiting)
-       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
-       call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-       call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
-       !$omp end critical (send_and_recv_waiting)
+
+       idone(:) = .false.
+       do while(.not.all(idone))
+          call check_send_finished(irequestsend,idone)
+          call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
+       enddo
+
+       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
 
-    !$omp barrier
-
-    !$omp single
+    !$omp master
     stack_remote%n = 0
-    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-    !$omp end single
+    !$omp end master
+
+    idone(:) = .false.
+    do while(.not.all(idone))
+       call check_send_finished(irequestsend,idone)
+       call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
+    enddo
 
  endif igot_remote
 
- !$omp barrier
-
- !$omp single
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
- !$omp end single
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
-       cell = stack_waiting%cells(i)
+       cell = get_cell(stack_waiting,i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -588,21 +614,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo over_waiting
     !$omp enddo
 
-    !$omp barrier
-
-    !$omp single
     stack_waiting%n = 0
-    !$omp end single
+
  endif iam_waiting
 
-!$omp single
- call finish_cell_exchange(irequestrecv,xsendbuf)
-!$omp end single
+ call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
-!$omp single
+!$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
-!$omp end single
+!$omp end master
 
 #ifdef GRAVITY
  if (icreate_sinks > 0) then
