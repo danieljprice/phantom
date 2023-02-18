@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
-!   mpimemory, part, photoevap
+!   mpimemory, mpitree, part, photoevap
 !
  implicit none
 
@@ -32,7 +32,8 @@ subroutine allocate_memory(ntot, part_only)
  use linklist,   only:allocate_linklist,ifirstincell
  use mpimemory,  only:allocate_mpi_memory
  use mpibalance, only:allocate_balance_arrays
- use mpiderivs,  only:allocate_comms_arrays
+ use mpiderivs,  only:allocate_cell_comms_arrays
+ use mpitree,    only:allocate_tree_comms_arrays
 #ifdef PHOTO
  use photoevap,  only:allocate_photoevap
 #endif
@@ -91,8 +92,10 @@ subroutine allocate_memory(ntot, part_only)
     if (mpi) then
        call allocate_mpi_memory(npart=n)
        call allocate_balance_arrays
-       call allocate_comms_arrays
+       call allocate_tree_comms_arrays
     endif
+    call allocate_cell_comms_arrays ! some dummy arrays need to be allocated when mpi=.false.
+
  endif
 
  call bytes2human(nbytes_allocated, sizestring)
@@ -115,7 +118,8 @@ subroutine deallocate_memory(part_only)
 #endif
  use mpimemory,  only:deallocate_mpi_memory
  use mpibalance, only:deallocate_balance_arrays
- use mpiderivs,  only:deallocate_comms_arrays
+ use mpiderivs,  only:deallocate_cell_comms_arrays
+ use mpitree,    only:deallocate_tree_comms_arrays
  use allocutils, only:nbytes_allocated
 
  logical, optional, intent(in) :: part_only
@@ -138,8 +142,9 @@ subroutine deallocate_memory(part_only)
  if (mpi) then
     call deallocate_mpi_memory
     call deallocate_balance_arrays
-    call deallocate_comms_arrays
+    call deallocate_tree_comms_arrays
  endif
+ call deallocate_cell_comms_arrays
 
  nbytes_allocated = 0
  call update_max_sizes(0)

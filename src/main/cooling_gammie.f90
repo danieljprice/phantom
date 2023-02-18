@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -68,7 +68,7 @@ subroutine read_options_cooling_gammie(name,valstring,imatch,igotall,ierr)
  integer, save :: ngot = 0
 
  imatch  = .true.
- igotall = .true. ! none of the cooling options are compulsory
+ igotall = .false. ! cooling options are compulsory
  select case(trim(name))
  case('beta_cool')
     read(valstring,*,iostat=ierr) beta_cool

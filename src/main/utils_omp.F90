@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -22,6 +22,8 @@ module omputils
 !$ integer, parameter :: nlockgrp = 10
 !$ integer, parameter :: nlocks = max(maxp_hard/nlockgrp,maxptmass)
 !$ integer(kind=8), dimension(0:nlocks) :: ipart_omp_lock
+
+ integer :: omp_num_threads
 
 contains
 !----------------------------------------------------------------
@@ -53,11 +55,20 @@ end subroutine info_omp
 !+
 !----------------------------------------------------------------
 subroutine init_omp
+#ifdef _OPENMP
 !$ integer :: i
+ integer :: omp_get_num_threads
 
 !$ do i = 0, nlocks
 !$  call omp_init_lock(ipart_omp_lock(i))
 !$ enddo
+
+!$omp parallel
+ omp_num_threads = omp_get_num_threads()
+!$omp end parallel
+#else
+ omp_num_threads = 1
+#endif
 
 end subroutine init_omp
 
@@ -144,5 +155,14 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
  !print*,'thread ',id,' limits  = ',i1,i2,my_chunk,' out of ',n1,n2,chunk*num_threads
 
 end subroutine limits_omp_work
+
+integer function omp_thread_num()
+#ifdef _OPENMP
+ integer :: omp_get_thread_num
+ omp_thread_num = omp_get_thread_num()
+#else
+ omp_thread_num = 0
+#endif
+end function omp_thread_num
 
 end module omputils

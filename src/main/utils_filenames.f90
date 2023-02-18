@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -32,12 +32,13 @@ contains
 !  number at the end of the filename
 !+
 !----------------------------------------------------------------
-function getnextfilename(filename)
+function getnextfilename(filename,ifilename)
  character(len=*), intent(in) :: filename
  character(len=len(filename)) :: getnextfilename
  integer :: idot,istartnum,ilen,i,ierr,num
+ integer, optional, intent(out) :: ifilename
  character(len=10) :: fmtstring
-!
+	!
 !--extract current number from filename
 !
  idot = get_idot(filename)
@@ -69,6 +70,7 @@ function getnextfilename(filename)
  else
     getnextfilename = trim(filename)//'001'
  endif
+ if (present(ifilename)) ifilename = num
 
 end function getnextfilename
 

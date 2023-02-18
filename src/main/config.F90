@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,7 +28,7 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2023 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
@@ -341,6 +341,11 @@ module dim
  integer :: maxphase = 0
  integer :: maxgradh = 0
 
+ !--------------------
+ ! a place to store the number of the dumpfile; required for restart dumps
+ !--------------------
+ integer :: idumpfile = 0
+
 contains
 
 subroutine update_max_sizes(n,ntot)
@@ -431,6 +436,7 @@ subroutine update_max_sizes(n,ntot)
 
 #ifdef RADIATION
  maxprad = maxp
+ maxlum = maxp
 #endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan

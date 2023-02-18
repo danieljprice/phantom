@@ -70,7 +70,7 @@ LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
 SRCPHOTO=
-LIBTOOL=libtool
+LIBTOOL=ar rcs
 
 #----------------------------------------------------------------
 # here follows specific configuration options used
@@ -118,9 +118,22 @@ ifeq ($(MCFOST), yes)
     ISOTHERMAL=no
     MCFOST=yes
 
-    MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
-    MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
-
+    #--if PREFIX is set (e.g. to /usr/local) set all the flags needed for mcfost
+    ifneq ("X$(PREFIX)", "X")
+       MCFOST_LIBS = $(PREFIX)/lib
+       MCFOST_LIB = $(PREFIX)/lib
+       MCFOST_INCLUDE = $(PREFIX)/include
+       ifeq ("X$(HDF5ROOT)","X")
+           HDF5ROOT=$(PREFIX)
+       endif
+    else
+    #--otherwise assume the source code is lying around somewhere
+       MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
+       MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
+       ifeq ("X$(MCFOST_LIB)","X")
+          MCFOST_LIB = $(MCFOST_DIR)/src
+       endif
+    endif
     ifeq ($(MCFOST_XGBOOST), yes)
         LXGBOOST= -lxgboost -ldmlc -lrabit
     else
@@ -129,8 +142,9 @@ ifeq ($(MCFOST), yes)
 
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
-	-L$(MCFOST_DIR)/src -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-	-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran -L$(HDF5ROOT)/lib -lhdf5_fortran -lhdf5 -lz $(LXGBOOST)
+	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
+   -L$(HDF5ROOT) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
+	#-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran
 endif
 
 include Makefile_systems
@@ -513,19 +527,21 @@ else
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
-         mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_allocate.f90 icosahedron.f90 \
+         mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         utils_allocate.f90 icosahedron.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
-	 checkoptions.F90 viscosity.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
-         centreofmass.f90 ${SRCPOT} damping.f90 checkconserved.f90 \
+ 	 checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
+         centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          partinject.F90 utils_inject.f90 dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
-         mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ${SRCTURB} \
-         ${SRCPHOTO} ${SRCINJECT} utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
+         radiation_implicit.f90 ${SRCTURB} \
+         ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
+         utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
@@ -598,7 +614,7 @@ edit: checksetup
 SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
          mpi_dens.F90 mpi_force.F90 \
-         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
@@ -607,7 +623,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_ut
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
-         viscosity.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
+         viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS} \
          utils_sort.f90 sort_particles.F90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
@@ -627,7 +643,7 @@ libsetup: $(OBJLIBSETUP)
 	@echo ""
 	@echo "Phantom libsetup built"
 	@echo ""
-	ar rcs $(LIBSETUP) $^
+	$(LIBTOOL) $(LIBSETUP) $^
 
 #----------------------------------------------------
 # these are the sources for phantom setup utility
@@ -643,7 +659,7 @@ SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 set_star.f90 relax_star.f90 \
           set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
           ${SETUPFILE} checksetup.F90 \
-          set_Bfield.f90 damping.f90 readwrite_infile.f90 ${SRCKROME}
+          set_Bfield.f90 readwrite_infile.f90 ${SRCKROME}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
 ifeq ($(KROME), krome)
@@ -677,7 +693,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
-         ${SRCTESTMPI} test_sedov.F90 test_radiation.F90 \
+         ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
          testsuite.F90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
@@ -832,7 +848,7 @@ OBJLIB=${OBJLIB1:.F90=.o}
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
 libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
-	ar rc $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
+	$(LIBTOOL) $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
 
 libphantom.so: checksystem checkparams phantom ${OBJLIB}
 	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
@@ -979,7 +995,7 @@ phantom2mcfost: checkmcfost
         ANALYSISBIN=$@ ANALYSISONLY=yes LDFLAGS="-L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)"
 
 analysis_mcfost.o: analysis_mcfost.f90
-	$(FC) -c $(FFLAGS) -I$(MCFOST_DIR)/src $< -o $@
+	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) $< -o $@
 
 analysis_mcfost.o: checkmcfost
 
@@ -1042,22 +1058,15 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 mpi_utils.F90 utils_timing.f90 dtype_kdtree.F90 ${SRCFASTMATH} \
-          units.f90 boundary.f90 utils_allocate.f90 part.F90 timestep.f90 setup_params.f90 \
-          utils_filenames.f90 utils_mathfunc.f90 utils_system.f90 utils_vectors.f90 \
-          utils_omp.F90 utils_datafiles.f90 datafiles.f90 utils_tables.f90 utils_infiles.f90 \
-          ${SRCEOS} viscosity.f90 options.f90 damping.f90 utils_gravwave.f90 \
-          utils_dumpfiles.f90 utils_summary.f90 centreofmass.f90 \
-          ${SRCCHEM} ${DOMAIN} ${SRCPOT} dust_formation.F90 ptmass_radiation.F90 mpi_balance.F90 mpi_memory.F90 mpi_force.F90 mpi_dens.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 ptmass.F90 ${SRCTURB} \
-          checkconserved.f90 prompting.f90 ${SRCDUST} ${SRCNIMHD} readwrite_infile.f90 ${MULTIRUNFILE}
+SRCMULT = prompting.f90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
 
-multirun: checksystem checkparams $(OBJMULT)
+multirun: checksystem checkparams libphantom $(OBJMULT)
 	@echo ""
 	@echo "multirun: your hope is our desire"
 	@echo ""
-	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJMULT)
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJMULT) $(LIBPHANTOM) $(LDFLAGS)
 
 cleanmultirun:
 	rm -f $(BINDIR)/multirun
