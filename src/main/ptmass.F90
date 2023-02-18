@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -1646,7 +1646,7 @@ subroutine pt_open_sinkev(num)
           9,'spinx',   &
          10,'spiny',   &
          11,'spinz',   &
-         12,'macc',    &
+         12,'macc',    &  ! total mass accreted
          13,'fx',      &
          14,'fy',      &
          15,'fz',      &

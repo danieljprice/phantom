@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -40,7 +40,7 @@ end subroutine test_mpi
 
 subroutine test_increase_mpi_memory(ntests,npass)
  use mpimemory, only:allocate_mpi_memory,increase_mpi_memory,&
-                     deallocate_mpi_memory,stacksize, force_stack_1,&
+                     deallocate_mpi_memory,stacksize,force_stack_1,&
                      push_onto_stack
  use mpiforce,  only:cellforce
  integer, intent(inout) :: ntests,npass
@@ -53,7 +53,7 @@ subroutine test_increase_mpi_memory(ntests,npass)
  ncheck = 0
  maxerr = 0.
 
- ! Save original stacksize
+ ! Save original stacksize, assuming they're the same for dens and force
  stacksize_orig = stacksize
 
  ! Deallocate existing stack

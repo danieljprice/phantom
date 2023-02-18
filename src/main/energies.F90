@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -711,7 +711,7 @@ subroutine compute_energies(t)
 
  if (track_mass) then
     accretedmass = ev_data(iev_sum,iev_macc)
-    ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
+    if (accradius1 > 0.) ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
