@@ -501,6 +501,7 @@ SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
 # chemistry and cooling
 #
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
+         cooling_gammie_PL.f90 \
          cooling_gammie.f90 \
          cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
