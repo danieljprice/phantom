@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -20,13 +20,17 @@ module growth
 !   - flyby         : *use primary for keplerian freq. calculation*
 !   - force_smax    : *(mcfost) set manually maximum size for binning*
 !   - grainsizemin  : *minimum allowed grain size in cm*
+!   - stokesmin     : *minimum allowed Stokes number when porosity is on*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
+!   - ieros         : *erosion of dust (0=off,1=on)
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
 !   - vfragout      : *inward fragmentation threshold in m/s*
+!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
+!   - dsize         : *size of ejected grain during erosion in cm*
 !   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
@@ -40,20 +44,25 @@ module growth
  !--Default values for the growth and fragmentation of dust in the input file
  integer, public        :: ifrag        = 1
  integer, public        :: isnow        = 0
+ integer, public        :: ieros        = 0
 
  real, public           :: gsizemincgs  = 5.e-3
+ real, public           :: stokesmin    = 1.e-4
  real, public           :: rsnow        = 100.
  real, public           :: Tsnow        = 150.
  real, public           :: vfragSI      = 15.
  real, public           :: vfraginSI    = 5.
  real, public           :: vfragoutSI   = 15.
+ real, public           :: cohacccgs    = 100
+ real, public           :: dsizecgs     = 1.0e-3
 
  real, public           :: vfrag
  real, public           :: vref
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
- real, public           :: stmin
+ real, public           :: cohacc
+ real, public           :: dsize
 
  logical, public        :: wbymass         = .true.
 
@@ -91,7 +100,8 @@ subroutine init_growth(ierr)
  vfragout       = vfragoutSI * 100 / unit_velocity
  rsnow          = rsnow * au / udist
  grainsizemin   = gsizemincgs / udist
- stmin          = gsizemincgs
+ cohacc         = cohacccgs * utime * utime / umass
+ dsize          = dsizecgs / udist
 
  if (ifrag > 0) then
     if (grainsizemin < 0.) then
@@ -141,6 +151,17 @@ subroutine init_growth(ierr)
     endif
  endif
 
+ if (ieros == 1) then
+    if (cohacc < 0) then
+       call error('init_growth','cohacc < 0',var='cohacc',val=cohacc)
+       ierr = 5
+    endif
+    if (dsize < 0) then
+       call error('init_growth','dsize < 0',var='dsize',val=dsize)
+       ierr = 5
+    endif
+ endif
+
 end subroutine init_growth
 
 !----------------------------------------------------------
@@ -173,6 +194,10 @@ subroutine print_growthinfo(iprint)
        write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfraginSI,' m/s = ',vfragin,' (code units)'
        write(iprint,"(2(a,1pg10.3),a)") ' vfragin = ',vfragoutSI,' m/s = ',vfragout,' (code units)'
     endif
+ endif
+ if (ieros == 1) then
+    write(iprint,"(a)")    ' Using aeolian-erosion model where ds = -fourpi*rhos*rhog*s*(deltav**3)*(dsize**2)/(3*cohacc)*dt    '
+    write(iprint,"(2(a,1pg10.3),a)")' dsize = ',dsizecgs,' cm = ',dsize,' (code units)'
  endif
 
 end subroutine print_growthinfo
@@ -250,6 +275,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
                 dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
           endif
+          if (ieros == 1) dsdt(i) = dsdt(i) - fourpi*sdust*dustprop(2,i)*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc) ! Erosion model
        endif
     else
        dmdt(i) = 0.
@@ -335,14 +361,20 @@ end subroutine comp_snow_line
 !-----------------------------------------------------------------------
 subroutine write_options_growth(iunit)
  use infile_utils,        only:write_inopt
+ use options,             only:use_porosity
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
  call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
+ call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  if (ifrag /= 0) then
-    call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm (min St if porosity)',iunit)
+    if (use_porosity) then
+       call write_inopt(stokesmin,'stokesmin','minimum allowed stokes number',iunit)
+    else
+       call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
+    endif
     call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
     if (isnow == 1) call write_inopt(rsnow,'rsnow','position of the snow line in AU',iunit)
     if (isnow == 2) call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
@@ -352,6 +384,11 @@ subroutine write_options_growth(iunit)
        call write_inopt(vfragoutSI,'vfragout','outward fragmentation threshold in m/s',iunit)
     endif
  endif
+ if (ieros == 1) then
+   call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
+   call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
+ endif
+
 #ifdef MCFOST
  call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
  call write_inopt(size_max,'size_max_user','(mcfost) maximum size for binning in cm',iunit)
@@ -372,6 +409,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
 
  integer,save                        :: ngot = 0
  integer                             :: imcf = 0
+ integer                             :: goteros = 1
  logical                             :: tmp = .false.
 
  imatch  = .true.
@@ -381,8 +419,14 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('ifrag')
     read(valstring,*,iostat=ierr) ifrag
     ngot = ngot + 1
+ case('ieros')
+    read(valstring,*,iostat=ierr) ieros
+    ngot = ngot + 1
  case('grainsizemin')
     read(valstring,*,iostat=ierr) gsizemincgs
+    ngot = ngot + 1
+ case('stokesmin')
+    read(valstring,*,iostat=ierr) stokes
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
@@ -401,6 +445,12 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('vfragout')
     read(valstring,*,iostat=ierr) vfragoutSI
+    ngot = ngot + 1
+ case('cohacc')
+    read(valstring,*,iostat=ierr) cohacccgs
+    ngot = ngot + 1
+ case('dsize')
+    read(valstring,*,iostat=ierr) dsizecgs
     ngot = ngot + 1
  case('flyby')
     read(valstring,*,iostat=ierr) this_is_a_flyby
@@ -428,21 +478,23 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  imcf = 3
 #endif
 
+ if (ieros == 1) goteros = 2
+
  if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 3+imcf) igotall = .true.
+    if ((ifrag <= 0) .and. ngot == 3+imcf+goteros) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 6+imcf) igotall = .true.
+       if (ngot == 6+imcf+goteros) igotall = .true.
     elseif (isnow > 0) then
-       if (ngot == 8+imcf) igotall = .true.
+       if (ngot == 8+imcf+goteros) igotall = .true.
     else
        igotall = .false.
     endif
  else
-    if ((ifrag <= 0) .and. ngot == 2+imcf) igotall = .true.
+    if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
     if (isnow == 0) then
-       if (ngot == 5+imcf) igotall = .true.
+       if (ngot == 5+imcf+goteros) igotall = .true.
     elseif (isnow > 0) then
-       if (ngot == 7+imcf) igotall = .true.
+       if (ngot == 7+imcf+goteros) igotall = .true.
     else
        igotall = .false.
     endif
@@ -457,18 +509,24 @@ end subroutine read_options_growth
 !-----------------------------------------------------------------------
 subroutine write_growth_setup_options(iunit)
  use infile_utils,      only:write_inopt
+ use options,           only:use_porosity
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options for growth and fragmentation of dust'
 
  call write_inopt(ifrag,'ifrag','fragmentation of dust (0=off,1=on,2=Kobayashi)',iunit)
+ call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  call write_inopt(isnow,'isnow','snow line (0=off,1=position based,2=temperature based)',iunit)
  call write_inopt(rsnow,'rsnow','snow line position in AU',iunit)
  call write_inopt(Tsnow,'Tsnow','snow line condensation temperature in K',iunit)
  call write_inopt(vfragSI,'vfrag','uniform fragmentation threshold in m/s',iunit)
  call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
  call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
- call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
+ if (use_porosity) then
+    call write_inopt(stokesmin,'stokesmin','minimum allowed stokes number',iunit)
+ else
+    call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
+ endif
 
 end subroutine write_growth_setup_options
 
@@ -479,13 +537,19 @@ end subroutine write_growth_setup_options
 !-----------------------------------------------------------------------
 subroutine read_growth_setup_options(db,nerr)
  use infile_utils,    only:read_inopt,inopts
+ use options,         only:use_porosity
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
 
  call read_inopt(ifrag,'ifrag',db,min=-1,max=2,errcount=nerr)
+ call read_inopt(ieros,'ieros',db,min=0,max=1,errcount=nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
-    call read_inopt(gsizemincgs,'grainsizemin',db,min=1.e-5,errcount=nerr)
+    if (use_porosity) then
+       call read_inopt(stokesmin,'stokesmin',db,min=1.e-5,errcount=nerr)
+    else
+       call read_inopt(gsizemincgs,'grainsizemin',db,min=1.e-5,errcount=nerr)
+    endif
     select case(isnow)
     case(0)
        call read_inopt(vfragSI,'vfrag',db,min=0.,errcount=nerr)
@@ -514,7 +578,7 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  integer,intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
- real                      :: stnew,sdustprev,sdustmin,sdust
+ real                      :: stokesnew,sdustprev,sdustmin,sdust
 
  do i=1,npart
     iam = iamtype(iphase(i))
@@ -522,9 +586,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
        if (use_porosity) then
           sdustprev = get_size(mprev(i),dustprop(2,i),filfacprev(i))
           sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
-          stnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)
-          if (stnew < stmin) then
-            sdustmin = stmin*sdustprev*filfacprev(i)/filfac(i)/dustgasprop(3,i)
+          stokesnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)
+          if (stokesnew < stokesmin) then
+            sdustmin = stokesmin*sdustprev*filfacprev(i)/filfac(i)/dustgasprop(3,i)
             dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
@@ -551,7 +615,7 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
  integer, intent(in)           :: npart
  real, intent(in)              :: xyzh(:,:)
  integer                       :: i,iam
- real                          :: r,z,h
+ real                          :: r,h
  logical, optional, intent(in) :: sizedistrib
  real, optional, intent(in)    :: pwl_sizedistrib,R_ref,H_R_ref,q_index
 
@@ -559,9 +623,9 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
     iam = iamtype(iphase(i))
     if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
        dustprop(2,i) = graindenscgs / unit_density
-       r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-       h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
        if (sizedistrib) then 
+          r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+          h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
           dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
           dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
        else
