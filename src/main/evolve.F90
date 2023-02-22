@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -33,13 +33,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
-                            dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
+                            dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
+                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
- use dim,              only:maxvxyzu,mhd,periodic
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -75,7 +76,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use partinject,       only:update_injected_particles
 #endif
  use dim,              only:do_radiation
- use options,          only:exchange_radiation_energy
+ use options,          only:exchange_radiation_energy,implicit_radiation
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
@@ -131,7 +132,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: should_conserve_dustmass
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
- real, parameter :: xor(3)=0.
+ character(len=120) :: dumpfile_orig
 
  tprint    = 0.
  nsteps    = 0
@@ -227,7 +228,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     if (istepfrac==2**nbinmax) then
        twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
                                      rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     endif
 
@@ -261,7 +262,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! Strang splitting: implicit update for half step
     !
-    if (do_radiation.and.exchange_radiation_energy) then
+    if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
     nsteps = nsteps + 1
@@ -278,7 +279,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! Strang splitting: implicit update for another half step
     !
-    if (do_radiation.and.exchange_radiation_energy) then
+    if (do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
 
@@ -409,13 +410,41 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 !--write to data file if time is right
 !
     if (at_dump_time) then
+#ifndef IND_TIMESTEPS
+!
+!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
+       twallperdump = timers(itimer_lastdump)%wall
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
+                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+       dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
+#endif
+
        !--modify evfile and logfile names with new number
        if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
           if (noutput==1) then
              evfile  = getnextfilename(evfile)
              logfile = getnextfilename(logfile)
           endif
-          dumpfile = getnextfilename(dumpfile)
+!         Update values for restart dumps
+          if (dtmax_ifactorWT ==0) then
+             idtmax_n_next    =  idtmax_n
+             idtmax_frac_next =  idtmax_frac
+          elseif (dtmax_ifactorWT > 0) then
+             idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
+             idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
+          elseif (dtmax_ifactorWT < 0) then
+             idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
+             idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
+          endif
+          idtmax_frac_next = idtmax_frac_next + 1
+          idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
+          dumpfile_orig = trim(dumpfile)
+          if (idtmax_frac==0) then
+             dumpfile = getnextfilename(dumpfile,idumpfile)
+             dumpfile_orig = trim(dumpfile)
+          else
+             write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
+          endif
           writedump = .true.
        else
           writedump = .false.
@@ -423,14 +452,6 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
        !--do not dump dead particles into dump files
        if (ideadhead > 0) call shuffle_part(npart)
-
-#ifndef IND_TIMESTEPS
-!
-!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
-       twallperdump = timers(itimer_lastdump)%wall
-       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
-                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
-#endif
 !
 !--get timings since last dump and overall code scaling
 !  (get these before writing the dump so we can check whether or not we
@@ -500,7 +521,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
 
 #ifdef LIVE_ANALYSIS
-       if (id==master) then
+       if (id==master .and. idtmax_frac==0) then
           call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                            massoftype(igas),npart,time,ianalysis)
        endif
@@ -548,15 +569,21 @@ subroutine evol(infile,logfile,evfile,dumpfile)
           call reset_timer(i)
        enddo
 
-       noutput_dtmax = noutput_dtmax + 1
-       noutput       = noutput + 1
+       if (idtmax_frac==0) then
+          noutput    = noutput + 1           ! required to determine frequency of full dumps
+       endif
+       noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
+       idtmax_n      = idtmax_n_next
+       idtmax_frac   = idtmax_frac_next
        tprint        = tzero + noutput_dtmax*dtmaxold
        nsteplast     = nsteps
+       dumpfile      = trim(dumpfile_orig)
        if (dtmax_ifactor/=0) then
-          tzero         = tprint - dtmaxold
-          tprint        = tzero  + dtmax
-          noutput_dtmax = 1
-          dtmax_ifactor = 0
+          tzero           = tprint - dtmaxold
+          tprint          = tzero  + dtmax
+          noutput_dtmax   = 1
+          dtmax_ifactor   = 0
+          dtmax_ifactorWT = 0
        endif
     endif
 
