@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,7 +18,7 @@ module kdtree
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
-!   kernel, mpibalance, mpiderivs, mpidomain, mpiutils, part, timing
+!   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
  use dim,         only:maxp,ncellsmax,minpart
  use io,          only:nprocs
@@ -470,7 +470,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  use dim,       only:maxtypes,mpi
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
- use mpiderivs, only:get_group_cofm,reduce_group
+ use mpitree,   only:get_group_cofm,reduce_group
  type(kdnode),      intent(out)   :: nodeentry
  integer,           intent(in)    :: nnode, mymum, level
  integer,           intent(in)    :: ndim
@@ -1495,7 +1495,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
- use mpiderivs,    only:tree_sync,tree_bcast
+ use mpitree,    only:tree_sync,tree_bcast
  use part,         only:isdead_or_accreted,iactive,ibelong
  use timing,       only:increment_timer,get_timings,itimer_balance
 

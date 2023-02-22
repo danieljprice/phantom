@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -1115,7 +1115,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        if (itypej==igas) then
           rhoj = rhoh(xyzh(4,j),pmassj)
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassj*utherm(vxyzu(4,j),rhoj)
+             etherm = etherm + pmassj*utherm(vxyzu(:,j),rhoj,gamma)
           else
              if (ieos==2 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
@@ -1646,7 +1646,7 @@ subroutine pt_open_sinkev(num)
           9,'spinx',   &
          10,'spiny',   &
          11,'spinz',   &
-         12,'macc',    &
+         12,'macc',    &  ! total mass accreted
          13,'fx',      &
          14,'fy',      &
          15,'fz',      &
