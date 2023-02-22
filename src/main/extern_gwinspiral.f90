@@ -173,6 +173,9 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
           isseparate = .false.    ! Stop emitting gravitational waves
           stopped_now = .true.    ! to trigger a print statement
        endif
+    elseif (nptmass == 1) then
+       sep = sqrt(dot_product(comstar1 - comstar2,comstar1 - comstar2))
+       print*,' SEP is ',sep,mstar1,mstar2,fstar1_coef,fstar2_coef
     endif
  endif
 
