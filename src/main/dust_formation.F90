@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -25,13 +25,14 @@ module dust_formation
 !
 
  use part,    only:idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa
- use physcon, only:kboltz,pi,atomic_mass_unit
+ use physcon, only:kboltz,pi,atomic_mass_unit,mass_proton_cgs,patm
  use dim,     only:nElements
 
  implicit none
  integer, public :: idust_opacity = 0
 
- public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
+ public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,&
+      calc_kappa_bowen,chemical_equilibrium_light,&
       read_options_dust_formation,write_options_dust_formation,&
       calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
       write_headeropts_dust_formation,read_headeropts_dust_formation
@@ -81,7 +82,6 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: patm = 1.013250d6 ! Standard atmospheric pressure
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
@@ -102,8 +102,8 @@ subroutine init_nucleation
  !initialize nucleation array
  gamma = 5./3.
  JKmuS = 0.
- jKmuS(idmu)    = gmw
- jKmuS(idgamma) = gamma
+ JKmuS(idmu)    = gmw
+ JKmuS(idgamma) = gamma
  do i=1,npart
     nucleation(:,i) = JKmuS(:)
  enddo
@@ -112,7 +112,7 @@ end subroutine init_nucleation
 
 subroutine set_abundances
 ! all quantities in cgs
- eps(iH)  = 1.d0
+ eps(iH)  = 1.0
  eps(iHe) = 1.04d-1
  eps(iOx) = 6.d-4
  eps(iN)  = 2.52d-4
@@ -139,13 +139,13 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  real,    intent(inout) :: JKmuS(:)
 
  integer, parameter :: wind_emitting_sink = 1
- real :: dt, T, rho_cgs, vxyzui(4)
+ real :: dt_cgs, T, rho_cgs, vxyzui(4)
 
- dt        = dtsph* utime
+ dt_cgs    = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
- T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
- call evolve_chem(dt, T, rho_cgs, JKmuS)
+ T         = get_temperature(ieos,xyzh,rho,vxyzui,gammai=JKmuS(idgamma),mui=JKmuS(idmu))
+ call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
 end subroutine evolve_dust
@@ -219,7 +219,7 @@ pure elemental real function calc_kappa_bowen(Teq)
  if (dlnT > 50.) then
     calc_kappa_bowen = 0.
  else
-    calc_kappa_bowen = bowen_kmax/(1.d0 + exp(dlnT)) + kappa_gas
+    calc_kappa_bowen = bowen_kmax/(1.0 + exp(dlnT)) + kappa_gas
  endif
 
 end function calc_kappa_bowen
@@ -282,33 +282,44 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
  real, parameter   :: alpha1 = 0.37 !sticking coef for C
  real, parameter   :: alpha2 = 0.34 !sticking coef for C2,C2H,C2H2
  real, parameter   :: alpha3 = 0.08 !sticking coef for C3
- real, parameter   :: Nl = 5.
+ real, parameter   :: Nl_13 = 5.**(1./3.)
  real, parameter   :: mproton = 1.6726485d-24
 
- real :: ln_S_g, Nstar_inf_13, Nstar, Nstar_m1_13, Nstar_m1_23, theta_Nstar
+ real :: ln_S_g, Nstar_inf_13, Nstar_m1_13, Nstar_m1_23, theta_Nstar,Nstar_m1,Nstar_tmp
  real :: dtheta_dNstar, d2lnc_dN2star, Z, A_Nstar, v1, beta, c_star, expon
 
  ln_S_g = log(S)
+ v1     = vfactor*sqrt(T)
  Nstar_inf_13  = 2.*theta_inf/(3.*T*ln_S_g)
- Nstar         = 1. + (Nstar_inf_13**3)/8. * (1. + sqrt(1. + 2.*Nl**(1./3.)/Nstar_inf_13) - 2.*Nl**(1./3.)/Nstar_inf_13)**3
- Nstar_m1_13   = (Nstar - 1.)**(1./3.)
- Nstar_m1_23   = Nstar_m1_13**2
- theta_Nstar   = theta_inf/(1. + Nl**(1./3.)/Nstar_m1_13)
- dtheta_dNstar = Nl**(1./3.)/3. * theta_Nstar**2/(theta_inf * Nstar_m1_23**2)
- d2lnc_dN2star = -2./T * Nstar_m1_23 * (dtheta_dNstar**2/theta_Nstar - theta_Nstar/(9.*(Nstar-1.)**2))
- Z             = sqrt(d2lnc_dN2star/(2.*pi))
- A_Nstar       = A0 * Nstar**(2./3.)
- v1            = vfactor*sqrt(T)
- beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
- expon         = (Nstar-1.)*ln_S_g - theta_Nstar*Nstar_m1_23/T
- if (expon < -100.) then
-    c_star = 1.d-99
+ Nstar_tmp     = 1. + sqrt(1. + 2.*Nl_13/Nstar_inf_13) - 2.*Nl_13/Nstar_inf_13
+ if (Nstar_tmp > 0.) then
+    Nstar_m1      = (Nstar_inf_13**3)/8. * Nstar_tmp**3
+    Nstar_m1_13   = 0.5*Nstar_inf_13*Nstar_tmp
+    Nstar_m1_23   = Nstar_m1_13**2
+    theta_Nstar   = theta_inf/(1. + Nl_13/Nstar_m1_13)
+    dtheta_dNstar = Nl_13 * theta_Nstar**2/(3.*theta_inf * Nstar_m1_23**2)
+    d2lnc_dN2star = 2.*theta_Nstar/(9.*T*Nstar_m1)*(Nstar_m1_13+2.*Nl_13)/(Nstar_m1_13+Nl_13)**2
+    Z             = sqrt(d2lnc_dN2star/(2.*pi))
+    A_Nstar       = A0 * (1.+Nstar_m1)**(2./3.)
+    beta          = v1/(kboltz*T) * (pC*alpha1 + 4.*alpha2/sqrt(2.)*(pC2 + pC2H + pC2H2) + 9.*alpha3/sqrt(3.)*pC3)
+    expon         = Nstar_m1*ln_S_g - theta_Nstar*Nstar_m1_23/T
+    if (expon < -100.) then
+       c_star = 1.d-70
+    else
+       c_star = pC/(kboltz*T) * exp(expon)
+    endif
+    JstarS  = beta * A_Nstar * Z * c_star
+    taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
+    ! if (isnan(JstarS)) then
+    !   print*,i,'(N-1)^1/3=',Nstar_m1_13,'exp=',expon,'T=',T,'theta_N=',theta_Nstar,'d2lnc/dN2=',d2lnc_dN2star,ddd,&
+    !        'beta=',beta,'Z=',Z,'c_star=',c_star,'JstarS=',JstarS,'tau*=',taustar
+    !   if (isnan(JstarS)) stop
+    ! endif
  else
-    c_star = pC/(kboltz*T) * exp(expon)
+    JstarS  = 0.d0
+    taustar = 1.d-30
  endif
- JstarS  = beta * A_Nstar * Z * c_star
- taustar = 1./(d2lnc_dN2star*beta*A_Nstar)
- taugr   = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
+ taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
 end subroutine nucleation
 
 !------------------------------------
@@ -345,7 +356,13 @@ subroutine evol_K(Jstar, K, JstarS, taustar, taugr, dt, Jstar_new, K_new)
  dK3 = 3.*dt/(3.*taugr)*K(2) + 3.*(dt/(3.*taugr))**2*K(1) + (dt/(3.*taugr))**3*K(0)  &
      + (6.*taustar**4)/(3.*taugr)**3*(Jstar*i4+JstarS*i5)
  K_new(3) = K(3) + dK3 + Nl_13**3*dK0 + 3.*Nl_13**2*dK1 + 3.*Nl_13*dK2
- !if (K_new(3) > 1.20d-3) print *,dt,taustar,taugr,d,i0,i1,Jstar,JstarS,k(1),dk1,k_new(1),k(2),dk2,k_new(2),k(3),dk3,k_new(3)
+ !if (any(isnan(K_new))) then
+ !  print*,'NaNs in K_new for particle #',i
+ !  print *,'dt=',dt,'tau*=',taustar,'taug=',taugr,'d=',d,'i0=',i0,'i1=',i1,'Jstar=',Jstar,'JstarS=',JstarS,&
+ !      'k1=',k(1),'dk1=',dk1,'Kn1=',k_new(1),'k2=',k(2),'dk2=',dk2,'Kn2=',k_new(2),'k3=',k(3),'dk3=',dk3,'Kn3=',k_new(3)
+ !  stop
+ !endif
+
 end subroutine evol_K
 
 !----------------------------------------
@@ -359,7 +376,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
- real, intent(out) :: pH, pH_tot
+ real, intent(out)   :: pH, pH_tot
  real :: KH2, pH2
  real :: T_old, mu_old, gamma_old, tol
  logical :: converged
@@ -377,6 +394,8 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     tol       = 1.d-3
     converged = .false.
     isolve    = 0
+    pH_tot    = rho_cgs*T*kboltz/(patm*mass_per_H) ! to avoid compiler warning
+    pH        = pH_tot ! arbitrary value, overwritten below, to avoid compiler warning
     !T = atomic_mass_unit*mu*(gamma-1)*u/kboltz
     i = 0
     do while (.not. converged .and. i < itermax)
@@ -394,24 +413,24 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        !T        = T_old    !uncomment this line to cancel iterations
        converged = (abs(T-T_old)/T_old) < tol
        !print *,i,T_old,T,gamma_old,gamma,mu_old,mu,abs(T-T_old)/T_old
-    enddo
-    if (i>=itermax .and. .not.converged) then
-       if (isolve==0) then
-          isolve = isolve+1
-          i      = 0
-          tol    = 1.d-2
-          print *,'[dust_formation] cannot converge on T(mu,gamma). Try with lower tolerance'
-       else
-          print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
-                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
-          call fatal(label,'cannot converge on T(mu,gamma)')
+       if (i>=itermax .and. .not.converged) then
+          if (isolve==0) then
+             isolve = isolve+1
+             i      = 0
+             tol    = 1.d-2
+             print *,'[dust_formation] cannot converge on T(mu,gamma). Trying with lower tolerance'
+          else
+             print *,'Told=',T_old,',T=',T,',gamma_old=',gamma_old,',gamma=',gamma,',mu_old=',&
+                  mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old
+             call fatal(label,'cannot converge on T(mu,gamma)')
+          endif
        endif
-    endif
+    enddo
  else
 ! Simplified low-temperature chemistry: all hydrogen in H2 molecules
     pH_tot = rho_cgs*T*kboltz/(patm*mass_per_H)
     pH2    = pH_tot/2.
-    pH     = 0.d0
+    pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
     gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
@@ -423,10 +442,12 @@ end subroutine calc_muGamma
 !  Initialise mean molecular weight and gamma
 !
 !--------------------------------------------
-subroutine init_muGamma(rho_cgs, T, mu, gamma)
+subroutine init_muGamma(rho_cgs, T, mu, gamma, ppH, ppH2)
 ! all quantities are in cgs
- real, intent(in) :: rho_cgs
- real, intent(out) :: T, mu, gamma
+ real, intent(in)              :: rho_cgs
+ real, intent(inout)           :: T
+ real, intent(out)             :: mu, gamma
+ real, intent(out), optional   :: ppH, ppH2
  real :: KH2, pH_tot, pH, pH2
 
  pH_tot = rho_cgs*kboltz*T/(patm*mass_per_H)
@@ -445,6 +466,8 @@ subroutine init_muGamma(rho_cgs, T, mu, gamma)
  mu    = (1.+4.*eps(iHe))*pH_tot/(pH+pH2+eps(iHe)*pH_tot)
  gamma = (5.*pH+5.*eps(iHe)*pH_tot+7.*pH2)/(3.*pH+3.*eps(iHe)*pH_tot+5.*pH2)
  call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
+ if (present(ppH))  ppH = pH
+ if (present(ppH2)) ppH2 = pH2
 
 end subroutine init_muGamma
 
@@ -453,22 +476,32 @@ end subroutine init_muGamma
 !  Compute carbon chemical equilibrum abundance in the gas phase
 !
 !---------------------------------------------------------------
-subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu, gamma)
+subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu, gamma,&
+     nH, nH2, nHe, nCO, nH2O, nOH)
 ! all quantities are in cgs
  real, intent(in)    :: rho_cgs, epsC
  real, intent(inout) :: T, mu, gamma
  real, intent(out)   :: pC, pC2, pC2H, pC2H2
+ real, intent(out), optional :: nH, nH2, nHe, nCO, nH2O, nOH
  real    :: pH_tot, Kd(nMolecules+1), err, a, b, c, d
  real    :: pH, pCO, pO, pSi, pS, pTi, pN
- real    :: pC_old, pO_old, pSi_old, pS_old, pTi_old
+ real    :: pC_old, pO_old, pSi_old, pS_old, pTi_old, cst
  integer :: i, nit
 
  call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
- if (T > 1.d5) then
-    pC    = 1.d-50
-    pC2   = 1.d-50
+ if (T > 1.d4) then
+    pC    = eps(iC)*pH_tot
+    pC2   = 0.
     pC2H  = 0.
     pC2H2 = 0.
+    if (present(nH)) then
+       nH   = pH  *(patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+       nH2  = 1.d-50
+       nHe  = eps(ihe)*pH_tot* (patm*mass_per_H)/(mu*mass_proton_cgs*kboltz*T)
+       nCO  = 1.d-50
+       nH2O = 1.d-50
+       nOH  = 1.d-50
+    endif
     return
  endif
 
@@ -525,7 +558,7 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
     if (pTi > 1.e-50) err = err + abs((pTi-pTi_old)/pTi)
 
     nit = nit + 1
-    if (nit == 2000) exit
+    if (nit == 200) exit
 
     pC_old  = pC
     pO_old  = pO
@@ -543,6 +576,20 @@ subroutine chemical_equilibrium_light(rho_cgs, T, epsC, pC, pC2, pC2H, pC2H2, mu
  pC2   = pC2*patm
  pC2H  = pC2H*patm
  pC2H2 = pC2H2*patm
+ if (present(nH)) then
+    cst  = mass_per_H/(mu*mass_proton_cgs*kboltz*T)
+    if (T < 450.) then
+       nH2 = pH_tot/2.      *patm*cst
+       nH  = 1.d-99
+    else
+       nH   = pH            *patm*cst
+       nH2  = Kd(iH2)*pH**2 *patm*cst
+    endif
+    nHe  = eps(ihe)*pH_tot  *patm*cst
+    nCO  = Kd(iCO) *pC*pO   *patm*cst
+    nH2O = Kd(iH2O)*pH**2*pO*patm*cst
+    nOH  = Kd(iOH) *pH*pO   *patm*cst
+ endif
 end subroutine chemical_equilibrium_light
 
 !-----------------------------
@@ -559,6 +606,7 @@ pure real function solve_q(a, b, c)
  else
     solve_q = -c/b
  endif
+ solve_q = max(solve_q,1e-50)
 end function solve_q
 
 !-------------------------------------------------------------------------
@@ -598,7 +646,7 @@ pure real function calc_Kd(coefs, T)
  real, parameter :: R = 1.987165
  real :: G, d
  G = coefs(1)/T + coefs(2) + (coefs(3)+(coefs(4)+coefs(5)*T)*T)*T
- d = -G/(R*T)
+ d = min(-G/(R*T),222.)
  calc_Kd = exp(d)
 end function calc_Kd
 
