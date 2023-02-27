@@ -24,6 +24,7 @@ Contents
    user-guide
    examples
    external-utilities
+   physics-guide
    developer-guide
    faq
    releasenotes

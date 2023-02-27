@@ -243,9 +243,9 @@ ifeq ($(SETUP), gwdisc)
     MAXP=2000000
     IND_TIMESTEPS=yes
     ISOTHERMAL=yes
-    KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     SRCPOT= ${SRCPOTS:extern_binary.f90=extern_binary_gw.f90}
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), nshwdisc)
@@ -257,8 +257,8 @@ ifeq ($(SETUP), nshwdisc)
     ISOTHERMAL=yes
     DISC_VISCOSITY=yes
     IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
     NCELLSMAX=3*maxp
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), prtest)
@@ -277,32 +277,42 @@ ifeq ($(SETUP), binarydiscMFlow)
     MAXP=1000000
     ISOTHERMAL=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     LIVE_ANALYSIS=no
     IND_TIMESTEPS=yes
     MODFILE= moddump_removeparticles_cylinder.f90 #moddump_addpartfortest.f90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
-    FPPFLAGS=
     SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     ANALYSIS=analysis_disc.f90
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), exoALMA)
+#   exoALMA comparison project: planet disc interaction with fixed planet orbit
+    SETUPFILE=setup_disc.f90
+    ISOTHERMAL=yes
+    IND_TIMESTEPS=yes
+    CURLV=yes
+    ANALYSIS=analysis_disc.f90
+    SRCINJECT=inject_steadydisc.f90
+    SRCINJECT_DEPS=set_disc.F90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
-    FPPFLAGS=
     SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     ANALYSIS=analysis_disc.f90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), torus)
@@ -389,7 +399,7 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
-    SETUPFILE= velfield_fromcubes.f90  setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
@@ -748,14 +758,14 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= analysis_dustywind.F90 dust_formation.F90
+    ANALYSIS= analysis_cooling.F90
     WIND=yes
 endif
 
 ifeq ($(WIND), yes)
 #   wind particle injection setup
     SETUPFILE= setup_wind.F90
-    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.f90 wind.F90 inject_wind.f90
+    SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
 endif
 

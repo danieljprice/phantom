@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -36,7 +36,7 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  real, allocatable :: x(:),f(:),y(:)
  real :: t1,t2,errmax,tnative
 
- if (id==master) write(stderr,"(a,/)") '--> TESTING FAST SQRT ROUTINES'
+ if (id==master) write(*,"(a,/)") '--> TESTING FAST SQRT ROUTINES'
 
  usefsqrt    = .true.
  usefinvsqrt = .true.
@@ -46,10 +46,10 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  call testsqrt(ierr,output=.false.)
  if (ierr /= 0) then
     ! report errors on any threads
-    write(stderr, "(a)") ' *** ERROR with fast sqrt on this architecture ***'
+    write(*, "(a)") ' *** ERROR with fast sqrt on this architecture ***'
     usefsqrt    = .false.
     usefinvsqrt = .false.
-    write(stderr,"(/,a,/)") '<-- FAST SQRT TEST FAILED'
+    write(*,"(/,a,/)") '<-- FAST SQRT TEST FAILED'
     return
  endif
 
@@ -83,7 +83,7 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  enddo
  call cpu_time(t2)
  tnative = t2-t1
- if (id==master) write(stderr,"(a,es10.3,a)") ' native 1/sqrt done in ',tnative,' cpu-s'
+ if (id==master) write(*,"(a,es10.3,a)") ' native 1/sqrt done in ',tnative,' cpu-s'
  y = f
 
  call barrier_mpi
@@ -95,14 +95,14 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  call cpu_time(t2)
 
  ! run tests on all threads, but only report detailed results on master thread
- if (id==master) write(stderr,"(a,es10.3,a)") '   fast 1/sqrt done in ',t2-t1,' cpu-s'
+ if (id==master) write(*,"(a,es10.3,a)") '   fast 1/sqrt done in ',t2-t1,' cpu-s'
 
  if ((t2-t1) > tnative) then
-    if (id==master) write(stderr,"(a,f4.1)") ' so finvsqrt(x) is SLOWER than 1/sqrt(x) by factor of ',&
+    if (id==master) write(*,"(a,f4.1)") ' so finvsqrt(x) is SLOWER than 1/sqrt(x) by factor of ',&
                                (t2-t1)/tnative
     usefinvsqrt = .false.
  else
-    if (id==master) write(stderr,"(a,f4.1)") ' so finvsqrt(x) is FASTER than 1/sqrt(x) by factor of ', &
+    if (id==master) write(*,"(a,f4.1)") ' so finvsqrt(x) is FASTER than 1/sqrt(x) by factor of ', &
                                 tnative/(t2-t1)
  endif
 
@@ -110,10 +110,10 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  do i=1,n
     errmax = max(errmax,abs(y(i) - f(i))/y(i))
  enddo
- if (id==master) write(stderr,"(1x,a,es10.3)") 'max relative error is ',errmax
+ if (id==master) write(*,"(1x,a,es10.3)") 'max relative error is ',errmax
  if (errmax > 1.e-7) usefinvsqrt = .false.
 
- if (id==master) write(stderr,*)
+ if (id==master) write(*,*)
  call barrier_mpi
 !
 !--check timings for sqrt
@@ -124,7 +124,7 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
  enddo
  call cpu_time(t2)
  tnative = t2-t1
- if (id==master) write(stderr,"(a,es10.3,a)") '   native sqrt done in ',tnative,' cpu-s'
+ if (id==master) write(*,"(a,es10.3,a)") '   native sqrt done in ',tnative,' cpu-s'
  y = f
  call barrier_mpi
 
@@ -133,28 +133,28 @@ subroutine test_math(ntests,npass,usefsqrt,usefinvsqrt)
     f(i) = x(i)*finvsqrt(x(i))
  enddo
  call cpu_time(t2)
- if (id==master) write(stderr,"(a,es10.3,a)") ' x*finvsqrt(x) done in ',t2-t1,' cpu-s'
+ if (id==master) write(*,"(a,es10.3,a)") ' x*finvsqrt(x) done in ',t2-t1,' cpu-s'
 
  if ((t2-t1) > tnative) then
-    if (id==master) write(stderr,"(a,f4.1)") ' so x*finvsqrt(x) is SLOWER than sqrt(x) by factor of ',&
+    if (id==master) write(*,"(a,f4.1)") ' so x*finvsqrt(x) is SLOWER than sqrt(x) by factor of ',&
                              (t2-t1)/tnative
     usefsqrt = .false.
  else
-    if (id==master) write(stderr,"(a,f4.1)") ' so x*finvsqrt(x) is FASTER than sqrt(x) by factor of ',tnative/(t2-t1)
+    if (id==master) write(*,"(a,f4.1)") ' so x*finvsqrt(x) is FASTER than sqrt(x) by factor of ',tnative/(t2-t1)
  endif
 
  errmax = 0.
  do i=1,n
     errmax = max(errmax,abs(y(i) - f(i))/(y(i) + epsilon(y)))
  enddo
- if (id==master) write(stderr,"(1x,a,es10.3)") 'max relative error is ',errmax
+ if (id==master) write(*,"(1x,a,es10.3)") 'max relative error is ',errmax
  if (errmax > 1.e-7) usefinvsqrt = .false.
 
  if (allocated(x)) deallocate(x)
  if (allocated(f)) deallocate(f)
  if (allocated(y)) deallocate(y)
 
- if (id==master) write(stderr,"(/,a,/)") '<-- FAST SQRT TEST COMPLETE'
+ if (id==master) write(*,"(/,a,/)") '<-- FAST SQRT TEST COMPLETE'
  call barrier_mpi
 
 end subroutine test_math
