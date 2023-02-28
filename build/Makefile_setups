@@ -403,6 +403,16 @@ ifeq ($(SETUP), sphereinbox)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), sphere)
+#   sphere setup
+    ISOTHERMAL=no
+    PERIODIC=no
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
+    SETUPFILE= velfield_fromcubes.f90 setup_sphere.f90
+KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), shock)
 #   shock tube tests
     PERIODIC=yes

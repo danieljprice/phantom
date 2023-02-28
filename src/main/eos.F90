@@ -402,7 +402,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=7
 !
     if (eni < 0.) then                                                                          
-       call fatal('eos','utherm < 0',var='u',val=eni)
+       call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
     endif
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg

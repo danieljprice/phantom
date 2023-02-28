@@ -82,12 +82,16 @@ module cooling_stamatellos
      else
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
+     
      if (isnan(dudti_cool)) then
         print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
         print *, "poti=",poti, "rhoi=",rhoi, "Ti=", Ti
         print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
         print *, "Teqi=",Teqi, "dt=",dt,"tthermi=", tthermi,"ueqi=", ueqi
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
+        stop
+ 	 else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+     	dudti_cool = (umini - ui)/dt
      endif
      
    end subroutine cooling_S07
