@@ -16,7 +16,7 @@ module raytracer
 !
 ! :References: None
 !
-! :Owner: Lionel Siess
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
