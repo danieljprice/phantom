@@ -837,6 +837,29 @@ ifeq ($(SETUP), dustysgdisc)
     ANALYSIS=analysis_dustydisc.f90
 endif
 
+ifeq ($(SETUP), isosgdisc)
+#   isothermal self-gravitating disc
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    DISC_VISCOSITY=yes
+endif
+
+ifeq ($(SETUP), dustyisosgdisc)
+#   isothermal self-gravitating dustydisc
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    DUST=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    DISC_VISCOSITY=yes
+endif
+
 ifeq ($(SETUP), dustsettle)
 #   dust settling test from PL15
     SETUPFILE= setup_dustsettle.f90
