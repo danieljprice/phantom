@@ -102,7 +102,7 @@ module setup
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid
- use options,          only:use_mcfost,use_mcfost_stellar_parameters,mcfost_computes_Lacc
+ use options,          only:use_mcfost,use_mcfost_stellar_parameters
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
@@ -2586,8 +2586,6 @@ subroutine write_setupfile(filename)
     call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
     call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
         'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
-    call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
-        'Should mcfost compute the accretion luminosity',iunit)
  endif
 
  if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
