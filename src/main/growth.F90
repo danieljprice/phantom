@@ -258,8 +258,10 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
              case(2)
                 dsdt(i) = -rhod/dustprop(2,i)*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
+          endif                           !sqrt(0.0123)=0.110905    !1.65 -> surface energy in cgs
+          if (ieros == 1 .and. (dustgasprop(4,i) >= 0.110905*utime*sqrt(1.65/umass/dustprop(2,i)/dsize))) then
+             dsdt(i) = dsdt(i) - dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc*dustprop(1,i)) ! Erosion model
           endif
-          if (ieros == 1) dsdt(i) = dsdt(i) - dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc*dustprop(1,i)) ! Erosion model
        endif
     else
        dsdt(i) = 0.
