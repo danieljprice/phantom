@@ -271,7 +271,7 @@ subroutine wind_step(state)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
     if (itau_alloc == 1) then
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
     else
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
@@ -297,7 +297,7 @@ subroutine wind_step(state)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
     if (itau_alloc == 1) then
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
     else
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
@@ -412,7 +412,7 @@ subroutine wind_step(state)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
     if (itau_alloc == 1) then
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
     else
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
@@ -438,7 +438,7 @@ subroutine wind_step(state)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
    if (itau_alloc == 1) then
-     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)*exp(-state%tau)
+     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
    else
      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
    endif
