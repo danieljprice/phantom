@@ -501,7 +501,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                       dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                      rad,radprop,dens,metrics)
+                      rad,radprop,dens,metrics,dt)
 
     if (do_export) then
        call write_cell(stack_waiting,cell)
@@ -558,7 +558,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                         rad,radprop,dens,metrics)
+                         rad,radprop,dens,metrics,dt)
 
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -859,7 +859,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           dustfrac,dustprop,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
-                          ignoreself,rad,radprop,dens,metrics)
+                          ignoreself,rad,radprop,dens,metrics,dt)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
@@ -879,7 +879,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use dim,         only:use_dust,use_dustgrowth
 #ifdef DUST
- use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon
+ use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon,i_implicit
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
 #ifdef DUSTGROWTH
@@ -932,6 +932,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  logical,         intent(in)    :: ignoreself
  real,            intent(in)    :: rad(:,:),dens(:),metrics(:,:,:,:)
  real,            intent(inout) :: radprop(:,:)
+ real,            intent(in)    :: dt
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
  real    :: rij2,q2i,qi,xj,yj,zj,dx,dy,dz,runix,runiy,runiz,rij1,hfacgrkern
@@ -960,7 +961,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
- real    :: projvstar,epstsj!,rhogas1i
+ real    :: projvstar,epstsj,xidrag!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: winter
@@ -1804,8 +1805,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
-                dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                ts_min = min(ts_min,tsijtmp)
+
+                if (i_implicit .and. (dt .ne. 0)) then
+                   xidrag = (1. - exp(-dt/tsijtmp))/dt
+                else
+                   xidrag = 1./tsijtmp
+                endif
+
+                dragterm = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*wdrag
+
+                if (.not. i_implicit) ts_min = min(ts_min,tsijtmp)
+
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
@@ -1849,8 +1859,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    idusttype = iamtypei - idust + 1
                    call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
-                dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                ts_min = min(ts_min,tsijtmp)
+
+                if (i_implicit .and. (dt .ne. 0)) then
+                   xidrag = (1. - exp(-dt/tsijtmp))/dt
+                else
+                   xidrag = 1./tsijtmp
+                endif
+
+                dragterm = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*wdrag
+
+                if (.not. i_implicit) ts_min = min(ts_min,tsijtmp)
+
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
@@ -2322,7 +2341,7 @@ end subroutine start_cell
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
                         dustfrac,dustprop,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                        rad,radprop,dens,metrics)
+                        rad,radprop,dens,metrics,dt)
  use io,          only:error,id
  use dim,         only:maxvxyzu
  use options,     only:beta,alphau,alphaB,iresistive_heating
@@ -2353,6 +2372,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real,            intent(in)     :: rad(:,:)
  real,            intent(inout)  :: radprop(:,:)
  real,            intent(in)     :: dens(:),metrics(:,:,:,:)
+ real,            intent(in)     :: dt
 
  real                            :: hi
  real(kind=8)                    :: hi1,hi21,hi31,hi41
@@ -2423,7 +2443,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          dustfrac,dustprop,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
-                         ignoreself,rad,radprop,dens,metrics)
+                         ignoreself,rad,radprop,dens,metrics,dt)
 
  enddo over_parts
 
