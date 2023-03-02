@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -147,6 +147,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  integer,          intent(out) :: ierr
  integer :: ilen,iunit!,ierr1
  logical :: iexist
+ character(len=*), parameter :: cmd = 'curl -k'
 
  print "(80('-'))"
  print "(a)",'  Downloading '//trim(file)//' from '//trim(url)
@@ -155,19 +156,19 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  ierr = 0
  ! check that wget utility exists
  !call execute_command_line('type -p wget > /dev/null',wait=.true.,exitstat=ierr,cmdstat=ierr1)
- call system('type -p wget > /dev/null')
+ call system('type -p curl > /dev/null')
 
  if (ierr /= 0) then
-    print "(a)",' ERROR: wget utility does not exist'
+    print "(a)",' ERROR: curl utility does not exist'
  else
     if (len_trim(dir) > 0) then
-       !call execute_command_line('wget '//trim(url)//trim(file)//' -O '//trim(dir)//trim(file),wait=.true.,&
+       !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file)//' -O '//trim(dir)//trim(file),wait=.true.,&
        !                          exitstat=ierr,cmdstat=ierr1)
-       call system('wget '//trim(url)//trim(file)//' -O '//trim(dir)//trim(file))
+       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(dir)//trim(file))
        localfile = trim(dir)//trim(file)
     else
-       !call execute_command_line('wget '//trim(url)//trim(file),wait=.true.,exitstat=ierr,cmdstat=ierr1)
-       call system('wget '//trim(url)//trim(file))
+       !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file),wait=.true.,exitstat=ierr,cmdstat=ierr1)
+       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(file))
        localfile = trim(file)
     endif
  endif

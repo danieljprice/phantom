@@ -53,10 +53,6 @@ a 3D grid (both fixed and AMR), computing PDFs, structure functions and
 power spectra, getting disc surface density profiles, and converting to
 other formats, and it is simple to write your own.
 
-The data format
-~~~~~~~~~~~~~~~
-A fuller description of the data format can be found :doc:`here <dumpfile>`.
-
 Global quantities
 ~~~~~~~~~~~~~~~~~
 
@@ -88,7 +84,14 @@ The short answer is, do not under any circumstances attempt to do this
 yourself! (If you need convincing, just have a quick look at how long
 the read_data_sphNG.f90 file in splash is). The best way to read/analyse
 phantom dumps, aside from using splash to visualise them, is to use the
-phantomanalysis utility, see below.
+built-in phantomanalysis utility (described below), or the
+:doc:`sarracen <sarracen>` python package. A full description of
+the data format and how to read it can be found :doc:`here <dumpfile>`.
+
+Sarracen
+~~~~~~~~
+
+- See :doc:`How to analyse and visualise phantom data with sarracen <sarracen>`
 
 Phantomanalysis
 ~~~~~~~~~~~~~~~
@@ -131,7 +134,7 @@ You can also select the module on the command line using, for example
    make analysis ANALYSIS=analysis_blah.f90
 
 You can then write an analysis_blah.f90 to do whatever it is you want,
-even if you what you want is: 
+even if you what you want is:
 
 - something completely trivial (see for example `analysis_dtheader.f90 <https://github.com/danieljprice/phantom/blob/master/src/utils/analysis_dtheader.f90>`__ which just compares the time from each dump file with the time in the previous dump file); or
 - conversion to another format; or
@@ -162,10 +165,11 @@ utility in splash. For example, to convert all files to ascii format
 To avoid precision loss, you will need to ensure that splash is compiled
 in double precision (use make DOUBLEPRECISION=yes when compiling splash)
 
-Analysis with Python
-~~~~~~~~~~~~~~~~~~~~
+Analysis with pyanalysis
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Compile the phantom pyanalysis utility using:
+An alternative method for analysis in python is to compile the phantom
+pyanalysis utility using:
 
 .. code-block:: bash
 
