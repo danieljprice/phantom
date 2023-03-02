@@ -36,7 +36,7 @@ module growth
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
 !
- use units,        only:udist,unit_density,unit_velocity
+ use units,        only:udist,umass,utime,unit_density,unit_velocity
  use physcon,      only:au,Ro
  use part,         only:xyzmh_ptmass,nptmass,this_is_a_flyby
  implicit none
@@ -275,7 +275,9 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
                 dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
           endif
-          if (ieros == 1) dsdt(i) = dsdt(i) - fourpi*sdust*dustprop(2,i)*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc) ! Erosion model
+          if (ieros == 1 .and. (dustgasprop(4,i) >= 0.110905*sqrt(1.65*utime*utime/umass/dustprop(2,i)/dsize))) then
+             dmdt(i) = dmdt(i) - fourpi*sdust*dustprop(2,i)*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc) ! Erosion model
+          endif
        endif
     else
        dmdt(i) = 0.
@@ -426,7 +428,7 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) gsizemincgs
     ngot = ngot + 1
  case('stokesmin')
-    read(valstring,*,iostat=ierr) stokes
+    read(valstring,*,iostat=ierr) stokesmin
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
@@ -658,43 +660,50 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  real,    intent(in)    :: smax_user
  logical, intent(inout) :: force_smax
  logical, intent(in)    :: verbose
- real                   :: smaxtmp,smintmp,smax,smin,tolm,&
+ real                   :: smaxtmp,smintmp,smax,smin,tolm,fmintmp,fmaxtmp,fmin,fmax,&
                            mdustold,mdustnew,code_to_mum
  logical                :: init
- integer                :: nbins,nbinmax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
- real, allocatable, dimension(:) :: grid, sdust
- character(len=20)               :: outfile = "bin_distrib.dat"
+ integer                :: nbinsize,nbinsizemax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
+ integer                :: nbinfilfac,nbinfilfacmax,ndustsizetypes,ndustfilfactypes
+ real, allocatable, dimension(: )  :: grid
+ real, allocatable, dimension(:,:) :: dustpropmcfost  !dustpropmcfost(1=size,2=filfac)
+ character(len=20)                 :: outfile = "bin_distrib.dat"
 
  !- initialise
- code_to_mum = udist*1.e4
- tolm         = 1.e-5
- smaxtmp      = 0.
- smintmp      = 1.e26
- ndustold     = 0
- ndustnew     = 0
- mdustold     = 0.
- mdustnew     = 0.
- nbinmax      = 25
- npartmin     = 50 !- limit to find neighbours
- init         = .false.
- graindens    = maxval(dustprop(2,:))
+ code_to_mum   = udist*1.e4
+ tolm          = 1.e-5
+ smaxtmp       = 0.
+ smintmp       = 1.e26
+ ndustold      = 0
+ ndustnew      = 0
+ mdustold      = 0.
+ mdustnew      = 0.
+ nbinsizemax   = 25
+ nbinfilfacmax = 10
+ npartmin      = 50 !- limit to find neighbours
+ init          = .false.
+ !graindens     = maxval(dustprop(2,:))
 
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
     itype = iamtype(iphase(i))
     if (itype==idust) then
        if (use_porosity) then
-             sdust(i) = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+             dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+             dustpropmcfost(2,i) = filfac(i)
           else
-             sdust(i) = get_size(dustprop(1,i),dustprop(2,i))
+             dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i))
+             dustpropmcfost(2,i) = 1
           endif
-       if (sdust(i) < smintmp) smintmp = sdust(i)
-       if (sdust(i) > smaxtmp) smaxtmp = sdust(i)
+       if (dustpropmcfost(1,i) < smintmp) smintmp = dustpropmcfost(1,i)
+       if (dustpropmcfost(1,i) > smaxtmp) smaxtmp = dustpropmcfost(1,i)
+       !if (dustpropmcfost(2,i) < fmintmp) fmintmp = dustpropmcfost(2,i)
+       !if (dustpropmcfost(2,i) > fmaxtmp) fmaxtmp = dustpropmcfost(2,i)
     endif
  enddo
 
  !- overrule force_smax if particles are small, avoid empty bins
- if ((maxval(sdust(:))*udist < smax_user) .and. force_smax) then
+ if ((maxval(dustpropmcfost(1,:))*udist < smax_user) .and. force_smax) then
     force_smax = .false.
     write(*,*) "Overruled force_smax from T to F"
  endif
@@ -706,28 +715,31 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     smax = smaxtmp
  else
     init = .true.
-    write(*,*) "Detected initial condition, restraining nbins = 1"
+    write(*,*) "Detected initial condition, restraining nbinsize = 1"
  endif
 
  if (.not. init) then
     smin = smintmp
 
     !- set ndusttypes based on desired log size spacing
-    nbins      = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
-    ndusttypes = min(nbins, nbinmax) !- prevent memory allocation errors
-    ndustlarge = ndusttypes !- this is written to the header
+    nbinsize   = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
+    !nbinfilfac = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
+    ndustsizetypes = min(nbinsize, nbinsizemax) !- prevent memory allocation errors
+    !ndustfilfactypes = min(nbinfilfac,nbinfilfacmax)
+    ndustlarge = ndustsizetypes!*ndustfilfactypes !- this is written to the header
 
     !- allocate memory for a grid of ndusttypes+1 elements
-    allocate(grid(ndusttypes+1))
+    allocate(grid(ndustsizetypes+1))!,ndustfilfactypes))
 
     !- bin sizes in ndusttypes bins
     write(*,"(a,f10.1,a,f10.1,a,i3,a)") "Binning sizes between ",smin*code_to_mum, " (µm) and ",&
                                      smax*code_to_mum," (µm) in ",ndusttypes, " bins"
 
-    call logspace(grid(1:ndusttypes+1),smin,smax) !- bad for live mcfost, need to compile it before growth.F90
+    call logspace(grid(1:ndustsizetypes+1),smin,smax) !- bad for live mcfost, need to compile it before growth.F90
+    !call logspace(grid(2,1:ndustfilfactypes),fmin,fmax)
 
     !- find representative size for each bin
-    do i = 1,ndusttypes
+    do i = 1,ndustsizetypes
        grainsize(i) = sqrt(grid(i)*grid(i+1))
     enddo
 
@@ -739,7 +751,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
        if (itype==idust) then
           !- figure out which bin
           do j=1,ndusttypes
-             if ((sdust(i) >= grid(j)) .and. (sdust(i) < grid(j+1))) then
+             if ((dustpropmcfost(1,i) >= grid(j)) .and. (dustpropmcfost(1,i) < grid(j+1))) then
                 if (j > 1) then
                    npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
                    npartoftype(idust)     = npartoftype(idust) - 1
@@ -747,7 +759,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
                 endif
              endif
              !- if smax has been forced, put larger grains inside last bin
-             if ((j==ndusttypes) .and. force_smax .and. (sdust(i) >= grid(j+1))) then
+             if ((j==ndusttypes) .and. force_smax .and. (dustpropmcfost(1,i) >= grid(j+1))) then
                 npartoftype(idust+j-1) = npartoftype(idust+j-1) + 1
                 npartoftype(idust)     = npartoftype(idust) - 1
                 call set_particle_type(i,idust+j-1)
