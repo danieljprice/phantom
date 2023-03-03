@@ -961,7 +961,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
- real    :: projvstar,epstsj,xidrag,xidragheat!,rhogas1i
+ real    :: projvstar,projatmp,epstsj,xidrag,xidragheat,s_drag,lambdadrag!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: winter
@@ -1788,6 +1788,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
                 projvstar = projv
+                !projatmp  = ACCEXTX*runix + ACCEXTY*runiy + ACCEXTZ*runiZ
                 if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 ! dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
@@ -1807,11 +1808,16 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (iregime == 2) nsuper = nsuper + 1
 
                 if (i_implicit .and. (dt .ne. 0)) then
+                   !xidrag = (1. - exp(-dt/tsijtmp))*projvstar
+                   !lamdadrag = ((dt+tsijtmp)*(1. - exp(-dt/tsijtmp)) - dt)*projatmp
+                   !sdrag = (xidrag - lambdadrag)/dt
                    xidrag = (1. - exp(-dt/tsijtmp))/dt
                 else
+                   !xidrag = projvstar/tsijtmp
                    xidrag = 1./tsijtmp
                 endif
 
+                !dragterm = 3.*pmassj*sdrag/(rhoi + rhoj)*wdrag
                 dragterm = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*wdrag
 
                 if (.not. i_implicit) ts_min = min(ts_min,tsijtmp)
@@ -1822,17 +1828,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
                 if (maxvxyzu >= 4) then
                    if (i_implicit .and. (dt .ne. 0)) then
-                      xidragheat = 0.5*(1. - exp(-2*dt/tsijtmp))/dt
+                      !xidragheat = sdrag*projvstar - 0.5*dt*rhoi*sdrag**2
+                      xidragheat = 3.*0.5*(1. - exp(-2*dt/tsijtmp))/dt
                    else
-                      xidragheat = 1./tsijtmp
+                      xidragheat = 3./tsijtmp
                    endif   
                    !--energy dissipation due to drag
-                   dragheating = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*projv*wdrag
+                   !dragheating = pmassj*xidragheat/(rhoi + rhoj)*projv*wdrag !!! WHY PROJV AND NOT PROJVSTAR ?????
+                   dragheating = pmassj*xidragheat/(rhoi + rhoj)*projvstar*projv*wdrag !!! WHY PROJV AND NOT PROJVSTAR ?????
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
 
              elseif (iamdusti .and. iamgasj) then
                 projvstar = projv
+                !projatmp  = ACCEXTX*runix + ACCEXTY*runiy + ACCEXTZ*runiZ
                 if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 !dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
@@ -1867,12 +1876,17 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
 
-                if (i_implicit .and. (dt .ne. 0)) then
+               if (i_implicit .and. (dt .ne. 0)) then
+                   !xidrag = (1. - exp(-dt/tsijtmp))*projvstar
+                   !lamdadrag = ((dt+tsijtmp)*(1. - exp(-dt/tsijtmp)) - dt)*projatmp
+                   !sdrag = (xidrag - lambdadrag)/dt
                    xidrag = (1. - exp(-dt/tsijtmp))/dt
                 else
+                   !xidrag = projvstar/tsijtmp
                    xidrag = 1./tsijtmp
                 endif
 
+                !dragterm = 3.*pmassj*sdrag/(rhoi + rhoj)*wdrag
                 dragterm = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*wdrag
 
                 if (.not. i_implicit) ts_min = min(ts_min,tsijtmp)

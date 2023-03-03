@@ -171,8 +171,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dustfrac) then
        write(iprint,"(1x,a)") 'One-fluid dust is ON'
     else
-       if (i_implicit) write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
-       else write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+       if (i_implicit) then
+          write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+       else
+          write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+       endif
     endif
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
     if (cooling_in_step)  then
