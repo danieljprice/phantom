@@ -961,7 +961,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  integer :: iregime,idusttype,l
  real    :: dragterm,dragheating,wdrag,dv2,tsijtmp
  real    :: grkernav,tsj(maxdusttypes),dustfracterms(maxdusttypes),term
- real    :: projvstar,epstsj,xidrag!,rhogas1i
+ real    :: projvstar,epstsj,xidrag,xidragheat!,rhogas1i
  !real    :: Dav(maxdusttypes),vsigeps,depsdissterm(maxdusttypes)
 #ifdef DUSTGROWTH
  real    :: winter
@@ -1819,11 +1819,18 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
+
                 if (maxvxyzu >= 4) then
+                   if (i_implicit .and. (dt .ne. 0)) then
+                      xidragheat = 0.5*(1. - exp(-2*dt/tsijtmp))/dt
+                   else
+                      xidragheat = 1./tsijtmp
+                   endif   
                    !--energy dissipation due to drag
-                   dragheating = dragterm*projv
+                   dragheating = 3.*pmassj*xidrag/(rhoi + rhoj)*projvstar*projv*wdrag
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
+
              elseif (iamdusti .and. iamgasj) then
                 projvstar = projv
                 if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)

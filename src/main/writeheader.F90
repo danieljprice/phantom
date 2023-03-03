@@ -90,7 +90,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
  use units,            only:print_units,unit_ergg
- use dust,             only:print_dustinfo
+ use dust,             only:print_dustinfo,i_implicit
  use growth,           only:print_growthinfo
 #ifdef GR
  use metric_tools,     only:print_metricinfo
@@ -168,7 +168,12 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (mhd)              write(iprint,"(1x,a)") 'Magnetic fields are ON, evolving B/rho with cleaning'
     if (gravity)          write(iprint,"(1x,a)") 'Self-gravity is ON'
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
-    if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
+    if (use_dustfrac) then
+       write(iprint,"(1x,a)") 'One-fluid dust is ON'
+    else
+       if (i_implicit) write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
+       else write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
+    endif
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
     if (cooling_in_step)  then
        write(iprint,"(1x,a)") 'Cooling is calculated in step'
