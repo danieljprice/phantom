@@ -654,6 +654,7 @@ phantomsetup: setup
 
 SRCSETUP= utils_summary.F90 utils_gravwave.f90 \
           set_dust_options.f90 \
+	  set_hierarchical.f90 \
           utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
           ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 \
