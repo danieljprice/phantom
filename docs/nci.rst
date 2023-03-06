@@ -3,7 +3,7 @@ Getting started on the NCI supercomputer (Australian National Supercomputing Fac
 
 Apply for an account at http://nci.org.au
 
-If you are in Daniel Price’s research group, request to join project “fu7”
+If you are in Daniel Price’s research group, request to join project “wk74”
 
 Log in
 -------
