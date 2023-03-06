@@ -1991,12 +1991,12 @@ subroutine setup_interactive()
        call process_hierarchy(hier,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
 
        do i=1,sink_num
-          mass(i)=0
-          accr(i)=0
+          mass(i)=1
+          accr(i)=1
        end do
           
        do i=1,hl_num
-          a(i)=0
+          a(i)=1
           e(i)=0
           inc(i)=0
           O(i)=0
@@ -3334,9 +3334,12 @@ subroutine process_hierarchy(hierarchy, sink_num, sink_labels, hl_labels, hl_num
 
   !character(len=10) :: sink_labels(10)
   integer :: i,j, del_pos, pre_del_pos
-  character(len=:), allocatable :: sink
+  character(len=:), allocatable :: sink, temp_hl
 
   !integer :: asdasd(10)
+  sink_labels = '           '
+  hl_labels = '           '
+
 
   pre_del_pos = 0
   sink_num = 0
@@ -3360,27 +3363,26 @@ subroutine process_hierarchy(hierarchy, sink_num, sink_labels, hl_labels, hl_num
   !!print *, 'Number of sinks', sink_num
 
   
+  !print *, hl_labels
   hl_num = 0
   do i=1,sink_num
      sink = trim(sink_labels(i))
-     del_pos = len(trim(sink))-1
-     !print *, 'hl ', trim(sink), ' ', trim(sink(:del_pos))
-
-     pre_del_pos = 1
-     do j=1,hl_num
-        !print *, 'if ',trim(hl_labels(j)), ' ', trim(sink(:del_pos)), ' ' ,len(trim(hl_labels(j))), ' ', len(trim(sink(:del_pos)))
-        if ( hl_labels(j) == sink(1:del_pos) ) then
-           pre_del_pos = -1
-           exit
-        endif
+     del_pos = len(trim(sink))!-1
+     do j=1,del_pos!, 1, -1
+        temp_hl = trim(sink(1:j))
+        !print *, 'temptative: ', temp_hl
+        if ( .not. any(hl_labels == trim(temp_hl))) then
+           if ( any(sink_labels == trim(temp_hl)) .or. any(sink_labels == trim(temp_hl))) then
+              ! add to discs
+           else
+              print *, hl_num
+              hl_num=hl_num+1
+              hl_labels(hl_num) = trim(temp_hl)
+              ! add to discs
+           end if
+        end if
      end do
-     
-     !print *, pre_del_pos
-     if (pre_del_pos == 1) then
-        hl_num = hl_num+1
-        hl_labels(hl_num) = sink(:del_pos)
-        !print *, hl_labels
-     end if
+     !print *, 'hl ', trim(sink), ' ', trim(sink(:del_pos))
      
   end do
 
