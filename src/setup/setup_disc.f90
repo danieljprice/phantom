@@ -3438,22 +3438,11 @@ subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
      ! Cut the longest and add to split list with no doubles
      count=0
      do i=1,longests_len
-        check = 0
-        do j=1,count
-           if (longests(i)(1:longest-1) == new_splits(j)) then
-              check = 1
-              exit
-           end if
-        end do
-        if (check == 0) then
+        longest_cut = longests(i)
+        if (.not. any(new_splits == longest_cut(:longest-1))) then
            count = count + 1
            new_splits(count) = longests(i)(1:longest-1)
         end if
-        !longest_cut = longests(i)
-        !if (.not. any(new_splits == longest_cut(:longest-1))) then
-        !   count = count + 1
-        !   new_splits(count) = longests(i)(1:longest-1)
-        !end if
      end do
 
      print *, count
@@ -3467,22 +3456,10 @@ subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
      
      count=0
      do i=1,sink_num
-        check = 0
-        do j=1,count
-           if (new_sink_list(j) == sink_list(i)) then
-              check = 1
-              exit
-           end if
-        end do
-        if (check == 0) then
+        if (.not. any(new_sink_list == sink_list(i))) then
            count = count + 1
            new_sink_list(count) = sink_list(i)
-           !print *, count, new_sink_list(count), sink_list(i)
         end if
-        !if (.not. any(new_sink_list == sink_list(i))) then
-        !   count = count + 1
-        !   new_sink_list(count) = sink_list(i)
-        !end if
      end do
 
      !print *, count
