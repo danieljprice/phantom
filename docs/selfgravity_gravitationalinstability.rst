@@ -10,3 +10,10 @@ The setups *isosgdisc* and *dustyisosgdisc* allow simulating vertically isotherm
 
 Gravitational instability accretion discs
 ------------------
+The environments *sgdisc* and *dustysgdisc* allow the user to simulate a gravitationally unstable accretion disc. Gravitational instability is triggered by cooling, using an adiabatic equation of state and without disc viscosity. Usually, a cooling law it is prescribed, and the simplest one has been proposed by Gammie (2001): the cooling timescale $t_{cool}$ is assumed to be proportional to the dynamical time of the disc $t_{dyn}$ so that $t_{cool} = β t_{dyn}$. 
+
+In the *setup* file there are the disc parameters, and in the *input* file it is possible to prescrive the cooling law. In particular, the variables to pay attention to are:
+
+- ieos = 2 , to choose an adiabatic equation of state
+- icooling = 3, to choose a β cooling prescription with constant β (icooling = 7 prescribes a varying β cooling with the radius)
+- beta_cool = #, to choose the value of β cooling
