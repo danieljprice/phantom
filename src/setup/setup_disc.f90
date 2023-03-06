@@ -128,6 +128,13 @@ module setup
  !--setup filename
  character(len=100) :: filename
 
+ !--hierarchical configuration QUIIIIIIIIIIIIIIII
+ character(len=100) :: hier
+ integer :: sink_num, hl_num, splits, sink_num_temp, hl_index
+ character(len=10) :: sink_labels(10), hl_labels(10), sink_list(10), split_list(10), hl_temp
+ real :: mass(10), accr(10)!, inc(10,6), O(10,6), w(10,6), f(10,6)
+ real :: a(10), e(10), inc(10), O(10), w(10), f(10)
+
  !--central objects
  real    :: mcentral
  real    :: m1,m2,m1a,m1b,m2a,m2b,q1,q2,accr1,accr2,accr1a,accr1b,accr2a,accr2b
@@ -828,6 +835,75 @@ subroutine setup_central_objects()
        end select
        discpos = 0.
        discvel = 0.
+
+    case (5)
+       print *, 'QUI BISOGNA SPLITTARE ABBESTIA'
+
+       sink_list = sink_labels
+       sink_num_temp = sink_num
+       call recursive_splitting(sink_num_temp, sink_list, split_list, splits)
+       !print *, split_list, splits       
+
+       do i=hl_num,1,-1
+
+          hl_temp = trim(split_list(i))
+
+
+          
+          m1 = level_mass(trim(hl_temp)//'1', mass, sink_num, sink_labels)
+          m2 = level_mass(trim(hl_temp)//'2', mass, sink_num, sink_labels)
+
+          print *, 'masses: ', trim(hl_temp)//'1', m1, trim(hl_temp)//'2', m2 
+          
+          !print *, 'accr ', accr
+          if (any(sink_list == trim(hl_temp)//'1')) then
+             accr1 = 7
+             !print *,'11 ', accr(findloc(sink_labels, '11'))
+          else
+             accr1 = 1.
+          end if
+          
+          if (any(sink_list == trim(hl_temp)//'2')) then
+             accr2 = 9
+             !print *,'12 ', accr(findloc(sink_labels, '12'))
+          else
+             accr2 = 1.
+          end if
+          
+          !print *, m1, m2, accr1, accr2
+          
+          !print *, 'hl ', hl_labels
+          
+          !print *, '?? ', findloc(hl_labels, '1', 1)
+          
+          hl_index = findloc(hl_labels, trim(hl_temp), 1)
+          
+          binary_a =  a(hl_index)
+          binary_e = e(hl_index)
+          binary_O = O(hl_index)
+          binary_w = w(hl_index)
+          binary_i = inc(hl_index)
+          binary_f = f(hl_index)
+
+          read(hl_temp,*,iostat=subst) subst
+          
+          print *, subst, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
+          call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
+               posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
+               f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
+               xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr, subst=subst)
+
+       end do
+       ! reverse cycle on split_list !!! Check if orbital parameters are in the right order
+       !!!! m1 = level_mass(level//'1')
+       !!!! m2 = level_mass(level//'2')
+       
+       !!!!call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
+       !!!!     posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
+       !!!!     f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
+       !!!!     xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
+
+
     case (3)
        !-- hierarchical triple
        nptmass  = 0
@@ -1865,7 +1941,7 @@ subroutine setup_interactive()
     end select
  case (1)
     !--sink particle(s)
-    call prompt('How many sinks?',nsinks,1,4)
+    call prompt('How many sinks?',nsinks,1,5)
     select case (nsinks)
     case (1)
        !--single star
@@ -1900,6 +1976,34 @@ subroutine setup_interactive()
           flyby_O  = 0.
           flyby_i  = 0.
        end select
+
+    case (5)
+       !-- hierarchical triple --!
+       print "(/,a)",'================================'
+       print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
+       print "(a)",  '================================'
+       ibinary = 0
+
+       hier = '112,111,1211,1212,122' ! GG Tau A
+       
+       call prompt('What is the hierarchy?',hier)
+
+       call process_hierarchy(hier,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+
+       do i=1,sink_num
+          mass(i)=0
+          accr(i)=0
+       end do
+          
+       do i=1,hl_num
+          a(i)=0
+          e(i)=0
+          inc(i)=0
+          O(i)=0
+          w(i)=0
+          f(i)=0
+       end do
+       
     case (3)
        !-- hierarchical triple --!
        print "(/,a)",'================================'
@@ -2020,6 +2124,13 @@ subroutine setup_interactive()
          iuse_disc(2) = .false.
          iuse_disc(3) = .false.
          iuse_disc(4) = .false.
+         print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
+      elseif (nsinks==5) then
+         !--2 bound binaries: circumbinary
+         iuse_disc(1) = .true.
+         iuse_disc(2) = .false.
+         iuse_disc(3) = .false.
+         iuse_disc(4) = .true.
          print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
        endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
@@ -2342,6 +2453,35 @@ subroutine write_setupfile(filename)
           call write_inopt(flyby_O,'flyby_O','position angle of ascending node (deg)',iunit)
           call write_inopt(flyby_i,'flyby_i','inclination (deg)',iunit)
        end select
+
+    case (5)
+       write(iunit,"(/,a)") '# options for hierarchical system'
+       print *, 'reading hierarchy' ! QUOOOOOOOOOOOO
+       !hier = '123,456,789,124,13,457'
+
+       call write_inopt(hier, 'hier','', iunit)
+       
+       call process_hierarchy(hier,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+
+       write(iunit,"(/,a)") '### sinks properties'
+       do i=1,sink_num
+          call write_inopt(mass(i), trim(sink_labels(i))//'_mass','', iunit)
+          call write_inopt(accr(i), trim(sink_labels(i))//'_accr','', iunit)
+       end do
+
+       write(iunit,"(/,a)") '### orbits properties'
+          
+       do i=1,hl_num
+          call write_inopt(a(i), trim(hl_labels(i))//'_a','',iunit)
+          call write_inopt(e(i), trim(hl_labels(i))//'_e','',iunit)
+          call write_inopt(inc(i), trim(hl_labels(i))//'_i','',iunit)
+          call write_inopt(O(i), trim(hl_labels(i))//'_O','',iunit)
+          call write_inopt(w(i), trim(hl_labels(i))//'_w','',iunit)
+          call write_inopt(f(i), trim(hl_labels(i))//'_f','',iunit)
+       end do
+
+    
+
     case (3)
        !-- hierarchical triple
        write(iunit,"(/,a)") '# options for hierarchical triple'
@@ -2440,7 +2580,15 @@ subroutine write_setupfile(filename)
       call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
       call write_inopt(use_global_iso,'use_global_iso',&
-            'globally isothermal or Farris et al. (2014)',iunit)
+           'globally isothermal or Farris et al. (2014)',iunit)
+    elseif (nsinks == 5) then
+      write(iunit,"(/,a)") '# options for multiple discs - working on!'
+      call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+            //trim(disctype(1))//' disc',iunit)
+      call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
+            //trim(disctype(4))//' disc',iunit)
+      call write_inopt(use_global_iso,'use_global_iso',&
+           'globally isothermal or Farris et al. (2014)',iunit)
    endif
  endif
  !--individual disc(s)
@@ -2666,7 +2814,7 @@ subroutine read_setupfile(filename,ierr)
  case (1)
     iexternalforce = 0
     !--sink particles
-    call read_inopt(nsinks,'nsinks',db,min=1,max=4,errcount=nerr)
+    call read_inopt(nsinks,'nsinks',db,min=1,max=5,errcount=nerr)
     select case (nsinks)
     case (1)
        !--single star
@@ -2701,6 +2849,31 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(flyby_O,'flyby_O',db,min=0.,errcount=nerr)
           call read_inopt(flyby_i,'flyby_i',db,min=0.,errcount=nerr)
        end select
+    case (5)
+       print *, 'reading hierarchy' ! QUAAAAAAAAAAAA
+       !call read_inopt(trim(hierarchy),'hierarchy',db,errcount=nerr)
+       call read_inopt(hier,'hier',db,errcount=nerr)
+       !hier = '123,456,789,124,13,457'
+
+       call process_hierarchy(hier,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+
+       do i=1,sink_num
+          call read_inopt(mass(i), trim(sink_labels(i))//'_mass',db,errcount=nerr)
+          call read_inopt(accr(i), trim(sink_labels(i))//'_accr',db,errcount=nerr)
+       end do
+
+       print *, 'read accr ', accr
+          
+       do i=1,hl_num
+          call read_inopt(a(i), trim(hl_labels(i))//'_a',db,errcount=nerr)
+          call read_inopt(e(i), trim(hl_labels(i))//'_e',db,errcount=nerr)
+          call read_inopt(inc(i), trim(hl_labels(i))//'_i',db,errcount=nerr)
+          call read_inopt(O(i), trim(hl_labels(i))//'_O',db,errcount=nerr)
+          call read_inopt(w(i), trim(hl_labels(i))//'_w',db,errcount=nerr)
+          call read_inopt(f(i), trim(hl_labels(i))//'_f',db,errcount=nerr)
+       end do
+
+    
     case (3)
        !-- hierarchical triple
 
@@ -2831,6 +3004,10 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     elseif (nsinks == 4) then
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+    elseif (nsinks == 5) then
+       call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
+       !call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+    
     endif
  else
     iuse_disc(1) = .true.
@@ -3142,5 +3319,210 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 
 
 end subroutine temp_to_HR
+
+!--------------------------------------------------------------------------
+!
+! Process the .setup hierarchy string to extract information for building the system 
+!
+!--------------------------------------------------------------------------
+subroutine process_hierarchy(hierarchy, sink_num, sink_labels, hl_labels, hl_num)
+  !use extern_corotate, only:omega_corotate
+  character(len=100), intent(in) :: hierarchy
+  character(len=10), intent(out) :: sink_labels(:)
+  character(len=10), intent(out) :: hl_labels(:)
+  integer, intent(out)    :: sink_num, hl_num
+
+  !character(len=10) :: sink_labels(10)
+  integer :: i,j, del_pos, pre_del_pos
+  character(len=:), allocatable :: sink
+
+  !integer :: asdasd(10)
+
+  pre_del_pos = 0
+  sink_num = 0
+    
+  ! count the number of sinks in the system
+  del_pos = scan(hierarchy, ',')
+  do while (del_pos > pre_del_pos)
+     !print *, del_pos
+     sink_labels(sink_num+1) = hierarchy(pre_del_pos+1:del_pos-1)
+     sink_num=sink_num+1
+     pre_del_pos = del_pos
+     del_pos = scan(hierarchy(pre_del_pos+1:), ',')+pre_del_pos
+     !print *, trim(sink_labels(sink_num)), del_pos, pre_del_pos
+  end do
+
+  sink_labels(sink_num+1) = hierarchy(pre_del_pos+1:)
+  sink_num = sink_num+1
+  !print *, trim(sink_labels(sink_num))
+
+  !!print *, 'hierarchy analised: ', hierarchy
+  !!print *, 'Number of sinks', sink_num
+
+  
+  hl_num = 0
+  do i=1,sink_num
+     sink = trim(sink_labels(i))
+     del_pos = len(trim(sink))-1
+     !print *, 'hl ', trim(sink), ' ', trim(sink(:del_pos))
+
+     pre_del_pos = 1
+     do j=1,hl_num
+        !print *, 'if ',trim(hl_labels(j)), ' ', trim(sink(:del_pos)), ' ' ,len(trim(hl_labels(j))), ' ', len(trim(sink(:del_pos)))
+        if ( hl_labels(j) == sink(1:del_pos) ) then
+           pre_del_pos = -1
+           exit
+        endif
+     end do
+     
+     !print *, pre_del_pos
+     if (pre_del_pos == 1) then
+        hl_num = hl_num+1
+        hl_labels(hl_num) = sink(:del_pos)
+        !print *, hl_labels
+     end if
+     
+  end do
+
+  !!print *, 'Hierarchical elvels: ', hl_labels
+
+  !!print *, 'Number of hierarchical levels', hl_num
+  
+  !do i=1,npart_disc
+  !   r          = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
+  !   phipart    = atan2(xyzh(2,i),xyzh(1,i))
+  !   vxyzu(1,i) = vxyzu(1,i) - r*(-omega0)*sin(phipart)
+  !   vxyzu(2,i) = vxyzu(2,i) + r*(-omega0)*cos(phipart)
+  !enddo
+ 
+end subroutine process_hierarchy
+
+!--------------------------------------------------------------------------
+!
+! Reverse the splitting process from sink_labels to build the system
+!
+!--------------------------------------------------------------------------
+subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
+  character(len=10), intent(inout) :: sink_list(:)
+  character(len=10), intent(inout) :: split_list(:)
+  integer, intent(inout)    :: splits, sink_num
+
+  integer :: i, j, longest, longests_len, check, count
+  character(len=10) :: longests(10), new_splits(10), new_sink_list(10), longest_cut
+
+  longest = 0
+  !print *, 'in pre if ', sink_list
+  !print *, '          ', split_list
+  !print *, '          ', splits
+  if (size(sink_list) >1) then !/= 2) then
+     ! Find the longest
+     do i=1,sink_num
+        if (longest < len(trim(sink_list(i)))) then
+           longest = len(trim(sink_list(i)))
+        end if
+     end do
+
+     ! Select the longests and cut them
+     longests_len = 0
+     do i=1,sink_num
+        if (len(trim(sink_list(i))) == longest) then
+           longests_len = longests_len+1
+           longests(longests_len) = trim(sink_list(i))
+
+           sink_list(i) = sink_list(i)(:len(trim(sink_list(i)))-1)!//' '
+           !print *, sink_list(i)!, sink_list(i)(:len(trim(sink_list(i)))-1)//' '
+        end if
+     end do
+
+
+     ! Cut the longest and add to split list with no doubles
+     count=0
+     do i=1,longests_len
+        check = 0
+        do j=1,count
+           if (longests(i)(1:longest-1) == new_splits(j)) then
+              check = 1
+              exit
+           end if
+        end do
+        if (check == 0) then
+           count = count + 1
+           new_splits(count) = longests(i)(1:longest-1)
+        end if
+        !longest_cut = longests(i)
+        !if (.not. any(new_splits == longest_cut(:longest-1))) then
+        !   count = count + 1
+        !   new_splits(count) = longests(i)(1:longest-1)
+        !end if
+     end do
+
+     print *, count
+     ! Add new splits to split_list
+     do i=splits+1, splits+count
+        split_list(i) = new_splits(i-splits)
+     end do
+     splits = splits + count
+
+     ! 'Clean sink_list from doubles'
+     
+     count=0
+     do i=1,sink_num
+        check = 0
+        do j=1,count
+           if (new_sink_list(j) == sink_list(i)) then
+              check = 1
+              exit
+           end if
+        end do
+        if (check == 0) then
+           count = count + 1
+           new_sink_list(count) = sink_list(i)
+           !print *, count, new_sink_list(count), sink_list(i)
+        end if
+        !if (.not. any(new_sink_list == sink_list(i))) then
+        !   count = count + 1
+        !   new_sink_list(count) = sink_list(i)
+        !end if
+     end do
+
+     !print *, count
+     !print*, new_sink_list(:count)
+     !print *, split_list
+     !print *, splits
+     !return
+     
+     call recursive_splitting(count, new_sink_list(:count), split_list, splits)
+     
+  end if
+end subroutine recursive_splitting
+
+!--------------------------------------------------------------------------
+!
+! Compute the total mass of an hierarchical level
+!
+!--------------------------------------------------------------------------
+real function level_mass(level, mass, sink_num, sink_list)
+  character(*), intent(in) :: level
+  character(len=10), intent(in) :: sink_list(:)
+  real, intent(in) :: mass(:)
+  integer, intent(in) :: sink_num
+
+  real :: part_mass
+  integer :: i
+
+  part_mass = 0
+  do i=1, sink_num
+     print *, len(trim(sink_list(i))) , len(trim(level)),  (sink_list(i)(:len(level))), (trim(level))
+     if ((len(trim(sink_list(i))) >= len(level)) .and. (sink_list(i)(:len(level)) == trim(level))) then
+        part_mass = part_mass + mass(i)
+     end if
+  end do
+
+  level_mass = part_mass
+     
+
+  
+end function level_mass
+
 
 end module setup
