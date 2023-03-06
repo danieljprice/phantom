@@ -298,7 +298,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file='HIERARCHY', exist=iexist)
- if (present(subst)) then
+ if (present(subst) .and. subst>10) then
     if (iexist) then
        open(1, file = 'HIERARCHY', status = 'old')
        lines=0
@@ -339,7 +339,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  endif
 
  !--- Checks to avoid bad substitutions
- if (present(subst)) then
+ if (present(subst) .and. subst>10) then
     write(hier_prefix, *) subst
     io=0
     subst_index = 0
@@ -425,7 +425,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
 
- if (present(subst)) then
+ if (present(subst) .and. subst>10) then
     !--- lower nptmass, copy one of the new sinks to the subst star
     nptmass = nptmass-1
     i1 = subst_index
