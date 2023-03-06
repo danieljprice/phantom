@@ -8,7 +8,7 @@ If you are in Daniel Price’s research group, request to join project “wk74�
 Log in
 -------
 
-See also the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <running-clusters>`
+See also the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 ::
 
    ssh -Y USER@gadi.nci.org.au
