@@ -15,3 +15,4 @@ This section contains some examples of physical problems that you can solve with
    dustgrowth
    density
    hierarchicalsystems
+   selfgravity_gravitationalinstability
