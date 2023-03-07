@@ -709,6 +709,15 @@ ifeq ($(SETUP), binary)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), hierarchical)
+#   hierarchical system setup
+    FPPFLAGS= -DCONST_AV
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90 
+    SETUPFILE= setup_hierarchical.f90
+    KNOWN_SETUP=yes
+endif
+
+
 ifeq ($(SETUP), common)
 #   binary setup
     FPPFLAGS=
