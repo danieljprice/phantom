@@ -1311,6 +1311,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        projv = dvx*runix + dvy*runiy + dvz*runiz
 
+      !projatmp  = ACCEXTX*runix + ACCEXTY*runiy + ACCEXTZ*runiZ
+
+
+       ! do the projection here
+
        if (iamgasj .and. maxvxyzu >= 4) then
           enj = utherm(vxyzu(:,j),rhoj,gamma)
           if (eos_is_non_ideal(ieos)) then  ! Is this condition required, or should this be always true?
@@ -1788,7 +1793,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (idrag>0) then
              if (iamgasi .and. iamdustj .and. icut_backreaction==0) then
                 projvstar = projv
-                !projatmp  = ACCEXTX*runix + ACCEXTY*runiy + ACCEXTZ*runiZ
                 if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 ! dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
@@ -1822,12 +1826,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
                 if (.not. i_implicit) ts_min = min(ts_min,tsijtmp)
 
+                !store acceleration without drag here fr the next iteration
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
 
                 if (maxvxyzu >= 4) then
-                   if (i_implicit .and. (dt .ne. 0)) then
+                   if (i_implicit .and. (dt > epsilon(0.))) then
                       !xidragheat = sdrag*projvstar - 0.5*dt*rhoi*sdrag**2
                       xidragheat = 3.*0.5*(1. - exp(-2*dt/tsijtmp))/dt
                    else
@@ -1841,7 +1846,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
              elseif (iamdusti .and. iamgasj) then
                 projvstar = projv
-                !projatmp  = ACCEXTX*runix + ACCEXTY*runiy + ACCEXTZ*runiZ
                 if (irecon >= 0) call reconstruct_dv(projv,dx,dy,dz,runix,runiy,runiz,dvdxi,dvdxj,projvstar,irecon)
                 dv2 = projvstar**2 !dvx*dvx + dvy*dvy + dvz*dvz
                 if (q2i < q2j) then
@@ -1876,7 +1880,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
 
-               if (i_implicit .and. (dt .ne. 0)) then
+               if (i_implicit .and. (dt > epsilon(0.))) then
                    !xidrag = (1. - exp(-dt/tsijtmp))*projvstar
                    !lamdadrag = ((dt+tsijtmp)*(1. - exp(-dt/tsijtmp)) - dt)*projatmp
                    !sdrag = (xidrag - lambdadrag)/dt
@@ -1894,6 +1898,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
+
+                !store acceleration without drag here fr the next iteration
+
+
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix ! + because projv is opposite
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
