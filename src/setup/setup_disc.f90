@@ -336,6 +336,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
+  use sethierarchical, only:set_hierarchical_default_options
 
  integer :: i
 
@@ -378,6 +379,10 @@ subroutine set_default_options()
  binary_O = 0.
  binary_w = 270.
  binary_f = 180.
+
+ !--hierarchical
+ call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
+       mass, accr, a, e, inc, O, w, f)
 
  !--flyby
  flyby_a  = 200.
@@ -1819,7 +1824,7 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- use sethierarchical, only:set_hierarchical_interactively
+ use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -1924,26 +1929,11 @@ subroutine setup_interactive()
        
        ibinary = 0
 
-       hier = '112,111,1211,1212,122' ! GG Tau A
+       !hier = '112,111,1211,1212,122' ! GG Tau A
        !call prompt('What is the hierarchy?',hier)
        call set_hierarchical_interactively(hier,sink_num, sink_labels, hl_labels, hl_num)
-       
-       ! create discs bool list
-       
-       do i=1,sink_num
-          mass(i)=1
-          accr(i)=1
-       end do
-       
-       do i=1,hl_num
-          a(i)=1
-          e(i)=0
-          inc(i)=0
-          O(i)=0
-          w(i)=0
-          f(i)=0
-       end do
-       
+       call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
+                                             mass, accr, a, e, inc, O, w, f)
               
     case (3)
        !-- hierarchical triple --!

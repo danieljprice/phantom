@@ -24,6 +24,7 @@ module sethierarchical
   public :: set_hierarchical_interactively
   public :: write_hierarchical_setupfile
   public :: read_hierarchical_setupfile
+  public :: set_hierarchical_default_options
 
   public :: process_hierarchy ! temporary
   private
@@ -216,6 +217,39 @@ contains
        call read_inopt(f(i), trim(hl_labels(i))//'_f',db,errcount=nerr)
     end do
   end subroutine read_hierarchical_setupfile
+
+
+  subroutine set_hierarchical_default_options(hierarchy, sink_num, sink_labels, hl_labels, hl_num, &
+                                              mass, accr, a, e, inc, O, w, f)
+    character(len=100), intent(out) :: hierarchy
+    character(len=10), intent(out) :: sink_labels(:)
+    character(len=10), intent(out) :: hl_labels(:)
+    integer, intent(out)    :: sink_num, hl_num
+    real, intent(out) :: mass(:), accr(:), a(:), e(:), inc(:), O(:), w(:), f(:)
+
+    integer :: i
+
+    hierarchy = '111,112,121,1221,1222'! GG Tau A
+
+    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+
+    ! create discs bool list
+       
+       do i=1,sink_num
+          mass(i)=1.
+          accr(i)=1.
+       end do
+       
+       do i=1,hl_num
+          a(i)=10000./10**len(trim(hl_labels(i)))
+          e(i)=0.
+          inc(i)=0.
+          O(i)=0.
+          w(i)=0.
+          f(i)=0.
+       end do
+
+  end subroutine set_hierarchical_default_options
   
   
   !--------------------------------------------------------------------------
@@ -333,7 +367,7 @@ contains
              longests(longests_len) = trim(sink_list_temp(i))
              
              sink_list_temp(i) = sink_list_temp(i)(:len(trim(longests(longests_len)))-1)!//' '
-             print *, 'slt ', i, sink_list_temp(i)!, sink_list_temp(i)(:len(trim(sink_list_temp(i)))-1)//' '
+             !print *, 'slt ', i, sink_list_temp(i)!, sink_list_temp(i)(:len(trim(sink_list_temp(i)))-1)//' '
           end if
        end do
        
