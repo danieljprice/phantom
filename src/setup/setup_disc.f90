@@ -1929,8 +1929,6 @@ subroutine setup_interactive()
        
        ibinary = 0
 
-       !hier = '112,111,1211,1212,122' ! GG Tau A
-       !call prompt('What is the hierarchy?',hier)
        call set_hierarchical_interactively(hier,sink_num, sink_labels, hl_labels, hl_num)
        call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
                                              mass, accr, a, e, inc, O, w, f)
@@ -2059,10 +2057,7 @@ subroutine setup_interactive()
       elseif (nsinks==5) then
          !--2 bound binaries: circumbinary
          iuse_disc(:) = .false.
-         !iuse_disc(1) = .true.
-         !iuse_disc(2) = .false.
-         !iuse_disc(3) = .false.
-         !iuse_disc(4) = .true.
+         
          do i=1,sink_num
             call prompt('Do you want a disc orbiting '//trim(sink_labels(i))//' star?',iuse_disc(i))
          end do
