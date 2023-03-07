@@ -65,13 +65,13 @@ contains
        m2 = level_mass(trim(hl_temp)//'2', mass, sink_num, sink_labels)
        
        if (any(sink_list == trim(hl_temp)//'1')) then
-          accr1 = accr(findloc(sink_list,trim(hl_temp)//'1'))
+          accr1 = accr(findloc(sink_list,trim(hl_temp)//'1', 1))
        else
           accr1 = 1.
        end if
        
        if (any(sink_list == trim(hl_temp)//'2')) then
-          accr2 = accr(findloc(sink_list,trim(hl_temp)//'1'))
+          accr2 = accr(findloc(sink_list,trim(hl_temp)//'2', 1))
        else
           accr2 = 1.
        end if
