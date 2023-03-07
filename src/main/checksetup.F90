@@ -178,6 +178,18 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
+!
+!--check that no empty particle types have been added
+!
+   do i=1,size(npartoftype)
+      if (labeltype(i)=='empty' .and. npartoftype(i) > 0) then
+         print "(/,1x,a,i0,a,i0,a,/)",'ERROR: ',npartoftype(i),' particles of type ',i,&
+                ' set up but type=='//trim(labeltype(i))
+         if (i==2) print "(a,/)",&
+            ' *** This is the old dust particle type: edit setup to use itype=idust ***'
+         nerror = nerror + 1
+      endif
+   enddo
  endif
 !
 !--should not have negative or zero smoothing lengths in initial setup
