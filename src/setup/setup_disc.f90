@@ -116,7 +116,7 @@ module setup
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
  use memory,           only:allocate_memory
- use sethierarchical, only:process_hierarchy ! temporary
+ !use sethierarchical, only:process_hierarchy ! temporary
  implicit none
 
  public  :: setpart
@@ -129,7 +129,7 @@ module setup
  !--setup filename
  character(len=100) :: filename
 
- !--hierarchical configuration QUIIIIIIIIIIIIIIII
+ !--hierarchical configuration
  character(len=100) :: hier
  integer :: sink_num, hl_num, splits, sink_num_temp, hl_index
  character(len=10) :: sink_labels(10), hl_labels(10), sink_list(10), split_list(10), hl_temp
@@ -1077,6 +1077,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                        npartoftype,massoftype,xyzh,vxyzu)
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
+ use sethierarchical, only:hierarchical_level_com, level_mass
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -1116,25 +1117,59 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           prefix = fileprefix
        endif
 
-       !--set disc origin
-       select case(i)
-       case(3)
-          !--circumsecondary
-          xorigini  = xyzmh_ptmass(1:3,2)
-          vorigini  = vxyz_ptmass(1:3,2)
-          Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
-       case(2)
-          !--circumprimary
-          xorigini  = xyzmh_ptmass(1:3,1)
-          vorigini  = vxyz_ptmass(1:3,1)
-          Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
-       case default
-          !--single disc or circumbinary or circumtriple
-          !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini  = discpos
-          vorigini  = discvel
-          Rochelobe = huge(0.)
-       end select
+       if (nsinks < 4) then
+          !--set disc origin
+          select case(i)
+          case(3)
+             !--circumsecondary
+             xorigini  = xyzmh_ptmass(1:3,2)
+             vorigini  = vxyz_ptmass(1:3,2)
+             Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
+          case(2)
+             !--circumprimary
+             xorigini  = xyzmh_ptmass(1:3,1)
+             vorigini  = vxyz_ptmass(1:3,1)
+             Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+          case default
+             !--single disc or circumbinary or circumtriple
+             !  centre of mass of binary defined to be zero (see set_binary)
+             xorigini  = discpos
+             vorigini  = discvel
+             Rochelobe = huge(0.)
+          end select
+       else
+          if (i <= sink_num) then
+             disclabel = trim(sink_labels(i))
+
+             ! retrieve sink number
+
+             !xorigini  = xyzmh_ptmass(1:3,1)
+             !vorigini  = vxyz_ptmass(1:3,1)
+             Rochelobe = Rochelobe_estimate(m2,m1,binary_a) ! FIX THIS
+
+             
+          else
+             disclabel = trim(hl_labels(i-sink_num))
+
+             ! compute hierarchical level centre of mass position
+
+             ! compute hierarchcial level centre of mass velocity
+
+             !xorigini  = xyzmh_ptmass(1:3,1)
+             !vorigini  = vxyz_ptmass(1:3,1)
+             Rochelobe = Rochelobe_estimate(m2,m1,binary_a) ! FIX THIS
+          
+          end if
+
+          
+          star_m(i) = level_mass(disclabel, mass, sink_num, sink_labels)
+          print*, disclabel, mass, sink_num, sink_labels
+          print*, star_m(i)
+          
+          call hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass)
+          print*, xorigini, vorigini
+
+       endif
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
           call warning('setup_disc', &
@@ -2922,10 +2957,6 @@ subroutine read_setupfile(filename,ierr)
        do i=1,hl_num
           call read_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc',db,errcount=nerr)
        end do
-
-       
-       !call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
-    
     endif
  else
     iuse_disc(1) = .true.
@@ -2939,13 +2970,11 @@ subroutine read_setupfile(filename,ierr)
     if (iuse_disc(i)) then
        if (nsinks >= 2) then
           disclabel = disctype(i)
-          print *, 'ehi ', nsinks, sink_num, i
-          if (nsinks > 4) then
-             print *, 'ehiehiehi'
-             if (i < sink_num) then
-                disclabel = sink_labels(i)
+         if (nsinks > 4) then
+             if (i <= sink_num) then
+                disclabel = trim(sink_labels(i))
              else
-                disclabel = hl_labels(i-sink_num)
+                disclabel = trim(hl_labels(i-sink_num))
              end if
           end if
        else

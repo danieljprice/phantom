@@ -26,7 +26,11 @@ module sethierarchical
   public :: read_hierarchical_setupfile
   public :: set_hierarchical_default_options
 
-  public :: process_hierarchy ! temporary
+  public :: hierarchical_level_com
+
+  public :: level_mass
+
+  !public :: process_hierarchy ! temporary
   private
   
 contains
@@ -354,14 +358,113 @@ contains
     
     part_mass = 0
     do i=1, sink_num
-       if ((len(trim(sink_list(i))) >= len(level)) .and. (sink_list(i)(:len(level)) == trim(level))) then
+       if ((len(trim(sink_list(i))) >= len(trim(level))) .and. (sink_list(i)(:len(trim(level))) == trim(level))) then
           part_mass = part_mass + mass(i)
        end if
     end do
+
+    print*, '!!!', part_mass
     
     level_mass = part_mass
     
   end function level_mass
+
+
+  !--------------------------------------------------------------------------
+  !
+  ! Compute position and velocity of hierarchical level
+  !
+  !--------------------------------------------------------------------------
+  subroutine hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass)
+    character(*), intent(in) :: level
+    real, intent(out) :: xorigin(:), vorigin(:)
+    real, intent(in) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+
+    integer :: hl_index, int_sinks(10), inner_sinks_num, i
+    real :: mass
+
+    print*, 'call read'
+    call read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
+
+    xorigin = 0.
+    vorigin = 0.
+    mass = 0.
+    
+    !    if (inner_sinks_num > 1) then
+    !   Find my stars
+    !   Return com position and velocity
+    do i=1,inner_sinks_num
+       xorigin(:) = xorigin(:)+xyzmh_ptmass(4,int_sinks(i))*xyzmh_ptmass(1:3,int_sinks(i))
+       vorigin(:) = vorigin(:)+xyzmh_ptmass(4,int_sinks(i))*vxyz_ptmass(1:3,int_sinks(i))
+       mass = mass + xyzmh_ptmass(4,int_sinks(i))
+    end do
+    xorigin = xorigin/mass
+    vorigin = vorigin/mass
+
+
+    print *, level, int_sinks(:inner_sinks_num), inner_sinks_num
+    print *, 'hlc mass ', mass
+    
+    !   else
+    !      xorigin = xyzmh_ptmass(1:3, int_sinks(1))
+    !      vorigin = vxyz_ptmass(1:3, int_sinks(1))
+    !   end if
+       
+  end subroutine hierarchical_level_com
+
+  !--------------------------------------------------------------------------
+  !
+  ! Retrieve sink position in HIERARCHY file
+  !
+  !--------------------------------------------------------------------------
+  subroutine read_HIERARCHY_index(level, int_sinks, inner_sinks_num)!, sink_labels, sink_num)!, inner_sinks)
+    character(*), intent(in) :: level
+    !character(len=10), intent(in) :: sink_labels(:)
+    integer, intent(out) :: inner_sinks_num
+    !character(len=10), intent(out) :: inner_sinks(10)
+    integer, intent(out)                :: int_sinks(10)
+    
+    real, dimension(24,10) :: data
+    integer                :: i, io, lines, ierr, h_index, asd
+    logical                :: iexist
+
+
+
+    character(len=10)      :: label = '         '
+
+    read(level, *, iostat=h_index) h_index
+
+    inquire(file='HIERARCHY', exist=iexist)
+ 
+    if (iexist) then
+       open(1, file = 'HIERARCHY', status = 'old')
+       lines=0
+       do
+          read(1, *, iostat=io) data(lines+1,:)
+          if (io/=0) exit
+          lines = lines + 1
+       enddo
+       close(1)
+    else
+       print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
+       ierr = 100!ierr_HIER2
+    endif
+
+    inner_sinks_num = 0
+    do i=1, lines
+       write(label, '(i0)') int(data(i,2))
+       print*, label, len(trim(label)), len(trim(level))
+       if (data(i,1) > 0 .and. (len(trim(label)) >= len(trim(level))) .and. (label(:len(trim(level))) == trim(level))) then
+          print *, "inside!"
+          inner_sinks_num = inner_sinks_num+1
+          int_sinks(inner_sinks_num) = data(i,1)
+       end if
+    end do
+
+    print *, level, int_sinks(:inner_sinks_num), inner_sinks_num
+  end subroutine read_HIERARCHY_index
+
+
   
   
 end module sethierarchical
