@@ -267,6 +267,7 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: fxyz_nodrag(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
@@ -347,7 +348,8 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
- +maxdusttypes                        &  ! dustfrac
+   +3*maxdusttypes                      &  ! fxyz_nodrag !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -476,6 +478,7 @@ subroutine allocate_part
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('fxyz_nodrag', fxyz_nodrag, 3, maxdustan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
@@ -554,6 +557,7 @@ subroutine deallocate_part
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
+ if (allocated(fxyz_nodrag))  deallocate(fxyz_nodrag)
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
@@ -1276,6 +1280,7 @@ subroutine copy_particle_all(src,dst,new_part)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
     endif
+    fxyz_nodrag(:,dst) = fxyz_nodrag(:,src)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
@@ -1485,6 +1490,7 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
+    call fill_buffer(xtemp,fxyz_nodrag(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1567,6 +1573,7 @@ subroutine unfill_buffer(ipart,xbuf)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
     endif
+    fxyz_nodrag(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

@@ -90,7 +90,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
  use units,            only:print_units,unit_ergg
- use dust,             only:print_dustinfo,i_implicit
+ use dust,             only:print_dustinfo,drag_implicit
  use growth,           only:print_growthinfo
 #ifdef GR
  use metric_tools,     only:print_metricinfo
@@ -171,7 +171,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (use_dustfrac) then
        write(iprint,"(1x,a)") 'One-fluid dust is ON'
     else
-       if (i_implicit) then
+       if (drag_implicit) then
           write(iprint,"(1x,a)") 'Two-fluid dust implicit scheme is ON'
        else
           write(iprint,"(1x,a)") 'Two-fluid dust explicit scheme is ON'
