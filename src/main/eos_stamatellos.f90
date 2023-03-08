@@ -138,16 +138,14 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  gammai = 1.0d0 + 1.38d-16/1.67d-24/gmwi/cv
 end subroutine getopac_opdep
 
-subroutine getintenerg_opdep(Teqi, rhoi, ueqi, OPTABLE)
+subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
- !real, intent(inout)  :: OPTABLE(260,1001,6)
 
  real u1, u2 
  real m, c
  integer i, j
  real rhoi_
- real, intent(in)  :: OPTABLE(260,1001,6)
 
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 

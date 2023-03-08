@@ -65,9 +65,9 @@ module cooling_stamatellos
      else
         Teqi = Teqi**0.25d0
      endif
-     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi,optable)
+     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
      ueqi = ueqi/unit_ergg
-     call getintenerg_opdep(Tmini,rhoi*unit_density,umini,optable)
+     call getintenerg_opdep(Tmini,rhoi*unit_density,umini)
      umini = umini/unit_ergg
 ! calculate thermalization timescale
      if ((dudti_sph + dudt_rad) == 0.d0) then

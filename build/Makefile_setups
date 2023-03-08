@@ -399,6 +399,8 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
+    IND_TIMESTEPS=yes
+    GRAVITY=yes
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
@@ -410,7 +412,7 @@ ifeq ($(SETUP), sphere)
     IND_TIMESTEPS=yes
     GRAVITY=yes
     SETUPFILE= velfield_fromcubes.f90 setup_sphere.f90
-KNOWN_SETUP=yes
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), shock)
