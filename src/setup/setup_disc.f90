@@ -634,14 +634,19 @@ subroutine equation_of_state(gamma)
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
-          ieos = 14
-          print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if (iuse_disc(1)) then
-             qfacdisc = qindex(1)
-             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif (iuse_disc(2)) then
-             qfacdisc = qindex(2)
-             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          if (nsinks>4) then
+             ieos = 13
+             print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
+          else
+             ieos = 14
+             print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+             if (iuse_disc(1)) then
+                qfacdisc = qindex(1)
+                call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+             elseif (iuse_disc(2)) then
+                qfacdisc = qindex(2)
+                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+             endif
           endif
        endif
     else
