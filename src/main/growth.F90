@@ -31,7 +31,6 @@ module growth
 !   - vfragout      : *inward fragmentation threshold in m/s*
 !   - cohacc        : *strength of the cohesive acceleration in g/s^2*
 !   - dsize         : *size of ejected grain during erosion in cm*
-!   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -62,9 +61,6 @@ module growth
  real, public           :: grainsizemin
  real, public           :: cohacc
  real, public           :: dsize
-
-
- logical, public        :: wbymass         = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -258,8 +254,10 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
              case(2)
                 dsdt(i) = -rhod/dustprop(2,i)*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
+          endif                           !sqrt(0.0123)=0.110905    !1.65 -> surface energy in cgs
+          if (ieros == 1 .and. (dustgasprop(4,i) >= 0.110905*utime*sqrt(1.65/umass/dustgasprop(2,i)/dsize))) then
+             dsdt(i) = dsdt(i) - dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc*dustprop(1,i)) ! Erosion model
           endif
-          if (ieros == 1) dsdt(i) = dsdt(i) - dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc*dustprop(1,i)) ! Erosion model
        endif
     else
        dsdt(i) = 0.
@@ -348,7 +346,6 @@ subroutine write_options_growth(iunit)
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
- call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
@@ -432,9 +429,6 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
     if (nptmass < 2) tmp = .true.
- case('wbymass')
-    read(valstring,*,iostat=ierr) wbymass
-    ngot = ngot + 1
 #ifdef MCFOST
  case('force_smax')
     read(valstring,*,iostat=ierr) f_smax
@@ -454,23 +448,23 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  imcf = 3
 #endif
 
- if (ieros == 1) goteros = 2
+ if (ieros == 1) goteros = 3
 
  if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 3+imcf+goteros) igotall = .true.
-    if (isnow == 0) then
-       if (ngot == 6+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 8+imcf+goteros) igotall = .true.
-    else
-       igotall = .false.
-    endif
- else
     if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
     if (isnow == 0) then
        if (ngot == 5+imcf+goteros) igotall = .true.
     elseif (isnow > 0) then
        if (ngot == 7+imcf+goteros) igotall = .true.
+    else
+       igotall = .false.
+    endif
+ else
+    if ((ifrag <= 0) .and. ngot == 1+imcf+goteros) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 4+imcf+goteros) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 6+imcf+goteros) igotall = .true.
     else
        igotall = .false.
     endif
