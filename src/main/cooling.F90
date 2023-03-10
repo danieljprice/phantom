@@ -26,9 +26,9 @@ module cooling
 !   - Tfloor   : *temperature floor (K); on if > 0*
 !   - icooling : *cooling function (0=off, 1=cooling library (step), 2=cooling library (force),*
 !
-! :Dependencies: chem, cooling_gammie, cooling_ism, cooling_koyamainutsuka,
-!   cooling_molecular, cooling_solver, dim, eos, infile_utils, io, options,
-!   part, physcon, timestep, units
+! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
+!   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,
+!   infile_utils, io, options, part, physcon, timestep, units
 !
 
  use options,  only:icooling

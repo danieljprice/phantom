@@ -38,7 +38,7 @@ function getnextfilename(filename,ifilename)
  integer :: idot,istartnum,ilen,i,ierr,num
  integer, optional, intent(out) :: ifilename
  character(len=10) :: fmtstring
-	!
+ !
 !--extract current number from filename
 !
  idot = get_idot(filename)
