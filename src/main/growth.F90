@@ -18,19 +18,19 @@ module growth
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
+!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
+!   - dsize         : *size of ejected grain during erosion in cm*
 !   - flyby         : *use primary for keplerian freq. calculation*
 !   - force_smax    : *(mcfost) set manually maximum size for binning*
 !   - grainsizemin  : *minimum allowed grain size in cm*
+!   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
-!   - ieros         : *erosion of dust (0=off,1=on)
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
 !   - vfragout      : *inward fragmentation threshold in m/s*
-!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
-!   - dsize         : *size of ejected grain during erosion in cm*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -361,8 +361,8 @@ subroutine write_options_growth(iunit)
     endif
  endif
  if (ieros == 1) then
-   call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
-   call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
+    call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
+    call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
 #ifdef MCFOST
