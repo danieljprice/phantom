@@ -86,7 +86,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! assigning position, velocity and accretion radius to the sink particle
  xyzmh_ptmass(1:3,nptmass)   = xp
  xyzmh_ptmass(4,nptmass)     = mperturber
- xyzmh_ptmass(5,nptmass)     = accrperturber 
+ xyzmh_ptmass(5,nptmass)     = accrperturber
  xyzmh_ptmass(6,nptmass)     = 0.
  vxyz_ptmass(:,nptmass)      = vp
 
