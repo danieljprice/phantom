@@ -889,15 +889,15 @@ subroutine setup_central_objects()
        print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
 
        if (subst1>0) then
-         print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: substituted star orbital plane'
-      else
-         print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: sky'
-      endif
-      if (subst2>0) then
-         print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: substituted star orbital plane'
-      else
-         print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: sky'
-      endif
+          print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: sky'
+       endif
+       if (subst2>0) then
+          print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: sky'
+       endif
 
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
@@ -1940,18 +1940,18 @@ subroutine setup_interactive()
        print "(a)",  '================================'
        ibinary = 0
 
-      !-- Wide binary
-      m1       = 1.
-      m2       = 0.2
-      binary_a = 10.
-      binary_e = 0.
-      binary_i = 0.
-      binary_O = 0.
-      binary_w = 270.
-      binary_f = 180.
-      accr1    = 1.
+       !-- Wide binary
+       m1       = 1.
+       m2       = 0.2
+       binary_a = 10.
+       binary_e = 0.
+       binary_i = 0.
+       binary_O = 0.
+       binary_w = 270.
+       binary_f = 180.
+       accr1    = 1.
 
-      !-- Tight binary 1
+       !-- Tight binary 1
        subst1    = 11
        q1        = 1
        m1a       = m1/(q1+1)
@@ -1965,19 +1965,19 @@ subroutine setup_interactive()
        accr1a    = 0.1
        accr1b    = 0.1
 
-      !-- Tight binary 2
-      subst2    = 12
-      q2       = 1
-      m2a      = m2/(q2+1)
-      m2b      = m2*q2/(q2+1)
-      binary2_a = 1.
-      binary2_e = 0.
-      binary2_i = 0.
-      binary2_O = 0.
-      binary2_w = 270.
-      binary2_f = 180.
-      accr2a    = 0.1
-      accr2b    = 0.1
+       !-- Tight binary 2
+       subst2    = 12
+       q2       = 1
+       m2a      = m2/(q2+1)
+       m2b      = m2*q2/(q2+1)
+       binary2_a = 1.
+       binary2_e = 0.
+       binary2_i = 0.
+       binary2_O = 0.
+       binary2_w = 270.
+       binary2_f = 180.
+       accr2a    = 0.1
+       accr2b    = 0.1
 
 
     end select
@@ -2004,26 +2004,26 @@ subroutine setup_interactive()
        iuse_disc(3) = .false.
        call prompt('Do you want a circumprimary disc?',iuse_disc(2))
        call prompt('Do you want a circumsecondary disc?',iuse_disc(3))
-       elseif (nsinks==3) then
-         !--bound binary: circum-triple
-         iuse_disc(1) = .false.
-         iuse_disc(2) = .false.
-         iuse_disc(3) = .false.
-         iuse_disc(4) = .true.
-         call prompt('Do you want a circum-triple disc?',iuse_disc(4))
-         if (.not.iuse_disc(4)) then
-            call prompt('Do you want a circumbinary disc around the first hierarchical level secondary?',iuse_disc(1))
-         else
-            print "(/,a)",'Setting circum-triple disc.'
-         endif
-       elseif (nsinks==4) then
-         !--2 bound binaries: circumbinary
-         iuse_disc(1) = .true.
-         iuse_disc(2) = .false.
-         iuse_disc(3) = .false.
-         iuse_disc(4) = .false.
-         print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
+    elseif (nsinks==3) then
+       !--bound binary: circum-triple
+       iuse_disc(1) = .false.
+       iuse_disc(2) = .false.
+       iuse_disc(3) = .false.
+       iuse_disc(4) = .true.
+       call prompt('Do you want a circum-triple disc?',iuse_disc(4))
+       if (.not.iuse_disc(4)) then
+          call prompt('Do you want a circumbinary disc around the first hierarchical level secondary?',iuse_disc(1))
+       else
+          print "(/,a)",'Setting circum-triple disc.'
        endif
+    elseif (nsinks==4) then
+       !--2 bound binaries: circumbinary
+       iuse_disc(1) = .true.
+       iuse_disc(2) = .false.
+       iuse_disc(3) = .false.
+       iuse_disc(4) = .false.
+       print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
+    endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
     ndiscs = count(iuse_disc)
@@ -2430,20 +2430,20 @@ subroutine write_setupfile(filename)
        call write_inopt(use_global_iso,'use_global_iso',&
             'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 3) then
-      write(iunit,"(/,a)") '# options for multiple discs'
-      call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+       write(iunit,"(/,a)") '# options for multiple discs'
+       call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
-      call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
+       call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
             //trim(disctype(4))//' disc',iunit)
-      call write_inopt(use_global_iso,'use_global_iso',&
+       call write_inopt(use_global_iso,'use_global_iso',&
            'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 4) then
-      write(iunit,"(/,a)") '# options for multiple discs'
-      call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+       write(iunit,"(/,a)") '# options for multiple discs'
+       call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
-      call write_inopt(use_global_iso,'use_global_iso',&
+       call write_inopt(use_global_iso,'use_global_iso',&
             'globally isothermal or Farris et al. (2014)',iunit)
-   endif
+    endif
  endif
  !--individual disc(s)
  do i=1,maxdiscs
