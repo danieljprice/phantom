@@ -14,7 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, part, physcon, prompting, units, vectorutils, setflyby
+! :Dependencies: centreofmass, part, physcon, prompting, setflyby, units,
+!   vectorutils
 !
  implicit none
 
