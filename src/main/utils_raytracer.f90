@@ -92,14 +92,14 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  real     :: ray_dir(3),part_dir(3)
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
- integer, parameter :: ndim = 200
+ integer, parameter :: ndim = 200  !number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
- allocate(rays_dist(ndim, nrays))
- allocate(rays_tau(ndim, nrays))
- allocate(rays_dim(nrays))
+ allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
+ allocate(rays_tau(ndim, nrays))  ! value of dtau at each point along each ray
+ allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
 
  !-------------------------------------------
  ! CONSTRUCT the RAYS given the ORDER
@@ -111,9 +111,9 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
 !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,rays_dist,rays_tau,rays_dim)
 !$omp do
  do i = 1, nrays
-    !returns ray_dir, the unit vector identifying ray (index i-1 becase healpix starts counting at index 0)
+    !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
     call pix2vec_nest(nsides, i-1, ray_dir)
-    !calculate the properties along the ray
+    !calculate the properties along the ray (tau, distance, number of points)
     call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
  enddo
 !$omp enddo
@@ -122,7 +122,7 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
 
  !_----------------------------------------------
  ! DETERMINE the optical depth for each particle
- ! using the values available on the rays
+ ! using the values available on the HEALPix rays
  !-----------------------------------------------
 
 !$omp parallel default(none) &
@@ -144,8 +144,8 @@ end subroutine get_all_tau_single
 
  !--------------------------------------------------------------------------
  !+
- !  Calculates the optical depth to each SPH particle, using the uniform outwards
- !  ray-tracing scheme for models containing primary star and a companion
+ !  Calculate the optical depth of each SPH particle, using the uniform outwards
+ !  ray-tracing scheme for models containing a primary star and a companion
  !
  !  Relies on healpix, for more information: https://healpix.sourceforge.io/
  !+
@@ -171,7 +171,6 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  integer  :: i, nrays, nsides
  real     :: normCompanion,theta0,phi,cosphi,sinphi,theta,sep,root
  real     :: ray_dir(3),part_dir(3),uvecCompanion(3)
- real, dimension(:,:), allocatable  :: dirs
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
  integer, parameter :: ndim = 200
@@ -179,10 +178,9 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
- allocate(dirs(3, nrays))
- allocate(rays_dist(ndim, nrays))
- allocate(rays_tau(ndim, nrays))
- allocate(rays_dim(nrays))
+ allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
+ allocate(rays_tau(ndim, nrays))  ! value of dtau at each point along each ray
+ allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
 
  uvecCompanion = companion-primary
  normCompanion = norm2(uvecCompanion)
@@ -203,7 +201,7 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
 !$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0)
 !$omp do
  do i = 1, nrays
-    !returns ray_dir, the unit vector identifying ray (index i-1 becase healpix starts counting at index 0)
+    !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
     call pix2vec_nest(nsides, i-1, ray_dir)
     !rotate ray vectors by an angle = phi so the main axis points to the companion (This is because along the
     !main axis (1,0,0) rays are distributed more uniformally
@@ -246,17 +244,17 @@ end subroutine get_all_tau_companion
 
  !--------------------------------------------------------------------------
  !+
- !  Calculate the optical depth of a particle.
+ !  Calculate the optical depth of a SPH particle.
  !  Search for the four closest rays to a particle, perform four-point
- !  interpolation of the optical depts from these rays. Weighted by the
+ !  interpolation of the optical depth from these rays. Weighted by the
  !  inverse square of the perpendicular distance to the rays.
  !
  !  Relies on healpix, for more information: https://healpix.sourceforge.io/
  !+
  !  IN: nsides:          The healpix nsides of the simulation
- !  IN: vec:             The vector from the primary to a point
+ !  IN: vec:             The vector from the primary to the particle
  !  IN: rays_tau:        2-dimensional array containing the cumulative optical
- !                       depts along each ray
+ !                       depth along each ray
  !  IN: rays_dist:       2-dimensional array containing the distances from the
  !                       primary along each ray
  !  IN: rays_dim:        The vector containing the number of points defined along each ray
@@ -274,23 +272,25 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
  logical :: mask(8)
 
  vec_norm2 = norm2(vec)
- !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
+ !returns rayIndex, the index of the ray vector of the HEALPix cell that points to the particle (direction vec)
  call vec2pix_nest(nsides, vec, rayIndex)
  !returns ray(3), the unit vector identifying the ray with index number rayIndex
  call pix2vec_nest(nsides, rayIndex, ray)
+ !compute optical depth along ray rayIndex(+1)
+ call get_tau_on_ray(vec_norm2, rays_tau(:,rayIndex+1), rays_dist(:,rayIndex+1), rays_dim(rayIndex+1), tautemp)
+ !determine distance of the particle to the HEALPix ray
  vectemp       = vec - vec_norm2*ray
  distRay_sq    = dot_product(vectemp,vectemp)
- call get_tau_on_ray(vec_norm2, rays_tau(:,rayIndex+1), rays_dist(:,rayIndex+1), rays_dim(rayIndex+1), tautemp)
  if (distRay_sq > 0.) then
     tau    = tautemp/distRay_sq
     weight = 1./distRay_sq
  else
-    ! the particle sits exactly on the ray, no need to get the neighbours
+    ! the particle sits exactly on the ray, no need to interpolate with the neighbours
     tau    = tautemp
     return
  endif
 
- !returns the number nneigh and list of vectors (n) neighbouring the ray number index
+ !returns the number nneigh and list of vectors (n) neighbouring the ray number rayIndex
  call neighbours_nest(nsides, rayIndex, neighbours, nneigh)
  !for each neighbouring ray calculate its distance to the particle
  do i=1,nneigh
@@ -298,8 +298,8 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
     vectemp     = vec - vec_norm2*ray
     tempdist(i) = dot_product(vectemp,vectemp)
  enddo
- neighbours       = neighbours+1
- mask             = .true.
+ neighbours     = neighbours+1
+ mask           = .true.
  if (nneigh <8) mask(nneigh+1:8) = .false.
  !take tau contribution from the 3 closest rays
  do i=1,3
@@ -342,7 +342,7 @@ subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
  else
     L = 2
     R = len
-    !bysection search for the index of the closest ray location to the particle
+    !bysection search for the index of the closest points on the ray to the specified location
     do while (L < R)
        m = (L + R)/2
        if (dist_along_ray(m) > distance) then
@@ -351,7 +351,7 @@ subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
           L = m + 1
        endif
     enddo
-    !interpolate linearly ray properties to get the particle's optical depth
+    !linear interpolation of the optical depth at the the point's location
     tau = tau_along_ray(L-1)+(tau_along_ray(L)-tau_along_ray(L-1))/ &
                   (dist_along_ray(L)-dist_along_ray(L-1))*(distance-dist_along_ray(L-1))
  endif
@@ -392,7 +392,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, 
  inext=0
  do while (inext==0)
     h = h*2.
-    !find the next point along the ray : index next
+    !find the next point along the ray : index inext
     call find_next(primary+Rinject*ray, h, ray, xyzh, kappa, previousdtaudr, dr, inext)
  enddo
 
@@ -427,7 +427,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, 
     if (tau_along_ray(1) > 2./3.) then
       L = 1
       R = len
-      !bysection search for the index of the closest ray location to the particle
+      !bysection search for the index of the closest point to tau = 2/3
       do while (L < R)
          m = (L + R)/2
          if (tau_along_ray(m) < 2./3.) then
@@ -437,7 +437,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, 
          endif
       enddo
       tau_along_ray(1:L) = 2./3.
-      !The photosphere is located between ray grid point L and L+1, may be useful!
+      !The photosphere is located between ray grid point L and L+1, may be useful information!
     endif
   endif
 end subroutine ray_tracer

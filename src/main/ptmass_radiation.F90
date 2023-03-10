@@ -191,7 +191,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
  use io,      only:fatal
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
- real,     intent(inout), optional   :: tau(:), tau_lucy(:)
+ real,     intent(inout), optional :: tau(:), tau_lucy(:)
  real,     intent(out)   :: dust_temp(:)
  real                    :: r,L_star,T_star,R_star,xa,ya,za
  integer                 :: i,j
@@ -226,7 +226,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
     enddo
     !$omp end parallel do
   case(2)
-    ! Flux dilution
+    !Flux dilution with attenuation (exp(-tau))
     if (itau_alloc == 1) then
        !$omp parallel  do default(none) &
        !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau) &
@@ -238,7 +238,8 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
           endif
        enddo
        !$omp end parallel do
-    else
+     !Flux dilution without attenuation
+     else
        !$omp parallel  do default(none) &
        !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
        !$omp private(i,r)
@@ -293,7 +294,7 @@ subroutine write_options_ptmass_radiation(iunit)
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  endif
  if (isink_radiation >= 2) then
-    call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy 4:MCfost)',iunit)
+    call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy)',iunit)
     call write_inopt(iray_resolution,'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
  if (iget_tdust == 1) then
@@ -333,7 +334,7 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
     if (iget_tdust == 3) itauL_alloc = 1
-    if (iget_tdust < 0 .or. iget_tdust > 4) call fatal(label,'invalid setting for iget_tdust ([0,4])')
+    if (iget_tdust < 0 .or. iget_tdust > 3) call fatal(label,'invalid setting for iget_tdust ([0,3])')
  case('tdust_exp')
     read(valstring,*,iostat=ierr) tdust_exp
     ngot = ngot + 1

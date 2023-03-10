@@ -129,9 +129,9 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  endif
  state%time   = 0.
  state%r_old  = 0.
- state%r0     = r0 !r0 set to Rinject in setup_wind
+ state%r0     = r0 ! set to Rinject in setup_wind
  state%r      = r0
- state%Rstar  = min(xyzmh_ptmass(iReff,wind_emitting_sink)*udist, r0)
+ state%Rstar  = r0 ! min(xyzmh_ptmass(iReff,wind_emitting_sink)*udist, r0)
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0
@@ -182,20 +182,21 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error    = .false.
+
 end subroutine init_wind
 
 #ifdef CALC_HYDRO_THEN_CHEM
 
 !-----------------------------------------------------------------------
 !
-!  Integrate chemistry, cooling and hydro over one time step - CALC_HYDRO_THEN_CHEM
+!  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
 subroutine wind_step(state)
 ! all quantities in cgs
 
  use wind_equations,   only:evolve_hydro
- use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
+ use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
       calc_Eddington_factor,idust_opacity
@@ -239,6 +240,7 @@ subroutine wind_step(state)
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
  endif
+
  if (itau_alloc == 1) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
@@ -265,46 +267,45 @@ subroutine wind_step(state)
 #endif
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
- !update dust temperature
+ !calculate dust temperature using new r and old tau
  if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2) then
+    !Flux dilution with attenuation
     if (itau_alloc == 1) then
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
+    !Flux dilution without attenuation
     else
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
  elseif (iget_tdust == 1) then
+    ! T(r) relation
     state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
  else
+    ! Tdust = Tgas
     state%Tdust = state%Tg
  endif
+
+ !calculate opacity
  if (idust_opacity == 2) then
     state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
  elseif (idust_opacity == 1) then
     state%kappa = calc_kappa_bowen(state%Tdust)
  endif
- 
+
+ ! update optical depths
  state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
- !update dust temperature
+ !update dust temperature using new r and new tau
  if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
- elseif (iget_tdust == 2) then
-    if (itau_alloc == 1) then
+ elseif (iget_tdust == 2) .and. itau_alloc == 1) then
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
-    else
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
-    endif
- elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
- else
-    state%Tdust = state%Tg
  endif
 
  !apply cooling
@@ -333,7 +334,7 @@ end subroutine wind_step
 
 !-----------------------------------------------------------------------
 !
-!  Integrate chemistry, cooling and hydro over one time step - NOT CALC_HYDRO_THEN_CHEM
+!  Integrate chemistry, cooling and hydro over one time step
 !
 !-----------------------------------------------------------------------
 subroutine wind_step(state)
@@ -373,17 +374,17 @@ subroutine wind_step(state)
  endif
  select case (isink_radiation)
  case (1)
-    state%alpha     = alpha_rad
+    state%alpha = alpha_rad
  case (2)
-    state%alpha     = state%alpha_Edd
+    state%alpha = state%alpha_Edd
  case (3)
-    state%alpha     = state%alpha_Edd+alpha_rad
+    state%alpha = state%alpha_Edd+alpha_rad
  case default
-    state%alpha     = 0.
+    state%alpha = 0.
  end select
  if (idust_opacity == 2) state%JKmuS(idalpha) = state%alpha
  if (state%time > 0.)    state%dalpha_dr      = (state%alpha-alpha_old)/(1.e-10+state%r-state%r_old)
- 
+
  rvT(1) = state%r
  rvT(2) = state%v
  rvT(3) = state%Tg
@@ -406,7 +407,7 @@ subroutine wind_step(state)
  state%u    = state%p/((state%gamma-1.)*state%rho)
 #endif
 
- !update dust temperature
+ !calculate dust temperature using new r but old tau
  if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
@@ -421,31 +422,26 @@ subroutine wind_step(state)
  else
     state%Tdust = state%Tg
  endif
+
+ !calculate opacity
  if (idust_opacity == 2) then
     state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
  elseif (idust_opacity == 1) then
     state%kappa = calc_kappa_bowen(state%Tdust)
  endif
- 
+
+ !calculate new tau
  state%tau      = state%tau + state%kappa*state%rho*(1.e-10+state%r-state%r_old)
  state%tau_lucy = state%tau_lucy &
       - (state%r-state%r_old) * state%Rstar**2 &
       * (state%kappa*state%rho/state%r**2 + kappa_old*rho_old/state%r_old**2)/2.
 
- !update dust temperature
+ !update dust temperature with new r and new tau
  if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
- elseif (iget_tdust == 2) then
-   if (itau_alloc == 1) then
+ elseif (iget_tdust == 2 .and. itau_alloc == 1) then
      state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
-   else
-     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
-   endif
- elseif (iget_tdust == 1) then
-    state%Tdust = Tstar*(state%Rstar/state%r)**tdust_exp
- else
-    state%Tdust = state%Tg
  endif
 
  !apply cooling
@@ -647,16 +643,18 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     rsonic = state%r
     tsonic = state%time
 
- elseif (iverbose>1) then
-    if (v0 >= cs) then
-       print *,' supersonic wind : v0/cs = ',v0/cs
-    else
-       !see discussion p72/73 in Lamers & Cassinelli textbook
-       if (r0 > Rs .or. alpha_rad > gmax ) then
-          print *,'r0 = ',r0,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
-          print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
-       endif
-       print '(" sub-sonic wind : v0/cs = ",f7.5,", Gamma_max = ",f7.5)',v0/cs,gmax
+ else
+    if (iverbose>1) then
+      if (v0 >= cs) then
+         print *,' supersonic wind : v0/cs = ',v0/cs
+      else
+         !see discussion p72/73 in Lamers & Cassinelli textbook
+         if (r0 > Rs .or. alpha_rad > gmax ) then
+            print *,'r0 = ',r0,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
+            print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
+         endif
+         print '(" sub-sonic wind : v0/cs = ",f7.5,", Gamma_max = ",f7.5)',v0/cs,gmax
+      endif
     endif
     !call calc_wind_profile(r0, v0, T0, 0., state)
     rsonic = 0.!state%r
@@ -677,14 +675,14 @@ end subroutine get_initial_wind_speed
 
 !-----------------------------------------------------------------------
 !
-!  Determine the initial stellar radius for a trans-sonic solution
+!  Determine the initial stellar radius Rst so that tau_Lucy(Rst) = 2/3
 !
 !-----------------------------------------------------------------------
 subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
  !all quantities in cgs
  use physcon, only:steboltz,pi
  use io,      only:iverbose
- use units,    only:udist
+ use units,   only:udist
  real, parameter :: step_factor = 1.1
  integer, intent(in) :: stype
  real, intent(in) :: T0, r0
@@ -701,12 +699,12 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
  initial_guess = r0
  Rstmax = r0
  Rst = r0
+ v0  = 0.
  if (iverbose>0) print *, '[get_initial_radius] Searching lower bound for r0'
  do
     call get_initial_wind_speed(Rst, T0, v0, rsonic, tsonic, stype)
     call calc_wind_profile(Rst, v0, T0, time_end, state)
-   !  if (iverbose>1) print *,' Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
-    print *,' Rst = ', Rst/udist, 'tau_lucy = ', state%tau_lucy, 'rho = ', Mdot_cgs/(4.*pi * Rst**2 * v0)
+    if (iverbose>1) print *,' Rst = ', Rst/udist, 'tau_lucy = ', state%tau_lucy, 'rho = ', Mdot_cgs/(4.*pi * Rst**2 * v0)
     if (state%error) then
        ! something wrong happened!
       Rst = Rst / step_factor
@@ -784,7 +782,8 @@ end subroutine get_initial_radius
 
 !-----------------------------------------------------------------------
 !
-!  Determine the initial lucy optical depth
+!  Determine the initial lucy optical depth profile at the stellar surface
+!  so that tau_lucy converges to zero at infinity
 !
 !-----------------------------------------------------------------------
 subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
@@ -794,14 +793,13 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
    real, parameter :: step_factor = 1.1
    real, intent(in) :: T0, r0, v0
    real, intent(out) :: tau_lucy_init
-  
+
    real, parameter :: time_end = 1.d10
    real :: tau_lucy_init_min, tau_lucy_init_max, tau_lucy_init_best, tau_lucy_best, initial_guess
    integer :: i, nstepsbest
    type(wind_state) :: state
-  
-   ! Find lower bound for initial radius
-   !r0 = sqrt(Lstar_cgs/(4.*pi*steboltz*Tstar**4))
+
+   ! Find lower bound for tau_lucy
    initial_guess = 2./3.
    tau_lucy_init_max = 2./3.
    tau_lucy_init = 2./3.
@@ -825,8 +823,8 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
       endif
    enddo
    if (iverbose>1) print *, 'Lower bound found for tau_lucy_init :', tau_lucy_init_min
-  
-  ! Find upper bound for initial radius
+
+  ! Find upper bound for tau_lucy
    if (iverbose>1) print *, 'Searching upper bound for tau_lucy_init'
    tau_lucy_init = tau_lucy_init_max
    do
@@ -844,8 +842,8 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
       endif
    enddo
    if (iverbose>1) print *, 'Upper bound found for tau_lucy_init :', tau_lucy_init_max
-  
-   ! Find the initial radius by dichotomy between Rstmin and Rstmax
+
+   ! Find the initial tau_lucy by dichotomy between tau_lucy_init_min and tau_lucy_init_max
    if (iverbose>1) print *, 'Searching tau_lucy_init by dichotomy'
    tau_lucy_init_best = tau_lucy_init
    nstepsbest = state%nsteps
@@ -873,8 +871,8 @@ subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
       print *,'Best initial Lucy optical depth found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
       print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
    endif
-  end subroutine get_initial_tau_lucy
-  
+end subroutine get_initial_tau_lucy
+
 !-----------------------------------------------------------------------
 !
 !  Interpolate 1D wind profile

@@ -752,7 +752,7 @@ ifeq ($(SETUP), wind)
     WIND=yes
 endif
 ifeq ($(SETUP), ismwind)
-#   wind setup with dust nucleation
+#   wind setup with dust nucleation and ISM cooling
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_cooling.F90
     H2CHEM=yes
