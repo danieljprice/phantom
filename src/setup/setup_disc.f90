@@ -25,11 +25,11 @@ module setup
 !   - Ratm_in       : *inner atmosphere radius (planet radii)*
 !   - Ratm_out      : *outer atmosphere radius (planet radii)*
 !   - accr1         : *single star accretion radius*
-!   - accr1a        : *tight binary 1 primary accretion radius*
-!   - accr1b        : *tight binary 1 secondary accretion radius*
+!   - accr1a        : *single star accretion radius*
+!   - accr1b        : *single star accretion radius*
 !   - accr2         : *perturber accretion radius*
-!   - accr2a        : *tight binary 2 primary accretion radius*
-!   - accr2b        : *tight binary 2 secondary accretion radius*
+!   - accr2a        : *tight binary primary accretion radius*
+!   - accr2b        : *tight binary secondary accretion radius*
 !   - alphaSS       : *desired alphaSS*
 !   - alpha_z       : *height of transition in tanh vertical temperature profile*
 !   - atm_type      : *atmosphere type (1:r**(-3); 2:r**(-1./(gamma-1.)))*
@@ -79,6 +79,8 @@ module setup
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
 !   - subst         : *star to substitute*
+!   - subst1        : *first star to substitute*
+!   - subst2        : *second star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - temp_atm0     : *atmosphere temperature scaling factor*
 !   - temp_mid0     : *midplane temperature scaling factor*
