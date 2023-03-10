@@ -361,8 +361,8 @@ subroutine write_options_growth(iunit)
     endif
  endif
  if (ieros == 1) then
-   call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
-   call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
+    call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
+    call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
 #ifdef MCFOST
