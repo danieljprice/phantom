@@ -131,7 +131,7 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  state%r_old  = 0.
  state%r0     = r0 ! set to Rinject in setup_wind
  state%r      = r0
- state%Rstar  = r0 ! min(xyzmh_ptmass(iReff,wind_emitting_sink)*udist, r0)
+ state%Rstar  = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
  state%v      = v0
  state%a      = 0.
  state%Tg     = T0

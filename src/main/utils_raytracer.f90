@@ -92,13 +92,13 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  real     :: ray_dir(3),part_dir(3)
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
- integer, parameter :: ndim = 200  !number of points along the ray where tau is calculated
+ integer, parameter :: ndim = 200 ! maximal number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
  allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
- allocate(rays_tau(ndim, nrays))  ! value of dtau at each point along each ray
+ allocate(rays_tau(ndim, nrays))  ! value of tau at each point along each ray
  allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
 
  !-------------------------------------------
@@ -173,13 +173,13 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  real     :: ray_dir(3),part_dir(3),uvecCompanion(3)
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
- integer, parameter :: ndim = 200
+ integer, parameter :: ndim = 200 ! maximal number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
  allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
- allocate(rays_tau(ndim, nrays))  ! value of dtau at each point along each ray
+ allocate(rays_tau(ndim, nrays))  ! value of tau at each point along each ray
  allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
 
  uvecCompanion = companion-primary
