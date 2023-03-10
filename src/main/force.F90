@@ -849,6 +849,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,gamma,utherm
+ use eos_stamatellos, only:gradP_cool,Gpot_cool
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -870,7 +871,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ireconav
+ use options,     only:overcleanfac,use_dustfrac,ireconav,icooling
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -1138,7 +1139,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
-
+ if (icooling == 7) gradP_cool(i) = 0d0
+ 
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1639,6 +1641,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projsx = projsxi + projsxj
           projsy = projsyi + projsyj
           projsz = projszi + projszj
+          if (icooling == 7) gradP_cool(i) = gradP_cool(i) + gradp
 
           fsum(ifxi) = fsum(ifxi) - runix*(gradp + fgrav) - projsx
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
@@ -1884,6 +1887,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
+ if (icooling == 7) then
+    Gpot_cool(i) = fsum(ipot)
+ endif
+ 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif

@@ -29,16 +29,18 @@ module cooling_stamatellos
      use io,       only:warning
      use physcon,  only:steboltz,pi,solarl
      use units,    only:umass,udist,unit_density,unit_ergg,utime
-     use eos_stamatellos
-     use part,       only:poten
+     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
+          iunitst
+     use part,       only:eos_vars,igasP
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,Lstar,ri2
      real            :: Tirri,gammai,gmwi,Tmini,Ti,dudt_rad,Teqi
-     real            :: tcool,ueqi,umini,tthermi,poti
-
-     poti = poten(i)
+     real            :: tcool,ueqi,umini,tthermi,poti,presi,coldens2i
+     
+     poti = Gpot_cool(i)
+     presi = eos_vars(igasP,i)
 !    Tfloor is from input parameters and is background heating
 !    Add to stellar heating. Just assuming one star at (0,0,0) for now
      Lstar = 0.0 !in Lsun
@@ -46,14 +48,21 @@ module cooling_stamatellos
      ri2 = ri2 *udist*udist
      Tirri = (Lstar*solarl/(4d0*pi*steboltz)/ri2)**0.25
      Tmini = Tfloor + Tirri
+
+! get opacities & Ti for ui
+
+     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+           Ti,gmwi,gammai)
      
      coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
      coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
      coldensi = coldensi*umass/udist/udist ! physical units
-     
-! get opacities & Ti for ui
-     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-          Ti,gmwi,gammai)
+
+! testing Lombardi+ method of estimating the mean column density
+     coldens2i = 1.014d0 * presi / abs(-gradP_cool(i) /rhoi ) ! Lombardi+ 2015
+     coldens2i = coldens2i *umass/udist/udist ! physical units
+!     write(iunitst,'(5E12.5)') coldensi,coldens2i,presi,gradP_cool(i)
+
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini**4.d0 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 ! calculate Teqi
@@ -90,7 +99,7 @@ module cooling_stamatellos
         print *, "Teqi=",Teqi, "dt=",dt,"tthermi=", tthermi,"ueqi=", ueqi
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
- 	 else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+     else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
      	dudti_cool = (umini - ui)/dt
      endif
      

@@ -6,7 +6,8 @@ module eos_stamatellos
  implicit none
  real, public :: optable(260,1001,6)
  real,allocatable,public :: gradP_cool(:),Gpot_cool(:)
- public :: read_optab,getopac_opdep,init_S07cool
+ integer,public :: iunitst=19
+ public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
 
  subroutine init_S07cool()
@@ -14,12 +15,14 @@ contains
     
     print *, "Allocating S07 arrays"
     allocate(gradP_cool(npart))
-    allocate(Gpot_cool(npart))  
+    allocate(Gpot_cool(npart))
+    open (unit=iunitst,file='EOSinfo.dat',status='replace')
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
+  close(iunitst)
 end subroutine finish_S07cool
  
 subroutine read_optab(ierr)
