@@ -1,16 +1,128 @@
 Release notes
 =============
 
+v2023.0.0 - 10th Mar 2023
+-------------------------
+
+Physics
+~~~~~~~
+- Dust nucleation: chemical network allows for self-consistent (carbon-rich) dust formation in simulations once the temperature drops below the condensation temperature, e.g. in AGB star winds (`Siess et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022A%26A...667A..75S/abstract>`__). Just set DUST_NUCLEATION=yes
+- Implementation of implicit flux limited diffusion solver for radiation based on `Whitehouse & Bate 2004 <https://ui.adsabs.harvard.edu/abs/2004MNRAS.353.1078W>`__, `Whitehouse, Bate & Monaghan (2005) <https://ui.adsabs.harvard.edu/abs/2005MNRAS.364.1367W>`__ and `Bate & Keto (2015) <http://adsabs.harvard.edu/abs/2015MNRAS.449.2643B>`__. The implementation is a direct port of the solver used in Matthew Bate's sphNG code, generously contributed by Matthew and ported to phantom by Mike Lau and Daniel Price.
+- Compute and store a mass accretion rate for each sink particle based on the accreted mass over one dtmax interval. This can be used in MCFOST to provide accretion luminosity from each sink particle (`Borchert et al. 2022a <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510L..37B>`__, `2022b <https://ui.adsabs.harvard.edu/abs/2022MNRAS.517.4436B>`__)
+- Allow for use of PdV work and shock heating as source terms in MCFOST when performing live-coupled simulations with phantom+MCFOST (thanks to Elli Borchert and Sahl Rowther, #344; see appendix of `Borchert et al. 2022b <https://ui.adsabs.harvard.edu/abs/2022MNRAS.517.4436B>`__)
+- New equation of state that implements gas plus radiation pressure plus recombination of Hydrogen and Helium (`Lau et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.517.4436B>`__; #267)
+- New stratified disc locally isothermal equation of state added (thanks to Caitlyn Hardiman; #268, #278, #308)
+- GR simulations now work with the gas+radiation equation of state by implementing an option to evolve "s" as the entropy instead of P/rho^gamma (thanks to Fitz Hu; #250, #324)
+- New spherical raytracer for sink particle radiation / dust acceleration, particularly in the context of stellar winds (thanks to Mats Esseldeurs, Lionel Siess, Ward Homan)
+- option to use reconstruction on velocities to reduce dissipation away from shocks in the GR code (where the standard Cullen & Dehnen shock switch cannot be used)
+- added conservation check which stops the MHD code if hdivB/B is too large AND hdivbbmax_max == 1 (thanks to James Wurster)
+- added an override to force sink creation if density is too high; also an addition step in the barotropic equation of state at very high densities (thanks to James Wurster)
+- option for heating from sink particles, which adds heats all particles within the softening radius of the sink according to the sink particle luminosity (#216)
+- mass-weighted interpolations of dust-gas quantities are now default in dust growth (#377; thanks to Stephane Michoulier)
+- option for Aeolian erosion in dust growth module (#365, #372; thanks to Stephane Michoulier)
+- Added possibility of varying beta cooling with radius as a power law (#361; thanks to Cristiano Longarini)
+- option for damping boundary conditions for comparing phantom to simulations of planet-disc interaction with grid codes (#351)
+
+
+Setup
+~~~~~
+- can now set up hierarchical quadruple star systems in setup_disc (thanks to Amena Faruqi; #355)
+- setup and simple cooling function added for cooling shock problem from `Creasey et al. (2011) <https://ui.adsabs.harvard.edu/abs/2011MNRAS.415.3706C>`__
+- can now give --maxp=1e7 flag to phantomsetup instead of compiling with MAXP= which is now obsolete
+- major reorganisation of setup_star into neat subroutines with high level functions (#297, also #203)
+- dumps written during relax_star now usable as starting file
+- various improvements to setting up stars with variable composition (thanks to Mike Lau)
+- can now setup triple stars in the stellar wind setup (thanks to Lionel Siess), see e.g. `Maes et al. 2021 <https://ui.adsabs.harvard.edu/abs/2021A%26A...653A..25M/abstract>`__, `Malfait et al. 2021 <https://ui.adsabs.harvard.edu/abs/2021A&A...652A..51M>`__
+- major overhaul of setup_sphereinbox to include turbulence and one-fluid dust; and many more optional input variables (thanks to James Wurster)
+- option for particle shuffling in the Sedov blast wave setup (thanks to James Wurster)
+- simplified setup options when adding planets in setup_disc
+- sensible physical units chosen for special relativistic shock tubes (thanks to Fitz Hu)
+- added versatility to setup of power-law size distribution when setting up dust (thanks to Mark Hutchison)
+- new SETUP options for isothermal (dusty) self gravitating disc setups (thanks to Cristiano Longarini)
+- fixed default cooling in disc_setup (#114; thanks to Benedetta Veronesi)
+
+Bugs
+~~~~
+- Bugs fixed with using dump files from sphNG to phantom (thanks to Alison Young; #343)
+- Bug fix with hsoft=0 when reading MESA file without softening in star setup
+- Various bug fixes when setting up Bonnor-Ebert density profiles in the sphere-in-box setup (thanks to James Wurster; #303)
+- Bug fix with automated download of data files
+- Bug fix in implicit cooling when du/dt goes to zero (#328; thanks to Lionel Siess)
+- Various bug fixes with dust nucleation and cooling (Siess)
+- Bug fix with artificial conductivity when employing the Minkowski metric in General Relativity
+- various issues compiling phantom with MCFOST fixed (thanks to Christophe Pinte; #199)
+- seg fault in dump file read utilities fixed if attempting to read an array that has not been allocated
+- various bugs with phantom2hdf5 fixed (thanks to Stephen Nielson #368)
+- Bug fix reading the default star data files from the data/ directory
+- Bug fix in `Farris et al. (2014) <http://adsabs.harvard.edu/abs/2014ApJ...783..134F>`__ equation of state (#282; thanks to Enrico Ragusa)
+- Bug fix for dustfrac and dust-to-gas ratio in dustydisc setup (#273; thanks to Mark Hutchison)
+- Bug fix in the initialisation of dustfrac in setup_disc
+- Fixed critical bug in calculation of Teff in stellar wind setups (thanks to Lionel Siess)
+- Fix the makefiles qscript target to write correct slurm scripts for MPI jobs (#269)
+- Bug fix with sink particle creation in MPI (Chan, Liptai via ADACS; #234)
+- Bug fix with Koyama & Inutuska cooling; works now for both implicit & explicit (thanks to James Wurster)
+- Bug fixes in gravitational wave inspiral with star+sink (thanks to Martina Toscani; #367)
+- libtool error fixed, use ar rcs to create libraries
+
+Utils
+~~~~~
+- New moddump utility for importing sphNG dumps containing sink particles into phantom (thanks to Alison Young)
+- New moddump to add a flyby to an evolved simulation (sink particle in parabolic orbit); thanks to Cristiano Longarini
+- improved common envelope analysis routines (Lau, Gonzalez, Nielson; #334)
+- moddump_sink allows modification of all sink particles in the simulation
+- better error messages in moddump_binary if not enough memory is allocated to add a second star (Lau)
+- cleanup of moddump_binary to improve code clarity (#257)
+- moddump_binary can be used to set up binary of two stars with sink-particle stellar cores (thanks to Mike Lau; #362)
+- moddump_rotate to add solid body rotation to a sphere of gas (Lau; #290)
+- diffdumps returns a non-zero exit code if files differ (Chan, Liptai via ADACS; #237)
+
+
+Performance
+~~~~~~~~~~~
+- major optimisation of MPI communication to avoid bottleneck of openMP code (#310; Chan, Liptai via ADACS)
+- optimisation of particle balance between MPI threads (Chan, Liptai via ADACS; #316)
+- timing information written in the log file for local and remote parts of density and force (Chan, Liptai via ADACS; #271)
+- various MPI and OpenMP memory allocation optimisations and bug fixes (Chan, Liptai via ADACS; #209, #262; #243)
+- Optimisations to reduce unnecessary calls when compiling with `MPI=yes` but running with only 1 MPI task (Chan, Liptai via ADACS; #259)
+
+Other
+~~~~~
+- Switched off the automatic decrease of dtmax if the time between dumps is too large (#342)
+- added option to create restart dumps if we go > 24h without a dump (#352; thanks to James Wurster)
+- better help for SETUP= flag in Makefile
+- configuration added for Flatiron cluster (SYSTEM=rusty and SYSTEM=popeye; thanks to Mike Lau)
+- further work to remove unnecessary ifdefs (#55)
+- Added MPI unit tests to the testsuite (Chan, Liptai via ADACS; #220, #222, #229, #235, #217, #322)
+- major reorganisation of cooling modules; added cooling_solver, cooling_functions and other modules
+- bots script can be run as a pre-commit action (Chan, Liptai via ADACS; #223, #317)
+- Makefile split into Makefile_setups, Makefile_systems and Makefile_qscripts to avoid clutter (Liptai via ADACS; #261; see #253)
+- Timing hierarchy drawn in a nicer way using a tree diagram (Chan via ADACS; #254)
+- makefile exit codes are propagated through to calling scripts (#256)
+- test suite is now also run using ifort on github runners (Chan, Liptai via ADACS; #228)
+- github actions checks on pull requests are now run in parallel (Chan, Liptai via ADACS; #224)
+- if dt is too small, exit in step with useful information rather than in get_ibin (thanks to James Wurster)
+- option to run bots on staged files only (#213)
+
+Documentation
+~~~~~~~~~~~~~
+- added list of pre-cooked setups (SETUP=blah) to docs
+- added list of all equation of state options (#311)
+- additional documentation on the file format specification
+- Documentation added regarding Sarracen
+- Machine-specific instructions added for Kennedy (St. Andrews) and DiAL
+- Documentation for self-gravitating and gravitationally unstable disc setups (thanks to Cristiano Longarini)
+
+
 v2022.0.0 - 17th Jan 2022
 -------------------------
 
 Physics
 ~~~~~~~
 - Option for gravitational wave emission in quadrupole approximation from any simulation (`Toscani et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510..992T/abstract>`__)
-- Further improvements to wind injection/line cooling/dust formation (contributed by Lionel Siess and Ward Homan)
+- Further improvements to wind injection/line cooling/dust formation (`Siess et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022A%26A...667A..75S/abstract>`__)
 - Ideal + radiation + H/He ionisation equation of state (Lau, Hirai)
 - Allow for variable composition (X, Z, mu) in stars (Lau, Hirai)
-- Radiative feedback implemented via MCFOST based on sink particle Mdot (`Borchert et al. 2021 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510L..37B/abstract>`__)
+- Radiative feedback implemented via MCFOST based on sink particle Mdot (`Borchert et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510L..37B/abstract>`__)
 - Sink particles can now merge (thanks to James Wurster; #172)
 - Option for thermal energy floor / minimum temperature (Wurster)
 - Fixes/improvements to implicit cooling (Wurster)
@@ -20,7 +132,7 @@ Setup
 ~~~~~
 - Further improvements to automated relax-star procedure and to setup_star in general (See Appendix C of `Lau et al. 2022 <https://ui.adsabs.harvard.edu/abs/2021arXiv211100923L/abstract>`__)
 - Real star profiles allowed in GR tidal disruption event setup and moddump (Hu, Sharma)
-- Set up for an hierarchical triple system embedded in a circum-triple disc (Ceppi, Cuello; #102, #110)
+- Set up for an hierarchical triple system embedded in a circum-triple disc (`Ceppi et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.514..906C/abstract>`__; `2023 <https://ui.adsabs.harvard.edu/abs/2023MNRAS.520.5817C/abstract>`__; #102, #110)
 - Firehose setup added for testing tidal disruption flows
 
 Bugs
