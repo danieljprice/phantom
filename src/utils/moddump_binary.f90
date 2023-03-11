@@ -38,7 +38,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
  use rho_profile,       only:read_mesa
- use dim,               only:maxptmass,maxp
+ use dim,               only:maxptmass,maxp,nsinkproperties
  use io,                only:fatal,idisk1,iprint
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
@@ -49,13 +49,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                   :: i,ierr,setup_case,ioption=1,irhomax,n
  integer                   :: iremove = 2
- integer                   :: nstar1,nstar2,nptmass1
+ integer                   :: nstar1,nstar2,nptmass1,nptmass2,iprim,isec
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2,pmass1,pmass2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
  real                      :: a1,a2,e,vr,hsoft_default = 3.
- real                      :: hacc1,hacc2,hacc3,hsoft_primary,mcore,comp_shift=100,sink_dist,vel_shift
+ real                      :: hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
  real                      :: time2,hfact2,Rstar
+ real                      :: xyzmh1_stash(nsinkproperties),xyzmh2_stash(nsinkproperties),vxyz1_stash(3),vxyz2_stash(3)
  real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
  logical                   :: corotate_answer,iprimary_grav_ans
  character(len=20)         :: filename = 'binary.in'
@@ -168,8 +169,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        ! set binary defaults
        companion_mass_1 = 0.6
        a1 = 100.
-       e = 0.0
-       mcore = 0.
+       e = 0.
        hacc1 = 0.
        hacc2 = 0.
        vr = 0.
@@ -188,15 +188,18 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        print*, 'Current stellar radius in code units is ', Rstar
        call prompt('Enter orbit semi-major axis in code units', a1, 0.)
        call prompt('Enter orbit eccentricity', e, 0., 1.)
+       call prompt('Enter accretion radius for the companion in code units', hacc2, 0.)
        call prompt('Enter companion radial velocity', vr)
 
-       if (nptmass == 1) then ! there is a sink stellar core
-          mcore = xyzmh_ptmass(4,1)
+       nptmass1 = nptmass
+       if (nptmass1 == 1) then ! there is a sink stellar core
+          ! stash primary sink arrays
+          xyzmh1_stash(1:nsinkproperties) = xyzmh_ptmass(1:nsinkproperties,1)
+          vxyz1_stash(1:3) = vxyz_ptmass(1:3,1)
           hacc1 = xyzmh_ptmass(ihacc,1)
-          print*, 'Current accretion radius of primary core is ', hacc1,' code units'
-          call prompt('Enter accretion radius for the primary core in code units', hacc1, 0.)
-          hacc2 = 0.
-          call prompt('Enter accretion radius for the companion in code units', hacc2, 0.)
+          print*,'Dump contains one sink particle with m=',xyzmh1_stash(4),', hacc=',hacc1,', and hsoft=',xyzmh1_stash(ihsoft)
+       elseif (nptmass1 > 1) then
+          call fatal('moddump_binary', 'unexpected number of sink particles in dump file (nptmass > 1)')
        endif
 
        corotate_answer = .false.
@@ -205,20 +208,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        !removes the dead or accreted particles for a correct total mass computation
        call delete_dead_or_accreted_particles(npart,npartoftype)
-       print*,' Got ',npart,npartoftype(igas),' after deleting accreted particles'
+       nstar1 = npart ! stash npart in star 1
+       print*,' Got ',nstar1,npartoftype(igas),' after deleting accreted particles'
 
        !sets up the binary system orbital parameters
-       hsoft_primary = 0.
-       if (nptmass == 1) then
-          mcore = xyzmh_ptmass(4,1)
-          hsoft_primary = xyzmh_ptmass(ihsoft,1)  ! stash primary core hsoft before calling set_binary, which resets the softening lengths
-       elseif (nptmass == 0) then
-          mcore = 0.
-       else
-          call fatal('moddump_binary', 'sink particle not specified (nptmass > 1)')
-       endif
-
-       primary_mass = npartoftype(igas) * massoftype(igas) + mcore
+       primary_mass = nstar1 * massoftype(igas) + xyzmh1_stash(4)
        print*, 'Current primary mass in code units is ',primary_mass
 
        ! set the binary
@@ -234,44 +228,31 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
        else ! non corotating frame
           call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
-          ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays
+          ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays, and nptmass increases by 2
        endif
 
-       if (nptmass == 3) then ! if original star has a point mass core
-          !move primary core from pos 2 to 1
-          xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
-          vxyz_ptmass(1:3,1) = vxyz_ptmass(1:3,2)
-
-          !move companion point mass from pos 3 to 2
-          xyzmh_ptmass(:,2) = xyzmh_ptmass(:,3)
-          vxyz_ptmass(1:3,2) = vxyz_ptmass(1:3,3)
-          vxyz_ptmass(1,2) = vxyz_ptmass(1,2) + vr
-
-          if (setup_case == 1) then  ! Assume companion should be a sink particle
-             nptmass = nptmass - 1  ! Delete point mass 3 (duplicate of companion)
-          elseif (setup_case == 8) then  ! Companion does not contain a sink particle and is read from second dumpfile
-             nptmass = nptmass - 2  ! Delete point masses 2 and 3, leaving just the primary core
-          endif
-
-          !takes necessary inputs from user 2 (the softening lengths for the sinks have to be taken in input after using the "set_binary" function since it resets them)
-          xyzmh_ptmass(ihsoft,1) = hsoft_primary
-          print*, 'Current softening length of the primary core is ', xyzmh_ptmass(ihsoft,1),' code units'
-          if (setup_case == 1) call prompt('Enter softening length for companion',xyzmh_ptmass(ihsoft,2),0.)
-
-       elseif (nptmass == 2) then ! if original star is coreless
-          ! Just need to delete both point masses
-          nptmass = 0
+       if (nptmass1 == 0) then
+          iprim = 1
+          isec = 2
+       elseif (nptmass1 == 1) then
+          iprim = 2
+          isec = 3
        endif
 
-       if (setup_case == 1) then
-          !shifts gas to the primary point mass created in 'set_binary'
-          do i=1,npart
-             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
-             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
-          enddo
-       elseif (setup_case == 8) then
-          nstar1 = npart ! save npart in star 1
-          nptmass1 = nptmass  ! stash nptmass for dump 1, as read_dumps overwrites it
+       ! Store sink velocity and position in binary orbit
+       xyzmh1_stash(1:3) = xyzmh_ptmass(1:3,iprim)
+       vxyz1_stash(1:3) = vxyz_ptmass(1:3,iprim)
+       xyzmh2_stash(1:3) = xyzmh_ptmass(1:3,isec)
+       vxyz2_stash(1:3) = vxyz_ptmass(1:3,isec)
+
+       !shifts star 1 gas to the primary sink
+       do i=1,npart
+          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh1_stash(1:3)
+          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz1_stash(1:3)
+       enddo
+
+       call prompt('Enter softening length for companion',xyzmh2_stash(ihsoft),0.)
+       if (setup_case == 8) then
           dumpname = ''
           call prompt('Enter name of second dumpfile',dumpname)
           nstar2 = nstar1
@@ -293,7 +274,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           ! read dump file containing star 2
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
-          nptmass = nptmass1 + nptmass  ! set nptmass to be sum of nptmass in dump 1 and dump 2
+          nptmass2 = nptmass ! Number of point masses in second dump. Any sink information is overwritten into the first column of sink arrays
+          xyzmh2_stash(4) = xyzmh_ptmass(4,1)
+
           pmass2 = massoftype(igas)
           if (ierr /= 0) call fatal('read_dump','error reading second dump file')
           if ( abs(1.-pmass2/pmass1) > 1.e-3) then
@@ -310,19 +293,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           npart = nstar1 + nstar2
           npartoftype(igas) = npart
-
-          ! shift star2 to secondary point mass (deleted)
-          do i=1,nstar2
-             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,2)
-             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,2)
-          enddo
-          ! shift star1 to primary point mass (deleted)
-          do i=nstar2+1,npart
-             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,1)
-             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,1)
-          enddo
-
        endif
+
+       ! shift star 2 gas to secondary sink
+       do i=1,nstar2
+          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh2_stash(1:3)
+          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz2_stash(1:3)
+       enddo
+
+       nptmass = nptmass1 + nptmass2
+       xyzmh_ptmass(1:nsinkproperties,1) = xyzmh1_stash(1:nsinkproperties)
+       xyzmh_ptmass(1:nsinkproperties,2) = xyzmh2_stash(1:nsinkproperties)
+       vxyz_ptmass(1:3,1) = vxyz1_stash(1:3)
+       vxyz_ptmass(1:3,2) = vxyz2_stash(1:3)
+
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
     case(2)

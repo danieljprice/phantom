@@ -15,8 +15,9 @@ module analysis
 ! :Runtime parameters: None
 !
 ! :Dependencies: centreofmass, energies, eos, eos_gasradrec, eos_mesa,
-!   extern_corotate, ionization_mod, kernel, mesa_microphysics, part,
-!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units
+!   extern_corotate, io, ionization_mod, kernel, mesa_microphysics, part,
+!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units,
+!   vectorutils
 !
 
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
@@ -1644,6 +1645,75 @@ end subroutine tau_profile
 
 !----------------------------------------------------------------
 !+
+!  Sound crossing time profile
+!+
+!----------------------------------------------------------------
+subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use part,  only:itemp
+ use eos,   only:get_spsound
+ use units, only:unit_velocity
+ integer, intent(in)    :: npart,num
+ real, intent(in)       :: time,particlemass
+ real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
+ integer                :: nbins
+ real, dimension(npart) :: rad_part,cs_part
+ real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
+ real                   :: maxloga,minloga,rhoi
+ character(len=17)      :: filename
+ character(len=40)      :: data_formatter
+ integer                :: i,unitnum
+
+ call compute_energies(time)
+ nbins      = 500
+ rad_part   = 0.
+ cs_part   = 0.
+ minloga    = 0.5
+ maxloga    = 4.3
+
+ allocate(cs_hist(nbins),sepbins(nbins),tconv(nbins))
+ filename = '    grid_tconv.ev'
+
+ do i=1,npart
+    rhoi = rhoh(xyzh(4,i), particlemass)
+    rad_part(i) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    cs_part(i) = get_spsound(eos_type=ieos,xyzi=xyzh(:,i),rhoi=rhoi,vxyzui=vxyzu(:,i),gammai=gamma,mui=gmw,Xi=X_in,Zi=Z_in)
+ enddo
+
+ call histogram_setup(rad_part(1:npart),cs_part,cs_hist,npart,maxloga,minloga,nbins,.true.,.true.)
+
+ ! Integrate sound-crossing time from surface inwards
+ sepbins = (/ (10**(minloga + (i-1) * (maxloga-minloga)/real(nbins)), i=1,nbins) /) ! Create log-uniform bins
+ ! Convert to cgs units
+ cs_hist = cs_hist * unit_velocity
+ sepbins = sepbins * udist ! udist should be Rsun in cm
+
+ tconv(nbins) = 0.
+ do i=nbins,2,-1
+    if (cs_hist(i) < tiny(1.)) then
+       tconv(i-1) = tconv(i)
+    else
+       tconv(i-1) = tconv(i) + (sepbins(i+1) - sepbins(i)) / cs_hist(i)
+    endif
+ enddo
+
+ ! Write data row
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    unitnum = 1000
+    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    write(unitnum, "(a)") '# Sound crossing time profile'
+    close(unit=unitnum)
+ endif
+ unitnum=1002
+ open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ write(unitnum,data_formatter) time,tconv
+ close(unit=unitnum)
+
+end subroutine tconv_profile
+
+
+!----------------------------------------------------------------
+!+
 !  Histogram of optical depth at hydrogen recombination
 !+
 !----------------------------------------------------------------
@@ -2368,7 +2438,7 @@ subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  print*,'dump_number=',dump_number
  ! Trick write_time_file into writing my data table
  if (dump_number == 167) then
-   temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
+    temp_bins = (/ 2.e3, 5.5e3, 8.e3, 1.5e4, 2.e4, 4.e4, 1.e15 /)
     final_count = 0
     do i=1,npart
        if (temp_unbound(i) > 1.e-15) then

@@ -142,7 +142,7 @@ ifeq ($(SYSTEM), nci)
 #   gadi (NCI machine)
     include Makefile_defaults_ifort
     #MPI=intel
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
+    FFLAGS= -O3 -shared-intel -ip -axSSE2,SSSE3,SSE4.1,SSE4.2,AVX -inline-factor=500 -warn uninitialized -warn unused -warn truncated_source
     DEBUGFLAG+= -fpe0 -fp-stack-check
     CCFLAGS= -O3 -ip
     QSYS= pbs
@@ -151,23 +151,17 @@ ifeq ($(SYSTEM), nci)
     ifeq ($(MPI),yes)
         NPAR=32
     endif
-    QPROJECT='fu7'
+    QPROJECT=$(PROJECT)
     QNAME='normal'
     WALLTIME='48:00:00'
     MPIEXEC='mpiexec -npernode 1'
     QNODES='ncpus='$(NPAR)
     QEXTRA='-l other=hyperthread'
+    QSTORAGE="gdata/$(QPROJECT)"
 endif
 
 ifeq ($(SYSTEM), gfortran)
     include Makefile_defaults_gfortran
-ifneq ($(UNAME), Darwin)
-ifeq ($(UNAMEP), aarch64) # -mcmodel=medium is not an option for aarch64 type processors with gfortran.
-    FFLAGS+= -mcmodel=small
-else
-    FFLAGS+= -mcmodel=medium
-endif   
-endif
 endif
 
 ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
@@ -193,10 +187,10 @@ endif
 ifeq ($(SYSTEM), complexity)
 #   complexity.leicester.dirac.ac.uk
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -xhost -ipo -mcmodel=medium -shared-intel -warn uninitialized \
+    FFLAGS= -O3 -xhost -ipo -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
+    CCFLAGS = -O3 -ipo
     QSYS=pbs
     QNAME=q64
     WALLTIME='48:00:00'
@@ -205,7 +199,7 @@ endif
 ifeq ($(SYSTEM), isca)
     # local cluster at the University of Exeter
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -axAVX -mcmodel=medium \
+    FFLAGS= -O3 -axAVX \
             -warn uninitialized -warn truncated_source\
             -warn interfaces -nogen-interfaces
     OMPFLAGS= -qopenmp
@@ -217,10 +211,10 @@ endif
 ifeq ($(SYSTEM), skylake)
 # HPCs Skylake cluster at Cambridge
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -mcmodel=medium -shared-intel -warn uninitialized -warn unused -warn \
+    FFLAGS= -O3 -shared-intel -warn uninitialized -warn unused -warn \
             truncated_source -xCORE-AVX512 -ipo
     OMPFLAGS = -qopenmp
-    CCFLAGS = -O3 -mcmodel=medium -xCORE-AVX512 -ipo
+    CCFLAGS = -O3 -xCORE-AVX512 -ipo
     QSYS = slurm
     QPROJECT='DIRAC-DP005-CPU'
     WALLTIME='36:00:00'
@@ -253,10 +247,10 @@ endif
 ifeq ($(SYSTEM), hydra)
 # this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
     include Makefile_defaults_ifort
-    FFLAGS= -O3 -xavx -ip -mcmodel=medium -shared-intel -warn uninitialized \
+    FFLAGS= -O3 -xavx -ip -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
     DEBUGFLAG= -check all -WB -traceback -g -fpe0 -fp-stack-check
-    CCFLAGS = -O3 -ipo -mcmodel=medium
+    CCFLAGS = -O3 -ipo
 endif
 
 ifeq ($(SYSTEM), lyoccf)

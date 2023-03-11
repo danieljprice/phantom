@@ -16,16 +16,18 @@ module options
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
+! :Dependencies: damping, dim, eos, kernel, part, timestep, units,
+!   viscosity
 !
- use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use eos,     only:ieos,iopacity_type,use_var_comp ! so this is available via options module
+ use damping, only:idamp ! so this is available via options module
  implicit none
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
 !
  real, public :: avdecayconst
- integer, public :: nfulldump,nmaxdumps,iexternalforce,idamp
+ integer, public :: nfulldump,nmaxdumps,iexternalforce
  real, public :: tolh,damp,rkill
  real(kind=4), public :: twallmax
 
@@ -47,14 +49,17 @@ module options
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV
+ logical, public :: mcfost_uses_PdV, mcfost_dust_subl
+ integer, public :: ISM
+ real(kind=4), public :: mcfost_keep_part
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
- logical,public :: exchange_radiation_energy, limit_radiation_flux
+ logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
+ logical, public :: implicit_radiation_store_drad
 
  public :: set_default_options
- public :: ieos
+ public :: ieos,idamp
  public :: iopacity_type
  public :: use_var_comp  ! use variable composition
 
@@ -86,7 +91,6 @@ subroutine set_default_options
  Bexty     = 0.
  Bextz     = 0.
  tolh      = 1.e-4           ! tolerance on h iterations
- idamp     = 0               ! damping type
  iexternalforce = 0          ! external forces
  if (gr) iexternalforce = 1
  calc_erot = .false.         ! To allow rotational energies to be printed to .ev
@@ -118,6 +122,7 @@ subroutine set_default_options
  endif
  alphamax = 1.0
  call set_defaults_viscosity
+ idamp = 0
 
  ! artificial thermal conductivity
  alphau = 1.
@@ -143,18 +148,24 @@ subroutine set_default_options
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
  mcfost_computes_Lacc = .false.
+ mcfost_dust_subl = .false.
  mcfost_uses_PdV = .true.
+ mcfost_keep_part = 0.999
+ ISM = 0
 
  ! radiation
  if (do_radiation) then
     exchange_radiation_energy = .true.
     limit_radiation_flux = .true.
     iopacity_type = 1
+    implicit_radiation = .false.
  else
     exchange_radiation_energy = .false.
     limit_radiation_flux = .false.
     iopacity_type = 0
+    implicit_radiation = .false.
  endif
+ implicit_radiation_store_drad = .false.
 
  ! variable composition
  use_var_comp = .false.

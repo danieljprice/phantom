@@ -7,12 +7,12 @@
 module raytracer
 !
 ! This module contains all routines required to:
-!   - perform radial ray tracing starting from the primary star
-!   - calculate optical depts along the rays given the opacity distribution
+!   - perform radial ray tracing starting from the primary star only
+!   - calculate optical depth along the rays given the opacity distribution
 !   - interpolate optical depths to all SPH particles
-! Applicable both for single star as well as binary models
+! Applicable both for single and binary star wind simulations
 !
-! WARNING: This module has only been tested on phantom wind setups
+! WARNING: This module has only been tested on phantom wind setup
 !
 ! :References: None
 !
@@ -31,11 +31,10 @@ module raytracer
 
 contains
 
- !--------------------------------------------------------------------------
+ !------------------------------------------------------------------------------------
  !+
  !  MAIN ROUTINE
- !  Returns the optical depth to each SPH particle, using the uniform outwards
- !  ray-tracing scheme.
+ !  Returns the optical depth at each particle's location using an outward ray-tracing scheme
  !+
  !  IN: npart:           The number of SPH particles
  !  IN: nptmass:         The number of sink particles
@@ -47,7 +46,7 @@ contains
  !+
  !  OUT: tau:            The array of optical depths for each SPH particle
  !+
- !--------------------------------------------------------------------------
+ !------------------------------------------------------------------------------------
 subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
  use part,   only: iReff
  use inject, only: wind_injection_radius
@@ -64,9 +63,9 @@ subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau
  endif
 end subroutine get_all_tau
 
- !--------------------------------------------------------------------------
+ !---------------------------------------------------------------------------------
  !+
- !  Calculates the optical depth to each SPH particle, using the uniform outwards
+ !  Calculates the optical depth at each particle's location, using the uniform outward
  !  ray-tracing scheme for models containing a single star
  !
  !  Relies on healpix, for more information: https://healpix.sourceforge.io/
@@ -81,7 +80,7 @@ end subroutine get_all_tau
  !+
  !  OUT: taus:           The array of optical depths to each SPH particle
  !+
- !--------------------------------------------------------------------------
+ !---------------------------------------------------------------------------------
 subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order, tau)
  use part, only : isdead_or_accreted
  integer, intent(in) :: npart,order
@@ -92,17 +91,17 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  real     :: ray_dir(3),part_dir(3)
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
- integer, parameter :: ndim = 200 ! maximal number of points along the ray where tau is calculated
+ integer, parameter :: ndim = 200 ! maximum number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
  allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
  allocate(rays_tau(ndim, nrays))  ! value of tau at each point along each ray
- allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
+ allocate(rays_dim(nrays))        ! effective number of points on the ray (< ndim)
 
  !-------------------------------------------
- ! CONSTRUCT the RAYS given the ORDER
+ ! CONSTRUCT the RAYS given the HEALPix ORDER
  ! and determine the optical depth along them
  !-------------------------------------------
 
@@ -144,7 +143,7 @@ end subroutine get_all_tau_single
 
  !--------------------------------------------------------------------------
  !+
- !  Calculate the optical depth of each SPH particle, using the uniform outwards
+ !  Calculate the optical depth at each particle's location, using the uniform outward
  !  ray-tracing scheme for models containing a primary star and a companion
  !
  !  Relies on healpix, for more information: https://healpix.sourceforge.io/
@@ -173,14 +172,14 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  real     :: ray_dir(3),part_dir(3),uvecCompanion(3)
  real, dimension(:,:), allocatable  :: rays_dist, rays_tau
  integer, dimension(:), allocatable :: rays_dim
- integer, parameter :: ndim = 200 ! maximal number of points along the ray where tau is calculated
+ integer, parameter :: ndim = 200 ! maximum number of points along the ray where tau is calculated
 
  nrays = 12*4**order ! The number of rays traced given the healpix order
  nsides = 2**order   ! The healpix nsides given the healpix order
 
  allocate(rays_dist(ndim, nrays)) ! distance from the central star of the points on the rays
  allocate(rays_tau(ndim, nrays))  ! value of tau at each point along each ray
- allocate(rays_dim(nrays))        ! number of points on the ray (< ndim)
+ allocate(rays_dim(nrays))        ! effective number of points on the ray (< ndim)
 
  uvecCompanion = companion-primary
  normCompanion = norm2(uvecCompanion)
@@ -191,7 +190,7 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  sinphi        = sin(phi)
 
  !-------------------------------------------
- ! CONSTRUCT the RAYS given the ORDER
+ ! CONSTRUCT the RAYS given the HEALPix ORDER
  ! and determine the optical depth along them
  !-------------------------------------------
 
@@ -221,7 +220,7 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
 
  !-----------------------------------------------
  ! DETERMINE the optical depth for each particle
- ! using the values available on the rays
+ ! using the values available on the HEALPix rays
  !-----------------------------------------------
 
 !$omp parallel default(none) &
@@ -244,7 +243,7 @@ end subroutine get_all_tau_companion
 
  !--------------------------------------------------------------------------
  !+
- !  Calculate the optical depth of a SPH particle.
+ !  Calculate the optical depth at the SPH particle's location.
  !  Search for the four closest rays to a particle, perform four-point
  !  interpolation of the optical depth from these rays. Weighted by the
  !  inverse square of the perpendicular distance to the rays.
@@ -317,13 +316,13 @@ end subroutine interpolate_tau
  !--------------------------------------------------------------------------
  !+
  !  Interpolation of the optical depth for an arbitrary point on the ray,
- !  with a given distance to the starting point of the ray.
+ !  at a given distance to the starting point of the ray (primary star).
  !+
  !  IN: distance:        The distance from the staring point of the ray to a
  !                       point on the ray
  !  IN: tau_along_ray:   The vector of cumulative optical depths along the ray
  !  IN: dist_along_ray:  The vector of distances from the primary along the ray
- !  IN: len:             The length of listOfTau and listOfDist
+ !  IN: len:             The length of tau_along_ray and dist_along_ray
  !+
  !  OUT: tau:            The optical depth to the given distance along the ray
  !+
@@ -363,13 +362,13 @@ end subroutine get_tau_on_ray
  !+
  !  IN: primary:         The location of the primary star
  !  IN: ray:             The unit vector of the direction in which the
- !                       optical depts will be calculated
- !  IN: xyzh:            The array containing the particles position+smooting lenght
+ !                       optical depth will be calculated
+ !  IN: xyzh:            The array containing the particles position+smoothing lenght
  !  IN: kappa:           The array containing the particles opacity
  !  IN: Rstar:           The radius of the primary star
- !  IN: Rinject:         The particles injection radiur
+ !  IN: Rinject:         The particles injection radius
  !+
- !  OUT: tau_along_ray:  The vector of cumulative optical depts along the ray
+ !  OUT: tau_along_ray:  The vector of cumulative optical depth along the ray
  !  OUT: dist_along_ray: The vector of distances from the primary along the ray
  !  OUT: len:            The length of tau_along_ray and dist_along_ray
  !+
@@ -459,9 +458,8 @@ end function hasNext
  !  First finds the local optical depth derivative at the starting point, then finds the next
  !                       point on a ray and the distance to this point
  !+
- !  IN: inpoint:         The coordinate of the initial point projected on the
- !                       ray for which the opacity and the next point will be
- !                       calculated
+ !  IN: inpoint:         The coordinate of the initial point projected on the ray
+ !                       for which the opacity and the next point will be calculated
  !  IN: h:               The smoothing length at the initial point
  !  IN: ray:             The unit vector of the direction in which the next
  !                       point will be calculated
@@ -470,7 +468,7 @@ end function hasNext
  !  IN: inext:           The index of the initial point
  !                       (this point will not be considered as possible next point)
  !+
- !  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
+ !  OUT: dtaudr:         The radial optical depth derivative at the given location (inpoint)
  !  OUT: distance:       The distance to the next point
  !  OUT: inext:          The index of the next point on the ray
  !+

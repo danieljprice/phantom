@@ -19,7 +19,7 @@ program showarrays
  use dump_utils, only:print_arrays_in_file
  implicit none
  integer, parameter   :: iu = 23
- integer              :: nargs,ierr,i
+ integer              :: nargs,i
  character(len=120)   :: dumpfile
  !
  ! get filenames from the command line

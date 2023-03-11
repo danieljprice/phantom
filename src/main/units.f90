@@ -158,12 +158,13 @@ subroutine print_units(unit)
     lu = 6
  endif
 
- write(lu,"(a)") ' --- code units --- '
+ write(lu,"(/,a)") ' --- code units --- '
  write(lu,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm    Time: ',utime,'s'
  write(lu,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg   En/m: ',unit_ergg,'erg/g'
- write(lu,"(2(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G'
- write(lu,"(3(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
-                                 '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  opacity: ',unit_opacity,'cm^2/g'
+ write(lu,"(3(a,es10.3,1x))") '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
+                                '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(2(a,es10.3,1x),/)") '        a: ',get_radconst_code(),      '         kB/mH: ',get_kbmh_code()
 
 end subroutine print_units
 
@@ -303,6 +304,7 @@ real(kind=8) function get_radconst_code() result(radconst_code)
  use physcon, only:radconst
 
  radconst_code = radconst/unit_energ*udist**3
+
 end function get_radconst_code
 
 !---------------------------------------------------------------------------
