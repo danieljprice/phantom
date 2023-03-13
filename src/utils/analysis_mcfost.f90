@@ -44,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
                              use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
-                             mcfost_keep_part, ISM
+                             mcfost_keep_part, ISM, mcfost_dust_subl\
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -75,7 +75,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
 
  if (ISM > 0) then
-   ISM_heating = .true.
+    ISM_heating = .true.
  endif
 
  if (.not.init_mcfost) then
@@ -84,7 +84,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
          Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
          turn_on_Lacc = mcfost_computes_Lacc, keep_particles = mcfost_keep_part, &
-         use_ISM_heating = ISM_heating)
+         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
@@ -120,9 +120,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     gamma = 5./3.
  endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
-
- ! this this the factor needed to compute u^(n+1)/dtmax from temperature
- ! T_to_u = factor * massoftype(igas)
 
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&

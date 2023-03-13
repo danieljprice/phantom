@@ -21,9 +21,9 @@
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2022
+PHANTOM_VERSION_MAJOR=2023
 PHANTOM_VERSION_MINOR=0
-PHANTOM_VERSION_MICRO=1
+PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
 
 KNOWN_SYSTEM=no
@@ -501,6 +501,7 @@ SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
 # chemistry and cooling
 #
 SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
+         cooling_gammie_PL.f90 \
          cooling_gammie.f90 \
          cooling_koyamainutsuka.f90 \
          cooling_ism.f90 \
@@ -527,7 +528,7 @@ else
 endif
 
 SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
-         mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
+         mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
          utils_allocate.f90 icosahedron.f90 quartic.f90 \
          utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
          setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
@@ -538,7 +539,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          partinject.F90 utils_inject.f90 dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
-         mpi_dens.F90 mpi_force.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
          radiation_implicit.f90 ${SRCTURB} \
          ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
          utils_healpix.f90 utils_raytracer.f90 ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
@@ -611,10 +612,10 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 mpi_utils.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 boundary.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
          mpi_dens.F90 mpi_force.F90 \
-         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 kdtree.F90 linklist_kdtree.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
@@ -651,7 +652,7 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_omp.F90 utils_summary.F90 utils_gravwave.f90 \
+SRCSETUP= utils_summary.F90 utils_gravwave.f90 \
           set_dust_options.f90 \
           utils_indtimesteps.F90 partinject.F90 \
           ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \

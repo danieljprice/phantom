@@ -148,6 +148,9 @@ qscript:
         ifdef QEXTRA
 	   @echo '#PBS '$(QEXTRA)
         endif
+        ifdef QSTORAGE
+	   @echo '#PBS -l storage='$(QSTORAGE)
+        endif
 	@echo '## phantom jobs can be restarted:'
 	@echo '#PBS -r y'
         ifeq ($(PBSRESUBMIT),yes)
