@@ -266,7 +266,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer :: iamtypei
 #endif
 #ifdef DUST
- real    :: frac_stokes,frac_super
+ real                   :: frac_stokes,frac_super
+ real, allocatable, dimension(:,:)   :: fxyz_nodragold
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -358,6 +359,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  nstokes       = 0
  nsuper        = 0
  ndustres      = 0
+ fxyz_nodragold = fxyz_nodrag
 
  ! sink particle creation
  ipart_rhomax  = 0
@@ -385,9 +387,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(xyzh) &
 !$omp shared(dustprop) &
 !$omp shared(dustgasprop) &
+!$omp shared(fxyz_nodrag) &
+!$omp shared(fxyz_nodragold) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
-!$omp shared(fxyz_nodrag) &
 !$omp shared(divcurlv) &
 !$omp shared(iphase) &
 !$omp shared(dvdx) &
@@ -477,7 +480,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     cell%icell = icell
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                    dustfrac,dustprop,fxyz_nodrag,eta_nimhd,eos_vars,alphaind,stressmax,&
+                    dustfrac,dustprop,fxyz_nodragold,eta_nimhd,eos_vars,alphaind,stressmax,&
                     rad,radprop,dens,metrics)
     if (cell%npcell == 0) cycle over_cells
 
@@ -508,7 +511,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                      dustfrac,dustprop,fxyz_nodrag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                      dustfrac,dustprop,fxyz_nodragold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                       rad,radprop,dens,metrics,dt)
 
     if (do_export) then
@@ -565,7 +568,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                         dustfrac,dustprop,fxyz_nodrag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                         dustfrac,dustprop,fxyz_nodragold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                          rad,radprop,dens,metrics,dt)
 
        remote_export = .false.
@@ -2764,18 +2767,18 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef DRIVING
     ! force is first initialised in driving routine
     if (drag_implicit) then
-       fxyz_nodrag(1,i) = fsum(ifxi) + fsum(ifdragxi)
-       fxyz_nodrag(2,i) = fsum(ifyi) + fsum(ifdragyi)
-       fxyz_nodrag(3,i) = fsum(ifzi) + fsum(ifdragzi)
+       fxyz_nodrag(1,i) = fsum(ifxi)! + fsum(ifdragxi)
+       fxyz_nodrag(2,i) = fsum(ifyi)! + fsum(ifdragyi)
+       fxyz_nodrag(3,i) = fsum(ifzi)! + fsum(ifdragzi)
     endif
     fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi) + fsum(ifdragxi)
     fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi) + fsum(ifdragyi)
     fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi) + fsum(ifdragzi)
 #else
     if (drag_implicit) then
-       fxyz_nodrag(1,i) = fsum(ifxi) + fsum(ifdragxi)
-       fxyz_nodrag(2,i) = fsum(ifyi) + fsum(ifdragyi)
-       fxyz_nodrag(3,i) = fsum(ifzi) + fsum(ifdragzi)
+       fxyz_nodrag(1,i) = fsum(ifxi)! + fsum(ifdragxi)
+       fxyz_nodrag(2,i) = fsum(ifyi)! + fsum(ifdragyi)
+       fxyz_nodrag(3,i) = fsum(ifzi)! + fsum(ifdragzi)
     endif
     fxyzu(1,i) = fsum(ifxi) + fsum(ifdragxi)
     fxyzu(2,i) = fsum(ifyi) + fsum(ifdragyi)
