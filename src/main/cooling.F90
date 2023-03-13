@@ -113,7 +113,7 @@ subroutine init_cooling(id,master,iprint,ierr)
        ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
     endif
     if (maxvxyzu < 4) ierr = 1
- elseif (icooling == ) then
+ elseif (icooling == 8) then
     ufloor = 0. ! because we use the umin(:) array
  else
     ufloor = 0.
