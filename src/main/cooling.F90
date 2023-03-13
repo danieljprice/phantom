@@ -83,7 +83,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  else
     select case(icooling)
     case(8)
-       if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=7 requires ieos=21',var='ieos',ival=ieos)
+       if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=8 requires ieos=21',var='ieos',ival=ieos)
        ! nothing to do. Initialised in eos.F90
        if (ieos ==2)  call read_optab(ierr)
     case(6)

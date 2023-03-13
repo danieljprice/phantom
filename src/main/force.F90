@@ -1159,7 +1159,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
- if (icooling == 7) gradP_cool(i) = 0d0
+ if (icooling == 8) gradP_cool(i) = 0d0
  
  loop_over_neighbours2: do n = 1,nneigh
 
@@ -1661,7 +1661,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projsx = projsxi + projsxj
           projsy = projsyi + projsyj
           projsz = projszi + projszj
-          if (icooling == 7) gradP_cool(i) = gradP_cool(i) + gradp
+          if (icooling == 8) gradP_cool(i) = gradP_cool(i) + gradp
 
           fsum(ifxi) = fsum(ifxi) - runix*(gradp + fgrav) - projsx
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
@@ -1901,7 +1901,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
- if (icooling == 7) then
+ if (icooling == 8) then
     Gpot_cool(i) = fsum(ipot)
  endif
  
