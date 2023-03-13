@@ -518,6 +518,7 @@ subroutine init_eos(eos_type,ierr)
     endif
  case(21)
     call read_optab(ierr)
+    if (ierr > 0) call fatal('init_eos','Failed to read myeos.dat',var='ierr',ival=ierr)
     call init_S07cool
     
  end select

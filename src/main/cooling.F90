@@ -1,4 +1,4 @@
-!--------------------------------------------------------------------------!
+--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
@@ -85,7 +85,8 @@ subroutine init_cooling(id,master,iprint,ierr)
     case(8)
        if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=8 requires ieos=21',var='ieos',ival=ieos)
        ! nothing to do. Initialised in eos.F90
-       if (ieos ==2)  call read_optab(ierr)
+       if (ieos == 2)  call read_optab(ierr)
+       if (ierr > 0) call fatal('cooling','Failed to read myeos.dat',var='ierr',ival=ierr)
     case(6)
        call init_cooling_KI02(ierr)
     case(5)
