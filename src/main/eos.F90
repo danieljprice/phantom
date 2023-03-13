@@ -433,7 +433,7 @@ end subroutine equationofstate
 subroutine init_eos(eos_type,ierr)
  use units,          only:unit_velocity
  use physcon,        only:mass_proton_cgs,kboltz
- use io,             only:error,warning
+ use io,             only:error,warning,fatal
  use eos_mesa,       only:init_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_init
  use eos_piecewise,  only:init_eos_piecewise

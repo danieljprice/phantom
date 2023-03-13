@@ -1,4 +1,4 @@
---------------------------------------------------------------------------!
+!--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
@@ -192,6 +192,7 @@ subroutine write_options_cooling(iunit)
  use cooling_gammie_PL,  only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
+ use cooling_stamatellos, only:write_options_cooling_stamatellos
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
@@ -209,6 +210,8 @@ subroutine write_options_cooling(iunit)
        call write_options_cooling_gammie(iunit)
     case(7)
        call write_options_cooling_gammie_PL(iunit)
+    case(8)
+       call write_options_cooling_stamatellos(iunit)
     case default
        call write_options_cooling_solver(iunit)
     end select
@@ -230,11 +233,12 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
+ use cooling_stamatellos, only:read_options_cooling_stamatellos
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc
+ logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallstam
 
  imatch        = .true.
  igotall       = .false.  ! cooling options are compulsory
@@ -242,6 +246,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  igotallmol    = .true.
  igotallgammie = .true.
  igotallfunc   = .true.
+ igotallstam   = .true.
 
  select case(trim(name))
  case('icooling')
@@ -265,6 +270,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
           call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
        case(7)
           call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
+       case(8)
+          call read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
        case default
           call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
        end select

@@ -18,7 +18,8 @@ module cooling_stamatellos
 !
  
  implicit none
- public :: cooling_S07
+ real, public :: Lstar ! in units of L_sun
+ public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  
  contains
 
@@ -59,10 +60,13 @@ module cooling_stamatellos
      coldensi = coldensi*umass/udist/udist ! physical units
 
 ! testing Lombardi+ method of estimating the mean column density
-     coldens2i = 1.014d0 * presi / abs(-gradP_cool(i) /rhoi ) ! Lombardi+ 2015
+     coldens2i = 1.014d0 * presi / abs(-gradP_cool(i))! /rhoi ) ! Lombardi+ 2015
      coldens2i = coldens2i *umass/udist/udist ! physical units
 !     write(iunitst,'(5E12.5)') coldensi,coldens2i,presi,gradP_cool(i)
-
+! ! USE LOMBARDI METHOD !!
+     coldensi = coldens2i
+     !!!
+     
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini**4.d0 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 ! calculate Teqi
@@ -104,5 +108,37 @@ module cooling_stamatellos
      endif
      
    end subroutine cooling_S07
-     
+
+
+ subroutine write_options_cooling_stamatellos(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+
+ !Tfloor handled in cooling.F90
+ call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
+
+end subroutine write_options_cooling_stamatellos
+
+ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
+! use io, only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotallstam
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+
+
+ imatch  = .true.
+ igotallstam = .false. ! cooling options are compulsory
+ select case(trim(name))
+ case('Lstar')
+    read(valstring,*,iostat=ierr) Lstar
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ if (ngot >= 1) igotallstam = .true.
+
+end subroutine read_options_cooling_stamatellos
+
+  
  end module cooling_stamatellos
