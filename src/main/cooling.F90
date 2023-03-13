@@ -70,6 +70,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
  use eos_stamatellos,   only:read_optab
+ use cooling_stamatellos, only: init_star
  
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
@@ -84,9 +85,9 @@ subroutine init_cooling(id,master,iprint,ierr)
     select case(icooling)
     case(8)
        if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=8 requires ieos=21',var='ieos',ival=ieos)
-       ! nothing to do. Initialised in eos.F90
        if (ieos == 2)  call read_optab(ierr)
        if (ierr > 0) call fatal('cooling','Failed to read myeos.dat',var='ierr',ival=ierr)
+       call init_star()
     case(6)
        call init_cooling_KI02(ierr)
     case(5)
@@ -280,7 +281,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  ierr = 0
  if (h2chemistry .and. igotallism .and. ngot >= 2) then
     igotall = .true.
- elseif (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc) then
+ elseif (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallstam) then
     igotall = .true.
  else
     igotall = .false.

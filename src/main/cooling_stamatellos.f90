@@ -19,10 +19,36 @@ module cooling_stamatellos
  
  implicit none
  real, public :: Lstar ! in units of L_sun
+ integer :: isink_star ! index of sink to use as illuminating star
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
+ public :: init_star
  
  contains
 
+subroutine init_star()
+  use part,    only:nptmass,xyzmh_ptmass
+  integer :: i,imin
+  real :: rsink2,rsink2min
+
+  rsink2min = 0d0
+  if (nptmass == 0) then
+     isink_star = 0 ! no star present
+     print *, "No illuminating star."
+  elseif (nptmass == 1) then
+     isink_star = 1
+  else
+     do i=1,nptmass
+        rsink2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
+        if (i==1 .or. (rsink2 < rsink2min) ) then
+           rsink2min = rsink2
+           imin = i
+        endif
+     enddo
+     isink_star = imin
+  endif
+  if (nptmass > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
+end subroutine init_star
+  
 !
 ! Do cooling calculation
 !
@@ -32,23 +58,23 @@ module cooling_stamatellos
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
           iunitst
-     use part,       only:eos_vars,igasP
+     use part,       only:eos_vars,igasP,xyzmh_ptmass
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
-     real            :: coldensi,kappaBari,kappaParti,Lstar,ri2
+     real            :: coldensi,kappaBari,kappaParti,ri2
      real            :: Tirri,gammai,gmwi,Tmini,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi,coldens2i
      
      poti = Gpot_cool(i)
      presi = eos_vars(igasP,i)
 !    Tfloor is from input parameters and is background heating
-!    Add to stellar heating. Just assuming one star at (0,0,0) for now
-     Lstar = 0.0 !in Lsun
-     ri2 = xi*xi + yi*yi + zi*zi
+!    Stellar heating
+     ri2 = (xi-xyzmh_ptmass(1,isink_star))**2 + (yi-xyzmh_ptmass(2,isink_star))**2 &
+          + (zi-xyzmh_ptmass(3,isink_star))**2
      ri2 = ri2 *udist*udist
      Tirri = (Lstar*solarl/(4d0*pi*steboltz)/ri2)**0.25
-     Tmini = Tfloor + Tirri
+     Tmini = Tfloor + Tirri ! Tfloor + stellar heating
 
 ! get opacities & Ti for ui
 
