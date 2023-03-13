@@ -49,7 +49,7 @@ module options
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
- logical, public :: mcfost_uses_PdV
+ logical, public :: mcfost_uses_PdV, mcfost_dust_subl
  integer, public :: ISM
  real(kind=4), public :: mcfost_keep_part
  character(len=80), public :: Voronoi_limits_file
@@ -148,6 +148,7 @@ subroutine set_default_options
  use_mcfost = .false.
  use_mcfost_stellar_parameters = .false.
  mcfost_computes_Lacc = .false.
+ mcfost_dust_subl = .false.
  mcfost_uses_PdV = .true.
  mcfost_keep_part = 0.999
  ISM = 0
