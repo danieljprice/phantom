@@ -2763,14 +2763,19 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
 #ifdef DRIVING
     ! force is first initialised in driving routine
-    fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi)
-    fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi)
-    fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi)
+    if (drag_implicit) then
+       fxyz_nodrag(1,i) = fsum(ifxi) + fsum(ifdragxi)
+       fxyz_nodrag(2,i) = fsum(ifyi) + fsum(ifdragyi)
+       fxyz_nodrag(3,i) = fsum(ifzi) + fsum(ifdragzi)
+    endif
+    fxyzu(1,i) = fxyzu(1,i) + fsum(ifxi) + fsum(ifdragxi)
+    fxyzu(2,i) = fxyzu(2,i) + fsum(ifyi) + fsum(ifdragyi)
+    fxyzu(3,i) = fxyzu(3,i) + fsum(ifzi) + fsum(ifdragzi)
 #else
-    if (drag_implicit) then            !!! #ifdef DUST ?
-       fxyz_nodrag(1,i) = fsum(ifxi)
-       fxyz_nodrag(2,i) = fsum(ifyi)
-       fxyz_nodrag(3,i) = fsum(ifzi)
+    if (drag_implicit) then
+       fxyz_nodrag(1,i) = fsum(ifxi) + fsum(ifdragxi)
+       fxyz_nodrag(2,i) = fsum(ifyi) + fsum(ifdragyi)
+       fxyz_nodrag(3,i) = fsum(ifzi) + fsum(ifdragzi)
     endif
     fxyzu(1,i) = fsum(ifxi) + fsum(ifdragxi)
     fxyzu(2,i) = fsum(ifyi) + fsum(ifdragyi)
