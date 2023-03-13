@@ -1,90 +1,80 @@
-module linearalgebra
+!This code calculated the inverse of a matrix by using Gauss Jordan
+!elimination method. The code is based on Alexander Heger's inverse
+!function code. 
 
-
-
+module linalg
 implicit none
-
-  INTEGER, PARAMETER :: int64 = SELECTED_INT_KIND(16)
-  INTEGER, PARAMETER :: int32 = SELECTED_INT_KIND(8)
-
-  INTEGER, PARAMETER :: real64 = SELECTED_REAL_KIND(15)
-  INTEGER, PARAMETER :: real32 = SELECTED_REAL_KIND(6)
-
-
 contains
+  function inverse(matrix,n)
+    integer, intent(in)::n
+    real, dimension(n,n),intent(in) :: matrix
+    real, dimension(n,2*n) :: a,temp
+    integer::i,j,k
+    real :: ratio,divisor
+    real, dimension(n,n) :: inverse
 
-function inverse(a_, n) result(x)
+    a(:,:) = 0.
+    inverse(:,:) = 0.
 
-    implicit none
+    !Augmenting Identity Matrix of Order n
+    do i=1,n
+      do j=1,n
+        a(i,j) = matrix(i,j)
+      enddo
+    enddo
 
-    save
+    !we should do a row swap if the elements on diagonal are 0
 
-    integer(kind=int64), intent(in) :: &
-         n
-    real(kind=real64), dimension(n, n), intent(in) :: &
-         a_
+    do i=1,n
+      do j=1,n
+        if (i==j) then
+          a(i,j+n) = 1.
+        endif
+      end do
+    enddo
 
-    real(kind=real64), dimension(n, n) :: &
-         x
+    !we swap the rows if we enounter 0 as diagonal element
+    temp = a(:,:)
+    do i=1,n
+      if (a(i,i)==0.0) then
+        do j=1,n
+          if (j .ne. i) then
+            if (a(j,i) .ne. 0.) then
+              a(j,:) = temp(i,:)
+              a(i,:) = temp(j,:)
+              temp = a(:,:)
+              exit
+            endif
+          endif
+        enddo
+      endif
+    enddo
 
-    real(kind=real64), dimension(n, n) :: &
-         a
-
-    ! this subroutine finds the inverse of matrix a
-
-    integer(kind=int64) :: &
-         k,i,j,l,n1
-    real(kind=real64) :: &
-         ajji,r
-
-    if (n == 1) then
-       x(1,1) = 1.d0 / a_(1,1)
-       return
-    endif
-
-    a(:,:) = a_(:,:)
-    x(:,:) = 0.d0
-    do j = 1, n
-       x(j,j) = 1.d0
-    end do
-
-    n1 = n-1
-
-    ! no conditioning
-    ! reduce matrix to upper triangular form
-
-    do j=1,n-1
-       ajji = 1.D0 / a(j,j)
-       do i=j+1,n
-          r = -a(i,j) * ajji
-          do k=j+1,n
-             a(i,k) = a(i,k) + r * a(j,k)
+    !Applying Guass Jordan Elimination
+    do i=1,n
+      do j=1,n
+        if (i .ne. j) then
+          ratio = a(j,i)/a(i,i)
+          do k=1,2*n
+            a(j,k) = a(j,k) - ratio*a(i,k)
           enddo
-          do k=1,n
-             x(i,k) = x(i,k) + r * x(j,k)
-          enddo
-       end do
-    end do
+          endif
+        end do
+      enddo
 
-    ! use back substitution to find the vector solution
-
-    do l=1, n
-       x(n,l) = x(n,l) / a(n,n)
-    end do
-
-    do l=1, n
-       do i=n-1, 1, -1
-          r = 0.d0
-          do j=i+1,n
-             r = r + a(i,j) * x(j,l)
-          end do
-          ! r = dot_product(a(i,i+1:n), x(i+1:n))
-          x(i,l) = (x(i,l) - r) / a(i,i)
-       end do
-    end do
+      !dividing by the diagonal elements to get identity matrix
+      do i=1,n
+        divisor = a(i,i)
+        do j=1,2*n
+          a(i,j) = a(i,j)/divisor
+        enddo
+      enddo
+      do i=1,n
+        do j=1,n
+          inverse(i,j)=a(i,j+n)
+        enddo
+      enddo
 
   end function inverse
 
-
-
-end module linearalgebra
+end module linalg
