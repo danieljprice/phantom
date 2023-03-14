@@ -104,7 +104,7 @@ contains
   subroutine set_hierarchical_interactively(hierarchy, sink_num, sink_labels, hl_labels, hl_num)
     use prompting, only:prompt
 
-    character(len=100), intent(inout) :: hierarchy
+    character(len=100), intent(out) :: hierarchy
     character(len=10), intent(out) :: sink_labels(:)
     character(len=10), intent(out) :: hl_labels(:)
     integer, intent(out)    :: sink_num, hl_num
@@ -192,15 +192,13 @@ contains
 
   subroutine set_hierarchical_default_options(hierarchy, sink_num, sink_labels, hl_labels, hl_num, &
                                               mass, accr, a, e, inc, O, w, f)
-    character(len=100), intent(out) :: hierarchy
+    character(len=100), intent(in) :: hierarchy
     character(len=10), intent(out) :: sink_labels(:)
     character(len=10), intent(out) :: hl_labels(:)
     integer, intent(out)    :: sink_num, hl_num
     real, intent(out) :: mass(:), accr(:), a(:), e(:), inc(:), O(:), w(:), f(:)
 
     integer :: i
-
-    hierarchy = '111,112,121,1221,1222'! GG Tau A
 
     call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
 
