@@ -248,7 +248,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Should mcfost use the PdV work and shock heating?',iwritein)
  call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
       'Fraction of particles to keep for MCFOST',iwritein)
-      call write_inopt(ISM,'ISM',&
+ call write_inopt(ISM,'ISM',&
       'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
  call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
       'Should mcfost do dust sublimation (experimental!)',iwritein)
@@ -529,7 +529,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_keep_part')
        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
-         read(valstring,*,iostat=ierr) ISM
+       read(valstring,*,iostat=ierr) ISM
     case('mcfost_dust_subl')
        read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
