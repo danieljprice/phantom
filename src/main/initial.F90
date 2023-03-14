@@ -19,10 +19,10 @@ module initial
 !   densityforce, deriv, dim, dust, dust_formation, energies, eos, evwrite,
 !   extern_gr, externalforces, fastmath, fileutils, forcing, growth,
 !   inject, io, io_summary, krome_interface, linklist, metric_tools,
-!   mf_write, mpibalance, mpiderivs, mpidomain, mpimemory, mpiutils, nicil,
-!   nicil_sup, omputils, options, part, photoevap, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
-!   timestep_sts, timing, units, writeheader
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, photoevap, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 
  implicit none
@@ -112,7 +112,7 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -151,11 +151,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
- use timestep,         only:time,dt,dtextforce,C_force,dtmax
+ use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
+ use timestep_ind,     only:istepfrac
  use timing,           only:get_timings
 #ifdef IND_TIMESTEPS
- use timestep,         only:dtmax
- use timestep_ind,     only:istepfrac,ibinnow,maxbins,init_ibin
+ use timestep_ind,     only:ibinnow,maxbins,init_ibin
+ use timing,           only:get_timings
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
 #else
@@ -189,6 +190,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use dust_formation,   only:init_nucleation
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
+ use partinject,       only:update_injected_particles
+ use timestep_ind,     only:nbinmax
 #endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
@@ -216,7 +219,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
- integer         :: ierr,i,j,nerr,nwarn,ialphaloc,merge_n,merge_ij(maxptmass)
+ integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
  real            :: poti,dtf,hfactfile,fextv(3)
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
@@ -231,6 +234,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=7) :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
  character(len=len(dumpfile)) :: file1D
+ integer :: npart_old
 #endif
 
 
@@ -271,7 +275,18 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call warning('initial','WARNINGS from particle data in file',var='# of warnings',ival=nwarn)
     endif
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
+!
+!--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
+
+
+    irestart = index(dumpfile,'.restart')
+    if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif
+!
+!--reset dtmax (required only to permit restart dumps)
+!
+ dtmax_user = dtmax           ! the user defined dtmax
+ dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
 !
 !--initialise values for non-ideal MHD
 !
@@ -548,16 +563,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
     call rename('wind_profile1D.dat',trim(file1D))
  endif
+ npart_old = npart
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
-#ifdef GR
-! call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
- call init_metric(npart,xyzh,metrics,metricderivs)
- call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
- if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce) ! Not 100% sure if this is needed here
- endif
-#endif
+ call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 !
 !--set initial chemical abundance values
@@ -777,7 +786,7 @@ end subroutine startrun
 !----------------------------------------------------------------
 subroutine finalise()
  use dim, only: mpi
- use mpiderivs, only:finish_tree_comms
+ use mpitree, only:finish_tree_comms
  use mpimemory, only:deallocate_mpi_memory
 
  if (mpi) then

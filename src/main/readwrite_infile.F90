@@ -76,7 +76,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM
+                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -93,7 +93,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
+ use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -160,8 +160,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(trim(dumpfile),'dumpfile','dump file to start from',iwritein)
 
  write(iwritein,"(/,a)") '# options controlling run time and input/output'
+ if (dtmax_user < 0.) dtmax_user = dtmax ! this should only ever be true for phantomsetup
  call write_inopt(tmax,'tmax','end time',iwritein)
- call write_inopt(dtmax,'dtmax','time between dumps',iwritein)
+ call write_inopt(dtmax_user,'dtmax','time between dumps',iwritein)
  call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
  call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
  call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
@@ -247,8 +248,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Should mcfost use the PdV work and shock heating?',iwritein)
  call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
       'Fraction of particles to keep for MCFOST',iwritein)
-      call write_inopt(ISM,'ISM',&
+ call write_inopt(ISM,'ISM',&
       'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
+ call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
+      'Should mcfost do dust sublimation (experimental!)',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -527,7 +530,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_keep_part')
        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
-         read(valstring,*,iostat=ierr) ISM
+       read(valstring,*,iostat=ierr) ISM
+    case('mcfost_dust_subl')
+       read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
