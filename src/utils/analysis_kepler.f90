@@ -255,7 +255,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        density(ibin)       = density_sum/count_particles
        mass_enclosed(ibin) = tot_binned_particles*pmass
        bin_mass(ibin)      = count_particles*pmass
-       temperature(ibin)   = temperature_sum/count_particles
+       temperature(ibin)   = max(temperature_sum/count_particles,1e3)
        rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
        print*,rad_vel(ibin),"bin radial vel"
        inverse_of_i  = inverse(I_sum, 3)
