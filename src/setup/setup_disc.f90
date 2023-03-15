@@ -1168,34 +1168,25 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        else
           if (i <= sink_num) then
              disclabel = trim(sink_labels(i))
-
-             ! retrieve sink number
-
-             !xorigini  = xyzmh_ptmass(1:3,1)
-             !vorigini  = vxyz_ptmass(1:3,1)
-             Rochelobe = Rochelobe_estimate(m2,m1,binary_a) ! FIX THIS
-
-             
           else
-             disclabel = trim(hl_labels(i-sink_num))
-
-             ! compute hierarchical level centre of mass position
-
-             ! compute hierarchcial level centre of mass velocity
-
-             !xorigini  = xyzmh_ptmass(1:3,1)
-             !vorigini  = vxyz_ptmass(1:3,1)
-             Rochelobe = Rochelobe_estimate(m2,m1,binary_a) ! FIX THIS
-          
+             disclabel = trim(hl_labels(i-sink_num))        
           end if
 
+          m2 = level_mass(disclabel, mass, sink_num, sink_labels)
           
-          star_m(i) = level_mass(disclabel, mass, sink_num, sink_labels)
-          print*, disclabel, mass, sink_num, sink_labels
-          print*, star_m(i)
+          if (len(trim(disclabel))>1) then
+             m1 = level_mass(disclabel(:len(trim(disclabel))-1), mass, sink_num, sink_labels)-m2
+
+             hl_index = findloc(hl_labels, disclabel(:len(trim(disclabel))-1), 1)
+             Rochelobe = Rochelobe_estimate(m1,m2,a(hl_index))
+          else
+             Rochelobe = huge(0.)
+          end if
+
+
+          star_m(i) = m2
           
           call hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass)
-          print*, xorigini, vorigini
 
        endif
 
