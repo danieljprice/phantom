@@ -186,7 +186,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     i      = iorder(array_particle_j(j))
     i_next = iorder(array_particle_j(j+1))
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
-    if (j .ne. energy_verified_no) then 
+    if (j  /=  energy_verified_no) then 
      call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
     endif
  
@@ -393,7 +393,7 @@ subroutine particles_per_bin(energy_verified_no,number_per_bin)
  !calculate the number of particles per bin
  number_bins = 500
  number_per_bin = (energy_verified_no/number_bins)
- if (mod(energy_verified_no,number_bins).ne. 0) then
+ if (mod(energy_verified_no,number_bins) /=  0) then
     number_per_bin = 1 + number_per_bin
  endif
 
@@ -445,7 +445,7 @@ subroutine radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,e
   real :: pos_mag_next,vel_mag_next,pos_next(3),vel_next(3)
   integer :: i_next  
  
-  if (count_particles==number_per_bin .and. j .ne. energy_verified_no) then
+  if (count_particles==number_per_bin .and. j  /=  energy_verified_no) then
        i_next = iorder(array_particle_j(j+1))
        call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
        radius_star = (pos_mag+pos_mag_next)/2
