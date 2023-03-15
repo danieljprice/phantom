@@ -135,6 +135,8 @@ module setup
  character(len=10) :: sink_labels(10), hl_labels(10), sink_list(10), split_list(10), hl_temp
  real :: mass(10), accr(10)!, inc(10,6), O(10,6), w(10,6), f(10,6)
  real :: a(10), e(10), inc(10), O(10), w(10), f(10)
+ real :: current_mass, higher_mass
+ integer :: higher_disc_index
 
  !--central objects
  real    :: mcentral
@@ -381,6 +383,7 @@ subroutine set_default_options()
  binary_f = 180.
 
  !--hierarchical
+ hier = '111,112,121,1221,1222'! GG Tau A
  call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
        mass, accr, a, e, inc, O, w, f)
 
@@ -637,6 +640,16 @@ subroutine equation_of_state(gamma)
           if (nsinks>4) then
              ieos = 13
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
+             higher_disc_index = findloc(iuse_disc, .true., 1) 
+             qfacdisc = qindex(higher_disc_index)
+             if (higher_disc_index <= sink_num) then
+                disclabel = trim(sink_labels(higher_disc_index))
+                call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+             else
+                disclabel = trim(hl_labels(higher_disc_index-sink_num))
+             end if
+
+             call warning('setup_disc','using circum-'//disclabel//' (H/R)_ref to set global temperature')
           else
              ieos = 14
              print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
@@ -1116,8 +1129,18 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
     if (iuse_disc(i)) then
 
        if (ndiscs > 1) then
-          print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
-          prefix = trim(fileprefix)//'-'//disctype(i)
+          if (nsinks<4) then
+             print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
+             prefix = trim(fileprefix)//'-'//disctype(i)
+          else
+             if (i <= sink_num) then
+                print "(/,a)",'>>> Setting up circum'//trim(sink_labels(i))//' disc <<<'
+                prefix = trim(fileprefix)//'-'//trim(sink_labels(i))
+             else
+                print "(/,a)",'>>> Setting up circum'//trim(hl_labels(i-sink_num))//' disc <<<'
+                prefix = trim(fileprefix)//'-'//trim(hl_labels(i-sink_num))
+             end if
+          end if
        else
           prefix = fileprefix
        endif
@@ -1864,7 +1887,7 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options
+ use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options, level_mass
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -2151,23 +2174,53 @@ subroutine setup_interactive()
        if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if (iuse_disc(1)) then
-             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
-             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
-             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
-          else
-             if (iuse_disc(2)) then
-                call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
-                H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
-                H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+          if (nsinks<5) then
+             if (iuse_disc(1)) then
+                call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+                H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+                H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
              else
-                call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
-                H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
-                H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+                if (iuse_disc(2)) then
+                   call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                   H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
+                   H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+                else
+                   call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                   H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
+                   H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+                endif
              endif
-          endif
-          H_R(2) = nint(H_R(2)*10000.)/10000.
-          H_R(3) = nint(H_R(3)*10000.)/10000.
+             !H_R(2) = nint(H_R(2)*10000.)/10000.
+             !H_R(3) = nint(H_R(3)*10000.)/10000.
+          else
+             higher_disc_index = findloc(iuse_disc, .true., 1)
+             if (higher_disc_index <= sink_num) then
+                disclabel = trim(sink_labels(higher_disc_index))
+             else
+                disclabel = trim(hl_labels(higher_disc_index-sink_num))
+             end if
+             call prompt('Enter H/R of circum-'//disclabel//' at R_ref',H_R(higher_disc_index))
+
+             higher_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+             do i=1,maxdiscs
+                if (iuse_disc(i) .and. i /= higher_disc_index) then
+                   if (i <= sink_num) then
+                      disclabel = trim(sink_labels(i))
+                   else
+                      disclabel = trim(hl_labels(i-sink_num))
+                   end if
+                   current_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+                   H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
+                        higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
+                        H_R(higher_disc_index)
+                end if
+             end do                   
+          end if
+          do i=1, maxdiscs
+             if (iuse_disc(i)) then
+                H_R(i) = nint(H_R(i)*10000.)/10000.
+             end if
+          end do
        else
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -2985,7 +3038,6 @@ subroutine read_setupfile(filename,ierr)
        else
           disclabel = ''
        endif
-       print *, 'disclabel ', disclabel
        !--gas disc
        call read_inopt(R_in(i),'R_in'//trim(disclabel),db,min=0.,errcount=nerr)
        call read_inopt(R_out(i),'R_out'//trim(disclabel),db,min=R_in(i),errcount=nerr)
