@@ -18,7 +18,7 @@ module analysis
 !   orbits_data, part, physcon, prompting, readwrite_dumps, sortutils,
 !   units, vectorutils
 !
-implicit none
+ implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
  public :: do_analysis
 
@@ -52,12 +52,12 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     return
  endif
 
-write(*,'("Performing analysis type ",A)') analysistype
+ write(*,'("Performing analysis type ",A)') analysistype
  write(*,'("Input file name is ",A)') dumpfile
 
-call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
+ call phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid,mass_enclosed,bin_mass,&
                               temperature,rad_vel,angular_vel_3D,composition_kepler,comp_label,columns_compo,ngrid,numfile)
-write(output,"(a4,i5.5)") 'ptok',numfile
+ write(output,"(a4,i5.5)") 'ptok',numfile
 
  write(*,'("Output file name is ",A)') output
  open(iunit,file=output)
@@ -190,23 +190,23 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     i_next = iorder(array_particle_j(j+1))
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
     if (j  /=  energy_verified_no) then
-     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
+       call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
     endif
 
     count_particles = count_particles + 1
     if (count_particles == 1) then
-         rad_inner = pos_mag
-      !print*,j,"j","first",rad_inner,"rad_inner",count_particles
+       rad_inner = pos_mag
+       !print*,j,"j","first",rad_inner,"rad_inner",count_particles
     endif
 
     call  no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner)
     if (number_per_bin == count_particles) then
-         rad_outer = pos_mag
+       rad_outer = pos_mag
     endif
 
     ! composition
     if (columns_compo /= 0) then
-          composition_i(:) = interpolate_comp(:,i)
+       composition_i(:) = interpolate_comp(:,i)
     endif
     composition_sum(:) = composition_sum(:) + composition_i(:)
 
@@ -231,9 +231,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     ! we skip the first particle as its the one that exists at the center of
     ! star and hence will give infinite rad_vel as rad = 0.
     if (pos_mag > 0.) then
-        rad_vel_i    = dot_product(vel(:),pos(:))/pos_mag
-        momentum_i   = rad_vel_i*pmass
-        rad_mom_sum  = rad_mom_sum + momentum_i
+       rad_vel_i    = dot_product(vel(:),pos(:))/pos_mag
+       momentum_i   = rad_vel_i*pmass
+       rad_mom_sum  = rad_mom_sum + momentum_i
     endif
 
     ! Angular momentum
@@ -249,44 +249,44 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     I_sum(:,:) = I_sum(:,:) + i_matrix(:,:)
 
     if (count_particles==number_per_bin .or. j==energy_verified_no) then
-        tot_binned_particles = tot_binned_particles+count_particles
-        call radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,energy_verified_no,xpos,vpos,xyzh,vxyzu,iorder,pos_mag,radius_star)
-        rad_grid(ibin)      = radius_star
-        density(ibin)       = density_sum/count_particles
-        mass_enclosed(ibin) = tot_binned_particles*pmass
-        bin_mass(ibin)      = count_particles*pmass
-        temperature(ibin)   = temperature_sum/count_particles
-        rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
-        print*,rad_vel(ibin),"bin radial vel"
-        inverse_of_i  = inverse(I_sum, 3)
-        print*,matmul(inverse_of_i, I_sum)
-        !print*,inverse_of_i,"inverse of matrix"
-        L_reshape     = reshape(L_sum(:),(/3,1/))
-        matrix_result = matmul(inverse_of_i,L_reshape)
-        omega         = reshape(matrix_result,(/3/))
-        if (count_particles == 1) then
+       tot_binned_particles = tot_binned_particles+count_particles
+       call radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,energy_verified_no,xpos,vpos,xyzh,vxyzu,iorder,pos_mag,radius_star)
+       rad_grid(ibin)      = radius_star
+       density(ibin)       = density_sum/count_particles
+       mass_enclosed(ibin) = tot_binned_particles*pmass
+       bin_mass(ibin)      = count_particles*pmass
+       temperature(ibin)   = temperature_sum/count_particles
+       rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
+       print*,rad_vel(ibin),"bin radial vel"
+       inverse_of_i  = inverse(I_sum, 3)
+       print*,matmul(inverse_of_i, I_sum)
+       !print*,inverse_of_i,"inverse of matrix"
+       L_reshape     = reshape(L_sum(:),(/3,1/))
+       matrix_result = matmul(inverse_of_i,L_reshape)
+       omega         = reshape(matrix_result,(/3/))
+       if (count_particles == 1) then
           if (pos_mag==0.) then
              angular_vel_3D(:,ibin)  = L_sum(:)
           else
-              angular_vel_3D(:,ibin) = L_sum(:) / (pos_mag**2*pmass)
+             angular_vel_3D(:,ibin) = L_sum(:) / (pos_mag**2*pmass)
           endif
-        else
-           angular_vel_3D(:,ibin) = omega
-        endif
-        omega_bin = sqrt(dot_product(angular_vel_3D(:,ibin),angular_vel_3D(:,ibin)))
+       else
+          angular_vel_3D(:,ibin) = omega
+       endif
+       omega_bin = sqrt(dot_product(angular_vel_3D(:,ibin),angular_vel_3D(:,ibin)))
 
-        write(iu2,*)pos_mag,omega_bin
-        composition_kepler(:,ibin) = composition_sum(:)/count_particles
+       write(iu2,*)pos_mag,omega_bin
+       composition_kepler(:,ibin) = composition_sum(:)/count_particles
 
-        write(iu3,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
-        count_particles = 0
-        density_sum     = 0.
-        temperature_sum = 0.
-        rad_mom_sum     = 0.
-        L_sum(:)        = 0.
-        I_sum(:,:)      = 0.
-        composition_sum(:) = 0.
-        ibin            = ibin+1
+       write(iu3,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
+       count_particles = 0
+       density_sum     = 0.
+       temperature_sum = 0.
+       rad_mom_sum     = 0.
+       L_sum(:)        = 0.
+       I_sum(:,:)      = 0.
+       composition_sum(:) = 0.
+       ibin            = ibin+1
     endif
  enddo
  close(iu1)
@@ -369,16 +369,16 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
 
     !if energy is less than 0, we have bound system. We can accept these particles.
     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
-      energy_verified_no = energy_verified_no + 1
-      last_particle_with_neg_e = j
-      index_particle_star(index_val) = j
-      index_val = index_val+1
+       energy_verified_no = energy_verified_no + 1
+       last_particle_with_neg_e = j
+       index_particle_star(index_val) = j
+       index_val = index_val+1
     endif
  enddo
  !next we save the index of particles which are part of star into a new array
  allocate(array_particle_j(energy_verified_no))
  do i=1,energy_verified_no
-   array_particle_j(i) = index_particle_star(i)
+    array_particle_j(i) = index_particle_star(i)
  enddo
 
 end subroutine particles_bound_to_star
@@ -408,31 +408,31 @@ end subroutine particles_per_bin
 !+
 !----------------------------------------------------------------
 subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner)
-  integer,intent(inout) :: number_per_bin
-  logical,intent(inout) :: double_the_no
-  integer,intent(in)    :: count_particles,big_bins_no,j,energy_verified_no
-  real,intent(in)       :: pos_mag_next,rad_inner
+ integer,intent(inout) :: number_per_bin
+ logical,intent(inout) :: double_the_no
+ integer,intent(in)    :: count_particles,big_bins_no,j,energy_verified_no
+ real,intent(in)       :: pos_mag_next,rad_inner
 
 
-  if (j==1) then
+ if (j==1) then
     number_per_bin = 1
-  elseif (double_the_no==.True. .and. count_particles==1) then
+ elseif (double_the_no==.True. .and. count_particles==1) then
     number_per_bin = number_per_bin*2
     if (number_per_bin >= big_bins_no) then
-        number_per_bin = big_bins_no
-        double_the_no = .False.
-     endif
-  else
-     if (pos_mag_next-rad_inner > 0.1) then
-    !    print*,double_the_no,"double no",pos_mag-rad_inner
+       number_per_bin = big_bins_no
+       double_the_no = .False.
+    endif
+ else
+    if (pos_mag_next-rad_inner > 0.1) then
+       !    print*,double_the_no,"double no",pos_mag-rad_inner
        number_per_bin = count_particles
-        !print*,j,"j",pos_mag_next-pos_mag,"diff in magnitude of
-      !  print*,i,"i",count_particles,"count_particles",number_per_bin,"number_per_bin",j,"j",ibin,"ibin",pos_mag,"pos_mag",rad_inner,"rad_inner",pos_mag-rad_inner,"pos_mag-rad_inner"
-     endif
-  endif
-  if (j==energy_verified_no) then
-       number_per_bin = count_particles
-  endif
+       !print*,j,"j",pos_mag_next-pos_mag,"diff in magnitude of
+       !  print*,i,"i",count_particles,"count_particles",number_per_bin,"number_per_bin",j,"j",ibin,"ibin",pos_mag,"pos_mag",rad_inner,"rad_inner",pos_mag-rad_inner,"pos_mag-rad_inner"
+    endif
+ endif
+ if (j==energy_verified_no) then
+    number_per_bin = count_particles
+ endif
 
 end subroutine no_per_bin
 !----------------------------------------------------------------
@@ -441,20 +441,20 @@ end subroutine no_per_bin
 !+
 !----------------------------------------------------------------
 subroutine radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,energy_verified_no,xpos,vpos,xyzh,vxyzu,iorder,pos_mag,radius_star)
-  integer,intent(in)    :: count_particles,number_per_bin,j,energy_verified_no,iorder(:),array_particle_j(:)
-  real,intent(in)       :: xyzh(:,:),vxyzu(:,:),xpos(:),vpos(:),pos_mag
-  real,intent(out)      :: radius_star
+ integer,intent(in)    :: count_particles,number_per_bin,j,energy_verified_no,iorder(:),array_particle_j(:)
+ real,intent(in)       :: xyzh(:,:),vxyzu(:,:),xpos(:),vpos(:),pos_mag
+ real,intent(out)      :: radius_star
 
-  real :: pos_mag_next,vel_mag_next,pos_next(3),vel_next(3)
-  integer :: i_next
+ real :: pos_mag_next,vel_mag_next,pos_next(3),vel_next(3)
+ integer :: i_next
 
-  if (count_particles==number_per_bin .and. j  /=  energy_verified_no) then
-       i_next = iorder(array_particle_j(j+1))
-       call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
-       radius_star = (pos_mag+pos_mag_next)/2
-  else
-       radius_star = pos_mag
-  endif
+ if (count_particles==number_per_bin .and. j  /=  energy_verified_no) then
+    i_next = iorder(array_particle_j(j+1))
+    call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
+    radius_star = (pos_mag+pos_mag_next)/2
+ else
+    radius_star = pos_mag
+ endif
 
 end subroutine radius_of_remnant
 !----------------------------------------------------------------
@@ -463,17 +463,17 @@ end subroutine radius_of_remnant
 !+
 !----------------------------------------------------------------
 subroutine moment_of_inertia(pos,pos_mag,pmass,i_matrix)
-  real,intent(in)  :: pos(3),pos_mag,pmass
-  real,intent(out) :: i_matrix(3,3)
+ real,intent(in)  :: pos(3),pos_mag,pmass
+ real,intent(out) :: i_matrix(3,3)
 
-  real ::delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3)
+ real ::delta(3,3),matrix1(3,1),matrix2(1,3),result_matrix(3,3)
 
-  delta = reshape((/1,0,0,0,1,0,0,0,1/),shape(delta))
-  i_matrix(:,:) = 0.
-  matrix1=reshape(pos,shape(matrix1))
-  matrix2=reshape(pos,shape(matrix2))
-  result_matrix = matmul(matrix1,matrix2)
-  i_matrix =  pmass*(pos_mag**2*delta - result_matrix)
+ delta = reshape((/1,0,0,0,1,0,0,0,1/),shape(delta))
+ i_matrix(:,:) = 0.
+ matrix1=reshape(pos,shape(matrix1))
+ matrix2=reshape(pos,shape(matrix2))
+ result_matrix = matmul(matrix1,matrix2)
+ i_matrix =  pmass*(pos_mag**2*delta - result_matrix)
 
 end subroutine moment_of_inertia
 

@@ -45,8 +45,8 @@ module moddump
          semimajoraxis_binary, & !sepration
          ecc_binary !eccentricity of the black hole
 
-integer, public :: iorigin  ! which black hole to use for the origin
-logical,public :: use_binary
+ integer, public :: iorigin  ! which black hole to use for the origin
+ logical,public :: use_binary
 
 contains
 
@@ -93,9 +93,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ecc   = 1.                  ! eccentricity
  semimajoraxis_binary = 1000.*solarr/udist   !separation distance
  if (.not. gr) then
-   spin = 0.
+    spin = 0.
  else
-   spin = 1. !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
+    spin = 1. !upper limit on Sagitarrius A*'s spin is 0.1 (Fragione and Loeb 2020)'
  endif
  Mh2        = 1.e6*solarm/umass !setting mass of a second BH
  ecc_binary = 1.                !Eccentricity of the binary system
@@ -203,15 +203,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  if (theta /= 0.) then
- !--Tilting the star around y axis, i.e., in xz place with angle theta
-   call rotatevec(xyzstar,(/0.,1.,0./),theta)
-   call rotatevec(vxyzstar,(/0.,1.,0./),theta)
-   x0 = xyzstar(1)
-   y0 = xyzstar(2)
-   z0 = xyzstar(3)
-   vx0 = vxyzstar(1)
-   vy0 = vxyzstar(2)
-   vz0 = vxyzstar(3)
+    !--Tilting the star around y axis, i.e., in xz place with angle theta
+    call rotatevec(xyzstar,(/0.,1.,0./),theta)
+    call rotatevec(vxyzstar,(/0.,1.,0./),theta)
+    x0 = xyzstar(1)
+    y0 = xyzstar(2)
+    z0 = xyzstar(3)
+    vx0 = vxyzstar(1)
+    vy0 = vxyzstar(2)
+    vz0 = vxyzstar(3)
  endif
  !--shift origin to correct black hole
  if (use_binary) then
@@ -290,16 +290,16 @@ subroutine write_setupfile(filename)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity of stellar orbit (1 for parabolic)',                      iunit)
  if (gr) then
-   call write_inopt(spin,   'a',   'spin of SMBH',                                       iunit)
+    call write_inopt(spin,   'a',   'spin of SMBH',                                       iunit)
  endif
  if (.not. gr) then
-      call write_inopt(use_binary, 'use binary', 'true/false', iunit)
-      if (use_binary) then
-             call write_inopt(iorigin,'iorigin','0 = COM of BBH, 1 = Sink 1, 2 = Sink 2', iunit)
-             call write_inopt(Mh2,    'Mh2',    'mass of second black hole (code units)',iunit)
-             call write_inopt(ecc_binary,    'ecc_binary',    'eccenticity of black hole binary (1 for parabolic)',iunit)
-             call write_inopt(semimajoraxis_binary,'semimajoraxis_binary', 'sepration between black hole binary(code units)',iunit)
-        endif
+    call write_inopt(use_binary, 'use binary', 'true/false', iunit)
+    if (use_binary) then
+       call write_inopt(iorigin,'iorigin','0 = COM of BBH, 1 = Sink 1, 2 = Sink 2', iunit)
+       call write_inopt(Mh2,    'Mh2',    'mass of second black hole (code units)',iunit)
+       call write_inopt(ecc_binary,    'ecc_binary',    'eccenticity of black hole binary (1 for parabolic)',iunit)
+       call write_inopt(semimajoraxis_binary,'semimajoraxis_binary', 'sepration between black hole binary(code units)',iunit)
+    endif
  endif
  close(iunit)
 
@@ -327,17 +327,17 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
  call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
  if (gr) then
-      call read_inopt(spin, 'a',    db,min=-1.,max=1.,errcount=nerr)
+    call read_inopt(spin, 'a',    db,min=-1.,max=1.,errcount=nerr)
  endif
  if (.not. gr) then
-       call read_inopt(use_binary, 'use binary', db, errcount=nerr)
-        if (use_binary) then
-              call read_inopt(iorigin,'iorigin',db,min=0,max=2,errcount=nerr)
-              call read_inopt(Mh2, 'Mh2',    db,min=0.,errcount=nerr)
-              call read_inopt(ecc_binary, 'ecc_binary',    db,min=0.,max=1.,errcount=nerr)
-              call read_inopt(semimajoraxis_binary, 'semimajoraxis_binary',    db,min=0.05,errcount=nerr)
-        endif
-endif
+    call read_inopt(use_binary, 'use binary', db, errcount=nerr)
+    if (use_binary) then
+       call read_inopt(iorigin,'iorigin',db,min=0,max=2,errcount=nerr)
+       call read_inopt(Mh2, 'Mh2',    db,min=0.,errcount=nerr)
+       call read_inopt(ecc_binary, 'ecc_binary',    db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(semimajoraxis_binary, 'semimajoraxis_binary',    db,min=0.05,errcount=nerr)
+    endif
+ endif
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
