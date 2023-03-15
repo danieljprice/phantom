@@ -20,6 +20,7 @@ module cooling_stamatellos
  implicit none
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
+ integer :: od_method
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
  
@@ -29,7 +30,7 @@ subroutine init_star()
   use part,    only:nptmass,xyzmh_ptmass
   integer :: i,imin
   real :: rsink2,rsink2min
-
+  
   rsink2min = 0d0
   if (nptmass == 0) then
      isink_star = 0 ! no star present
@@ -64,7 +65,7 @@ end subroutine init_star
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,ri2
      real            :: Tirri,gammai,gmwi,Tmini,Ti,dudt_rad,Teqi
-     real            :: tcool,ueqi,umini,tthermi,poti,presi,coldens2i
+     real            :: tcool,ueqi,umini,tthermi,poti,presi
      
      poti = Gpot_cool(i)
      presi = eos_vars(igasP,i)
@@ -80,18 +81,17 @@ end subroutine init_star
 
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi,gammai)
-     
-     coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
-     coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-     coldensi = coldensi*umass/udist/udist ! physical units
-
+     select case (od_method)
+     case (1)
+        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
+        coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
+        coldensi = coldensi*umass/udist/udist ! physical units
+     case(2)
 ! testing Lombardi+ method of estimating the mean column density
-     coldens2i = 1.014d0 * presi / abs(-gradP_cool(i))! /rhoi ) ! Lombardi+ 2015
-     coldens2i = coldens2i *umass/udist/udist ! physical units
-!     write(iunitst,'(5E12.5)') coldensi,coldens2i,presi,gradP_cool(i)
-! ! USE LOMBARDI METHOD !!
-     coldensi = coldens2i
-     !!!
+        coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+        coldensi = coldensi *umass/udist/udist ! physical units
+     end select
+!     write(iunitst,'(5E12.5)') coldensi,presi,gradP_cool(i)
      
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini**4.d0 - Ti**4.d0)/tcool/unit_ergg*utime! code units
@@ -130,7 +130,7 @@ end subroutine init_star
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
-     	dudti_cool = (umini - ui)/dt
+        dudti_cool = (umini - ui)/dt
      endif
      
    end subroutine cooling_S07
@@ -140,13 +140,14 @@ end subroutine init_star
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- !Tfloor handled in cooling.F90
+ !N.B. Tfloor handled in cooling.F90
+ call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) potential (2) pressure',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
 
 end subroutine write_options_cooling_stamatellos
 
  subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
-! use io, only:fatal
+ use io, only:warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
@@ -159,10 +160,17 @@ end subroutine write_options_cooling_stamatellos
  case('Lstar')
     read(valstring,*,iostat=ierr) Lstar
     ngot = ngot + 1
+ case('OD method')
+    read(valstring,*,iostat=ierr) od_method
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
- if (ngot >= 1) igotallstam = .true.
+ if (od_method .ne. 1 .and. od_method .ne. 2) then
+    call warning('cooling_stamatellos','optical depth method unknown')
+ endif
+
+ if (ngot >= 2) igotallstam = .true.
 
 end subroutine read_options_cooling_stamatellos
 

@@ -5,7 +5,7 @@
 module eos_stamatellos
  implicit none
  real, public :: optable(260,1001,6)
- real,allocatable,public :: gradP_cool(:),Gpot_cool(:)
+ real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
  integer,public :: iunitst=19
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
