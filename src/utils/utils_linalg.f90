@@ -38,8 +38,8 @@ contains
     do i=1,n
       if (a(i,i)==0.0) then
         do j=1,n
-          if (j .ne. i) then
-            if (a(j,i) .ne. 0.) then
+          if (j  /=  i) then
+            if (a(j,i)  /=  0.) then
               a(j,:) = temp(i,:)
               a(i,:) = temp(j,:)
               temp = a(:,:)
@@ -53,7 +53,7 @@ contains
     !Applying Guass Jordan Elimination
     do i=1,n
       do j=1,n
-        if (i .ne. j) then
+        if (i  /=  j) then
           ratio = a(j,i)/a(i,i)
           do k=1,2*n
             a(j,k) = a(j,k) - ratio*a(i,k)
