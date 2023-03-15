@@ -116,7 +116,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  integer :: i,j,location,iorder(npart),next_particle,ieos,ierr
  real :: potential_wrt_bh,kinetic_wrt_bh,tot_wrt_bh
  real :: pos(3),vel(3),kinetic_i,potential_i,energy_i,vel_mag,pos_mag,pos_next(3),vel_next(3),vel_mag_next,pos_mag_next
- integer ::particle_bound_bh,last_particle_with_neg_e,energy_verified_no,index_val,i_next
+ integer ::particle_bound_bh,last_particle_with_neg_e,energy_verified_no,index_val,i_next,iu1,iu2,iu3 
  integer,allocatable :: index_particle_star(:),array_particle_j(:)
  integer :: dummy_size,dummy_bins,number_per_bin,count_particles,number_bins,no_particles,big_bins_no,tot_binned_particles
  real :: density_i,density_sum,rad_inner,rad_outer,radius_star
@@ -127,19 +127,22 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3),L_reshape(3,1),matrix_result(3,1),omega(3)
  real,allocatable    :: A_array(:), Z_array(:)
  real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
+
  ieos = 2
  call init_eos(ieos,ierr)
  gmw=0.61
- !performing a loop to determine maximum density particle position
+
+ ! performing a loop to determine maximum density particle position
  do j = 1,npart
-  den_all(j) = rhoh(xyzh(4,j),pmass)
+    den_all(j) = rhoh(xyzh(4,j),pmass)
  enddo
  location = maxloc(den_all,dim=1)
 
-!Determining centre of star as max density particle 
+ ! Determining centre of star as max density particle 
  xpos(:) = xyzh(1:3,location)
  vpos(:) = vxyzu(1:3,location)
 
+ ! sorting particles
  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j)
@@ -154,6 +157,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  dummy_bins           = 5000
  ibin                 = 1
  double_the_no        = .True.
+
  allocate(density(dummy_bins),rad_grid(dummy_bins),mass_enclosed(dummy_bins),bin_mass(dummy_bins),temperature(dummy_bins),rad_vel(dummy_bins),angular_vel_3D(3,dummy_bins))
  print*,energy_verified_no/500,number_per_bin,"number perbin",number_per_bin*number_bins
  density_sum     = 0.
@@ -168,39 +172,44 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  allocate(composition_kepler(columns_compo,dummy_bins))
  composition_sum(:) = 0.
  composition_i(:)   = 0.
- open(10,file="particleOmega.info")
- write(10,*) "[pos]"," ","[omega]"
- open(11,file="binOmega.info")
- write(11,*) "[pos]"," ","[omega]"
- open(101,file="radius_of_bins.info")
- write(101,*) "[ibin]"," ","[rad_inner]"," ","[rad_outer]"," ","[Position rad next]"," ","[particles in bin]"
- !Now we calculate the different quantities of the particles and bin them
+ 
+ ! writing files with angular velocity info
+ open(newunit=iu1,file="particleOmega.info")
+ write(iu1,*) "[pos]"," ","[omega]"
+ open(newunit=iu2,file="binOmega.info")
+ write(iu2,*) "[pos]"," ","[omega]"
+ open(newunit=iu3,file="radius_of_bins.info")
+ write(iu3,*) "[ibin]"," ","[rad_inner]"," ","[rad_outer]"," ","[Position rad next]"," ","[particles in bin]"
+ 
+ ! Now we calculate the different quantities of the particles and bin them
  do j=1,energy_verified_no
     i      = iorder(array_particle_j(j))
     i_next = iorder(array_particle_j(j+1))
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
- !   print*,vel,"vel of particle",j,"j"
     if (j .ne. energy_verified_no) then 
      call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
-    endif 
+    endif
+ 
     count_particles = count_particles + 1
     if (count_particles == 1) then     
          rad_inner = pos_mag
       !print*,j,"j","first",rad_inner,"rad_inner",count_particles
     endif
+ 
     call  no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner)
     if (number_per_bin == count_particles) then 
          rad_outer = pos_mag 
     endif
-    !Composition
+
+    ! composition
     if (columns_compo /= 0) then
           composition_i(:) = interpolate_comp(:,i)
     endif
     composition_sum(:) = composition_sum(:) + composition_i(:)
 
-    !calculate mean molecular weight that is required by the eos module using
-    !the mass fractions for each particle.
-    !do not consider neutron which is the first element of the composition_i array.
+    ! calculate mean molecular weight that is required by the eos module using
+    ! the mass fractions for each particle.
+    ! do not consider neutron which is the first element of the composition_i array.
 
     call calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
 
@@ -209,29 +218,30 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     density_i   = rhoh(xyzh(4,i),pmass)
     density_sum = density_sum + density_i
     
-    !Temperature
+    ! Temperature
     u_i       = vxyzu(4,i)
     eni_input = u_i
     call equationofstate(ieos,ponrhoi,spsoundi,density_i,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi=temperature_i,eni=eni_input)
     temperature_sum = temperature_sum + temperature_i
     
-    !Radial momentum 
-    !we skip the first particle as its the one that exists at the center of
-    !star and hence will give infinite rad_vel as rad = 0.
+    ! Radial momentum 
+    ! we skip the first particle as its the one that exists at the center of
+    ! star and hence will give infinite rad_vel as rad = 0.
     if (pos_mag > 0.) then
         rad_vel_i    = dot_product(vel(:),pos(:))/pos_mag
         momentum_i   = rad_vel_i*pmass
         rad_mom_sum  = rad_mom_sum + momentum_i
     endif
     
-    !Angular momentum
+    ! Angular momentum
     call cross_product3D(pos(:),vel(:),Li(:))
     L_i(:)   = Li(:)*pmass
     L_sum(:) = L_sum(:) + L_i(:)
     
     omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
-    write(10,*)pos_mag,omega_particle 
-    !Moment of inertia
+    write(iu1,*)pos_mag,omega_particle 
+   
+    ! Moment of inertia
     call moment_of_inertia(pos,pos_mag,pmass,i_matrix)
     I_sum(:,:) = I_sum(:,:) + i_matrix(:,:)
 
@@ -261,11 +271,11 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
            angular_vel_3D(:,ibin) = omega
         endif
         omega_bin = sqrt(dot_product(angular_vel_3D(:,ibin),angular_vel_3D(:,ibin)))
-        write(11,*)pos_mag,omega_bin
+   
+        write(iu2,*)pos_mag,omega_bin
         composition_kepler(:,ibin) = composition_sum(:)/count_particles
-        !print*,composition_kepler(:,ibin)
-       write(101,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
-       ! print*,rad_inner,"innerradius",rad_outer,"outerradius",ibin,"ibin",rad_grid(ibin),"rad grid ibin",udist
+    
+        write(iu3,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
         count_particles = 0
         density_sum     = 0.
         temperature_sum = 0.
@@ -276,11 +286,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
         ibin            = ibin+1
     endif
  enddo
- close(101)
- close(10)
- close(11)
+ close(iu1)
+ close(iu2)
+ close(iu3)
  ibin = ibin-1 
  print*,ibin,"ibin",tot_binned_particles
+
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -299,6 +310,7 @@ subroutine particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_ma
  vel(:) = vxyzu(1:3,i) - vpos(:)
  pos_mag = sqrt(dot_product(pos(:),pos(:)))
  vel_mag = sqrt(dot_product(vel(:),vel(:)))
+
 end subroutine particle_pos_and_vel_wrt_centre
 
  !----------------------------------------------------------------
@@ -365,6 +377,7 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  do i=1,energy_verified_no
    array_particle_j(i) = index_particle_star(i)
  enddo
+
 end subroutine particles_bound_to_star
  !----------------------------------------------------------------
  !+
@@ -383,6 +396,7 @@ subroutine particles_per_bin(energy_verified_no,number_per_bin)
  if (mod(energy_verified_no,number_bins).ne. 0) then
     number_per_bin = 1 + number_per_bin
  endif
+
 end subroutine particles_per_bin
 !----------------------------------------------------------------
 !+
@@ -653,8 +667,8 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
     do index_val = 1, columns_compo-1
        mu = mu + (composition_i(index_val+1)*(1+Z_array(index_val)))/A_array(index_val)
     enddo
-
  endif
 
 end subroutine calculate_mu
+
 end module analysis
