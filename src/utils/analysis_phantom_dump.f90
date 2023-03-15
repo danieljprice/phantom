@@ -77,13 +77,13 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     !calculate the position which is the location of the particle.
     rad_test    = sqrt(dot_product(pos(:),pos(:)))
     !if (i==npart) then
-     ! print*,"radius max", rad_test*udist
-      !print*,pmass*i*umass,"total mass"
+    ! print*,"radius max", rad_test*udist
+    !print*,pmass*i*umass,"total mass"
     !endif
     all_radius(j) = rad_test
-  enddo
-  print*,"HEYYY"
+ enddo
+ print*,"HEYYY"
 
-  print*, maxval(all_radius,dim=1)*udist, j*pmass*umass
+ print*, maxval(all_radius,dim=1)*udist, j*pmass*umass
 end subroutine do_analysis
 end module analysis

@@ -212,9 +212,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set units
  !
  if (gr) then
-   call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric
+    call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric
  else
-   call set_units(dist=udist,mass=umass,G=1.d0)
+    call set_units(dist=udist,mass=umass,G=1.d0)
  endif
  !
  ! set up particles
