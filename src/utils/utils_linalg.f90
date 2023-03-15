@@ -44,7 +44,7 @@ contains
         if (i==j) then
           a(i,j+n) = 1.
         endif
-      end do
+      enddo
     enddo
 
     !we swap the rows if we enounter 0 as diagonal element
@@ -73,7 +73,7 @@ contains
             a(j,k) = a(j,k) - ratio*a(i,k)
           enddo
           endif
-        end do
+        enddo
       enddo
 
       !dividing by the diagonal elements to get identity matrix
