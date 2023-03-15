@@ -289,13 +289,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
     endif
  endif
- 
+
  call finish_eos(ieos,ierr)
  !
  ! Reset centre of mass (again)
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- if (gr) then 
+ if (gr) then
     xyzh(1,:)=xyzh(1,:)+10.
     xyzh(2,:)=xyzh(2,:)+10.
  endif

@@ -198,7 +198,7 @@ contains
   !+
   !  This subroutine calculates the kerr metric's Innermost stable
   !  circular orbit. These formulas were obtained from
-  !  Bardeen & Teukolsky 1972 Astrophysical Journal, Vol. 178, pp. 347-370 
+  !  Bardeen & Teukolsky 1972 Astrophysical Journal, Vol. 178, pp. 347-370
   !+
   !----------------------------------------------------------------
 

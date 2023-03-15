@@ -45,7 +45,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real :: xpos(3),pos(3),rad_test
  real,intent(in)                   :: xyzh(:,:),vxyzu(:,:)
  integer :: iorder(npart)
- real :: all_radius(npart) 
+ real :: all_radius(npart)
 
  character(len=120)                :: output
  character(len=*),intent(in)       :: dumpfile
@@ -79,7 +79,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     !if (i==npart) then
      ! print*,"radius max", rad_test*udist
       !print*,pmass*i*umass,"total mass"
-    !endif 
+    !endif
     all_radius(j) = rad_test
   enddo
   print*,"HEYYY"
