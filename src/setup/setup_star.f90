@@ -46,7 +46,7 @@ module setup
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
 !   mpidomain, mpiutils, options, part, physcon, prompting,
 !   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
-!   timestep, units
+!   table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity,ihsoft

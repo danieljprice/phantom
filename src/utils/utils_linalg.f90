@@ -1,8 +1,22 @@
-!This code calculated the inverse of a matrix by using Gauss Jordan
-!elimination method. The code is based on Alexander Heger's inverse
-!function code. 
-
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module linalg
+!
+! linalg
+!
+! :References: None
+!
+! :Owner: Megha Sharma
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
+
 implicit none
 contains
   function inverse(matrix,n)

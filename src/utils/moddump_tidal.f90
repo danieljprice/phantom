@@ -10,20 +10,25 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Megha Sharma
 !
 ! :Runtime parameters:
-!   - beta  : *penetration factor*
-!   - ecc   : *eccentricity (1 for parabolic)*
-!   - mh    : *mass of black hole (code units)*
-!   - ms    : *mass of star       (code units)*
-!   - phi   : *stellar rotation with respect to y-axis (in degrees)*
-!   - r0    : *starting distance  (code units)*
-!   - rs    : *radius of star     (code units)*
-!   - theta : *stellar rotation with respect to x-axis (in degrees)*
+!   - Mh2                  : *mass of second black hole (code units)*
+!   - a                    : *spin of SMBH*
+!   - beta                 : *penetration factor*
+!   - ecc                  : *eccentricity of stellar orbit (1 for parabolic)*
+!   - ecc_binary           : *eccenticity of black hole binary (1 for parabolic)*
+!   - iorigin              : *0 = COM of BBH, 1 = Sink 1, 2 = Sink 2*
+!   - mh                   : *mass of black hole (code units)*
+!   - ms                   : *mass of star       (code units)*
+!   - r0                   : *starting distance  (code units)*
+!   - rs                   : *radius of star     (code units)*
+!   - semimajoraxis_binary : *sepration between black hole binary(code units)*
+!   - theta                : *stellar rotation with respect to y-axis (in degrees)*
 !
 ! :Dependencies: centreofmass, dim, externalforces, infile_utils, io,
-!   options, physcon, prompting, units
+!   metric, options, orbits_data, part, physcon, prompting, setbinary,
+!   units, vectorutils
 !
  implicit none
 

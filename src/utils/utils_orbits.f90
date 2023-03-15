@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module orbits_data
+!
+! orbits_data
+!
+! :References: None
+!
+! :Owner: Megha Sharma
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon, units, vectorutils
+!
 
   implicit none
 

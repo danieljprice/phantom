@@ -1,4 +1,10 @@
-module analysis 
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+module analysis
 !
 ! analysis
 !
@@ -8,12 +14,9 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, part,
-!   physcon, prompting, readwrite_dumps, sortutils, units, vectorutils
-!
-!
-! Module for generating KEPLER file from a TDE dumpfile.
-!
+! :Dependencies: centreofmass, dump_utils, eos, fileutils, io, linalg,
+!   orbits_data, part, physcon, prompting, readwrite_dumps, sortutils,
+!   units, vectorutils
 !
 implicit none
  character(len=3), parameter, public :: analysistype = 'tde'
