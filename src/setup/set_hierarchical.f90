@@ -16,7 +16,6 @@ module sethierarchical
   !
   ! :Dependencies: table_utils
   !
- !use prompting, only:prompt
   
   implicit none
 
@@ -30,7 +29,6 @@ module sethierarchical
 
   public :: level_mass
 
-  !public :: process_hierarchy ! temporary
   private
   
 contains
@@ -113,7 +111,7 @@ contains
     
     call prompt('What is the hierarchy?',hierarchy)
     
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) 
 
   end subroutine set_hierarchical_interactively
   
@@ -134,7 +132,7 @@ contains
       
     call write_inopt(hierarchy, 'hier','', iunit)
     
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
     
     write(iunit,"(/,a)") '### sink properties'
     do i=1,sink_num
@@ -172,7 +170,7 @@ contains
   
     call read_inopt(hierarchy,'hier',db,errcount=nerr)
       
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
     
     do i=1,sink_num
        call read_inopt(mass(i), trim(sink_labels(i))//'_mass',db,errcount=nerr)
@@ -200,7 +198,7 @@ contains
 
     integer :: i
 
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) ! return list of sinks, number of sinks and list of hierarchical_levels, and number of
+    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
 
     do i=1,sink_num
        mass(i)=1.
@@ -288,7 +286,7 @@ contains
     sink_list_temp = sink_list
     
     longest = 0
-    if (sink_num>1) then !size(sink_list_temp) >1) then !/= 2) then
+    if (sink_num>1) then 
        ! Find the longest
        do i=1,sink_num
           if (longest < len(trim(sink_list_temp(i)))) then
@@ -304,7 +302,6 @@ contains
              longests(longests_len) = trim(sink_list_temp(i))
              
              sink_list_temp(i) = sink_list_temp(i)(:len(trim(longests(longests_len)))-1)!//' '
-             !print *, 'slt ', i, sink_list_temp(i)!, sink_list_temp(i)(:len(trim(sink_list_temp(i)))-1)//' '
           end if
        end do
        
@@ -361,8 +358,6 @@ contains
        end if
     end do
 
-    print*, '!!!', part_mass
-    
     level_mass = part_mass
     
   end function level_mass
@@ -381,16 +376,12 @@ contains
     integer :: hl_index, int_sinks(10), inner_sinks_num, i
     real :: mass
 
-    print*, 'call read'
     call read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
 
     xorigin = 0.
     vorigin = 0.
     mass = 0.
     
-    !    if (inner_sinks_num > 1) then
-    !   Find my stars
-    !   Return com position and velocity
     do i=1,inner_sinks_num
        xorigin(:) = xorigin(:)+xyzmh_ptmass(4,int_sinks(i))*xyzmh_ptmass(1:3,int_sinks(i))
        vorigin(:) = vorigin(:)+xyzmh_ptmass(4,int_sinks(i))*vxyz_ptmass(1:3,int_sinks(i))
@@ -400,14 +391,6 @@ contains
     vorigin = vorigin/mass
 
 
-    print *, level, int_sinks(:inner_sinks_num), inner_sinks_num
-    print *, 'hlc mass ', mass
-    
-    !   else
-    !      xorigin = xyzmh_ptmass(1:3, int_sinks(1))
-    !      vorigin = vxyz_ptmass(1:3, int_sinks(1))
-    !   end if
-       
   end subroutine hierarchical_level_com
 
   !--------------------------------------------------------------------------
@@ -415,11 +398,9 @@ contains
   ! Retrieve sink position in HIERARCHY file
   !
   !--------------------------------------------------------------------------
-  subroutine read_HIERARCHY_index(level, int_sinks, inner_sinks_num)!, sink_labels, sink_num)!, inner_sinks)
+  subroutine read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
     character(*), intent(in) :: level
-    !character(len=10), intent(in) :: sink_labels(:)
     integer, intent(out) :: inner_sinks_num
-    !character(len=10), intent(out) :: inner_sinks(10)
     integer, intent(out)                :: int_sinks(10)
     
     real, dimension(24,10) :: data
@@ -451,15 +432,12 @@ contains
     inner_sinks_num = 0
     do i=1, lines
        write(label, '(i0)') int(data(i,2))
-       print*, label, len(trim(label)), len(trim(level))
        if (data(i,1) > 0 .and. (len(trim(label)) >= len(trim(level))) .and. (label(:len(trim(level))) == trim(level))) then
-          print *, "inside!"
           inner_sinks_num = inner_sinks_num+1
           int_sinks(inner_sinks_num) = data(i,1)
        end if
     end do
 
-    print *, level, int_sinks(:inner_sinks_num), inner_sinks_num
   end subroutine read_HIERARCHY_index
 
 
