@@ -2559,7 +2559,7 @@ subroutine write_setupfile(filename)
  if (n_possible_discs > 1) then
     if (nsinks == 2) then
        write(iunit,"(/,a)") '# options for multiple discs'
-       do i=1,maxdiscs-1
+       do i=1,3!maxdiscs-1
           call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                //trim(disctype(i))//' disc',iunit)
        enddo
