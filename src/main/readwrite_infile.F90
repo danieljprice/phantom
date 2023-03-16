@@ -34,13 +34,16 @@ module readwrite_infile
 !   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
-!   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
+!   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
+!   - iopacity_type      : *opacity method (0=inf,1=mesa,2=constant,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
 !   - ireconav           : *use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
 !   - ishock_heating     : *shock heating (0=off, 1=on)*
+!   - itsmax_rad         : *max number of iterations allowed in implicit solver*
 !   - iverbose           : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
+!   - kappa_cgs          : *constant opacity value in cm2/g*
 !   - logfile            : *file to which output is directed*
 !   - nfulldump          : *full dump every n dumps*
 !   - nmax               : *maximum number of timesteps (0=just get derivs and stop)*
@@ -53,6 +56,7 @@ module readwrite_infile
 !   - rkill              : *deactivate particles outside this radius (<0 is off)*
 !   - shearparam         : *magnitude of shear viscosity (irealvisc=1) or alpha_SS (irealvisc=2)*
 !   - tmax               : *end time*
+!   - tol_rad            : *tolerance on backwards Euler implicit solve of dxi/dt*
 !   - tolh               : *tolerance on h-rho iterations*
 !   - tolv               : *tolerance on v iterations in timestepping*
 !   - twallmax           : *maximum wall time (hhh:mm, 000:00=ignore)*
@@ -62,16 +66,17 @@ module readwrite_infile
 ! :Dependencies: cooling, damping, dim, dust, dust_formation, eos,
 !   externalforces, forcing, gravwaveutils, growth, infile_utils, inject,
 !   io, linklist, metric, nicil_sup, options, part, photoevap, ptmass,
-!   ptmass_radiation, timestep, viscosity
+!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
+!   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
- use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,idamp,tolh, &
+ use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV
+                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -88,7 +93,7 @@ contains
 !+
 !-----------------------------------------------------------------
 subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
+ use timestep,        only:tmax,dtmax,dtmax_user,nmax,nout,C_cour,C_force,C_ent
  use io,              only:fatal
  use infile_utils,    only:write_inopt
 #ifdef DRIVING
@@ -121,8 +126,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
- use part,            only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
+ use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
+ use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -153,8 +160,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_inopt(trim(dumpfile),'dumpfile','dump file to start from',iwritein)
 
  write(iwritein,"(/,a)") '# options controlling run time and input/output'
+ if (dtmax_user < 0.) dtmax_user = dtmax ! this should only ever be true for phantomsetup
  call write_inopt(tmax,'tmax','end time',iwritein)
- call write_inopt(dtmax,'dtmax','time between dumps',iwritein)
+ call write_inopt(dtmax_user,'dtmax','time between dumps',iwritein)
  call write_inopt(nmax,'nmax','maximum number of timesteps (0=just get derivs and stop)',iwritein)
  call write_inopt(nout,'nout','write dumpfile every n dtmax (-ve=ignore)',iwritein)
  call write_inopt(nmaxdumps,'nmaxdumps','stop after n full dumps (-ve=ignore)',iwritein)
@@ -209,13 +217,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) then
     call write_inopt(ireconav,'ireconav','use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)',iwritein)
  endif
- call write_options_damping(iwritein,idamp)
+ call write_options_damping(iwritein)
 
  !
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16 .or. ieos==21) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -238,6 +246,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Should mcfost compute the accretion luminosity',iwritein)
  call write_inopt(mcfost_uses_PdV,'mcfost_uses_PdV',&
       'Should mcfost use the PdV work and shock heating?',iwritein)
+ call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
+      'Fraction of particles to keep for MCFOST',iwritein)
+ call write_inopt(ISM,'ISM',&
+      'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
+ call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
+      'Should mcfost do dust sublimation (experimental!)',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -283,9 +297,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
+    call write_inopt(implicit_radiation,'implicit_radiation','use implicit integration (Whitehouse, Bate & Monaghan 2005)',iwritein)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
-    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,-1=preserve)',iwritein)
+    call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
+    if (iopacity_type == 2) call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
+    if (implicit_radiation) then
+       call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
+       call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
+    endif
  endif
 #ifdef GR
  call write_options_metric(iwritein)
@@ -304,10 +324,11 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,itau_alloc
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
+                           itau_alloc,store_dust_temperature
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
- use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
+ use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
 #ifdef DRIVING
  use forcing,         only:read_options_forcing,write_options_forcing
@@ -336,7 +357,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use radiation_utils,    only:kappa_cgs
+ use radiation_implicit, only:tol_rad,itsmax_rad
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  character(len=*), parameter   :: label = 'read_infile'
@@ -361,6 +384,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  if (idot <= 1) idot = len_trim(infile)
  logfile    = infile(1:idot)//'01.log'
  dumpfile   = infile(1:idot)//'_00000.tmp'
+ fileprefix = infile(1:idot)
  ngot            = 0
  igotallturb     = .true.
  igotalldust     = .true.
@@ -502,13 +526,28 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
     case('mcfost_uses_PdV')
        read(valstring,*,iostat=ierr) mcfost_uses_PdV
+    case('mcfost_keep_part')
+       read(valstring,*,iostat=ierr) mcfost_keep_part
+    case('ISM')
+       read(valstring,*,iostat=ierr) ISM
+    case('mcfost_dust_subl')
+       read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
+    case('implicit_radiation')
+       read(valstring,*,iostat=ierr) implicit_radiation
+       if (implicit_radiation) store_dust_temperature = .true.
     case('gas-rad_exchange')
        read(valstring,*,iostat=ierr) exchange_radiation_energy
     case('flux_limiter')
        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
        read(valstring,*,iostat=ierr) iopacity_type
+    case('kappa_cgs')
+       read(valstring,*,iostat=ierr) kappa_cgs
+    case('tol_rad')
+       read(valstring,*,iostat=ierr) tol_rad
+    case('itsmax_rad')
+       read(valstring,*,iostat=ierr) itsmax_rad
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -541,7 +580,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
-       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr,idamp)
+       if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
        if (maxptmass > 0) then
           if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotallptmass,ierr)
           !
@@ -665,14 +704,14 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. &
-                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20)) &
+                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20 .and. ieos/=21)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
-    if (icooling > 0 .and. ieos /= 2) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
+    if (icooling > 0 .and. ieos /= 2 .and. ieos/=21)  call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &

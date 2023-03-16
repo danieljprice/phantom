@@ -232,7 +232,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! add sink particle stellar core
  !
- if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
+ if (isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,ierr)
+ if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
+ if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
  !
  ! Write the desired profile to file (do this before relaxation)
  !

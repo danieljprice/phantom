@@ -95,9 +95,9 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr
+                          use_dustgrowth,use_krome,gr,do_radiation
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:idamp,iexternalforce,use_dustfrac
+ use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -131,6 +131,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 #endif
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
+ use damping,        only:idamp
 
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos, only:equationofstate
@@ -390,6 +391,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
+    if (do_radiation .and. implicit_radiation) then
+       rad = radpred
+       vxyzu(4,1:npart) = vpred(4,1:npart)
+    endif
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
        ! dt < dtmax/2**nbinmax and exit
@@ -669,6 +674,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,dustfrac,&
                      eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
+       if (do_radiation .and. implicit_radiation) then
+          rad = radpred
+          vxyzu(4,1:npart) = vpred(4,1:npart)
+       endif
     endif
  enddo iterations
 
@@ -767,7 +776,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning
  use externalforces, only:externalforce,accrete_particles,update_externalforce
- use options,        only:iexternalforce,idamp
+ use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
                           massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
@@ -776,7 +785,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  use cons2primsolver,only:conservative2primitive
  use extern_gr,      only:get_grforce
  use metric_tools,   only:pack_metric,pack_metricderivs
- use damping,        only:calc_damp,apply_damp
+ use damping,        only:calc_damp,apply_damp,idamp
  integer, intent(in)    :: npart,ntypes
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
@@ -825,7 +834,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     nsubsteps     = nsubsteps + 1
     dtextforcenew = bignumber
 
-    call calc_damp(time, damp_fac, idamp)
+    call calc_damp(time, damp_fac)
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
@@ -980,8 +989,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
           dtextforce_min = min(dtextforce_min,C_force*dtf)
 
-          if (idamp > 0.) then
-             call apply_damp(i, fext(1,i), fext(2,i), fext(3,i), vxyzu, damp_fac)
+          if (idamp > 0) then
+             call apply_damp(fext(1,i), fext(2,i), fext(3,i), vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
           endif
 
           !
@@ -1083,7 +1092,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           idxmsi,idymsi,idzmsi,idmsi,idspinxsi,idspinysi,idspinzsi, &
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
- use options,        only:iexternalforce,idamp,icooling
+ use options,        only:iexternalforce,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
@@ -1093,7 +1102,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use timestep,       only:bignumber,C_force
  use timestep_sts,   only:sts_it_n
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
- use damping,        only:calc_damp,apply_damp
+ use damping,        only:calc_damp,apply_damp,idamp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_in_step
  use dust_formation, only:evolve_dust
@@ -1156,7 +1165,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     dtsinkgas     = bignumber
     dtphi2        = bignumber
 
-    call calc_damp(time, damp_fac, idamp)
+    call calc_damp(time, damp_fac)
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external/ptmass forces only : t=',timei
@@ -1286,8 +1295,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 fextz = fextz + fextv(3)
              endif
           endif
-          if (idamp > 0.) then
-             call apply_damp(i, fextx, fexty, fextz, vxyzu, damp_fac)
+          if (idamp > 0) then
+             call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
           endif
           fext(1,i) = fextx
           fext(2,i) = fexty

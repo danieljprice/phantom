@@ -43,7 +43,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dim,            only:use_dust,lightcurve,maxdusttypes,use_dustgrowth,do_radiation
  use eos,            only:temperature_coef,gmw,gamma
  use options,        only:use_dustfrac,use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file, &
-                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV
+                             use_mcfost_stellar_parameters, mcfost_computes_Lacc, mcfost_uses_PdV,&
+                             mcfost_keep_part, ISM, mcfost_dust_subl\
  use physcon,        only:cm,gram,c,steboltz
 
  character(len=*), intent(in)    :: dumpfile
@@ -58,11 +59,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer         :: ierr,ntypes,dustfluidtype,ilen,nlum,i,nerr
  integer(kind=1) :: itype(maxp)
  logical         :: compute_Frad
+ logical         :: ISM_heating = .false.
  real(kind=8), dimension(6), save            :: SPH_limits
  real,         dimension(:),     allocatable :: dudt
  real,    parameter :: Tdefault = 1.
  logical, parameter :: write_T_files = .false. ! ask mcfost to write fits files with temperature structure
- integer, parameter :: ISM = 2 ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
  character(len=len(dumpfile) + 20) :: mcfost_para_filename
  real :: a_code,rhoi,pmassi,Tmin,Tmax,default_kappa,kappa_diffusion
 
@@ -73,12 +74,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call growth_to_fake_multi(npart)
  endif
 
+ if (ISM > 0) then
+    ISM_heating = .true.
+ endif
+
  if (.not.init_mcfost) then
     ilen = index(dumpfile,'_',back=.true.) ! last position of the '_' character
     mcfost_para_filename = dumpfile(1:ilen-1)//'.para'
     call init_mcfost_phantom(mcfost_para_filename,ndusttypes,use_Voronoi_limits_file,&
          Voronoi_limits_file,SPH_limits,ierr, fix_star = use_mcfost_stellar_parameters, &
-         turn_on_Lacc = mcfost_computes_Lacc)
+         turn_on_Lacc = mcfost_computes_Lacc, keep_particles = mcfost_keep_part, &
+         use_ISM_heating = ISM_heating, turn_on_dust_subl = mcfost_dust_subl)
     if (ierr /= 0) call fatal('mcfost-phantom','error in init_mcfost_phantom')
     init_mcfost = .true.
  endif
@@ -115,9 +121,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  factor = 1.0/(temperature_coef*gmw*(gamma-1))
 
- ! this this the factor needed to compute u^(n+1)/dtmax from temperature
- ! T_to_u = factor * massoftype(igas)
-
  !-- calling mcfost to get Tdust
  call run_mcfost_phantom(npart,nptmass,ntypes,ndusttypes,dustfluidtype,&
          npartoftype,xyzh,vxyzu,itype,grainsize,graindens,dustfrac,massoftype,&
@@ -126,7 +129,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  Tmin = minval(Tdust, mask=(Tdust > 1.))
  Tmax = maxval(Tdust)
-
  write(*,*) ''
  write(*,*) 'Minimum temperature = ', Tmin
  write(*,*) 'Maximum temperature = ', Tmax

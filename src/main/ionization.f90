@@ -14,7 +14,7 @@ module ionization_mod
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos_idealplusrad, part, physcon, units
+! :Dependencies: eos_idealplusrad, io, part, physcon, units, vectorutils
 !
  implicit none
 
