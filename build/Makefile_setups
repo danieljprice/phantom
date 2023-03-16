@@ -739,6 +739,19 @@ ifeq ($(SETUP), star)
     GRAVITY=yes
 endif
 
+ifeq ($(SETUP), grstar)
+#   import stellar model from 1D stellar evolution code in GR using Minkowski metric
+    GR=yes
+    METRIC=minkowski
+    FPPFLAGS=
+    SETUPFILE= setup_star.f90
+    MODFILE= moddump_tidal.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    KNOWN_SETUP=yes
+    MAXP=100000000
+    GRAVITY=yes
+endif
+
 ifeq ($(SETUP), dustystar)
 #   import stellar model from 1D stellar evolution code w/dust
     FPPFLAGS= -DDUST_NUCLEATION -DSINK_RADIATION -DSTAR
