@@ -338,11 +338,11 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     close(1)
  endif
 
+ subst_index = 0
  !--- Checks to avoid bad substitutions
  if (present(subst) .and. subst>10) then
     write(hier_prefix, *) subst
     io=0
-    subst_index = 0
     mtot = 0.
     do i=1,lines
        if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file

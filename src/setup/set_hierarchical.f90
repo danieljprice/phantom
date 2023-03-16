@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module sethierarchical
   !
-  ! Contains utility routines for setting up dust size distributions
+  ! Contains utility routines for setting up generic hierarchical systems
   !
   ! :References:
   !
@@ -14,7 +14,7 @@ module sethierarchical
   !
   ! :Runtime parameters: None
   !
-  ! :Dependencies: table_utils
+  ! :Dependencies: 
   !
   
   implicit none
@@ -25,9 +25,9 @@ module sethierarchical
   public :: read_hierarchical_setupfile
   public :: set_hierarchical_default_options
 
-  public :: hierarchical_level_com
+  public :: get_hierarchical_level_com
 
-  public :: level_mass
+  public :: get_hier_level_mass
 
   private
   
@@ -63,8 +63,8 @@ contains
        
        hl_temp = trim(split_list(i))
        
-       m1 = level_mass(trim(hl_temp)//'1', mass, sink_num, sink_labels)
-       m2 = level_mass(trim(hl_temp)//'2', mass, sink_num, sink_labels)
+       m1 = get_hier_level_mass(trim(hl_temp)//'1', mass, sink_num, sink_labels)
+       m2 = get_hier_level_mass(trim(hl_temp)//'2', mass, sink_num, sink_labels)
        
        if (any(sink_list == trim(hl_temp)//'1')) then
           accr1 = accr(findloc(sink_list,trim(hl_temp)//'1', 1))
@@ -280,7 +280,7 @@ contains
     integer, intent(inout)    :: splits
     integer, intent(in) ::sink_num
     
-    integer :: i, j, longest, longests_len, check, count
+    integer :: i, longest, longests_len, count
     character(len=10) :: longests(10), new_splits(10), new_sink_list(10), longest_cut, sink_list_temp(10)
 
     sink_list_temp = sink_list
@@ -342,7 +342,7 @@ contains
   ! Compute the total mass of an hierarchical level
   !
   !--------------------------------------------------------------------------
-  real function level_mass(level, mass, sink_num, sink_list)
+  real function get_hier_level_mass(level, mass, sink_num, sink_list)
     character(*), intent(in) :: level
     character(len=10), intent(in) :: sink_list(:)
     real, intent(in) :: mass(:)
@@ -358,9 +358,9 @@ contains
        end if
     end do
 
-    level_mass = part_mass
+    get_hier_level_mass = part_mass
     
-  end function level_mass
+  end function get_hier_level_mass
 
 
   !--------------------------------------------------------------------------
@@ -368,12 +368,12 @@ contains
   ! Compute position and velocity of hierarchical level
   !
   !--------------------------------------------------------------------------
-  subroutine hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass)
+  subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass)
     character(*), intent(in) :: level
     real, intent(out) :: xorigin(:), vorigin(:)
     real, intent(in) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
 
-    integer :: hl_index, int_sinks(10), inner_sinks_num, i
+    integer :: int_sinks(10), inner_sinks_num, i
     real :: mass
 
     call read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
@@ -391,7 +391,7 @@ contains
     vorigin = vorigin/mass
 
 
-  end subroutine hierarchical_level_com
+  end subroutine get_hierarchical_level_com
 
   !--------------------------------------------------------------------------
   !
@@ -404,7 +404,7 @@ contains
     integer, intent(out)                :: int_sinks(10)
     
     real, dimension(24,10) :: data
-    integer                :: i, io, lines, ierr, h_index, asd
+    integer                :: i, io, lines, ierr, h_index
     logical                :: iexist
 
 
@@ -434,7 +434,7 @@ contains
        write(label, '(i0)') int(data(i,2))
        if (data(i,1) > 0 .and. (len(trim(label)) >= len(trim(level))) .and. (label(:len(trim(level))) == trim(level))) then
           inner_sinks_num = inner_sinks_num+1
-          int_sinks(inner_sinks_num) = data(i,1)
+          int_sinks(inner_sinks_num) = int(data(i,1))
        end if
     end do
 

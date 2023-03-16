@@ -131,8 +131,8 @@ module setup
 
  !--hierarchical configuration
  character(len=100) :: hier
- integer :: sink_num, hl_num, splits, sink_num_temp, hl_index
- character(len=10) :: sink_labels(10), hl_labels(10), sink_list(10), split_list(10), hl_temp
+ integer :: sink_num, hl_num, hl_index
+ character(len=10) :: sink_labels(10), hl_labels(10)
  real :: mass(10), accr(10)!, inc(10,6), O(10,6), w(10,6), f(10,6)
  real :: a(10), e(10), inc(10), O(10), w(10), f(10)
  real :: current_mass, higher_mass
@@ -857,7 +857,6 @@ subroutine setup_central_objects()
        discvel = 0.
 
     case (5)
-       print *, 'QUI BISOGNA SPLITTARE ABBESTIA'
        call set_hierarchical(hier,sink_num, sink_labels, hl_labels, hl_num, mass, accr, a, e, inc, O, w, f, &
                               nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
@@ -1090,7 +1089,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                        npartoftype,massoftype,xyzh,vxyzu)
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
- use sethierarchical, only:hierarchical_level_com, level_mass
+ use sethierarchical, only:get_hierarchical_level_com, get_hier_level_mass
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -1159,10 +1158,10 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
        else
           call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
 
-          m2 = level_mass(disclabel, mass, sink_num, sink_labels)
+          m2 = get_hier_level_mass(disclabel, mass, sink_num, sink_labels)
           
           if (len(trim(disclabel))>1) then
-             m1 = level_mass(disclabel(:len(trim(disclabel))-1), mass, sink_num, sink_labels)-m2
+             m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1), mass, sink_num, sink_labels)-m2
 
              hl_index = findloc(hl_labels, disclabel(:len(trim(disclabel))-1), 1)
              Rochelobe = Rochelobe_estimate(m1,m2,a(hl_index))
@@ -1173,7 +1172,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
           star_m(i) = m2
           
-          call hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass)
+          call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass)
 
        endif
 
@@ -1865,7 +1864,7 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options, level_mass
+ use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options, get_hier_level_mass
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -2175,11 +2174,11 @@ subroutine setup_interactive()
              call get_hier_disc_label(higher_disc_index, sink_num, sink_labels, hl_labels, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
-             higher_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+             higher_mass = get_hier_level_mass(trim(disclabel), mass, sink_num, sink_labels) 
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
                    call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
-                   current_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+                   current_mass = get_hier_level_mass(trim(disclabel), mass, sink_num, sink_labels) 
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
