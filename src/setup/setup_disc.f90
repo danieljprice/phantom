@@ -116,7 +116,7 @@ module setup
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
  use memory,           only:allocate_memory
- !use sethierarchical, only:process_hierarchy ! temporary
+ 
  implicit none
 
  public  :: setpart
@@ -642,14 +642,9 @@ subroutine equation_of_state(gamma)
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
              higher_disc_index = findloc(iuse_disc, .true., 1) 
              qfacdisc = qindex(higher_disc_index)
-             if (higher_disc_index <= sink_num) then
-                disclabel = trim(sink_labels(higher_disc_index))
-                call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-             else
-                disclabel = trim(hl_labels(higher_disc_index-sink_num))
-             end if
-
-             call warning('setup_disc','using circum-'//disclabel//' (H/R)_ref to set global temperature')
+             call get_hier_disc_label(higher_disc_index, sink_num, sink_labels, hl_labels, disclabel)
+             
+             call warning('setup_disc','using circum-'//trim(disclabel)//' (H/R)_ref to set global temperature')
           else
              ieos = 14
              print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
@@ -1133,13 +1128,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
              prefix = trim(fileprefix)//'-'//disctype(i)
           else
-             if (i <= sink_num) then
-                print "(/,a)",'>>> Setting up circum'//trim(sink_labels(i))//' disc <<<'
-                prefix = trim(fileprefix)//'-'//trim(sink_labels(i))
-             else
-                print "(/,a)",'>>> Setting up circum'//trim(hl_labels(i-sink_num))//' disc <<<'
-                prefix = trim(fileprefix)//'-'//trim(hl_labels(i-sink_num))
-             end if
+             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+             print "(/,a)",'>>> Setting up circum-'//trim(disclabel)//' disc <<<'
+             prefix = trim(fileprefix)//'-'//trim(disclabel)
           end if
        else
           prefix = fileprefix
@@ -1166,11 +1157,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              Rochelobe = huge(0.)
           end select
        else
-          if (i <= sink_num) then
-             disclabel = trim(sink_labels(i))
-          else
-             disclabel = trim(hl_labels(i-sink_num))        
-          end if
+          call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
 
           m2 = level_mass(disclabel, mass, sink_num, sink_labels)
           
@@ -1192,7 +1179,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
           call warning('setup_disc', &
-             'Outer disc radius for circum'//trim(disctype(i))//' > Roche lobe of ' &
+             'Outer disc radius for circum-'//trim(disctype(i))//' > Roche lobe of ' &
              //trim(disctype(i)))
        endif
 
@@ -2185,21 +2172,13 @@ subroutine setup_interactive()
              !H_R(3) = nint(H_R(3)*10000.)/10000.
           else
              higher_disc_index = findloc(iuse_disc, .true., 1)
-             if (higher_disc_index <= sink_num) then
-                disclabel = trim(sink_labels(higher_disc_index))
-             else
-                disclabel = trim(hl_labels(higher_disc_index-sink_num))
-             end if
-             call prompt('Enter H/R of circum-'//disclabel//' at R_ref',H_R(higher_disc_index))
+             call get_hier_disc_label(higher_disc_index, sink_num, sink_labels, hl_labels, disclabel)
+             call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
              higher_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
-                   if (i <= sink_num) then
-                      disclabel = trim(sink_labels(i))
-                   else
-                      disclabel = trim(hl_labels(i-sink_num))
-                   end if
+                   call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
                    current_mass = level_mass(trim(disclabel), mass, sink_num, sink_labels) 
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
@@ -2583,12 +2562,12 @@ subroutine write_setupfile(filename)
       write(iunit,"(/,a)") '# options for multiple discs - working on!'
       
       do i=1,sink_num
-         call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum' &
+         call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
             //trim(sink_labels(i))//' disc',iunit)
       end do
       
       do i=1,hl_num
-         call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum' &
+         call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
             //trim(hl_labels(i))//' disc',iunit)
       end do
 
@@ -2602,11 +2581,7 @@ subroutine write_setupfile(filename)
        if (n_possible_discs > 1) then
           disclabel = disctype(i)
           if (nsinks > 4) then
-             if (i <= sink_num) then
-                disclabel = trim(sink_labels(i))
-             else
-                disclabel = trim(hl_labels(i-sink_num))
-             end if
+             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
           end if
        else
           disclabel = ''
@@ -3019,12 +2994,8 @@ subroutine read_setupfile(filename,ierr)
     if (iuse_disc(i)) then
        if (nsinks >= 2) then
           disclabel = disctype(i)
-         if (nsinks > 4) then
-             if (i <= sink_num) then
-                disclabel = trim(sink_labels(i))
-             else
-                disclabel = trim(hl_labels(i-sink_num))
-             end if
+          if (nsinks > 4) then
+             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
           end if
        else
           disclabel = ''
@@ -3324,6 +3295,19 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 
 
 end subroutine temp_to_HR
+
+subroutine get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+  character(len=10), intent(out)  :: disclabel
+  character(len=10), intent(in)    :: sink_labels(:), hl_labels(:)
+  integer, intent(in) :: i, sink_num
+  
+  if (i <= sink_num) then
+     disclabel = trim(sink_labels(i))
+  else
+     disclabel = trim(hl_labels(i-sink_num))
+  end if
+  
+end subroutine get_hier_disc_label
 
 
 end module setup
