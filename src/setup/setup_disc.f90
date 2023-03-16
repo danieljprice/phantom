@@ -2554,7 +2554,7 @@ subroutine write_setupfile(filename)
        call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
    elseif (nsinks == 5) then
-      write(iunit,"(/,a)") '# options for multiple discs - working on!'
+      write(iunit,"(/,a)") '# options for multiple discs'
       
       do i=1,sink_num
          call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
