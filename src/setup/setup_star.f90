@@ -46,7 +46,7 @@ module setup
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
 !   mpidomain, mpiutils, options, part, physcon, prompting,
 !   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
-!   timestep, units
+!   table_utils, timestep, units
 !
  use io,             only:fatal,error,master
  use part,           only:gravity,ihsoft
@@ -95,13 +95,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:init_eos,finish_eos,gmw,X_in,Z_in,eos_outputs_mu
  use eos_piecewise,   only:init_eos_piecewise_preset
  use setstar,         only:set_stellar_core,read_star_profile,set_star_density, &
-                           set_star_composition,set_star_thermalenergy
+                           set_star_composition,set_star_thermalenergy,write_kepler_comp
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,igas,imu
  use radiation_utils, only:set_radiation_and_gas_temperature_equal
  use relaxstar,       only:relax_star
  use mpiutils,        only:reduceall_mpi
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
+ use table_utils,     only:yinterp
+ use dim,             only:gr,gravity
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -116,6 +118,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real, allocatable                :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  logical                          :: setexists
  character(len=120)               :: setupfile,inname
+ real, allocatable                :: composition(:,:)
+ integer                          :: columns_compo
+ character(len=20), allocatable   :: comp_label(:)
+ logical                          :: composition_exists
  !
  ! Initialise parameters, including those that will not be included in *.setup
  !
@@ -128,7 +134,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  relax_star_in_setup = .false.
  write_rho_to_file = .false.
  input_polyk  = .false.
+ composition_exists = .false.
  ierr_relax = 0
+
  !
  ! set default options
  !
@@ -203,8 +211,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set units
  !
- call set_units(dist=udist,mass=umass,G=1.d0)
- !call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric units
+ if (gr) then
+    call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric
+ else
+    call set_units(dist=udist,mass=umass,G=1.d0)
+ endif
  !
  ! set up particles
  !
@@ -223,7 +234,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                         Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                        isoftcore,isofteningopt,rcore,hsoft,outputfilename)
+                        isoftcore,isofteningopt,rcore,hsoft,outputfilename,composition,&
+                        comp_label,columns_compo)
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -256,6 +268,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_star_composition(use_var_comp,eos_outputs_mu(ieos),npart,xyzh,Xfrac,Yfrac,mu,mtab,Mstar,eos_vars)
  endif
  !
+ ! Write composition file called kepler.comp contaning composition of each particle after interpolation
+ !
+ select case (iprofile)
+ case(ikepler)
+    call write_kepler_comp(composition,comp_label,columns_compo,r,&
+                                       xyzh,npart,npts,composition_exists)
+ end select
+ !
  ! set the internal energy and temperature
  !
  if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,&
@@ -275,6 +295,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
+ if (gr) then
+    xyzh(1,:)=xyzh(1,:)+10.
+    xyzh(2,:)=xyzh(2,:)+10.
+ endif
  !
  ! Print summary to screen
  !
@@ -301,6 +325,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  write(*,"(70('='))")
  if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
+
+ if (composition_exists) then
+    write(*,'(a)') 'Composition written to kepler.comp file.'
+ endif
+
+ if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
+
 
 end subroutine setpart
 
@@ -469,7 +500,7 @@ subroutine set_defaults_given_profile(iprofile,iexist,need_inputprofile,need_rst
     need_inputprofile = .true.
  case(ikepler)
     ! sets up a star from a 1D KEPLER code output
-    !  Original Author: Nicole Rodrigues
+    !  Original Author: Nicole Rodrigues and Megha Sharma
     input_profile = 'kepler_MS.data'
     need_inputprofile = .true.
  case(ibpwpoly)

@@ -39,11 +39,11 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
-!   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, omputils, options,
-!   part, physcon, ptmass, ptmass_heating, radiation_utils, timestep,
-!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath, io,
+!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
+!   mpiforce, mpimemory, mpiutils, nicil, omputils, options, part, physcon,
+!   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
+!   timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -883,7 +883,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
 #ifdef DUSTGROWTH
- use growth,      only:wbymass
  use kernel,      only:wkern,cnormk
 #endif
 #endif
@@ -1831,18 +1830,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    else
                       winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
+                   !--following quantities are weighted by mass rather than mass/density
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                   if (wbymass) then
-                      fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
-                      fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
-                      fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
-                      fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
-                   else
-                      fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
-                      fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
-                      fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
-                      fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
-                   endif
+                   fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
+                   fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
+                   fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
+                   fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -2482,7 +2475,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use utils_gr,       only:get_u0
  use io,             only:error
 #ifdef DUSTGROWTH
- use growth,         only:wbymass
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
 #endif
@@ -2954,13 +2946,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (iamdusti) then
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
-          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
-          dustgasprop(1,i) = fsum(icsi)
-          !- if interpolations are mass weigthed, divide result by rhog,i
-          if (wbymass) then
-             dustgasprop(1,i) = dustgasprop(1,i)/dustgasprop(2,i) !- sound speed
-             dustgasprop(4,i) = dustgasprop(4,i)/dustgasprop(2,i) !- |dv|
-          endif
+          !- interpolations are mass weigthed, divide result by rhog,i
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
+          dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
 
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)

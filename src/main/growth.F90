@@ -18,20 +18,19 @@ module growth
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
+!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
+!   - dsize         : *size of ejected grain during erosion in cm*
 !   - flyby         : *use primary for keplerian freq. calculation*
 !   - force_smax    : *(mcfost) set manually maximum size for binning*
 !   - grainsizemin  : *minimum allowed grain size in cm*
+!   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
-!   - ieros         : *erosion of dust (0=off,1=on)
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
 !   - rsnow         : *snow line position in AU*
 !   - size_max_user : *(mcfost) maximum size for binning in cm*
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
 !   - vfragout      : *inward fragmentation threshold in m/s*
-!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
-!   - dsize         : *size of ejected grain during erosion in cm*
-!   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -62,9 +61,6 @@ module growth
  real, public           :: grainsizemin
  real, public           :: cohacc
  real, public           :: dsize
-
-
- logical, public        :: wbymass         = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -350,7 +346,6 @@ subroutine write_options_growth(iunit)
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
- call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
@@ -366,8 +361,8 @@ subroutine write_options_growth(iunit)
     endif
  endif
  if (ieros == 1) then
-   call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
-   call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
+    call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
+    call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
 #ifdef MCFOST
@@ -434,9 +429,6 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
     if (nptmass < 2) tmp = .true.
- case('wbymass')
-    read(valstring,*,iostat=ierr) wbymass
-    ngot = ngot + 1
 #ifdef MCFOST
  case('force_smax')
     read(valstring,*,iostat=ierr) f_smax
@@ -456,23 +448,23 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  imcf = 3
 #endif
 
- if (ieros == 1) goteros = 2
+ if (ieros == 1) goteros = 3
 
  if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 3+imcf+goteros) igotall = .true.
-    if (isnow == 0) then
-       if (ngot == 6+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 8+imcf+goteros) igotall = .true.
-    else
-       igotall = .false.
-    endif
- else
     if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
     if (isnow == 0) then
        if (ngot == 5+imcf+goteros) igotall = .true.
     elseif (isnow > 0) then
        if (ngot == 7+imcf+goteros) igotall = .true.
+    else
+       igotall = .false.
+    endif
+ else
+    if ((ifrag <= 0) .and. ngot == 1+imcf+goteros) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 4+imcf+goteros) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 6+imcf+goteros) igotall = .true.
     else
        igotall = .false.
     endif
