@@ -32,9 +32,9 @@ subroutine init_star()
   real :: rsink2,rsink2min
   
   rsink2min = 0d0
-  if (nptmass == 0) then
-     isink_star = 0 ! no star present
-     print *, "No illuminating star."
+  if (nptmass == 0 .or. Lstar == 0.0) then
+     isink_star = 0 ! no stellar heating
+     print *, "No stellar heating."
   elseif (nptmass == 1) then
      isink_star = 1
   else
@@ -47,7 +47,7 @@ subroutine init_star()
      enddo
      isink_star = imin
   endif
-  if (nptmass > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
+  if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
 end subroutine init_star
   
 !
@@ -64,21 +64,25 @@ end subroutine init_star
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,ri2
-     real            :: Tirri,gammai,gmwi,Tmini,Ti,dudt_rad,Teqi
+     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi
      
      poti = Gpot_cool(i)
      presi = eos_vars(igasP,i)
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
-     ri2 = (xi-xyzmh_ptmass(1,isink_star))**2 + (yi-xyzmh_ptmass(2,isink_star))**2 &
-          + (zi-xyzmh_ptmass(3,isink_star))**2
-     ri2 = ri2 *udist*udist
-     Tirri = (Lstar*solarl/(4d0*pi*steboltz)/ri2)**0.25
-     Tmini = Tfloor + Tirri ! Tfloor + stellar heating
+     if (isink_star > 0 .and. Lstar > 0) then
+        ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+             + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
+             + (zi-xyzmh_ptmass(3,isink_star))**2d0
+        ri2 = ri2 *udist*udist
+! Tfloor + stellar heating
+        Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2))
+     else
+        Tmini4 = Tfloor**4d0
+     endif
 
 ! get opacities & Ti for ui
-
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi,gammai)
      select case (od_method)
@@ -94,23 +98,24 @@ end subroutine init_star
 !     write(iunitst,'(5E12.5)') coldensi,presi,gradP_cool(i)
      
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
-     dudt_rad = 4.d0*steboltz*(Tmini**4.d0 - Ti**4.d0)/tcool/unit_ergg*utime! code units
+     dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 ! calculate Teqi
      Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
      Teqi = Teqi/4.d0/steboltz
-     Teqi = Teqi + Tmini**4.d0
-     if (Teqi < Tmini**4.d0) then
-        Teqi = Tmini
+     Teqi = Teqi + Tmini4
+     if (Teqi < Tmini4) then
+        Teqi = Tmini4**(1.0/4.0)
      else
-        Teqi = Teqi**0.25d0
+        Teqi = Teqi**(1.0/4.0)
      endif
      call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
      ueqi = ueqi/unit_ergg
-     call getintenerg_opdep(Tmini,rhoi*unit_density,umini)
+     call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
      umini = umini/unit_ergg
 ! calculate thermalization timescale
      if ((dudti_sph + dudt_rad) == 0.d0) then
         tthermi = 0d0
+        write(iunitst,'(A)') "ttherm=0"
      else
         tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
      endif
@@ -147,7 +152,7 @@ end subroutine init_star
 end subroutine write_options_cooling_stamatellos
 
  subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
- use io, only:warning
+ use io, only:warning,fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
@@ -162,6 +167,9 @@ end subroutine write_options_cooling_stamatellos
     ngot = ngot + 1
  case('OD method')
     read(valstring,*,iostat=ierr) od_method
+    if (od_method < 1 .or. od_method > 2) then
+       call fatal('cooling options','od_method must be 1 or 2',var='od_method',ival=od_method)
+    endif
     ngot = ngot + 1
  case default
     imatch = .false.
