@@ -19,7 +19,7 @@ module extern_gr
 !
  implicit none
 
- public :: get_grforce, get_grforce_all, update_grforce_leapfrog, get_tmunu_all
+ public :: get_grforce, get_grforce_all, update_grforce_leapfrog, get_tmunu_all, get_tmunu_all_exact, get_tmunu
 
  private
 
@@ -244,25 +244,75 @@ subroutine get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
       endif 
       if (.not.isdead_or_accreted(xyzh(4,i))) then
          pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
-         call get_tmunu(xyzh(:,i),metrics(:,:,:,i), metricderivs(:,:,:,i), &
+         call get_tmunu(xyzh(:,i),metrics(:,:,:,i),&
          vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,tmunus(:,:,i),verbose)
       endif 
    enddo 
    !print*, "tmunu calc val is: ", tmunus(0,0,5)
 end subroutine get_tmunu_all
 
+subroutine get_tmunu_all_exact(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
+   use eos,         only:ieos,get_pressure
+   use part,        only:isdead_or_accreted
+   integer, intent(in) :: npart
+   real, intent(in)    :: xyzh(:,:), metrics(:,:,:,:), metricderivs(:,:,:,:), dens(:)
+   real, intent(inout) :: vxyzu(:,:),tmunus(:,:,:)
+   real                :: pi 
+   integer             :: i
+   logical             :: firstpart
+   real                :: tmunu(4,4)
+   !print*, "entered get tmunu_all_exact"
+   tmunu = 0. 
+   firstpart = .true.
+   ! TODO write openmp parallel code
+   do i=1, npart
+      if (.not.isdead_or_accreted(xyzh(4,i)) .and. firstpart) then
+         pi = get_pressure(ieos,xyzh(:,i),dens(i),vxyzu(:,i))
+         call get_tmunu_exact(xyzh(:,i),metrics(:,:,:,i), metricderivs(:,:,:,i), &
+         vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,tmunus(:,:,i))
+         !print*, "finished get_tmunu call!"
+         firstpart = .false.
+         !print*, "tmunu: ", tmunu
+         !print*, "tmunus: ", tmunus(:,:,i)
+         tmunu(:,:) = tmunus(:,:,i)
+         !print*, "Got tmunu val: ", tmunu
+         !stop
+      else
+         !print*, "setting tmunu for part: ", i 
+         tmunus(:,:,i) = tmunu(:,:)
+      endif
+       
+   enddo 
+   !print*, "tmunu calc val is: ", tmunus(0,0,5)
+end subroutine get_tmunu_all_exact
+
+
 ! Subroutine to calculate the covariant form of the stress energy tensor 
 ! For a particle at position p
-subroutine get_tmunu(x,metrici,metricderivsi,v,dens,u,p,tmunu,verbose)
+subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
    use metric_tools,     only:unpack_metric
-   real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
+   use utils_gr,     only:get_u0
+   real,    intent(in)  :: x(3),metrici(:,:,:),v(3),dens,u,p
    real,    intent(out) :: tmunu(0:3,0:3)
+   real                 :: tmunucon(0:3,0:3)
    logical, optional, intent(in) :: verbose 
-   real                 :: w,v4(0:3),vcov(3),lorentz
+   real                 :: w,v4(0:3),vcov(3),lorentz,bigV(3),uzero
    real                 :: gcov(0:3,0:3), gcon(0:3,0:3)
    real                 :: gammaijdown(1:3,1:3),betadown(3),alpha
    real                 :: velshiftterm
-   integer              :: i,j
+   integer              :: i,j,ierr
+   
+   ! Reference for all the variables used in this routine:
+   ! w - the enthalpy 
+   ! gcov - the covariant form of the metric tensor
+   ! gcon - the contravariant form of the metric tensor 
+   ! gammaijdown - the covariant form of the spatial metric 
+   ! alpha - the lapse 
+   ! betadown - the covariant component of the shift 
+   ! v4 - the uppercase 4 velocity in covariant form 
+   ! v - the fluid velocity v^x
+   ! vcov - the covariant form of big V_i
+   ! bigV - the uppercase contravariant V^i 
 
    ! Calculate the enthalpy
    w = 1 + u + p/dens
@@ -272,6 +322,7 @@ subroutine get_tmunu(x,metrici,metricderivsi,v,dens,u,p,tmunu,verbose)
    !print*, "Before unpack metric "
    call unpack_metric(metrici,gcov=gcov,gcon=gcon,gammaijdown=gammaijdown,alpha=alpha,betadown=betadown)
    !print*, "After unpack metric"
+
    if (present(verbose) .and. verbose) then 
       ! Do we get sensible values 
       print*, "Unpacked metric quantities..."
@@ -280,12 +331,111 @@ subroutine get_tmunu(x,metrici,metricderivsi,v,dens,u,p,tmunu,verbose)
       print*, "gammaijdown: ", gammaijdown
       print* , "alpha: ", alpha 
       print*, "betadown: ", betadown
+      print*, "v4: ", v4
    endif 
+   
+   ! ! Need to change Betadown to betaup 
+   ! ! Won't matter at this point as it is allways zero
+   ! ! get big V 
+   ! bigV(:) = (v(:) + betadown)/alpha 
 
+   ! ! We need the covariant version of the 3 velocity 
+   ! ! gamma_ij v^j = v_i where gamma_ij is the spatial metric
+   ! do i=1, 3
+   !    vcov(i) = gammaijdown(i,1)*bigv(1) + gammaijdown(i,2)*bigv(2) + gammaijdown(i,3)*bigv(3) 
+   ! enddo
+
+  
+   ! ! Calculate the lorentz factor
+   ! lorentz = (1. -  (vcov(1)*bigv(1) + vcov(2)*bigv(2) + vcov(3)*bigv(3)))**(-0.5)
+   
+   ! ! Calculate the 4-velocity
+   ! velshiftterm = vcov(1)*betadown(1) + vcov(2)*betadown(2) + vcov(3)*betadown(3)
+   ! v4(0) = lorentz*(-alpha + velshiftterm)
+   ! ! This should be vcov not v
+   ! v4(1:3) = lorentz*vcov(1:3)
+   
+
+   ! We are going to use the same Tmunu calc as force GR 
+   ! And then lower it using the metric
+   ! i.e calc T^{\mu\nu} and then lower it using the metric
+   ! tensor 
+   ! lower-case 4-velocity (contravariant)
+   v4(0) = 1.
+   v4(1:3) = v(:)
+   
+   ! first component of the upper-case 4-velocity (contravariant)
+   call get_u0(gcov,v,uzero,ierr)
+
+   ! Stress energy tensor in contravariant form
+   do j=0,3
+      do i=0,3
+         tmunucon(i,j) = dens*w*uzero*uzero*v4(i)*v4(j) + p*gcon(i,j)
+      enddo 
+   enddo 
+
+   ! Lower the stress energy tensor using the metric
+   ! This gives you T^{\mu}_nu 
+   do j=0,3
+      do i=0,3
+         tmunu(i,j) = gcov(j,0)*tmunucon(i,0) &
+          + gcov(j,1)*tmunucon(i,1) + gcov(j,2)*tmunucon(i,2) + gcov(j,3)*tmunucon(i,3)
+      enddo 
+   enddo
+
+   ! Repeating it again gives T_{\mu\nu}
+   do j=0,3
+      do i=0,3
+         tmunu(i,j) = gcov(i,0)*tmunu(0,j) &
+          + gcov(i,1)*tmunu(1,j) + gcov(i,2)*tmunu(2,j) + gcov(i,3)*tmunu(3,j)
+      enddo 
+   enddo 
+
+   ! Check that the calculated diagonials are equal to 1/tmuncon 
+   
+   if (present(verbose) .and. verbose) then 
+      ! Do we get sensible values 
+      print*, "Unpacked metric quantities..."
+      print*, "gcov: ", gcov
+      print*, "gcon: ", gcon
+      print*, "gammaijdown: ", gammaijdown
+      print* , "alpha: ", alpha 
+      print*, "betadown: ", betadown
+      print*, "v4: ", v4
+   endif  
+
+   if (verbose) then 
+      print*, "tmunu part: ", tmunu
+      print*, "dens: ", dens
+      print*, "w: ", w 
+      print*, "p: ", p 
+      print*, "gcov: ", gcov
+   endif
+end subroutine get_tmunu
+
+subroutine get_tmunu_exact(x,metrici,metricderivsi,v,dens,u,p,tmunu)
+   use metric_tools,     only:unpack_metric
+   use utils_gr,         only:get_sqrtg
+   real,    intent(in)  :: x(3),metrici(:,:,:),metricderivsi(0:3,0:3,3),v(3),dens,u,p
+   real,    intent(out) :: tmunu(0:3,0:3)
+   real                 :: w,v4(0:3),vcov(3),lorentz
+   real                 :: gcov(0:3,0:3), gcon(0:3,0:3)
+   real                 :: gammaijdown(1:3,1:3),betadown(3),alpha
+   real                 :: velshiftterm
+   real                 :: rhostar,rhoprim,negsqrtg
+   integer              :: i,j
+
+   ! Calculate the enthalpy
+   ! enthalpy should be 1 as we have zero pressure
+   ! or should have zero pressure 
+   w = 1
+   ! Calculate the exact value of density from conserved density
+
+   call unpack_metric(metrici,gcov=gcov,gcon=gcon,gammaijdown=gammaijdown,alpha=alpha,betadown=betadown)
    ! We need the covariant version of the 3 velocity 
    ! gamma_ij v^j = v_i where gamma_ij is the spatial metric
    do i=1, 3
-      vcov(i) = gammaijdown(i,1)*v4(1) + gammaijdown(i,2)*v4(2) + gammaijdown(i,3)*v4(3) 
+      vcov(i) = gammaijdown(i,1)*v(1) + gammaijdown(i,2)*v(2) + gammaijdown(i,3)*v(3) 
    enddo 
 
    ! Calculate the lorentz factor
@@ -296,15 +446,21 @@ subroutine get_tmunu(x,metrici,metricderivsi,v,dens,u,p,tmunu,verbose)
    v4(0) = lorentz*(-alpha + velshiftterm)
    v4(1:3) = lorentz*v(1:3)
 
+   rhostar = 13.294563008157013D0 
+   call get_sqrtg(gcov,negsqrtg)
+   ! Set/Calculate primitive density using rhostar exactly 
+   rhoprim = rhostar/(negsqrtg/alpha)
+
+
    ! Stress energy tensor
    do j=0,3
       do i=0,3
-         tmunu(i,j) = dens*w*v4(i)*v4(j) + p*gcov(i,j)
+         tmunu(i,j) = rhoprim*w*v4(i)*v4(j) ! + p*gcov(i,j) neglect the pressure term as we don't care
       enddo 
    enddo 
-   if (verbose) then 
-      print*, "tmunu part: ", tmunu
-   endif 
-end subroutine get_tmunu
+
+
+
+end subroutine get_tmunu_exact
 
 end module extern_gr

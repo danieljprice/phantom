@@ -930,7 +930,7 @@ ifeq ($(SETUP), flrw)
  KNOWN_SETUP=yes
  IND_TIMESTEPS=no
  METRIC=et
- SETUPFILE= setup_unifdis.f90
+ SETUPFILE= setup_flrw.f90
  PERIODIC=yes
 endif
 

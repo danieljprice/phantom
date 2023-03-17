@@ -93,11 +93,16 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
 end subroutine get_metric_spherical
 
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
+ use einsteintk_utils, only:gridinit
  real,    intent(in)  :: position(3)
  real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
- !dgcovdx = 0.
- dgcovdy = 0.
- dgcovdz = 0.
+ if (.not. gridinit) then 
+    dgcovdx = 0.
+    dgcovdy = 0.
+    dgcovdz = 0.
+ else
+    call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
+ endif 
 end subroutine metric_cartesian_derivatives
 
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
@@ -174,11 +179,12 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
     ! linear and cubic interpolators should be moved to their own subroutine 
     ! away from eos_shen
     use eos_shen, only:linear_interpolator_one_d
-    use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid
+    use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridsize,gridorigin
     real, intent(in)  :: position(3) 
     real, intent(out) :: gcov(0:3,0:3)
     real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
-    integer :: xlower,ylower,zlower,xupper,yupper,zupper 
+    integer :: xlower,ylower,zlower,xupper,yupper,zupper
+    real    :: xlowerpos,ylowerpos,zlowerpos
     real :: xd,yd,zd
     real :: interptmp(7)
     integer :: i,j
@@ -192,12 +198,22 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
     ! Get neighbours 
     call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
     !print*,"Neighbours: ", xlower,ylower,zlower
-    xupper = xlower + 1
-    yupper = yupper + 1 
-    zupper = zupper + 1
-    xd = (position(1) - xlower)/(xupper - xlower)
-    yd = (position(2) - ylower)/(yupper - ylower)
-    zd = (position(3) - zlower)/(zupper - zlower)
+    ! This is not true as upper neighbours on the boundary will be on the side
+    ! take a mod of grid size  
+    xupper = mod(xlower + 1, gridsize(1))
+    yupper = mod(ylower + 1, gridsize(2)) 
+    zupper = mod(zlower + 1, gridsize(3))
+    ! xupper - xlower should always just be dx provided we are using a uniform grid
+    ! xd = (position(1) - xlower)/(xupper - xlower)
+    ! yd = (position(2) - ylower)/(yupper - ylower)
+    ! zd = (position(3) - zlower)/(zupper - zlower)
+    xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
+    ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
+    zlowerpos = gridorigin(3) + (zlower-1)*dxgrid(3)
+
+    xd = (position(1) - xlowerpos)/(dxgrid(1))
+    yd = (position(2) - ylowerpos)/(dxgrid(2))
+    zd = (position(3) - zlowerpos)/(dxgrid(3))
     
     interptmp = 0.
     ! All the interpolation should go into an interface, then you should just call trilinear_interp
@@ -270,13 +286,13 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
 
 end subroutine interpolate_metric
 
-subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
+pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     use eos_shen, only:linear_interpolator_one_d
-    use einsteintk_utils, only:metricderivsgrid, dxgrid
+    use einsteintk_utils, only:metricderivsgrid, dxgrid,gridorigin
     real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
     real, intent(in)  :: position(3) 
     integer :: xlower,ylower,zlower,xupper,yupper,zupper 
-    real :: xd,yd,zd
+    real :: xd,yd,zd,xlowerpos, ylowerpos,zlowerpos
     real :: interptmp(7)
     integer :: i,j
 
@@ -285,9 +301,17 @@ subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     xupper = xlower + 1
     yupper = yupper + 1 
     zupper = zupper + 1
-    xd = (position(1) - xlower)/(xupper - xlower)
-    yd = (position(2) - ylower)/(yupper - ylower)
-    zd = (position(3) - zlower)/(zupper - zlower)
+    ! xd = (position(1) - xlower)/(xupper - xlower)
+    ! yd = (position(2) - ylower)/(yupper - ylower)
+    ! zd = (position(3) - zlower)/(zupper - zlower)
+
+    xlowerpos = gridorigin(1) + (xlower-1)*dxgrid(1)
+    ylowerpos = gridorigin(2) + (ylower-1)*dxgrid(2)
+    zlowerpos = gridorigin(3) + (zlower-1)*dxgrid(3)
+
+    xd = (position(1) - xlowerpos)/(dxgrid(1))
+    yd = (position(2) - ylowerpos)/(dxgrid(2))
+    zd = (position(3) - zlowerpos)/(dxgrid(3))
 
     interptmp = 0. 
 

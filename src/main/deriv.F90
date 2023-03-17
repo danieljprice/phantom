@@ -128,7 +128,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (gr) then
        ! Recalculate the metric after moving particles to their new tasks
        call init_metric(npart,xyzh,metrics)
-       call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+       !call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
     endif
 
 #ifdef PERIODIC
@@ -225,7 +225,7 @@ end subroutine derivs
 subroutine get_derivs_global(tused,dt_new)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
+                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,tmunus,metricderivs
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
@@ -233,6 +233,7 @@ subroutine get_derivs_global(tused,dt_new)
  real(kind=4) :: t1,t2
  real :: dtnew
  real :: time,dt
+ integer  :: i 
 
  time = 0.
  dt = 0.

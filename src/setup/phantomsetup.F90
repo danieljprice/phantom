@@ -124,13 +124,12 @@ program phantomsetup
     call init_domains(nprocs)
     id = 0
  endif
-
  do myid=0,nprocsfake-1
 
     myid1 = myid
     if (mpi) myid1 = id
     call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
-!
+!  
 !--setup magnetic field if code compiled with MHD
 !
     if (mhd .and. .not.ihavesetupB) then

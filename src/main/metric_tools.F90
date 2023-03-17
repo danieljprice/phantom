@@ -186,7 +186,8 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
  real,            intent(out) :: metrics(:,:,:,:)
  real, optional,  intent(out) :: metricderivs(:,:,:,:)
  integer :: i
-
+ 
+ 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &
  !$omp private(i)
@@ -194,7 +195,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
     call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
  enddo
  !omp end parallel do
-
+ 
  if (present(metricderivs)) then
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,metricderivs) &
@@ -204,7 +205,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
     enddo
     !omp end parallel do
  endif
-
+ 
 end subroutine init_metric
 
 !
@@ -261,5 +262,7 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  if (present(betadown))    betadown    = metrici(0,1:3,1)
 
 end subroutine unpack_metric
+
+
 
 end module metric_tools

@@ -53,11 +53,12 @@ module evolve
   logical         :: use_global_dt
 contains
 
-subroutine evol_init(infile,logfile,evfile,dumpfile,dt_et)
+subroutine evol_init(infile,logfile,evfile,dumpfile,dt_et,numpart)
    ! Initialises all the required variables/files required for a run
    character(len=*), intent(in)    :: infile
    character(len=*), intent(inout) :: logfile,evfile,dumpfile
    real,         intent(in)    :: dt_et 
+   integer,      intent(out)   :: numpart
    integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
 #ifdef IND_TIMESTEPS
    integer         :: nalive,inbin
@@ -146,12 +147,13 @@ subroutine evol_init(infile,logfile,evfile,dumpfile,dt_et)
    call setup_timers
   
    call flush(iprint)
+   numpart = npart
 end subroutine evol_init
 
 
 subroutine evol_step(infile,logfile,evfile,dumpfile,dt_et)  
  use evwrite,          only:write_evfile,write_evlog
- use dim,              only:maxvxyzu,mhd,periodic
+ use dim,              only:maxvxyzu,mhd,periodic,gr
  use fileutils,        only:getnextfilename
  
  use readwrite_infile, only:write_infile
@@ -206,10 +208,10 @@ subroutine evol_step(infile,logfile,evfile,dumpfile,dt_et)
 #ifdef BINPOS
  use mf_write,         only:binpos_write
 #endif
-#ifdef GR
- use extern_gr 
- use tmunu2grid
-#endif 
+! #ifdef GR
+!  use extern_gr 
+!  use tmunu2grid
+! #endif 
 
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
@@ -240,8 +242,6 @@ subroutine evol_step(infile,logfile,evfile,dumpfile,dt_et)
    ! set the dtmax to be et dt?
    dtmax = dt_et
    dt = dt_et
-   print*, "In evolve step!"
-   print*, "Time in phantom is: ", time 
 #ifdef INJECT_PARTICLES
    !
    ! injection of new particles into simulation
@@ -270,7 +270,6 @@ subroutine evol_step(infile,logfile,evfile,dumpfile,dt_et)
       call fatal('evolve','error in individual timesteps')
    endif
 
-   print*, "before set active particles"
    !--flag particles as active or not for this timestep
    call set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
    nactivetot = reduceall_mpi('+', nactive)
@@ -303,21 +302,13 @@ subroutine evol_step(infile,logfile,evfile,dumpfile,dt_et)
 !--evolve data for one timestep
 !  for individual timesteps this is the shortest timestep
 !
-   print*, "before get timings"
    call get_timings(t1,tcpu1)
    if ( use_sts ) then
-      print*, "before step indv"
       call step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
    else
-      print*, "before step"
       call step(npart,nactive,time,dt,dtextforce,dtnew)
-      print*, "after step"
    endif
-   ! Calculate the stress energy tensor
-   call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
-   ! Interpolate stress energy tensor from particles back 
-   ! to grid
-   call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
+   
    !
    ! Strang splitting: implicit update for another half step
    !

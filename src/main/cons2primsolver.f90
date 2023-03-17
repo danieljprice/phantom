@@ -149,7 +149,6 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type
  case default
     call conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
  end select
-
 end subroutine conservative2primitive
 
 !----------------------------------------------------------------
@@ -159,7 +158,7 @@ end subroutine conservative2primitive
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ierr,ien_type)
- use utils_gr,     only:get_sqrtg
+ use utils_gr,     only:get_sqrtg, get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use units,        only:unit_ergg,unit_density,unit_pressure
  use eos,          only:calc_temp_and_ene,ieos
@@ -171,7 +170,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,enth,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,gamma_old,temp,sqrt_gamma_inv
+ real :: f,term,lorentz_LEO2,gamfac,pm_dot_b,gamma,gamma_old,temp,sqrt_gamma_inv,sqrt_gamma
  real :: u_in,P_in,dens_in,ucgs,Pcgs,denscgs,enth0,gamma0,enth_min,enth_max
  real :: enth_rad,enth_gas,gamma_rad,gamma_gas
  integer :: niter,i,ierr1,ierr2
@@ -180,7 +179,7 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
  logical :: converged
  real    :: gcov(0:3,0:3)
  ierr = 0
-
+ 
  ! Get metric components from metric array
  call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
@@ -195,7 +194,10 @@ subroutine conservative2primitive_var_gamma(x,metrici,v,dens,u,P,rho,pmom,en,ier
 
  niter = 0
  converged = .false.
- sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
+ 
+ !sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
+ call get_sqrt_gamma(gcov,sqrt_gamma)
+ sqrt_gamma_inv = 1./sqrt_gamma
  term = rho*sqrt_gamma_inv
  pm_dot_b = dot_product(pmom,betaUP)
 
@@ -300,7 +302,7 @@ end subroutine conservative2primitive_var_gamma
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,pmom,en,ierr,ien_type)
- use utils_gr,     only:get_sqrtg
+ use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use eos,          only:calc_temp_and_ene,ieos
  real, intent(in)    :: x(1:3),metrici(:,:,:),gamma
@@ -311,7 +313,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,sqrt_gamma
  integer :: niter, i
  real, parameter :: tol = 1.e-3
  integer, parameter :: nitermax = 100000
@@ -332,11 +334,15 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  enddo
 
  ! Guess enthalpy (using previous values of dens and pressure)
+ ! Use a better guess for dens; dens = dens_old/a^3 
+ !enth = 1 + gamma/(gamma-1.)*P/(dens*sqrtg_inv)
  enth = 1 + gamma/(gamma-1.)*P/dens
 
  niter = 0
  converged = .false.
+ call get_sqrt_gamma(gcov,sqrt_gamma)
  sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
+ !sqrt_gamma_inv = 1./sqrt_gamma
  term = rho*sqrt_gamma_inv
  gamfac = gamma/(gamma-1.)
  pm_dot_b = dot_product(pmom,betaUP)
@@ -378,6 +384,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
 
  if (.not.converged) ierr = 1
 
+
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
 
@@ -397,6 +404,7 @@ subroutine conservative2primitive_con_gamma(x,metrici,v,dens,u,P,gamma,enth,rho,
  enddo
 
  call get_u(u,P,dens,gamma)
+
 
 end subroutine conservative2primitive_con_gamma
 

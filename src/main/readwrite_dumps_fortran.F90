@@ -220,7 +220,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,&
-                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation
+                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_var_comp
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -370,8 +370,27 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           enddo
        endif
        if (gr) then
+          ! TODO these should only be outputed ifmetric==ET
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
           call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
+          ! Should include a metrics label somewhere to clean this up 
+          call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+         !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+         !  call write_array(1,metrics(1,3,1,:), 'gty (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+         !  call write_array(1,metrics(1,2,1,:), 'gtz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+         !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metrics(4,4,1,:), 'gzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+
+          call write_array(1,metricderivs(1,1,1,:), 'dxgtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metricderivs(2,2,1,:), 'dxgxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metricderivs(3,3,1,:), 'dxgyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,metricderivs(4,4,1,:), 'dxgzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          
+          
+          call write_array(1,tmunus(1,1,:), 'tmunutt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,1/tmunus(1,1,:), 'tmunutt (contravariant)',npart,k,ipass,idump,nums,ierrs(8))
        endif
        if (eos_is_non_ideal(ieos) .and. .not.store_dust_temperature) then
           call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
@@ -391,7 +410,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=8,index=4)
        if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(15))
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
