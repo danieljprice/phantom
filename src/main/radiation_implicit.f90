@@ -30,7 +30,6 @@ module radiation_implicit
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
- integer, parameter :: cv_type = 0, mu_type = 0
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -42,6 +41,7 @@ module radiation_implicit
  ! options for the input file, with default values
  real, public       :: tol_rad = 1.e-4
  integer, public    :: itsmax_rad = 250
+ integer, public    :: cv_type = 0
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
@@ -115,7 +115,7 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
  real                :: rhoi
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad) &
+ !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad,cv_type) &
  !$omp private(i,rhoi)
  do i = 1,npart
     origEU(1,i) = rad(iradxi,i)
@@ -367,7 +367,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
  dti = dt
  !$omp parallel do default(none) &
  !$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx,dxbound,dybound,dzbound) &
- !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh) &
+ !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh,cv_type) &
  !$omp firstprivate(dti) &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi) &
  !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
@@ -393,7 +393,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     !
     !--Note that CV and Kappa have already been done in ASS
     !
-    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i),mu_type)
+    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i),cv_type)
     dvxdxi = 0.
     dvxdyi = 0.
     dvxdzi = 0.
@@ -422,7 +422,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !--Note that CV and Kappa have already been done in ASS
        !
        rhoj = rhoh(xyzh(4,j), massoftype(igas))
-       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j),mu_type)
+       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j),cv_type)
        !dti = dt
        !
        !--Calculate other quantities
@@ -766,7 +766,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 
  !$omp parallel do default(none)&
  !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
- !$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad) &
+ !$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad,cv_type) &
  !$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &

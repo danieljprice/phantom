@@ -445,17 +445,17 @@ end subroutine get_opacity
 !  get 1/mu from rho, u
 !+
 !--------------------------------------------------------------------
-real function get_1overmu(rho,u,mu_type) result(rmu)
+real function get_1overmu(rho,u,cv_type) result(rmu)
  use eos,               only:gmw
  use mesa_microphysics, only:get_1overmu_mesa
  use physcon,           only:Rg
  use units,             only:unit_density,unit_ergg
  real, intent(in)    :: rho,u
- integer, intent(in) :: mu_type
+ integer, intent(in) :: cv_type
  real                :: rho_cgs,u_cgs
 
- select case (mu_type)
- case(2) ! mu from MESA EoS tables
+ select case (cv_type)
+ case(1) ! mu from MESA EoS tables
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
     rmu = get_1overmu_mesa(rho_cgs,u_cgs,real(Rg))

@@ -1026,17 +1026,17 @@ end function get_mean_molecular_weight
 !  return cv from rho, u in code units
 !+
 !---------------------------------------------------------
-real function get_cv(rho,u,eos_type) result(cv)
+real function get_cv(rho,u,cv_type) result(cv)
  use mesa_microphysics, only:getvalue_mesa
  use units,             only:unit_ergg,unit_density
  use physcon,           only:Rg
  real, intent(in)    :: rho,u
- integer, intent(in) :: eos_type
+ integer, intent(in) :: cv_type
  real                :: rho_cgs,u_cgs,temp
 
- select case (eos_type)
+ select case (cv_type)
 
- case(10)  ! MESA EoS
+ case(1)  ! MESA EoS
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
     call getvalue_mesa(rho_cgs,u_cgs,4,temp)
