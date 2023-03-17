@@ -224,11 +224,13 @@ check_phantomanalysis ()
    fi
    cd /tmp/$dirname;
    cp $phantomdir/bin/phantomanalysis .;
-   if [ "$setup"=="star" ]; then
+   if [ "X$setup" == "Xstar" ]; then
+      echo "performing analysis unit tests for SETUP=$setup"
       $pwd/test_analysis_ce.sh; err=$?;
       python $pwd/test_analysis_ce.py; err=$?;
    else
-      err = 0;
+      #echo "there are no analysis unit tests for SETUP=$setup"
+      err=0;
    fi
    if [ $err -eq 0 ]; then
       print_result "runs and passes analysis tests" $pass;
