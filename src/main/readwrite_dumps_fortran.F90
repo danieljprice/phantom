@@ -1938,10 +1938,6 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
-    if (itype  >  8) then
-       print *, "particle i=", i,"is type", itype
-       cycle
-    endif
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 
