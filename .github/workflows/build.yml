@@ -153,6 +153,10 @@ jobs:
       if: always()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
 
+    - name: logs/analysis-failures-${{ matrix.system }}.txt
+      if: always()
+      run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
+
     - name: logs/make-*-${{ matrix.system }}.txt
       if: always()
       run: |
