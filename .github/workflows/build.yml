@@ -103,7 +103,7 @@ jobs:
         printenv >> $GITHUB_ENV
 
     - name: Install numpy and matplotlib for analysis unit tests
-      run:
+      run: |
         sudo apt-get install -y python3-numpy
         sudo apt-get install -y python3-matplotlib
 
