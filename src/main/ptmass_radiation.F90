@@ -58,7 +58,7 @@ end subroutine init_radiation_ptmass
 !  compute radiative acceleration from ALL sink particles
 !+
 !-----------------------------------------------------------------------
-subroutine get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
+subroutine get_rad_accel_from_ptmass (nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
  use part,    only:ilum
  use units,   only:umass,unit_luminosity
  integer,  intent(in)    :: nptmass,npart
@@ -234,7 +234,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
              r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-             dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2))*exp(-tau(i)))**(1./4.)
+             if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2))*exp(-tau(i)))**(1./4.)
           endif
        enddo
        !$omp end parallel do
@@ -246,7 +246,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
        do i=1,npart
           if (.not.isdead_or_accreted(xyzh(4,i))) then
              r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-             dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)))**(1./4.)
+             if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)))**(1./4.)
           endif
        enddo
        !$omp end parallel do
