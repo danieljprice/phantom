@@ -7,7 +7,7 @@
 #
 
 # delete everything from previous tests
-rm *.ev *txt
+rm -f *.ev *txt
 
 # grab the data file from the server if it doesn't already exist
 file=binary_01000
@@ -19,12 +19,12 @@ if [ ! -f $file ]; then
 fi
 
 # perform phantomanalysis tests
-./phantomanalysis $file << SEP
+./phantomanalysis $file > /dev/null << SEP
 1
 no
 SEP
 
-./phantomanalysis $file << BOUND
+./phantomanalysis $file > /dev/null << BOUND
 2
 no
 2
@@ -33,7 +33,7 @@ no
 0.0142
 BOUND
 
-./phantomanalysis $file << ENERGIES
+./phantomanalysis $file > /dev/null << ENERGIES
 3
 no
 2
