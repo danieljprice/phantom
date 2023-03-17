@@ -27,7 +27,7 @@ env:
 
 jobs:
   matrix_prep:
-    # Skip schedueld runs on forks
+    # Skip scheduled runs on forks
     if: ${{ github.event_name != 'schedule' || github.repository == 'danieljprice/phantom' }}
     runs-on: ubuntu-latest
     outputs:
@@ -101,6 +101,11 @@ jobs:
       run: |
         source /opt/intel/oneapi/setvars.sh
         printenv >> $GITHUB_ENV
+
+    - name: Install numpy and matplotlib for analysis unit tests
+      run:
+        sudo apt-get install -y python3-numpy
+        sudo apt-get install -y python3-matplotlib
 
     - name: "Clone phantom"
       uses: actions/checkout@v3

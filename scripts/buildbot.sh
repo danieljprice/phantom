@@ -71,7 +71,7 @@ echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main utils setup analysis';
+listofcomponents='main setup analysis utils';
 #listofcomponents='analysis'
 #
 # get list of targets, components and setups to check
@@ -98,15 +98,15 @@ if [ ! -d $phantomdir/logs ]; then
    mkdir logs;
    cd $pwd;
 fi
-htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
+htmlfile_all="$phantomdir/logs/build-status-$SYSTEM.html";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
 faillogsetup="$phantomdir/logs/setup-failures-$SYSTEM.txt";
 failloganalysis="$phantomdir/logs/analysis-failures-$SYSTEM.txt";
 #
 # delete old log files
 #
-if [ -e $htmlfile ]; then
-   rm $htmlfile;
+if [ -e $htmlfile_all ]; then
+   rm $htmlfile_all;
 fi
 if [ -e $faillog ]; then
    rm $faillog;
@@ -243,36 +243,50 @@ check_phantomanalysis ()
    fi
 }
 
-for component in $listofcomponents; do
-case $component in
- 'analysis')
-   text="$component runs, creates output files successfully";
-   listofsetups='star'; # dustystar radstar';
-   listoftargets='analysis';;
- 'setup')
-   text="$component runs, creates .setup and .in files with no unspecified user input";
-   listofsetups=$allsetups;
-   listoftargets='setup';;
- 'utils')
-   text="$component build";
-   listofsetups='test';
-   listoftargets='utils';;
- *)
-   text='build';
-   listofsetups=$allsetups;
-   listoftargets='phantom setup analysis moddump phantomtest';;
-esac
-#
-# write html header
-#
-echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
-echo "Build checked: "`date` >> $htmlfile;
-echo "<table>" >> $htmlfile;
+listofsetups=$allsetups;
+firstsetup=${listofsetups%% *};
+lastsetup=${listofsetups##* };
 #
 #--loop over each setup
 #
 for setup in $listofsetups; do
-   if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::group:: component=${component}, setup=${setup}"; fi
+   #
+   #--loop over each component (phantom,phantomsetup,phantomanalysis,etc)
+   #
+   for component in $listofcomponents; do
+   case $component in
+    'analysis')
+      text="$component runs, creates output files successfully";
+      if [ "$setup" != "star" ]; then continue; fi # skip unless SETUP=star
+      listoftargets='analysis';;
+    'setup')
+      text="$component runs, creates .setup and .in files with no unspecified user input";
+      listoftargets='setup';;
+    'utils')
+      text="$component build";
+      if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
+      listoftargets='utils';;
+    *)
+      text='build';
+      listoftargets='phantom setup analysis moddump phantomtest';;
+   esac
+
+   # output needed for github actions
+   #echo "::group:: make SETUP=${setup} ${component}";
+
+   htmlfile=${htmlfile_all/.html/-${component}.html}
+   #
+   # write html header
+   #
+   if [[ "$setup" == "$firstsetup" ]]; then
+      if [ -e $htmlfile ]; then
+         rm $htmlfile;
+      fi
+      echo "opening $htmlfile for output"
+      echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
+      echo "Build checked: "`date` >> $htmlfile;
+      echo "<table>" >> $htmlfile;
+   fi
    cd $phantomdir;
    dims="`make --quiet SETUP=$setup getdims`";
    dims=${dims//[^0-9]/};  # number only
@@ -299,6 +313,7 @@ for setup in $listofsetups; do
       fi
       colour=$white; # white (default)
       ncheck=$((ncheck + 1));
+      echo "::group:: checking $component with make SETUP=${setup} ${target}";
       printf "Checking $setup ($target)... ";
       if [ "$component"=="setup" ]; then
          rm -f $phantomdir/bin/phantomsetup;
@@ -384,8 +399,15 @@ for setup in $listofsetups; do
    echo "</tr>" >> $htmlfile;
    cd $pwd;
    if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::endgroup::"; fi
+#
+# close html file on last setup
+#
+   if [[ "$setup" == "$lastsetup" ]]; then
+      echo "closing $htmlfile"
+      echo "</table>" >> $htmlfile;
+      echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
+      cat $htmlfile >> $htmlfile_all;
+   fi
 done
-echo "</table>" >> $htmlfile;
-echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
 done
 if [ "$nfail" -gt 0 ] && [ "$RETURN_ERR" == "yes" ]; then exit 1; fi
