@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     if (j==1) then
        itype = igas
     else
-       itype = idust + (j-1)
+       itype = idust + (j-2)
     endif
     if (id==master) then
        if (itype==1) npartx = 64
