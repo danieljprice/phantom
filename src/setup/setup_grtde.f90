@@ -72,13 +72,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer, parameter :: ntab=5000
  integer, parameter :: ng_max = nrhotab
- integer :: ierr,i,npts
+ integer :: ierr,i,npts,columns_compo
  logical :: iexist
  real    :: rtidal,rp,semia,psep,period,hacc1,hacc2
- real    :: vxyzstar(3),xyzstar(3),rtab(ntab),rhotab(ntab)
+ real    :: vxyzstar(3),xyzstar(3)
  real    :: densi,r0,vel,lorentz,eni,tempi,presi,ri
  real    :: vhat(3),x0,y0
- real,allocatable   :: pres(:), temp(:), en(:)
+ real,allocatable :: rtab(:),rhotab(:)
+ real,allocatable :: pres(:), temp(:), en(:),composition(:,:)
+ character(len=20), allocatable :: comp_label(:)
 !
 !-- general parameters
 !
@@ -202,9 +204,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax     = period/dumpsperorbit
  select case (stardensprofile)
  case (2)
-    allocate(pres(ng_max), temp(ng_max), en(ng_max))
-    call read_kepler_file(trim('kepler_MS.data'),ng_max,npts,rtab,rhotab,pres,temp,en,mstar,ierr)
+    allocate(pres(ng_max), temp(ng_max), en(ng_max), rtab(ng_max), rhotab(ng_max))
+    call read_kepler_file(trim('star1@hign'),ng_max,npts,rtab,rhotab,pres,temp,en,mstar,composition,comp_label,columns_compo,ierr)
  case default
+    allocate(rtab(ntab),rhotab(ntab))
     call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
  end select
  call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
