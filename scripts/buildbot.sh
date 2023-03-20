@@ -11,7 +11,7 @@
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, 2012-2017, daniel.price@monash.edu
+# Written by Daniel Price, 2012-2023, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
