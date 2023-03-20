@@ -272,7 +272,7 @@ for setup in $listofsetups; do
    esac
 
    # output needed for github actions
-   echo "::group:: make SETUP=${setup} component=${component}";
+   echo "::group:: make SETUP=${setup} checking phantom ${text}";
 
    htmlfile=${htmlfile_all/.html/-${component}.html}
    #
@@ -282,7 +282,7 @@ for setup in $listofsetups; do
       if [ -e $htmlfile ]; then
          rm $htmlfile;
       fi
-      echo "opening $htmlfile for output"
+      #echo "opening $htmlfile for output"
       echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
       echo "Build checked: "`date` >> $htmlfile;
       echo "<table>" >> $htmlfile;
@@ -403,7 +403,7 @@ for setup in $listofsetups; do
 # close html file on last setup
 #
    if [[ "$setup" == "$lastsetup" ]]; then
-      echo "closing $htmlfile"
+      #echo "closing $htmlfile"
       echo "</table>" >> $htmlfile;
       echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
       cat $htmlfile >> $htmlfile_all;
