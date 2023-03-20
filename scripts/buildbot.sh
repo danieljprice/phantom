@@ -272,7 +272,7 @@ for setup in $listofsetups; do
    esac
 
    # output needed for github actions
-   #echo "::group:: make SETUP=${setup} ${component}";
+   echo "::group:: make SETUP=${setup} component=${component}";
 
    htmlfile=${htmlfile_all/.html/-${component}.html}
    #
@@ -313,7 +313,7 @@ for setup in $listofsetups; do
       fi
       colour=$white; # white (default)
       ncheck=$((ncheck + 1));
-      echo "::group:: checking $component with make SETUP=${setup} ${target}";
+      #echo "::group:: checking $component with make SETUP=${setup} ${target}";
       printf "Checking $setup ($target)... ";
       if [ "$component"=="setup" ]; then
          rm -f $phantomdir/bin/phantomsetup;
