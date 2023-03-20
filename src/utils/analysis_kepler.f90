@@ -257,9 +257,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        bin_mass(ibin)      = count_particles*pmass
        temperature(ibin)   = max(temperature_sum/count_particles,1e3)
        rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
-       print*,rad_vel(ibin),"bin radial vel"
+      ! print*,rad_vel(ibin),"bin radial vel"
        inverse_of_i  = inverse(I_sum, 3)
-       print*,matmul(inverse_of_i, I_sum)
+      ! print*,matmul(inverse_of_i, I_sum)
        !print*,inverse_of_i,"inverse of matrix"
        L_reshape     = reshape(L_sum(:),(/3,1/))
        matrix_result = matmul(inverse_of_i,L_reshape)
@@ -294,6 +294,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  close(iu3)
  ibin = ibin-1
  print*,ibin,"ibin",tot_binned_particles
+ call write_mass_of_star_and_no(numfile,mass_enclosed(ibin),density(1),rad_grid(ibin),temperature(1),energy_verified_no)
 
 end subroutine phantom_to_kepler_arrays
 
@@ -673,5 +674,39 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
  endif
 
 end subroutine calculate_mu
+!----------------------------------------------------------------
+!+
+!  This routine for writing the mass and time of each particle.
+!  This will help me plot them to see if mass becomes constant with
+!  evolution time.
+!+
+!----------------------------------------------------------------
+subroutine write_mass_of_star_and_no(numfile,mass_star,central_den,radius,temperature,energy_verified_no)
+ use units, only : umass,udist,unit_energ,unit_density
+ integer, intent(in)  :: numfile,energy_verified_no
+ real,    intent(in)  :: mass_star,radius,temperature,central_den
+ character(len=120)   :: filename
+ logical              :: iexist
+
+ filename = 'all_analysis.dat'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) then
+
+    open(21,file=filename,status='new',action='write',form='formatted')
+    write(21,"(13(a))") "[Mass of remnant]"," ", "[File number]"," ","[Central Density]"," ", "[Central Temperature K]"," ","[Radius in cm]"," ","[No of particles in star]"
+    write(21,"(es12.5,1x,i4,3(1x,es12.5),1x,i8)") mass_star*umass, numfile,central_den*unit_density,temperature,radius*udist,energy_verified_no
+    close(21)
+
+  else
+
+    open(21,file=filename,status='old',action='write',form='formatted',position="append")
+    write(21,"(es12.5,1x,i4,3(1x,es12.5),1x,i8)") mass_star*umass, numfile,central_den*unit_density,temperature,radius*udist,energy_verified_no
+    close(21)
+
+  endif
+
+  print*,mass_star*umass, "star"
+
+end subroutine write_mass_of_star_and_no
 
 end module analysis

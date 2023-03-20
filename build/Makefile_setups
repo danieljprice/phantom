@@ -748,6 +748,7 @@ ifeq ($(SETUP), grstar)
     KNOWN_SETUP=yes
     MAXP=100000000
     GRAVITY=yes
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), dustystar)
