@@ -75,6 +75,12 @@ Clone a copy of phantom into your home directory::
    $ cd $HOME
    $ git clone https://github.com/danieljprice/phantom.git
    $ cd phantom
+   
+and tell git who you are::
+
+   $ git config --global user.name "Joe Bloggs"
+   $ git config --global user.email "joe.bloggs@monash.edu"
+
 
 Run a calculation
 ------------------
