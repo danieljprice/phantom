@@ -45,7 +45,9 @@ module analysis
  real                                 :: omega_corotate=0,init_radius,rho_surface,gamma
  logical, dimension(5)                :: switch = .false.
  public                               :: do_analysis
+ public                               :: tconv_profile,get_interior_mass ! public = no unused fn warning
  private
+
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
@@ -2366,7 +2368,7 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
           xhe2 = xion(4) ! He+ ionisation to He++ fraction
           xhe0 = 1.-xion(3)
        else  ! Not supported
-          print*,"Error, insensible to use unbound_ionfrac when not using MESA EoS (ieos=10) or gas+rad+rec EoS (ieos=20)"
+          print*,"Error, not sensible to use unbound_ionfrac when not using MESA EoS (ieos=10) or gas+rad+rec EoS (ieos=20)"
           stop
        endif
        ionfrac(i,1) = xh0
@@ -3341,7 +3343,7 @@ subroutine print_dump_numbers(dumpfile)
  endif
  if (i==nseps+1) then
     print "(5(a,/))",'../',dumpfiles
-    stop
+    return
  endif
 
 end subroutine print_dump_numbers
@@ -3783,6 +3785,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  vol_npart = 0
  vol_mass = 0.
  omega = 0.
+ cs = 0.
 
  ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
  dr = 0.
@@ -3790,7 +3793,8 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  Rsinksink = 0.
  vol_npart = 0
  Rsphere = 0.
- if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
+ select case(iavgopt)
+ case(1,2,5,6)
     select case (iavgopt)
     case(1) ! Use companion position
        sphere_centre = xyzmh_ptmass(1:3,i)
@@ -3822,7 +3826,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
     if ((iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) vel = -vel ! To-do: get rid of this line
 
     ! Averaging in annulus
- elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
+ case(3,4)
     Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
     zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
     if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
@@ -3839,7 +3843,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
        endif
     enddo
     vol_mass = vol_npart * particlemass
- endif
+ end select
 
  ! Calculate averaging volume based on averaging option
  select case (iavgopt)
@@ -3853,7 +3857,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  case default
     volume = 0.
     print*,'Unknown averaging option'
-    stop
+    return
  end select
 
  ! Calculate volume averages
