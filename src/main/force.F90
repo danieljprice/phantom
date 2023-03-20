@@ -179,7 +179,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-                 rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fxyzold,&
+                 rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyzold,&
                  ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
 
  use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi
@@ -216,6 +216,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 #ifdef DUST
  use kernel,       only:wkern_drag,cnormk_drag
+ use dust,         only:drag_implicit
 #endif
  use nicil,        only:nimhd_get_jcbcb
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
@@ -233,7 +234,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(in)    :: dustfrac(:,:)
  real,         intent(in)    :: dustprop(:,:)
  real,         intent(inout) :: dustgasprop(:,:)
- real,         intent(inout) :: fxyzold (:,:)
+ real,         intent(in)    :: fext(:,:)
+ real,         intent(inout) :: fxyzold(:,:)
  real,         intent(in)    :: eos_vars(:,:)
  real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:)
  real,         intent(in)    :: Bevol(:,:)
@@ -264,8 +266,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 #ifdef DUST
  real                   :: frac_stokes,frac_super
- real, allocatable, dimension(:,:) :: fxyz_oldcopy
-
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -357,8 +357,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  nstokes       = 0
  nsuper        = 0
  ndustres      = 0
- if (use_dust) fxyz_oldcopy = fxyzold
-
+ !store the force vector needed for implicit drag
+ if (use_dust .and. drag_implicit) then
+    !$omp parallel do default(none) shared(fxyzu,fext,npart,fxyzold) private(i)
+    do i=1,npart
+       fxyzold(1,i) = fxyzu(1,i) + fext(1,i)
+       fxyzold(2,i) = fxyzu(2,i) + fext(2,i)
+       fxyzold(3,i) = fxyzu(3,i) + fext(3,i)
+    enddo
+    !$omp end parallel do
+ endif
 
  ! sink particle creation
  ipart_rhomax  = 0
@@ -387,7 +395,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dustprop) &
 !$omp shared(dustgasprop) &
 !$omp shared(fxyzold) &
-!$omp shared(fxyz_oldcopy) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(divcurlv) &
@@ -479,7 +486,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     cell%icell = icell
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
-                    dustfrac,dustprop,fxyz_oldcopy,eta_nimhd,eos_vars,alphaind,stressmax,&
+                    dustfrac,dustprop,fxyzold,eta_nimhd,eos_vars,alphaind,stressmax,&
                     rad,radprop,dens,metrics)
     if (cell%npcell == 0) cycle over_cells
 
@@ -510,7 +517,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                      dustfrac,dustprop,fxyz_oldcopy,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                      dustfrac,dustprop,fxyzold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                       rad,radprop,dens,metrics,dt)
 
     if (do_export) then
@@ -567,7 +574,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
-                         dustfrac,dustprop,fxyz_oldcopy,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
+                         dustfrac,dustprop,fxyzold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
                          rad,radprop,dens,metrics,dt)
 
        remote_export = .false.
@@ -998,7 +1005,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj,projvi,projvj
- real    :: fxi_old,fyi_old,fzi_old,dfx_old,dfy_old,dfz_old
+ real    :: fxi_old,fyi_old,fzi_old
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
  real    :: densj
@@ -1057,7 +1064,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     grainsizei = xpartveci(igrainsizei)
     graindensi = xpartveci(igraindensi)
  endif
- if (use_dust) then
+ if (use_dust .and. drag_implicit) then
     fxi_old = xpartveci(ifxi_old)
     fyi_old = xpartveci(ifyi_old)
     fzi_old = xpartveci(ifzi_old)
@@ -1327,12 +1334,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        ! do the projection here
        projv = dvx*runix + dvy*runiy + dvz*runiz
-
-       dfx_old = fxi_old - fxyzold(1,j)
-       dfy_old = fyi_old - fxyzold(2,j)
-       dfz_old = fzi_old - fxyzold(3,j)
-
-       projfxyz_old  = dfx_old*runix + dfy_old*runiy + dfz_old*runiz
 
        if (iamgasj .and. maxvxyzu >= 4) then
           enj = utherm(vxyzu(:,j),rhoj,gamma)
@@ -1828,17 +1829,25 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
-                call get_drag_terms(drag_implicit,tsijtmp,dt,sdrag1,sdrag2)
-                dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projfxyz_old)/(rhoi + rhoj)*wdrag
-                if (.not. drag_implicit) ts_min = min(ts_min,tsijtmp)
+                if (drag_implicit) then
+                   ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
+                   call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_old,fyi_old,fzi_old,runix,runiy,runiz,fxyzold(:,j),projfxyz_old)
+                   dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projfxyz_old)/(rhoi + rhoj)*wdrag
+                else
+                   ! explicit drag, with timestep condition
+                   dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
+                   ts_min = min(ts_min,tsijtmp)
+                endif
                 !store acceleration without drag here fr the next iteration
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
                 fsum(ifzi) = fsum(ifzi) - dragterm*runiz
                 if (maxvxyzu >= 4) then
                    !--energy dissipation due to drag
-                   dragheating = dragterm*projv - &
-                   0.5*3.*pmassj*dt*(sdrag1*projvstar - sdrag2*projfxyz_old)**2/(rhoi + rhoj)*wdrag
+                   dragheating = dragterm*projv
+                   if (drag_implicit) then
+                      dragheating = dragheating - 0.5*3.*pmassj*dt*(sdrag1*projvstar - sdrag2*projfxyz_old)**2/(rhoi + rhoj)*wdrag
+                   endif
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
@@ -1870,9 +1879,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    idusttype = iamtypei - idust + 1
                    call get_ts(idrag,idusttype,grainsize(idusttype),graindens(idusttype),rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                 endif
-                call get_drag_terms(drag_implicit,tsijtmp,dt,sdrag1,sdrag2)
-                dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projfxyz_old)/(rhoi + rhoj)*wdrag
-                if (.not. drag_implicit) ts_min = min(ts_min,tsijtmp)
+                if (drag_implicit) then
+                   ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
+                   call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_old,fyi_old,fzi_old,runix,runiy,runiz,fxyzold(:,j),projfxyz_old)
+                   dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projfxyz_old)/(rhoi + rhoj)*wdrag
+                else
+                   ! explicit drag, with timestep condition
+                   dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
+                   ts_min = min(ts_min,tsijtmp)
+                endif
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
@@ -2773,11 +2788,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fxyzu(2,i) = fsum(ifyi)
     fxyzu(3,i) = fsum(ifzi)
 #endif
-   if (drag_implicit) then
-       fxyzold(1,i) = fxyzu(1,i)
-       fxyzold(2,i) = fxyzu(2,i)
-       fxyzold(3,i) = fxyzu(3,i)
-    endif
     drhodti = pmassi*fsum(idrhodti)
 
     isgas: if (iamgasi) then
@@ -3258,12 +3268,15 @@ end function slope_limiter_gr
 !  As described in Loren-Anguilar & Bate (2015), MNRAS 454, 4114-4119
 !+
 !-----------------------------------------------------------------------------
-subroutine get_drag_terms(drag_implicit,tsijtmp,dt,sdrag1,sdrag2)
- logical,   intent(in)    :: drag_implicit
- real,      intent(in)    :: tsijtmp,dt
- real,      intent(inout) :: sdrag1,sdrag2
+subroutine get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_old,fyi_old,fzi_old,&
+                          runix,runiy,runiz,fxyzold,projfxyz_old)
+ real,      intent(in)    :: tsijtmp,dt,fxi_old,fyi_old,fzi_old,runix,runiy,runiz
+ real,      intent(in)    :: fxyzold(:)
+ real,      intent(inout) :: sdrag1,sdrag2,projfxyz_old
 
- if (drag_implicit .and. (dt > epsilon(0.))) then
+ projfxyz_old  = (fxi_old - fxyzold(1))*runix + (fyi_old - fxyzold(2))*runiy + (fzi_old - fxyzold(3))*runiz
+
+ if (dt > epsilon(0.)) then
     sdrag1 = (1. - exp(-dt/tsijtmp))/dt
     sdrag2 = ((dt+tsijtmp)*(1. - exp(-dt/tsijtmp)) - dt)/dt
  else
