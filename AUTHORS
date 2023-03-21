@@ -1,60 +1,70 @@
+#-------------------------------------------------------#
+# Contributors to Phantom, updated automatically using  #
+#                                                       #
+#  git shortlog -s -n -e | cut -f 2                     #
+#                                                       #
+# Edit .mailmap if your name or email are wrong         #
+#-------------------------------------------------------#
 Daniel Price <daniel.price@monash.edu>
-David Liptai <dliptai@swin.edu.au>
 Conrad Chan <conradchan@hotmail.com.au>
-James Wurster <jhw5@st-andrews.ac.uk>
 Mike Lau <mike.lau@monash.edu>
+James Wurster <jhw5@st-andrews.ac.uk>
+David Liptai <dliptai@swin.edu.au>
 Lionel Siess <lionel.siess@astro.ulb.ac.be>
 Daniel Mentiplay <daniel.mentiplay@protonmail.com>
 Arnaud Vericel <arnaud.vericel@univ-lyon1.fr>
 Mark Hutchison <markahutch@gmail.com>
-Terrence Tricco <ttricco@cita.utoronto.ca>
 Fitz Hu <fhuu0005@student.monash.edu>
+Megha Sharma <megha.sharma@monash.edu>
 Rebecca Nealon <rebecca.nealon@warwick.ac.uk>
 Christophe Pinte <christophe.pinte@univ-grenoble-alpes.fr>
 Ward Homan <ward.homan@kuleuven.be>
 Elisabeth Borchert <elisabeth.borchert@monash.edu>
-Fangyi (Fitz) Hu <fhuu0005@student.monash.edu>
-Sergei Biriukov <svbiriukov@gmail.com>
-Mats Esseldeurs <matsesseldeurs@yahoo.com>
-Enrico Ragusa <enr.ragusa@gmail.com>
-Giovanni Dipierro <giovanni.dipierro@leicester.ac.uk>
-Hauke Worpel <hworpel@aip.de>
-Caitlyn Hardiman <caitlyn.hardiman1@monash.edu>
-Roberto Iaconi <robertoiaconi1@gmail.com>
-Martina Toscani <mtoscani94@gmail.com>
-Simon Glover <glover@uni-heidelberg.de>
-Thomas Reichardt <thomas.reichardt@students.mq.edu.au>
-Benedetta Veronesi <benedetta.veronesi@unimi.it>
-Cristiano Longarini <cristiano.longarini@unimi.it>
-Jean-François Gonzalez <Jean-Francois.Gonzalez@ens-lyon.fr>
-MatsEsseldeurs <matsesseldeurs@yahoo.com>
-Alison Young <alison.young@ed.ac.uk>
-Simone Ceppi <simo.ceppi@gmail.com>
-Stephen Neilson <36410751+s-neilson@users.noreply.github.com>
-Amena Faruqi <afaruqi.97@gmail.com>
-Stephane Michoulier <stephane.michoulier@gmail.com>
-Christopher Russell <crussell@udel.edu>
-Sahl Rowther <sahl.rowther@leicester.ac.uk>
-Alex Pettitt <alex@astro1.sci.hokudai.ac.jp>
-Alessia Franchini <alessia.franchini@unlv.edu>
 Megha Sharma <msha0023@student.monash.edu>
-Kieran Hirsh <kieran.hirsh1@monash.edu>
-Nicole Rodrigues <nicole.rodrigues@monash.edu>
-Chris Nixon <cjn@leicester.ac.uk>
+Terrence Tricco <ttricco@cita.utoronto.ca>
+Fangyi (Fitz) Hu <fhuu0005@student.monash.edu>
+Mats Esseldeurs <matsesseldeurs@yahoo.com>
+Caitlyn Hardiman <caitlyn.hardiman1@monash.edu>
+Enrico Ragusa <enr.ragusa@gmail.com>
+Sergei Biriukov <svbiriukov@gmail.com>
+Giovanni Dipierro <giovanni.dipierro@leicester.ac.uk>
+Roberto Iaconi <robertoiaconi1@gmail.com>
+Cristiano Longarini <cristiano.longarini@unimi.it>
+Hauke Worpel <hworpel@aip.de>
+MatsEsseldeurs <matsesseldeurs@yahoo.com>
+Simone Ceppi <simo.ceppi@gmail.com>
+Alison Young <alison.young@ed.ac.uk>
+Stephane Michoulier <stephane.michoulier@gmail.com>
+Amena Faruqi <afaruqi.97@gmail.com>
+Stephen Neilson <36410751+s-neilson@users.noreply.github.com>
+Martina Toscani <mtoscani94@gmail.com>
+Benedetta Veronesi <benedetta.veronesi@unimi.it>
+Simon Glover <glover@uni-heidelberg.de>
+Sahl Rowther <sahl.rowther@leicester.ac.uk>
+Thomas Reichardt <thomas.reichardt@students.mq.edu.au>
+Jean-François Gonzalez <Jean-Francois.Gonzalez@ens-lyon.fr>
+Christopher Russell <crussell@udel.edu>
+Alessia Franchini <alessia.franchini@unlv.edu>
+Alex Pettitt <alex@astro1.sci.hokudai.ac.jp>
 Jolien Malfait <jolien.malfait@kuleuven.be>
 Phantom benchmark bot <ubuntu@phantom-benchmarks.novalocal>
-Nicolas Cuello <cuellonicolas@gmail.com>
-Benoit Commercon <benoit.commercon@gmail.com>
+Kieran Hirsh <kieran.hirsh1@monash.edu>
+Nicole Rodrigues <nicole.rodrigues@monash.edu>
 David Trevascus <dtre10@student.monash.edu>
+Amena Faruqi <Amena.Faruqi@warwick.ac.uk>
+Megha Sharma <megha@meghas-air.home>
+Nicolas Cuello <cuellonicolas@gmail.com>
+Chris Nixon <cjn@leicester.ac.uk>
+s-neilson <36410751+s-neilson@users.noreply.github.com>
 Orsola De Marco <orsola.demarco@mq.edu.au>
 Joe Fisher <jwfis1@student.monash.edu>
-Giulia Ballabio <giulia.ballabio2@studenti.unimi.it>
-Amena Faruqi <Amena.Faruqi@warwick.ac.uk>
 Zachary Pellow <zpel1@student.monash.edu>
-s-neilson <36410751+s-neilson@users.noreply.github.com>
-Cox, Samuel <sc676@leicester.ac.uk>
 Maxime Lombart <maxime.lombart@ens-lyon.fr>
-Jorge Cuadra <jcuadra@astro.puc.cl>
+Megha Sharma <megha@dyn-49-127-43-125.its.monash.edu.au>
+Giulia Ballabio <giulia.ballabio2@studenti.unimi.it>
+Benoit Commercon <benoit.commercon@gmail.com>
 Steven Rieder <steven@rieder.nl>
+Cox, Samuel <sc676@leicester.ac.uk>
+Jorge Cuadra <jcuadra@astro.puc.cl>
 Stéven Toupin <steven.toupin@gmail.com>
 Alison Young <ayoung@astro.ex.ac.uk>
