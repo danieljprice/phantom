@@ -395,6 +395,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(dustprop) &
 !$omp shared(dustgasprop) &
 !$omp shared(fxyzold) &
+!$omp shared(fext) &
 !$omp shared(vxyzu) &
 !$omp shared(fxyzu) &
 !$omp shared(divcurlv) &
@@ -524,7 +525,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold, &
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold,fext, &
                              dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -611,7 +612,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        cell = get_cell(stack_waiting,i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
-                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold, &
+                                          divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold,fext, &
                                           dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                           nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -1017,6 +1018,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: radPj,fgravxi,fgravyi,fgravzi
 
  ! unpack
+ xi            = xpartveci(ixi)
+ yi            = xpartveci(iyi)
+ zi            = xpartveci(izi)
+ vxi           = xpartveci(ivxi)
+ vyi           = xpartveci(ivyi)
+ vzi           = xpartveci(ivzi)
+ eni           = xpartveci(ieni)
  vwavei        = xpartveci(ivwavei)
  rhoi          = xpartveci(irhoi)
  rho1i         = 1./rhoi
@@ -1064,20 +1072,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     grainsizei = xpartveci(igrainsizei)
     graindensi = xpartveci(igraindensi)
  endif
- if (use_dust .and. drag_implicit) then
-    fxi_old = xpartveci(ifxi_old)
-    fyi_old = xpartveci(ifyi_old)
-    fzi_old = xpartveci(ifzi_old)
- endif
+ fxi_old = xpartveci(ifxi_old)
+ fyi_old = xpartveci(ifyi_old)
+ fzi_old = xpartveci(ifzi_old)
  dvdxi(1:9)    = xpartveci(idvxdxi:idvzdzi)
-
- xi  = xpartveci(ixi)
- yi  = xpartveci(iyi)
- zi  = xpartveci(izi)
- vxi = xpartveci(ivxi)
- vyi = xpartveci(ivyi)
- vzi = xpartveci(ivzi)
- eni = xpartveci(ieni)
 
  if (gr) then
     veli = [vxi,vyi,vzi]
@@ -1836,8 +1834,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    ! explicit drag, with timestep condition
                    dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                   ts_min = min(ts_min,tsijtmp)
                 endif
+                ts_min = min(ts_min,tsijtmp)
                 !store acceleration without drag here fr the next iteration
                 fsum(ifxi) = fsum(ifxi) - dragterm*runix
                 fsum(ifyi) = fsum(ifyi) - dragterm*runiy
@@ -1886,8 +1884,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 else
                    ! explicit drag, with timestep condition
                    dragterm = 3.*pmassj/((rhoi + rhoj)*tsijtmp)*projvstar*wdrag
-                   ts_min = min(ts_min,tsijtmp)
                 endif
+                ts_min = min(ts_min,tsijtmp)
                 ndrag = ndrag + 1
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
@@ -2474,7 +2472,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 end subroutine compute_cell
 
 subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold, &
+                                         divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyzold,fext, &
                                          dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                                          nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2553,6 +2551,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(out)   :: deltav(:,:,:)
  real,               intent(out)   :: dustgasprop(:,:)
  real,               intent(inout) :: fxyzold(:,:)
+ real,               intent(in)    :: fext(:,:)
  real,               intent(inout) :: dtcourant,dtforce,dtvisc
  real,               intent(inout) :: dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi
 #ifdef IND_TIMESTEPS
@@ -2788,6 +2787,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fxyzu(2,i) = fsum(ifyi)
     fxyzu(3,i) = fsum(ifzi)
 #endif
+    if (drag_implicit) then
+      fxyzold(1,i) = fxyzu(1,i) + fext(1,i)
+      fxyzold(2,i) = fxyzu(2,i) + fext(2,i)
+      fxyzold(3,i) = fxyzu(3,i) + fext(3,i)
+    endif
     drhodti = pmassi*fsum(idrhodti)
 
     isgas: if (iamgasi) then
@@ -3050,6 +3054,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = ts_min
+       !if (.not. drag_implicit)
        dtdrag = 0.9*ts_min
     endif
 
@@ -3272,7 +3277,7 @@ subroutine get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_old,fyi_old,fzi_old,&
                           runix,runiy,runiz,fxyzold,projfxyz_old)
  real,      intent(in)    :: tsijtmp,dt,fxi_old,fyi_old,fzi_old,runix,runiy,runiz
  real,      intent(in)    :: fxyzold(:)
- real,      intent(inout) :: sdrag1,sdrag2,projfxyz_old
+ real,      intent(out)   :: sdrag1,sdrag2,projfxyz_old
 
  projfxyz_old  = (fxi_old - fxyzold(1))*runix + (fyi_old - fxyzold(2))*runiy + (fzi_old - fxyzold(3))*runiz
 
