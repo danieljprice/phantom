@@ -24,6 +24,7 @@ module readwrite_infile
 !   - beta               : *beta viscosity*
 !   - bulkvisc           : *magnitude of bulk viscosity*
 !   - calc_erot          : *include E_rot in the ev_file*
+!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
 !   - dtmax              : *time between dumps*
 !   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
 !   - dtmax_max          : *dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)*
