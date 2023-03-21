@@ -97,7 +97,7 @@ contains
 !!
 !! ARGUMENTS
 !!
-!! PARAMETERS
+!! parameterS
 !!
 !!   These are the runtime parameters used in the Stir unit.
 !!
