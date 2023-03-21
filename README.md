@@ -73,7 +73,7 @@ Licence
 
 See LICENCE file for usage and distribution conditions.
 
-Copyright (c) 2007-2020 Daniel Price and contributors (see AUTHORS file).
+Copyright (c) 2007-2023 Daniel Price and contributors (see AUTHORS file).
 
 Release notes
 -------------

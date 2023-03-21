@@ -1287,7 +1287,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
-             print *, "case 2. Tag:", tag
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
           case(4)
