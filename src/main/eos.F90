@@ -372,6 +372,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
        tempi = eni
        call warning('eos','Not sure if this is correct now that temperature is always passed into eos')
     else
+       spsoundi = 0.; presi = 0.; ponrhoi = 0.; tempi = 0. ! to avoid compiler warnings
        call fatal('eos','tried to call NL3 eos without passing temperature')
     endif
 

@@ -6,7 +6,18 @@
 !--------------------------------------------------------------------------!
 module healpix
 !
-! healpix
+! This module sets the types used in the Fortran 90 modules (healpix_types.f90)
+! of the HEALPIX distribution and follows the example of Numerical Recipes
+!
+! Benjamin D. Wandelt October 1997
+! Eric Hivon June 1998
+! Eric Hivon Oct  2001, edited to be compatible with 'F' compiler
+! Eric Hivon July 2002, addition of i8b, i2b, i1b
+!                       addition of max_i8b, max_i2b and max_i1b
+!            Jan 2005, explicit form of max_i1b because of ifc 8.1.021
+!            June 2005, redefine i8b as 16 digit integer because of Nec f90 compiler
+!            Mars 2008: i8b same as i4b on machines not supporting 64 bits (NO64BITS flag set)
+!            Feb  2009: introduce healpix_version
 !
 ! :References: None
 !
@@ -17,19 +28,6 @@ module healpix
 ! :Dependencies: None
 !
  implicit none
- ! This module sets the types used in the Fortran 90 modules (healpix_types.f90)
- ! of the HEALPIX distribution and follows the example of Numerical Recipes
- !
- ! Benjamin D. Wandelt October 1997
- ! Eric Hivon June 1998
- ! Eric Hivon Oct  2001, edited to be compatible with 'F' compiler
- ! Eric Hivon July 2002, addition of i8b, i2b, i1b
- !                       addition of max_i8b, max_i2b and max_i1b
- !            Jan 2005, explicit form of max_i1b because of ifc 8.1.021
- !            June 2005, redefine i8b as 16 digit integer because of Nec f90 compiler
- !            Mars 2008: i8b same as i4b on machines not supporting 64 bits (NO64BITS flag set)
- !            Feb  2009: introduce healpix_version
- !
  character(len=*), PARAMETER, public :: healpix_version = '3.80'
  integer, PARAMETER, public :: i4b = SELECTED_INT_KIND(9)
  integer, PARAMETER, public :: i8b = SELECTED_INT_KIND(16)
@@ -326,6 +324,7 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
  !     computes the z coordinate on the sphere
  jr =  jrll(face_num+1)*nside - jrt - 1   ! ring number in {1,4*nside-1}
 
+ z_nv = 0.; z_sv = 0.     ! avoid compiler warnings
 
  if (jr < nside) then     ! north pole region
     nr = jr
@@ -383,6 +382,7 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
     phi_sv = phi
     diff_phi = 0 ! phi_nv = phi_sv = phisth * 1}
     iphi_rat = (jp-1) / nr      ! in {0,1,2,3}
+    iphi_mod = mod(jp-1,nr)
     if (nr > 1) phi_up = HALFPI * (iphi_rat +  iphi_mod   /real(nr-1))
     phi_dn             = HALFPI * (iphi_rat + (iphi_mod+1)/real(nr+1))
     if (jr < nside) then            ! North polar cap
@@ -458,8 +458,8 @@ function npix2nside  (npix) result(nside_result)
  if (npix < 12 .or. npix > npix_max) then
     print*, code,"> Npix=",npix, &
     & " is out of allowed range: {12,",npix_max,"}"
-    nside = -1
-    goto 1
+    nside_result = -1
+    return
  endif
 
  nside = nint( sqrt(npix/12.0_dp) )
@@ -467,18 +467,17 @@ function npix2nside  (npix) result(nside_result)
  if (abs(npix1-npix) > 0) then
     print*, code,"> Npix=",npix, &
     & " is not 12 * Nside * Nside "
-    nside = -1
-    goto 1
+    nside_result = -1
+    return
  endif
 
  ! test validity of Nside
  npix2 = nside2npix(nside)
  if (npix2 < 0) then
-    nside = -1
-    goto 1
+    nside_result = -1
+    return
  endif
 
-1 continue
  nside_result = nside
  return
 
@@ -1164,4 +1163,5 @@ subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
  ipix = ipf + face_num* int(nside,MKD) * nside    ! in {0, 12*nside**2 - 1}
  return
 end subroutine xy2pix_nest
+
 end module healpix
