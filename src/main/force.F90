@@ -3054,8 +3054,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = ts_min
-       !if (.not. drag_implicit)
-       dtdrag = 0.9*ts_min
+       if (.not. drag_implicit) dtdrag = 0.9*ts_min
     endif
 
     if (do_radiation .and. iamgasi .and. .not.implicit_radiation) then
