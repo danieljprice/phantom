@@ -8,7 +8,7 @@ If you are in Daniel Price’s research group, request to join project “wk74�
 Log in
 -------
 
-See also the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
+Please read the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 ::
 
    ssh -Y USER@gadi.nci.org.au
@@ -221,7 +221,7 @@ this way each process is short and your movie-making can proceed without getting
 
 more info
 ---------
-See :doc:`<running-clusters>`
+See :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 
 For more information on the actual machine `read the
 userguide <https://opus.nci.org.au/display/Help/Preparing+for+Gadi>`__
