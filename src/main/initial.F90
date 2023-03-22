@@ -212,13 +212,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
- real            :: poti,dtf,hfactfile,fextv(3)
+ real            :: poti,hfactfile
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
 #ifdef NONIDEALMHD
  real            :: gmw_nicil
+#endif
+#ifndef GR
+ real            :: dtf,fextv(3)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
@@ -269,8 +272,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
 !
 !--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
-
-
+!
     irestart = index(dumpfile,'.restart')
     if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif

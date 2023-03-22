@@ -1452,6 +1452,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !rhoj      = 0.
           rho1j     = 0.
           rho21j    = 0.
+          densj     = 0.
 
           mrhoj5    = 0.
           autermj   = 0.
@@ -2774,7 +2775,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              fxyz4 = 0.
 #endif
              if (lightcurve) then
-                luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
+                luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
              endif
 #endif
           elseif (ieos==16) then ! here eni is the temperature
