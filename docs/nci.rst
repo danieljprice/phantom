@@ -63,7 +63,7 @@ Finally, make a shortcut to the /g/data filesystem::
    cd /g/data/$PROJECT
    mkdir $USER
    cd
-   ln -s /scratch/$PROJECT/$USER runs
+   ln -s /g/data/$PROJECT/$USER runs
    cd runs
    pwd -P
 
