@@ -174,7 +174,6 @@ subroutine set_photoevap_grid
  !--Because the reciprical of Cellvol is only ever used: rCellvol = 1/Cellvol
  rCellvol = 1./rCellvol
 
- return
 end subroutine set_photoevap_grid
 
 !-----------------------------------------------------------------------
@@ -185,7 +184,7 @@ end subroutine set_photoevap_grid
 !+
 !-----------------------------------------------------------------------
 subroutine find_ionfront(timei,npart,xyzh,pmassi)
-
+ use io, only:fatal
  integer, intent(in) :: npart
  real,    intent(in) :: timei
  real,    intent(in) :: pmassi
@@ -311,11 +310,9 @@ subroutine find_ionfront(timei,npart,xyzh,pmassi)
           endif
 
           if ( Ionfrac(j,i) < 0 ) then
-             print*,'Ionfrac is less than zero!'
-             stop
+             call fatal('find_ionfront','Ionfrac is less than zero!')
           elseif ( Ionfrac(j,i) > 1 ) then
-             print*,'Ionfrac is greater than 1!'
-             stop
+             call fatal('find_ionfront','Ionfrac is greater than 1!')
           endif
 
        enddo
@@ -325,7 +322,6 @@ subroutine find_ionfront(timei,npart,xyzh,pmassi)
     prev_time = timei
  endif
 
- return
 end subroutine find_ionfront
 
 !-----------------------------------------------------------------------
@@ -334,6 +330,7 @@ end subroutine find_ionfront
 !+
 !-----------------------------------------------------------------------
 subroutine photo_ionize(vxyzu,npart)
+ use io, only:fatal
  integer, intent(in)    :: npart
  real,    intent(inout) :: vxyzu(:,:)
 
@@ -343,8 +340,7 @@ subroutine photo_ionize(vxyzu,npart)
  real     :: temperature,tempi
 
  if ( size(vxyzu,1) /= 4 ) then
-    print*,'Fatal error! vxyzu does not have an energy column!'
-    stop
+    call fatal('photoevap','no u in vxyzu variable: compile with ISOTHERMAL=no'
  endif
 
 !$omp parallel do default(none)          &
@@ -363,27 +359,17 @@ subroutine photo_ionize(vxyzu,npart)
        temperature =     Ionfrac(Thetanum(ipart),Phinum(ipart))*temp_ion +   &
                    (1.-Ionfrac(Thetanum(ipart),Phinum(ipart)))*tempi
 
-    elseif ( Rnum(ipart) > Ionfront(Thetanum(ipart),Phinum(ipart)) ) then
+    else
        ! Below ionization front (neutral particles)
        temperature = tempi
 
     endif
 
-    vxyzu(4,ipart)     = temperature*energy_to_temperature_ratio
-
-!   if ( vxyzu(4,ipart) < 0 ) then
-!     print*,'vxyzu is negative!', vxyzu(4,ipart),ipart
-!     stop
-!   endif
+    vxyzu(4,ipart) = temperature*energy_to_temperature_ratio
 
  enddo
 !$omp end parallel do
 
-! do ipart = 1,npart
-!    print*,vxyzu(4,ipart)/energy_to_temperature_ratio
-! enddo
-
- return
 end subroutine photo_ionize
 
 !-----------------------------------------------------------------------
