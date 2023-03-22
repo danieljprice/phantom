@@ -90,12 +90,15 @@ subroutine allocate_photoevap
  call allocate_array('Rnum', Rnum, maxp)
  call allocate_array('Thetanum', Thetanum, maxp)
  call allocate_array('Phinum', Phinum, maxp)
+
 end subroutine allocate_photoevap
 
 subroutine deallocate_photoevap
+
  deallocate(Rnum)
  deallocate(Thetanum)
  deallocate(Phinum)
+
 end subroutine deallocate_photoevap
 
 !----------------------------------------------------------------
@@ -340,7 +343,7 @@ subroutine photo_ionize(vxyzu,npart)
  real     :: temperature,tempi
 
  if ( size(vxyzu,1) /= 4 ) then
-    call fatal('photoevap','no u in vxyzu variable: compile with ISOTHERMAL=no'
+    call fatal('photoevap','no u in vxyzu variable: compile with ISOTHERMAL=no')
  endif
 
 !$omp parallel do default(none)          &
