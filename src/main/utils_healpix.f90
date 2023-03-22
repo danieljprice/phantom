@@ -383,6 +383,7 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
     diff_phi = 0 ! phi_nv = phi_sv = phisth * 1}
     iphi_rat = (jp-1) / nr      ! in {0,1,2,3}
     iphi_mod = mod(jp-1,nr)
+    phi_up   = 0.
     if (nr > 1) phi_up = HALFPI * (iphi_rat +  iphi_mod   /real(nr-1))
     phi_dn             = HALFPI * (iphi_rat + (iphi_mod+1)/real(nr+1))
     if (jr < nside) then            ! North polar cap
