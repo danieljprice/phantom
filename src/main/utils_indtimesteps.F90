@@ -47,7 +47,6 @@ pure real function get_dt(dtmax,ibini)
 
 end function get_dt
 
-#ifdef IND_TIMESTEPS
 !----------------------------------------------------------------
 !+
 !  If dt is read in from a dump file, then initialise ibin & ibin_old.
@@ -158,7 +157,6 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  endif
 
 end subroutine set_active_particles
-#endif
 
 !----------------------------------------------------------------
 !+

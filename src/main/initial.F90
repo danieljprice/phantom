@@ -101,7 +101,6 @@ subroutine initialise()
 
  call init_readwrite_dumps()
 
- return
 end subroutine initialise
 
 !----------------------------------------------------------------
@@ -112,7 +111,8 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,idumpfile
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,&
+                            use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -152,16 +152,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
- use timestep_ind,     only:istepfrac
  use timing,           only:get_timings
-#ifdef IND_TIMESTEPS
- use timestep_ind,     only:ibinnow,maxbins,init_ibin
+ use timestep_ind,     only:ibinnow,maxbins,init_ibin,istepfrac
  use timing,           only:get_timings
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
-#else
  use timestep,         only:dtcourant,dtforce
-#endif
 #ifdef STS_TIMESTEPS
  use timestep,         only:dtdiff
 #endif
@@ -169,12 +165,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef DRIVING
  use forcing,          only:init_forcing
 #endif
-#ifdef DUST
  use dust,             only:init_drag
-#ifdef DUSTGROWTH
  use growth,           only:init_growth
-#endif
-#endif
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
  use io,               only:imflow
@@ -328,14 +320,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call init_forcing(dumpfile,infile,time)
 #endif
 
-#ifdef DUST
- call init_drag(ierr)
- if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
-#ifdef DUSTGROWTH
- call init_growth(ierr)
- if (ierr /= 0) call fatal('initial','error initialising growth variables')
-#endif
-#endif
+ if (use_dust) then
+    call init_drag(ierr)
+    if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
+    if (use_dustgrowth) then
+       call init_growth(ierr)
+       if (ierr /= 0) call fatal('initial','error initialising growth variables')
+    endif
+ endif
 !
 !--initialise cooling function
 !  this will initialise all cooling variables, including if h2chemistry = true
@@ -377,17 +369,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     enddo
  endif
 
-#ifdef IND_TIMESTEPS
- ibin(:)       = 0
- ibin_old(:)   = 0
- ibin_wake(:)  = 0
- if (dt_read_in) call init_ibin(npart,dtmax)
- istepfrac     = 0
- ibinnow       = 0
-#else
- dtcourant = huge(dtcourant)
- dtforce   = huge(dtforce)
-#endif
+ if (ind_timesteps) then
+    ibin(:)       = 0
+    ibin_old(:)   = 0
+    ibin_wake(:)  = 0
+    if (dt_read_in) call init_ibin(npart,dtmax)
+    istepfrac     = 0
+    ibinnow       = 0
+ else
+    dtcourant = huge(dtcourant)
+    dtforce   = huge(dtforce)
+ endif
  dtinject  = huge(dtinject)
 
 !
@@ -610,14 +602,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--set initial timestep
 !
-#ifndef IND_TIMESTEPS
- dt = min(dtnew_first,dtinject)
- if (id==master) then
-    write(iprint,*) 'dt(forces)    = ',dtforce
-    write(iprint,*) 'dt(courant)   = ',dtcourant
-    write(iprint,*) 'dt initial    = ',dt
+ if (.not.ind_timesteps) then
+    dt = min(dtnew_first,dtinject)
+    if (id==master) then
+       write(iprint,*) 'dt(forces)    = ',dtforce
+       write(iprint,*) 'dt(courant)   = ',dtcourant
+       write(iprint,*) 'dt initial    = ',dt
+    endif
  endif
-#endif
 !
 !--Calculate current centre of mass
 !

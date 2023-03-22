@@ -334,6 +334,7 @@ module dim
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
  integer :: maxgran = 0
+ integer :: maxindan = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -432,6 +433,10 @@ subroutine update_max_sizes(n,ntot)
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
  maxgran = maxgr
+#endif
+
+#ifdef IND_TIMESTEPS
+ maxindan = maxan
 #endif
 
 #ifdef RADIATION
