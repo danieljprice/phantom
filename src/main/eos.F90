@@ -44,7 +44,7 @@ module eos
 !   units
 !
  use part, only:ien_etotal,ien_entropy,ien_type
- use dim, only:gr
+ use dim,  only:gr
  implicit none
  integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
@@ -52,13 +52,10 @@ module eos
  logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0.
 
-
  public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
-#ifdef KROME
  public  :: get_local_u_internal
-#endif
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
  public  :: get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
@@ -95,7 +92,6 @@ module eos
  real, public :: alpha_z = 3.01
  real, public :: beta_z  = 0.42
 
-
 contains
 
 !----------------------------------------------------------------
@@ -129,13 +125,15 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
-#ifdef GR
  real    :: enthi,pondensi
-! Check to see if adiabatic equation of state is being used.
- if (eos_type /= 2 .and. eos_type /= 4 .and. eos_type /= 11 .and. eos_type /= 12) &
- call fatal('eos','GR is only compatible with an adiabatic equation of state (ieos=2), for the time being.',&
- var='eos_type',val=real(eos_type))
-#endif
+ !
+ ! Check to see if equation of state is compatible with GR cons2prim routines
+ !
+ if (gr .and. .not.any((/2,4,11,12/)==eos_type)) then
+    ponrhoi = 0.; spsoundi = 0. ! avoid compiler warning
+    call fatal('eos','GR currently only works for ieos=2,12 or 11',&
+         var='eos_type',val=real(eos_type))
+ endif
 
  gammai = gamma
  mui    = gmw
@@ -173,33 +171,34 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
     if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
-#ifdef GR
-    if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
-    if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
-    if (gammai == 1.) then
-       call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gammai)
-    elseif (gammai > 1.0001) then
-       pondensi = (gammai-1.)*eni   ! eni is the thermal energy
-       enthi = 1. + eni + pondensi    ! enthalpy
-       spsoundi = sqrt(gammai*pondensi/enthi)
-       ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
-    endif
-#else
-    if (present(eni)) then
-       if (eni < 0.) then
-          !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
-          call fatal('eos','utherm < 0',var='u',val=eni)
-       endif
-       if (gammai > 1.0001) then
-          ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
-       else
-          ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
+    if (gr) then
+       if (.not. present(eni)) call fatal('eos','GR call to equationofstate requires thermal energy as input!')
+       if (eni < 0.) call fatal('eos','utherm < 0',var='u',val=eni)
+       if (gammai <= 1.) then
+          spsoundi = 0.; ponrhoi = 0. ! avoid compiler warning
+          call fatal('eos','GR not compatible with isothermal equation of state, yet...',var='gamma',val=gammai)
+       elseif (gammai > 1.0001) then
+          pondensi = (gammai-1.)*eni   ! eni is the thermal energy
+          enthi = 1. + eni + pondensi    ! enthalpy
+          spsoundi = sqrt(gammai*pondensi/enthi)
+          ponrhoi = pondensi ! With GR this routine actually outputs pondensi (i.e. pressure on primitive density, not conserved.)
        endif
     else
-       ponrhoi = polyk*rhoi**(gammai-1.)
+       if (present(eni)) then
+          if (eni < 0.) then
+             !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
+             call fatal('eos','utherm < 0',var='u',val=eni)
+          endif
+          if (gammai > 1.0001) then
+             ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
+          else
+             ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
+          endif
+       else
+          ponrhoi = polyk*rhoi**(gammai-1.)
+       endif
+       spsoundi = sqrt(gammai*ponrhoi)
     endif
-    spsoundi = sqrt(gammai*ponrhoi)
-#endif
 
     tempi = temperature_coef*mui*ponrhoi
 
@@ -661,7 +660,7 @@ end function get_pressure
 
 !-----------------------------------------------------------------------
 !+
-!  query function to return the internal energyfor calculations with a
+!  query function to return the internal energy for calculations with a
 !  local mean molecular weight and local adiabatic index
 !+
 !-----------------------------------------------------------------------
@@ -673,7 +672,6 @@ real function get_local_u_internal(gammai, gmwi, gas_temp_local)
  get_local_u_internal = ponrhoi/(gammai-1.)
 
 end function get_local_u_internal
-
 
 !-----------------------------------------------------------------------
 !+
@@ -1280,7 +1278,6 @@ subroutine write_headeropts_eos(ieos,hdr,ierr)
     call add_to_rheader(alpha_z,'alpha_z',hdr,ierr)
     call add_to_rheader(beta_z,'beta_z',hdr,ierr)
     call add_to_rheader(z0,'z0',hdr,ierr)
-
  endif
 
 end subroutine write_headeropts_eos
