@@ -233,11 +233,11 @@ for edittype in $bots_to_run; do
                      -e 's/IAND(/iand(/g' \
                      -e 's/IEOR(/ieor(/g' \
                      -e 's/MODULO(/modulo(/g' \
-                     -e 's/KIND(/kind(/g' \
                      -e 's/HUGE(/huge(/g' \
                      -e 's/TINY(/tiny(/g' \
                      -e 's/SELECTED_REAL_KIND(/selected_real_kind(/g' \
                      -e 's/SELECTED_INT_KIND(/selected_int_kind(/g' \
+                     -e 's/KIND(/kind(/g' \
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
                  sed -e 's/end if/endif/g' \

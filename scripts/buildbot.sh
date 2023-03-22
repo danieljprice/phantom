@@ -84,8 +84,9 @@ allsetups=${setuparr[@]:$offset:$batchsize}
 echo "Batch ${batch}: ${allsetups}"
 #
 # change the line below to exclude things that depend on external libraries from the build
+# we also choose to disallow compiler warnings here
 #
-nolibs='MESAEOS=no'
+nolibs='MESAEOS=no NOWARN=yes'
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
