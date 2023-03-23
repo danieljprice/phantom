@@ -18,7 +18,7 @@ module photoevap
 !   - mu_cgs         : *Mean molecular weight*
 !   - recombrate_cgs : *Recombination rate (alpha)*
 !
-! :Dependencies: allocutils, dim, eos, externalforces, infile_utils,
+! :Dependencies: allocutils, dim, eos, externalforces, infile_utils, io,
 !   physcon, units
 !
 

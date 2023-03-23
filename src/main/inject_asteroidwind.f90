@@ -15,10 +15,9 @@ module inject
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - mdot          : *mass injection rate in grams/second*
-!   - mdot_type     : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
-!   - npartperorbit : *particle injection rate in particles/binary orbit*
-!   - vlag          : *percentage lag in velocity of wind*
+!   - mdot      : *mass injection rate in grams/second*
+!   - mdot_type : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
+!   - vlag      : *percentage lag in velocity of wind*
 !
 ! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
 !   part, partinject, physcon, random, units

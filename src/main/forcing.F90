@@ -16,16 +16,17 @@ module forcing
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - istir        : *switch to turn stirring on or off at runtime*
-!   - st_amplfac   : *amplitude factor for stirring of turbulence*
-!   - st_decay     : *correlation time for driving*
-!   - st_dtfreq    : *frequency of stirring*
-!   - st_energy    : *energy input/mode*
-!   - st_seed      : *random number generator seed*
-!   - st_solweight : *solenoidal weight*
-!   - st_spectform : *spectral form of stirring*
-!   - st_stirmax   : *maximum stirring wavenumber*
-!   - st_stirmin   : *minimum stirring wavenumber*
+!   - istir          : *switch to turn stirring on or off at runtime*
+!   - st_amplfac     : *amplitude factor for stirring of turbulence*
+!   - st_decay       : *correlation time for driving*
+!   - st_dtfreq      : *frequency of stirring*
+!   - st_energy      : *energy input/mode*
+!   - st_seed        : *random number generator seed*
+!   - st_solweight   : *solenoidal weight*
+!   - st_spectform   : *spectral form of stirring*
+!   - st_stirmax     : *maximum stirring wavenumber*
+!   - st_stirmin     : *minimum stirring wavenumber*
+!   - stir_from_file : *stir using pre-generated file?*
 !
 ! :Dependencies: boundary, datafiles, fileutils, infile_utils, io,
 !   mpiutils, part
