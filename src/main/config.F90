@@ -49,8 +49,10 @@ module dim
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
+ logical, parameter :: isothermal = .true.
 #else
  integer, parameter :: maxvxyzu = 4
+ logical, parameter :: isothermal = .false.
 #endif
 
  integer :: maxTdust = 0
