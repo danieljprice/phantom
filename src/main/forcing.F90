@@ -684,9 +684,9 @@ end subroutine st_calcPhases
 
 subroutine st_ounoiseinit (vectorlength, iseed, variance, vector)
 
- integer, intent(IN)    :: vectorlength, iseed
- real,    intent(IN)    :: variance
- real,    intent(INOUT) :: vector (vectorlength)
+ integer, intent(in)    :: vectorlength, iseed
+ real,    intent(in)    :: variance
+ real,    intent(inout) :: vector (vectorlength)
  real                    :: grnval
  integer                 :: i
 
@@ -763,9 +763,9 @@ end subroutine st_ounoiseinit
 
 
 subroutine st_ounoiseupdate (vectorlength, vector, variance, dt, ts)
- real,    intent(IN)    :: variance, dt, ts
- integer, intent(IN)    :: vectorlength
- real,    intent(INOUT) :: vector (vectorlength)
+ real,    intent(in)    :: variance, dt, ts
+ integer, intent(in)    :: vectorlength
+ real,    intent(inout) :: vector (vectorlength)
  real                              :: grnval, damping_factor
  integer                           :: i
 
@@ -1026,7 +1026,7 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 !!***
  subroutine st_grn (grnval)
 
-  real, intent(OUT) :: grnval
+  real, intent(out) :: grnval
   real              :: pi, r1, r2, g1
 
   pi = 4. * atan (1.)

@@ -29,12 +29,12 @@ module healpix
 !
  implicit none
  character(len=*), parameter, public :: healpix_version = '3.80'
- integer, parameter, public :: i4b = SELECTED_INT_kind(9)
- integer, parameter, public :: i8b = SELECTED_INT_kind(16)
- integer, parameter, public :: i2b = SELECTED_INT_kind(4)
- integer, parameter, public :: i1b = SELECTED_INT_kind(2)
- integer, parameter, public :: sp  = SELECTED_REAL_kind(5,30)
- integer, parameter, public :: dp  = SELECTED_REAL_kind(12,200)
+ integer, parameter, public :: i4b = selected_int_kind(9)
+ integer, parameter, public :: i8b = selected_int_kind(16)
+ integer, parameter, public :: i2b = selected_int_kind(4)
+ integer, parameter, public :: i1b = selected_int_kind(2)
+ integer, parameter, public :: sp  = selected_real_kind(5,30)
+ integer, parameter, public :: dp  = selected_real_kind(12,200)
  integer, parameter, public :: lgt = kind(.TRUE.)
  integer, parameter, public :: spc = kind((1.0_sp, 1.0_sp))
  integer, parameter, public :: dpc = kind((1.0_dp, 1.0_dp))
