@@ -110,6 +110,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              pmassi = massoftype(igas)
           endif
        else
+          itype = igas
           pmassi = massoftype(igas)
        endif
        rhoi = rhoh(hi,pmassi)
