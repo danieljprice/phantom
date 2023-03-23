@@ -226,6 +226,9 @@ for edittype in $bots_to_run; do
                      -e 's/INTENT(IN)/intent(in)/g' \
                      -e 's/INTENT(OUT)/intent(out)/g' \
                      -e 's/INTENT(INOUT)/intent(inout)/g' \
+                     -e 's/intent(IN)/intent(in)/g' \
+                     -e 's/intent(OUT)/intent(out)/g' \
+                     -e 's/intent(INOUT)/intent(inout)/g' \
                      -e 's/INT(/int(/g' \
                      -e 's/MIN(/min(/g' \
                      -e 's/ABS(/abs(/g' \
@@ -237,6 +240,8 @@ for edittype in $bots_to_run; do
                      -e 's/TINY(/tiny(/g' \
                      -e 's/SELECTED_REAL_KIND(/selected_real_kind(/g' \
                      -e 's/SELECTED_INT_KIND(/selected_int_kind(/g' \
+                     -e 's/SELECTED_REAL_kind(/selected_real_kind(/g' \
+                     -e 's/SELECTED_INT_kind(/selected_int_kind(/g' \
                      -e 's/KIND(/kind(/g' \
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
