@@ -64,6 +64,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use vectorutils,    only:rotatevec
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use io,             only:fatal
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -71,13 +72,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
- real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3)
+ real                    :: Ltot(3)
  real                    :: rp,rt
- real                    :: x,y,z,vx,vy,vz
- real                    :: x0,y0,vx0,vy0,alpha,z0,vz0
+ real                    :: x0,y0,vx0,vy0,vz0,alpha,z0
  real                    :: c_light,m0
- real                    :: unit_ltot(3),unit_L_sum(3),ltot_mag,L_mag,accradius2
- real                    :: dot_value_angvec,angle_btw_vec,xyzstar(3),vxyzstar(3)
+ real                    :: accradius2
+ real                    :: xyzstar(3),vxyzstar(3)
  real                    :: semia,period,hacc1,hacc2
 !
 !-- Default runtime parameters
@@ -106,8 +106,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! default parameters for binary (overwritten from .tdeparams file)
  use_binary = .false.
  iorigin = 0
- rp = rt/beta
- r0 = 10.*rt
 
  filename = 'tde'//'.tdeparams'                                ! moddump should really know about the output file prefix...
  inquire(file=filename,exist=iexist)
@@ -139,21 +137,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
  call get_angmom(ltot,npart,xyzh,vxyzu)
- if (ecc<1.) then
-    print*, 'Eliptical orbit'
+ if (ecc < 1.) then
+    print*, 'Elliptical orbit'
 
     alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
 
     print*,rt*(1.+ecc),"(rt*(1.+ecc)",(r0*beta),"(r0*beta)",(rt*(1.+ecc)/(r0*beta)-1.),"(rt*(1.+ecc)/(r0*beta)-1.)"
     print*,(rt*(1.+ecc)/(r0*beta)-1.)/ecc,"(rt*(1.+ecc)/(r0*beta)-1.)/ecc"
-    !x0    = -r0*cos(alpha)
-    !y0    = r0*sin(alpha)
-    !vx0   = sqrt(m0*beta/((1.+ecc)*rt)) * sin(alpha)
-    !vy0   = -sqrt(m0*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
 
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
-    hacc1    = rs/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+    hacc1    = rs/1.e8    ! Something small so set_binary doesn't warn about Roche lobe
     hacc2    = hacc1
     call set_binary(m0,ms,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
@@ -177,6 +171,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz0   = 0.
     xyzstar = (/x0,y0,z0/)
     vxyzstar = (/vx0,vy0,vz0/)
+ else
+    call fatal('moddump_tidal',' Hyperbolic orbits not implemented')
+    x0 = 0.; y0 = 0.; z0 = 0.; vx0 = 0.; vy0 = 0.; vz0 = 0. ! avoid compiler warning
  endif
 
  !--Set input file parameters

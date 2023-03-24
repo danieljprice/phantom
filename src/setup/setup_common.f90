@@ -31,8 +31,9 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use setbinary, only:set_binary
- use units,     only:umass,utime,udist,set_units
+ use units,     only:umass,udist,set_units
  use physcon,   only:au,solarm,solarr
+ use kernel,    only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--general parameters
 !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  polyk = 0.
  gamma = 1.
 !

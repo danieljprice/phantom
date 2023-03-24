@@ -6,7 +6,9 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! test common envelope - put point source star next to gas sphere
+! take a snapshot containing a single star and convert it into a binary
+! system, either by adding a sink particle companion, or by adding a
+! second star from another dumpfile
 !
 ! :References: None
 !
@@ -102,7 +104,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call open_db_from_file(db,filename,20,ierr)
        call read_inopt(omega_corotate,'omega_corotate',db)
        call close_db(db)
-       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
+       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,&
+             omega_corotate,xyzmh_ptmass,vxyz_ptmass)
 
     case(2)
        call prompt('How many code units to shift companion (+ve is towards primary)?',comp_shift)
@@ -116,7 +119,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
        iexternalforce = iext_corotate
-       omega_corotate = sqrt((sink_dist-comp_shift)*(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2)))/(sink_dist-comp_shift)**2
+       omega_corotate = sqrt((sink_dist-comp_shift)* &
+             (xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2)))/(sink_dist-comp_shift)**2
 
        do i=1,npart
           vxyzu(1,i) = 0.0
@@ -156,7 +160,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                      '2) Set up a magnetic field in the star', &
                      '3) Manually cut profile to create sink in core', &
                      '4) Manually create sink in core', &
-                     '5) Set up trinary system', &
+                     '5) Set up triple system', &
                      '6) Set up star for relaxation in corotating frame with companion potential', &
                      '7) Set up binary after relaxation in corotating frame with companion potential', &
                      '8) Set up a binary system with a star from another dumpfile', &
@@ -231,12 +235,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays, and nptmass increases by 2
        endif
 
-       if (nptmass1 == 0) then
-          iprim = 1
-          isec = 2
-       elseif (nptmass1 == 1) then
+       if (nptmass1 == 1) then
           iprim = 2
           isec = 3
+       else ! nptmass1 = 0
+          iprim = 1
+          isec = 2
        endif
 
        ! Store sink velocity and position in binary orbit
@@ -252,6 +256,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
 
        call prompt('Enter softening length for companion',xyzmh2_stash(ihsoft),0.)
+
        if (setup_case == 8) then
           dumpname = ''
           call prompt('Enter name of second dumpfile',dumpname)
@@ -293,6 +298,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           npart = nstar1 + nstar2
           npartoftype(igas) = npart
+       else
+          nstar2 = 0
+          nptmass2 = 0
        endif
 
        ! shift star 2 gas to secondary sink
@@ -409,10 +417,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        primary_mass = npartoftype(igas) * massoftype(igas) + mcore
 
-       call set_trinary(primary_mass,companion_mass_1,companion_mass_2,&
+       call set_triple(primary_mass,companion_mass_1,companion_mass_2,&
                         a1,a2,hacc1,hacc2,hacc3,&
                         xyzmh_ptmass,vxyz_ptmass,nptmass)
-
 
        if (nptmass > 3) then
           xyzmh_ptmass(1:3,1) = xyzmh_ptmass(1:3,2)
@@ -430,7 +437,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter softening length for primary',xyzmh_ptmass(ihsoft,1),0.)
        call prompt('Enter softening length for secondary',xyzmh_ptmass(ihsoft,2),0.)
        call prompt('Enter softening length for tertiary',xyzmh_ptmass(ihsoft,3),0.)
-
 
        !shifts gas to the primary point mass created in 'set_binary'
        do i=1,npart
@@ -563,7 +569,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           vxyz_ptmass(1:3,1) = 0.
        endif
 
-       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
+       call transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,&
+            omega_corotate,xyzmh_ptmass,vxyz_ptmass)
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
        ! Set tmax and dtmax
@@ -582,11 +589,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     end select
  endif
 
- return
 end subroutine modify_dump
 
 subroutine set_sinkproperties(xyzmh_ptmass)
-
  use part,       only:nptmass,ihacc,ihsoft,igas,imacc,ilum,ireff,imacc,ihacc,ihsoft,xyzmh_ptmass_label
  use units,      only:umass,udist,utime,unit_energ
  use physcon,    only:solarm,solarr,solarl
@@ -638,7 +643,8 @@ subroutine set_sinkproperties(xyzmh_ptmass)
 
 end subroutine set_sinkproperties
 
-subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,omega_corotate,xyzmh_ptmass,vxyz_ptmass)
+subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,&
+           omega_corotate,xyzmh_ptmass,vxyz_ptmass)
  use options,     only:iexternalforce
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart,nptmass
@@ -664,7 +670,7 @@ subroutine transform_from_corotating_to_inertial_frame(xyzh,vxyzu,npart,nptmass,
 
 end subroutine transform_from_corotating_to_inertial_frame
 
-subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
+subroutine set_triple(mprimary,msecondary,mtertiary,semimajoraxis12,semimajoraxis13,&
                       accretion_radius1,accretion_radius2,accretion_radius3,&
                       xyzmh_ptmass,vxyz_ptmass,nptmass)
  real,    intent(in)    :: mprimary,msecondary,mtertiary
@@ -736,7 +742,6 @@ subroutine set_trinary(mprimary,msecondary,mtertiary,semimajoraxis12,semimajorax
  vxyz_ptmass(:,i2) = v2
  vxyz_ptmass(:,i3) = v3
 
-end subroutine set_trinary
-
+end subroutine set_triple
 
 end module moddump

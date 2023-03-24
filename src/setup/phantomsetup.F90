@@ -42,9 +42,6 @@ program phantomsetup
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
  use systemutils,     only:get_command_option
-#ifdef LIGHTCURVE
- use part,            only:luminosity,maxlum,lightcurve
-#endif
 #ifdef KROME
  use krome_interface, only:write_KromeSetupFile
 #endif
@@ -119,7 +116,7 @@ program phantomsetup
     call init_domains(nprocs)
     nprocsfake = 1
  else ! non-mpi
-    nprocsfake = get_command_option('nprocsfake',default=1)
+    nprocsfake = int(get_command_option('nprocsfake',default=1))
     nprocs= nprocsfake
     print*,' nprocs = ',nprocs
     call init_domains(nprocs)

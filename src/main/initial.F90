@@ -101,7 +101,6 @@ subroutine initialise()
 
  call init_readwrite_dumps()
 
- return
 end subroutine initialise
 
 !----------------------------------------------------------------
@@ -112,7 +111,8 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,idumpfile
+                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,&
+                            use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
@@ -152,16 +152,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
  use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
- use timestep_ind,     only:istepfrac
  use timing,           only:get_timings
-#ifdef IND_TIMESTEPS
- use timestep_ind,     only:ibinnow,maxbins,init_ibin
+ use timestep_ind,     only:ibinnow,maxbins,init_ibin,istepfrac
  use timing,           only:get_timings
  use part,             only:ibin,ibin_old,ibin_wake,alphaind
  use readwrite_dumps,  only:dt_read_in
-#else
  use timestep,         only:dtcourant,dtforce
-#endif
 #ifdef STS_TIMESTEPS
  use timestep,         only:dtdiff
 #endif
@@ -169,12 +165,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifdef DRIVING
  use forcing,          only:init_forcing
 #endif
-#ifdef DUST
  use dust,             only:init_drag
-#ifdef DUSTGROWTH
  use growth,           only:init_growth
-#endif
-#endif
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
  use io,               only:imflow
@@ -220,13 +212,16 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
  integer         :: ierr,i,j,nerr,nwarn,ialphaloc,irestart,merge_n,merge_ij(maxptmass)
- real            :: poti,dtf,hfactfile,fextv(3)
+ real            :: poti,hfactfile
  real            :: hi,pmassi,rhoi1
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
 #ifdef NONIDEALMHD
  real            :: gmw_nicil
+#endif
+#ifndef GR
+ real            :: dtf,fextv(3)
 #endif
  integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
  logical         :: iexist,read_input_files
@@ -277,8 +272,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
 !
 !--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
-
-
+!
     irestart = index(dumpfile,'.restart')
     if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
  endif
@@ -328,14 +322,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call init_forcing(dumpfile,infile,time)
 #endif
 
-#ifdef DUST
- call init_drag(ierr)
- if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
-#ifdef DUSTGROWTH
- call init_growth(ierr)
- if (ierr /= 0) call fatal('initial','error initialising growth variables')
-#endif
-#endif
+ if (use_dust) then
+    call init_drag(ierr)
+    if (ierr /= 0) call fatal('initial','error initialising drag coefficients')
+    if (use_dustgrowth) then
+       call init_growth(ierr)
+       if (ierr /= 0) call fatal('initial','error initialising growth variables')
+    endif
+ endif
 !
 !--initialise cooling function
 !  this will initialise all cooling variables, including if h2chemistry = true
@@ -377,17 +371,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     enddo
  endif
 
-#ifdef IND_TIMESTEPS
- ibin(:)       = 0
- ibin_old(:)   = 0
- ibin_wake(:)  = 0
- if (dt_read_in) call init_ibin(npart,dtmax)
- istepfrac     = 0
- ibinnow       = 0
-#else
- dtcourant = huge(dtcourant)
- dtforce   = huge(dtforce)
-#endif
+ if (ind_timesteps) then
+    ibin(:)       = 0
+    ibin_old(:)   = 0
+    ibin_wake(:)  = 0
+    if (dt_read_in) call init_ibin(npart,dtmax)
+    istepfrac     = 0
+    ibinnow       = 0
+ else
+    dtcourant = huge(dtcourant)
+    dtforce   = huge(dtforce)
+ endif
  dtinject  = huge(dtinject)
 
 !
@@ -485,12 +479,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtsinkgas = huge(dtsinkgas)
  r_crit2   = r_crit*r_crit
- rho_crit  = rho_crit_cgs/unit_density
+ rho_crit  = real(rho_crit_cgs/unit_density)
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
  if (rhofinal_cgs > 0.) then
-    rhofinal1 = unit_density/rhofinal_cgs
+    rhofinal1 = real(unit_density/rhofinal_cgs)
  else
     rhofinal1 = 0.0
  endif
@@ -610,14 +604,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--set initial timestep
 !
-#ifndef IND_TIMESTEPS
- dt = min(dtnew_first,dtinject)
- if (id==master) then
-    write(iprint,*) 'dt(forces)    = ',dtforce
-    write(iprint,*) 'dt(courant)   = ',dtcourant
-    write(iprint,*) 'dt initial    = ',dt
+ if (.not.ind_timesteps) then
+    dt = min(dtnew_first,dtinject)
+    if (id==master) then
+       write(iprint,*) 'dt(forces)    = ',dtforce
+       write(iprint,*) 'dt(courant)   = ',dtcourant
+       write(iprint,*) 'dt initial    = ',dt
+    endif
  endif
-#endif
 !
 !--Calculate current centre of mass
 !
@@ -684,14 +678,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  if (id==master) then
     if (get_conserv > 0.0) then
-       write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+       write(iprint,'(1x,a)') 'Initial mass and extent of particle distribution (in code units):'
     else
-       write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+       write(iprint,'(1x,a)') 'Mass and extent of the particle distribution:'
     endif
-    write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
-    write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
-    write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
-    write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+    write(iprint,'(2x,a,es18.6)') '     Total mass : ', mtot
+    write(iprint,'(2x,a,es18.6)') 'x(max) - x(min) : ', dx
+    write(iprint,'(2x,a,es18.6)') 'y(max) - y(min) : ', dy
+    write(iprint,'(2x,a,es18.6)') 'z(max) - z(min) : ', dz
     write(iprint,'(a)') ' '
  endif
 !
@@ -725,15 +719,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--Print warnings of units if values are not reasonable
 !
- tolu = 1.0d2
- toll = 1.0d-2
+ tolu = 1.0e2
+ toll = 1.0e-2
  if (get_conserv > 0.0) then
     get_conserv = -1.
     if (id==master) then
        if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
        if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-       if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-      call warning('initial','consider changing code-units to have box length closer to unity')
+      ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+      !call warning('initial','consider changing code-units to have box length closer to unity')
     endif
  endif
 !
@@ -776,7 +770,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call get_timings(twall_start,tcpu_start)
  endif
 
- return
 end subroutine startrun
 
 !----------------------------------------------------------------

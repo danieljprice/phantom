@@ -254,7 +254,12 @@ subroutine test_implicit_matches_explicit(ntests,npass)
     call get_derivs_global()
     if (itry==1) then
        call get_derivs_global()  ! twice to get density on neighbours correct
-       dvdx_explicit = dvdx
+
+       !--allocate and copy dvdx (note: dvdx_explicit = dvdx works
+       !  but gives compiler warnings so we do this with source=)
+       allocate(dvdx_explicit, source=dvdx)
+
+       !--allocate and copy flux
        allocate(flux_explicit(3,npart))
        flux_explicit = radprop(ifluxx:ifluxz,1:npart)
        dvdx = 0.

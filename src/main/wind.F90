@@ -15,13 +15,14 @@ module wind
 ! :Runtime parameters: None
 !
 ! :Dependencies: cooling_solver, dim, dust_formation, eos, io, options,
-!   part, physcon, ptmass_radiation, timestep, units, wind_equations
+!   part, physcon, ptmass_radiation, table_utils, timestep, units,
+!   wind_equations
 !
 
 !#define CALC_HYDRO_THEN_CHEM
 
- use part,only: n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa,idalpha
-
+ use part, only:n_nucleation,idJstar,idK0,idK1,idK2,idK3,idmu,idgamma,idsat,idkappa,idalpha
+ use dim,  only:isothermal
  implicit none
  public :: setup_wind
  public :: wind_state,save_windprofile,interp_wind_profile!,wind_profile
@@ -47,6 +48,7 @@ module wind
     integer :: spcode, nsteps
     logical :: dt_force, error, find_sonic_solution
  end type wind_state
+
 contains
 
 subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, stype)
@@ -151,11 +153,11 @@ subroutine init_wind(r0, v0, T0, time_end, state)
  state%JKmuS(idgamma) = state%gamma
  state%dalpha_dr = 0.
  state%p = state%rho*Rg*state%Tg/state%mu
-#ifdef ISOTHERMAL
- state%u = 1.
-#else
- state%u = state%p/((state%gamma-1.)*state%rho)
-#endif
+ if (isothermal) then
+    state%u = 1.
+ else
+    state%u = state%p/((state%gamma-1.)*state%rho)
+ endif
  state%c = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%dt_force = .false.
  state%error    = .false.
@@ -223,9 +225,7 @@ subroutine wind_step(state)
 
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%p    = state%rho*Rg*state%Tg/state%mu
-#ifndef ISOTHERMAL
- state%u    = state%p/((state%gamma-1.)*state%rho)
-#endif
+ if (.not.isothermal) state%u    = state%p/((state%gamma-1.)*state%rho)
  !state%Tg   = state%p/(state%rho*Rg)*state%mu
 
  state%tau_lucy = state%tau_lucy &
@@ -328,9 +328,7 @@ subroutine wind_step(state)
  state%c    = sqrt(state%gamma*Rg*state%Tg/state%mu)
  state%rho  = Mdot_cgs/(4.*pi*state%r**2*state%v)
  state%p    = state%rho*Rg*state%Tg/state%mu
-#ifndef ISOTHERMAL
- state%u    = state%p/((state%gamma-1.)*state%rho)
-#endif
+ if (.not.isothermal) state%u    = state%p/((state%gamma-1.)*state%rho)
 
  if (idust_opacity == 2) then
     state%kappa = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
@@ -440,9 +438,8 @@ subroutine wind_profile(local_time,r,v,u,rho,e,GM,T0,fdone,JKmuS)
  v   = state%v/unit_velocity
  rho = state%rho/unit_density
  !u = state%Tg * u_to_temperature_ratio
-#ifndef ISOTHERMAL
- u  = state%p/((state%gamma-1.)*rho)/unit_pressure
-#endif
+ if (.not.isothermal) u  = state%p/((state%gamma-1.)*rho)/unit_pressure
+
  e = .5*v**2 - GM/r + state%gamma*u
  if (idust_opacity == 2) then
     JKmuS(1:n_nucleation-1) = state%JKmuS(1:n_nucleation-1)
@@ -497,9 +494,7 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
     print *, ' * Mstar      = ',Mstar_cgs/1.9891d33
     print *, ' * Twind      = ',T0
     print *, ' * Rstar(au)  = ',r0/1.496d13,r0/69600000000.
-#ifndef ISOTHERMAL
-    print *, ' * gamma      = ',gamma
-#endif
+    if (.not.isothermal) print *, ' * gamma      = ',gamma
     print *, ' * mu         = ',gmw
     print *, ' * cs  (km/s) = ',cs/1e5
     print *, ' * vesc(km/s) = ',vesc/1e5
@@ -725,10 +720,11 @@ end subroutine get_initial_radius
 !-----------------------------------------------------------------------
 subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKmuS)
  !in/out variables in code units (except Jstar,K)
- use units,    only:udist, utime, unit_velocity, unit_density, unit_ergg
+ use units,          only:udist,utime,unit_velocity,unit_density,unit_ergg
  use dust_formation, only:idust_opacity
- use part,     only:idgamma
- use eos,      only:gamma
+ use part,           only:idgamma
+ use eos,            only:gamma
+ use table_utils,    only:find_nearest_index,interp_1d
 
  real, intent(in)  :: time, local_time, GM
  !real, intent(inout) :: r, v
@@ -743,11 +739,11 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
 
  r   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(2,indx),trvurho_1D(2,indx+1))/udist
  v   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(3,indx),trvurho_1D(3,indx+1))/unit_velocity
-#ifndef ISOTHERMAL
- u   = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(4,indx),trvurho_1D(4,indx+1))/unit_ergg
-#else
- u   = 0.
-#endif
+ if (isothermal) then
+    u = 0.
+ else
+    u = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(4,indx),trvurho_1D(4,indx+1))/unit_ergg
+ endif
  rho = interp_1d(ltime,trvurho_1D(1,indx),trvurho_1D(1,indx+1),trvurho_1D(5,indx),trvurho_1D(5,indx+1))/unit_density
 
  if (idust_opacity == 2) then
@@ -766,46 +762,8 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
  else
     fdone = ltime/(local_time*utime)
  endif
+
 end subroutine interp_wind_profile
-
-!-----------------------------------------------------------------------
-!+
-!  Find index of nearest lower value in array
-!+
-!-----------------------------------------------------------------------
-subroutine find_nearest_index(arr,val,indx)
- real, intent(in)     :: arr(:), val
- integer, intent(out) :: indx
- integer              :: istart,istop,i
-
- istart = 1
- istop  = size(arr)
- if (val >= arr(istop)) then
-    indx = istop-1   ! -1 to avoid array index overflow
- elseif (val <= arr(istart)) then
-    indx = istart
- else
-    i = istart
-    do while (i <= istop)
-       if (arr(i)>val) then
-          indx = i-1
-          exit
-       endif
-       i = i+1
-    enddo
- endif
-end subroutine find_nearest_index
-
-!-----------------------------------------------------------------------
-!+
-!  1D linear interpolation routine
-!+
-!-----------------------------------------------------------------------
-real function interp_1d(x,x1,x2,y1,y2)
- real, intent(in)  :: x, x1, x2, y1, y2
-
- interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
-end function interp_1d
 
 !-----------------------------------------------------------------------
 !
@@ -842,7 +800,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
 
  eps       = 0.01
  iter      = 0
- itermax   = int(huge(itermax)/10) !this number is huge but may be needed for RK6 solver
+ itermax   = int(huge(itermax)/10.) !this number is huge but may be needed for RK6 solver
  tcross    = 1.d99
  writeline = 0
 
@@ -902,6 +860,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
     JKmuS_1D(:,:) = JKmuS_temp(:,1:writeline)
     deallocate(JKmuS_temp)
  endif
+
 end subroutine save_windprofile
 
 subroutine filewrite_header(iunit,nwrite)
@@ -934,6 +893,7 @@ subroutine filewrite_header(iunit,nwrite)
        write(iunit,'('// adjustl(fmt) //'(a12))') 't','r','v','T','c','p','u','rho','alpha','a','mu','kappa','gamma'
     endif
  endif
+
 end subroutine filewrite_header
 
 subroutine state_to_array(state,nwrite, array)
@@ -971,6 +931,7 @@ subroutine state_to_array(state,nwrite, array)
     array(13) = state%gamma
  endif
  if (icooling > 0) array(nwrite) = state%Q
+
 end subroutine state_to_array
 
 subroutine filewrite_state(iunit,nwrite, state)
@@ -984,7 +945,7 @@ subroutine filewrite_state(iunit,nwrite, state)
  write(fmt,*) nwrite
  write(iunit,'('// adjustl(fmt) //'(1x,es11.3E3:))') array(1:nwrite)
 !  write(iunit, '(22(1x,es11.3E3:))') array(1:nwrite)
-end subroutine filewrite_state
 
+end subroutine filewrite_state
 
 end module wind

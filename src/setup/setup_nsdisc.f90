@@ -30,7 +30,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc, only:set_disc
- use units,   only:udist, umass, utime, set_units
+ use units,   only:udist,umass,set_units
  use physcon, only:solarm,km
  use io,      only:master
  use externalforces, only:accradius1,mass1,iext_prdrag
@@ -93,7 +93,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = R_in
  mass1 = Mstar
 
- return
 end subroutine setpart
 
 end module setup

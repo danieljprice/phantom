@@ -86,6 +86,13 @@ echo "Batch ${batch}: ${allsetups}"
 # change the line below to exclude things that depend on external libraries from the build
 #
 nolibs='MESAEOS=no'
+#
+# disallow compiler warnings?
+#
+nowarn='NOWARN=yes'
+#
+# check we are running the script from the scripts directory
+#
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
@@ -313,19 +320,19 @@ for setup in $listofsetups; do
       fi
       colour=$white; # white (default)
       ncheck=$((ncheck + 1));
-      #echo "::group:: checking $component with make SETUP=${setup} ${target}";
+
       printf "Checking $setup ($target)... ";
-      if [ "$component"=="setup" ]; then
+      if [[ "$component" == "setup" ]]; then
          rm -f $phantomdir/bin/phantomsetup;
          #make clean >& /dev/null;
       fi
-      #case $component in
-      #'utils')
-      #  make cleanutils >& /dev/null;;
-      #*)
-      #  make clean >& /dev/null;;
-      #esac
-      make SETUP=$setup $nolibs $maxp $target 1> $makeout 2> $errorlog; err=$?;
+      if [[ "$setup" == "blob" ]]; then
+         mynowarn='';
+         echo "allowing warnings for SETUP=blob"
+      else
+         mynowarn=$nowarn;
+      fi
+      make SETUP=$setup $nolibs $mynowarn $maxp $target 1> $makeout 2> $errorlog; err=$?;
       #--remove line numbers from error log files
       sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
