@@ -28,6 +28,7 @@ module units
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
+ real(kind=8), public :: unit_angmom
 
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
@@ -139,6 +140,7 @@ subroutine set_units_extra()
  unit_energ      = umass*unit_ergg
  unit_opacity    = udist**2/umass
  unit_luminosity = unit_energ/utime
+ unit_angmom     = udist*umass*unit_velocity
 
 end subroutine set_units_extra
 
