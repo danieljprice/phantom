@@ -678,14 +678,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  if (id==master) then
     if (get_conserv > 0.0) then
-       write(iprint,'(1x,a)') 'Initial mass and box size (in code units):'
+       write(iprint,'(1x,a)') 'Initial mass and extent of particle distribution (in code units):'
     else
-       write(iprint,'(1x,a)') 'Mass and box size (in code units) of this restart:'
+       write(iprint,'(1x,a)') 'Mass and extent of the particle distribution:'
     endif
-    write(iprint,'(2x,a,es18.6)') 'Total mass: ', mtot
-    write(iprint,'(2x,a,es18.6)') 'x-Box size: ', dx
-    write(iprint,'(2x,a,es18.6)') 'y-Box size: ', dy
-    write(iprint,'(2x,a,es18.6)') 'z-Box size: ', dz
+    write(iprint,'(2x,a,es18.6)') '     Total mass : ', mtot
+    write(iprint,'(2x,a,es18.6)') 'x(max) - x(min) : ', dx
+    write(iprint,'(2x,a,es18.6)') 'y(max) - y(min) : ', dy
+    write(iprint,'(2x,a,es18.6)') 'z(max) - z(min) : ', dz
     write(iprint,'(a)') ' '
  endif
 !
@@ -719,15 +719,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--Print warnings of units if values are not reasonable
 !
- tolu = 1.0d2
- toll = 1.0d-2
+ tolu = 1.0e2
+ toll = 1.0e-2
  if (get_conserv > 0.0) then
     get_conserv = -1.
     if (id==master) then
        if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
        if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-       if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-      call warning('initial','consider changing code-units to have box length closer to unity')
+      ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+      !call warning('initial','consider changing code-units to have box length closer to unity')
     endif
  endif
 !
@@ -770,7 +770,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call get_timings(twall_start,tcpu_start)
  endif
 
- return
 end subroutine startrun
 
 !----------------------------------------------------------------
