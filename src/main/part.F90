@@ -727,7 +727,7 @@ pure subroutine rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
  real, parameter :: third = 1./3.
 
  hi1 = 1./abs(hi)
- rhoi = pmassi*(hfact*hi1)**3
+ rhoi = real(pmassi*(hfact*hi1)**3)
  rho1i = 1./rhoi
  dhdrhoi = -third*hi*rho1i
 
