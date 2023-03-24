@@ -331,11 +331,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     r2 = xi*xi + yi*yi + zi*zi + eps2_soft
 
     if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-       dr  = finvsqrt(r2)
-#else
        dr = 1./sqrt(r2)
-#endif
        R_g = 1.0
        factor = 1. + 6.*R_g*dr
        dr3 = mass1*dr**3
@@ -411,11 +407,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        !--external force timestep based on sqrt(h/accel)
        !
        if (hi > epsilon(hi)) then
-#ifdef FINVSQRT
-          dtf1 = sqrt(hi*finvsqrt(f2i))
-#else
           dtf1 = sqrt(hi/sqrt(f2i))
-#endif
        else
           dtf1 = huge(dtf1)
        endif
