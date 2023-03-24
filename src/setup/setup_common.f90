@@ -33,7 +33,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setbinary, only:set_binary
  use units,     only:umass,udist,set_units
  use physcon,   only:au,solarm,solarr
- use kernal,    only:hfact_default
+ use kernel,    only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
