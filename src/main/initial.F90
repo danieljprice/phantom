@@ -479,12 +479,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
  dtsinkgas = huge(dtsinkgas)
  r_crit2   = r_crit*r_crit
- rho_crit  = rho_crit_cgs/unit_density
+ rho_crit  = real(rho_crit_cgs/unit_density)
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
  if (rhofinal_cgs > 0.) then
-    rhofinal1 = unit_density/rhofinal_cgs
+    rhofinal1 = real(unit_density/rhofinal_cgs)
  else
     rhofinal1 = 0.0
  endif

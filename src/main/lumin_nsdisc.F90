@@ -663,12 +663,11 @@ end subroutine set_Lstar
 !----------------------------------------------------
 
 real function get_AccLum( dmdt, Mstar )       !Luminosity from accretion
- use physcon, only:gg
- use units, only:udist,umass,utime
+ use units, only:get_G_code
  real, intent(in) :: dmdt, Mstar
  real :: ggcode, Rstar
 
- ggcode = gg / (udist**3/(utime**2*umass))
+ ggcode = get_G_code()
  Rstar = 1.
 
  get_AccLum =  (ggcode * Mstar * dmdt / Rstar) / LEdd

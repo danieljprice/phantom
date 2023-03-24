@@ -20,12 +20,12 @@ module physcon
 !
 !--Mathematical constants
 !
- real(kind=8), parameter :: pi       =  3.1415926536d0
- real(kind=8), parameter :: twopi    =  6.2831853072d0
- real(kind=8), parameter :: fourpi   = 12.5663706144d0
- real(kind=8), parameter :: piontwo  =  1.5707963268d0
- real(kind=8), parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
- real(kind=8), parameter :: roottwo  =  1.4142135624d0
+ real, parameter :: pi       =  4.*atan(1.)            ! use real not real*8
+ real, parameter :: twopi    =  8.*atan(1.)            ! for these to avoid
+ real, parameter :: fourpi   = 16.*atan(1.)            ! type conversion errors
+ real, parameter :: piontwo  =  2.*atan(1.)            ! in real expressions
+ real, parameter :: rpiontwo =  sqrt(piontwo)          ! square root of (Pi/2)
+ real, parameter :: roottwo  =  sqrt(2.)               ! square root of two
 !
 !--Physical constants
 !

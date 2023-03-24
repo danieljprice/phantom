@@ -390,8 +390,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
        temperaturei = min(0.67 * cgseni * mui / kb_on_mh, (cgseni*cgsrhoi/radconst)**0.25)
     endif
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi)
-    ponrhoi  = cgspresi / (unit_pressure * rhoi)
-    spsoundi = cgsspsoundi / unit_velocity
+    ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
+    spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
 
@@ -765,10 +765,10 @@ subroutine calc_rec_ene(XX,YY,e_rec)
  real, intent(in)  :: XX, YY
  real, intent(out) :: e_rec
  real              :: e_H2,e_HI,e_HeI,e_HeII
- real, parameter   :: e_ion_H2   = 1.312d13, & ! ionisation energies in erg/mol
-                      e_ion_HI   = 4.36d12, &
-                      e_ion_HeI  = 2.3723d13, &
-                      e_ion_HeII = 5.2505d13
+ real, parameter   :: e_ion_H2   = 1.312e13, & ! ionisation energies in erg/mol
+                      e_ion_HI   = 4.36e12, &
+                      e_ion_HeI  = 2.3723e13, &
+                      e_ion_HeII = 5.2505e13
 
  ! XX     : Hydrogen mass fraction
  ! YY     : Helium mass fraction
@@ -926,7 +926,7 @@ subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
  real, intent(inout) :: rho
  real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
  real(kind=8)        :: corr
- real,    parameter  :: eoserr=1d-9,dfac=1d-12
+ real,    parameter  :: eoserr=1e-9,dfac=1e-12
  integer, intent(in) :: ientropy
 
  ! We apply the Newton-Raphson method directly to rho^1/2 ("srho") instead
@@ -961,7 +961,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  real, intent(out)   :: P
  integer, intent(in) :: ieos
  real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
- real,    parameter  :: eoserr=1d-12
+ real,    parameter  :: eoserr=1e-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
 
