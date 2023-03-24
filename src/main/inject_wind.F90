@@ -467,10 +467,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        !initialize dust temperature to star's effective temperature
        if (isink_radiation > 0) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
-       ! update the sink particle mass
-       if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
-          xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres
-       endif
        print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,nboundaries,&
             outer_sphere,npart,time,local_time,r/xyzmh_ptmass(iReff,1),v,u,rho
     endif
