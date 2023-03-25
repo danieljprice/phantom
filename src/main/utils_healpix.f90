@@ -29,12 +29,12 @@ module healpix
 !
  implicit none
  character(len=*), parameter, public :: healpix_version = '3.80'
- integer, parameter, public :: i4b = SELECTED_INT_kind(9)
- integer, parameter, public :: i8b = SELECTED_INT_kind(16)
- integer, parameter, public :: i2b = SELECTED_INT_kind(4)
- integer, parameter, public :: i1b = SELECTED_INT_kind(2)
- integer, parameter, public :: sp  = SELECTED_REAL_kind(5,30)
- integer, parameter, public :: dp  = SELECTED_REAL_kind(12,200)
+ integer, parameter, public :: i4b = selected_int_kind(9)
+ integer, parameter, public :: i8b = selected_int_kind(16)
+ integer, parameter, public :: i2b = selected_int_kind(4)
+ integer, parameter, public :: i1b = selected_int_kind(2)
+ integer, parameter, public :: sp  = selected_real_kind(5,30)
+ integer, parameter, public :: dp  = selected_real_kind(12,200)
  integer, parameter, public :: lgt = kind(.TRUE.)
  integer, parameter, public :: spc = kind((1.0_sp, 1.0_sp))
  integer, parameter, public :: dpc = kind((1.0_dp, 1.0_dp))
@@ -88,6 +88,7 @@ module healpix
  integer(i4b), parameter :: oddbits=89478485   ! 2^0 + 2^2 + 2^4+..+2^26
  integer(i4b), parameter :: evenbits=178956970 ! 2^1 + 2^3 + 2^4+..+2^27
  integer(kind=i4b), private, parameter :: ns_max=268435456! 2^28
+
 contains
 
 !! Returns i with even and odd bit positions interchanged.
@@ -137,10 +138,9 @@ subroutine vec2pix_nest  (nside, vector, ipix)
  real,              intent(in), dimension(1:) :: vector
  integer(kind=MKD), intent(out)               :: ipix
 
- integer(kind=MKD) :: ipf, scale, scale_factor
- real(kind=DP)     ::  z, za, tt, tp, tmp, dnorm, phi
- integer(kind=I4B) ::  jp, jm, ifp, ifm, face_num, &
- &     ix, iy, ix_low, iy_low, ntt, i, ismax
+ integer(kind=MKD) :: ipf,scale,scale_factor
+ real(kind=DP)     :: z,za,tt,tp,tmp,dnorm,phi
+ integer(kind=I4B) :: jp,jm,ifp,ifm,face_num,ix,iy,ix_low,iy_low,ntt,i,ismax
  character(len=*), parameter :: code = "vec2pix_nest"
 
  !-----------------------------------------------------------------------
@@ -227,7 +227,6 @@ subroutine vec2pix_nest  (nside, vector, ipix)
  endif
  ipix = ipf + face_num* int(nside,MKD) * nside    ! in {0, 12*nside**2 - 1}
 
- return
 end subroutine vec2pix_nest
 
 !=======================================================================
@@ -383,6 +382,7 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
     diff_phi = 0 ! phi_nv = phi_sv = phisth * 1}
     iphi_rat = (jp-1) / nr      ! in {0,1,2,3}
     iphi_mod = mod(jp-1,nr)
+    phi_up   = 0.
     if (nr > 1) phi_up = HALFPI * (iphi_rat +  iphi_mod   /real(nr-1))
     phi_dn             = HALFPI * (iphi_rat + (iphi_mod+1)/real(nr+1))
     if (jr < nside) then            ! North polar cap
@@ -433,7 +433,6 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
     vertex(3,3) = z_sv
  endif
 
- return
 end subroutine pix2vec_nest
 
 !=======================================================================
@@ -479,7 +478,6 @@ function npix2nside  (npix) result(nside_result)
  endif
 
  nside_result = nside
- return
 
 end function npix2nside
 
@@ -507,17 +505,16 @@ function nside2npix(nside) result(npix_result)
  endif
  npix_result = npix
 
- return
 end function nside2npix
 
- !=======================================================================
- ! CHEAP_ISQRT
- !       Returns exact Floor(sqrt(x)) where x is a (64 bit) integer.
- !             y^2 <= x < (y+1)^2         (1)
- !       The double precision floating point operation is not accurate enough
- !       when dealing with 64 bit integers, especially in the vicinity of
- !       perfect squares.
- !=======================================================================
+!=======================================================================
+! CHEAP_ISQRT
+!       Returns exact Floor(sqrt(x)) where x is a (64 bit) integer.
+!             y^2 <= x < (y+1)^2         (1)
+!       The double precision floating point operation is not accurate enough
+!        when dealing with 64 bit integers, especially in the vicinity of
+!       perfect squares.
+!=======================================================================
 function cheap_isqrt(lin) result (lout)
  integer(i4b), intent(in) :: lin
  integer(i4b) :: lout
@@ -561,7 +558,6 @@ subroutine mk_pix2xy()
     pix2y(kpix) = IY     ! in 0,31
  enddo
 
- return
 end subroutine mk_pix2xy
  !=======================================================================
 subroutine mk_xy2pix1()
@@ -595,10 +591,8 @@ subroutine mk_xy2pix1()
           ip = ip*4
        endif
     enddo
-
  enddo
 
- return
 end subroutine mk_xy2pix1
 
 subroutine fatal_error (msg)
@@ -610,15 +604,18 @@ subroutine fatal_error (msg)
     print *,'Fatal error'
  endif
  call exit_with_status(1)
+
 end subroutine fatal_error
 
 ! ===========================================================
 subroutine exit_with_status (code, msg)
  integer(i4b), intent(in) :: code
  character (len=*), intent(in), optional :: msg
+
  if (present(msg)) print *,trim(msg)
  print *,'program exits with exit code ', code
  call exit (code)
+
 end subroutine exit_with_status
 
 !====================================================================
@@ -1052,7 +1049,6 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
     end select ! south
  endif
 
- return
 end subroutine neighbours_nest
 
 
@@ -1109,11 +1105,9 @@ subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
     iy = iy + scale * pix2y(ipf) ! corrected 2012-08-27
  endif
 
- return
-
 end subroutine pix2xy_nest
 
-!  =======================================================================
+!=======================================================================
 !     gives the pixel number ipix (NESTED)
 !     corresponding to ix, iy and face_num
 !
@@ -1161,7 +1155,7 @@ subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
     ipf =  ipf + (x2pix1(ix)+y2pix1(iy)) * scale
  endif
  ipix = ipf + face_num* int(nside,MKD) * nside    ! in {0, 12*nside**2 - 1}
- return
+
 end subroutine xy2pix_nest
 
 end module healpix

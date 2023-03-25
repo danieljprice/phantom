@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
 #ifdef GR
- use part,           only:metrics,metricderivs
+ use part,           only:metrics
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D

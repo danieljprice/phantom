@@ -81,8 +81,7 @@ end subroutine initialise_gwinspiral
 !+
 !-----------------------------------------------------------------------
 subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
- use physcon,      only: c
- use units,        only: unit_velocity
+ use units,        only:get_c_code
  use centreofmass, only:get_centreofmass
  integer, intent(in)  :: npart,nptmass
  real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -96,7 +95,7 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
 !
 ! Calculate force coefficients
 !
- c_code      = c/unit_velocity
+ c_code      = get_c_code()
  fstar1_coef = 0.
  fstar2_coef = 0.
  stopped_now = .false.
