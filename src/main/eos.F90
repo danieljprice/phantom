@@ -923,7 +923,6 @@ end function get_entropy
 !+
 !-----------------------------------------------------------------------
 subroutine get_rho_from_p_s(pres,S,rho,mu,rhoguess,ientropy)
- use physcon, only:kb_on_mh
  real, intent(in)    :: pres,S,mu,rhoguess
  real, intent(inout) :: rho
  real                :: srho,srho_plus_dsrho,S_plus_dS,dSdsrho
