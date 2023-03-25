@@ -26,7 +26,7 @@ module setup
 !   - input_profile     : *Path to input profile*
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
 !   - isinkcore         : *Add a sink particle stellar core*
-!   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
+!   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core, 3=boundary particle core*
 !   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*
 !   - mass_unit         : *mass unit (e.g. solarm)*
 !   - mcore             : *Mass of sink particle stellar core*
@@ -95,7 +95,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,             only:init_eos,finish_eos,gmw,X_in,Z_in,eos_outputs_mu
  use eos_piecewise,   only:init_eos_piecewise_preset
  use setstar,         only:set_stellar_core,read_star_profile,set_star_density, &
-                           set_star_composition,set_star_thermalenergy,write_kepler_comp
+                           set_star_composition,set_star_thermalenergy,write_kepler_comp, &
+                           set_star_boundary_particles
  use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,eos_vars,rad,igas,imu
  use radiation_utils, only:set_radiation_and_gas_temperature_equal
  use relaxstar,       only:relax_star
@@ -333,6 +334,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
 
 
+ if (isoftcore == 3) call set_star_boundary_particles(npart,xyzh,npartoftype,massoftype,rcore)
+
 end subroutine setpart
 
 !-----------------------------------------------------------------------
@@ -414,11 +417,12 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  if (iprofile==imesa) then
     call prompt('Use variable composition?',use_var_comp)
 
-    print*,'Soften the core density profile and add a sink particle core?'
-    print "(3(/,a))",'0: Do not soften profile', &
-                     '1: Use cubic softened density profile', &
-                     '2: Use constant entropy softened profile'
-    call prompt('Select option above : ',isoftcore,0,2)
+    print "(a)",'Select option for inner (core) boundary:'
+    print "(4(/,1x,a))",'0: Do not set inner boundary', &
+                        '1: Sink particle core with cubic-softened density profile', &
+                        '2: Sink particle core with constant entropy softened profile',&
+                        '3: Boundary particle core'
+    call prompt('Select option above : ',isoftcore,0,3)
 
     select case (isoftcore)
     case(0)
@@ -430,11 +434,11 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
     case(1)
        isinkcore = .true. ! Create sink particle core automatically
        print*,'Options for core softening:'
-       print "(5(/,a))",'1. Specify radius of density softening', &
-                        '2. Specify mass of sink particle core (not recommended)', &
-                        '3. Specify both radius of density softening length and mass', &
-                        '   of sink particle core (if you do not know what you are', &
-                        '   doing, you will obtain a poorly softened profile)'
+       print "(5(/,1x,a))",'1. Specify radius of density softening', &
+                           '2. Specify mass of sink particle core (not recommended)', &
+                           '3. Specify both radius of density softening length and mass', &
+                           '   of sink particle core (if you do not know what you are', &
+                           '   doing, you will obtain a poorly softened profile)'
        call prompt('Select option above : ',isofteningopt,1,3)
 
        select case (isofteningopt)
@@ -455,6 +459,10 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
        call prompt('Enter core radius in Rsun : ',rcore,0.)
        call prompt('Enter guess for core mass in Msun : ',mcore,0.)
        call prompt('Enter output file name of cored stellar profile:',outputfilename)
+
+    case(3)
+       call prompt('Enter core radius:',rcore,0.)
+
     end select
 
     if ((.not. use_var_comp) .and. (isoftcore<=0)) then
@@ -633,11 +641,11 @@ subroutine write_setupfile(filename,gamma,polyk)
 
  if (iprofile==imesa) then
     write(iunit,"(/,a)") '# core softening and sink stellar core options'
-    call write_inopt(isoftcore,'isoftcore','0=no core softening, 1=cubic core, 2=constant entropy core',iunit)
+    call write_inopt(isoftcore,'isoftcore','0=no core softening, 1=cubic core, 2=constant entropy core, 3=boundary particle core',iunit)
     if (isoftcore > 0) then
        call write_inopt(input_profile,'input_profile','Path to input profile',iunit)
-       call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
        if (isoftcore == 1) then
+          call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
           call write_inopt(isofteningopt,'isofteningopt','1=supply rcore, 2=supply mcore, 3=supply both',iunit)
           if ((isofteningopt == 1) .or. (isofteningopt == 3)) then
              call write_inopt(rcore,'rcore','Radius of core softening',iunit)
@@ -646,8 +654,11 @@ subroutine write_setupfile(filename,gamma,polyk)
              call write_inopt(mcore,'mcore','Mass of sink particle stellar core',iunit)
           endif
        elseif (isoftcore == 2) then
+          call write_inopt(outputfilename,'outputfilename','Output path for softened MESA profile',iunit)
           call write_inopt(rcore,'rcore','Radius of core softening',iunit)
           call write_inopt(mcore,'mcore','Initial guess for mass of sink particle stellar core',iunit)
+       elseif (isoftcore == 3) then
+          call write_inopt(rcore,'rcore','Radius of core boundary',iunit)
        endif
     else
        call write_inopt(isinkcore,'isinkcore','Add a sink particle stellar core',iunit)
@@ -745,13 +756,15 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
           call read_inopt(mcore,'mcore',db,errcount=nerr)
           call read_inopt(hsoft,'hsoft',db,errcount=nerr)
        endif
-    else
+    elseif (isoftcore == 1 .or. isoftcore == 2) then
        isinkcore = .true.
        call read_inopt(input_profile,'input_profile',db,errcount=nerr)
        call read_inopt(outputfilename,'outputfilename',db,errcount=nerr)
        if (isoftcore==1) call read_inopt(isofteningopt,'isofteningopt',db,errcount=nerr)
        if ((isofteningopt==1) .or. (isofteningopt==3)) call read_inopt(rcore,'rcore',db,errcount=nerr)
        if ((isofteningopt==2) .or. (isofteningopt==3) .or. (isoftcore==2)) call read_inopt(mcore,'mcore',db,errcount=nerr)
+    elseif (isoftcore == 3) then
+       call read_inopt(rcore,'rcore',db,errcount=nerr)
     endif
  endif
 

@@ -46,6 +46,7 @@ module setstar
  public :: set_star_composition
  public :: set_star_thermalenergy
  public :: set_stellar_core
+ public :: set_star_boundary_particles
  public :: write_kepler_comp
 
  private
@@ -232,8 +233,8 @@ end subroutine set_star_density
 !-----------------------------------------------------------------------
 subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,ierr)
  integer, intent(out) :: nptmass,ierr
- real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(in)     :: mcore,hsoft
+ real,    intent(out) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)  :: mcore,hsoft
  integer              :: n,ihsoft
 
  ierr = 0
@@ -255,6 +256,34 @@ subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,
  vxyz_ptmass(:,n)       = 0.
 
 end subroutine set_stellar_core
+
+!-----------------------------------------------------------------------
+!+
+!  Mark core particles as boundary particle
+!+
+!-----------------------------------------------------------------------
+subroutine set_star_boundary_particles(npart,xyzh,npartoftype,massoftype,rcore)
+ use part, only:set_particle_type,iboundary,igas
+ real,    intent(in)    :: xyzh(:,:),rcore
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: npartoftype(:)
+ real,    intent(inout) :: massoftype(:)
+ integer                :: i,nboundarypart
+ real                   :: rcore2
+
+ rcore2 = rcore**2
+ nboundarypart = 0
+ do i = 1,npart
+    if (dot_product(xyzh(1:3,i),xyzh(1:3,i)) < rcore2) then
+       call set_particle_type(i,iboundary)
+       nboundarypart = nboundarypart + 1
+    endif
+ enddo
+ npartoftype(iboundary) = nboundarypart
+ npartoftype(igas) = npartoftype(igas) - nboundarypart
+ massoftype(iboundary) = massoftype(igas)
+
+end subroutine set_star_boundary_particles
 
 !-----------------------------------------------------------------------
 !+
