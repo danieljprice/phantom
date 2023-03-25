@@ -68,7 +68,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution
  use timing,         only:get_timings
  use forces,         only:force
- use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
+ use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick,iphase
+ use boundarypart,   only:get_boundary_particle_forces
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
@@ -194,6 +195,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (use_dustgrowth) then ! compute growth rate of dust particles
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
  endif
+
+ call get_boundary_particle_forces(npart,iphase,fxyzu,dBevol,drad,ddustprop,ddustevol)
 
  if (sink_radiation .and. maxvxyzu == 4) then
     !
