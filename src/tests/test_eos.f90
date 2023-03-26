@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,13 +10,13 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Terrence Tricco
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, eos, eos_barotropic, eos_gasradrec, eos_helmholtz,
-!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon, testutils,
-!   units
+!   eos_idealplusrad, io, ionization_mod, mpiutils, physcon,
+!   testeos_stratified, testutils, units
 !
  implicit none
  public :: test_eos
@@ -35,6 +35,7 @@ subroutine test_eos(ntests,npass)
  use physcon,       only:solarm
  use units,         only:set_units
  use eos_gasradrec, only:irecomb
+ use testeos_stratified, only:test_eos_stratified
  integer, intent(inout) :: ntests,npass
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING EQUATION OF STATE MODULE'
@@ -46,9 +47,11 @@ subroutine test_eos(ntests,npass)
 !  call test_helmholtz(ntests, npass)
  call test_idealplusrad(ntests, npass)
 
- do irecomb = 2,2!0,3
+ do irecomb = 0,3
     call test_hormone(ntests,npass)
  enddo
+
+ call test_eos_stratified(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -188,15 +191,10 @@ subroutine test_hormone(ntests, npass)
  tempi = -1.
  nfail = 0; ncheck = 0; errmax = 0.
  call init_eos(ieos,ierr)
-
-! d=   3.2276168501594796E-015 eint=   764437650.64783347      Tguess=   14.312826297105179
-
- tempi=1.!13.793749359334543
+ tempi = 1.
  eni_code =  764437650.64783347/unit_ergg
  rhocodei = 3.2276168501594796E-015/unit_density
- call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi&
- ,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
- stop
+ call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
  do i=1,npts
     do j=1,npts
        ! Get mu from rho, T

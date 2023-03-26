@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,11 +28,10 @@ module extern_staticsine
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
-
- real(kind=8), public :: amplitude = 100.0
- real(kind=8), public :: wavek = pi/4.0
- real(kind=8), public :: phase = 2.0
- real(kind=8), public :: inclination = 0.0
+ real, public :: amplitude = 100.0
+ real, public :: wavek = real(pi)/4.0
+ real, public :: phase = 2.0
+ real, public :: inclination = 0.0
 
  public :: staticsine_force
  public :: write_options_staticsine, read_options_staticsine
@@ -65,7 +64,6 @@ subroutine staticsine_force(xi,yi,fxi,fyi,fzi,phi)
  fyi = -fi*sin(inclination)
  fzi = 0.0
 
- return
 end subroutine staticsine_force
 
 !-----------------------------------------------------------------------

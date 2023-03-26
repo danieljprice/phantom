@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -107,9 +107,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
  ! walk tree up
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-!$omp critical (node_hmax)
+!$omp critical (crit_node_hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (node_hmax)
+!$omp end critical (crit_node_hmax)
  enddo
 
 end subroutine set_hmaxcell

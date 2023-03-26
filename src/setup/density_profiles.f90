@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -325,7 +325,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  character(len=10000)                       :: dumc
  character(len=120)                         :: fullfilepath
  character(len=24),allocatable              :: header(:),dum(:)
- logical                                    :: iexist,usecgs,ismesafile
+ logical                                    :: iexist,usecgs,ismesafile,got_column
  real,allocatable,dimension(:,:)            :: dat
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
@@ -345,6 +345,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  endif
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
+ print "(1x,a)",trim(fullfilepath)
  open(newunit=iu,file=fullfilepath,status='old')
  call get_ncolumns(iu,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
@@ -371,13 +372,13 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  call string_delete(dumc,']')
  allocate(dum(500)) ; dum = 'aaa'
  read(dumc,*,end=101) dum
-101 do i = 1,500
+101 continue
+ do i = 1,500
     if (dum(i)=='aaa') then
        rows = i-1
        exit
     endif
  enddo
-
  allocate(header(rows),dat(lines,rows))
  header(1:rows) = dum(1:rows)
  deallocate(dum)
@@ -393,22 +394,23 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows
-    if (header(i)(1:1) == '#') then
+    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
        print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
        ierr = 2
        return
     endif
+    got_column = .true.
     select case(trim(lcase(header(i))))
     case('mass_grams')
        m = dat(1:lines,i)
-    case('mass')
+    case('mass','#mass')
        m = dat(1:lines,i)
        if (ismesafile) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
     case('rho','density')
        rho = dat(1:lines,i)
     case('logrho')
        rho = 10**(dat(1:lines,i))
-    case('energy','e_int')
+    case('energy','e_int','e_internal')
        ene = dat(1:lines,i)
     case('radius_cm')
        r = dat(1:lines,i)
@@ -425,8 +427,12 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
        Xfrac = dat(1:lines,i)
     case('y_mass_fraction_he','yfrac')
        Yfrac = dat(1:lines,i)
+    case default
+       got_column = .false.
     end select
+    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
  enddo
+ print "(a)"
 
  if (.not. usecgs) then
     m = m / umass
@@ -482,7 +488,7 @@ subroutine write_profile(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
 
  open(newunit=iu, file = outputpath, status = 'replace')
  write(iu,'(a)') headers
- 101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
+101 format (es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)
  do i=1,size(r)
     if (noptionalcols <= 0) then
        write(iu,101) m(i),pres(i),temp(i),r(i),rho(i),ene(i)
@@ -508,23 +514,31 @@ end subroutine write_profile
 !+
 !-----------------------------------------------------------------------
 subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,&
-                               enitab,totmass,ierr,mcut,rcut)
- use units,     only                      :udist,umass,unit_density,unit_pressure,unit_ergg
- use datafiles, only                      :find_phantom_datafile
- integer,          intent(in)            :: ng_max
- integer,          intent(out)           :: ierr,n_rows
- real,             intent(out)           :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
- real,             intent(out)           :: totmass
- real,             intent(out), optional :: rcut
- real,             intent(in), optional  :: mcut
- real,             dimension(1:100)      :: test_cols
- character(len=*), intent(in)            :: filepath
- character(len=120)                      :: fullfilepath
- character(len=100000)                   :: line
- integer                                 :: i,aloc,k,j,m,s,n_cols
- integer                                 :: max_cols = 100
- real,             allocatable           :: stardata(:,:)
- logical                                 :: iexist,n_too_big
+                               enitab,totmass,composition,comp_label,columns_compo,ierr,mcut,rcut  )
+ use units,     only                      : udist,umass,unit_density,unit_pressure,unit_ergg
+ use datafiles, only                      : find_phantom_datafile
+ use fileutils, only                      : get_ncolumns,get_nlines,skip_header,get_column_labels
+
+ integer,intent(in)                       :: ng_max
+ integer,intent(out)                      :: ierr,n_rows
+ real,allocatable,intent(out)             :: rtab(:),rhotab(:),ptab(:),temperature(:),enitab(:)
+ real,intent(out),allocatable             :: composition(:,:)
+ real,intent(out)                         :: totmass
+ real,intent(out),optional                :: rcut
+ real,intent(in),optional                 :: mcut
+ character(len=20),allocatable,intent(out):: comp_label(:)
+ character(len=20),allocatable            :: all_label(:) !This contains all labels read from KEPLER file.
+ character(len=*),intent(in)              :: filepath
+ integer,intent(out)                      :: columns_compo
+
+ character(len=120)                       :: fullfilepath
+ character(len=10000)                     :: line
+
+ integer                                  :: k,aloc,i,column_no,n_cols,n_labels
+ integer                                  :: nheaderlines,skip_no
+ real,allocatable                         :: stardata(:,:)
+ logical                                  :: iexist,n_too_big,composition_available
+
  !
  !--Get path name
  !
@@ -538,48 +552,20 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read data from file
  !
- OPEN(UNIT=11, file=trim(fullfilepath))
- i = 1
- j = 0
- m=0
- s=1
+ k = 1
  n_rows = 0
  n_cols = 0
  n_too_big = .false.
+ composition_available = .false.
+ skip_no = 0
  !
- !--The first loop calculates the number of rows, columns and comments in kepler file.
+ !--Calculate the number of rows, columns and comments in kepler file.
  !
- do
-    read(11, '(a)', iostat=ierr) line
-    if (ierr/=0) exit
-
-    if (index(line,'#')  /=  0) then
-       j = j + 1
-
-    else
-       if (s==1) then
-          !calculate number of columns
-          do m=1, max_cols
-
-             read(line,*,iostat=ierr) test_cols(1:m)
-             if (ierr/=0) exit
-
-          enddo
-       endif
-
-       s = s+1
-       !calculate number of rows
-       n_rows = n_rows + 1
-
-    endif
- enddo
- close(11)
-
- n_cols = m-1
+ n_rows = get_nlines(trim(fullfilepath),skip_comments=.true.,n_columns=n_cols,n_headerlines=nheaderlines)
  !
  !--Check if the number of rows is 0 or greater than ng_max.
  !
- if (n_rows < 1) then
+ if (n_rows < 1 .or. n_cols < 1) then
     ierr = 2
     return
  endif
@@ -591,23 +577,45 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
     return
  endif
 
+ print "(a,i5)",' number of data rows = ', n_rows
+ !
+ !--If there is 'nt1' in the column headings, we know the file contains composition.
+ !--This is used as a test for saving composition.
+ !
  ierr = 0
+ OPEN(UNIT=11, file=trim(fullfilepath))
+ !The row with the information about column headings is at nheaderlines-1.
+ !we skip the first nheaderlines-2 rows and then read the nheaderlines-1 to find the substrings
+ call skip_header(11,nheaderlines-2,ierr)
+ read(11, '(a)', iostat=ierr) line
+
+ !read the column labels and store them in an array.
+ allocate(all_label(n_cols))
+ call get_column_labels(line,n_labels,all_label)
+ close(11)
+
+ !check which label gives nt1.
+ do i = 1,len(all_label)
+    if (all_label(i) == 'nt1') then
+       skip_no = i - 1
+       composition_available = .true.
+    endif
+ enddo
 
  !Allocate memory for saving data
  allocate(stardata(n_rows, n_cols))
+ allocate(rtab(n_rows),rhotab(n_rows),ptab(n_rows),temperature(n_rows),enitab(n_rows))
  !
- !--Read the file again and save it in stardata tensor.
+ !--Read the file again and save the data in stardata tensor.
  !
- open(13, file=trim(fullfilepath))
- do i = 1,j
-    read(13,*,iostat=ierr)
- enddo
-
+ open(UNIT=11, file=trim(fullfilepath))
+ call skip_header(11,nheaderlines,ierr)
  do k=1,n_rows
-    read(13,*,iostat=ierr) stardata(k,:)
+    read(11,*,iostat=ierr) stardata(k,:)
  enddo
- close(13)
+ close(11)
  !
+ !--Save the relevant information we require into arrays that can be used later.
  !--convert relevant data from CGS to code units
  !
  !radius
@@ -617,11 +625,9 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !density
  stardata(1:n_rows,6)  = stardata(1:n_rows,6)/unit_density
  rhotab(1:n_rows)      = stardata(1:n_rows,6)
-
  !mass
  stardata(1:n_rows,3)  = stardata(1:n_rows,3)/umass
  totmass               = stardata(n_rows,3)
-
  !pressure
  stardata(1:n_rows,8)  = stardata(1:n_rows,8)/unit_pressure
  ptab(1:n_rows)        = stardata(1:n_rows,8)
@@ -633,6 +639,29 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  stardata(1:n_rows,9)  = stardata(1:n_rows,9)/unit_ergg
  enitab(1:n_rows)      = stardata(1:n_rows,9)
 
+ print*, totmass*umass, "Total Mass",rtab(n_rows)*udist,"max radius"
+
+ !if elements were found in the file read, save the composition by allocating an array
+ !else set it to 0
+ if (composition_available) then
+    !saving composition. In a composition file of KEPLER, we have first 13 columns that do not contain composition
+    !We skip them and store the rest into a composition tensor.
+    print*, 'Kepler file has composition.'
+    columns_compo = 0
+    allocate(composition(n_rows,n_cols-skip_no))
+    allocate(comp_label(n_cols-skip_no))
+    comp_label(:) = all_label(skip_no+1:n_cols)
+    column_no = skip_no + 1
+    do i = 1, n_cols-skip_no
+       composition(:,i) = stardata(:,column_no)
+       column_no        = column_no + 1
+    enddo
+    columns_compo = n_cols-skip_no
+ else
+    allocate(composition(0,0))
+    allocate(comp_label(0))
+ endif
+ print*, shape(composition),'shape of composition array'
  if (present(rcut) .and. present(mcut)) then
     aloc = minloc(abs(stardata(1:n_rows,1) - mcut),1)
     rcut = rtab(aloc)
@@ -667,7 +696,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  real,    intent(out)   :: edge_density,rtab(:),rhotab(:)
  integer                :: j,iu
  real                   :: xi,phi,func,containedmass,dxi,dfunc,rho,dphi
- real                   :: rBE0,fac_close
+ real                   :: rBE0,fac_close,facBEm,facBEr
  real                   :: mtab(npts)
  logical                :: write_BE_profile = .true.
  logical                :: override_critical = .false.  ! if true, will not error out if the density ratio is too small
@@ -710,8 +739,9 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
 
  !--Determine scaling factors for the BE
  fac_close = 1000.
- if (iBEparam==4 .or. iBEparam==6) central_density = (csBE*xBE/rBE)**2/fourpi
- if (iBEparam==5) then
+ if (iBEparam==4) then
+    central_density = (csBE*xBE/rBE)**2/fourpi
+ elseif (iBEparam==5 .or. iBEparam==6) then
     do j = 1, npts
        if (rtab(j) < xBE) iBElast = j
     enddo
@@ -727,7 +757,7 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
     mtab(j)   = mtab(j) * central_density*rBE0**3
     rhotab(j) = central_density * rhotab(j)
 
-    if ((iBEparam == 1 .or. iBEparam==6 .or. iBEparam == 4) .and. rtab(j) < rBE) then
+    if ((iBEparam == 1 .or. iBEparam == 4) .and. rtab(j) < rBE) then
        iBElast = j
     elseif (iBEparam == 3 .and. mtab(j) < mBE) then
        iBElast = j
@@ -736,19 +766,22 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
  !--Set the remaining properties
  if (iBEparam==4) then
     central_density = central_density*facBE
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab*facBE
  endif
  if (iBEparam==5) then
     central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
+    mtab            = mtab*facBE
     rhotab          = rhotab/sqrt(facBE)
  endif
  if (iBEparam==6) then
-    facBE           = mBE/mtab(iBElast)
-    central_density = central_density/sqrt(facBE)
-    mtab(iBElast)   = mtab(iBElast)*facBE
-    rhotab          = rhotab/sqrt(facBE)
+    facBEr          = rBE/rtab(iBElast)
+    facBEm          = mBE/mtab(iBElast)
+    rtab            = rtab*facBEr
+    mtab            = mtab*facBEm
+    facBE           = facBEm/facBEr**3
+    rhotab          = rhotab*facBE
+    central_density = central_density*facBE
  endif
  mBE = mtab(iBElast)
  rBE = rtab(iBElast)
@@ -778,6 +811,21 @@ subroutine rho_bonnorebert(iBEparam,central_density,edge_density,rBE,xBE,mBE,fac
        ierr = 1
        return
     endif
+ endif
+ !--Sanity check on enclosed mass
+ containedmass = 0.
+ do j = 1,iBElast
+    if (j == 1) then
+       containedmass = containedmass + 4.0*pi/3.0*rhotab(j)*rtab(j)**3
+    else
+       containedmass = containedmass + 4.0*pi*rhotab(j)*rtab(j)**2*(rtab(j)-rtab(j-1))
+    endif
+ enddo
+ print*, 'By density, the contained mass is ',containedmass
+ if (abs(containedmass-mBE)/mBE > 0.05) then
+    print*, 'WARNING! The defined mass and input mass are not the same! Aborting.'
+    ierr = 1
+    return
  endif
 
  !--Write the scaled BE profile that is to be used

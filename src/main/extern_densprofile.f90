@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -79,9 +79,8 @@ end subroutine densityprofile_force
 !+
 !----------------------------------------------
 subroutine load_extern_densityprofile(ierr)
- use units,   only: umass, utime, udist
- use physcon, only: pi, gg
- use io,      only: error
+ use units, only:get_G_code
+ use io,    only:error
  integer, intent(out) :: ierr
 
  real :: rtab(nrhotab), rhotab(nrhotab), menctab(nrhotab)
@@ -100,7 +99,7 @@ subroutine load_extern_densityprofile(ierr)
     call calc_menc(ntab, rtab, rhotab, menctab)
     ! Store r^2 and (- G Menc / r^3) values
     r2tab = rtab(1:ntab)**2
-    gcode = gg * umass * utime**2 / udist**3
+    gcode = get_G_code()
     ftab(1) = 0.0    ! get NaN if dividing by zero at r = 0
     do i = 2, ntab
        ftab(i) = - gcode * menctab(i) / rtab(i)**3

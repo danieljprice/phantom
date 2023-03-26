@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -109,9 +109,8 @@ function get_random ( s1, s2 )
     z = z + 2147483562
  endif
 
- get_random = real ( z ) / 2147483563.0D+00
+ get_random = real ( z / 2147483563.0D+00 )
 
- return
 end function get_random
 
 !!-------------------------------------------------------------------------

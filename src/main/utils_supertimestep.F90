@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -42,9 +42,9 @@ module timestep_sts
 #endif
  integer,         parameter :: dtcoef_max   =   18    ! The maximum number of dtdiff coefficients (retest if changed)
  integer,         parameter :: ndtau_max    =  256    ! The maximum number Nsts*Nmega allowed
- real,            private   :: nu_min       =  1.0d-4 ! The minimum allowed nu (retest if changed)
+ real,            private   :: nu_min       =  1.0e-4 ! The minimum allowed nu (retest if changed)
  real,            private   :: sts_max_rat  = 20.0    ! The maximum ratio of dtau(1) to dtdiff (retest if changed)
- real,            public    :: bigdt        =  1.0d29 ! =bignumber; duplicated here to avoid continually passing it
+ real,            public    :: bigdt        =  1.0e29 ! =bignumber; duplicated here to avoid continually passing it
  !
  integer,         parameter :: iNosts       =  0      ! No super-timestepping required
  integer,         parameter :: iNsts        =  1      ! can use N \propto sqrt(dt/dtdiff)
@@ -190,15 +190,15 @@ pure subroutine sts_init_nu(nu_col,dtdiffcoef_in,ierr)
        nurat = tol*2.0
        ! Iterate
        do while (ctr < ctrmax .and. nurat > tol)
-          A     =                    (1.0d0+sqrt(nuold))**twoN
-          B     =                    (1.0d0-sqrt(nuold))**twoN
-          dAdnu =  realN/sqrt(nuold)*(1.0d0+sqrt(nuold))**(twoN-1)
-          dBdnu = -realN/sqrt(nuold)*(1.0d0-sqrt(nuold))**(twoN-1)
-          f     = 2.0d0*nuold**1.5*(A+B)*realN*dtdiffcoef_in - nuold*(A-B)
-          dfdnu = realN*sqrt(nuold)*dtdiffcoef_in*(3.0d0*(A+B)+2.0d0*nuold*(dAdnu+dBdnu))   &
+          A     =                    (1.+sqrt(nuold))**twoN
+          B     =                    (1.-sqrt(nuold))**twoN
+          dAdnu =  realN/sqrt(nuold)*(1.+sqrt(nuold))**(twoN-1)
+          dBdnu = -realN/sqrt(nuold)*(1.-sqrt(nuold))**(twoN-1)
+          f     = 2.*nuold**1.5*(A+B)*realN*dtdiffcoef_in - nuold*(A-B)
+          dfdnu = realN*sqrt(nuold)*dtdiffcoef_in*(3.*(A+B)+2.*nuold*(dAdnu+dBdnu))   &
                 - (A-B+nuold*(dAdnu-dBdnu))
           nunew = nuold - f/dfdnu
-          nurat = abs( 1.0d0 - nunew/nuold )
+          nurat = abs( 1. - nunew/nuold )
           nuold = nunew
           ctr   = ctr + 1
           if (nunew > 1.0 .or. nunew < epsilon(nunew)) then
@@ -470,7 +470,7 @@ pure function sts_get_dtau(j,N,nu0,dtdiff_in)
  real, parameter      :: pibytwo = 2.*atan(1.)
 
  sts_get_dtau = dtdiff_in /&
-                ((nu0-1.0d0)*cos(pibytwo*real(2*j-1)/real(N)) + 1.0d0+nu0)
+                ((nu0-1.)*cos(pibytwo*real(2*j-1)/real(N)) + 1.+nu0)
 
 end function sts_get_dtau
 !----------------------------------------------------------------

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -97,6 +97,7 @@ program phantomevcompare
     !--List the models to compare
     !  Note: will check to ensure that 01.ev exists
     enter_filename = .true.
+    add_prefix = .false.
     write(*,'(a)') ' '
     write(*,'(a)') 'Enter the file prefixes you wish to compare; press enter when complete.'
     i = 0

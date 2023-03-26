@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -33,11 +33,11 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxp,maxvxyzu
+ use dim,          only:maxvxyzu
  use setup_params, only:rhozero,ihavesetupB
  use slab,         only:set_slab
  use boundary,     only:dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd
+ use part,         only:Bxyz,mhd,igas
  use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
@@ -74,9 +74,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  uuzero = przero/(gam1*rhozero)
 
  print "(/,a)",' Three dimensional current loop advection problem '
- print 10, Azero,rloop,rhozero,przero
-10 format(/,' Azero   = ',f6.3,', radius of loop = ',f6.3,/,&
-            ' density = ',f6.3,',       pressure = ',f6.3,/)
+ print "(/,' Azero   = ',f6.3,', radius of loop = ',f6.3,/,"// &
+          "' density = ',f6.3,',       pressure = ',f6.3,/)",&
+       Azero,rloop,rhozero,przero
 
  if (maxvxyzu < 4) then
     polyk = przero/rhozero**gamma
@@ -92,11 +92,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  call set_slab(id,master,nx,-1.,1.,-0.5,0.5,deltax,hfact,npart,xyzh)
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
+ print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  costheta = dxbound/sqrt(dxbound**2 + dybound**2)
  sintheta = dybound/sqrt(dxbound**2 + dybound**2)

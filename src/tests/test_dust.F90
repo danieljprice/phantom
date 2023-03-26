@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,11 +28,7 @@ module testdust
  implicit none
  public :: test_dust
 
-#ifdef DUST
-#ifdef DUSTGROWTH
  public :: test_dustybox
-#endif
-#endif
 
  private
 
@@ -44,7 +40,6 @@ contains
 !+
 !--------------------------------------------
 subroutine test_dust(ntests,npass)
-#ifdef DUST
  use dust,        only:idrag,init_drag,get_ts
  use set_dust,    only:set_dustbinfrac
  use physcon,     only:solarm,au
@@ -54,16 +49,17 @@ subroutine test_dust(ntests,npass)
  use mpiutils,    only:barrier_mpi
  use options,     only:use_dustfrac
  use table_utils, only:logspace
-#ifdef DUSTGROWTH
  use growth,      only:init_growth
-#endif
-#endif
  integer, intent(inout) :: ntests,npass
-#ifdef DUST
  integer :: nfailed(3),ierr,iregime
  real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
- if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
+ if (use_dust) then
+    if (id==master) write(*,"(/,a)") '--> TESTING DUST MODULE'
+ else
+    if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (REQUIRES -DDUST)'
+    return
+ endif
 
  call set_units(mass=solarm,dist=au,G=1.d0)
 
@@ -120,13 +116,9 @@ subroutine test_dust(ntests,npass)
  call barrier_mpi()
 
  if (id==master) write(*,"(/,a)") '<-- DUST TEST COMPLETE'
-#else
- if (id==master) write(*,"(/,a)") '--> SKIPPING DUST TEST (REQUIRES -DDUST)'
-#endif
 
 end subroutine test_dust
 
-#ifdef DUST
 !----------------------------------------------------
 !+
 !  Dustybox test from Laibe & Price (2011, 2012a,b)
@@ -146,28 +138,21 @@ subroutine test_dustybox(ntests,npass)
  use dust,           only:K_code,idrag
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
- use dim,            only:periodic,mhd,use_dust
+ use dim,            only:periodic,mhd,use_dust,use_dustgrowth
  use timestep,       only:dtmax
  use io,             only:iverbose
  use mpiutils,       only:reduceall_mpi
  use kernel,         only:kernelname
  use mpidomain,      only:i_belong
-#ifdef DUSTGROWTH
- use part,           only:dustgasprop,dustprop
+ use part,           only:dustgasprop
  use growth,         only:ifrag
-#endif
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx, itype, npart_previous, i, j, nsteps
  real :: deltax, dz, hfact, totmass, rhozero
-#ifdef DUSTGROWTH
- integer         :: ncheck(6), nerr(6)
+ integer         :: ncheck(6),nerr(6)
  real            :: errmax(6)
  real, parameter :: toldv = 2.e-4
-#else
- integer :: ncheck(5), nerr(5)
- real    :: errmax(5)
-#endif
  real :: t, dt, dtext, dtnew
  real :: vg, vd, deltav, ekin_exact, fd
  real :: tol,tolvg,tolfg,tolfd
@@ -185,9 +170,7 @@ subroutine test_dustybox(ntests,npass)
     return
  endif
 
-#ifdef DUSTGROWTH
- if (id==master) write(*,"(/,a)") '--> Adding dv interpolation test'
-#endif
+ if (use_dustgrowth .and. id==master) write(*,"(/,a)") '--> Adding dv interpolation test'
 
  !
  ! setup for dustybox problem
@@ -240,9 +223,7 @@ subroutine test_dustybox(ntests,npass)
  K_code = 0.35
  ieos = 1
  idrag = 2
-#ifdef DUSTGROWTH
- ifrag = -1
-#endif
+ if (use_dustgrowth) ifrag = -1
  polyk = 1.
  gamma = 1.
  alpha = 0.
@@ -278,9 +259,9 @@ subroutine test_dustybox(ntests,npass)
        if (iamdust(iphase(j))) then
           call checkvalbuf(vxyzu(1,j),vd,tol,'vd',nerr(1),ncheck(1),errmax(1))
           call checkvalbuf(fxyzu(1,j),fd,tolfd,'fd',nerr(2),ncheck(2),errmax(2))
-#ifdef DUSTGROWTH
-          call checkvalbuf(dustgasprop(4,j),deltav,toldv,'dv',nerr(6),ncheck(6),errmax(6))
-#endif
+          if (use_dustgrowth) then
+             call checkvalbuf(dustgasprop(4,j),deltav,toldv,'dv',nerr(6),ncheck(6),errmax(6))
+          endif
        else
           call checkvalbuf(vxyzu(1,j),vg,tolvg,'vg',nerr(3),ncheck(3),errmax(3))
           call checkvalbuf(fxyzu(1,j),-fd,tolfg,'fg',nerr(4),ncheck(4),errmax(4))
@@ -296,15 +277,15 @@ subroutine test_dustybox(ntests,npass)
  call checkvalbuf_end('gas velocities match exact solution',ncheck(3),nerr(3),errmax(3),tolvg)
  call checkvalbuf_end('gas accel matches exact solution',   ncheck(4),nerr(4),errmax(4),tolfg)
  call checkvalbuf_end('kinetic energy decay matches exact',ncheck(5),nerr(5),errmax(5),tol)
-#ifdef DUSTGROWTH
- call checkvalbuf_end('interpolated dv matches exact solution',ncheck(6),nerr(6),errmax(6),toldv)
-#endif
+ if (use_dustgrowth) then
+    call checkvalbuf_end('interpolated dv matches exact solution',ncheck(6),nerr(6),errmax(6),toldv)
+ endif
 
-#ifdef DUSTGROWTH
- call update_test_scores(ntests,nerr(1:6),npass)
-#else
- call update_test_scores(ntests,nerr(1:5),npass)
-#endif
+ if (use_dustgrowth) then
+    call update_test_scores(ntests,nerr(1:6),npass)
+ else
+    call update_test_scores(ntests,nerr(1:5),npass)
+ endif
 
 end subroutine test_dustybox
 
@@ -767,7 +748,5 @@ subroutine write_file(time,xyzh,dustfrac,npart)
  close(lu)
 
 end subroutine write_file
-
-#endif
 
 end module testdust

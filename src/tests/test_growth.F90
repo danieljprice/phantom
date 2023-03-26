@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -115,7 +115,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,wbymass,gsizemincgs
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -187,7 +187,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  ! initialise
  !
  this_is_a_test = .true.
- wbymass        = .false.
 
  !
  ! setup for dustybox problem

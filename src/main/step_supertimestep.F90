@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -63,7 +63,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  real,    intent(in)    :: time,dt
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
- real, parameter        :: time_tol = 1.0d-8
+ real, parameter        :: time_tol = 1.0e-8
  integer                :: nactive_sts
 #ifndef IND_TIMESTEPS
  integer(kind=1), parameter :: nbinmax = 0  ! The simplest way to keep everything clean
@@ -150,6 +150,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  dtforce    = dttemp3(2)
  dterr      = dttemp3(3)
 #endif
+
  if (abs(1.0-dtsum/dt) >= (sqrt(real(Nmegasts_now))*time_tol)) then
     write(iprint,'(a,I4,3Es16.7)') 'Super-timestepping: Nmegasts,dt,dt_sum,abs(1.0-dt_sum/dt)  : ' &
     ,Nmegasts_now,dt,dtsum,abs(1.0-dtsum/dt)

@@ -3,11 +3,12 @@ Getting started on the NCI supercomputer (Australian National Supercomputing Fac
 
 Apply for an account at http://nci.org.au
 
-If you are in Daniel Price’s research group, request to join project “fu7”
+If you are in Daniel Price’s research group, request to join project “wk74”
 
 Log in
 -------
 
+Please read the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 ::
 
    ssh -Y USER@gadi.nci.org.au
@@ -22,10 +23,12 @@ First edit your .bashrc file in your favourite text editor::
 Mine has::
 
    export SYSTEM=nci
+   export PROJECT=wk74
    export OMP_STACKSIZE=512M
    export OMP_NUM_THREADS=32
-   export PATH=$PATH:/scratch/fu7/splash/bin
-   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/scratch/fu7/splash/giza/lib
+   export SPLASH_DIR=/g/data/$PROJECT/splash
+   export PATH=$PATH:$SPLASH_DIR/bin
+   export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SPLASH_DIR/giza/lib
    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/apps/hdf5/1.10.5/lib
    export MAXP=2000000
    ulimit -s unlimited
@@ -33,13 +36,13 @@ Mine has::
 
 If you are using phantom+mcfost, you will need the following lines::
 
-   export MCFOST_DIR=/scratch/fu7/mcfost-src/
+   export MCFOST_DIR=/g/data/$PROJECT/mcfost-src/
    export MCFOST_AUTO_UPDATE=0
-   export MCFOST_INSTALL=/scratch/fu7/mcfost/
+   export MCFOST_INSTALL=/g/data/$PROJECT/mcfost/
    export MCFOST_GIT=1
    export MCFOST_NO_XGBOOST=1
-   export MCFOST_LIBS=/scratch/fu7/mcfost
-   export MCFOST_UTILS=/scratch/fu7/mcfost/utils
+   export MCFOST_LIBS=/g/data/$PROJECT/mcfost
+   export MCFOST_UTILS=/g/data/$PROJECT/mcfost/utils
    export HDF5ROOT=/apps/hdf5/1.10.5/lib
 
 Then relevant modules in your .modules file::
@@ -55,12 +58,12 @@ Mine contains::
 
 where the last line is needed for git's large file storage (LFS) to work.
 
-Finally, make a shortcut to the /scratch filesystem::
+Finally, make a shortcut to the /g/data filesystem::
 
-   cd /scratch/fu7
+   cd /g/data/$PROJECT
    mkdir $USER
    cd
-   ln -s /scratch/fu7/$USER runs
+   ln -s /g/data/$PROJECT/$USER runs
    cd runs
    pwd -P
 
@@ -72,6 +75,12 @@ Clone a copy of phantom into your home directory::
    $ cd $HOME
    $ git clone https://github.com/danieljprice/phantom.git
    $ cd phantom
+   
+and tell git who you are::
+
+   $ git config --global user.name "Joe Bloggs"
+   $ git config --global user.email "joe.bloggs@monash.edu"
+
 
 Run a calculation
 ------------------
@@ -104,13 +113,14 @@ should produce something like::
   #PBS -l ncpus=48
   #PBS -N myrun
   #PBS -q normal
-  #PBS -P fu7
+  #PBS -P wk74
   #PBS -o tde.in.pbsout
   #PBS -j oe
   #PBS -m e
   #PBS -M daniel.price@monash.edu
   #PBS -l walltime=48:00:00
   #PBS -l mem=16G
+  #PBS -l storage=gdata/wk74
   #PBS -l other=hyperthread
   ## phantom jobs can be restarted:
   #PBS -r y
@@ -211,7 +221,7 @@ this way each process is short and your movie-making can proceed without getting
 
 more info
 ---------
-See :doc:`<running-clusters>`
+See :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 
 For more information on the actual machine `read the
 userguide <https://opus.nci.org.au/display/Help/Preparing+for+Gadi>`__

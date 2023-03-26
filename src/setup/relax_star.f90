@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,9 +18,10 @@ module relaxstar
 !   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: checksetup, damping, deriv, energies, eos, fileutils,
+! :Dependencies: checksetup, damping, deriv, dim, energies, eos, fileutils,
 !   infile_utils, initial, io, io_summary, memory, options, part, physcon,
-!   ptmass, readwrite_dumps, sortutils, step_lf_global, table_utils, units
+!   ptmass, readwrite_dumps, setstar, sortutils, step_lf_global,
+!   table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -31,6 +32,10 @@ module relaxstar
 
  real,    private :: gammaprev,hfactprev
  integer, private :: ieos_prev
+
+ integer, public :: ierr_setup_errors = 1, &
+                    ierr_no_pressure  = 2, &
+                    ierr_unbound = 3
 
  private
 
@@ -51,27 +56,31 @@ contains
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
-subroutine relax_star(nt,rho,pr,r,npart,xyzh)
- use table_utils, only:yinterp
- use deriv,       only:get_derivs_global
- use dim,         only:maxp
- use part,        only:vxyzu
- use step_lf_global, only:init_step,step
- use initial,       only:initialise
- use memory,      only:allocate_memory
- use energies,    only:compute_energies,ekin,epot,etherm
- use checksetup,  only:check_setup
- use io,          only:error,warning
- use fileutils,   only:getnextfilename
+subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
+ use table_utils,     only:yinterp
+ use deriv,           only:get_derivs_global
+ use dim,             only:maxp,maxvxyzu,gr,gravity
+ use part,            only:vxyzu,rad,eos_vars
+ use step_lf_global,  only:init_step,step
+ use initial,         only:initialise
+ use memory,          only:allocate_memory
+ use energies,        only:compute_energies,ekin,epot,etherm
+ use checksetup,      only:check_setup
+ use io,              only:error,warning
+ use fileutils,       only:getnextfilename
  use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
- use eos, only:gamma
- use physcon,     only:pi
- use options,     only:iexternalforce
- use io_summary,  only:summary_initialise
+ use eos,             only:gamma,eos_outputs_mu
+ use physcon,         only:pi
+ use options,         only:iexternalforce
+ use io_summary,      only:summary_initialise
+ use setstar,         only:set_star_thermalenergy,set_star_composition
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
+ logical, intent(in)    :: use_var_comp
+ real,    intent(in), allocatable :: Xfrac(:),Yfrac(:),mu(:)
  real,    intent(inout) :: xyzh(:,:)
+ integer, intent(out)   :: ierr
  integer :: nits,nerr,nwarn,iunit
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
@@ -82,6 +91,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  !
  ! save settings and set a bunch of options
  !
+ ierr = 0
  rstar = maxval(r)
  mr = get_mr(rho,r)
  mstar = mr(nt)
@@ -96,10 +106,12 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  if (nerr > 0) then
     call error('relax_star','cannot relax star because particle setup contains errors')
     call restore_original_options()
+    ierr = ierr_setup_errors
     return
  endif
  use_step = .false.
- if (iexternalforce > 0) then
+
+ if (iexternalforce > 0 .and. (.not. gr)) then
     call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
     use_step = .true.
  endif
@@ -112,16 +124,17 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  if (any(utherm <= 0.)) then
     call error('relax_star','relax-o-matic needs non-zero pressure array set in order to work')
     call restore_original_options()
+    ierr = ierr_no_pressure
     return
  endif
- call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  !
  ! compute derivatives the first time around (needed if using actual step routine)
  !
  t = 0.
  call allocate_memory(int(min(2*npart,maxp),kind=8))
  call get_derivs_global()
- call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)
  !
  ! perform sanity checks
@@ -129,13 +142,14 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
  if (etherm > abs(epot)) then
     call error('relax_star','cannot relax star because it is unbound (etherm > epot)')
     print*,' Etherm = ',etherm,' Epot = ',Epot
-    print*
+    if (maxvxyzu < 4) print "(/,a,/)",' *** Try compiling with ISOTHERMAL=no instead... ***'
     call restore_original_options()
+    ierr = ierr_unbound
     return
  endif
- print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a)",&
+ print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a,i4)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
-   '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=0'
+   '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  filename = 'relax_00000'
  if (write_files) then
@@ -167,7 +181,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
     !
     ! reset thermal energy and calculate information
     !
-    call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+    call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
     !
     ! compute energies and check for convergence
     !
@@ -195,10 +209,17 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh)
        !
        ! write dump files
        !
-       if (mod(nits,5)==0) then
+       if (mod(nits,10)==0) then
           filename = getnextfilename(filename)
+          ! give the real thermal energy profile so the file is useable as a starting file for the main calculation
+          if (use_var_comp) call set_star_composition(use_var_comp,eos_outputs_mu(ieos_prev),&
+                                                      npart,xyzh,Xfrac,Yfrac,mu,mr,mstar,eos_vars)
+          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,r,npart,xyzh,vxyzu,rad,&
+                                                       eos_vars,.true.,use_var_comp=.false.,initialtemp=1.e3)
           call write_fulldump(t,filename)
           call flush(iunit)
+          ! restore the fake thermal energy profile
+          call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
        endif
     endif
  enddo
@@ -273,14 +294,15 @@ end subroutine shift_particles
 !  also compute error between true rho(r) and desired rho(r)
 !+
 !----------------------------------------------------------------
-subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
  use sortutils,   only:find_rank,r2func
  use part,        only:rhoh,massoftype,igas,maxvxyzu,iorder=>ll
+ use dim,         only:do_radiation
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
  real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
- real, intent(inout) :: vxyzu(:,:)
+ real, intent(inout) :: vxyzu(:,:),rad(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
  real :: ri,rhor,rhoi,rho1,mstar,massri
@@ -306,6 +328,7 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_e
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
  enddo
+ if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
 end subroutine reset_u_and_get_errors

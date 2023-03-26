@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,15 +14,16 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, setup_params
+! :Dependencies: kernel, part, setup_params
 !
  implicit none
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use setup_params, only: ihavesetupB
- use part,         only: hfact,mhd
+ use setup_params, only:ihavesetupB
+ use part,         only:hfact,mhd
+ use kernel,       only:hfact_default
 ! use timestep,      only: dtmax
  !traced dtmax to "timestep" but can't find "timestep"?
  !also can't find "dim"?
@@ -44,8 +45,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! - from 'set_default_options' - options which comes from 'timestep' ?
 
  ! Define hfact
- hfact = 1.2
-
+ hfact = hfact_default
 
  print*,'sphNG data reformatted for phantom write'
 
@@ -58,4 +58,3 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 end subroutine modify_dump
 
 end module moddump
-

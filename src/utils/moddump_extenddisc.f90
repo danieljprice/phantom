@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, eos, infile_utils, io, part, partinject,
-!   physcon, prompting, setdisc, vectorutils
+! :Dependencies: centreofmass, eos, infile_utils, io, kernel, part,
+!   partinject, physcon, prompting, setdisc, vectorutils
 !
  implicit none
 
@@ -29,12 +29,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,       only:igas,isdead_or_accreted,xyzmh_ptmass,vxyz_ptmass,nptmass
  use eos,        only:gamma,polyk
  use io,         only:id,master,fatal
+ use kernel,     only:hfact_default
  use setdisc,    only:set_disc,get_disc_mass,scaled_sigma
  use physcon,    only:pi
  use vectorutils,only:rotatevec
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass,get_total_angular_momentum
- use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
+ use infile_utils,   only:open_db_from_file,inopts,read_inopt,close_db
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -92,7 +93,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  pmass = massoftype(igas)
  sigmaprofile = 2
  sigma_norm = 1.0
- hfact = 1.2
+ hfact = hfact_default
 
  ! Run a basic disc analysis to determine tilt and twist as a function of radius
  sigma = 0.
@@ -214,7 +215,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  deallocate(xyzh_add,vxyzu_add)
 
- return
 end subroutine modify_dump
 
 end module moddump

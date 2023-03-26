@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, eos, part, units
+! :Dependencies: boundary, eos, kernel, part, units
 !
  implicit none
 
@@ -25,6 +25,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use eos,      only:polyk,polyk2
  use units,    only:unit_velocity
  use part,     only:hfact
+ use kernel,   only:hfact_default
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -49,10 +50,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,' the sound speed in the medium is ',sqrt(polyk2)
  print*,'                          in cm/s ',sqrt(polyk2)*unit_velocity
 
- hfact = 1.2
+ hfact = hfact_default
 
- return
 end subroutine modify_dump
 
 end module moddump
-

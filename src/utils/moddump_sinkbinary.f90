@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,8 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, part, physcon, prompting, setbinary,
-!   timestep, units
+! :Dependencies: centreofmass, extern_gwinspiral, externalforces, options,
+!   part, physcon, prompting, setbinary, timestep, units
 !
  implicit none
 
@@ -29,6 +29,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting, only:prompt
  use centreofmass, only:reset_centreofmass
  use timestep, only:dtmax,tmax
+ use options,   only:iexternalforce
+ use externalforces, only:iext_gwinspiral
+ use extern_gwinspiral, only:Nstar
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
@@ -51,7 +54,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('enter semi-major axis in code units',a,0.)
 
  racc = a/200.
- call prompt('enter accretion radius of point mass',racc,0.01*a,0.5*a)
+ call prompt('enter accretion radius of point mass',racc,0.01)
  print*,' accretion radius in solar radii = ',racc*udist/solarr
 
  e = 0.
@@ -61,7 +64,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! add sink particle binary
  !
  nptmass = 0
- call set_binary(m2,m1,a,e,racc,racc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ call set_binary(m1,m2,a,e,racc,racc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  !
  ! delete one of the sink particles and replace it with our polytrope
  !
@@ -71,6 +74,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,2)
  enddo
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ if (iexternalforce==iext_gwinspiral) then
+    Nstar(1) = npart
+ endif
 
  period = 2.*pi*sqrt(a**3/(m1 + m2))
  print*,' orbital period = ',period

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -26,13 +26,14 @@ module part
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
-               maxp_h2,nabundances,periodic,&
+               maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
-               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxsp,&
+               maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
-               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,inucleation
+               do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
+               inucleation,itau_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -129,9 +130,17 @@ module part
                        imu   = 4, &
                        iX    = 5, &
                        iZ    = 6, &
-                       maxeosvars = 6
+                       igamma = 7, &
+                       maxeosvars = 7
  character(len=*), parameter :: eos_vars_label(maxeosvars) = &
-    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity'/)
+    (/'pressure   ','sound speed','temperature','mu         ','H fraction ','metallicity','gamma      '/)
+!
+!--energy_variables
+!
+ integer, public :: ien_type
+ integer, public, parameter :: ien_entropy = 1, &
+                               ien_etotal  = 2, &
+                               ien_entropy_s = 3
 !
 !--one-fluid dust (small grains)
 !
@@ -195,6 +204,10 @@ module part
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
 #endif
 !
+!-- Ray tracing : optical depth
+!
+ real, allocatable :: tau(:)
+!
 !--Dust formation - theory of moments
 !
  real, allocatable :: dust_temp(:)
@@ -240,9 +253,12 @@ module part
                        inumph = 6, &
                        ivorcl = 7, &
                        iradP  = 8, &
-                       maxradprop = 8
+                       ilambda = 9, &
+                       iedd   = 10, &
+                       icv    = 11, &
+                       maxradprop = 11
  character(len=*), parameter :: radprop_label(maxradprop) = &
-    (/'radFx','radFy','radFz','kappa','thick','numph','vorcl','radP '/)
+    (/'radFx ','radFy ','radFz ','kappa ','thick ','numph ','vorcl ','radP  ','lambda','edd   ','cv    '/)
 !
 !--lightcurves
 !
@@ -267,15 +283,11 @@ module part
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
  real, allocatable   :: radpred(:,:)
-#ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
  integer(kind=1), allocatable :: ibin_wake(:)
  real(kind=4),    allocatable :: dt_in(:)
  real,            allocatable :: twas(:)
-#else
- integer(kind=1)    :: ibin_wake(1)
-#endif
 
  integer(kind=1), allocatable    :: iphase(:)
  integer(kind=1), allocatable    :: iphase_soa(:)
@@ -362,6 +374,7 @@ module part
    +maxeosvars                          &  ! eos_vars
 #ifdef SINK_RADIATION
    +1                                   &  ! dust temperature
+   +1                                   &  ! optical depth
 #endif
 #ifdef GRAVITY
  +1                                   &  ! poten
@@ -472,13 +485,11 @@ subroutine allocate_part
  call allocate_array('radpred', radpred, maxirad, maxprad)
  call allocate_array('drad', drad, maxirad, maxprad)
  call allocate_array('radprop', radprop, maxradprop, maxprad)
-#ifdef IND_TIMESTEPS
- call allocate_array('ibin', ibin, maxan)
- call allocate_array('ibin_old', ibin_old, maxan)
- call allocate_array('ibin_wake', ibin_wake, maxan)
- call allocate_array('dt_in', dt_in, maxan)
- call allocate_array('twas', twas, maxan)
-#endif
+ call allocate_array('ibin', ibin, maxindan)
+ call allocate_array('ibin_old', ibin_old, maxindan)
+ call allocate_array('ibin_wake', ibin_wake, maxindan)
+ call allocate_array('dt_in', dt_in, maxindan)
+ call allocate_array('twas', twas, maxindan)
  call allocate_array('iphase', iphase, maxphase)
  call allocate_array('iphase_soa', iphase_soa, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
@@ -487,7 +498,8 @@ subroutine allocate_part
  call allocate_array('ibelong', ibelong, maxp)
  call allocate_array('istsactive', istsactive, maxsts)
  call allocate_array('ibin_sts', ibin_sts, maxsts)
- call allocate_array('nucleation', nucleation, n_nucleation*inucleation, maxsp*inucleation)
+ call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
+ call allocate_array('tau', tau, maxp*itau_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -544,14 +556,13 @@ subroutine deallocate_part
  if (allocated(dustpred))     deallocate(dustpred)
  if (allocated(Bpred))        deallocate(Bpred)
  if (allocated(dustproppred)) deallocate(dustproppred)
-#ifdef IND_TIMESTEPS
  if (allocated(ibin))         deallocate(ibin)
  if (allocated(ibin_old))     deallocate(ibin_old)
  if (allocated(ibin_wake))    deallocate(ibin_wake)
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
-#endif
  if (allocated(nucleation))   deallocate(nucleation)
+ if (allocated(tau))          deallocate(tau)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -629,13 +640,13 @@ subroutine init_part
  dustgasprop(:,:) = 0.
  VrelVf(:)        = 0.
 #endif
-#ifdef IND_TIMESTEPS
- ibin(:)       = 0
- ibin_old(:)   = 0
- ibin_wake(:)  = 0
- dt_in(:)      = 0.
- twas(:)       = 0.
-#endif
+ if (ind_timesteps) then
+    ibin(:)       = 0
+    ibin_old(:)   = 0
+    ibin_wake(:)  = 0
+    dt_in(:)      = 0.
+    twas(:)       = 0.
+ endif
 
  ideadhead = 0
 !
@@ -716,7 +727,7 @@ pure subroutine rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
  real, parameter :: third = 1./3.
 
  hi1 = 1./abs(hi)
- rhoi = pmassi*(hfact*hi1)**3
+ rhoi = real(pmassi*(hfact*hi1)**3)
  rho1i = 1./rhoi
  dhdrhoi = -third*hi*rho1i
 
@@ -1149,13 +1160,13 @@ subroutine copy_particle(src,dst,new_part)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
-#ifdef IND_TIMESTEPS
- ibin(dst)       = ibin(src)
- ibin_old(dst)   = ibin_old(src)
- ibin_wake(dst)  = ibin_wake(src)
- dt_in(dst)      = dt_in(src)
- twas(dst)       = twas(src)
-#endif
+ if (ind_timesteps) then
+    ibin(dst)       = ibin(src)
+    ibin_old(dst)   = ibin_old(src)
+    ibin_wake(dst)  = ibin_wake(src)
+    dt_in(dst)      = dt_in(src)
+    twas(dst)       = twas(src)
+ endif
  if (use_dust) then
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
@@ -1163,6 +1174,7 @@ subroutine copy_particle(src,dst,new_part)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
+ if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
 
  if (new_part) then
     norig      = norig + 1
@@ -1231,15 +1243,13 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
-#ifdef IND_TIMESTEPS
- if (maxan==maxp) then
+ if (maxindan==maxp) then
     ibin(dst)       = ibin(src)
     ibin_old(dst)   = ibin_old(src)
     ibin_wake(dst)  = ibin_wake(src)
     dt_in(dst)      = dt_in(src)
     twas(dst)       = twas(src)
  endif
-#endif
  if (use_dust) then
     if (maxp_dustfrac==maxp) dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
@@ -1261,6 +1271,7 @@ subroutine copy_particle_all(src,dst,new_part)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+ if (itau_alloc == 1) tau(dst) = tau(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
@@ -1469,19 +1480,22 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
+    if (do_nucleation) then
+       call fill_buffer(xtemp, nucleation(:,i),nbuf)
+    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
-#ifdef IND_TIMESTEPS
-    call fill_buffer(xtemp,ibin(i),nbuf)
-    call fill_buffer(xtemp,ibin_old(i),nbuf)
-    call fill_buffer(xtemp,ibin_wake(i),nbuf)
-    call fill_buffer(xtemp,dt_in(i),nbuf)
-    call fill_buffer(xtemp,twas(i),nbuf)
-#endif
+    if (ind_timesteps) then
+       call fill_buffer(xtemp,ibin(i),nbuf)
+       call fill_buffer(xtemp,ibin_old(i),nbuf)
+       call fill_buffer(xtemp,ibin_wake(i),nbuf)
+       call fill_buffer(xtemp,dt_in(i),nbuf)
+       call fill_buffer(xtemp,twas(i),nbuf)
+    endif
     call fill_buffer(xtemp,iorig(i),nbuf)
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
@@ -1548,19 +1562,22 @@ subroutine unfill_buffer(ipart,xbuf)
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
+ if (do_nucleation) then
+    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
+ endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
  endif
-#ifdef IND_TIMESTEPS
- ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
- ibin_old(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
- ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
- dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
- twas(ipart)            = unfill_buf(xbuf,j)
-#endif
+ if (ind_timesteps) then
+    ibin(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
+    ibin_old(ipart)     = nint(unfill_buf(xbuf,j),kind=1)
+    ibin_wake(ipart)    = nint(unfill_buf(xbuf,j),kind=1)
+    dt_in(ipart)        = real(unfill_buf(xbuf,j),kind=kind(dt_in))
+    twas(ipart)         = unfill_buf(xbuf,j)
+ endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero

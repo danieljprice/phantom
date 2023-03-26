@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -45,10 +45,8 @@ subroutine initialise_krome()
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
  use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
- use dim,        only:maxvxyzu,store_gamma
+ use dim,        only:maxvxyzu
  real :: wind_temperature
-
- store_gamma = .true.
 
  print *, ""
  print *, "==================================================="

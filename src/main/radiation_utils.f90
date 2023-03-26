@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,6 +28,9 @@ module radiation_utils
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
+ public :: get_1overmu
+ public :: get_kappa
+ real, public :: kappa_cgs=0.3
  ! following declared public to avoid compiler warnings
  public :: solve_internal_energy_implicit_substeps
  public :: solve_internal_energy_explicit
@@ -44,6 +47,7 @@ contains
 pure real function get_rad_R(rho,xi,flux,kappa) result(radR)
  real, intent(in) :: rho,xi,flux(3),kappa
 
+ ! Note that flux is supposed to be grad(E) = grad(rho*xi)
  if (abs(xi) > epsilon(xi)) then
     radR = sqrt(dot_product(flux,flux))/(kappa*rho*rho*xi)
  else
@@ -77,6 +81,7 @@ subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,r
 
 end subroutine set_radiation_and_gas_temperature_equal
 
+
 !-------------------------------------------------
 !+
 !  set equal gas and radiation temperature
@@ -108,7 +113,7 @@ real function T_from_Etot(rho,etot,gamma,gmw) result(temp)
  real, intent(in)    :: rho,etot,gamma,gmw
  real                :: a,cv1
  real                :: numerator,denominator,correction
- real, parameter     :: tolerance = 1d-15
+ real, parameter     :: tolerance = 1e-15
 
  a   = get_radconst_code()
  cv1 = (gamma-1.)*gmw/Rg*unit_ergg
@@ -379,6 +384,23 @@ subroutine radiation_equation_of_state(radPi, Xii, rhoi)
 
 end subroutine radiation_equation_of_state
 
+
+!--------------------------------------------------------------------
+!+
+!  get opacity from u and rho in code units (and precalculated cv)
+!+
+!--------------------------------------------------------------------
+real function get_kappa(opacity_type,u,cv,rho) result(kappa)
+ integer, intent(in) :: opacity_type
+ real, intent(in)    :: u,cv,rho
+ real                :: temp
+
+ temp = u/cv
+ call get_opacity(opacity_type,rho,temp,kappa)
+
+end function get_kappa
+
+
 !--------------------------------------------------------------------
 !+
 !  calculate opacities
@@ -401,9 +423,47 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
     call get_kappa_mesa(rho_cgs,temperature,kappa,kapt,kapr)
     kappa = kappa/unit_opacity
 
+ case(2)
+    !
+    ! constant opacity
+    !
+    kappa = kappa_cgs/unit_opacity
+
+ case default
+    !
+    ! infinite opacity
+    !
+    kappa = huge(1.)
+
  end select
 
 end subroutine get_opacity
+
+
+!--------------------------------------------------------------------
+!+
+!  get 1/mu from rho, u
+!+
+!--------------------------------------------------------------------
+real function get_1overmu(rho,u,cv_type) result(rmu)
+ use eos,               only:gmw
+ use mesa_microphysics, only:get_1overmu_mesa
+ use physcon,           only:Rg
+ use units,             only:unit_density,unit_ergg
+ real, intent(in)    :: rho,u
+ integer, intent(in) :: cv_type
+ real                :: rho_cgs,u_cgs
+
+ select case (cv_type)
+ case(1) ! mu from MESA EoS tables
+    rho_cgs = rho*unit_density
+    u_cgs = u*unit_ergg
+    rmu = get_1overmu_mesa(rho_cgs,u_cgs,real(Rg))
+ case default
+    rmu = 1./gmw
+ end select
+
+end function get_1overmu
 
 ! subroutine set_radfluxesandregions(npart,radiation,xyzh,vxyzu)
 !   use part,    only: igas,massoftype,rhoh,ifluxx,ifluxy,ifluxz,ithick,iradxi,ikappa

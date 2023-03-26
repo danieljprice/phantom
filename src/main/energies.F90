@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -25,7 +25,7 @@ module energies
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3),hdivBB_xa(2)
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
 #ifdef GR
- use part,           only:metrics,metricderivs
+ use part,           only:metrics
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
@@ -364,7 +364,7 @@ subroutine compute_energies(t)
           ponrhoi  = eos_vars(igasP,i)/rhoi
           spsoundi = eos_vars(ics,i)
           if (maxvxyzu >= 4) then
-             ethermi = pmassi*utherm(vxyzu(iu,i),rhoi)*gasfrac
+             ethermi = pmassi*utherm(vxyzu(:,i),rhoi,gamma)*gasfrac
 #ifdef GR
              ethermi = (alpha_gr/lorentzi)*ethermi
 #endif
@@ -711,7 +711,7 @@ subroutine compute_energies(t)
 
  if (track_mass) then
     accretedmass = ev_data(iev_sum,iev_macc)
-    ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
+    if (accradius1 > 0.) ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
@@ -740,6 +740,11 @@ subroutine compute_energies(t)
     ev_data(iev_sum,iev_gws(6)) = hp(3)
     ev_data(iev_sum,iev_gws(7)) = hx(4)
     ev_data(iev_sum,iev_gws(8)) = hp(4)
+ endif
+
+ if (mhd) then
+    hdivBB_xa(1) = ev_data(iev_max,iev_hdivB)
+    hdivBB_xa(2) = ev_data(iev_ave,iev_hdivB)
  endif
 
  return

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -25,8 +25,8 @@ module analysis
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use dim,              only:maxptmass, maxp
- use part,             only:massoftype,rhoh,hfact,isdead_or_accreted
+ use dim,              only:maxptmass
+ use part,             only:massoftype,rhoh,hfact,isdead_or_accreted,igas
  use readwrite_dumps,  only:read_dump
  use pdfs,             only:get_pdf,write_pdf
  character(len=*), intent(in) :: dumpfile
@@ -34,21 +34,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:), particlemass, time
  character(len=3)  :: variable='rho'
  integer           :: nbins, i
- real, allocatable :: pdf_rho(:), xbin(:)
+ real, allocatable :: pdf_rho(:), xbin(:), rho(:)
  real :: totmass,rhomin,rhomax,binspacing,rhologmin,rhologmax
  real :: vx2,vy2,vz2,rhoi,rmsv
- real :: rhomean, rho(maxp), hi, pmassi
+ real :: rhomean,hi, pmassi
 
+ allocate(rho(npart))
  rho     = 0.
  rhomin  = huge(rhomin)
  rhomax  = 0.
  rhomean = 0.
  totmass = 0.
+ rmsv    = 0.
  print*,'hfact = ',hfact
  do i=1,npart
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
-       pmassi = massoftype(1)
+       pmassi = massoftype(igas)
        rho(i) = rhoh(hi,pmassi)
        rhoi   = rho(i)
        rhomin = min(rhomin,rhoi)
@@ -70,20 +72,18 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 ! rhologmin = log10(rhomin)
 ! rhologmax = log10(rhomax)
-
  rhologmin = -10.
  rhologmax = 10.
-
 !
 !--check to see if there are densities smaller or larger than the limits of the PDF
 !
- if (log10(rhomin)<rhologmin) then
-    print*, 'ERROR: you have densities lower than the minimum value of 10^-10'
+ if (log10(rhomin) < rhologmin) then
+    print*, 'ERROR: you have densities lower than the minimum value of ',10.**rhologmin
     print*, 'Bailing out.'
     stop
  endif
- if (log10(rhomax)>rhologmax) then
-    print*, 'ERROR: you have densities higher than the maximum value of 10^10'
+ if (log10(rhomax) > rhologmax) then
+    print*, 'ERROR: you have densities higher than the maximum value of ',10.**rhologmax
     print*, 'Bailing out.'
     stop
  endif
@@ -107,7 +107,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (allocated(xbin)) deallocate(xbin)
  if (allocated(pdf_rho)) deallocate(pdf_rho)
-!---------------------------------------------
+ if (allocated(rho)) deallocate(rho)
 
 end subroutine do_analysis
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -16,53 +16,54 @@ module forcing
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - istir        : *switch to turn stirring on or off at runtime*
-!   - st_amplfac   : *amplitude factor for stirring of turbulence*
-!   - st_decay     : *correlation time for driving*
-!   - st_dtfreq    : *frequency of stirring*
-!   - st_energy    : *energy input/mode*
-!   - st_seed      : *random number generator seed*
-!   - st_solweight : *solenoidal weight*
-!   - st_spectform : *spectral form of stirring*
-!   - st_stirmax   : *maximum stirring wavenumber*
-!   - st_stirmin   : *minimum stirring wavenumber*
+!   - istir          : *switch to turn stirring on or off at runtime*
+!   - st_amplfac     : *amplitude factor for stirring of turbulence*
+!   - st_decay       : *correlation time for driving*
+!   - st_dtfreq      : *frequency of stirring*
+!   - st_energy      : *energy input/mode*
+!   - st_seed        : *random number generator seed*
+!   - st_solweight   : *solenoidal weight*
+!   - st_spectform   : *spectral form of stirring*
+!   - st_stirmax     : *maximum stirring wavenumber*
+!   - st_stirmin     : *minimum stirring wavenumber*
+!   - stir_from_file : *stir using pre-generated file?*
 !
 ! :Dependencies: boundary, datafiles, fileutils, infile_utils, io,
 !   mpiutils, part
 !
-
 
  public :: forceit,init_forcing,write_forcingdump,write_options_forcing,read_options_forcing
 
  integer, parameter :: st_maxmodes = 5000
 
  !OU variance corresponding to decay time and energy input rate
- real, save :: st_OUvar
+ real :: st_OUvar
 
  !last time random seeds were updated
- real, save :: tprev
+ real :: tprev
 
  !Number of modes
- integer, save :: st_nmodes
+ integer :: st_nmodes
 
- real, save :: st_mode(3,st_maxmodes), st_aka(3,st_maxmodes), st_akb(3,st_maxmodes)
- real, save :: st_OUphases(6*st_maxmodes)
- real, save :: st_ampl(  st_maxmodes)
+ real :: st_mode(3,st_maxmodes), st_aka(3,st_maxmodes), st_akb(3,st_maxmodes)
+ real :: st_OUphases(6*st_maxmodes)
+ real :: st_ampl(  st_maxmodes)
 
  !Options - give these default values to write to file
- integer, save, public  :: istir = 1
+ integer, public  :: istir = 1
+ logical, public  :: stir_from_file = .true.
  !logical,save  :: st_computeDt
- real, save, public     :: st_decay = 0.05
- real, save, public     :: st_energy = 2.0
- real, save, public     :: st_stirmin = 6.28
- real, save, public     :: st_stirmax = 18.86
- real, save, public     :: st_solweight = 1.0
- real, save, public     :: st_solweightnorm
- integer, save  :: st_seed = 1
+ real, public     :: st_decay = 0.05
+ real, public     :: st_energy = 2.0
+ real, public     :: st_stirmin = 6.28
+ real, public     :: st_stirmax = 18.86
+ real, public     :: st_solweight = 1.0
+ real, public     :: st_solweightnorm
+ integer          :: st_seed = 1
  !integer,save  :: st_freq = 1
- real, save, public    :: st_dtfreq = 0.01
- real, save, public    :: st_amplfac = 1.0
- integer, save, public  :: st_spectform = 1
+ real, public     :: st_dtfreq = 0.01
+ real, public     :: st_amplfac = 1.0
+ integer, public  :: st_spectform = 1
 
  !!namelist /force/ istir,st_spectform,st_stirmax,st_stirmin, &
  !                 st_energy,st_decay,st_solweight,st_dtfreq,st_seed
@@ -74,11 +75,8 @@ module forcing
 
 #define N_DIM 3
 !!!!#undef CORRECT_MEAN_FORCE
-!!!!##define STIR_FROM_FILE
 
-#ifdef STIR_FROM_FILE
  character(len=*), parameter :: forcingfile = 'forcing.dat'
-#endif
 
  private
 
@@ -97,7 +95,7 @@ contains
 !!
 !! ARGUMENTS
 !!
-!! PARAMETERS
+!! parameterS
 !!
 !!   These are the runtime parameters used in the Stir unit.
 !!
@@ -145,9 +143,7 @@ subroutine init_forcing(dumpfile,infile,time)
  integer                           :: ikxmin, ikxmax, ikymin, ikymax, ikzmin, ikzmax
  integer                           :: ikx, iky, ikz
  real                              :: kx, ky, kz, k, kc
-#ifdef STIR_FROM_FILE
  real                              :: timeinfile
-#endif
  real, parameter                   :: twopi = 6.283185307
  real, parameter                   :: amin = 0.0 ! the amplitude of the modes at kmin and kmax for a parabolic Fourier spectrum wrt 1.0 at the centre kc
  !logical                           :: iexist
@@ -287,38 +283,38 @@ subroutine init_forcing(dumpfile,infile,time)
     tprev = -1.
     if (id==master .and. iverbose >= 2) write(iprint,*) 'SETTING VELS TO ZERO'
 
-#ifdef STIR_FROM_FILE
-    call read_stirring_data_from_file(forcingfile, time, timeinfile)
-#else
-    ! Everyone, using the same seed, initialize the OU noises for the
-    ! nmodes*6 components of the phases. Store seed in randseed
-    ! afterward.
-    call random_seed(size = st_seedLen)
-    if (.not. allocated(st_randseed)) allocate(st_randseed(st_seedLen))
-    if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  seed length = ', st_seedLen
-    call st_ounoiseinit(st_nmodes*6, st_seed, st_OUvar, st_OUphases)
-    call random_seed(get = st_randseed)
-    if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  st_randseed = ', st_randseed
-#endif
+    if (stir_from_file) then
+       call read_stirring_data_from_file(forcingfile, time, timeinfile)
+    else
+       ! Everyone, using the same seed, initialize the OU noises for the
+       ! nmodes*6 components of the phases. Store seed in randseed
+       ! afterward.
+       call random_seed(size = st_seedLen)
+       if (.not. allocated(st_randseed)) allocate(st_randseed(st_seedLen))
+       if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  seed length = ', st_seedLen
+       call st_ounoiseinit(st_nmodes*6, st_seed, st_OUvar, st_OUphases)
+       call random_seed(get = st_randseed)
+       if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  st_randseed = ', st_randseed
+    endif
 
  else ! we are restarting from a checkpoint
 
-#ifdef STIR_FROM_FILE
-    call read_stirring_data_from_file(forcingfile, time, timeinfile)
-#else
-    ! Everyone, using the same seed, initialize the OU noises for the
-    ! nmodes*6 components of the phases. Store seed in randseed
-    ! afterward.
-    call random_seed(size = st_seedLen)
-    if (.not. allocated(st_randseed)) allocate(st_randseed(st_seedLen))
-    if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  seed length = ', st_seedLen
-    call st_ounoiseinit(st_nmodes*6, st_seed, st_OUvar, st_OUphases)
-    call random_seed(get = st_randseed)
-    if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  st_randseed = ', st_randseed
+    if (stir_from_file) then
+       call read_stirring_data_from_file(forcingfile, time, timeinfile)
+    else
+       ! Everyone, using the same seed, initialize the OU noises for the
+       ! nmodes*6 components of the phases. Store seed in randseed
+       ! afterward.
+       call random_seed(size = st_seedLen)
+       if (.not. allocated(st_randseed)) allocate(st_randseed(st_seedLen))
+       if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  seed length = ', st_seedLen
+       call st_ounoiseinit(st_nmodes*6, st_seed, st_OUvar, st_OUphases)
+       call random_seed(get = st_randseed)
+       if (id==master .and. iverbose >= 1) write(iprint,*) 'init_stir:  st_randseed = ', st_randseed
 
-    call read_forcingdump(dumpfile,ierr)
-    if (ierr /= 0) call fatal('init_forcing','error reading forcing file')
-#endif
+       call read_forcingdump(dumpfile,ierr)
+       if (ierr /= 0) call fatal('init_forcing','error reading forcing file')
+    endif
 
     !call get_parm_from_context(global_parm_context, "st_nmodes", st_nmodes)
     if (id==master) write(iprint,*) 'init_stir:  restarting...  st_nmodes      = ', st_nmodes
@@ -347,8 +343,6 @@ subroutine init_forcing(dumpfile,infile,time)
 
  ! Then convert those into actual Fourier phases:
  call st_calcPhases()
-
- return
 
 end subroutine init_forcing
 
@@ -380,16 +374,17 @@ subroutine write_options_forcing(iunit)
 
  write(iunit,"(/,a)") '# options controlling forcing of turbulence'
  call write_inopt(istir,'istir','switch to turn stirring on or off at runtime',iunit)
-#ifndef STIR_FROM_FILE
- call write_inopt(st_spectform,'st_spectform','spectral form of stirring',iunit)
- call write_inopt(st_stirmax,'st_stirmax','maximum stirring wavenumber',iunit)
- call write_inopt(st_stirmin,'st_stirmin','minimum stirring wavenumber',iunit)
- call write_inopt(st_energy,'st_energy','energy input/mode',iunit)
- call write_inopt(st_decay,'st_decay','correlation time for driving',iunit)
- call write_inopt(st_solweight,'st_solweight','solenoidal weight',iunit)
- call write_inopt(st_dtfreq,'st_dtfreq','frequency of stirring',iunit)
- call write_inopt(st_seed,'st_seed','random number generator seed',iunit)
-#endif
+ call write_inopt(stir_from_file,'stir_from_file','stir using pre-generated file?',iunit)
+ if (.not. stir_from_file) then
+    call write_inopt(st_spectform,'st_spectform','spectral form of stirring',iunit)
+    call write_inopt(st_stirmax,'st_stirmax','maximum stirring wavenumber',iunit)
+    call write_inopt(st_stirmin,'st_stirmin','minimum stirring wavenumber',iunit)
+    call write_inopt(st_energy,'st_energy','energy input/mode',iunit)
+    call write_inopt(st_decay,'st_decay','correlation time for driving',iunit)
+    call write_inopt(st_solweight,'st_solweight','solenoidal weight',iunit)
+    call write_inopt(st_dtfreq,'st_dtfreq','frequency of stirring',iunit)
+    call write_inopt(st_seed,'st_seed','random number generator seed',iunit)
+ endif
  call write_inopt(st_amplfac,'st_amplfac','amplitude factor for stirring of turbulence',iunit)
 
 end subroutine write_options_forcing
@@ -421,17 +416,14 @@ subroutine read_options_forcing(name,valstring,igot,igotall,ierr)
  logical,          intent(out) :: igot,igotall
  integer,          intent(out) :: ierr
  integer, save                :: ngot = 0
-#ifdef STIR_FROM_FILE
- integer, parameter :: nrequired = 2
-#else
- integer, parameter :: nrequired = 10
-#endif
+ integer :: nrequired
 
  igot = .true.
  select case(trim(name))
  case('istir')
     read(valstring,*,iostat=ierr) istir
-#ifndef STIR_FROM_FILE
+ case('stir_from_file')
+    read(valstring,*,iostat=ierr) stir_from_file
  case('st_spectform')
     read(valstring,*,iostat=ierr) st_spectform
  case('st_stirmax')
@@ -448,7 +440,6 @@ subroutine read_options_forcing(name,valstring,igot,igotall,ierr)
     read(valstring,*,iostat=ierr) st_dtfreq
  case('st_seed')
     read(valstring,*,iostat=ierr) st_seed
-#endif
  case('st_amplfac')
     read(valstring,*,iostat=ierr) st_amplfac
  case default
@@ -456,6 +447,12 @@ subroutine read_options_forcing(name,valstring,igot,igotall,ierr)
  end select
 
  if (igot) ngot = ngot + 1
+
+ if (stir_from_file) then
+    nrequired = 2
+ else
+    nrequired = 10
+ endif
 
  igotall = .false.
  if (ngot >= nrequired) igotall = .true.
@@ -602,10 +599,6 @@ end subroutine read_forcingdump
 
 subroutine st_calcPhases()
 
- !use dBase, ONLY: ndim
- !use Stir_data, ONLY : st_nmodes, st_mode, st_aka, st_akb, st_OUphases, st_solweight
-
-
  real                 :: ka, kb, kk, diva, divb, curla, curlb
  integer              :: i,j
  logical, parameter   :: Debug = .false.
@@ -690,15 +683,11 @@ end subroutine st_calcPhases
 !!
 !!***
 
-
 subroutine st_ounoiseinit (vectorlength, iseed, variance, vector)
 
- !use Stir_data, ONLY : st_randseed
-
-
- integer, intent(IN)    :: vectorlength, iseed
- real,    intent(IN)    :: variance
- real,    intent(INOUT) :: vector (vectorlength)
+ integer, intent(in)    :: vectorlength, iseed
+ real,    intent(in)    :: variance
+ real,    intent(inout) :: vector (vectorlength)
  real                    :: grnval
  integer                 :: i
 
@@ -712,8 +701,6 @@ subroutine st_ounoiseinit (vectorlength, iseed, variance, vector)
     call st_grn (grnval)
     vector (i) = grnval * variance
  enddo
-
- return
 
 end subroutine st_ounoiseinit
 
@@ -777,11 +764,9 @@ end subroutine st_ounoiseinit
 
 
 subroutine st_ounoiseupdate (vectorlength, vector, variance, dt, ts)
-
-
- real,    intent(IN)    :: variance, dt, ts
- integer, intent(IN)    :: vectorlength
- real,    intent(INOUT) :: vector (vectorlength)
+ real,    intent(in)    :: variance, dt, ts
+ integer, intent(in)    :: vectorlength
+ real,    intent(inout) :: vector (vectorlength)
  real                              :: grnval, damping_factor
  integer                           :: i
 
@@ -792,8 +777,6 @@ subroutine st_ounoiseupdate (vectorlength, vector, variance, dt, ts)
     vector (i) = vector (i) * damping_factor + variance *   &
           sqrt (1.0 - damping_factor**2) * grnval
  enddo
-
- return
 
 end subroutine st_ounoiseupdate
 
@@ -820,8 +803,6 @@ end subroutine st_ounoiseupdate
 !!***
 
 subroutine st_calcAccel(npart,xyzh,fxyzu)
-!  use Stir_data, ONLY : st_maxmodes, st_mode, st_nmodes, st_aka, st_akb, st_solweightnorm, st_ampl
-!  use part, only:massoftype
 #ifdef IND_TIMESTEPS
  use part, only:iactive,iphase
 #endif
@@ -945,9 +926,6 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
     !$omp end parallel do
 #endif
 
-
-    return
-
  end subroutine st_calcAccel
 
 !! NAME
@@ -1021,8 +999,6 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 
   if (Debug) print *, 'stir:  stirring end'
 
-  return
-
  end subroutine forceit
 
 !! NAME
@@ -1051,8 +1027,7 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 !!***
  subroutine st_grn (grnval)
 
-
-  real, intent(OUT) :: grnval
+  real, intent(out) :: grnval
   real              :: pi, r1, r2, g1
 
   pi = 4. * atan (1.)
@@ -1065,11 +1040,8 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 
   grnval = g1
 
-  return
-
  end subroutine st_grn
 
-#ifdef STIR_FROM_FILE
 !! NAME
 !!
 !!  read_stirring_data_from_file
@@ -1106,8 +1078,8 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 
   my_file = find_phantom_datafile(infile,'forcing')
 
-  open (unit=42, file=my_file, iostat=ierr, status='OLD', action='READ', &
-        access='SEQUENTIAL', form='UNFORMATTED')
+  open (unit=42, file=my_file, iostat=ierr, status='old', action='read', &
+        access='sequential', form='unformatted')
   ! header contains number of times and number of modes, end time, autocorrelation time, ...
   if (ierr==0) then
      if (Debug) write (*,'(A)') 'reading header...'
@@ -1123,7 +1095,7 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
   igetstep = floor(time/st_dtfreq)
 
   do istep = 0, nsteps
-     if (Debug) write (*,'(A,I6)') 'step = ', istep
+     if (Debug) write (*,'(a,i6)') 'step = ', istep
      read (unit=42) istepfile, timeinfile, &
                      st_mode    (:, 1:  st_nmodes), &
                      st_aka     (:, 1:  st_nmodes), &
@@ -1131,10 +1103,10 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
                      st_ampl    (   1:  st_nmodes), &
                      st_OUphases(   1:6*st_nmodes)
 
-     if (istep /= istepfile) write(*,'(A,I6)') 'read_stirring_data_from_file: something wrong! step = ', istep
+     if (istep /= istepfile) write(*,'(a,i6)') 'read_stirring_data_from_file: something wrong! step = ', istep
      if (igetstep==istep) then
         if (id==master) then
-           write(*,'(A,I6,2(A,E20.6))') 'read_stirring_data_from_file: read new forcing pattern, stepinfile = ',&
+           write(*,'(a,i6,2(a,e20.6))') 'read_stirring_data_from_file: read new forcing pattern, stepinfile = ',&
                   istep,' , time = ', time, ' , time in stirring table = ', timeinfile
         endif
         close (unit=42)
@@ -1142,9 +1114,6 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
      endif
   enddo
 
-  return
-
  end subroutine read_stirring_data_from_file
-#endif
 
 end module forcing

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -336,10 +336,10 @@ end subroutine fill_ev_header
 !+
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
- use timestep,      only:dtmax
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
 #ifndef GR
+ use timestep,      only:dtmax_user
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
 #endif
@@ -354,7 +354,7 @@ subroutine write_evfile(t,dt)
     !--fill in additional details that are not calculated in energies.f
 #ifndef GR
     ev_data(iev_sum,iev_dt)  = dt
-    ev_data(iev_sum,iev_dtx) = dtmax
+    ev_data(iev_sum,iev_dtx) = dtmax_user
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -424,6 +424,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
  dustfracisum = 0.
  dustfraci(:) = 0.
  itypei = igas
+ pgasmass = 0.
 
  do i = 1,npart
     hi = xyzh(4,i)
@@ -449,6 +450,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        elseif (iamdust(itypei)) then
           Mdust = Mdust + pmassi
           pdustmass(idusttype(itypei)) = pmassi
+          pgasmass = 0.
        endif
     else
        pgasmass = 0.
@@ -1098,17 +1100,18 @@ subroutine solve_dipierro_2018(irealvisc,vgassol,vdustsol,d2g_ratio,r,cs,vK,nu,p
     lambda0 = sum(d2g_ratio(:,i)/(1. + St_mid(:,i)**2))
     lambda1 = sum(d2g_ratio(:,i)*St_mid(:,i)/(1. + St_mid(:,i)**2))
 
-    if (irealvisc == 0) then
+    select case(irealvisc)
+    case(2)
+       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
+       v_nu = 3.*nu(i)*(p + q - 0.5)/r(i)
+    case(1)
+       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
+       v_nu = 3.*nu(i)*(p - q + 1.)/r(i)
+    case default ! irealvisc=0
        v_P = dPrdr(i)
        v_nu = -3.*nu(i)*dzetadr(i)/zeta(i+1)
        !v_nu = nu(i)*(2.*p + q + 1.5)/r(i)
-    elseif (irealvisc == 1) then
-       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
-       v_nu = 3.*nu(i)*(p - q + 1.)/r(i)
-    elseif (irealvisc == 2) then
-       v_P = -(p + q + 1.5)*cs(i)**2/vK(i)
-       v_nu = 3.*nu(i)*(p + q - 0.5)/r(i)
-    endif
+    end select
 
     denom1          = (1. + lambda0)**2 + lambda1**2
     denom2(:)       = denom1*(1. + St_mid(:,i)**2)

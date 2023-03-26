@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -152,7 +152,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (sinkpotential) call add_sink_potential(npart)
 
- dpoten = ABS(dpoten)
+ dpoten = abs(dpoten)
 
 ! Now do sort
  call indexx(npart,dpoten,ipotensort)
@@ -222,7 +222,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     percent = 100.0*REAL(l)/REAL(npart)
 
     if (percent > percentcount) then
-       write(*,'(I3," % complete")') INT(percentcount)
+       write(*,'(I3," % complete")') int(percentcount)
        percentcount = percentcount +10.0
     ENDif
 

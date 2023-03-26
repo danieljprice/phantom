@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,6 +19,7 @@ module table_utils
  implicit none
 
  public :: yinterp, linspace, logspace, diff, flip_array, interpolator
+ public :: find_nearest_index, interp_1d
 
  private
 
@@ -27,7 +28,11 @@ contains
 !----------------------------------------------------
 !+
 !  Function to linearly interpolate values from
-!  from an array
+!  from an array. Given x it finds the position
+!  in the table of x values (xtab) and interpolates
+!  the value of y from the table of y values (ytab)
+!  to return the y value corresponding to the
+!  position x
 !+
 !----------------------------------------------------
 pure real function yinterp(ytab,xtab,x)
@@ -160,5 +165,47 @@ subroutine diff(array, darray)
  enddo
 
 end subroutine diff
+
+!-----------------------------------------------------------------------
+!+
+!  Find index of nearest lower value in array
+!+
+!-----------------------------------------------------------------------
+subroutine find_nearest_index(arr,val,indx)
+ real, intent(in)     :: arr(:), val
+ integer, intent(out) :: indx
+ integer              :: istart,istop,i
+
+ istart = 1
+ istop  = size(arr)
+ indx = istart
+ if (val >= arr(istop)) then
+    indx = istop-1   ! -1 to avoid array index overflow
+ elseif (val <= arr(istart)) then
+    indx = istart
+ else
+    i = istart
+    do while (i <= istop)
+       if (arr(i)>val) then
+          indx = i-1
+          exit
+       endif
+       i = i+1
+    enddo
+ endif
+
+end subroutine find_nearest_index
+
+!-----------------------------------------------------------------------
+!+
+!  1D linear interpolation routine
+!+
+!-----------------------------------------------------------------------
+real function interp_1d(x,x1,x2,y1,y2)
+ real, intent(in)  :: x, x1, x2, y1, y2
+
+ interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
+
+end function interp_1d
 
 end module table_utils

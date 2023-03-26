@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -73,12 +73,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  logical :: iexist
  real(4) :: luminosity(npart)
 
+
  if (.not.opened_full_dump) then
     write(*,'("SKIPPING FILE -- (Not a full dump)")')
     return
  endif
 
  call read_array_from_file(123,dumpfile,'luminosity',luminosity(1:npart),ierr)
+
  if (ierr/=0) then
     write(*,*)
     write(*,'("WARNING: could not read luminosity from file. It will be set to zero")')
@@ -99,6 +101,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! Read black hole mass from params file
  filename = 'analysis_'//trim(analysistype)//'.params'
+ print*, trim(analysistype), 'trim(analysistype)'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_tdeparams(filename,ierr)
  if (.not.iexist.or.ierr/=0) then
@@ -149,6 +152,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        dmdv(i)
  enddo
 
+
 end subroutine do_analysis
 
 !--------------------------------------------------------------------------------------------------------------------
@@ -172,7 +176,8 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu,luminosity)
  do i=1,npart
     r(i)   = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     v2     = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
-    call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li)
+    call cross_product3D(xyzh(1:3,i),vxyzu(1:3,i),Li) !Should not multiply by particle mass??
+
     Langm(i) = sqrt(dot_product(Li,Li))
     eps(i) = v2/2. - mh/r(i)                                  !-- Specific energy
     if (eps(i)<0.) then

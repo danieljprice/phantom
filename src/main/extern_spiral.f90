@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -366,7 +366,7 @@ subroutine initialise_spiral(ierr)
  select case(iarms)
  case(2,3,4)
     if (id==master) print*,'Setting up spiral arm spheroids...'
-    Nt=INT((Rf-Ri)/d_0)
+    Nt=int((Rf-Ri)/d_0)
     NNi=int(NN)
     if (id==master) print*,'There are ',Nt,' spheroids in each arm'
     !-Build the arrays for the radii and angle of the S.Shperoids.
@@ -529,7 +529,7 @@ subroutine KFDiscSp(xi,yi,zi,d2,r,phii,ti,phi,fextxi,fextyi,fextzi)
  kap1=eta1*eta1
  kap2=eta2*eta3
  kap3=eta3*eta3
- eta_arm = MIN(eta_Khop,0.1*ti/Tau_arm)
+ eta_arm = min(eta_Khop,0.1*ti/Tau_arm)
  sdens_g = gcode* Mdisk/(2.*pi*adisk*adisk)
 
  !--Originally used these bessesl fns but are deemed too inaccurate for double precision,

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -39,13 +39,10 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary
+ use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
-#ifdef DUST_NUCLEATION
- use part, only:nucleation
-#endif
  use io,   only:fatal
 #ifdef IND_TIMESTEPS
  use part,         only:ibin
@@ -104,9 +101,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 #ifdef IND_TIMESTEPS
  ibin(particle_number) = nbinmax
 #endif
-#ifdef DUST_NUCLEATION
- if (present(JKmus)) nucleation(:,particle_number) = JKmuS(:)
-#endif
+ if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
+
 end subroutine add_or_update_particle
 
 !-----------------------------------------------------------------------
@@ -150,7 +146,7 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #ifdef IND_TIMESTEPS
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin
+ use part,         only:twas,ibin,ibin_old
 #endif
  use part,         only:norig,iorig,iphase,igas,iunknown
 #ifdef GR
@@ -176,6 +172,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  !--Exit if particles not added or updated
  !
  if (npartold==npart .and. .not.updated_particle) return
+
 #ifdef GR
  !
  ! after injecting particles, reinitialise metrics on all particles
@@ -186,6 +183,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtext_dum) ! Not 100% sure if this is needed here
  endif
 #endif
+
 #ifdef IND_TIMESTEPS
  ! find timestep bin associated with dtinject
  nbinmaxprev = nbinmax
@@ -195,8 +193,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  endif
  ! put all injected particles on shortest bin
  do i=npartold+1,npart
-    ibin(i) = nbinmax
-    twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+    ibin(i)     = nbinmax
+    ibin_old(i) = nbinmax ! for particle waking to ensure that neighbouring particles are promptly woken
+    twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
  enddo
 #else
  ! For global timestepping, reset the timestep, since this is otherwise
@@ -216,8 +215,9 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
        if (iphase(i) == iunknown) then
           iphase(i) = igas
 #ifdef IND_TIMESTEPS
-          ibin(i) = nbinmax
-          twas(i) = time + 0.5*get_dt(dtmax,ibin(i))
+          ibin(i)     = nbinmax
+          ibin_old(i) = nbinmax
+          twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
 #endif
        endif
     enddo
