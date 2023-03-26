@@ -2298,14 +2298,14 @@ subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
  character(len=40)   :: data_formatter,file_name
  integer             :: i,nbins,iu
- real                :: rmin,rmax,rad_part(npart),dist_part(npart),massi,Mtot
- real, allocatable   :: hist(:)
+ real                :: rmin,rmax,massi,Mtot
+ real, allocatable   :: hist(:),rad_part(:),dist_part(:)
  
  nbins = 500
  rmin = 0.
  rmax = 5.
 
- allocate(hist(nbins))
+ allocate(hist(nbins),rad_part(npart),dist_part(npart))
  dist_part = 0.
  file_name = '  vkep_profile.ev'
 
