@@ -1289,9 +1289,10 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,&
                                  dum1,dum2,dum3,dum4,dum5
  real, allocatable, save      :: init_entropy(:)
- real                         :: quant(4,npart)
+ real, allocatable            :: quant(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
+ allocate(quant(4,npart))
  Nquantities = 12
  if (dump_number == 0) then
     print "(12(a,/))",&
@@ -2236,7 +2237,7 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  character(len=40)   :: data_formatter
  character(len=40)   :: file_name
  integer             :: i,nbins,iu,count
- real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),vphi,&
+ real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),&
                         theta1,theta2,tantheta1,tantheta2,tantheta
  real, allocatable, dimension(:) :: rad_part,dist_part,hist
  
@@ -2253,18 +2254,18 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  vxyz_origin = vxyz_ptmass(1:3,1)    
  
  ! Masking in polar angle
-!  theta1 = 75.   ! Polar angle in deg
-!  theta2 = 105.
-!  tantheta1 = tan(theta1*3.14159/180.)
-!  tantheta2 = tan(theta2*3.14159/180.)
+ theta1 = 75.   ! Polar angle in deg
+ theta2 = 105.
+ tantheta1 = tan(theta1*3.14159/180.)
+ tantheta2 = tan(theta2*3.14159/180.)
  
  count = 0
  do i = 1,npart
     rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyz_origin(1:2), xyzh(1:2,i) - xyz_origin(1:2)) )  ! Cylindrical radius
  
     ! Masking in polar angle
-   !  tantheta = rad_part(i)/(xyzh(3,i) - xyzmh_ptmass(3,1))
-   !  if ( (tantheta>0. .and. tantheta<tantheta1) .or. (tantheta<0. .and. tantheta>tantheta2) ) cycle
+    tantheta = rad_part(i)/(xyzh(3,i) - xyzmh_ptmass(3,1))
+    if ( (tantheta>0. .and. tantheta<tantheta1) .or. (tantheta<0. .and. tantheta>tantheta2) ) cycle
  
     dist_part(i) = ( (xyzh(1,i)-xyz_origin(1))*(vxyzu(2,i)-vxyz_origin(2)) - &
                    (xyzh(2,i)-xyz_origin(2))*(vxyzu(1,i)-vxyz_origin(1)) )
