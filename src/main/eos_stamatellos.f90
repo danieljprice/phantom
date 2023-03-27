@@ -6,7 +6,7 @@ module eos_stamatellos
  implicit none
  real, public :: optable(260,1001,6)
  real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
- character(len=25), public :: eos_file !file name of tabulated EOS file
+ character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  integer,public :: iunitst=19
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains

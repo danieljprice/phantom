@@ -99,7 +99,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,&
-                          dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,
+                          dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
