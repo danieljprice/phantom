@@ -1387,6 +1387,8 @@ subroutine planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
     npart_disc = npart
  endif
 
+ itype = igas
+
  !--set up an atmosphere around one of the binary masses (i.e. planet)
  if (surface_force .and. npart_planet_atm > 0) then
     call set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in(1), &
@@ -1409,7 +1411,7 @@ end subroutine planet_atmosphere
 subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                           HoverR,Mstar,q_index,gamma,Ratm_in,Ratm_out,r_surface, &
                           npart,npart_planet_atm,npart_disc,hfact)
- use part,          only:set_particle_type
+ use part,          only:set_particle_type,igas
  use spherical,     only:set_sphere,rho_func
  integer, intent(in)    :: id
  real,    intent(inout) :: xyzh(:,:)
@@ -1431,7 +1433,6 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
  integer, intent(inout) :: npart_disc
  real,    intent(in)    :: hfact
 
- integer, parameter :: igas = 1
  integer(kind=8)    :: nptot
  integer            :: i,nx
  real               :: xyz_orig(3)
@@ -1463,10 +1464,10 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                  np_requested=npart_planet_atm,xyz_origin=xyz_orig)
 
  npart_planet_atm = npart-npart_disc
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  do i=npart_disc+1,npart
     !--set the particle type for the atmosphere particles
-    call set_particle_type(i,1)
+    call set_particle_type(i,itype)
     !--------------------------------------------------------------------------
     !  Set thermal energy
     !  utherm generally should not be stored

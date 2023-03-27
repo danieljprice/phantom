@@ -105,7 +105,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        found_rtracked = .true.
     endif
 
-    rad_int = INT((rad_i-rad(1))/hr + 1)
+    rad_int = int((rad_i-rad(1))/hr + 1)
 
     If (rad_int  >  nr) rad_int = nr
     If (rad_int  <  1) rad_int = 1

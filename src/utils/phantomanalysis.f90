@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, part,
-!   readwrite_dumps
+! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, kernel,
+!   part, readwrite_dumps
 !
  use dim,             only:tagline
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
@@ -25,6 +25,7 @@ program phantomanalysis
  use fileutils,       only:numfromfile,basename
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
+ use kernel,          only:hfact_default
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i
  real               :: time
@@ -107,8 +108,8 @@ program phantomanalysis
     endif
 
     if (hfact < tiny(hfact)) then
-       print "(a,f6.2,a)",' WARNING! hfact = ',hfact,' from dump file, resetting to 1.2'
-       hfact = 1.2
+       print "(a,f6.2,a)",' WARNING! hfact = ',hfact,' from dump file, resetting to default'
+       hfact = hfact_default
     endif
 
     call do_analysis(trim(dumpfile),numfromfile(dumpfile),xyzh,vxyzu, &

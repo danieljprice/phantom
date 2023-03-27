@@ -59,6 +59,7 @@ module mpiderivs
  public :: recv_while_wait
  public :: reset_cell_counters
  public :: check_complete
+ public :: combine_cells ! only to prevent compiler warning
 
  !
  !--the counters are module variables, but must be passed through as arguments
