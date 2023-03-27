@@ -60,7 +60,7 @@ module analysis
  ! parameters to control the mu-evolution calculation; set the radii below
  integer, private, parameter :: nmu_global  = 5       ! number of gloabl mu-values to calculate (i.e. at which radii)
  integer, private, parameter :: nmu_sink    = 6       ! number of mu-values to calculate around first two sinks (i.e. at which radii)
- !--NOT TRUE FREE PARAMETERS
+ !--NOT TRUE FREE parameterS
  integer, private, parameter :: junit       = 47      ! unit number for *discRMnx.dat files
  integer, private, parameter :: kunit       = 62      ! unit number for *_vol*RM.dat files
  integer, private, parameter :: punit       = 23      ! unit number for rhosurf_*.dat files

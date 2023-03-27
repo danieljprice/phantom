@@ -220,7 +220,29 @@ for edittype in $bots_to_run; do
                      -e 's/DOT_PRODUCT/dot_product/g' \
                      -e 's/ DIMENSION(/ dimension(/g' \
                      -e 's/CONTINUE/continue/g' \
+                     -e 's/KIND=/kind=/g' \
                      -e 's/ INTEGER/ integer/g' \
+                     -e 's/ PARAMETER/ parameter/g' \
+                     -e 's/INTENT(IN)/intent(in)/g' \
+                     -e 's/INTENT(OUT)/intent(out)/g' \
+                     -e 's/INTENT(INOUT)/intent(inout)/g' \
+                     -e 's/intent(IN)/intent(in)/g' \
+                     -e 's/intent(OUT)/intent(out)/g' \
+                     -e 's/intent(INOUT)/intent(inout)/g' \
+                     -e 's/INT(/int(/g' \
+                     -e 's/MIN(/min(/g' \
+                     -e 's/ABS(/abs(/g' \
+                     -e 's/NOT(/not(/g' \
+                     -e 's/IAND(/iand(/g' \
+                     -e 's/IEOR(/ieor(/g' \
+                     -e 's/MODULO(/modulo(/g' \
+                     -e 's/HUGE(/huge(/g' \
+                     -e 's/TINY(/tiny(/g' \
+                     -e 's/SELECTED_REAL_KIND(/selected_real_kind(/g' \
+                     -e 's/SELECTED_INT_KIND(/selected_int_kind(/g' \
+                     -e 's/SELECTED_REAL_kind(/selected_real_kind(/g' \
+                     -e 's/SELECTED_INT_kind(/selected_int_kind(/g' \
+                     -e 's/KIND(/kind(/g' \
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
                  sed -e 's/end if/endif/g' \
