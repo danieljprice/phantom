@@ -14,7 +14,7 @@ module cooling_stamatellos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: eos_stamatellos, physcon,io,units,part
 !
  
  implicit none
@@ -143,9 +143,11 @@ end subroutine init_star
 
  subroutine write_options_cooling_stamatellos(iunit)
  use infile_utils, only:write_inopt
+ use eos_stamatellos, only: eos_file
  integer, intent(in) :: iunit
 
  !N.B. Tfloor handled in cooling.F90
+ call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
  call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) potential (2) pressure',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
 
@@ -153,6 +155,7 @@ end subroutine write_options_cooling_stamatellos
 
  subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
  use io, only:warning,fatal
+use eos_stamatellos, only: eos_file
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
@@ -171,6 +174,9 @@ end subroutine write_options_cooling_stamatellos
        call fatal('cooling options','od_method must be 1 or 2',var='od_method',ival=od_method)
     endif
     ngot = ngot + 1
+ case('EOS_file')
+	read(valstring,*,iostat=ierr) eos_file
+	ngot = ngot + 1
  case default
     imatch = .false.
  end select
@@ -178,7 +184,7 @@ end subroutine write_options_cooling_stamatellos
     call warning('cooling_stamatellos','optical depth method unknown')
  endif
 
- if (ngot >= 2) igotallstam = .true.
+ if (ngot >= 3) igotallstam = .true.
 
 end subroutine read_options_cooling_stamatellos
 

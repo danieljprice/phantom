@@ -1,11 +1,12 @@
 !--------------------------------------------------------------------------
-! Script to interpolate the opacity table myeos.dat
+! Script to interpolate the opacity table eos_file
 !--------------------------------------------------------------------------
 
 module eos_stamatellos
  implicit none
  real, public :: optable(260,1001,6)
  real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
+ character(len=25), public :: eos_file !file name of tabulated EOS file
  integer,public :: iunitst=19
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
@@ -17,6 +18,8 @@ contains
     allocate(gradP_cool(npart))
     allocate(Gpot_cool(npart))
     open (unit=iunitst,file='EOSinfo.dat',status='replace')
+    
+    
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
@@ -25,19 +28,26 @@ contains
   close(iunitst)
 end subroutine finish_S07cool
  
-subroutine read_optab(ierr)
+subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
-
+ character(len=*),intent(in) :: eos_file
  integer, intent(out) :: ierr
- integer i,j,nx,ny
- character(len=120) :: filepath
+ integer i,j,nx,ny,errread
+ character(len=120) :: filepath,junk
 
  ! read in data file for interpolation
- filepath=find_phantom_datafile('myeos.dat','cooling')
+ filepath=find_phantom_datafile(eos_file,'cooling')
  print *,"FILEPATH:",filepath 
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
- read(10, *) nx, ny
+ do
+ 	read(10,'(A120)') junk
+ 	if (index(adjustl(junk),'::') .eq. 0) then !ignore comment lines
+ 		junk = adjustl(junk)
+ 		read(junk, *,iostat=errread) nx, ny
+ 		exit
+ 	endif
+ enddo	
  do i = 1,nx
   do j = 1,ny
    read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&

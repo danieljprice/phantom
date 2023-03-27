@@ -24,7 +24,7 @@ module eos
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
   !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
-!    21 = read tabulated eos of Stametellos et al. (2007)
+!    21 = read tabulated eos (for use with icooling == 8)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -440,7 +440,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
- use eos_stamatellos,only:read_optab,init_S07cool
+ use eos_stamatellos,only:read_optab,init_S07cool,eos_file
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -517,8 +517,8 @@ subroutine init_eos(eos_type,ierr)
        ierr = ierr_option_conflict
     endif
  case(21)
-    call read_optab(ierr)
-    if (ierr > 0) call fatal('init_eos','Failed to read myeos.dat',var='ierr',ival=ierr)
+    call read_optab(eos_file,ierr)
+    if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool
     
  end select
