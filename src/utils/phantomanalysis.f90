@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, part,
-!   readwrite_dumps
+! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, kernel,
+!   part, readwrite_dumps
 !
  use dim,             only:tagline
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
