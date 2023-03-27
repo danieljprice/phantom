@@ -1288,6 +1288,7 @@ compilers:
 	@if type -p xlf90_r > /dev/null; then echo "make SYSTEM=ukaff1a [uses xlf90_r]"; fi;
 	@if type -p gfortran > /dev/null; then echo "make SYSTEM=gfortran"; fi;
 	@if type -p g95 > /dev/null; then echo "make SYSTEM=g95"; fi;
+	@if type -p aocc > /dev/null; then echo "make SYSTEM=aocc"; fi;
 	@echo "(end of possible selections)"; echo;
 
 #----------------------------------------------------
