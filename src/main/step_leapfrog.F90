@@ -101,7 +101,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use cooling,        only:cooling_in_step,ufloor
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -109,7 +108,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
- use cooling,        only:ufloor
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -123,7 +121,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
 #else
- use cooling,        only:cooling_in_step
+ use cooling,        only:cooling_in_step,ufloor
 #endif
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
@@ -496,91 +494,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 endif
              endif
 
-<<<<<<< HEAD
-          if (gr) then
-             pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-          else
-             vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-          endif
-
-       endif
-          !--floor the thermal energy if requested and required
-          if (ufloor > 0.) then
-             if (vxyzu(4,i) < ufloor) then
-                vxyzu(4,i) = ufloor
-                nvfloorc   = nvfloorc + 1
-             endif
-          endif
-
-          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-          if (itype==igas) then
-             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
-             if (do_radiation) rad(:,i)   = rad(:,i)   + hdti*drad(:,i)
-             if (use_dustfrac) then
-                dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
-                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
-             endif
-          endif
-          !
-          !--Wake inactive particles for next step, if required
-          !
-          if (sts_it_n .and. ibin_wake(i) > ibin(i) .and. allow_waking) then
-             ibin_wake(i) = min(int(nbinmax,kind=1),ibin_wake(i))
-             nwake        = nwake + 1
-             twas(i)      = ibin_dts(ittwas,ibin_wake(i))
-             ibin(i)      = ibin_wake(i)
-             ibin_wake(i) = 0 ! reset flag
-          endif
-#else
-          !
-          ! For velocity-dependent forces compare the new v
-          ! with the predicted v used in the force evaluation.
-          ! Determine whether or not we need to iterate.
-          !
-
-          if (gr) then
-             pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
-             pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
-             pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
-             eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
-
-             erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-             errmax = max(errmax,erri)
-
-             p2i = pxi*pxi + pyi*pyi + pzi*pzi
-             p2mean = p2mean + p2i
-             np = np + 1
-
-             pxyzu(1,i) = pxi
-             pxyzu(2,i) = pyi
-             pxyzu(3,i) = pzi
-             pxyzu(4,i) = eni
-          else
-             vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
-             vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
-             vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
-             if (maxvxyzu >= 4) then
-                eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)                
-             endif
-             
-             erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
-             !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
-             errmax = max(errmax,erri)
-
-             v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-             v2mean = v2mean + v2i
-             np     = np + 1
-
-             vxyzu(1,i) = vxi
-             vxyzu(2,i) = vyi
-             vxyzu(3,i) = vzi
-             !--this is the energy equation if non-isothermal
-             if (maxvxyzu >= 4) vxyzu(4,i) = eni
-          endif
-
-          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
-          if (itype==igas) then
-=======
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
@@ -590,7 +503,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
                 endif
              endif
->>>>>>> upstream/master
              !
              !--Wake inactive particles for next step, if required
              !
@@ -601,49 +513,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 ibin(i)      = ibin_wake(i)
                 ibin_wake(i) = 0 ! reset flag
              endif
-          else  ! not individual timesteps == global timestepping
-             !
-             ! For velocity-dependent forces compare the new v
-             ! with the predicted v used in the force evaluation.
-             ! Determine whether or not we need to iterate.
-             !
+          endif
 
-             if (gr) then
-                pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
-                pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
-                pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
-                eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
-
-                erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-                errmax = max(errmax,erri)
-
-                p2i = pxi*pxi + pyi*pyi + pzi*pzi
-                p2mean = p2mean + p2i
-                np = np + 1
-
-                pxyzu(1,i) = pxi
-                pxyzu(2,i) = pyi
-                pxyzu(3,i) = pzi
-                pxyzu(4,i) = eni
-             else
-                vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
-                vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
-                vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
-                if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
-
-                erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
-                !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
-                errmax = max(errmax,erri)
-
-                v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-                v2mean = v2mean + v2i
-                np     = np + 1
-
-                vxyzu(1,i) = vxi
-                vxyzu(2,i) = vyi
-                vxyzu(3,i) = vzi
-                !--this is the energy equation if non-isothermal
-                if (maxvxyzu >= 4) vxyzu(4,i) = eni
+          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
+          if (itype==igas) then
+             if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
+             if (do_radiation) rad(:,i)   = rad(:,i)   + hdti*drad(:,i)
+             if (use_dustfrac) then
+                dustevol(:,i) = dustevol(:,i) + hdti*ddustevol(:,i)
+                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
              endif
 
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
@@ -659,11 +537,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 endif
              endif
           endif
-<<<<<<< HEAD
-#endif
-=======
        endif
->>>>>>> upstream/master
     enddo corrector
 !$omp enddo
 !$omp end parallel
@@ -712,34 +586,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              if (do_radiation) radpred(:,i) = rad(:,i)
-<<<<<<< HEAD
-          endif
-#else
-          if (gr) then
-             ppred(:,i) = pxyzu(:,i)
-          else
-             vpred(:,i) = vxyzu(:,i)
-          endif
-          if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
-          if (mhd)          Bpred(:,i)  = Bevol(:,i)
-          if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
-          if (do_radiation) radpred(:,i) = rad(:,i)
-          !
-          ! shift v back to the half step
-          !
-          if (gr) then
-             pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
-          else
-             vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-          endif
-          
-          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
-          if (itype==igas) then
-             if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
-             if (use_dustfrac) then
-                dustevol(:,i) = dustevol(:,i) - hdtsph*ddustevol(:,i)
-                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
-=======
              !
              ! shift v back to the half step
              !
@@ -756,7 +602,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
                 endif
                 if (do_radiation) rad(:,i) = rad(:,i) - hdtsph*drad(:,i)
->>>>>>> upstream/master
              endif
           endif
        enddo until_converged

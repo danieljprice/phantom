@@ -20,7 +20,7 @@ module cooling_stamatellos
  implicit none
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
- integer :: od_method
+ integer :: od_method = 1 ! default = Stamatellos+ 2007 method
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
  
