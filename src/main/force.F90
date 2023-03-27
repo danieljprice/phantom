@@ -190,7 +190,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use linklist,     only:ncells,get_neighbour_list,get_hmaxcell,get_cell_location,listneigh
  use options,      only:iresistive_heating
  use part,         only:rhoh,dhdrho,rhoanddhdrho,alphaind,iactive,gradh,&
-                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,use_dust
+                        hrho,iphase,igas,maxgradh,dvdx,eta_nimhd,deltav,poten,iamtype,use_dust,&
+                        fxyz_dragold
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
@@ -269,7 +270,6 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 #ifdef DUST
  real                   :: frac_stokes,frac_super
- real, allocatable, dimension(:,:) :: fxyz_dragold
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -363,14 +363,13 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndustres      = 0
  !store the force vector needed for implicit drag
  if (use_dust .and. drag_implicit) then
-    fxyz_dragold = fxyz_drag
-   ! !$omp parallel do default(none) shared(fxyzu,fext,npart,fxyz_drag,fxyz_dragold) private(i)
-   ! do i=1,npart
-   !   fxyz_dragold(1,i) = fxyz_dragold(1,i) + fext(1,i)
-   !   fxyz_dragold(2,i) = fxyz_dragold(2,i) + fext(2,i)
-   !   fxyz_dragold(3,i) = fxyz_dragold(3,i) + fext(3,i)
-   ! enddo
-   ! !$omp end parallel do
+    !$omp parallel do default(none) shared(fext,npart,fxyz_drag,fxyz_dragold) private(i)
+    do i=1,npart
+      fxyz_dragold(1,i) = fxyz_drag(1,i)
+      fxyz_dragold(2,i) = fxyz_drag(2,i)
+      fxyz_dragold(3,i) = fxyz_drag(3,i)
+    enddo
+    !$omp end parallel do
  endif
 
  ! sink particle creation
@@ -2608,7 +2607,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: tstopint,gsizei,gdensi
  integer :: ireg
 #endif
- integer               :: ip,i,j
+ integer               :: ip,i
  real                  :: densi, vxi,vyi,vzi,u0i,dudtcool,dudtheat
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
  integer               :: ii,ia,ib,ic,ierror
