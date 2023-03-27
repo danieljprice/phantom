@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -178,6 +178,18 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
+!
+!--check that no empty particle types have been added
+!
+    do i=1,size(npartoftype)
+       if (labeltype(i)=='empty' .and. npartoftype(i) > 0) then
+          print "(/,1x,a,i0,a,i0,a,/)",'ERROR: ',npartoftype(i),' particles of type ',i,&
+                ' set up but type=='//trim(labeltype(i))
+          if (i==2) print "(a,/)",&
+            ' *** This is the old dust particle type: edit setup to use itype=idust ***'
+          nerror = nerror + 1
+       endif
+    enddo
  endif
 !
 !--should not have negative or zero smoothing lengths in initial setup
@@ -345,7 +357,7 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90'
+          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
@@ -635,10 +647,10 @@ subroutine check_setup_nucleation(npart,nerror)
     if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
 
     if (any(isnan(nucleation(:,i)))) then
-      do j = 1,n_nucleation
-         if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
-      enddo
-      nerror = nerror + 1
+       do j = 1,n_nucleation
+          if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
+       enddo
+       nerror = nerror + 1
     endif
  enddo
 
@@ -827,12 +839,13 @@ end subroutine check_for_identical_positions
 !+
 ! 1) check for optically thin particles when mcfost is disabled,
 ! as the particles will then be overlooked if they are flagged as thin
-! 2) To do! : check that radiation energy is never negative to begin with
+! 2) check that radiation energy is never negative to begin with
+! 3) check for NaNs
 !+
 !------------------------------------------------------------------
 
 subroutine check_setup_radiation(npart, nerror, radprop, rad)
- use part,      only:ithick, iradxi, ikappa
+ use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  real,    intent(in)    :: rad(:,:), radprop(:,:)

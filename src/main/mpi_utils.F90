@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -41,7 +41,7 @@ module mpiutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpi
+! :Dependencies: io, mpi, mpidens, mpiforce
 !
 #ifdef MPI
  use mpi
@@ -121,15 +121,20 @@ contains
 !--------------------------------------------------------------------
 subroutine init_mpi(id,nprocs)
 #ifdef MPI
- use io, only:fatal,master
+ use io,       only:fatal,master
+ use mpidens,  only:get_mpitype_of_celldens
+ use mpiforce, only:get_mpitype_of_cellforce
 #endif
  integer, intent(out) :: id,nprocs
 #ifdef MPI
  real :: xtemp
+ integer :: provided
 !
 !--initialise MPI - get number of threads and id of current processor
 !
- call MPI_INIT(mpierr)
+ call MPI_INIT_THread(MPI_THREAD_MULTIPLE,provided,mpierr)
+ if (provided /= MPI_THREAD_MULTIPLE) call fatal('init_mpi','error initialising threaded MPI')
+
  call MPI_COMM_SIZE(MPI_COMM_WORLD,nprocs,mpierr)
  call MPI_COMM_RANK(MPI_COMM_WORLD,id,mpierr)
  if (mpierr /= 0) call fatal('init_mpi','error starting mpi')
@@ -151,6 +156,7 @@ subroutine init_mpi(id,nprocs)
  case default
     call fatal('init_mpi','cannot determine kind for default real')
  end select
+
 #else
  id = 0
  nprocs = 1
@@ -229,9 +235,16 @@ end subroutine endmyturn
 subroutine barrier_mpi()
 #ifdef MPI
  use io, only:fatal
+ integer :: mpierr_local
 
- call MPI_BARRIER(MPI_COMM_WORLD,mpierr)
- if (mpierr /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
+ ! call MPI_BARRIER on the master task only, but also barrier the OMP threads
+
+ !$omp barrier
+ !$omp master
+ call MPI_BARRIER(MPI_COMM_WORLD,mpierr_local)
+ if (mpierr_local /= 0) call fatal('barrier_mpi','error in mpi_barrier call')
+ !$omp end master
+ !$omp barrier
 
 #endif
 

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -97,7 +97,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
                           phantom_version_minor,phantom_version_micro,          &
                           phantom_version_string,use_krome,   &
                           store_dust_temperature,do_radiation,gr,do_nucleation, &
-                          mpi
+                          mpi,idumpfile
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use io,             only:fatal,id,master,iprint
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,use_dustfrac
@@ -120,7 +120,7 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  use mpiutils,       only:reduce_mpi,reduceall_mpi
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use setup_params,   only:rhozero
- use timestep,       only:dtmax,C_cour,C_force
+ use timestep,       only:dtmax,C_cour,C_force,dtmax_user,idtmax_n_next,idtmax_frac_next
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
  use units,          only:udist,umass,utime,unit_Bfield
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
@@ -250,6 +250,10 @@ subroutine write_dump_hdf5(t,dumpfile,fulldump,ntotal,dtind)
  hdr%ieos = ieos
  hdr%time = t
  hdr%dtmax = dtmax
+ hdr%dtmax_user = dtmax_user
+ hdr%idumpfile = idumpfile
+ hdr%idtmax_n_next = idtmax_n_next
+ hdr%idtmax_frac_next = idtmax_frac_next
  hdr%gamma = gamma
  hdr%rhozero = rhozero
  hdr%polyk = polyk
@@ -470,7 +474,7 @@ subroutine read_any_dump_hdf5(                                                  
  use dim,            only:maxp,gravity,maxalpha,mhd,use_dust,use_dustgrowth, &
                           h2chemistry,nsinkproperties,     &
                           maxp_hard,use_krome,store_dust_temperature,        &
-                          do_radiation,do_nucleation,gr
+                          do_radiation,do_nucleation,gr,idumpfile
  use eos,            only:ieos,polyk,gamma,polyk2,qfacdisc,isink
  use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use io,             only:fatal,error
@@ -488,6 +492,7 @@ subroutine read_any_dump_hdf5(                                                  
  use part,           only:dt_in
 #endif
  use setup_params,   only:rhozero
+ use timestep,       only:dtmax_user,idtmax_n,idtmax_frac
  use units,          only:udist,umass,utime,unit_Bfield,set_units_extra
  use externalforces, only:iext_gwinspiral,iext_binary,iext_corot_binary
  use extern_gwinspiral, only:Nstar
@@ -544,6 +549,10 @@ subroutine read_any_dump_hdf5(                                                  
  ieos = hdr%ieos
  tfile = hdr%time
  dtmaxi = hdr%dtmax
+ dtmax_user = hdr%dtmax_user
+ idumpfile = hdr%idumpfile
+ idtmax_n = hdr%idtmax_n_next
+ idtmax_frac = hdr%idtmax_frac_next
  gamma = hdr%gamma
  rhozero = hdr%rhozero
  polyk = hdr%polyk
@@ -704,9 +713,9 @@ subroutine read_any_dump_hdf5(                                                  
                       got_arrays%got_krome_gamma, &
                       got_arrays%got_krome_mu,    &
                       got_arrays%got_krome_T,     &
-                      .false.,                    &
-                      .false.,                    &
-                      .false.,                    &
+                      got_arrays%got_x,           &
+                      got_arrays%got_z,           &
+                      got_arrays%got_mu,          &
                       got_arrays%got_abund,       &
                       got_arrays%got_dustfrac,    &
                       got_arrays%got_sink_data,   &
@@ -721,6 +730,7 @@ subroutine read_any_dump_hdf5(                                                  
                       got_arrays%got_raden,       &
                       got_arrays%got_kappa,       &
                       got_arrays%got_Tdust,       &
+                      got_arrays%got_nucleation,  &
                       got_arrays%got_iorig,       &
                       iphase,                     &
                       xyzh,                       &

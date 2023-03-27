@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -144,7 +144,7 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  dt_cgs    = dtsph* utime
  rho_cgs   = rho*unit_density
  vxyzui(4) = u
- T         = get_temperature(ieos,xyzh,rho,vxyzui,mui=JKmuS(idmu),gammai=JKmuS(idgamma))
+ T         = get_temperature(ieos,xyzh,rho,vxyzui,gammai=JKmuS(idgamma),mui=JKmuS(idmu))
  call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
@@ -394,6 +394,8 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     tol       = 1.d-3
     converged = .false.
     isolve    = 0
+    pH_tot    = rho_cgs*T*kboltz/(patm*mass_per_H) ! to avoid compiler warning
+    pH        = pH_tot ! arbitrary value, overwritten below, to avoid compiler warning
     !T = atomic_mass_unit*mu*(gamma-1)*u/kboltz
     i = 0
     do while (.not. converged .and. i < itermax)

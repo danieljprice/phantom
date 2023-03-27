@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,11 +10,11 @@ module eos_mesa
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: mesa_microphysics
+! :Dependencies: mesa_microphysics, physcon
 !
 
  use mesa_microphysics
@@ -108,6 +108,19 @@ end subroutine get_eos_kappa_mesa
 
 !----------------------------------------------------------------
 !+
+!  subroutine returns kappa as a function of
+!  density, temperature and composition
+!+
+!----------------------------------------------------------------
+real function get_eos_1overmu_mesa(den,u,Rg) result(rmu)
+ real, intent(in) :: den,u,Rg
+
+ rmu = get_1overmu_mesa(den,u,Rg)
+
+end function get_eos_1overmu_mesa
+
+!----------------------------------------------------------------
+!+
 !  subroutine returns pressure and temperature as
 !  a function of density/internal energy
 !+
@@ -188,6 +201,76 @@ pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
  call getvalue_mesa(rho,eint,4,temp,ierr)
 
 end subroutine get_eos_eT_from_rhop_mesa
+
+
+!----------------------------------------------------------------
+!+
+!  subroutine returns internal energy from density and internal
+!  energy using bisection method. Assumes cgs units
+!
+!  Note: Needs unit testing (test_eos)
+!+
+!----------------------------------------------------------------
+pure subroutine get_eos_u_from_rhoT_mesa(rho,temp,eint,guesseint)
+ use physcon, only:kb_on_mh
+ real, intent(in)           :: rho,temp
+ real, intent(out)          :: eint
+ real, intent(in), optional :: guesseint
+ real                       :: err,eintguess,eint1,eint2,&
+                               eint3,temp1,temp2,temp3,left,right,mid
+ real, parameter            :: tolerance = 1d-15
+ integer                    :: ierr
+
+ if (present(guesseint)) then
+    eintguess = guesseint
+    eint1 = 1.005 * eintguess  ! Tight lower bound
+    eint2 = 0.995 * eintguess  ! Tight upper bound
+ else
+    eintguess = 1.5*kb_on_mh*temp
+    eint1 = 10. * eintguess  ! Guess lower bound
+    eint2 = 0.1 * eintguess  ! Guess upper bound
+ endif
+
+ call getvalue_mesa(rho,eint1,4,temp1,ierr)
+ call getvalue_mesa(rho,eint2,4,temp2,ierr)
+ left  = temp - temp1
+ right = temp - temp2
+
+ ! If lower and upper bounds do not contain roots, extend them until they do
+ do while (left*right > 0.)
+    eint1 = 0.99 * eint1
+    eint2 = 1.01 * eint2
+    call getvalue_mesa(rho,eint1,4,temp1,ierr)
+    call getvalue_mesa(rho,eint2,4,temp2,ierr)
+    left  = temp - temp1
+    right = temp - temp2
+ enddo
+
+ ! Start bisecting
+ err = huge(1.)
+ do while (abs(err) > tolerance)
+    call getvalue_mesa(rho,eint1,4,temp1,ierr)
+    call getvalue_mesa(rho,eint2,4,temp2,ierr)
+    left  = temp - temp1
+    right = temp - temp2
+    eint3 = 0.5*(eint1+eint2)
+    call getvalue_mesa(rho,eint3,4,temp3,ierr)
+    mid = temp - temp3
+
+    if (left*mid < 0.) then
+       eint2 = eint3
+    elseif (right*mid < 0.) then
+       eint1 = eint3
+    elseif (mid == 0.) then
+       eint = eint3
+       exit
+    endif
+
+    eint = eint3
+    err = (eint2 - eint1)/eint1
+ enddo
+
+end subroutine get_eos_u_from_rhoT_mesa
 
 !----------------------------------------------------------------
 !+
