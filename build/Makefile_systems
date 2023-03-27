@@ -108,6 +108,7 @@ ifeq ($(SYSTEM), ozstar2)
     NOMP='32'
     QNAME='milan'
     QSYS=slurm
+endif
 
 ifeq ($(SYSTEM), rusty)
 #   Flatiron CCA rusty cluster rome node, AMD EPYC 7742
