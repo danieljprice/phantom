@@ -225,7 +225,7 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
        endif
     enddo
     !$omp end parallel do
-  case(2)
+ case(2)
     !Flux dilution with attenuation (exp(-tau))
     if (itau_alloc == 1) then
        !$omp parallel  do default(none) &
@@ -238,8 +238,8 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
           endif
        enddo
        !$omp end parallel do
-     !Flux dilution without attenuation
-     else
+       !Flux dilution without attenuation
+    else
        !$omp parallel  do default(none) &
        !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
        !$omp private(i,r)
@@ -258,10 +258,10 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
     !$omp private(i,r)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
-         r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-         if (r  <  R_star) r = R_star
-         if (isnan(tau_lucy(i))) tau_lucy(i) = 2./3.
-         dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tau_lucy(i)))**(1./4.)
+          r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
+          if (r  <  R_star) r = R_star
+          if (isnan(tau_lucy(i))) tau_lucy(i) = 2./3.
+          dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)+3./2.*tau_lucy(i)))**(1./4.)
        endif
     enddo
     !$omp end parallel do

@@ -301,34 +301,34 @@ end subroutine do_analysis
 
 
 subroutine total_dust_mass(time,npart,particlemass,xyzh)
-        use part,           only:nucleation,idK3
-        use dust_formation, only:set_abundances, mass_per_H
-        use physcon, only:atomic_mass_unit
-        real, intent(in)               :: time,particlemass,xyzh(:,:)
-        integer, intent(in)            :: npart
-        integer                        :: i,ncols
-        real, dimension(1)            :: dust_mass
-        character(len=17), allocatable :: columns(:)
+ use part,           only:nucleation,idK3
+ use dust_formation, only:set_abundances, mass_per_H
+ use physcon, only:atomic_mass_unit
+ real, intent(in)               :: time,particlemass,xyzh(:,:)
+ integer, intent(in)            :: npart
+ integer                        :: i,ncols
+ real, dimension(1)            :: dust_mass
+ character(len=17), allocatable :: columns(:)
 
-        call set_abundances !without the calling, the parameter mass_per_H is zero
-        dust_mass(1) = 0
-        ncols = 1
-        print *,'size(nucleation,1) = ',size(nucleation,1)
-        print *,'size(nucleation,2) = ',size(nucleation,2)
-        allocate(columns(ncols))
-        columns = (/'total dust mass'/)
-        do i = 1,npart
-        if (.not. isdead_or_accreted(xyzh(4,i))) then
-                dust_mass(1) = dust_mass(1) + nucleation(idK3,i) &
+ call set_abundances !without the calling, the parameter mass_per_H is zero
+ dust_mass(1) = 0
+ ncols = 1
+ print *,'size(nucleation,1) = ',size(nucleation,1)
+ print *,'size(nucleation,2) = ',size(nucleation,2)
+ allocate(columns(ncols))
+ columns = (/'total dust mass'/)
+ do i = 1,npart
+    if (.not. isdead_or_accreted(xyzh(4,i))) then
+       dust_mass(1) = dust_mass(1) + nucleation(idK3,i) &
                          * 12*atomic_mass_unit*particlemass*2.0E+33/mass_per_H
-                !the factor 2.0E+33 convert particlemass from solar units to cgs
-                !12*atomic_mass_unit is the mass of a Carbon atom
-        endif
-        enddo
+       !the factor 2.0E+33 convert particlemass from solar units to cgs
+       !12*atomic_mass_unit is the mass of a Carbon atom
+    endif
+ enddo
 
-        call write_time_file('total_dust_mass_vs_time', columns, time, dust_mass, ncols, dump_number)
-        !after execution of the analysis routine, a file named "total_dust_mass_vs_time.ev" appears
-        deallocate(columns)
+ call write_time_file('total_dust_mass_vs_time', columns, time, dust_mass, ncols, dump_number)
+ !after execution of the analysis routine, a file named "total_dust_mass_vs_time.ev" appears
+ deallocate(columns)
 
 end subroutine total_dust_mass
 

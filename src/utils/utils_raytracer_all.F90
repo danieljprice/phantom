@@ -143,12 +143,12 @@ subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLeve
  integer :: i, j, minNsides, minNrays, ind,n, maxOrder, max, distr(12*4**(minOrder+refineLevel))
  integer, dimension(:,:), allocatable  :: distrs
 
-      maxOrder = minOrder+refineLevel
-      nrays = 12*4**(maxOrder)
-      allocate(rays(3, nrays))
-      allocate(indices(12*4**(maxOrder)))
-      rays = 0.
-      indices = 0
+ maxOrder = minOrder+refineLevel
+ nrays = 12*4**(maxOrder)
+ allocate(rays(3, nrays))
+ allocate(indices(12*4**(maxOrder)))
+ rays = 0.
+ indices = 0
 
  !If there is no refinement, just return the uniform ray distribution
  minNsides = 2**minOrder
@@ -221,7 +221,7 @@ subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLeve
        enddo
     enddo
 
- ! refine overdens regions in each order
+    ! refine overdens regions in each order
  elseif (refineScheme == 2) then
     do i=0, refineLevel-1
        call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
@@ -722,7 +722,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     enddo
     tau = tau / weight
 
- ! 4 rays, cubed interpolation
+    ! 4 rays, cubed interpolation
  elseif (raypolation==5) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
@@ -763,7 +763,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     enddo
     tau = tau / weight
 
- ! 9 rays, cubed interpolation
+    ! 9 rays, cubed interpolation
  elseif (raypolation==6) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
@@ -1029,7 +1029,7 @@ subroutine get_all_tau_inwards_companion(npart, primary, xyzh, neighbors, kappa,
        root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
        norm0 = normCompanion*cos(theta)-root
        if (norm > norm0) then
-             tau(i) = 99.
+          tau(i) = 99.
        else
           call get_tau_inwards(i, primary, xyzh, neighbors, kappa, Rstar, tau(i))
        endif

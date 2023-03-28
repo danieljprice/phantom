@@ -535,12 +535,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
  endif
  if (abs(time) <= tiny(0.)) then
-   !initialize nucleation array at the start of the run only
-   if (do_nucleation) call init_nucleation
-   !initialize optical depth array tau
-   if (itau_alloc == 1) tau = 0.
-   !initialize Lucy optical depth array tau_lucy
-   if (itauL_alloc == 1) tau_lucy = 2./3.
+    !initialize nucleation array at the start of the run only
+    if (do_nucleation) call init_nucleation
+    !initialize optical depth array tau
+    if (itau_alloc == 1) tau = 0.
+    !initialize Lucy optical depth array tau_lucy
+    if (itauL_alloc == 1) tau_lucy = 2./3.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this
@@ -728,8 +728,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master) then
        if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
        if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-      ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-      !call warning('initial','consider changing code-units to have box length closer to unity')
+       ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+       !call warning('initial','consider changing code-units to have box length closer to unity')
     endif
  endif
 !

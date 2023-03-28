@@ -275,7 +275,7 @@ subroutine wind_step(state)
     !Flux dilution with attenuation
     if (itau_alloc == 1) then
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
-    !Flux dilution without attenuation
+       !Flux dilution without attenuation
     else
        state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)))**(1./4.)
     endif
@@ -304,8 +304,8 @@ subroutine wind_step(state)
  if (iget_tdust == 3) then
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
- elseif (iget_tdust == 2) .and. itau_alloc == 1) then
-       state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
+    elseif (iget_tdust == 2) .and. itau_alloc == 1) then
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
  endif
 
  !apply cooling
@@ -439,7 +439,7 @@ subroutine wind_step(state)
     tau_lucy_bounded = max(0., state%tau_lucy)
     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2)+3./2.*tau_lucy_bounded))**(1./4.)
  elseif (iget_tdust == 2 .and. itau_alloc == 1) then
-     state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
+    state%Tdust = Tstar * (.5*(1.-sqrt(1.-(state%Rstar/state%r)**2))*exp(-state%tau))**(1./4.)
  endif
 
  !apply cooling
@@ -641,16 +641,16 @@ subroutine get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
 
  else
     if (iverbose>1) then
-      if (v0 >= cs) then
-         print *,' supersonic wind : v0/cs = ',v0/cs
-      else
-         !see discussion p72/73 in Lamers & Cassinelli textbook
-         if (r0 > Rs .or. alpha_rad > gmax ) then
-            print *,'r0 = ',r0,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
-            print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
-         endif
-         print '(" sub-sonic wind : v0/cs = ",f7.5,", Gamma_max = ",f7.5)',v0/cs,gmax
-      endif
+       if (v0 >= cs) then
+          print *,' supersonic wind : v0/cs = ',v0/cs
+       else
+          !see discussion p72/73 in Lamers & Cassinelli textbook
+          if (r0 > Rs .or. alpha_rad > gmax ) then
+             print *,'r0 = ',r0,', Rs = ',rs,', Gamma_max =',gmax,', alpha_rad =',alpha_rad
+             print '(/," WARNING : alpha_rad > Gamma_max = ",f7.5," breeze type solution (dv/dr < 0)",/)',gmax
+          endif
+          print '(" sub-sonic wind : v0/cs = ",f7.5,", Gamma_max = ",f7.5)',v0/cs,gmax
+       endif
     endif
     !call calc_wind_profile(r0, v0, T0, 0., state)
     rsonic = 0.!state%r
@@ -703,7 +703,7 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
     if (iverbose>1) print *,' Rst = ', Rst/udist, 'tau_lucy = ', state%tau_lucy, 'rho = ', Mdot_cgs/(4.*pi * Rst**2 * v0)
     if (state%error) then
        ! something wrong happened!
-      Rst = Rst / step_factor
+       Rst = Rst / step_factor
        !elseif (Rst < initial_guess/10.) then
        !   Rstmin = Rst
        !   print *,'radius getting too small!',Rst,step_factor
@@ -727,7 +727,7 @@ subroutine get_initial_radius(r0, T0, v0, Rst, rsonic, tsonic, stype)
     if (iverbose>1) print *, 'Rst = ', Rst, 'tau_lucy = ', state%tau_lucy
     if (state%error) then
        ! something wrong happened!
-      Rst = Rst * step_factor
+       Rst = Rst * step_factor
     elseif (state%tau_lucy > 0.) then
        Rstmax = Rst
        exit
@@ -783,90 +783,90 @@ end subroutine get_initial_radius
 !
 !-----------------------------------------------------------------------
 subroutine get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
-   !all quantities in cgs
-   use physcon, only:steboltz,pi
-   use io,      only:iverbose
-   real, parameter :: step_factor = 1.1
-   real, intent(in) :: T0, r0, v0
-   real, intent(out) :: tau_lucy_init
+ !all quantities in cgs
+ use physcon, only:steboltz,pi
+ use io,      only:iverbose
+ real, parameter :: step_factor = 1.1
+ real, intent(in) :: T0, r0, v0
+ real, intent(out) :: tau_lucy_init
 
-   real, parameter :: time_end = 1.d10
-   real :: tau_lucy_init_min, tau_lucy_init_max, tau_lucy_init_best, tau_lucy_best, initial_guess
-   integer :: i, nstepsbest
-   type(wind_state) :: state
+ real, parameter :: time_end = 1.d10
+ real :: tau_lucy_init_min, tau_lucy_init_max, tau_lucy_init_best, tau_lucy_best, initial_guess
+ integer :: i, nstepsbest
+ type(wind_state) :: state
 
-   ! Find lower bound for tau_lucy
-   initial_guess = 2./3.
-   tau_lucy_init_max = 2./3.
-   tau_lucy_init = 2./3.
-   if (iverbose>0) print *, '[get_initial_tau_lucy] Searching lower bound for tau_lucy'
-   do
-      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
-      if (iverbose>1) print *,' tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
-      if (state%error) then
-         ! something wrong happened!
-         tau_lucy_init = tau_lucy_init / step_factor
-         !elseif (Rst < initial_guess/10.) then
-         !   Rstmin = Rst
-         !   print *,'radius getting too small!',Rst,step_factor
-         !   exit
-      elseif (state%tau_lucy < 0.) then
-         tau_lucy_init_min = tau_lucy_init
-         exit
-      else
-         tau_lucy_init_max = tau_lucy_init
-         tau_lucy_init = tau_lucy_init / step_factor
-      endif
-   enddo
-   if (iverbose>1) print *, 'Lower bound found for tau_lucy_init :', tau_lucy_init_min
+ ! Find lower bound for tau_lucy
+ initial_guess = 2./3.
+ tau_lucy_init_max = 2./3.
+ tau_lucy_init = 2./3.
+ if (iverbose>0) print *, '[get_initial_tau_lucy] Searching lower bound for tau_lucy'
+ do
+    call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+    if (iverbose>1) print *,' tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+    if (state%error) then
+       ! something wrong happened!
+       tau_lucy_init = tau_lucy_init / step_factor
+       !elseif (Rst < initial_guess/10.) then
+       !   Rstmin = Rst
+       !   print *,'radius getting too small!',Rst,step_factor
+       !   exit
+    elseif (state%tau_lucy < 0.) then
+       tau_lucy_init_min = tau_lucy_init
+       exit
+    else
+       tau_lucy_init_max = tau_lucy_init
+       tau_lucy_init = tau_lucy_init / step_factor
+    endif
+ enddo
+ if (iverbose>1) print *, 'Lower bound found for tau_lucy_init :', tau_lucy_init_min
 
-  ! Find upper bound for tau_lucy
-   if (iverbose>1) print *, 'Searching upper bound for tau_lucy_init'
-   tau_lucy_init = tau_lucy_init_max
-   do
-      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
-      if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
-      if (state%error) then
-         ! something wrong happened!
-         tau_lucy_init = tau_lucy_init * step_factor
-      elseif (state%tau_lucy > 0.) then
-         tau_lucy_init_max = tau_lucy_init
-         exit
-      else
-         tau_lucy_init_min = max(tau_lucy_init, tau_lucy_init_min)
-         tau_lucy_init = tau_lucy_init * step_factor
-      endif
-   enddo
-   if (iverbose>1) print *, 'Upper bound found for tau_lucy_init :', tau_lucy_init_max
+ ! Find upper bound for tau_lucy
+ if (iverbose>1) print *, 'Searching upper bound for tau_lucy_init'
+ tau_lucy_init = tau_lucy_init_max
+ do
+    call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+    if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+    if (state%error) then
+       ! something wrong happened!
+       tau_lucy_init = tau_lucy_init * step_factor
+    elseif (state%tau_lucy > 0.) then
+       tau_lucy_init_max = tau_lucy_init
+       exit
+    else
+       tau_lucy_init_min = max(tau_lucy_init, tau_lucy_init_min)
+       tau_lucy_init = tau_lucy_init * step_factor
+    endif
+ enddo
+ if (iverbose>1) print *, 'Upper bound found for tau_lucy_init :', tau_lucy_init_max
 
-   ! Find the initial tau_lucy by dichotomy between tau_lucy_init_min and tau_lucy_init_max
-   if (iverbose>1) print *, 'Searching tau_lucy_init by dichotomy'
-   tau_lucy_init_best = tau_lucy_init
-   nstepsbest = state%nsteps
-   tau_lucy_best = state%tau_lucy
-   do i=1,60
-      tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
-      call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
-      if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
-      if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
-         tau_lucy_best = state%tau_lucy
-      endif
-      if (.not. state%error) then
-         if (state%tau_lucy < 0.) then
-            tau_lucy_init_min = tau_lucy_init
-         else
-            tau_lucy_init_max = tau_lucy_init
-         endif
-      else
-         tau_lucy_init_max = tau_lucy_init_max + 0.1
-      endif
-      if (abs(tau_lucy_init_min-tau_lucy_init_max)/tau_lucy_init_max < 1.e-10) exit
-   enddo
-   tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
-   if (iverbose>0) then
-      print *,'Best initial Lucy optical depth found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
-      print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
-   endif
+ ! Find the initial tau_lucy by dichotomy between tau_lucy_init_min and tau_lucy_init_max
+ if (iverbose>1) print *, 'Searching tau_lucy_init by dichotomy'
+ tau_lucy_init_best = tau_lucy_init
+ nstepsbest = state%nsteps
+ tau_lucy_best = state%tau_lucy
+ do i=1,60
+    tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
+    call calc_wind_profile(r0, v0, T0, time_end, state, tau_lucy_init)
+    if (iverbose>1) print *, 'tau_lucy_init = ', tau_lucy_init, 'tau_lucy = ', state%tau_lucy
+    if (abs(state%tau_lucy) < abs(tau_lucy_best)) then
+       tau_lucy_best = state%tau_lucy
+    endif
+    if (.not. state%error) then
+       if (state%tau_lucy < 0.) then
+          tau_lucy_init_min = tau_lucy_init
+       else
+          tau_lucy_init_max = tau_lucy_init
+       endif
+    else
+       tau_lucy_init_max = tau_lucy_init_max + 0.1
+    endif
+    if (abs(tau_lucy_init_min-tau_lucy_init_max)/tau_lucy_init_max < 1.e-10) exit
+ enddo
+ tau_lucy_init = (tau_lucy_init_min+tau_lucy_init_max)/2.
+ if (iverbose>0) then
+    print *,'Best initial Lucy optical depth found: tau_lucy_init=',tau_lucy_init,' , initial_guess=',initial_guess
+    print *,'with v0=', v0,' , T0=',T0,' , leading to tau_lucy=',tau_lucy_best,' at t=',time_end
+ endif
 end subroutine get_initial_tau_lucy
 
 !-----------------------------------------------------------------------

@@ -424,21 +424,21 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, 
     tau_along_ray(1:len) = tau_along_ray(len) - tau_along_ray(1:len)
     !find the first point where tau_lucy < 2/3
     if (tau_along_ray(1) > 2./3.) then
-      L = 1
-      R = len
-      !bysection search for the index of the closest point to tau = 2/3
-      do while (L < R)
-         m = (L + R)/2
-         if (tau_along_ray(m) < 2./3.) then
-           R = m
-         else
-           L = m + 1
-         endif
-      enddo
-      tau_along_ray(1:L) = 2./3.
-      !The photosphere is located between ray grid point L and L+1, may be useful information!
+       L = 1
+       R = len
+       !bysection search for the index of the closest point to tau = 2/3
+       do while (L < R)
+          m = (L + R)/2
+          if (tau_along_ray(m) < 2./3.) then
+             R = m
+          else
+             L = m + 1
+          endif
+       enddo
+       tau_along_ray(1:L) = 2./3.
+       !The photosphere is located between ray grid point L and L+1, may be useful information!
     endif
-  endif
+ endif
 end subroutine ray_tracer
 
 logical function hasNext(inext, tau, distance, maxDistance)
