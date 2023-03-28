@@ -242,7 +242,7 @@ subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLeve
  endif
 
  do i=1, 12*4**maxOrder
-    if (distrs(i,1) .ne. max) then
+    if (distrs(i,1)  /=  max) then
        call pix2vec_nest(2**maxOrder, i-1, rays(:,ind))
        indices(i) = ind
        ind=ind+1
