@@ -376,7 +376,7 @@ end subroutine get_tau_on_ray
  !+
  !--------------------------------------------------------------------------
 subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, dist_along_ray, len, maxDistance)
- use units, only:umass,udist
+ use units, only:unit_opacity
  use part,  only:itauL_alloc
  real, intent(in)     :: primary(3), ray(3), Rstar, Rinject, xyzh(:,:), kappa(:)
  real, optional       :: maxDistance
