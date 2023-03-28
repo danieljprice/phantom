@@ -90,8 +90,8 @@ end subroutine init_star
         coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
         coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
         coldensi = coldensi*umass/udist/udist ! physical units
-     case(2)
-! testing Lombardi+ method of estimating the mean column density
+     case (2)
+! Lombardi+ method of estimating the mean column density
         coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
         coldensi = coldensi *umass/udist/udist ! physical units
      end select
@@ -99,39 +99,51 @@ end subroutine init_star
      
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
+     
+     
 ! calculate Teqi
-     Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
-     Teqi = Teqi/4.d0/steboltz
-     Teqi = Teqi + Tmini4
-     if (Teqi < Tmini4) then
-        Teqi = Tmini4**(1.0/4.0)
-     else
-        Teqi = Teqi**(1.0/4.0)
-     endif
-     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
-     ueqi = ueqi/unit_ergg
+	if (od_method == 1) then
+		Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+     	Teqi = Teqi/4.d0/steboltz
+    	Teqi = Teqi + Tmini4
+    	if (Teqi < Tmini4) then
+     	   Teqi = Tmini4**(1.0/4.0)
+   		else
+     	   Teqi = Teqi**(1.0/4.0)
+    	endif
+    	call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+   		ueqi = ueqi/unit_ergg
+	endif
+    
      call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
      umini = umini/unit_ergg
-! calculate thermalization timescale
+     
+! calculate thermalization timescale and
+! internal energy update -> put in form where it'll work as dudtcool
+	select case (od_method)
+	case (1)
      if ((dudti_sph + dudt_rad) == 0.d0) then
         tthermi = 0d0
         write(iunitst,'(A)') "ttherm=0"
      else
         tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
      endif
-     
-! internal energy update -> put in form where it'll work as dudtcool
      if (tthermi == 0d0) then
         dudti_cool = 0.d0 ! condition if denominator above is zero
      else
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
+     case (2)
+     	tthermi = (umini - ui) / dudt_rad
+     	dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+     end select
+     
      
      if (isnan(dudti_cool)) then
         print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-        print *, "poti=",poti, "rhoi=",rhoi, "Ti=", Ti
+        print *, "rhoi=",rhoi, "Ti=", Ti
         print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
-        print *, "Teqi=",Teqi, "dt=",dt,"tthermi=", tthermi,"ueqi=", ueqi
+        print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
