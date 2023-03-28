@@ -18,10 +18,10 @@ module inject
 !   - nfill_domain       : *number of spheres used to set the background density profile*
 !   - outer_boundary     : *delete gas particles outside this radius (au)*
 !   - sonic_type         : *find transonic solution (1=yes,0=no)*
-!   - wind_inject_radius : *wind injection radius (au, if 0 take Rstar)*
+!   - wind_inject_radius : *wind injection radius (au, if 0 takes Rstar)*
 !   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
 !   - wind_shell_spacing : *desired ratio of sphere spacing to particle spacing*
-!   - wind_temperature   : *wind temperature at the injection point (K)*
+!   - wind_temperature   : *wind temperature at injection radius (K, if 0 takes Teff)*
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
 ! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,

@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Mats Esseldeurs
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !

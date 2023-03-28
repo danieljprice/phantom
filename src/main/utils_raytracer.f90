@@ -16,11 +16,11 @@ module raytracer
 !
 ! :References: None
 !
-! :Owner: Mats Esseldeurs
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: healpix, kernel, linklist, part, units
+! :Dependencies: healpix, inject, kernel, linklist, part, units
 !
  use healpix
 
