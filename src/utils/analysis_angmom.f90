@@ -26,7 +26,7 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use energies, only:compute_energies,angtot
- use part,     only:nptmass,xyzmh_ptmass,vxyz_ptmass,ispinx,ispinz
+ use part,     only:nptmass,xyzmh_ptmass,vxyz_ptmass,ispinx,ispinz,igas,massoftype
  use units,    only:unit_angmom,utime
  use physcon,  only:years
  character(len=*),   intent(in) :: dumpfile
@@ -37,6 +37,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real    :: Lhat(3),Ltot(3),Ltot_mag,inc,rot
  real    :: Ltot_sink(3),Lhat_sink(3),Lsink_mag,inc_sink,rot_sink
  real    :: Lspin(3),Lspin_mag,spini(3),L_total(3),L_total_mag
+ real    :: dx(3),sep,mgas,msinks,mtot
  integer :: i,iu
 
 ! Print the analysis being done
@@ -66,10 +67,23 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  print*,' L_sinks = ',Lsink_mag,' dir = ',Lhat_sink
  print*,' L_spin  = ',Lspin_mag,' dir = ',Lspin/Lspin_mag
 
+ if (nptmass >= 2) then
+    dx = xyzmh_ptmass(1:3,2) - xyzmh_ptmass(1:3,1)
+    sep = sqrt(dot_product(dx,dx))
+    print*,' sink separation = ',sep,' mass = ',xyzmh_ptmass(4,1),xyzmh_ptmass(4,2)
+ endif
+
  L_total = Ltot + Ltot_sink + Lspin
  L_total_mag = sqrt(dot_product(L_total,L_total))
  print*,' L_total (from adding the above) = ',L_total_mag
  print*,' L_total (from energies routine) = ',angtot
+
+ mgas = massoftype(igas)*npart
+ msinks = sum(xyzmh_ptmass(4,1:nptmass))
+ mtot = mgas + msinks
+ print*,' total mass in gas = ',mgas
+ print*,' total mass in sinks = ',msinks
+ print*,' total mass = ',mtot
 
  ! Write angular momentum information
  if (first) then
