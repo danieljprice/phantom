@@ -373,7 +373,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
-          
+
           do j = minOrder, maxOrder
              write(jstring,'(i0)') j
              print*,''
@@ -408,7 +408,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
-          
+
           do j = minOrder, maxOrder
              do k = 0, 6
                 write(jstring,'(i0)') j
@@ -509,7 +509,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              write(iu4, *) omp_get_max_threads(), timeTau
              close(iu4)
           enddo
-      
+
        ! TIME ANALYSIS MULTIPLE FILES
        else if (method == 7) then
              order = 5
