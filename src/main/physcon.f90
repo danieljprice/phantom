@@ -18,14 +18,14 @@ module physcon
 !
  implicit none
 !
-!--Mathematical constants
+!--Mathematical constants (keep these in variable precision to avoid warnings)
 !
- real(kind=8), parameter :: pi       =  3.1415926536d0
- real(kind=8), parameter :: twopi    =  6.2831853072d0
- real(kind=8), parameter :: fourpi   = 12.5663706144d0
- real(kind=8), parameter :: piontwo  =  1.5707963268d0
- real(kind=8), parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
- real(kind=8), parameter :: roottwo  =  1.4142135624d0
+ real, parameter :: pi       =  3.1415926536d0
+ real, parameter :: twopi    =  6.2831853072d0
+ real, parameter :: fourpi   = 12.5663706144d0
+ real, parameter :: piontwo  =  1.5707963268d0
+ real, parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
+ real, parameter :: roottwo  =  1.4142135624d0
 !
 !--Physical constants
 !

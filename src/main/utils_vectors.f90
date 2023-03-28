@@ -133,11 +133,9 @@ pure subroutine rotatevec(u,v,theta)
 
  !--normalise v
  k = v/sqrt(dot_product(v,v))
-
  !--Rodrigues rotation formula
  call cross_product3D(k,u,w)
  u = u*cos(theta) + w*sin(theta) + k*dot_product(k,u)*(1-cos(theta))
-
 end subroutine rotatevec
 
 end module vectorutils

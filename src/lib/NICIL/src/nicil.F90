@@ -1184,6 +1184,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
        else
           nden_electronR = nicil_ionR_get_ne(nden_save(1:iire))  ! in this case, need to calculate electron density from ions
           n_g_tot        = 0. ! to prevent compiler warnings
+          zeta           = 0.
        endif
 
        !--Sum the ion populations from thermal and cosmic ray ionisation

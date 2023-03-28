@@ -122,6 +122,8 @@ program get_mdot
           allocate(dat_combined(ncols,nsteps))
           dat_combined = dat
        endif
+    else
+       if (.not.allocated(dat_combined)) allocate(dat_combined(0,0)) ! to avoid compiler warning
     endif
 
     nsteps_keep = 0

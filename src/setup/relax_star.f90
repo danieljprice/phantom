@@ -59,7 +59,7 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
- use dim,             only:maxp,maxvxyzu
+ use dim,             only:maxp,maxvxyzu,gr,gravity
  use part,            only:vxyzu,rad,eos_vars
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
@@ -110,7 +110,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     return
  endif
  use_step = .false.
- if (iexternalforce > 0) then
+
+ if (iexternalforce > 0 .and. (.not. gr)) then
     call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
     use_step = .true.
  endif
@@ -126,14 +127,14 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     ierr = ierr_no_pressure
     return
  endif
- call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  !
  ! compute derivatives the first time around (needed if using actual step routine)
  !
  t = 0.
  call allocate_memory(int(min(2*npart,maxp),kind=8))
  call get_derivs_global()
- call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+ call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  call compute_energies(t)
  !
  ! perform sanity checks
@@ -180,7 +181,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     !
     ! reset thermal energy and calculate information
     !
-    call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+    call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
     !
     ! compute energies and check for convergence
     !
@@ -218,7 +219,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
           call write_fulldump(t,filename)
           call flush(iunit)
           ! restore the fake thermal energy profile
-          call reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+          call reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
        endif
     endif
  enddo
@@ -293,14 +294,15 @@ end subroutine shift_particles
 !  also compute error between true rho(r) and desired rho(r)
 !+
 !----------------------------------------------------------------
-subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
+subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,rad,nt,mr,rho,utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
  use sortutils,   only:find_rank,r2func
  use part,        only:rhoh,massoftype,igas,maxvxyzu,iorder=>ll
+ use dim,         only:do_radiation
  use eos,         only:gamma
  integer, intent(in) :: npart,nt
  real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
- real, intent(inout) :: vxyzu(:,:)
+ real, intent(inout) :: vxyzu(:,:),rad(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
  real :: ri,rhor,rhoi,rho1,mstar,massri
@@ -326,6 +328,7 @@ subroutine reset_u_and_get_errors(npart,xyzh,vxyzu,nt,mr,rho,utherm,entrop,fix_e
     rmserr = rmserr + (rhor - rhoi)**2
     rmax   = max(rmax,ri)
  enddo
+ if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
 end subroutine reset_u_and_get_errors

@@ -407,7 +407,7 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, Rinject, tau_along_ray, 
     dtaudr            = (nextdtaudr+previousdtaudr)/2.
     previousdtaudr    = nextdtaudr
     !fix units for tau (kappa is in cgs while rho & r are in code units)
-    tau_along_ray(i)  = tau_along_ray(i-1)+dr*dtaudr*umass/(udist**2)
+    tau_along_ray(i)  = tau_along_ray(i-1) + real(dr*dtaudr/unit_opacity)
     dist_along_ray(i) = distance
     dr                = next_dr
  enddo
