@@ -205,7 +205,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (iget_tdust == 3) then
        ! calculate the dust temperature using the value of tau_Lucy from the last timestep
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
-    else if (iget_tdust == 2 .and. itau_alloc == 1) then
+    elseif (iget_tdust == 2 .and. itau_alloc == 1) then
        ! calculate the dust temperature using attenuation of stellar flux (exp(-tau)) with the "standard" tau from the last timestep.
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
     else
@@ -236,7 +236,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (iget_tdust == 3) then
        ! update dust temperature with new tau_Lucy
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
-    else if (iget_tdust == 2 .and. itau_alloc == 1) then
+    elseif (iget_tdust == 2 .and. itau_alloc == 1) then
        ! update dust temperature using new tau
        call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
     endif

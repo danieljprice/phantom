@@ -163,7 +163,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        read *,minOrder
        print *,'At which order would you like to stop?'
        read *,maxOrder
-    else if (method == 5) then
+    elseif (method == 5) then
        print *,'At which order would you like to start?'
        read *,minOrder
        print *,'At which order would you like to stop?'
@@ -335,7 +335,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        enddo
 
        ! OUTWARD INTEGRATION realTIME ANALYSIS
-       else if (method == 2) then
+       elseif (method == 2) then
           open(newunit=iu4, file='times_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
@@ -369,7 +369,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print*,'Total time of the calculation = ',totalTime,' seconds.'
 
        ! OUTWARD INTEGRATION INTERPOLATION ANALYSIS
-       else if (method == 3) then
+       elseif (method == 3) then
           open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
@@ -404,7 +404,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*,'Total time of the calculation = ',totalTime,' seconds.'
 
        ! OUTWARD INTEGRATION INTERPOLATION ANALYSIS
-       else if (method == 4) then
+       elseif (method == 4) then
           open(newunit=iu4, file='times_interpolation_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
@@ -443,7 +443,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*,'Total time of the calculation = ',totalTime,' seconds.'
 
        !ADAPTIVE (OUTWARD) INTEGRATION ANALYSIS
-       else if (method == 5) then
+       elseif (method == 5) then
           open(newunit=iu4, file='times_adapt_'//dumpfile//'.txt', status='replace', action='write')
           close(iu4)
           totalTime=0
@@ -484,7 +484,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           print*,'Total time of the calculation = ',totalTime,' seconds.'
 
        ! SCALING ANALYSIS
-       else if (method == 6) then
+       elseif (method == 6) then
           order = 5
           print*,'Start doing scaling analysis with order =',order
           open(newunit=iu4, file='times_'//dumpfile//'_scaling.txt', status='replace', action='write')
@@ -511,7 +511,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           enddo
 
        ! TIME ANALYSIS MULTIPLE FILES
-       else if (method == 7) then
+       elseif (method == 7) then
              order = 5
              print*,'Start doing scaling analysis with order =',order
              if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
@@ -645,7 +645,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
     close(iu4)
 
-   else if (analyses == 4) then
+   elseif (analyses == 4) then
       do i=1,npart
          if (norm2(xyzh2(1:3,i) - (/10.,10.,10./)) < 4.) then
             kappa(i) = 1e10
@@ -673,7 +673,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       enddo
       close(iu2)
 
-   else if (analyses == 5) then
+   elseif (analyses == 5) then
       open(newunit=iu1, file='points_'//dumpfile//'.txt', status='replace', action='write')
       do i=1, npart2+2
          write(iu1, *) xyzh2(1:3,i)

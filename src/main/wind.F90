@@ -144,11 +144,11 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  endif
  if (iget_tdust == 0) then
     state%Tdust = T0
- else if (iget_tdust == 1) then
+ elseif (iget_tdust == 1) then
     state%Tdust = Tstar
- else if (iget_tdust == 2) then
+ elseif (iget_tdust == 2) then
     state%Tdust = Tstar*(.5)**(1./4.)
- else if (iget_tdust == 3) then
+ elseif (iget_tdust == 3) then
     state%Tdust = Tstar*(.5+3./4.*state%tau_lucy)**(1./4.)
  endif
  if (present(tau_lucy_init)) then

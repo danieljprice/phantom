@@ -222,7 +222,7 @@ subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLeve
     enddo
 
  ! refine overdens regions in each order
- else if (refineScheme == 2) then
+ elseif (refineScheme == 2) then
     do i=0, refineLevel-1
        call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
        j=1
@@ -723,7 +723,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     tau = tau / weight
 
  ! 4 rays, cubed interpolation
- else if (raypolation==5) then
+ elseif (raypolation==5) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
     call vec2pix_nest(nsides, vec, rayIndex)
@@ -764,7 +764,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     tau = tau / weight
 
  ! 9 rays, cubed interpolation
- else if (raypolation==6) then
+ elseif (raypolation==6) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
     call vec2pix_nest(nsides, vec, rayIndex)
