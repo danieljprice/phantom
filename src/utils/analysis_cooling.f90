@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! analysis
+! various tests of the cooling solver module
 !
 ! :References: None
 !
@@ -35,7 +35,6 @@ module analysis
  integer :: analysis_to_perform
  real    :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
  real    :: eps(nElements) = [1.d0, 1.04d-1, 0.0,  6.d-4, 2.52d-4, 1.17d-4, 3.58d-5, 1.85d-5, 3.24d-5, 8.6d-8]
-
 
 contains
 
@@ -68,6 +67,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(3)
     call test_cooling_solvers
  end select
+
 end subroutine do_analysis
 
 
@@ -201,13 +201,10 @@ subroutine test_cooling_solvers
 
 end subroutine test_cooling_solvers
 
-
 !-----------------------------------------------------------
 ! time integration of du/dt between t=0 and t=10*tcool
 !-----------------------------------------------------------
-
 subroutine integrate_cooling(file_in,ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
-
  use units,   only:unit_ergg
  use physcon, only: Rg
 
@@ -300,14 +297,14 @@ subroutine get_rate
 
  call print_cooling_rates(T_gas, rho_gas, mu, nH, nH2, nHe, nCO, nH2O, nOH, kappa_gas, &
                      T_dust, v_drift, d2g, a, rho_grain, kappa_dust, JL)
-end subroutine get_rate
 
+end subroutine get_rate
 
 subroutine generate_grid
 
  real :: logtmin,logtmax,logT,dlogt,T,crate,nH_tot,rho_cgs
  real :: pC, pC2, pC2H, pC2H2, mu, gamma, T_dust, d2g, v_drift
- real :: nH, nH2, nHe, nCO, nH2O, nOH, a, rho_grain, kappa_g, n_gas, rho_gas, kappa_dust, JL
+ real :: nH, nH2, nHe, nCO, nH2O, nOH, a, rho_grain, kappa_g, n_gas, kappa_dust, JL
  integer :: i,iunit
  integer, parameter :: nt = 400, iC=3
 
@@ -342,6 +339,7 @@ subroutine generate_grid
     write(iunit,*) t,crate/nH_tot**2,crate
  enddo
  close(iunit)
+
 end subroutine generate_grid
 
 real function MPH(eps, Aw)
@@ -354,6 +352,5 @@ real function MPH(eps, Aw)
  MPH           = atomic_mass_unit*dot_product(Aw,eps)
 
 end function MPH
-
 
 end module analysis

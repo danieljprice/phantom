@@ -372,7 +372,7 @@ end subroutine get_tau_on_ray
  !+
  !--------------------------------------------------------------------------
 subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
- use units, only:umass,udist
+ use units, only:unit_opacity
  real, intent(in)     :: primary(3), ray(3), Rstar, xyzh(:,:), kappa(:)
  real, optional       :: maxDistance
  real, intent(out)    :: dist_along_ray(:), tau_along_ray(:)
@@ -400,11 +400,12 @@ subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_alon
     dtaudr            = (nextdtaudr+previousdtaudr)/2.
     previousdtaudr    = nextdtaudr
     !fix units for tau (kappa is in cgs while rho & r are in code units)
-    tau_along_ray(i)  = tau_along_ray(i-1)+dr*dtaudr*umass/(udist**2)
+    tau_along_ray(i)  = tau_along_ray(i-1) + real(dr*dtaudr/unit_opacity)
     dist_along_ray(i) = distance
     dr                = next_dr
  enddo
  len = i
+
 end subroutine ray_tracer
 
 logical function hasNext(inext, tau, distance, maxDistance)
