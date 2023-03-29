@@ -218,6 +218,11 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
  rho  = 0.
 
  !--get ds/dt over all particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(xyzh,vxyzu,npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,dsdt) &
+ !$omp shared(dustprop,dustgasprop,VrelVf,tstop,deltav,ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp private(i,iam,rho,rhog,rhod,vrel)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
@@ -263,6 +268,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
        dsdt(i) = 0.
     endif
  enddo
+ !$omp end parallel do
+
 
 end subroutine get_growth_rate
 

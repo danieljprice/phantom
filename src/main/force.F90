@@ -2794,14 +2794,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fxyzu(2,i) = fsum(ifyi)
     fxyzu(3,i) = fsum(ifzi)
 #endif
-    if (drag_implicit) then
-      fxyz_drag(1,i) = fsum(ifdragxi)
-      fxyz_drag(2,i) = fsum(ifdragyi)
-      fxyz_drag(3,i) = fsum(ifdragzi)
+    if (use_dust) then
+       if (drag_implicit) then
+          fxyz_drag(1,i) = fsum(ifdragxi)
+          fxyz_drag(2,i) = fsum(ifdragyi)
+          fxyz_drag(3,i) = fsum(ifdragzi)
+       endif
+       fxyzu(1,i) = fxyzu(1,i) + fsum(ifdragxi)
+       fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
+       fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
     endif
-    fxyzu(1,i) = fxyzu(1,i) + fsum(ifdragxi)
-    fxyzu(2,i) = fxyzu(2,i) + fsum(ifdragyi)
-    fxyzu(3,i) = fxyzu(3,i) + fsum(ifdragzi)
 
     drhodti = pmassi*fsum(idrhodti)
 
@@ -3065,7 +3067,11 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = ts_min
-       if (.not. drag_implicit) dtdrag = 0.9*ts_min
+       if (drag_implicit) then
+          dtdrag = 100.*ts_min
+       else
+          dtdrag = 0.9*ts_min
+       endif
     endif
 
     if (do_radiation .and. iamgasi .and. .not.implicit_radiation) then
