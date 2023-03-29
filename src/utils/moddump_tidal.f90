@@ -40,7 +40,7 @@ module moddump
          phi,    &  ! stellar tilting along y
          r0,     &  ! starting distance
          ecc,    &  ! eccentricity
-         incline    ! inclination (in x-z plane)
+         incline &   ! inclination (in x-z plane)
          spin,   &       !spin of black hole
          Mh2,    &  ! BH mass2
          semimajoraxis_binary, & !sepration
