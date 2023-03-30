@@ -359,7 +359,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad,iget_Tdust,iray_resolution
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad,iget_tdust,iray_resolution
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
@@ -732,8 +732,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
-    if (iget_Tdust > 2 .and. iray_resolution < 0 ) &
-         call fatal(label,'To get dust temperature with Lucy, set iray_resolution >= 0')
+    if (iget_tdust > 2 .and. iray_resolution < 0 ) &
+         call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
  endif
  return
 

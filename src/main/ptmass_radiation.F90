@@ -91,7 +91,7 @@ end subroutine get_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
- use dim,   only:do_nucleation,itau_alloc
+ use dim,   only:do_nucleation
  use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
@@ -102,7 +102,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
  integer                 :: i
 
  !$omp parallel  do default(none) &
- !$omp shared(nucleation,do_nucleation,itau_alloc)&
+ !$omp shared(nucleation,do_nucleation,iget_tdust)&
  !$omp shared(dust_temp) &
  !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext,tau) &
  !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
@@ -113,7 +113,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        dz = xyzh(3,i) - za
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
-          if (itau_alloc == 1) then
+          if (iget_tdust == 3) then
              call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
           else
@@ -122,7 +122,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
           endif
        else
           kappa = calc_kappa_bowen(dust_temp(i))
-          if (itau_alloc == 1) then
+          if (iget_tdust == 3) then
              call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                kappa,ax,ay,az,alpha,tau(i))
           else
@@ -186,7 +186,7 @@ end subroutine get_radiative_acceleration_from_star
 !+
 !-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau,tau_lucy)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff,itau_alloc
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff
  use part,    only:itemp
  use io,      only:fatal
  integer,  intent(in)    :: nptmass,npart
@@ -226,33 +226,31 @@ subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_pt
     enddo
     !$omp end parallel do
  case(2)
-    !Flux dilution with attenuation (exp(-tau))
-    if (itau_alloc == 1) then
-       !$omp parallel  do default(none) &
-       !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau) &
-       !$omp private(i,r)
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-             if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2))*exp(-tau(i)))**(1./4.)
-          endif
-       enddo
-       !$omp end parallel do
-       !Flux dilution without attenuation
-    else
-       !$omp parallel  do default(none) &
-       !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
-       !$omp private(i,r)
-       do i=1,npart
-          if (.not.isdead_or_accreted(xyzh(4,i))) then
-             r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
-             if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)))**(1./4.)
-          endif
-       enddo
-       !$omp end parallel do
-    endif
+    ! Flux dilution without attenuation
+    !$omp parallel  do default(none) &
+    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp) &
+    !$omp private(i,r)
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
+          if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2)))**(1./4.)
+       endif
+    enddo
+    !$omp end parallel do
  case(3)
-    !Lucy approximation for Tdust
+    ! Flux dilution with attenuation (exp(-tau))
+    !$omp parallel  do default(none) &
+    !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau) &
+    !$omp private(i,r)
+    do i=1,npart
+       if (.not.isdead_or_accreted(xyzh(4,i))) then
+          r = sqrt((xyzh(1,i)-xa)**2 + (xyzh(2,i)-ya)**2 + (xyzh(3,i)-za)**2)
+          if (r > R_star) dust_temp(i) = T_star * (.5*(1.-sqrt(1.-(R_star/r)**2))*exp(-tau(i)))**(1./4.)
+       endif
+    enddo
+    !$omp end parallel do
+ case(4)
+    ! Lucy approximation for Tdust
     !$omp parallel  do default(none) &
     !$omp shared(npart,xa,ya,za,R_star,T_star,xyzh,dust_temp,tdust_exp,tau_lucy) &
     !$omp private(i,r)
@@ -294,7 +292,7 @@ subroutine write_options_ptmass_radiation(iunit)
     call write_inopt(alpha_rad,'alpha_rad','fraction of the gravitational acceleration imparted to the gas',iunit)
  endif
  if (isink_radiation >= 2) then
-    call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy)',iunit)
+    call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)',iunit)
     call write_inopt(iray_resolution,'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
  if (iget_tdust == 1) then
@@ -333,14 +331,14 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
  case('iget_tdust')
     read(valstring,*,iostat=ierr) iget_tdust
     ngot = ngot + 1
-    if (iget_tdust == 3) itauL_alloc = 1
-    if (iget_tdust < 0 .or. iget_tdust > 3) call fatal(label,'invalid setting for iget_tdust ([0,3])')
+    if (iget_tdust == 3) itau_alloc  = 1
+    if (iget_tdust == 4) itauL_alloc = 1
+    if (iget_tdust < 0 .or. iget_tdust > 4) call fatal(label,'invalid setting for iget_tdust ([0,4])')
  case('tdust_exp')
     read(valstring,*,iostat=ierr) tdust_exp
     ngot = ngot + 1
  case('iray_resolution')
     read(valstring,*,iostat=ierr) iray_resolution
-    if (iray_resolution >= 0) itau_alloc = 1
     ngot = ngot + 1
  case default
     imatch = .false.
@@ -350,8 +348,6 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     ni = ni+1
  endif
  igotall = (ngot >= ni)
- !when Lucy is activated, no need to calculate optical depth
- if (iget_tdust == 3) itau_alloc = 0
 
 end subroutine read_options_ptmass_radiation
 
