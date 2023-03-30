@@ -91,7 +91,7 @@ end subroutine get_rad_accel_from_ptmass
 !-----------------------------------------------------------------------
 subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fext,tau)
  use part,  only:isdead_or_accreted,dust_temp,nucleation,idkappa,idalpha
- use dim,   only:do_nucleation
+ use dim,   only:do_nucleation,itau_alloc
  use dust_formation, only:calc_kappa_bowen
  integer,  intent(in)    :: npart
  real,     intent(in)    :: xyzh(:,:)
@@ -102,7 +102,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
  integer                 :: i
 
  !$omp parallel  do default(none) &
- !$omp shared(nucleation,do_nucleation,iget_tdust)&
+ !$omp shared(nucleation,do_nucleation,itau_alloc)&
  !$omp shared(dust_temp) &
  !$omp shared(npart,xa,ya,za,Mstar_cgs,Lstar_cgs,xyzh,fext,tau) &
  !$omp private(i,dx,dy,dz,ax,ay,az,r,alpha,kappa)
@@ -113,7 +113,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
        dz = xyzh(3,i) - za
        r = sqrt(dx**2 + dy**2 + dz**2)
        if (do_nucleation) then
-          if (iget_tdust == 3) then
+          if (itau_alloc == 1) then
              call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                nucleation(idkappa,i),ax,ay,az,nucleation(idalpha,i),tau(i))
           else
@@ -122,7 +122,7 @@ subroutine calc_rad_accel_from_ptmass(npart,xa,ya,za,Lstar_cgs,Mstar_cgs,xyzh,fe
           endif
        else
           kappa = calc_kappa_bowen(dust_temp(i))
-          if (iget_tdust == 3) then
+          if (itau_alloc == 1) then
              call get_radiative_acceleration_from_star(r,dx,dy,dz,Mstar_cgs,Lstar_cgs,&
                kappa,ax,ay,az,alpha,tau(i))
           else
@@ -293,7 +293,8 @@ subroutine write_options_ptmass_radiation(iunit)
  endif
  if (isink_radiation >= 2) then
     call write_inopt(iget_tdust,'iget_tdust','dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Attenuation 4:Lucy)',iunit)
-    call write_inopt(iray_resolution,'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
+    if (iget_tdust /= 2) call write_inopt(iray_resolution,&
+                                   'iray_resolution','set the number of rays to 12*4**iray_resolution (deactivated if <0)',iunit)
  endif
  if (iget_tdust == 1) then
     call write_inopt(tdust_exp,'tdust_exp','exponent of the dust temperature profile',iunit)
@@ -339,6 +340,7 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('iray_resolution')
     read(valstring,*,iostat=ierr) iray_resolution
+    if (iray_resolution >= 0) itau_alloc = 1
     ngot = ngot + 1
  case default
     imatch = .false.
@@ -348,6 +350,8 @@ subroutine read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
     ni = ni+1
  endif
  igotall = (ngot >= ni)
+ !when Lucy is activated, no need to calculate optical depth
+ if (iget_tdust == 4) itau_alloc = 0
 
 end subroutine read_options_ptmass_radiation
 

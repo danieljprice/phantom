@@ -206,6 +206,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
+ use dim,              only:itau_alloc
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
@@ -242,7 +243,7 @@ subroutine wind_step(state)
     state%kappa = calc_kappa_bowen(state%Tdust)
  endif
 
- if (iget_tdust == 3) then
+ if (itau_alloc == 1) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
@@ -346,6 +347,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
+ use dim,              only:itau_alloc
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
@@ -363,7 +365,7 @@ subroutine wind_step(state)
     state%kappa     = calc_kappa_bowen(state%Tdust)
  endif
 
- if (iget_tdust == 3) then
+ if (itau_alloc == 1) then
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa, state%tau)
  else
     state%alpha_Edd = calc_Eddington_factor(Mstar_cgs, Lstar_cgs, state%kappa)
