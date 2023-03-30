@@ -20,7 +20,7 @@ module raytracer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: healpix, inject, kernel, linklist, part, units
+! :Dependencies: healpix, kernel, linklist, part, units
 !
  use healpix
 
@@ -49,17 +49,18 @@ contains
  !------------------------------------------------------------------------------------
 subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau)
  use part,   only: iReff
- use inject, only: wind_injection_radius
  integer, intent(in) :: npart, order, nptmass
  real, intent(in)    :: kappa_cgs(:), xyzh(:,:), xyzmh_ptmass(:,:)
  real, intent(out)   :: tau(:)
+ real :: Rinject
 
+ Rinject = xyzmh_ptmass(iReff,1)
  if (nptmass == 2 ) then
     call get_all_tau_companion(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh, kappa_cgs, &
-         wind_injection_radius, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
+         Rinject, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
  else
     call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh,&
-        kappa_cgs, wind_injection_radius, order, tau)
+        kappa_cgs, Rinject, order, tau)
  endif
 end subroutine get_all_tau
 
