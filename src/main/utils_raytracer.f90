@@ -20,7 +20,7 @@ module raytracer
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: healpix, inject, kernel, linklist, part, units
+! :Dependencies: healpix, kernel, linklist, part, units
 !
  use healpix
 

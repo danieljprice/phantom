@@ -14,10 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, dust_formation,
-!   externalforces, forces, forcing, growth, io, linklist, metric_tools,
-!   options, part, photoevap, ptmass, ptmass_radiation, radiation_implicit,
-!   raytracer, timestep, timestep_ind, timing
+! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
+!   forces, forcing, growth, io, linklist, metric_tools, options, part,
+!   photoevap, ptmass, ptmass_radiation, radiation_implicit, timestep,
+!   timestep_ind, timing
 !
  implicit none
  character(len=80), parameter, public :: &  ! module version
