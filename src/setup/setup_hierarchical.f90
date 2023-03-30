@@ -12,16 +12,10 @@ module setup
 !
 ! :Owner: Simone Ceppi
 !
-! :Runtime parameters:
-!   - a            : *semi-major axis (+ve) or period (-ve)*
-!   - eccentricity : *eccentricity*
-!   - hacc1        : *primary accretion radius*
-!   - hacc2        : *secondary accretion radius*
-!   - m1           : *mass of primary*
-!   - m2           : *mass of secondary*
+! :Runtime parameters: None
 !
 ! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
-!   setbinary, units, sethierarchical
+!   setbinary, sethierarchical, units
 !
   
  implicit none

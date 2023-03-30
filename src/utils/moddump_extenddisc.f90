@@ -15,8 +15,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, eos, infile_utils, io, part, partinject,
-!   physcon, prompting, setdisc, vectorutils
+! :Dependencies: centreofmass, eos, infile_utils, io, kernel, part,
+!   partinject, physcon, prompting, setdisc, vectorutils
 !
  implicit none
 

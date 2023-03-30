@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, setup_params
+! :Dependencies: kernel, part, setup_params
 !
  implicit none
 

@@ -5,17 +5,17 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module sethierarchical
-  !
-  ! Contains utility routines for setting up generic hierarchical systems
-  !
-  ! :References:
-  !
-  ! :Owner: Simone Ceppi
-  !
-  ! :Runtime parameters: None
-  !
-  ! :Dependencies: 
-  !
+!
+! sethierarchical
+!
+! :References: None
+!
+! :Owner: Simone Ceppi
+!
+! :Runtime parameters: None
+!
+! :Dependencies: infile_utils, prompting, setbinary
+!
   
   implicit none
 
