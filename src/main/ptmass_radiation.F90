@@ -34,7 +34,7 @@ module ptmass_radiation
 
  public :: get_rad_accel_from_ptmass
  public :: read_options_ptmass_radiation,write_options_ptmass_radiation
- public :: get_dust_temperature_from_ptmass
+ public :: get_dust_temperature
  public :: init_radiation_ptmass
 
  private
@@ -185,10 +185,65 @@ end subroutine get_radiative_acceleration_from_star
 !  through the gas, or by simpler approximations
 !+
 !-----------------------------------------------------------------------
+subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
+ use part,      only:tau,tau_lucy,ikappa,nucleation
+ use raytracer, only:get_all_tau
+ use dust_formation, only:calc_kappa_bowen,idust_opacity
+ integer,  intent(in)    :: nptmass,npart
+ real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
+ real,     intent(out)   :: dust_temp(:)
+
+ !
+ ! compute dust temperature based on previous value of tau or tau_lucy
+ !
+ if (iget_tdust == 4) then
+    ! calculate the dust temperature using the value of tau_Lucy from the last timestep
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
+ elseif (iget_tdust == 3) then
+    ! calculate the dust temperature using attenuation of stellar flux (exp(-tau)) with the "standard" tau from the last timestep.
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
+ else
+    ! other case : T(r) relation, Flux dilution or Tdust = Tgas
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
+ endif
+ !
+ ! do ray tracing to get optical depth : calculate new tau, tau_lucy
+ !
+ if (iget_tdust == 4) then
+    ! update tau_Lucy
+    if (idust_opacity == 2) then
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
+    else
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
+    endif
+ elseif (iget_tdust == 3) then
+    ! update tau
+    if (idust_opacity == 2) then
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
+    else
+       call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
+    endif
+ endif
+ !
+ ! update Tdust with new optical depth. This step gives more consistency but may not be needed. To be checked
+ !
+ if (iget_tdust == 4) then
+    ! update dust temperature with new tau_Lucy
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
+ elseif (iget_tdust == 3) then
+    ! update dust temperature using new tau
+    call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
+ endif
+
+end subroutine get_dust_temperature
+
+!-----------------------------------------------------------------------
+!+
+!  compute dust temperature once the optical depth is known
+!+
+!-----------------------------------------------------------------------
 subroutine get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau,tau_lucy)
- use part,    only:isdead_or_accreted,iLum,iTeff,iReff
- use part,    only:itemp
- use io,      only:fatal
+ use part,    only:isdead_or_accreted,iLum,iTeff,iReff,itemp
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
  real,     intent(inout), optional :: tau(:), tau_lucy(:)

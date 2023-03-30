@@ -61,13 +61,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
 #endif
- use dust_formation, only:calc_kappa_bowen,idust_opacity
- use part,           only:ikappa,nucleation,tau,tau_lucy
-#ifdef SINK_RADIATION
- use raytracer,      only:get_all_tau
-#endif
  use growth,         only:get_growth_rate
- use ptmass_radiation, only:get_dust_temperature_from_ptmass,iray_resolution,iget_tdust
+ use ptmass_radiation, only:get_dust_temperature
  use timing,         only:get_timings
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
@@ -197,51 +192,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
  endif
 
-#ifdef SINK_RADIATION
+!
+! compute dust temperature
+!
  if (sink_radiation .and. maxvxyzu == 4) then
-    !
-    ! compute dust temperature based on previous value of tau or tau_lucy
-    !
-    if (iget_tdust == 4) then
-       ! calculate the dust temperature using the value of tau_Lucy from the last timestep
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
-    elseif (iget_tdust == 3) then
-       ! calculate the dust temperature using attenuation of stellar flux (exp(-tau)) with the "standard" tau from the last timestep.
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
-    else
-       ! other case : T(r) relation, Flux dilution or Tdust = Tgas
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
-    endif
-    !
-    ! do ray tracing to get optical depth : calculate new tau, tau_lucy
-    !
-    if (iget_tdust == 4) then
-       ! update tau_Lucy
-       if (idust_opacity == 2) then
-          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau_lucy)
-       else
-          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
-       endif
-    elseif (iget_tdust == 3) then
-       ! update tau
-       if (idust_opacity == 2) then
-          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
-       else
-          call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau)
-       endif
-    endif
-    !
-    ! update Tdust with new optical depth. This step gives more consistency but may not be needed. To be checked
-    !
-    if (iget_tdust == 4) then
-       ! update dust temperature with new tau_Lucy
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau_lucy=tau_lucy)
-    elseif (iget_tdust == 3) then
-       ! update dust temperature using new tau
-       call get_dust_temperature_from_ptmass(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp,tau=tau)
-    endif
+    call get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_temp)
  endif
-#endif
 
  if (do_radiation .and. implicit_radiation .and. .not.implicit_radiation_store_drad) then
     !$omp parallel do shared(drad,fxyzu,npart) private(i)
