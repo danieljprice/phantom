@@ -190,7 +190,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           m1 = m1 + xyzmh_ptmass(4,1)
           xyzmh1_stash(1:nsinkproperties) = xyzmh_ptmass(1:nsinkproperties,1)
           vxyz1_stash(1:3) = vxyz_ptmass(1:3,1)
-          print*,'Dump contains one sink particle with m=',xyzmh1_stash(4),', hacc=',xyzmh1_stash(ihacc),', and hsoft=',xyzmh1_stash(ihsoft)
+          print*,'Dump contains one sink particle with m=',xyzmh1_stash(4),&
+                  ', hacc=',xyzmh1_stash(ihacc),', and hsoft=',xyzmh1_stash(ihsoft)
        endif
 
        print*, 'Current mass unit is ', umass,'g):'
