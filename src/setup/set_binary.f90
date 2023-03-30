@@ -266,7 +266,7 @@ end subroutine set_binary
 subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,f,verbose,subst)
+                      posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -277,6 +277,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  integer, intent(in),  optional :: subst
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
+ character(len=20), optional, intent(in) :: prefix
+ 
  integer :: i1,i2,i,subst_index
  real    :: mtot,period
  real    :: x_subst(3),v_subst(3)
@@ -284,7 +286,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !logical :: do_verbose
 
  real, dimension(24,10) :: data
- character(len=20)      :: hier_prefix
+ character(len=20)      :: hier_prefix, filename
  logical                :: iexist
  integer                :: io, lines
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
@@ -296,11 +298,17 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
 
+ if (present(prefix)) then
+    filename = trim(prefix)//'.hierarchy'
+ else
+    filename = 'HIERARCHY'
+ end if
+
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
- inquire(file='HIERARCHY', exist=iexist)
+ inquire(file=trim(filename), exist=iexist)
  if (present(subst) .and. subst>10) then
     if (iexist) then
-       open(1, file = 'HIERARCHY', status = 'old')
+       open(1, file = trim(filename), status = 'old')
        lines=0
        do
           read(1, *, iostat=io) data(lines+1,:)
@@ -315,14 +323,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  else
     if (iexist) then
        print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
-       open(1, file='HIERARCHY', status='old')
+       open(1, file=trim(filename), status='old')
        close(1, status='delete')
     endif
 
     mtot = m1 + m2
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
 
-    open(1, file = 'HIERARCHY', status = 'new')
+    open(1, file = trim(filename), status = 'new')
     if (present(incl)) then
        if (present(posang_ascnode) .and. present(arg_peri)) then
           write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
@@ -521,7 +529,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
 
     ! Write updated HIERARCHY file with the two new stars and the substituted one
-    open(1, file = 'HIERARCHY', status = 'old')
+    open(1, file = trim(filename), status = 'old')
     do i=1,lines
        write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
     enddo

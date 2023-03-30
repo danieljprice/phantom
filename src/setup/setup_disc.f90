@@ -271,7 +271,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call number_of_discs()
 
  !--setup central object(s), i.e. sink particle(s) or potential
- call setup_central_objects()
+ call setup_central_objects(fileprefix)
 
  !--setup equation of state
  call equation_of_state(gamma)
@@ -755,12 +755,13 @@ end subroutine surface_density_profile
 ! Set up the central object(s)
 !
 !--------------------------------------------------------------------------
-subroutine setup_central_objects()
+subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
  use setbinary,            only:set_binary,set_multiple
  use sethierarchical,      only:set_hierarchical
  use setflyby,             only:set_flyby
+ character(len=20), intent(in) :: fileprefix
 
  integer :: i,ierr
 
@@ -853,7 +854,7 @@ subroutine setup_central_objects()
        discvel = 0.
 
     case (5)
-       call set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+       call set_hierarchical(fileprefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
     case (3)
        !-- hierarchical triple
@@ -1168,7 +1169,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
           star_m(i) = m2
           
-          call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass)
+          call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
 
        endif
 

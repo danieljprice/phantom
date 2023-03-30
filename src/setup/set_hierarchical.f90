@@ -47,12 +47,13 @@ module sethierarchical
   
 contains
   
-  subroutine set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+  subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
   
     use setbinary, only:set_multiple
     real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
     integer, intent(inout) :: nptmass
     integer, intent(out)   :: ierr
+    character(len=20), intent(in) :: prefix
 
     integer :: i    
     real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
@@ -99,7 +100,7 @@ contains
        call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr, subst=subst)
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr, subst=subst, prefix=prefix)
        
     end do
   end subroutine set_hierarchical
@@ -344,15 +345,16 @@ contains
   ! Compute position and velocity of hierarchical level
   !
   !--------------------------------------------------------------------------
-  subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass)
+  subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass, prefix)
     character(*), intent(in) :: level
     real, intent(out) :: xorigin(:), vorigin(:)
     real, intent(in) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+    character(len=20), intent(in) :: prefix
 
     integer :: int_sinks(max_hier_levels), inner_sinks_num, i
     real :: mass
 
-    call find_hierarchy_index(level, int_sinks, inner_sinks_num)
+    call find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
 
     xorigin = 0.
     vorigin = 0.
@@ -374,11 +376,13 @@ contains
   ! Retrieve sink index or hierarchical level's sink indexes in HIERARCHY file
   !
   !--------------------------------------------------------------------------
-  subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num)
+  subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
     character(*), intent(in) :: level
     integer, intent(out) :: inner_sinks_num
     integer, intent(out)                :: int_sinks(max_hier_levels)
-    
+    character(len=20), optional, intent(in) :: prefix
+
+    character(len=20) :: filename
     real, dimension(24,max_hier_levels) :: data
     integer                :: i, io, lines, ierr, h_index
     logical                :: iexist
@@ -389,10 +393,17 @@ contains
 
     read(level, *, iostat=h_index) h_index
 
-    inquire(file='HIERARCHY', exist=iexist)
+    if (present(prefix)) then
+       filename = trim(prefix)//'.hierarchy'
+    else
+       filename = 'HIERARCHY'
+    end if
+
+
+    inquire(file=trim(filename), exist=iexist)
  
     if (iexist) then
-       open(1, file = 'HIERARCHY', status = 'old')
+       open(1, file = trim(filename), status = 'old')
        lines=0
        do
           read(1, *, iostat=io) data(lines+1,:)

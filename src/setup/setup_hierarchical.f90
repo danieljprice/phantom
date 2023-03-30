@@ -94,7 +94,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
 
- call set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+ call set_hierarchical(trim(fileprefix), nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
 
 end subroutine setpart
