@@ -292,11 +292,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              ! Get the opacity from the density and temperature if required
              !
              if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
-             !
-             ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
-             !
-             call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
           endif
+          !
+          ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+          !
+          call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
        endif
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc

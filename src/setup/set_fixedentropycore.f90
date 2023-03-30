@@ -30,6 +30,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  use eos,         only:ieos
+ use dim,         only:do_radiation
  use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
@@ -50,15 +51,19 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
     call fatal('setup','mcore cannot exceed m(r=h)')
  endif
 
- select case(ieos)
- case(2)
-    ientropy = 1
- case(10,12,20)
+ if (do_radiation) then
     ientropy = 2
- case default
-    call fatal('setfixedentropycore',&
-               'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
- end select
+ else
+    select case(ieos)
+    case(2)
+       ientropy = 1
+    case(10,12,20)
+       ientropy = 2
+    case default
+       call fatal('setfixedentropycore',&
+                   'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
+    end select
+ endif
 
  ! Make allocatable copies, see instructions of calc_rho_and_pres
  allocate(r_alloc(0:icore+1))

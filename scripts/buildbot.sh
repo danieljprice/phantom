@@ -11,7 +11,7 @@
 #
 # Outputs are put in the phantom/logs directory
 #
-# Written by Daniel Price, 2012-2017, daniel.price@monash.edu
+# Written by Daniel Price, 2012-2023, daniel.price@monash.edu
 #
 if [ X$SYSTEM == X ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
@@ -71,8 +71,8 @@ echo "url = $url";
 
 pwd=$PWD;
 phantomdir="$pwd/../";
-listofcomponents='main utils setup';
-
+listofcomponents='main setup analysis utils';
+#listofcomponents='analysis'
 #
 # get list of targets, components and setups to check
 #
@@ -86,6 +86,13 @@ echo "Batch ${batch}: ${allsetups}"
 # change the line below to exclude things that depend on external libraries from the build
 #
 nolibs='MESAEOS=no'
+#
+# disallow compiler warnings?
+#
+nowarn='NOWARN=yes'
+#
+# check we are running the script from the scripts directory
+#
 if [ ! -e $phantomdir/scripts/$0 ]; then
    echo "Error: This script needs to be run from the phantom/scripts directory";
    exit;
@@ -98,20 +105,24 @@ if [ ! -d $phantomdir/logs ]; then
    mkdir logs;
    cd $pwd;
 fi
-htmlfile="$phantomdir/logs/build-status-$SYSTEM.html";
+htmlfile_all="$phantomdir/logs/build-status-$SYSTEM.html";
 faillog="$phantomdir/logs/build-failures-$SYSTEM.txt";
 faillogsetup="$phantomdir/logs/setup-failures-$SYSTEM.txt";
+failloganalysis="$phantomdir/logs/analysis-failures-$SYSTEM.txt";
 #
 # delete old log files
 #
-if [ -e $htmlfile ]; then
-   rm $htmlfile;
+if [ -e $htmlfile_all ]; then
+   rm $htmlfile_all;
 fi
 if [ -e $faillog ]; then
    rm $faillog;
 fi
 if [ -e $faillogsetup ]; then
    rm $faillogsetup;
+fi
+if [ -e $failloganalysis ]; then
+   rm $failloganalysis;
 fi
 #
 # utility routine for printing results to html file
@@ -145,6 +156,7 @@ print_result()
   * )
      colour=$white;;
   esac
+  echo $text;
   echo "<td bgcolor=\"$colour\">$text</td>" >> $htmlfile;
 }
 #
@@ -194,32 +206,94 @@ check_phantomsetup ()
       echo $setup >> $faillogsetup;
    fi
 }
-for component in $listofcomponents; do
-case $component in
- 'setup')
-   text="$component runs, creates .setup and .in files with no unspecified user input";
-   listofsetups=$allsetups;
-   listoftargets='setup';;
- 'utils')
-   text="$component build";
-   listofsetups='test';
-   listoftargets='utils';;
- *)
-   text='build';
-   listofsetups=$allsetups;
-   listoftargets='phantom setup analysis moddump phantomtest';;
-esac
 #
-# write html header
+# unit tests for phantomanalysis utility
+# (currently only exist for SETUP=star)
 #
-echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
-echo "Build checked: "`date` >> $htmlfile;
-echo "<table>" >> $htmlfile;
+check_phantomanalysis ()
+{
+   myfail=0;
+   setup=$1;
+   if [ -e ./bin/phantomanalysis ]; then
+      print_result "exists" $pass;
+   else
+      print_result "FAIL: phantomanalysis does not exist" $fail;
+      myfail=$(( myfail + 1 ));
+   fi
+   dirname="test-phantomanalysis";
+   cd /tmp/;
+   if [ -d $dirname ]; then
+      # do not wipe entire directory to avoid repeatedly downloading data files
+      rm -f $dirname/phantomanalysis;
+      rm -f $dirname/*.ev $dirname/*.txt;
+   else
+      mkdir $dirname;
+   fi
+   cd /tmp/$dirname;
+   cp $phantomdir/bin/phantomanalysis .;
+   if [ "X$setup" == "Xstar" ]; then
+      echo "performing analysis unit tests for SETUP=$setup"
+      $pwd/test_analysis_ce.sh; err=$?;
+      python $pwd/test_analysis_ce.py; err=$?;
+   else
+      #echo "there are no analysis unit tests for SETUP=$setup"
+      err=0;
+   fi
+   if [ $err -eq 0 ]; then
+      print_result "runs and passes analysis tests" $pass;
+   else
+      print_result "FAIL: did not pass phantomanalysis tests" $fail;
+      myfail=$(( myfail + 1 ));
+   fi
+   if [ $myfail -gt 0 ]; then
+      echo $setup >> $failloganalysis;
+   fi
+}
+
+listofsetups=$allsetups;
+firstsetup=${listofsetups%% *};
+lastsetup=${listofsetups##* };
 #
 #--loop over each setup
 #
 for setup in $listofsetups; do
-   if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::group:: component=${component}, setup=${setup}"; fi
+   #
+   #--loop over each component (phantom,phantomsetup,phantomanalysis,etc)
+   #
+   for component in $listofcomponents; do
+   case $component in
+    'analysis')
+      text="$component runs, creates output files successfully";
+      if [ "$setup" != "star" ]; then continue; fi # skip unless SETUP=star
+      listoftargets='analysis';;
+    'setup')
+      text="$component runs, creates .setup and .in files with no unspecified user input";
+      listoftargets='setup';;
+    'utils')
+      text="$component build";
+      if [ "$setup" != "test" ]; then continue; fi # skip unless SETUP=test
+      listoftargets='utils';;
+    *)
+      text='build';
+      listoftargets='phantom setup analysis moddump phantomtest';;
+   esac
+
+   # output needed for github actions
+   echo "::group:: make SETUP=${setup} checking phantom ${text}";
+
+   htmlfile=${htmlfile_all/.html/-${component}.html}
+   #
+   # write html header
+   #
+   if [[ "$setup" == "$firstsetup" ]]; then
+      if [ -e $htmlfile ]; then
+         rm $htmlfile;
+      fi
+      #echo "opening $htmlfile for output"
+      echo "<h2>Checking Phantom $text, SYSTEM=$SYSTEM</h2>" >> $htmlfile;
+      echo "Build checked: "`date` >> $htmlfile;
+      echo "<table>" >> $htmlfile;
+   fi
    cd $phantomdir;
    dims="`make --quiet SETUP=$setup getdims`";
    dims=${dims//[^0-9]/};  # number only
@@ -246,18 +320,19 @@ for setup in $listofsetups; do
       fi
       colour=$white; # white (default)
       ncheck=$((ncheck + 1));
+
       printf "Checking $setup ($target)... ";
-      if [ "$component"=="setup" ]; then
+      if [[ "$component" == "setup" ]]; then
          rm -f $phantomdir/bin/phantomsetup;
          #make clean >& /dev/null;
       fi
-      #case $component in
-      #'utils')
-      #  make cleanutils >& /dev/null;;
-      #*)
-      #  make clean >& /dev/null;;
-      #esac
-      make SETUP=$setup $nolibs $maxp $target 1> $makeout 2> $errorlog; err=$?;
+      if [[ "$setup" == "blob" ]]; then
+         mynowarn='';
+         echo "allowing warnings for SETUP=blob"
+      else
+         mynowarn=$nowarn;
+      fi
+      make SETUP=$setup $nolibs $mynowarn $maxp $target 1> $makeout 2> $errorlog; err=$?;
       #--remove line numbers from error log files
       sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then
@@ -324,13 +399,22 @@ for setup in $listofsetups; do
       fi
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
          check_phantomsetup $setup;
+      elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
+         check_phantomanalysis $setup;
       fi
    done
    echo "</tr>" >> $htmlfile;
    cd $pwd;
    if [ "$GITHUB_ACTIONS" == "true" ]; then echo "::endgroup::"; fi
+#
+# close html file on last setup
+#
+   if [[ "$setup" == "$lastsetup" ]]; then
+      #echo "closing $htmlfile"
+      echo "</table>" >> $htmlfile;
+      echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
+      cat $htmlfile >> $htmlfile_all;
+   fi
 done
-echo "</table>" >> $htmlfile;
-echo "<p>Checked $ncheck of $ntotal; <strong>$nfail failures</strong>, $nwarn new warnings</p>" >> $htmlfile;
 done
 if [ "$nfail" -gt 0 ] && [ "$RETURN_ERR" == "yes" ]; then exit 1; fi

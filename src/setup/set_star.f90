@@ -292,13 +292,13 @@ end subroutine set_star_composition
 !  Set the thermal energy profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,relaxed,use_var_comp,initialtemp)
+subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,relaxed,use_var_comp,initialtemp)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
  use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
- integer, intent(in)    :: ieos,npart
+ integer, intent(in)    :: ieos,npart,npts
  real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
@@ -321,8 +321,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,
     else
        !  Interpolate density and pressure from table
        ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-       densi = yinterp(den,r,ri)
-       presi = yinterp(pres,r,ri)
+       densi = yinterp(den(1:npts),r(1:npts),ri)
+       presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
     select case(ieos)

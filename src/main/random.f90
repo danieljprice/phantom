@@ -109,9 +109,8 @@ function get_random ( s1, s2 )
     z = z + 2147483562
  endif
 
- get_random = real ( z ) / 2147483563.0D+00
+ get_random = real ( z / 2147483563.0D+00 )
 
- return
 end function get_random
 
 !!-------------------------------------------------------------------------
