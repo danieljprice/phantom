@@ -34,7 +34,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use setbinary, only:set_binary,get_a_from_period
  use sethierarchical, only:set_hierarchical_default_options,set_hierarchical
-  use units,     only:set_units
+ use units,     only:set_units
  use physcon,   only:solarm,au,pi
  use options,   only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
@@ -94,22 +94,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 end subroutine setpart
 
 subroutine write_setupfile(filename)
-  use sethierarchical, only: write_hierarchical_setupfile
+ use sethierarchical, only: write_hierarchical_setupfile
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
 
-  call write_hierarchical_setupfile(iunit)
+ call write_hierarchical_setupfile(iunit)
 
  close(iunit)
 
 end subroutine write_setupfile
 
 subroutine read_setupfile(filename,ierr)
-  use infile_utils, only:open_db_from_file,inopts,close_db!,read_inopt
-    use sethierarchical, only: read_hierarchical_setupfile
+ use infile_utils, only:open_db_from_file,inopts,close_db!,read_inopt
+ use sethierarchical, only: read_hierarchical_setupfile
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr

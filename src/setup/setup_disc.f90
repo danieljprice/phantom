@@ -133,8 +133,8 @@ module setup
  character(len=100) :: filename
 
  !--hierarchical configuration
-  integer :: hl_index
-  real :: current_mass, higher_mass
+ integer :: hl_index
+ real :: current_mass, higher_mass
  integer :: higher_disc_index
 
  !--central objects
@@ -337,7 +337,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
-  use sethierarchical, only:set_hierarchical_default_options
+ use sethierarchical, only:set_hierarchical_default_options
 
  integer :: i
 
@@ -2547,20 +2547,20 @@ subroutine write_setupfile(filename)
        write(iunit,"(/,a)") '# options for multiple discs'
        call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
-   elseif (nsinks == 5) then
-      write(iunit,"(/,a)") '# options for multiple discs'
+    elseif (nsinks == 5) then
+       write(iunit,"(/,a)") '# options for multiple discs'
 
-      do i=1,sink_num
-         call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
+       do i=1,sink_num
+          call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
             //trim(sink_labels(i))//' disc',iunit)
-      enddo
+       enddo
 
-      do i=1,hl_num
-         call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
+       do i=1,hl_num
+          call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
             //trim(hl_labels(i))//' disc',iunit)
-      enddo
-   endif
-   call write_inopt(use_global_iso,'use_global_iso',&
+       enddo
+    endif
+    call write_inopt(use_global_iso,'use_global_iso',&
         'globally isothermal or Farris et al. (2014)',iunit)
 
  endif
@@ -3285,15 +3285,15 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 end subroutine temp_to_HR
 
 subroutine get_hier_disc_label(i, disclabel)
-  use sethierarchical, only:sink_num, sink_labels, hl_labels
-  character(len=10), intent(out)  :: disclabel
-  integer, intent(in) :: i
+ use sethierarchical, only:sink_num, sink_labels, hl_labels
+ character(len=10), intent(out)  :: disclabel
+ integer, intent(in) :: i
 
-  if (i <= sink_num) then
-     disclabel = trim(sink_labels(i))
-  else
-     disclabel = trim(hl_labels(i-sink_num))
-  endif
+ if (i <= sink_num) then
+    disclabel = trim(sink_labels(i))
+ else
+    disclabel = trim(hl_labels(i-sink_num))
+ endif
 
 end subroutine get_hier_disc_label
 
