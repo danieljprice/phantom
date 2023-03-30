@@ -6,7 +6,11 @@
 !--------------------------------------------------------------------------!
 module raytracer
 !
-! raytracer
+! This module contains all routines required to:
+!   - perform radial ray tracing starting from the primary star only
+!   - calculate optical depth along the rays given the opacity distribution
+!   - interpolate optical depths to all SPH particles
+! Applicable both for single and binary star wind simulations
 !
 ! :References: None
 !
