@@ -278,7 +278,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set the internal energy and temperature
  !
- if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,&
+ if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,&
                                               eos_vars,relax_star_in_setup,use_var_comp,initialtemp)
 
  if (do_radiation) then

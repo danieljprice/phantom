@@ -333,6 +333,7 @@ end subroutine write_options_dust
 !+
 !--------------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -395,12 +396,12 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
 
  !--Parameters specific to particular setups
  select case(idrag)
- case(1)
+ case(0,1)
     ineed(iKcode) = 0
  case(2,3)
     ineed(iKcode) = 1
  case default
-    stop 'Error! Invalid idrag option passed to read_dust_infile_options'
+    call fatal('read_dust_infile_options','Invalid option',var='idrag',ival=idrag)
  end select
 
  !--Check that we have just the *necessary* parameters
