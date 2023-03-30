@@ -32,17 +32,17 @@ module moddump
 !
  implicit none
 
- real :: beta,   &  ! penetration factor
+ real :: beta,    &  ! penetration factor
          Mh1,     &  ! BH mass1
-         ms,     &  ! stellar mass
-         rs,     &  ! stellar radius
-         theta,  &  ! stellar tilting along x
-         phi,    &  ! stellar tilting along y
-         r0,     &  ! starting distance
-         ecc,    &  ! eccentricity
-         incline &   ! inclination (in x-z plane)
-         spin,   &       !spin of black hole
-         Mh2,    &  ! BH mass2
+         ms,      &  ! stellar mass
+         rs,      &  ! stellar radius
+         theta,   &  ! stellar tilting along x
+         phi,     &  ! stellar tilting along y
+         r0,      &  ! starting distance
+         ecc,     &  ! eccentricity
+         incline, &  ! inclination (about y axis)
+         spin,    &  ! spin of black hole
+         Mh2,     &  ! BH mass2
          semimajoraxis_binary, & !sepration
          ecc_binary !eccentricity of the black hole
 
@@ -76,6 +76,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: Ltot(3)
  real                    :: rp,rt
  real                    :: x0,y0,vx0,vy0,vz0,alpha,z0
+ real                    :: x,z,vx,vz
  real                    :: c_light,m0
  real                    :: accradius2
  real                    :: xyzstar(3),vxyzstar(3)
@@ -334,7 +335,7 @@ subroutine read_setupfile(filename,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
- call read_inopt(mh,     'mh',     db,min=0.,errcount=nerr)
+ call read_inopt(mh1,    'mh',     db,min=0.,errcount=nerr)
  call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
  call read_inopt(rs,     'rs',     db,min=0.,errcount=nerr)
  call read_inopt(theta,  'theta',  db,min=0.,errcount=nerr)
