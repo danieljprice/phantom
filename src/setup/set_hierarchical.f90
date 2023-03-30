@@ -29,29 +29,36 @@ module sethierarchical
 
   public :: get_hier_level_mass
 
+  integer, parameter :: max_hier_levels=10
+
+  character(len=100) :: hierarchy = '111,112,121,1221,1222'
+  integer :: sink_num, hl_num
+  character(len=10) :: sink_labels(max_hier_levels), hl_labels(max_hier_levels)
+  real :: mass(max_hier_levels), accr(max_hier_levels)
+  real :: a(max_hier_levels), e(max_hier_levels), inc(max_hier_levels), O(max_hier_levels), w(max_hier_levels), f(max_hier_levels)
+
+  public :: hierarchy
+  public :: sink_num, hl_num
+  public :: sink_labels, hl_labels
+  public :: mass, accr
+  public :: a, e, inc, O, w, f
+
   private
   
 contains
   
-  subroutine set_hierarchical(hierarchy,sink_num, sink_labels, hl_labels, hl_num, mass, accr, a, e, inc, O, w, f, &
-                              nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+  subroutine set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+  
     use setbinary, only:set_multiple
-    character(len=100), intent(in) :: hierarchy
-    character(len=10), intent(in) :: sink_labels(:)
-    character(len=10), intent(in) :: hl_labels(:)
-    integer, intent(out)    :: sink_num, hl_num
-    real, intent(in)     :: a(:), e(:), inc(:), O(:), w(:), f(:), mass(:), accr(:)
     real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
     integer, intent(inout) :: nptmass
     integer, intent(out)   :: ierr
 
-
-    integer :: i
-    
+    integer :: i    
     real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
     
     integer :: splits, sink_num_temp, hl_index, subst
-    character(len=10) :: sink_list(10), split_list(10), hl_temp
+    character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels), hl_temp
 
     splits = 0
     sink_list = sink_labels
@@ -63,8 +70,8 @@ contains
        
        hl_temp = trim(split_list(i))
        
-       m1 = get_hier_level_mass(trim(hl_temp)//'1', mass, sink_num, sink_labels)
-       m2 = get_hier_level_mass(trim(hl_temp)//'2', mass, sink_num, sink_labels)
+       m1 = get_hier_level_mass(trim(hl_temp)//'1')
+       m2 = get_hier_level_mass(trim(hl_temp)//'2')
        
        if (any(sink_list == trim(hl_temp)//'1')) then
           accr1 = accr(findloc(sink_list,trim(hl_temp)//'1', 1))
@@ -99,32 +106,20 @@ contains
   
   
   
-  subroutine set_hierarchical_interactively(hierarchy, sink_num, sink_labels, hl_labels, hl_num)
+  subroutine set_hierarchical_interactively()
     use prompting, only:prompt
 
-    character(len=100), intent(out) :: hierarchy
-    character(len=10), intent(out) :: sink_labels(:)
-    character(len=10), intent(out) :: hl_labels(:)
-    integer, intent(out)    :: sink_num, hl_num
-
-
-    
     call prompt('What is the hierarchy?',hierarchy)
     
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num) 
-
+    call process_hierarchy()
+    
   end subroutine set_hierarchical_interactively
   
   
   
-  subroutine write_hierarchical_setupfile(hierarchy, iunit, sink_num, sink_labels, hl_labels, hl_num, &
-                                          mass, accr, a, e, inc, O, w, f)
+  subroutine write_hierarchical_setupfile(iunit)
     use infile_utils, only:write_inopt
-    character(len=100), intent(in) :: hierarchy
     integer, intent(in) :: iunit
-    integer, intent(out) :: sink_num, hl_num
-    character(len=10), intent(out) :: sink_labels(:), hl_labels(:)
-    real, intent(in)     :: a(:), e(:), inc(:), O(:), w(:), f(:), mass(:), accr(:)
 
     integer :: i
 
@@ -132,7 +127,7 @@ contains
       
     call write_inopt(hierarchy, 'hier','', iunit)
     
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
+    call process_hierarchy()
     
     write(iunit,"(/,a)") '### sink properties'
     do i=1,sink_num
@@ -155,22 +150,17 @@ contains
   end subroutine write_hierarchical_setupfile
   
   
-  subroutine read_hierarchical_setupfile(hierarchy, db, nerr, sink_num, sink_labels, hl_labels, hl_num, &
-                                         mass, accr, a, e, inc, O, w, f)
+  subroutine read_hierarchical_setupfile(db, nerr)
     
     use infile_utils, only:read_inopt, inopts
-    character(len=100), intent(out) :: hierarchy
     type(inopts), allocatable, intent(inout) :: db(:)
     integer, intent(inout) :: nerr
-    integer, intent(out) :: sink_num, hl_num
-    character(len=10), intent(out) :: sink_labels(:), hl_labels(:)
-    real, intent(out)     :: a(:), e(:), inc(:), O(:), w(:), f(:), mass(:), accr(:)
 
     integer :: i
   
     call read_inopt(hierarchy,'hier',db,errcount=nerr)
       
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
+    call process_hierarchy()
     
     do i=1,sink_num
        call read_inopt(mass(i), trim(sink_labels(i))//'_mass',db,errcount=nerr)
@@ -188,17 +178,10 @@ contains
   end subroutine read_hierarchical_setupfile
 
 
-  subroutine set_hierarchical_default_options(hierarchy, sink_num, sink_labels, hl_labels, hl_num, &
-                                              mass, accr, a, e, inc, O, w, f)
-    character(len=100), intent(in) :: hierarchy
-    character(len=10), intent(out) :: sink_labels(:)
-    character(len=10), intent(out) :: hl_labels(:)
-    integer, intent(out)    :: sink_num, hl_num
-    real, intent(out) :: mass(:), accr(:), a(:), e(:), inc(:), O(:), w(:), f(:)
-
+  subroutine set_hierarchical_default_options()
     integer :: i
 
-    call process_hierarchy(hierarchy,sink_num, sink_labels, hl_labels, hl_num)
+    call process_hierarchy()
 
     do i=1,sink_num
        mass(i)=1.
@@ -222,12 +205,7 @@ contains
   ! Process the .setup hierarchy string to extract information for building the system 
   !
   !--------------------------------------------------------------------------
-  subroutine process_hierarchy(hierarchy, sink_num, sink_labels, hl_labels, hl_num)
-    character(len=100), intent(in) :: hierarchy
-    character(len=10), intent(out) :: sink_labels(:)
-    character(len=10), intent(out) :: hl_labels(:)
-    integer, intent(out)    :: sink_num, hl_num
-    
+  subroutine process_hierarchy()    
     integer :: i,j, del_pos, pre_del_pos
     character(len=:), allocatable :: sink, temp_hl
     
@@ -253,8 +231,8 @@ contains
     hl_num = 0
     do i=1,sink_num
        sink = trim(sink_labels(i))
-       del_pos = len(trim(sink))!-1
-       do j=1,del_pos!, 1, -1
+       del_pos = len(trim(sink))
+       do j=1,del_pos
           temp_hl = trim(sink(1:j))
           if ( .not. any(hl_labels == trim(temp_hl))) then
              if ( any(sink_labels == trim(temp_hl)) .or. any(sink_labels == trim(temp_hl))) then
@@ -281,7 +259,8 @@ contains
     integer, intent(in) ::sink_num
     
     integer :: i, longest, longests_len, count
-    character(len=10) :: longests(10), new_splits(10), new_sink_list(10), longest_cut, sink_list_temp(10)
+    character(len=10) :: longests(max_hier_levels), new_splits(max_hier_levels)
+    character(len=10) :: new_sink_list(max_hier_levels), longest_cut, sink_list_temp(max_hier_levels)
 
     sink_list_temp = sink_list
     
@@ -301,7 +280,7 @@ contains
              longests_len = longests_len+1
              longests(longests_len) = trim(sink_list_temp(i))
              
-             sink_list_temp(i) = sink_list_temp(i)(:len(trim(longests(longests_len)))-1)!//' '
+             sink_list_temp(i) = sink_list_temp(i)(:len(trim(longests(longests_len)))-1)
           end if
        end do
        
@@ -342,18 +321,15 @@ contains
   ! Compute the total mass of an hierarchical level
   !
   !--------------------------------------------------------------------------
-  real function get_hier_level_mass(level, mass, sink_num, sink_list)
+  real function get_hier_level_mass(level)
     character(*), intent(in) :: level
-    character(len=10), intent(in) :: sink_list(:)
-    real, intent(in) :: mass(:)
-    integer, intent(in) :: sink_num
-    
+
     real :: part_mass
     integer :: i
     
     part_mass = 0
     do i=1, sink_num
-       if ((len(trim(sink_list(i))) >= len(trim(level))) .and. (sink_list(i)(:len(trim(level))) == trim(level))) then
+       if ((len(trim(sink_labels(i))) >= len(trim(level))) .and. (sink_labels(i)(:len(trim(level))) == trim(level))) then
           part_mass = part_mass + mass(i)
        end if
     end do
@@ -373,10 +349,10 @@ contains
     real, intent(out) :: xorigin(:), vorigin(:)
     real, intent(in) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
 
-    integer :: int_sinks(10), inner_sinks_num, i
+    integer :: int_sinks(max_hier_levels), inner_sinks_num, i
     real :: mass
 
-    call read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
+    call find_hierarchy_index(level, int_sinks, inner_sinks_num)
 
     xorigin = 0.
     vorigin = 0.
@@ -395,15 +371,15 @@ contains
 
   !--------------------------------------------------------------------------
   !
-  ! Retrieve sink position in HIERARCHY file
+  ! Retrieve sink index or hierarchical level's sink indexes in HIERARCHY file
   !
   !--------------------------------------------------------------------------
-  subroutine read_HIERARCHY_index(level, int_sinks, inner_sinks_num)
+  subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num)
     character(*), intent(in) :: level
     integer, intent(out) :: inner_sinks_num
-    integer, intent(out)                :: int_sinks(10)
+    integer, intent(out)                :: int_sinks(max_hier_levels)
     
-    real, dimension(24,10) :: data
+    real, dimension(24,max_hier_levels) :: data
     integer                :: i, io, lines, ierr, h_index
     logical                :: iexist
 
@@ -438,7 +414,7 @@ contains
        end if
     end do
 
-  end subroutine read_HIERARCHY_index
+  end subroutine find_hierarchy_index
 
 
   

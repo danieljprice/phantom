@@ -23,14 +23,9 @@ module setup
 ! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
 !   setbinary, units, sethierarchical
 !
+  
  implicit none
  public :: setpart
-
- !hierarchical system parameters
- character(len=100) :: hierarchy
- integer :: sink_num, hl_num
- character(len=10) :: sink_labels(10), hl_labels(10)
- real :: mass(10),accr(10),a(10),e(10),inc(10),O(10),w(10),f(10)
 
  private
 
@@ -45,7 +40,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use setbinary, only:set_binary,get_a_from_period
  use sethierarchical, only:set_hierarchical_default_options,set_hierarchical
- use units,     only:set_units
+  use units,     only:set_units
  use physcon,   only:solarm,au,pi
  use options,   only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
@@ -85,9 +80,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- call set_hierarchical_default_options(hierarchy, sink_num, sink_labels, hl_labels, hl_num, &
-                                              mass, accr, a, e, inc, O, w, f)
-
+ call set_hierarchical_default_options()
+ 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Welcome to CHESS (Complete Hierarchical Endless System Setup)'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -100,9 +94,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop
  endif
 
+ call set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
- call set_hierarchical(hierarchy,sink_num, sink_labels, hl_labels, hl_num, mass, accr, a, e, inc, O, w, f, &
-                              nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
 end subroutine setpart
 
@@ -114,8 +107,7 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
 
- call write_hierarchical_setupfile(hierarchy, iunit, sink_num, sink_labels, hl_labels, hl_num, &
-                                          mass, accr, a, e, inc, O, w, f)
+  call write_hierarchical_setupfile(iunit)
 
  close(iunit)
 
@@ -136,8 +128,8 @@ subroutine read_setupfile(filename,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
 
- call read_hierarchical_setupfile(hierarchy, db, nerr, sink_num, sink_labels, hl_labels, hl_num, &
-                                         mass, accr, a, e, inc, O, w, f)
+ call read_hierarchical_setupfile(db, nerr)
+
     
  call close_db(db)
  if (nerr > 0) then

@@ -132,12 +132,8 @@ module setup
  character(len=100) :: filename
 
  !--hierarchical configuration
- character(len=100) :: hier
- integer :: sink_num, hl_num, hl_index
- character(len=10) :: sink_labels(10), hl_labels(10)
- real :: mass(10), accr(10)!, inc(10,6), O(10,6), w(10,6), f(10,6)
- real :: a(10), e(10), inc(10), O(10), w(10), f(10)
- real :: current_mass, higher_mass
+  integer :: hl_index
+  real :: current_mass, higher_mass
  integer :: higher_disc_index
 
  !--central objects
@@ -385,9 +381,7 @@ subroutine set_default_options()
  binary_f = 180.
 
  !--hierarchical
- hier = '111,112,121,1221,1222'! GG Tau A
- call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
-       mass, accr, a, e, inc, O, w, f)
+ call set_hierarchical_default_options()
 
  !--flyby
  flyby_a  = 200.
@@ -644,7 +638,7 @@ subroutine equation_of_state(gamma)
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
              higher_disc_index = findloc(iuse_disc, .true., 1) 
              qfacdisc = qindex(higher_disc_index)
-             call get_hier_disc_label(higher_disc_index, sink_num, sink_labels, hl_labels, disclabel)
+             call get_hier_disc_label(higher_disc_index, disclabel)
              
              call warning('setup_disc','using circum-'//trim(disclabel)//' (H/R)_ref to set global temperature')
           else
@@ -859,8 +853,7 @@ subroutine setup_central_objects()
        discvel = 0.
 
     case (5)
-       call set_hierarchical(hier,sink_num, sink_labels, hl_labels, hl_num, mass, accr, a, e, inc, O, w, f, &
-                              nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+       call set_hierarchical(nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
     case (3)
        !-- hierarchical triple
@@ -1092,6 +1085,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com, get_hier_level_mass
+ use sethierarchical, only:hl_labels, a
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -1129,7 +1123,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
              prefix = trim(fileprefix)//'-'//disctype(i)
           else
-             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+             call get_hier_disc_label(i, disclabel)
              print "(/,a)",'>>> Setting up circum-'//trim(disclabel)//' disc <<<'
              prefix = trim(fileprefix)//'-'//trim(disclabel)
           end if
@@ -1158,12 +1152,12 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              Rochelobe = huge(0.)
           end select
        else
-          call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+          call get_hier_disc_label(i, disclabel)
 
-          m2 = get_hier_level_mass(disclabel, mass, sink_num, sink_labels)
+          m2 = get_hier_level_mass(disclabel)
           
           if (len(trim(disclabel))>1) then
-             m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1), mass, sink_num, sink_labels)-m2
+             m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
              hl_index = findloc(hl_labels, disclabel(:len(trim(disclabel))-1), 1)
              Rochelobe = Rochelobe_estimate(m1,m2,a(hl_index))
@@ -1867,6 +1861,7 @@ subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
  use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options, get_hier_level_mass
+ use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -1971,9 +1966,8 @@ subroutine setup_interactive()
        
        ibinary = 0
 
-       call set_hierarchical_interactively(hier,sink_num, sink_labels, hl_labels, hl_num)
-       call set_hierarchical_default_options(hier, sink_num, sink_labels, hl_labels, hl_num, &
-                                             mass, accr, a, e, inc, O, w, f)
+       call set_hierarchical_interactively()
+       call set_hierarchical_default_options()
               
     case (3)
        !-- hierarchical triple --!
@@ -2173,19 +2167,19 @@ subroutine setup_interactive()
              !H_R(3) = nint(H_R(3)*10000.)/10000.
           else
              higher_disc_index = findloc(iuse_disc, .true., 1)
-             call get_hier_disc_label(higher_disc_index, sink_num, sink_labels, hl_labels, disclabel)
+             call get_hier_disc_label(higher_disc_index, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
-             higher_mass = get_hier_level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+             higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels) 
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
-                   call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
-                   current_mass = get_hier_level_mass(trim(disclabel), mass, sink_num, sink_labels) 
+                   call get_hier_disc_label(i, disclabel)
+                   current_mass = get_hier_level_mass(trim(disclabel)) 
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
                 end if
-             end do                   
+             end do
           end if
           do i=1, maxdiscs
              if (iuse_disc(i)) then
@@ -2333,6 +2327,7 @@ subroutine write_setupfile(filename)
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  use sethierarchical, only:write_hierarchical_setupfile
+ use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in) :: filename
 
  integer, parameter :: iunit = 20
@@ -2455,10 +2450,7 @@ subroutine write_setupfile(filename)
 
     case (5)
 
-       call write_hierarchical_setupfile(hier, iunit, sink_num, sink_labels, hl_labels, hl_num, &
-                                         mass, accr, a, e, inc, O, w, f)
-
-    
+       call write_hierarchical_setupfile(iunit)    
 
     case (3)
        !-- hierarchical triple
@@ -2576,7 +2568,7 @@ subroutine write_setupfile(filename)
        if (n_possible_discs > 1) then
           disclabel = disctype(i)
           if (nsinks > 4) then
-             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+             call get_hier_disc_label(i, disclabel)
           end if
        else
           disclabel = ''
@@ -2735,6 +2727,7 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
  use sethierarchical, only:read_hierarchical_setupfile
+ use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
 
@@ -2834,9 +2827,7 @@ subroutine read_setupfile(filename,ierr)
        end select
     case (5)
 
-       call read_hierarchical_setupfile(hier, db, nerr, sink_num, sink_labels, hl_labels, hl_num, &
-                                        mass, accr, a, e, inc, O, w, f)
-
+       call read_hierarchical_setupfile(db, nerr)
     
     case (3)
        !-- hierarchical triple
@@ -2990,7 +2981,7 @@ subroutine read_setupfile(filename,ierr)
        if (nsinks >= 2) then
           disclabel = disctype(i)
           if (nsinks > 4) then
-             call get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+             call get_hier_disc_label(i, disclabel)
           end if
        else
           disclabel = ''
@@ -3291,10 +3282,10 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 
 end subroutine temp_to_HR
 
-subroutine get_hier_disc_label(i, sink_num, sink_labels, hl_labels, disclabel)
+subroutine get_hier_disc_label(i, disclabel)
+  use sethierarchical, only:sink_num, sink_labels, hl_labels
   character(len=10), intent(out)  :: disclabel
-  character(len=10), intent(in)    :: sink_labels(:), hl_labels(:)
-  integer, intent(in) :: i, sink_num
+  integer, intent(in) :: i
   
   if (i <= sink_num) then
      disclabel = trim(sink_labels(i))
