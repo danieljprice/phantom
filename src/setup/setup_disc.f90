@@ -1128,7 +1128,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              call get_hier_disc_label(i, disclabel)
              print "(/,a)",'>>> Setting up circum-'//trim(disclabel)//' disc <<<'
              prefix = trim(fileprefix)//'-'//trim(disclabel)
-          end if
+          endif
        else
           prefix = fileprefix
        endif
@@ -1165,7 +1165,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
              Rochelobe = Rochelobe_estimate(m1,m2,a(hl_index))
           else
              Rochelobe = huge(0.)
-          end if
+          endif
 
 
           star_m(i) = m2
@@ -2098,11 +2098,11 @@ subroutine setup_interactive()
 
        do i=1,sink_num
           call prompt('Do you want a disc orbiting '//trim(sink_labels(i))//' star?',iuse_disc(i))
-       end do
+       enddo
 
        do i=1,hl_num
           call prompt('Do you want a disc orbiting '//trim(hl_labels(i))//' hierarchical level?',iuse_disc(i+sink_num))
-       end do
+       enddo
 
     endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
@@ -2180,14 +2180,14 @@ subroutine setup_interactive()
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
-                end if
-             end do
-          end if
+                endif
+             enddo
+          endif
           do i=1, maxdiscs
              if (iuse_disc(i)) then
                 H_R(i) = nint(H_R(i)*10000.)/10000.
-             end if
-          end do
+             endif
+          enddo
        else
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -2553,12 +2553,12 @@ subroutine write_setupfile(filename)
       do i=1,sink_num
          call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
             //trim(sink_labels(i))//' disc',iunit)
-      end do
+      enddo
 
       do i=1,hl_num
          call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
             //trim(hl_labels(i))//' disc',iunit)
-      end do
+      enddo
    endif
    call write_inopt(use_global_iso,'use_global_iso',&
         'globally isothermal or Farris et al. (2014)',iunit)
@@ -2571,7 +2571,7 @@ subroutine write_setupfile(filename)
           disclabel = disctype(i)
           if (nsinks > 4) then
              call get_hier_disc_label(i, disclabel)
-          end if
+          endif
        else
           disclabel = ''
        endif
@@ -2964,11 +2964,11 @@ subroutine read_setupfile(filename,ierr)
     elseif (nsinks == 5) then
        do i=1,sink_num
           call read_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc',db,errcount=nerr)
-       end do
+       enddo
 
        do i=1,hl_num
           call read_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc',db,errcount=nerr)
-       end do
+       enddo
     endif
  else
     iuse_disc(1) = .true.
@@ -2984,7 +2984,7 @@ subroutine read_setupfile(filename,ierr)
           disclabel = disctype(i)
           if (nsinks > 4) then
              call get_hier_disc_label(i, disclabel)
-          end if
+          endif
        else
           disclabel = ''
        endif
@@ -3293,7 +3293,7 @@ subroutine get_hier_disc_label(i, disclabel)
      disclabel = trim(sink_labels(i))
   else
      disclabel = trim(hl_labels(i-sink_num))
-  end if
+  endif
 
 end subroutine get_hier_disc_label
 

@@ -349,7 +349,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     do i=1,nptmass
        mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
        mass = mass + xyzmh_ptmass(4,i)
-    end do
+    enddo
     ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi

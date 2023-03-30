@@ -302,7 +302,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     filename = trim(prefix)//'.hierarchy'
  else
     filename = 'HIERARCHY'
- end if
+ endif
 
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file=trim(filename), exist=iexist)
