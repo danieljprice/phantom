@@ -10,7 +10,7 @@ module raytracer
 !
 ! :References: None
 !
-! :Owner: Not Committed Yet
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
