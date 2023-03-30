@@ -189,6 +189,7 @@ subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_te
  use part,      only:tau,tau_lucy,ikappa,nucleation
  use raytracer, only:get_all_tau
  use dust_formation, only:calc_kappa_bowen,idust_opacity
+ use dim,       only:itau_alloc
  integer,  intent(in)    :: nptmass,npart
  real,     intent(in)    :: xyzh(:,:),xyzmh_ptmass(:,:),eos_vars(:,:)
  real,     intent(out)   :: dust_temp(:)
@@ -216,7 +217,7 @@ subroutine get_dust_temperature(npart,xyzh,eos_vars,nptmass,xyzmh_ptmass,dust_te
     else
        call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, calc_kappa_bowen(dust_temp(1:npart)), iray_resolution, tau_lucy)
     endif
- elseif (iget_tdust == 3) then
+ elseif (itau_alloc == 1) then
     ! update tau
     if (idust_opacity == 2) then
        call get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, nucleation(:,ikappa), iray_resolution, tau)
