@@ -119,7 +119,7 @@ module setup
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
  use memory,           only:allocate_memory
- 
+
  implicit none
 
  public  :: setpart
@@ -637,10 +637,10 @@ subroutine equation_of_state(gamma)
           if (nsinks>4) then
              ieos = 13
              print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
-             higher_disc_index = findloc(iuse_disc, .true., 1) 
+             higher_disc_index = findloc(iuse_disc, .true., 1)
              qfacdisc = qindex(higher_disc_index)
              call get_hier_disc_label(higher_disc_index, disclabel)
-             
+
              call warning('setup_disc','using circum-'//trim(disclabel)//' (H/R)_ref to set global temperature')
           else
              ieos = 14
@@ -1157,7 +1157,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           call get_hier_disc_label(i, disclabel)
 
           m2 = get_hier_level_mass(disclabel)
-          
+
           if (len(trim(disclabel))>1) then
              m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
@@ -1169,7 +1169,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
 
           star_m(i) = m2
-          
+
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
 
        endif
@@ -1965,12 +1965,12 @@ subroutine setup_interactive()
        print "(/,a)",'================================'
        print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
        print "(a)",  '================================'
-       
+
        ibinary = 0
 
        call set_hierarchical_interactively()
        call set_hierarchical_default_options()
-              
+
     case (3)
        !-- hierarchical triple --!
        print "(/,a)",'================================'
@@ -2095,15 +2095,15 @@ subroutine setup_interactive()
     elseif (nsinks==5) then
        !--2 bound binaries: circumbinary
        iuse_disc(:) = .false.
-       
+
        do i=1,sink_num
           call prompt('Do you want a disc orbiting '//trim(sink_labels(i))//' star?',iuse_disc(i))
        end do
-       
+
        do i=1,hl_num
           call prompt('Do you want a disc orbiting '//trim(hl_labels(i))//' hierarchical level?',iuse_disc(i+sink_num))
        end do
-       
+
     endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
@@ -2112,7 +2112,7 @@ subroutine setup_interactive()
        use_global_iso = .false.
     endif
  endif
- 
+
  !--gas disc
  R_in  = accr1
  R_ref = R_in
@@ -2172,11 +2172,11 @@ subroutine setup_interactive()
              call get_hier_disc_label(higher_disc_index, disclabel)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
-             higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels) 
+             higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels)
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
                    call get_hier_disc_label(i, disclabel)
-                   current_mass = get_hier_level_mass(trim(disclabel)) 
+                   current_mass = get_hier_level_mass(trim(disclabel))
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
@@ -2452,7 +2452,7 @@ subroutine write_setupfile(filename)
 
     case (5)
 
-       call write_hierarchical_setupfile(iunit)    
+       call write_hierarchical_setupfile(iunit)
 
     case (3)
        !-- hierarchical triple
@@ -2549,12 +2549,12 @@ subroutine write_setupfile(filename)
             //trim(disctype(1))//' disc',iunit)
    elseif (nsinks == 5) then
       write(iunit,"(/,a)") '# options for multiple discs'
-      
+
       do i=1,sink_num
          call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
             //trim(sink_labels(i))//' disc',iunit)
       end do
-      
+
       do i=1,hl_num
          call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
             //trim(hl_labels(i))//' disc',iunit)
@@ -2830,7 +2830,7 @@ subroutine read_setupfile(filename,ierr)
     case (5)
 
        call read_hierarchical_setupfile(db, nerr)
-    
+
     case (3)
        !-- hierarchical triple
 
@@ -2965,7 +2965,7 @@ subroutine read_setupfile(filename,ierr)
        do i=1,sink_num
           call read_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc',db,errcount=nerr)
        end do
-       
+
        do i=1,hl_num
           call read_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc',db,errcount=nerr)
        end do
@@ -3288,13 +3288,13 @@ subroutine get_hier_disc_label(i, disclabel)
   use sethierarchical, only:sink_num, sink_labels, hl_labels
   character(len=10), intent(out)  :: disclabel
   integer, intent(in) :: i
-  
+
   if (i <= sink_num) then
      disclabel = trim(sink_labels(i))
   else
      disclabel = trim(hl_labels(i-sink_num))
   end if
-  
+
 end subroutine get_hier_disc_label
 
 

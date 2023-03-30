@@ -278,7 +278,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  character(len=20), optional, intent(in) :: prefix
- 
+
  integer :: i1,i2,i,subst_index
  real    :: mtot,period
  real    :: x_subst(3),v_subst(3)

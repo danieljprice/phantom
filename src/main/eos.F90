@@ -20,7 +20,7 @@ module eos
 !    10 = MESA EoS
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
-!    13 = locally isothermal prescription from Farris et al. (2014) generalised for generic hierarchical systems  
+!    13 = locally isothermal prescription from Farris et al. (2014) generalised for generic hierarchical systems
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
@@ -336,7 +336,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
 
-    
+
  case(13)
 !
 !--Locally isothermal eos for generic hierarchical system from a generalisation of Farris et al. (2014) for binary system
@@ -345,7 +345,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
     mass_r = 0
     mass = 0
-    
+
     do i=1,nptmass
        mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
        mass = mass + xyzmh_ptmass(4,i)
@@ -354,7 +354,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
-    
+
  case(14)
 !
 !--Locally isothermal eos from Farris et al. (2014) for binary system

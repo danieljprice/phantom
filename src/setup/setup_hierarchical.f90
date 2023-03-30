@@ -17,7 +17,7 @@ module setup
 ! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
 !   setbinary, sethierarchical, units
 !
-  
+
  implicit none
  public :: setpart
 
@@ -50,8 +50,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
  integer :: ierr
- logical :: iexist 
- 
+ logical :: iexist
+
 !
 !--units
 !
@@ -75,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  nptmass = 0
 
  call set_hierarchical_default_options()
- 
+
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Welcome to CHESS (Complete Hierarchical Endless System Setup)'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -124,7 +124,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_hierarchical_setupfile(db, nerr)
 
-    
+
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
