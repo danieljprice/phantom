@@ -35,6 +35,7 @@ module setup
  use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac
  use setup_params, only:rhozero
+ use physcon, only:radconst
  implicit none
  public :: setpart
 
@@ -90,6 +91,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: perturb_rho0,xval
  real    :: Vup(0:3),v(0:3),const,phi,rhoprim,sqrtg,u0,x,gcov(0:3,0:3),alpha,hub
  real    :: perturb_wavelength
+ real    :: last_scattering_temp
+ real    :: u 
  procedure(rho_func), pointer :: density_func
  procedure(mass_func), pointer :: mass_function
 
@@ -104,7 +107,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu < 4) then
     gamma = 1.
  else
-    gamma = 5./3.
+    ! 4/3 for radiation dominated case 
+    ! irrelevant for 
+    gamma = 4./3.
  endif
  ! Redefinition of pi to fix numerical error 
  pi = 4.D0*DATAN(1.0D0)
@@ -131,6 +136,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
  hub = 10.553495658357338
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ phaseoffset = 0.
+ ! Approx Temp of the CMB in Kelvins 
+ last_scattering_temp = 1e6
+ last_scattering_temp = (rhozero/radconst)**(1./4.)*0.99999
+ ! Calculate u from last scattering temp so mass density can be calculated
+ !u = radconst*(last_scattering_temp**4/rhozero)
+ rhozero = rhozero - radconst*last_scattering_temp**4
  
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
@@ -193,6 +205,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Hardcode to ensure double precision, that is requried
  !rhozero = 13.294563008157013D0
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ rhozero = rhozero - radconst*last_scattering_temp**4
  xval = density_func(0.75)
  xval = density_func(0.0) 
  !print*, "rhofunc 0.: ", xval
@@ -216,6 +229,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
       case('"x"')
          call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
                      npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
+      case('"y"')
+         call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+         npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+         call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
+               geom=1,coord=2)
       case('"all"')
          call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
                      npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
@@ -264,13 +282,47 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
          alpha = sqrt(-gcov(0,0))
          vxyzu(1,i) = Vup(1)*alpha
          vxyzu(2:3,i) = 0.
+      case ('"y"')
+         vxyzu(2,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
+         phi = ampl*sin(kwave*xyzh(2,i)-phaseoffset)
+         Vup = 0.
+         Vup(2)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(2,i) - phaseoffset)
+         
+         call perturb_metric(phi,gcov)
+         call get_sqrtg(gcov,sqrtg)
+         
+         alpha = sqrt(-gcov(0,0))
+         vxyzu(:,i) = 0.
+         vxyzu(2,i) = Vup(2)*alpha
+         
       case ('"all"')
-          ! perturb the y and z velocities
-          vxyzu(2,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
-          vxyzu(3,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(3,i))/lambda - phaseoffset) 
+         phi = ampl*(sin(kwave*xyzh(1,i)-phaseoffset) - sin(kwave*xyzh(2,i)-phaseoffset) - sin(kwave*xyzh(3,i)-phaseoffset))
+         Vup(1)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset) 
+         Vup(2)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
+         Vup(3)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(3,i))/lambda - phaseoffset)
+          
+         call perturb_metric(phi,gcov)
+         call get_sqrtg(gcov,sqrtg)
+          
+         alpha = sqrt(-gcov(0,0)) 
+
+         ! perturb the y and z velocities
+         vxyzu(1,i)  = Vup(1)*alpha
+         vxyzu(2,i)  = Vup(2)*alpha
+         vxyzu(3,i)  = Vup(3)*alpha
    end select    
-   
-    if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
+    ! Setup the intial internal energy here?
+    ! This should be u = aT^4/\rho 
+    ! Choose an initial temp of the cmb ~ 3000K
+    ! Set a=1 for now
+    ! Asssuming that this is constant density/pressure for now so I'm making sure that
+    ! Note that rhozero != rho
+    ! rhozero = rho + rho*u as this is the energy density    
+    if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = (radconst*(last_scattering_temp**4))/rhozero !vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
+      ! Check that the pressure is correct
+      print*, "Pressure: ", (gamma-1)*rhozero*vxyzu(4,i)
+      print*, "Pressure from energy density: ", 3.d0 * hub**2 / (8.d0 * pi)/3.
+      print*, "Pressure 1/3 \rho u: ",radconst*(last_scattering_temp**4)/3.    
  enddo
 
 
