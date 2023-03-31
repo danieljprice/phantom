@@ -101,6 +101,15 @@ ifeq ($(SYSTEM), ozstar)
     WALLTIME='168:00:00'
 endif
 
+ifeq ($(SYSTEM), ozstar2)
+#   ozstar milan cluster
+    include Makefile_defaults_aocc
+    OMPFLAGS=-fopenmp
+    NOMP='32'
+    QNAME='milan'
+    QSYS=slurm
+endif
+
 ifeq ($(SYSTEM), rusty)
 #   Flatiron CCA rusty cluster rome node, AMD EPYC 7742
     include Makefile_defaults_ifort
@@ -260,4 +269,8 @@ ifeq ($(SYSTEM), lyoccf)
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
             -warn unused -warn truncated_source
     LIBCXX = -cxxlib
+endif
+
+ifeq ($(SYSTEM), aocc)
+   include Makefile_defaults_aocc
 endif
