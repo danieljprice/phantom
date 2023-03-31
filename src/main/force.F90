@@ -1555,7 +1555,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !--add av term to pressure
           gradpi = pmassj*(pro2i + qrho2i)*grkerni
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
-
+          !-- calculate grad P from gas pressure alone for cooling
+          if (icooling == 8) gradP_cool(i) = gradP_cool(i) + &
+               pmassj*pro2i*grkerni + pmassj*pro2j*grkernj
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
 #ifdef GR
@@ -1662,7 +1664,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           projsx = projsxi + projsxj
           projsy = projsyi + projsyj
           projsz = projszi + projszj
-          if (icooling == 8) gradP_cool(i) = gradP_cool(i) + gradp
+
 
           fsum(ifxi) = fsum(ifxi) - runix*(gradp + fgrav) - projsx
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
