@@ -759,8 +759,8 @@ end subroutine surface_density_profile
 subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
- use setbinary,            only:set_binary,set_multiple
- use sethierarchical,      only:set_hierarchical
+ use setbinary,            only:set_binary
+ use sethierarchical,      only:set_hierarchical,set_multiple
  use setflyby,             only:set_flyby
  character(len=20), intent(in) :: fileprefix
 
