@@ -45,7 +45,7 @@ contains
 !--------------------------------------------
 subroutine test_dust(ntests,npass)
 #ifdef DUST
- use dust,        only:idrag,init_drag,get_ts
+ use dust,        only:idrag,init_drag,get_ts,drag_implicit
  use set_dust,    only:set_dustbinfrac
  use physcon,     only:solarm,au
  use units,       only:set_units,unit_density,udist
@@ -98,17 +98,34 @@ subroutine test_dust(ntests,npass)
  call test_epsteinstokes(ntests,npass)
  call barrier_mpi()
 
- !
- ! Test that drag conserves momentum and energy
- !
+ if (id==master) write(*,"(/,a)") '--> testing drag with EXPLICIT scheme'
  use_dustfrac = .false.
+ !
+ ! Test that drag conserves momentum and energy with explicit scheme
+ !
+ drag_implicit = .false.
  call test_drag(ntests,npass)
  call barrier_mpi()
 
  !
- ! DUSTYBOX test
+ ! DUSTYBOX test with explicit scheme
  !
- use_dustfrac = .false.
+ drag_implicit = .false.
+ call test_dustybox(ntests,npass)
+ call barrier_mpi()
+
+ if (id==master) write(*,"(/,a)") '--> testing DRAG with IMPLICIT scheme'
+ !
+ ! Test that drag conserves momentum and energy with implicit scheme
+ !
+ drag_implicit = .true.
+ call test_drag(ntests,npass)
+ call barrier_mpi()
+
+ !
+ ! DUSTYBOX test with explicit scheme
+ !
+ drag_implicit = .true.
  call test_dustybox(ntests,npass)
  call barrier_mpi()
 

@@ -220,8 +220,9 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
  !--get ds/dt over all particles
 
  !$omp parallel do default(none) &
- !$omp shared(xyzh,vxyzu,npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,dsdt) &
- !$omp shared(dustprop,dustgasprop,VrelVf,tstop,deltav,ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac) &
+ !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dsdt,VrelVf,tstop,deltav) &
  !$omp private(i,iam,rho,rhog,rhod,vrel)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then

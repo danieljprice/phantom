@@ -40,7 +40,7 @@ module dust
  integer, public  :: icut_backreaction    = 0
  integer, public  :: irecon               = 1
  logical, public  :: ilimitdustflux       = .false. ! to limit spurious dust generation in outer disc
- logical, public  :: drag_implicit        = .true.  ! use implcit scheme for 2-fluids drag forces
+ logical, public  :: drag_implicit        = .false.  ! use implcit scheme for 2-fluids drag forces
 
  public :: get_ts
  public :: init_drag
