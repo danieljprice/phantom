@@ -262,7 +262,7 @@ end subroutine process_hierarchy
  ! Reverse the splitting process from sink_labels to build the system
  !
  !--------------------------------------------------------------------------
-subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
+recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
  character(len=10), intent(in) :: sink_list(:)
  character(len=10), intent(inout) :: split_list(:)
  integer, intent(inout)    :: splits
