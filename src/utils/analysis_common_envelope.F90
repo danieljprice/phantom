@@ -2190,8 +2190,8 @@ subroutine velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
  ! Select origin
  xyz_origin = xyzmh_ptmass(1:3,1)
- vxyz_origin = vxyz_ptmass(1:3,1)    
- 
+ vxyz_origin = vxyz_ptmass(1:3,1)
+
  ! Masking in polar angle
  theta1 = 75.   ! Polar angle in deg
  theta2 = 105.
@@ -2240,38 +2240,38 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),&
                         theta1,theta2,tantheta1,tantheta2,tantheta
  real, allocatable, dimension(:) :: rad_part,dist_part,hist
- 
+
  nbins = 500
  rmin = 0.
  rmax = 5.
- 
+
  allocate(hist(nbins),dist_part(npart),rad_part(npart))
  dist_part = 0.
  file_name = '    jz_profile.ev'
- 
+
  ! Select origin
  xyz_origin = xyzmh_ptmass(1:3,1)
- vxyz_origin = vxyz_ptmass(1:3,1)    
- 
+ vxyz_origin = vxyz_ptmass(1:3,1)
+
  ! Masking in polar angle
  theta1 = 75.   ! Polar angle in deg
  theta2 = 105.
  tantheta1 = tan(theta1*3.14159/180.)
  tantheta2 = tan(theta2*3.14159/180.)
- 
+
  count = 0
  do i = 1,npart
     rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyz_origin(1:2), xyzh(1:2,i) - xyz_origin(1:2)) )  ! Cylindrical radius
- 
+
     ! Masking in polar angle
     tantheta = rad_part(i)/(xyzh(3,i) - xyzmh_ptmass(3,1))
     if ( (tantheta>0. .and. tantheta<tantheta1) .or. (tantheta<0. .and. tantheta>tantheta2) ) cycle
- 
+
     dist_part(i) = ( (xyzh(1,i)-xyz_origin(1))*(vxyzu(2,i)-vxyz_origin(2)) - &
                    (xyzh(2,i)-xyz_origin(2))*(vxyzu(1,i)-vxyz_origin(1)) )
     count = count + 1
  enddo
- 
+
  call histogram_setup(rad_part,dist_part,hist,count,rmax,rmin,nbins,.true.,.false.)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
@@ -2282,7 +2282,7 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  open(newunit=iu, file=trim(adjustl(file_name)), position='append')
  write(iu,data_formatter) time,hist
  close(unit=iu)
-  
+
 end subroutine angular_momentum_profile
 
 
@@ -2301,7 +2301,7 @@ subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  integer             :: i,nbins,iu
  real                :: rmin,rmax,massi,Mtot
  real, allocatable   :: hist(:),rad_part(:),dist_part(:)
- 
+
  nbins = 500
  rmin = 0.
  rmax = 5.
@@ -2330,7 +2330,7 @@ subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  open(newunit=iu, file=trim(adjustl(file_name)), position='append')
  write(iu,data_formatter) time,hist
  close(unit=iu)
-  
+
 end subroutine vkep_profile
 
 

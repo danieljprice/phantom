@@ -1,14 +1,12 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: analysis
+module analysis
 !
-!  DESCRIPTION:
-!  This a clump-finding algorithm
+! This a clump-finding algorithm
 !  On the first call, user will be prompted for simulation-dependent values; these will
 !  be written to a parameter, clumpfindWB23.in, for subsequent exectutions of the routine.
 !  This follows a similar boundness criteria as per Bate (2018) & Wurster, Bate & Price (2019)
@@ -20,18 +18,21 @@
 !  take the final values to determine the lengths of the three semi-axes.
 !  WARNING! this currently cannot track across dumps
 !
-!  REFERENCES: Wurster & Bonnell (2023)
+! :References: Wurster & Bonnell (2023)
 !
-!  OWNER: James Wurster
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - dx_grid    : *grid resolution to determine the clump shape (pc)*
+!   - ekin_coef  : *a clump will be bound if coef*ekin + epot < 0*
+!   - nclumpmax  : *the maximum number of clumps (recommend 100000 on clusters)*
+!   - npartmax   : *maximum number of particles per clump (recommend 100000 on clusters)*
+!   - rhominbkg  : *density (cgs) above which a particle can be a member of a clump*
+!   - rhominpeak : *density (cgs) above which a particle can be the lead particle in a clump*
 !
-!  RUNTIME PARAMETERS: None
+! :Dependencies: boundary, dim, infile_utils, io, kernel, part, physcon,
+!   prompting, sortutils, timing, units
 !
-!  DEPENDENCIES: dim, part, prompting
-!+
-!--------------------------------------------------------------------------
-module analysis
  use dim,        only:maxptmass,maxvxyzu,mhd,maxp_hard
  use part,       only:Bxyz,xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,periodic,iorig
  use kernel,     only:radkern,kernel_softening
@@ -349,7 +350,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              do j = 1,nclump
                 if (j /= j1) eclumpcandidate(:,j) = 0
              enddo
-          endif              
+          endif
        endif
 
        if (nclumpcandidate==0 .and. .not.connected_global .and. rhoi > rhomin_peak) then
@@ -375,7 +376,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           ! add particle to clump
           do j = 1,nclump
              if (eclumpcandidate(2,j) < 0.) then
-                rold = clump(j)%r(:) 
+                rold = clump(j)%r(:)
                 do p=1,3
                    clump(j)%r(p)  = (clump(j)%mass*clump(j)%r(p) + pmassi*xyzh( p,i))/(clump(j)%mass + pmassi)
                    clump(j)%v(p)  = (clump(j)%mass*clump(j)%v(p) + pmassi*vxyzu(p,i))/(clump(j)%mass + pmassi)
@@ -461,7 +462,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 !$omp enddo
 !$omp end parallel
 
- nnotcached = 0
+    nnotcached = 0
 !$omp parallel default(none) &
 !$omp shared(nclump,clump,npartmax) &
 !$omp private(i) &
@@ -473,8 +474,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 !$omp enddo
 !$omp end parallel
 
-    clump(:)%nmemberpv = clump(:)%nmember ! so we can avoid repeated calculations to see is the same pair are bound 
-    clump(:)%nptmasspv = clump(:)%nptmass ! so we can avoid repeated calculations to see is the same pair are bound 
+    clump(:)%nmemberpv = clump(:)%nmember ! so we can avoid repeated calculations to see is the same pair are bound
+    clump(:)%nptmasspv = clump(:)%nptmass ! so we can avoid repeated calculations to see is the same pair are bound
     print*, 'nclump, nclumpprev = ',nclump, nclumpprev
     print*, 'nclumps with nmember > npartmax = ',nnotcached
     !--Repeat the entire process until the number of clumps stabilises
@@ -504,7 +505,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        nclump = nclump - 1
     else
        j = j + 1
-   endif
+    endif
  enddo
  print*, 'Done removing unresolved clumps'
  call update_time(walltime)
@@ -520,7 +521,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 ! Calculate a reasonable radius & average density
 ! The spherical radius is done by selecting the radius of \bar{r} + 2sigma
-! The elliptical parameters are set rotating the data until the ellipse lies along the cardinal axes, 
+! The elliptical parameters are set rotating the data until the ellipse lies along the cardinal axes,
 ! then using three 2D ellipse fitting routine of Rocha, Velho & Carvalho (2002) who use Moments of Inertia to fit the ellipse.
 ! Not all particles are fit within the ellipse, and visual inspection suggests these are good fits.
 !$omp parallel default(none) &
@@ -697,7 +698,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       10,'mass',        &
       11,'rho_max',     &
       12,'rho_ave,lin', &
-      13,'rho_ave,log', & 
+      13,'rho_ave,log', &
       14,'E_kinetic',   &
       15,'E_potential', &
       16,'E_thermal',   &
@@ -745,7 +746,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             12,'mass',        &
             13,'rho_max',     &
             14,'rho_ave,lin', &
-            15,'rho_ave,log', & 
+            15,'rho_ave,log', &
             16,'E_kinetic',   &
             17,'E_potential', &
             18,'E_thermal',   &
@@ -812,23 +813,23 @@ end subroutine do_analysis
 subroutine reset_clump(i)
  integer, intent(in) :: i
 
-  clump(i)%r(:)       = 0.0
-  clump(i)%v(:)       = 0.0
-  clump(i)%ellipse(:) = 0.0
-  clump(i)%ID         = 0
-  clump(i)%mass       = 0.0
-  clump(i)%size       = 0.0
-  clump(i)%nmember    = 0
-  clump(i)%nmemberpv  = 0
-  clump(i)%kinetic    = 0.0
-  clump(i)%potential  = 0.0
-  clump(i)%thermal    = 0.0
-  clump(i)%magnetic   = 0.0
-  clump(i)%rhomax     = 0.0
-  clump(i)%rhoaveln   = 0.0
-  clump(i)%rhoavelg   = 0.0
-  clump(i)%nptmass    = 0
-  clump(i)%nptmasspv  = 0
+ clump(i)%r(:)       = 0.0
+ clump(i)%v(:)       = 0.0
+ clump(i)%ellipse(:) = 0.0
+ clump(i)%ID         = 0
+ clump(i)%mass       = 0.0
+ clump(i)%size       = 0.0
+ clump(i)%nmember    = 0
+ clump(i)%nmemberpv  = 0
+ clump(i)%kinetic    = 0.0
+ clump(i)%potential  = 0.0
+ clump(i)%thermal    = 0.0
+ clump(i)%magnetic   = 0.0
+ clump(i)%rhomax     = 0.0
+ clump(i)%rhoaveln   = 0.0
+ clump(i)%rhoavelg   = 0.0
+ clump(i)%nptmass    = 0
+ clump(i)%nptmasspv  = 0
 
 end subroutine reset_clump
 !--------------------------------------------------------------------------
@@ -880,7 +881,7 @@ subroutine are_clumps_joined(j1,j2,npart,xyzh,vxyzu,rtmp,vtmp,sep,pmassi,ekin,ep
     rtmp(q) = (clump(j1)%mass*clump(j1)%r(q) + clump(j2)%mass*clump(j2)%r(q) + pmassii*xyzh(q,ii)) &
                     / (clump(j1)%mass + clump(j2)%mass + pmassii)
 
-    vtmp(q) = (clump(j1)%mass*clump(j1)%v(q) + clump(j2)%mass*clump(j2)%v(q) + pmassii*vxyzu(q,ii)) & 
+    vtmp(q) = (clump(j1)%mass*clump(j1)%v(q) + clump(j2)%mass*clump(j2)%v(q) + pmassii*vxyzu(q,ii)) &
             / (clump(j1)%mass                + clump(j2)%mass                + pmassii)
  enddo
 
@@ -1046,7 +1047,7 @@ subroutine are_clumps_joined(j1,j2,npart,xyzh,vxyzu,rtmp,vtmp,sep,pmassi,ekin,ep
        ekin = ekin + 0.5*(dvx*dvx + dvy*dvy + dvz*dvz) &
                    *(xyzmh_ptmass(4,p1)*xyzmh_ptmass(4,p2))/(xyzmh_ptmass(4,p1)+xyzmh_ptmass(4,p2))
     enddo
-    if (zero_one==1) then  
+    if (zero_one==1) then
        dx   = xyzmh_ptmass(1,p1) - xii
        dy   = xyzmh_ptmass(2,p1) - yii
        dz   = xyzmh_ptmass(3,p1) - zii
@@ -1252,7 +1253,7 @@ integer function p_val(jclump,jpart,use_npart)
 
  if (use_npart) then
     p_val = jpart
-    if (idclump(jpart).ne.jclump) p_val = 0
+    if (idclump(jpart) /= jclump) p_val = 0
  else
     p_val = idlistpart(jclump,jpart)
  endif
@@ -1370,7 +1371,7 @@ subroutine rotate_data(n,i1,i2,xc,yc,theta,xyz)
     xyz(i2,i) = -x1*sin(theta) + x2*cos(theta) + yc
  enddo
 
- end subroutine rotate_data
+end subroutine rotate_data
 !--------------------------------------------------------------------------
 ! 2D ellipse fitting routine of Rocha,Velho & Carvalho (2002)
 subroutine calc_moment(x1,x2,igrid,l,w,phi,xc,yc)
@@ -1379,7 +1380,7 @@ subroutine calc_moment(x1,x2,igrid,l,w,phi,xc,yc)
  real,    intent(out) :: l,w,phi,xc,yc
  integer              :: i,j
  real                 :: m00,m01,m10,m11,m20,m02,a,b,c
- 
+
  ! the moments
  m00 = 0.
  m01 = 0.
@@ -1397,7 +1398,7 @@ subroutine calc_moment(x1,x2,igrid,l,w,phi,xc,yc)
        m02 = m02 + x2(j)**2   *igrid(i,j)
     enddo
  enddo
- 
+
  ! the centre of the ellipse
  xc = m10/m00
  yc = m01/m00
@@ -1479,4 +1480,4 @@ subroutine read_clumpparams(filename,ierr)
 
 end subroutine read_clumpparams
 !--------------------------------------------------------------------------
-end module
+end module analysis

@@ -730,12 +730,12 @@ subroutine check_setup_dustfrac(nerror,nwarn)
  enddo
  dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
  if (nbad > 0) then
-     print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
-     nerror = nerror + 1
+    print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
+    nerror = nerror + 1
  endif
  if (nunity > 0) then
-     print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
-     nwarn = nwarn + 1
+    print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
+    nwarn = nwarn + 1
  endif
 
  ! check for TOTAL dustfrac exceeding unity
@@ -747,18 +747,18 @@ subroutine check_setup_dustfrac(nerror,nwarn)
     endif
  enddo
  if (nbad > 0) then
-     print*,'ERROR: ',nbad,' of ',npart,' particles with sum of dust fractions exceeding 1'
-     nerror = nerror + 1
+    print*,'ERROR: ',nbad,' of ',npart,' particles with sum of dust fractions exceeding 1'
+    nerror = nerror + 1
  endif
 
  ! warn if compiled for one-fluid dust but not used
  if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
-     print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-     if (maxdusttypes > 1) then
-        print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
-        print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
-     endif
-     nwarn = nwarn + 1
+    print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
+    if (maxdusttypes > 1) then
+       print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
+       print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
+    endif
+    nwarn = nwarn + 1
  endif
 
  if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,11 +10,11 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, part
+! :Dependencies: dim, part, physcon, sortutils, units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'ConvergStats'
@@ -55,7 +55,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  vmin_kms  = -35.
  vmax_kms  = 35.
  mmin_msun = 1.
- mmax_msun = 1.0d8 
+ mmax_msun = 1.0d8
  dmin_cgs  = 1.d-30
  dmax_cgs  = 1.d-10
  dtsh_cgs  = 1.d-23          ! will only bin gas with density higher than this threshold
@@ -87,7 +87,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ! bin edges
        do i = 1,nbins(k)
           vmd(1,i,k) = vmin + (i-1)*dv(k)
-          vmd(2,i,k) = 10**(log10(mmin) +(i-1)*dm(k) ) 
+          vmd(2,i,k) = 10**(log10(mmin) +(i-1)*dm(k) )
           vmd(3,i,k) = 10**(log10(dmin) +(i-1)*dd(k) )
        enddo
        ! bin centres for plotting

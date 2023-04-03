@@ -1,43 +1,38 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2019 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-!+
-!  MODULE: setup
+module setup
 !
-!  DESCRIPTION:
-!   This module sets up N converging flows in a box.  The flows are
+! This module sets up N converging flows in a box.  The flows are
 !   elliptical, and their properties can be individually set.
 !
-!  REFERENCES: Wurster & Bonnell (2023_
+! :References: Wurster & Bonnell (2023)
 !
-!  OWNER: Daniel Price
+! :Owner: James Wurster
 !
-!  $Id$
+! :Runtime parameters:
+!   - Bzero              : *Bzero in G*
+!   - Ncloud             : *number of clouds*
+!   - Temperature_medium : *Temperature of the background*
+!   - density_contrast   : *density contrast*
+!   - dist_unit          : *distance unit (e.g. pc)*
+!   - dynamic_bdy        : *use dynamic boundary conditions*
+!   - h_acc              : *accretion radius (code units)*
+!   - h_soft_sinksink    : *sink-sink softening radius (code units)*
+!   - icreate_sinks      : *1: create sinks.  0: do not create sinks*
+!   - mass_unit          : *mass unit (e.g. solarm)*
+!   - np                 : *actual number of particles in cloud 1*
+!   - plasmaB            : *plasma beta*
+!   - r_crit             : *critical radius (code units)*
+!   - rho_crit_cgs       : *sink formation density (cgs)*
 !
-!  RUNTIME PARAMETERS:
-!    ang_Bomega       -- Angle (degrees) between B and rotation axis
-!    angvel           -- angular velocity in rad/s
-!    cs_sphere        -- sound speed in sphere in code units
-!    density_contrast -- density contrast in code units
-!    dist_unit        -- distance unit (e.g. au)
-!    dusttogas        -- dust-to-gas ratio
-!    mass_unit        -- mass unit (e.g. solarm)
-!    masstoflux       -- mass-to-magnetic flux ratio in units of critical value
-!    np               -- actual number of particles in 
-!    pmass_dusttogas  -- dust-to-gas particle mass ratio
-!    r_sphere         -- radius of sphere in code units
-!    rho_pert_amp     -- amplitude of density perturbation
-!    totmass_sphere   -- mass of sphere in code units
+! :Dependencies: boundary, cooling, datafiles, dim, eos, infile_utils, io,
+!   kernel, mpidomain, options, part, physcon, prompting, ptmass,
+!   setup_params, spherical, timestep, unifdis, units, velfield
 !
-!  DEPENDENCIES: boundary, dim, eos, infile_utils, io,
-!    kernel, options, part, physcon, prompting, ptmass, setup_params,
-!    spherical, timestep, unifdis, units
-!+
-!--------------------------------------------------------------------------
-module setup
  use part,     only:mhd
  use dim,      only:maxvxyzu,maxp_hard
  use boundary, only:dynamic_bdy
@@ -251,7 +246,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           dy   = r0 + r_cloud(1,1)
           ang  = 90.
           y0   = -0.5*(Ncloud-1)*dy
-          ang0 = -0.5*(Ncloud-1)*ang 
+          ang0 = -0.5*(Ncloud-1)*ang
        endif
        if (Ncloud > 1) then
           ang_cloud(1,i) = ang0 + (i-1)*ang
@@ -366,7 +361,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  angB       = angB*pi/180.
  ndens_cloud_cgs = dens_cloud*unit_density/(gmw*mass_proton_cgs)
  do i = 1,Ncloud
-   r_cloud(4,i) = max(r_cloud(1,i),r_cloud(2,i),r_cloud(3,i))**2
+    r_cloud(4,i) = max(r_cloud(1,i),r_cloud(2,i),r_cloud(3,i))**2
  enddo
  !
  !--magnetic field parameters
@@ -438,7 +433,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rmsmach = sqrt(rmsmach/npc)
        if (rmsmach > 0.) then
           turbfac = rms_mach(i)/rmsmach ! normalise the energy to the desired mach number
-        else
+       else
           turbfac = 0.
        endif
        rms_mach(i) = 0.
@@ -732,7 +727,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  print fmt,'   v_y            : ',v_bkg(2),v_bkg(3)*unit_velocity*1.d-5,' km/s'
  print fmt,'   v_z            : ',v_bkg(3),v_bkg(3)*unit_velocity*1.d-5,' km/s'
  print fmt,'   N              : ',npart-Np_cloud(Ncloud)
- 
+
  if (dynamic_bdy) then
     print fmt,' dynamic_bdy      : ',dynamic_bdy
     print fmt,' dx               : ',dxyz

@@ -16,11 +16,12 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, centreofmass, checkconserved, dim, energies,
-!   evwrite, externalforces, fileutils, forcing, inject, io, io_summary,
-!   mf_write, mpiutils, options, part, partinject, ptmass, quitdump,
-!   radiation_utils, readwrite_dumps, readwrite_infile, step_lf_global,
-!   supertimestep, timestep, timestep_ind, timestep_sts, timing
+! :Dependencies: analysis, boundary, centreofmass, checkconserved, dim,
+!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
+!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
+!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
+!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
+!   timing
 !
  implicit none
  public :: evol

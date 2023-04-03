@@ -11,11 +11,23 @@ module boundary
 !
 ! :References: Wurster & Bonnell (2023) for dynamic boundaries
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dynamic_bdy    : *turn on/off dynamic boundaries*
+!   - n_dtmax        : *particles must not reach v*n_dtmax*dtmax of the boundary*
+!   - rho_thresh_bdy : *threshold density separating dense gas from background gas*
+!   - vbdyx          : *velocity of the x-boundary*
+!   - vbdyy          : *velocity of the y-boundary*
+!   - vbdyz          : *velocity of the z-boundary*
+!   - width_bkg_nx   : *width of the boundary in the -x direction*
+!   - width_bkg_ny   : *width of the boundary in the -y direction*
+!   - width_bkg_nz   : *width of the boundary in the -z direction*
+!   - width_bkg_px   : *width of the boundary in the +x direction*
+!   - width_bkg_py   : *width of the boundary in the +y direction*
+!   - width_bkg_pz   : *width of the boundary in the +z direction*
 !
-! :Dependencies: None
+! :Dependencies: dim, infile_utils, io, kernel, mpidomain, part
 !
 
  use dim, only: maxvxyzu
@@ -45,9 +57,9 @@ module boundary
  logical, public :: vbdyz_not_0 = .false.
  logical         :: remove_accreted = .true.      ! remove accreted particles from the list
  real,    public, parameter :: bdy_vthresh = 0.05 ! tolerance on velocity
-                                                  ! if a particle's velocity is within this tolerance, then it is a
-                                                  ! 'boring' particle that may be used to determine the background.
-                                                  ! Splash dumps suggest 1% is too low and 10% is too high.
+ ! if a particle's velocity is within this tolerance, then it is a
+ ! 'boring' particle that may be used to determine the background.
+ ! Splash dumps suggest 1% is too low and 10% is too high.
 
  public :: set_boundary
  public :: cross_boundary
@@ -204,7 +216,7 @@ subroutine init_dynamic_bdy()
  minborder = 10.0*radkern*hfact*(massoftype(igas)*rho_bkg_ini1)**(1.0/3.0)
  do j = 1,2
     do i = 1,3
-      width_bkg(i,j) = max(width_bkg(i,j),minborder)
+       width_bkg(i,j) = max(width_bkg(i,j),minborder)
     enddo
  enddo
 
