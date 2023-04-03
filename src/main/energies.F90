@@ -37,7 +37,8 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8),&
+                               iev_mass,iev_bdy(3,2)
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -59,7 +60,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
+ use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
@@ -82,6 +83,11 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
+ use boundary,       only:dynamic_bdy,ibkg,rho_thresh_bdy,rho_bkg_ini1,xyz_x,xyz_n,xmin,xmax,ymin,ymax,zmin,zmax,&
+                          vbdyx,vbdyy,vbdyz,vbdyx_not_0,vbdyy_not_0,vbdyz_not_0,vdtxyz_x,vdtxyz_n,&
+                          v_bkg,B_bkg,n_bkg,bdy_vthresh,n_dtmax
+ use kernel,         only:radkern
+ use timestep,       only:dtmax
 #ifdef GR
  use part,           only:metrics
  use metric_tools,   only:unpack_metric
@@ -96,24 +102,27 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  integer :: iregime,idusttype
  real    :: ev_data_thread(4,0:inumev)
- real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
+ real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,vi1,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas,tsi
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
- real    :: ponrhoi,spsoundi,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
+ real    :: ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,dumx,dumy,dumz
+ real    :: divBi,hdivBonBi,alphai,valfven2i,betai,vmsxi,vmsyi,vmszi
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: etaohm,etahall,etaambi,vhall,vion
  real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
- real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3)
- real    :: ethermi
+ real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
+ real    :: ethermi,rho_bkg,rho_bkg_thread,fourh,ndtmax
 #ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
  real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
 #endif
- integer :: i,j,itype,iu
+ integer :: i,j,itype,iu,ibkg_thread
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
+ !real, allocatable :: axyz(:,:)
+ logical :: high_density_gas,bdy_is_interesting
 
  ! initialise values
  itype  = igas
@@ -153,6 +162,18 @@ subroutine compute_energies(t)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
  ierrlist = 0
+ xyz_x     = -huge(xyz_x(1))
+ xyz_n     =  huge(xyz_n(1))
+ vdtxyz_x  = -huge(vdtxyz_x(1))
+ vdtxyz_n  =  huge(vdtxyz_n(1))
+ xyz_x_all = -huge(xyz_x_all(1))
+ xyz_n_all =  huge(xyz_n_all(1))
+ rho_bkg   = huge(rho_bkg)
+ v_bkg     = 0.
+ B_bkg     = 0.
+ n_bkg     = 0
+ high_density_gas = .false.
+ ndtmax    = n_dtmax*dtmax
  if (maxalpha==maxp) then
     alphai = 0.
  else
@@ -175,13 +196,17 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
-!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
-!$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp shared(dynamic_bdy,rho_thresh_bdy,rho_bkg,ibkg,high_density_gas,rho_bkg_ini1) &
+!$omp shared(xmin,xmax,ymin,zmin,ymax,zmax) &
+!$omp shared(vbdyx,vbdyy,vbdyz,vbdyx_not_0,vbdyy_not_0,vbdyz_not_0,ndtmax) &
+!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i,vi1) &
+!$omp private(ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(etaohm,etahall,etaambi,vhalli,vhall,vioni,vion,data_out) &
-!$omp private(erotxi,erotyi,erotzi,fdum) &
-!$omp private(ev_data_thread,np_rho_thread) &
+!$omp private(erotxi,erotyi,erotzi,fdum,bdy_is_interesting,fourh) &
+!$omp private(ev_data_thread,np_rho_thread,rho_bkg_thread,ibkg_thread) &
+!$omp private(vmsxi,vmsyi,vmszi) &
 !$omp firstprivate(alphai,itype,pmassi) &
 #ifdef GR
 !$omp shared(metrics) &
@@ -190,14 +215,19 @@ subroutine compute_energies(t)
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
 !$omp shared(luminosity,track_lum) &
+!$omp reduction(min:xyz_n,xyz_n_all,vdtxyz_n) &
+!$omp reduction(max:xyz_x,xyz_x_all,vdtxyz_x) &
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
-!$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
+!$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,v_bkg,B_bkg,n_bkg) &
 !$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist)
  call initialise_ev_data(ev_data_thread)
- np_rho_thread = 0
+ np_rho_thread  = 0
+ ibkg_thread    = 0
+ rho_bkg_thread = huge(rho_bkg_thread)
 !$omp do
  do i=1,npart
+    valfven2i = 0.; rho1i = 0.; bxi = 0.; byi = 0.; bzi = 0. ! to prevent compiler warnings
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
@@ -492,6 +522,108 @@ subroutine compute_energies(t)
           endif
        endif isgas
 
+       ! determine dynamic boundaries
+       if (dynamic_bdy) then
+          ! determine the particle whose density is closest to the original background
+          ! all new particles will initially be copied from this particle
+          if ( abs(rhoi*rho_bkg_ini1 - 1.0) < rho_bkg_thread) then
+             rho_bkg_thread = abs(rhoi*rho_bkg_ini1 - 1.0)
+             ibkg_thread    = i
+          endif
+          ! The actual boundary of the particles
+          xyz_n_all(1) = min(xyz_n_all(1),xi)
+          xyz_n_all(2) = min(xyz_n_all(2),yi)
+          xyz_n_all(3) = min(xyz_n_all(3),zi)
+          xyz_x_all(1) = max(xyz_x_all(1),xi)
+          xyz_x_all(2) = max(xyz_x_all(2),yi)
+          xyz_x_all(3) = max(xyz_x_all(3),zi)
+          ! The boundary of the dense particles
+          if (rhoi > rho_thresh_bdy) then
+             xyz_n(1) = min(xyz_n(1),xi)
+             xyz_n(2) = min(xyz_n(2),yi)
+             xyz_n(3) = min(xyz_n(3),zi)
+             xyz_x(1) = max(xyz_x(1),xi)
+             xyz_x(2) = max(xyz_x(2),yi)
+             xyz_x(3) = max(xyz_x(3),zi)
+             high_density_gas = .true. ! technically a race condition since shared, but can only become true, and want true if even only particle is true
+          endif
+          ! The boundary of the particles satisfying the velocity requirement
+          bdy_is_interesting = .false.
+          vi1                = 1.0/sqrt(v2i)
+          fourh              = 2.0*radkern*hi
+          ! x-velocity
+          if (vbdyx_not_0) then
+             ! tag if differs by more than bdy_vthresh from the preset background velocity
+             if (abs(1.0 - abs(vbdyx)*vi1) > bdy_vthresh) bdy_is_interesting = .true.
+          else
+             ! tag if velocity component is more than bdy_vthresh of the total velocity
+             if (abs(vxi)*vi1 > bdy_vthresh) bdy_is_interesting = .true.
+          endif
+          ! y-velocity
+          if (vbdyy_not_0) then
+             if (abs(1.0 - abs(vbdyy)*vi1) > bdy_vthresh) bdy_is_interesting = .true.
+          else
+             if (abs(vyi)*vi1 > bdy_vthresh) bdy_is_interesting = .true.
+          endif
+          ! z-velocity
+          if (vbdyz_not_0) then
+             if (abs(1.0 - abs(vbdyz)*vi1) > bdy_vthresh) bdy_is_interesting = .true.
+          else
+             if (abs(vzi)*vi1 > bdy_vthresh) bdy_is_interesting = .true.
+          endif
+          ! particle satisfies velocity criteria, and we need to ensure that it will not promptly reach the boundary
+          if (bdy_is_interesting) then
+             ! ignore particles within 4h of the boundary since they may be affected by non-periodic gravity
+             if (xi-fourh < xmin .or. xi+fourh > xmax) bdy_is_interesting = .false.
+             if (yi-fourh < ymin .or. yi+fourh > ymax) bdy_is_interesting = .false.
+             if (zi-fourh < zmin .or. zi+fourh > zmax) bdy_is_interesting = .false.
+             if (bdy_is_interesting) then
+                ! Ensure interesting particles will stay v*ndtmax away from the boundary
+                if (mhd .and. itype==igas) then
+                   ! velocity dependent boundaries, assuming MHD; use v \pm fast magnetosonic wave
+                   spsound2i  = spsoundi*spsoundi
+                   va2cs2     = valfven2i+spsound2i
+                   rho1cs2    = 4.0*rho1i*spsound2i
+
+                   vmsxi = sqrt(0.5*(va2cs2 + sqrt(va2cs2**2 - Bxi*Bxi*rho1cs2)))
+                   vdtxyz_n(1) = min(vdtxyz_n(1),xi+ndtmax*(vxi+vmsxi-vbdyx),xi+ndtmax*(vxi-vmsxi-vbdyx))
+                   vdtxyz_x(1) = max(vdtxyz_x(1),xi+ndtmax*(vxi+vmsxi-vbdyx),xi+ndtmax*(vxi-vmsxi-vbdyx))
+
+                   vmsyi = sqrt(0.5*(va2cs2 + sqrt(va2cs2**2 - Byi*Byi*rho1cs2)))
+                   vdtxyz_n(2) = min(vdtxyz_n(2),yi+ndtmax*(vyi+vmsyi-vbdyy),yi+ndtmax*(vyi-vmsyi-vbdyy))
+                   vdtxyz_x(2) = max(vdtxyz_x(2),yi+ndtmax*(vyi+vmsyi-vbdyy),yi+ndtmax*(vyi-vmsyi-vbdyy))
+
+                   vmszi = sqrt(0.5*(va2cs2 + sqrt(va2cs2**2 - Bzi*Bzi*rho1cs2)))
+                   vdtxyz_n(3) = min(vdtxyz_n(3),zi+ndtmax*(vzi+vmszi-vbdyz),zi+ndtmax*(vzi-vmszi-vbdyz))
+                   vdtxyz_x(3) = max(vdtxyz_x(3),zi+ndtmax*(vzi+vmszi-vbdyz),zi+ndtmax*(vzi-vmszi-vbdyz))
+                else
+                   ! velocity dependent boundaries, assuming pure hydrodynamics
+                   vdtxyz_n(1) = min(vdtxyz_n(1),xi+ndtmax*(vxi-spsoundi-vbdyx))
+                   vdtxyz_n(2) = min(vdtxyz_n(2),yi+ndtmax*(vyi-spsoundi-vbdyy))
+                   vdtxyz_n(3) = min(vdtxyz_n(3),zi+ndtmax*(vzi-spsoundi-vbdyz))
+                   vdtxyz_x(1) = max(vdtxyz_x(1),xi+ndtmax*(vxi+spsoundi-vbdyx))
+                   vdtxyz_x(2) = max(vdtxyz_x(2),yi+ndtmax*(vyi+spsoundi-vbdyy))
+                   vdtxyz_x(3) = max(vdtxyz_x(3),zi+ndtmax*(vzi+spsoundi-vbdyz))
+                endif
+             endif
+          endif
+          ! find the average velocity & magnetic field strength of the background particles not near the boundaries
+          if (.not.bdy_is_interesting) then
+             ! remove particles near the boundaries
+             if (xi-fourh < xmin .or. xi+fourh > xmax) bdy_is_interesting = .true.
+             if (yi-fourh < ymin .or. yi+fourh > ymax) bdy_is_interesting = .true.
+             if (zi-fourh < zmin .or. zi+fourh > zmax) bdy_is_interesting = .true.
+             ! ensure we're in a narrow density range
+             if ( abs(rhoi*rho_bkg_ini1 - 1.0) > bdy_vthresh) bdy_is_interesting = .true.
+             ! add uninteresting particles to the averages
+             if (.not.bdy_is_interesting) then
+                n_bkg = n_bkg + 1
+                v_bkg = v_bkg + vxyzu(:,i)
+                if (mhd) B_bkg = B_bkg + Bevol(:,i)*rhoi
+             endif
+          endif
+       endif
+
     elseif (was_accreted(iexternalforce,hi)) then
 !
 !--count accretion onto fixed potentials (external forces) separately
@@ -562,6 +694,31 @@ subroutine compute_energies(t)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
        endif
+       ! determine dynamic boundaries
+       if (dynamic_bdy) then
+          ! boundary of all particles or a sink
+          xyz_n_all(1) = min(xyz_n_all(1),xi)
+          xyz_n_all(2) = min(xyz_n_all(2),yi)
+          xyz_n_all(3) = min(xyz_n_all(3),zi)
+          xyz_x_all(1) = max(xyz_x_all(1),xi)
+          xyz_x_all(2) = max(xyz_x_all(2),yi)
+          xyz_x_all(3) = max(xyz_x_all(3),zi)
+          ! boundary of dense particles or a sink
+          xyz_n(1) = min(xyz_n(1),xi)
+          xyz_n(2) = min(xyz_n(2),yi)
+          xyz_n(3) = min(xyz_n(3),zi)
+          xyz_x(1) = max(xyz_x(1),xi)
+          xyz_x(2) = max(xyz_x(2),yi)
+          xyz_x(3) = max(xyz_x(3),zi)
+          high_density_gas = .true. ! or a sink particle
+          ! boundary of sinks when accounting for sink velocity
+          vdtxyz_n(1) = min(vdtxyz_n(1),xi+ndtmax*(vxi-vbdyx))
+          vdtxyz_n(2) = min(vdtxyz_n(2),yi+ndtmax*(vyi-vbdyy))
+          vdtxyz_n(3) = min(vdtxyz_n(3),zi+ndtmax*(vzi-vbdyz))
+          vdtxyz_x(1) = max(vdtxyz_x(1),xi+ndtmax*(vxi-vbdyx))
+          vdtxyz_x(2) = max(vdtxyz_x(2),yi+ndtmax*(vyi-vbdyy))
+          vdtxyz_x(3) = max(vdtxyz_x(3),zi+ndtmax*(vzi-vbdyz))
+       endif
     enddo
     !$omp enddo
  endif
@@ -572,6 +729,12 @@ subroutine compute_energies(t)
     do i = 1,maxtypes
        np_rho(i) = np_rho(i) + np_rho_thread(i)
     enddo
+ endif
+ if (dynamic_bdy) then
+    if (rho_bkg_thread < rho_bkg) then
+       rho_bkg = rho_bkg_thread
+       ibkg    = ibkg_thread
+    endif
  endif
 !$omp end critical(collatedata)
 !$omp end parallel
@@ -634,6 +797,11 @@ subroutine compute_energies(t)
  rmsmach = reduceall_mpi('+',rmsmach)
  vrms    = sqrt(vrms*dnptot)
  rmsmach = sqrt(rmsmach*dnpgas)
+
+ if (n_bkg > 1) then
+    v_bkg = v_bkg/n_bkg
+    B_bkg = B_bkg/n_bkg
+ endif
 
  !--fill in the relevant array elements for energy & momentum
  ev_data(iev_sum,iev_time  ) = t
@@ -739,6 +907,20 @@ subroutine compute_energies(t)
  if (mhd) then
     hdivBB_xa(1) = ev_data(iev_max,iev_hdivB)
     hdivBB_xa(2) = ev_data(iev_ave,iev_hdivB)
+ endif
+
+ if (maxp==maxp_hard) then
+    ev_data(iev_sum,iev_mass) = mtot
+ endif
+
+ if (dynamic_bdy) then
+    ev_data(iev_sum,iev_bdy(1,1)) = xyz_n_all(1)
+    ev_data(iev_sum,iev_bdy(1,2)) = xyz_x_all(1)
+    ev_data(iev_sum,iev_bdy(2,1)) = xyz_n_all(2)
+    ev_data(iev_sum,iev_bdy(2,2)) = xyz_x_all(2)
+    ev_data(iev_sum,iev_bdy(3,1)) = xyz_n_all(3)
+    ev_data(iev_sum,iev_bdy(3,2)) = xyz_x_all(3)
+    if (.not. high_density_gas) call fatal('energies','there is no high density gas for the dynamic boundaries')
  endif
 
  return

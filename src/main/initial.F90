@@ -115,6 +115,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
+ use energies,         only:compute_energies
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
@@ -127,11 +128,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            nden_nimhd,dustevol,rhoh,gradh, &
+                            nden_nimhd,dustevol,rhoh,gradh,iorig, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
+ use boundary,         only:dynamic_bdy,update_boundaries,irho_bkg_ini,rho_bkg_ini,rho_bkg_ini1,&
+                            init_dynamic_bdy
 #ifdef GR
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
@@ -223,8 +226,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #ifndef GR
  real            :: dtf,fextv(3)
 #endif
- integer         :: itype,iposinit,ipostmp,ntypes,nderivinit
- logical         :: iexist,read_input_files
+ integer         :: itype,iposinit,ipostmp,ntypes,nderivinit,ndummy1,ndummy2
+ logical         :: iexist,read_input_files,abortrun
  character(len=len(dumpfile)) :: dumpfileold
  character(len=7) :: dust_label(maxdusttypes)
 #ifdef INJECT_PARTICLES
@@ -282,6 +285,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  dtmax_user = dtmax           ! the user defined dtmax
  if (idtmax_n < 1) idtmax_n = 1
  dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
+!
+!--update the background medium, if required
+!  do this prior to calling derivs so the new particles are properly initialised
+!
+ if (dynamic_bdy) then
+    call init_dynamic_bdy()
+    call compute_energies(0.)
+    call update_boundaries(ndummy1,ndummy2,npart,abortrun)
+ endif
 !
 !--initialise values for non-ideal MHD
 !
@@ -612,6 +624,20 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) 'dt(courant)   = ',dtcourant
        write(iprint,*) 'dt initial    = ',dt
     endif
+ endif
+!
+!--reset the background density for dynamic boundaries, if necessary
+!  this is to ensure a consistent density
+!
+ if (dynamic_bdy) then
+    if (irho_bkg_ini > 0.) then
+       print*, 'original rho_bkg_ini = ',rho_bkg_ini
+       rho_bkg_ini  = rhoh(xyzh(4,iorig(irho_bkg_ini)),massoftype(igas))
+       rho_bkg_ini1 = 1.0/rho_bkg_ini
+       print*, 'revised rho_bkg_ini = ',rho_bkg_ini
+       irho_bkg_ini = 0
+    endif
+    call init_dynamic_bdy()
  endif
 !
 !--Calculate current centre of mass

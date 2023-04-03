@@ -131,6 +131,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use boundary,           only:write_options_boundary
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -280,6 +281,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_photoevap(iwritein)
 #endif
 
+ write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
@@ -313,6 +315,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_metric(iwritein)
 #endif
  call write_options_gravitationalwaves(iwritein)
+ call write_options_boundary(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
@@ -364,6 +367,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
+ use boundary,        only:read_options_boundary
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -376,7 +380,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -407,7 +411,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalldustform = .true.
  igotallgw       = .true.
  igotallgr       = .true.
-
+ igotallbdy      = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -598,7 +602,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (nptmass==0 .and. .not.gravity) igotallptmass = .true.
        endif
        if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotallgw,ierr)
-
+       if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotallbdy,ierr)
        if (len_trim(name) /= 0 .and. .not.imatch) then
           call warn('read_infile','unknown variable '//trim(adjustl(name))// &
                      ' in input file, value = '//trim(adjustl(valstring)))
@@ -613,7 +617,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallphoto  .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw .and. igotallgr
+                    .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1

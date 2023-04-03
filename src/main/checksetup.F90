@@ -51,7 +51,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
- use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound,dynamic_bdy
  use nicil,           only:n_nden
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
@@ -294,10 +294,18 @@ subroutine check_setup(nerror,nwarn,restart)
           nbad = nbad + 1
           if (nbad <= 10) print*,' particle ',i,' xyz = ',xyzh(1:3,i)
        endif
+       if (dynamic_bdy) then
+          if (xyzh(1,i) < xmin) xyzh(1,i) = xyzh(1,i) + dxbound
+          if (xyzh(1,i) > xmax) xyzh(1,i) = xyzh(1,i) - dxbound
+          if (xyzh(2,i) < ymin) xyzh(2,i) = xyzh(2,i) + dybound
+          if (xyzh(2,i) > ymax) xyzh(2,i) = xyzh(2,i) - dybound
+          if (xyzh(3,i) < zmin) xyzh(3,i) = xyzh(3,i) + dzbound
+          if (xyzh(3,i) > zmax) xyzh(3,i) = xyzh(3,i) - dzbound
+       endif
     enddo
     if (nbad > 0) then
        print*,'Error in setup: ',nbad,' of ',npart,' particles setup OUTSIDE the periodic box'
-       nerror = nerror + 1
+       if (.not. dynamic_bdy) nerror = nerror + 1
     endif
  endif
 !
