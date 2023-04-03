@@ -4,10 +4,11 @@
 
 module eos_stamatellos
  implicit none
- real, public :: optable(260,1001,6)
+ real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  integer,public :: iunitst=19
+ integer,save :: nx,ny ! dimensions of optable read in
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
 
@@ -23,6 +24,7 @@ contains
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
+  deallocate(optable)
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
   close(iunitst)
@@ -32,7 +34,7 @@ subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
  character(len=*),intent(in) :: eos_file
  integer, intent(out) :: ierr
- integer i,j,nx,ny,errread
+ integer i,j,errread
  character(len=120) :: filepath,junk
 
  ! read in data file for interpolation
@@ -47,21 +49,23 @@ subroutine read_optab(eos_file,ierr)
  		read(junk, *,iostat=errread) nx, ny
  		exit
  	endif
- enddo	
+enddo
+! allocate array for storing opacity tables
+ allocate(optable(nx,ny,6))
  do i = 1,nx
   do j = 1,ny
    read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
   enddo
  enddo
-
+ print *, 'nx,ny=', nx, ny 
 end subroutine read_optab
 
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi,gammai
 
- integer i,j,nx,ny
+ integer i,j
  real m,c
  real kbar1,kbar2
  real kappa1,kappa2
@@ -79,7 +83,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  endif  
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
+ do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
   i = i + 1
  enddo
 
@@ -90,7 +94,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  endif
 
  j = 1
- do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.1000))
+ do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -115,7 +119,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  gmw1 = m*ui_ + c
  
  j = 1
- do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.1000))
+ do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -183,12 +187,12 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  endif
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
+ do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
   i = i + 1
  enddo
 
  j = 1
- do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.1000))
+ do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -198,7 +202,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  u1 = m*Teqi + c
 
  j = 1
- do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.1000))
+ do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.ny))
   j = j + 1
  enddo
 
