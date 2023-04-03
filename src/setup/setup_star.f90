@@ -211,10 +211,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set units
  !
- if (gr) then
-    call set_units(mass=umass, c=1.d0, G=1.d0) ! uncomment if want geometric
- else
+ if (.not.gr) then
     call set_units(dist=udist,mass=umass,G=1.d0)
+ else
+    call set_units(mass=umass, c=1.d0, G=1.d0) ! use geometric units for gr
  endif
  !
  ! set up particles
@@ -278,7 +278,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set the internal energy and temperature
  !
- if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,&
+ if (maxvxyzu==4) call set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,&
                                               eos_vars,relax_star_in_setup,use_var_comp,initialtemp)
 
  if (do_radiation) then

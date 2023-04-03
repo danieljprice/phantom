@@ -328,7 +328,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
                            itau_alloc,store_dust_temperature,gr
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
@@ -472,6 +472,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) C_force
     case('tolv')
        read(valstring,*,iostat=ierr) tolv
+    case('C_ent')
+       read(valstring,*,iostat=ierr) C_ent
     case('xtol')
        read(valstring,*,iostat=ierr) xtol
     case('ptol')
