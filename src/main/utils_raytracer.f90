@@ -14,9 +14,9 @@ module raytracer
 !
 ! WARNING: This module has only been tested on phantom wind setup
 !
-! :References: None
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, in press
 !
-! :Owner: Lionel Siess
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
