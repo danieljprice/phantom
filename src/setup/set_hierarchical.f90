@@ -30,6 +30,9 @@ module sethierarchical
  public :: get_hier_level_mass
 
  integer, parameter :: max_hier_levels=10
+ integer, parameter :: hier_db_size=24, hier_db_prop=10
+
+ 
 
  character(len=100) :: hierarchy = '111,112,121,1221,1222'
  integer :: sink_num, hl_num
@@ -57,8 +60,6 @@ module sethierarchical
 contains
 
 subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
-
- !use setbinary, only:set_multiple
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
  integer, intent(out)   :: ierr
@@ -68,7 +69,8 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
  integer :: splits, sink_num_temp, hl_index, subst
- character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels), hl_temp
+ character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels)
+ character(len=20) :: hl_temp
 
  splits = 0
  sink_list = sink_labels
@@ -76,40 +78,20 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
  call recursive_splitting(sink_num_temp, sink_list, split_list, splits)
 
- do i=splits+hl_num*0,1,-1
+ do i=splits,1,-1
 
     hl_temp = trim(split_list(i))
 
-    m1 = get_hier_level_mass(trim(hl_temp)//'1')
-    m2 = get_hier_level_mass(trim(hl_temp)//'2')
-
-    if (any(sink_list == trim(hl_temp)//'1')) then
-       accr1 = accr(findloc(sink_list,trim(hl_temp)//'1', 1))
-    else
-       accr1 = 1.
-    endif
-
-    if (any(sink_list == trim(hl_temp)//'2')) then
-       accr2 = accr(findloc(sink_list,trim(hl_temp)//'2', 1))
-    else
-       accr2 = 1.
-    endif
-
-    hl_index = findloc(hl_labels, trim(hl_temp), 1)
-
-    binary_a =  a(hl_index)
-    binary_e = e(hl_index)
-    binary_O = O(hl_index)
-    binary_w = w(hl_index)
-    binary_i = inc(hl_index)
-    binary_f = f(hl_index)
+    call find_hier_level_orb_elem(hl_temp, m1, m2, accr1, accr2, &
+                                  binary_a, binary_e, binary_i, binary_O, &
+                                  binary_w, binary_f)
 
     read(hl_temp,*,iostat=subst) subst
-
     call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
-            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr, subst=subst, prefix=prefix)
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
+            ierr=ierr, subst=subst, prefix=prefix)
 
  enddo
 end subroutine set_hierarchical
@@ -135,7 +117,7 @@ subroutine write_hierarchical_setupfile(iunit)
 
  write(iunit,"(/,a)") '# options for hierarchical system'
 
- call write_inopt(hierarchy, 'hier','', iunit)
+ call write_inopt(hierarchy, 'hierarchy','', iunit)
 
  call process_hierarchy()
 
@@ -168,7 +150,7 @@ subroutine read_hierarchical_setupfile(db, nerr)
 
  integer :: i
 
- call read_inopt(hierarchy,'hier',db,errcount=nerr)
+ call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
 
  call process_hierarchy()
 
@@ -222,7 +204,6 @@ subroutine process_hierarchy()
  sink_labels = '          '
  hl_labels = '          '
 
-
  pre_del_pos = 0
  sink_num = 0
 
@@ -256,6 +237,7 @@ subroutine process_hierarchy()
  enddo
 
 end subroutine process_hierarchy
+
 
  !--------------------------------------------------------------------------
  !
@@ -391,39 +373,15 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  integer, intent(out)                :: int_sinks(max_hier_levels)
  character(len=20), optional, intent(in) :: prefix
 
- character(len=20) :: filename
- real, dimension(24,max_hier_levels) :: data
- integer                :: i, io, lines, ierr, h_index
- logical                :: iexist
-
-
+  real, dimension(hier_db_size,hier_db_prop) :: data
+ integer                :: i, lines, ierr, h_index
 
  character(len=10)      :: label = '         '
 
  read(level, *, iostat=h_index) h_index
 
- if (present(prefix)) then
-    filename = trim(prefix)//'.hierarchy'
- else
-    filename = 'HIERARCHY'
- endif
+ call load_hierarchy_file(prefix, data, lines, ierr)
 
-
- inquire(file=trim(filename), exist=iexist)
-
- if (iexist) then
-    open(1, file = trim(filename), status = 'old')
-    lines=0
-    do
-       read(1, *, iostat=io) data(lines+1,:)
-       if (io/=0) exit
-       lines = lines + 1
-    enddo
-    close(1)
- else
-    print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
-    ierr = 100!ierr_HIER2
- endif
 
  inner_sinks_num = 0
  do i=1, lines
@@ -435,6 +393,147 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  enddo
 
 end subroutine find_hierarchy_index
+
+subroutine find_hier_level_orb_elem(hl_temp, m1, m2, accr1, accr2, &
+                                    binary_a, binary_e, binary_i, binary_O, &
+                                    binary_w, binary_f)
+
+  character(len=20), intent(in) :: hl_temp
+  real, intent(out) :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
+
+  integer :: hl_index
+  
+  m1 = get_hier_level_mass(trim(hl_temp)//'1')
+  m2 = get_hier_level_mass(trim(hl_temp)//'2')
+  
+  if (any(sink_labels == trim(hl_temp)//'1')) then
+     accr1 = accr(findloc(sink_labels,trim(hl_temp)//'1', 1))
+  else
+     accr1 = 1.
+  endif
+  
+  if (any(sink_labels == trim(hl_temp)//'2')) then
+     accr2 = accr(findloc(sink_labels,trim(hl_temp)//'2', 1))
+  else
+     accr2 = 1.
+  endif
+  
+  hl_index = findloc(hl_labels, trim(hl_temp), 1)
+  
+  binary_a =  a(hl_index)
+  binary_e = e(hl_index)
+  binary_O = O(hl_index)
+  binary_w = w(hl_index)
+  binary_i = inc(hl_index)
+  binary_f = f(hl_index)
+
+end subroutine find_hier_level_orb_elem
+
+
+!subroutine read_hierarchy_file(hier_label, index, prefix, ierr)
+!  integer,    intent(out)    :: index, ierr
+!  character(len=20), intent(in), optional:: prefix
+!  
+!  real, dimension(hier_db_size,hier_db_prop) :: data
+!  integer :: lines, hier_int
+!  
+!  call load_hierarchy_file(prefix, data, lines, ierr)
+
+!  read(hier_label,*,iostat=hier_int) hier_int
+  
+!  index = findloc(int(data(:,1)), hier_int, 1)
+
+!  print*, index
+  
+  
+!end subroutine read_hierarchy_file
+
+
+subroutine load_hierarchy_file(prefix, data, lines, ierr)
+  integer,    intent(out)    :: ierr, lines
+  character(len=20), intent(in), optional:: prefix
+  real, dimension(hier_db_size,hier_db_prop), intent(out) :: data
+
+  character(len=20) :: filename
+  integer :: io
+  logical :: iexist
+ 
+  if (present(prefix)) then
+     filename = trim(prefix)//'.hierarchy'
+  else
+     filename = 'HIERARCHY'
+  endif
+
+  inquire(file=trim(filename), exist=iexist)
+  
+  if (iexist) then
+     open(2, file = trim(filename), status = 'old')
+     lines=0
+     do
+        read(2, *, iostat=io) data(lines+1,:)
+        if (io/=0) exit
+        lines = lines + 1
+     enddo
+     close(2)
+  else
+     print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
+     ierr = ierr_HIER2
+  endif
+end subroutine load_hierarchy_file
+
+subroutine update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr)
+  integer,    intent(in)    :: lines, i1, i2
+  character(len=20), intent(in), optional:: prefix
+  real, dimension(hier_db_size,hier_db_prop), intent(in) :: data
+  character(len=20), intent(in) :: hier_prefix
+  integer,    intent(out)    :: ierr
+
+  integer :: i
+  real :: mprimary, msecondary, semimajoraxis, eccentricity, incl, arg_peri, posang_ascnode, binary_f
+  real :: accr1, accr2
+  real :: period
+  character(len=20) :: filename
+  logical :: iexist
+
+  call find_hier_level_orb_elem(adjustl(hier_prefix), mprimary, msecondary, accr1, accr2, &
+       semimajoraxis, eccentricity, incl, posang_ascnode, &
+       arg_peri, binary_f)
+
+  period = sqrt(4.*pi**2*semimajoraxis**3/(mprimary+msecondary))
+  
+  if (present(prefix)) then
+     filename = trim(prefix)//'.hierarchy'
+  else
+     filename = 'HIERARCHY'
+  endif
+  
+  if (lines>0) then  
+     open(2, file = trim(filename), status = 'old')
+     do i=1,lines
+        write(2,*) int(data(i,1)), int(data(i,2)), data(i,3:)
+     enddo
+  else
+     inquire(file=trim(filename), exist=iexist)
+     if (iexist) then
+        print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
+        open(1, file=trim(filename), status='old')
+        close(1, status='delete')
+     endif
+     
+     open(2, file = trim(filename), status = 'new')
+  end if
+  write(2,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
+       period, incl, arg_peri, posang_ascnode
+  write(2,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
+       period, incl, arg_peri, posang_ascnode
+  close(2)
+  
+end subroutine update_hierarchy_file
+
+subroutine check_substitution()
+
+end subroutine check_substitution
+
 
 
 !----------------------------------------------------------------
@@ -465,8 +564,9 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  real    :: omega,inc
  !logical :: do_verbose
 
- real, dimension(24,10) :: data
- character(len=20)      :: hier_prefix, filename
+ real, dimension(hier_db_size,hier_db_prop) :: data
+ character(len=20)      :: filename
+ character(len=20)      :: hier_prefix
  logical                :: iexist
  integer                :: io, lines
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
@@ -478,58 +578,24 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !do_verbose = .true.
  !if (present(verbose)) do_verbose = verbose
 
- if (present(prefix)) then
-    filename = trim(prefix)//'.hierarchy'
- else
-    filename = 'HIERARCHY'
- endif
-
- !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
- inquire(file=trim(filename), exist=iexist)
+  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  if (present(subst) .and. subst>10) then
-    if (iexist) then
-       open(1, file = trim(filename), status = 'old')
-       lines=0
-       do
-          read(1, *, iostat=io) data(lines+1,:)
-          if (io/=0) exit
-          lines = lines + 1
-       enddo
-       close(1)
-    else
-       print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
-       ierr = ierr_HIER2
-    endif
+    call load_hierarchy_file(prefix, data, lines, ierr)
  else
-    if (iexist) then
-       print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
-       open(1, file=trim(filename), status='old')
-       close(1, status='delete')
-    endif
-
     mtot = m1 + m2
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
 
-    open(1, file = trim(filename), status = 'new')
-    if (present(incl)) then
-       if (present(posang_ascnode) .and. present(arg_peri)) then
-          write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
-          write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
-       else ! set binary at apastron with inclination
-          write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, 0, 0
-          write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, incl, 0, 0
-       endif
-    else ! set binary at apastron without inclination
-       write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, 0, 0, 0
-       write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, 0, 0, 0
-    endif
-    close(1)
- endif
+    hier_prefix = '1'
 
+    call update_hierarchy_file(prefix, data, 0, hier_prefix, 1, 2, ierr) 
+ endif
  subst_index = 0
  !--- Checks to avoid bad substitutions
  if (present(subst) .and. subst>10) then
     write(hier_prefix, *) subst
+
+    !call read_hierarchy_file(hier_prefix, index, prefix, ierr)!check_substitution()
+    
     io=0
     mtot = 0.
     do i=1,lines
@@ -592,9 +658,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        x_subst(:)=xyzmh_ptmass(1:3,subst_index)
        v_subst(:)=vxyz_ptmass(:,subst_index)
     endif
-    !i1 = subst_index
-    !i2 = nptmass + 1
-    !nptmass = nptmass + 1
 
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  else
@@ -606,7 +669,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     if (present(incl)) rel_incl = incl
 
  endif
-
  !--- Create the binary
  call set_binary(mprimary,msecondary,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
             posang_ascnode=rel_posang_ascnode,arg_peri=rel_arg_peri,incl=rel_incl, &
@@ -621,13 +683,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
-
-    ! test Jolien
-!    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
-!    'i1     :',i1, &
-!     'mass i1:',xyzmh_ptmass(4,i1), &
-!     'i2     :',i2, &
-!     'mass i2:',xyzmh_ptmass(4,i2)
 
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
@@ -682,6 +737,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
           endif
        endif
 
+       
        ! Rotate substituting sinks by argument of pericenter around the z axis
        call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
@@ -700,7 +756,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
     endif
-
+    
     ! Move the substituting binary's center of mass in the substituted star position
     xyzmh_ptmass(1:3,i1) = xyzmh_ptmass(1:3,i1)+x_subst
     xyzmh_ptmass(1:3,i2) = xyzmh_ptmass(1:3,i2)+x_subst
@@ -709,15 +765,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
 
     ! Write updated HIERARCHY file with the two new stars and the substituted one
-    open(1, file = trim(filename), status = 'old')
-    do i=1,lines
-       write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
-    enddo
-    write(1,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
-         period, incl, arg_peri, posang_ascnode
-    write(1,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
-         period, incl, arg_peri, posang_ascnode
-    close(1)
+    call update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr) 
  endif
 
 end subroutine set_multiple
@@ -759,3 +807,5 @@ end subroutine gen_rotate
 
 
 end module sethierarchical
+
+
