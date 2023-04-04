@@ -14,6 +14,7 @@ module cooling
 !     3 = Gammie cooling                  [explicit]
 !     5 = Koyama & Inutuska (2002)        [explicit]
 !     6 = Koyama & Inutuska (2002)        [implicit]
+!     7 = Gammie cooling power law        [explicit]
 !
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
@@ -25,9 +26,9 @@ module cooling
 !   - Tfloor   : *temperature floor (K); on if > 0*
 !   - icooling : *cooling function (0=off, 1=cooling library (step), 2=cooling library (force),*
 !
-! :Dependencies: chem, cooling_gammie, cooling_ism, cooling_koyamainutsuka,
-!   cooling_molecular, cooling_solver, dim, eos, infile_utils, io, options,
-!   part, physcon, timestep, units
+! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
+!   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,
+!   infile_utils, io, options, part, physcon, timestep, units
 !
 
  use options,  only:icooling
@@ -90,6 +91,9 @@ subroutine init_cooling(id,master,iprint,ierr)
     case(3)
        ! Gammie
        cooling_in_step = .false.
+    case(7)
+       ! Gammie PL
+       cooling_in_step = .false.
     case default
        call init_cooling_solver(ierr)
     end select
@@ -120,6 +124,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  use physcon, only:Rg
  use units,   only:unit_ergg
  use cooling_gammie,         only:cooling_Gammie_explicit
+ use cooling_gammie_PL,       only:cooling_Gammie_PL_explicit
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
@@ -152,6 +157,8 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
     !call cooling_molecular
  case (3)
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
+ case (7)
+    call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mu,polyIndex,Tdust,K2,kappa)
  end select
@@ -168,6 +175,7 @@ subroutine write_options_cooling(iunit)
  use part,              only:h2chemistry
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
+ use cooling_gammie_PL,  only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  integer, intent(in) :: iunit
@@ -179,12 +187,14 @@ subroutine write_options_cooling(iunit)
     if (icooling > 0) call write_options_cooling_ism(iunit)
  else
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling library (step), 2=cooling library (force),'// &
-                     '3=Gammie, 5,6=KI02)',iunit)
+                     '3=Gammie, 5,6=KI02, 7=powerlaw)',iunit)
     select case(icooling)
     case(0,4,5,6)
        ! do nothing
     case(3)
        call write_options_cooling_gammie(iunit)
+    case(7)
+       call write_options_cooling_gammie_PL(iunit)
     case default
        call write_options_cooling_solver(iunit)
     end select
@@ -202,6 +212,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use part,              only:h2chemistry
  use io,                only:fatal
  use cooling_gammie,    only:read_options_cooling_gammie
+ use cooling_gammie_PL,  only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
@@ -209,7 +220,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallfunc
+ logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc
 
  imatch        = .true.
  igotall       = .false.  ! cooling options are compulsory
@@ -238,6 +249,8 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
           ! do nothing
        case(3)
           call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
+       case(7)
+          call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
        case default
           call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
        end select

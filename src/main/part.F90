@@ -26,7 +26,7 @@ module part
 !
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
-               maxp_h2,nabundances,periodic,&
+               maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
                maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
@@ -275,6 +275,8 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: fxyz_drag(:,:)
+ real, allocatable         :: fxyz_dragold(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
@@ -292,15 +294,11 @@ module part
  real, allocatable   :: dustproppred(:,:)
  real, allocatable   :: filfacpred(:)
  real, allocatable   :: radpred(:,:)
-#ifdef IND_TIMESTEPS
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
  integer(kind=1), allocatable :: ibin_wake(:)
  real(kind=4),    allocatable :: dt_in(:)
  real,            allocatable :: twas(:)
-#else
- integer(kind=1)    :: ibin_wake(1)
-#endif
 
  integer(kind=1), allocatable    :: iphase(:)
  integer(kind=1), allocatable    :: iphase_soa(:)
@@ -356,7 +354,9 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
- +maxdusttypes                        &  ! dustfrac
+   +3                                   &  ! fxyz_drag
+   +3                                   &  ! fxyz_dragold
+   +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -491,6 +491,8 @@ subroutine allocate_part
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('fxyz_drag', fxyz_drag, 3, maxdustan)
+ call allocate_array('fxyz_dragold', fxyz_dragold, 3, maxdustan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
@@ -505,13 +507,11 @@ subroutine allocate_part
  call allocate_array('radpred', radpred, maxirad, maxprad)
  call allocate_array('drad', drad, maxirad, maxprad)
  call allocate_array('radprop', radprop, maxradprop, maxprad)
-#ifdef IND_TIMESTEPS
- call allocate_array('ibin', ibin, maxan)
- call allocate_array('ibin_old', ibin_old, maxan)
- call allocate_array('ibin_wake', ibin_wake, maxan)
- call allocate_array('dt_in', dt_in, maxan)
- call allocate_array('twas', twas, maxan)
-#endif
+ call allocate_array('ibin', ibin, maxindan)
+ call allocate_array('ibin_old', ibin_old, maxindan)
+ call allocate_array('ibin_wake', ibin_wake, maxindan)
+ call allocate_array('dt_in', dt_in, maxindan)
+ call allocate_array('twas', twas, maxindan)
  call allocate_array('iphase', iphase, maxphase)
  call allocate_array('iphase_soa', iphase_soa, maxphase)
  call allocate_array('gradh', gradh, ngradh, maxgradh)
@@ -575,6 +575,8 @@ subroutine deallocate_part
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
+ if (allocated(fxyz_drag))    deallocate(fxyz_drag)
+ if (allocated(fxyz_dragold)) deallocate(fxyz_dragold)
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
@@ -584,13 +586,11 @@ subroutine deallocate_part
  if (allocated(Bpred))        deallocate(Bpred)
  if (allocated(dustproppred)) deallocate(dustproppred)
  if (allocated(filfacpred))   deallocate(filfacpred)
-#ifdef IND_TIMESTEPS
  if (allocated(ibin))         deallocate(ibin)
  if (allocated(ibin_old))     deallocate(ibin_old)
  if (allocated(ibin_wake))    deallocate(ibin_wake)
  if (allocated(dt_in))        deallocate(dt_in)
  if (allocated(twas))         deallocate(twas)
-#endif
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
@@ -670,13 +670,13 @@ subroutine init_part
  dustgasprop(:,:) = 0.
  VrelVf(:)        = 0.
 #endif
-#ifdef IND_TIMESTEPS
- ibin(:)       = 0
- ibin_old(:)   = 0
- ibin_wake(:)  = 0
- dt_in(:)      = 0.
- twas(:)       = 0.
-#endif
+ if (ind_timesteps) then
+    ibin(:)       = 0
+    ibin_old(:)   = 0
+    ibin_wake(:)  = 0
+    dt_in(:)      = 0.
+    twas(:)       = 0.
+ endif
 
  ideadhead = 0
 !
@@ -757,7 +757,7 @@ pure subroutine rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
  real, parameter :: third = 1./3.
 
  hi1 = 1./abs(hi)
- rhoi = pmassi*(hfact*hi1)**3
+ rhoi = real(pmassi*(hfact*hi1)**3)
  rho1i = 1./rhoi
  dhdrhoi = -third*hi*rho1i
 
@@ -1190,13 +1190,13 @@ subroutine copy_particle(src,dst,new_part)
  if (maxgradh ==maxp) gradh(:,dst)    = gradh(:,src)
  if (maxphase ==maxp) iphase(dst)   = iphase(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
-#ifdef IND_TIMESTEPS
- ibin(dst)       = ibin(src)
- ibin_old(dst)   = ibin_old(src)
- ibin_wake(dst)  = ibin_wake(src)
- dt_in(dst)      = dt_in(src)
- twas(dst)       = twas(src)
-#endif
+ if (ind_timesteps) then
+    ibin(dst)       = ibin(src)
+    ibin_old(dst)   = ibin_old(src)
+    ibin_wake(dst)  = ibin_wake(src)
+    dt_in(dst)      = dt_in(src)
+    twas(dst)       = twas(src)
+ endif
  if (use_dust) then
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
@@ -1273,15 +1273,13 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxphase ==maxp) iphase_soa(dst) = iphase_soa(src)
  if (maxgrav  ==maxp) poten(dst) = poten(src)
  if (maxlum   ==maxp) luminosity(dst) = luminosity(src)
-#ifdef IND_TIMESTEPS
- if (maxan==maxp) then
+ if (maxindan==maxp) then
     ibin(dst)       = ibin(src)
     ibin_old(dst)   = ibin_old(src)
     ibin_wake(dst)  = ibin_wake(src)
     dt_in(dst)      = dt_in(src)
     twas(dst)       = twas(src)
  endif
-#endif
  if (use_dust) then
     if (maxp_dustfrac==maxp) dustfrac(:,dst)  = dustfrac(:,src)
     dustevol(:,dst)  = dustevol(:,src)
@@ -1299,6 +1297,9 @@ subroutine copy_particle_all(src,dst,new_part)
        dustproppred(:,dst) = dustproppred(:,src)
        filfacpred(dst) = filfacpred(src)
     endif
+    fxyz_drag(:,dst) = fxyz_drag(:,src)
+    fxyz_dragold(:,dst) = fxyz_dragold(:,src)
+
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
@@ -1508,6 +1509,8 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
+    call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
+    call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1522,13 +1525,13 @@ subroutine fill_sendbuf(i,xtemp)
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
-#ifdef IND_TIMESTEPS
-    call fill_buffer(xtemp,ibin(i),nbuf)
-    call fill_buffer(xtemp,ibin_old(i),nbuf)
-    call fill_buffer(xtemp,ibin_wake(i),nbuf)
-    call fill_buffer(xtemp,dt_in(i),nbuf)
-    call fill_buffer(xtemp,twas(i),nbuf)
-#endif
+    if (ind_timesteps) then
+       call fill_buffer(xtemp,ibin(i),nbuf)
+       call fill_buffer(xtemp,ibin_old(i),nbuf)
+       call fill_buffer(xtemp,ibin_wake(i),nbuf)
+       call fill_buffer(xtemp,dt_in(i),nbuf)
+       call fill_buffer(xtemp,twas(i),nbuf)
+    endif
     call fill_buffer(xtemp,iorig(i),nbuf)
  endif
  if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
@@ -1590,6 +1593,8 @@ subroutine unfill_buffer(ipart,xbuf)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
     endif
+    fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
+    fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
@@ -1604,13 +1609,13 @@ subroutine unfill_buffer(ipart,xbuf)
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
  endif
-#ifdef IND_TIMESTEPS
- ibin(ipart)            = nint(unfill_buf(xbuf,j),kind=1)
- ibin_old(ipart)        = nint(unfill_buf(xbuf,j),kind=1)
- ibin_wake(ipart)       = nint(unfill_buf(xbuf,j),kind=1)
- dt_in(ipart)           = real(unfill_buf(xbuf,j),kind=kind(dt_in))
- twas(ipart)            = unfill_buf(xbuf,j)
-#endif
+ if (ind_timesteps) then
+    ibin(ipart)         = nint(unfill_buf(xbuf,j),kind=1)
+    ibin_old(ipart)     = nint(unfill_buf(xbuf,j),kind=1)
+    ibin_wake(ipart)    = nint(unfill_buf(xbuf,j),kind=1)
+    dt_in(ipart)        = real(unfill_buf(xbuf,j),kind=kind(dt_in))
+    twas(ipart)         = unfill_buf(xbuf,j)
+ endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
 
 !--just to be on the safe side, set other things to zero

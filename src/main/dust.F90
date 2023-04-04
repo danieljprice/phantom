@@ -40,6 +40,7 @@ module dust
  integer, public  :: icut_backreaction    = 0
  integer, public  :: irecon               = 1
  logical, public  :: ilimitdustflux       = .false. ! to limit spurious dust generation in outer disc
+ logical, public  :: drag_implicit        = .false.  ! use implcit scheme for 2-fluids drag forces
 
  public :: get_ts
  public :: init_drag
@@ -285,50 +286,44 @@ end subroutine get_ts
 subroutine write_options_dust(iunit)
  use fileutils,    only:make_tags_unique
  use infile_utils, only:write_inopt
- use io,           only:warning,iprint
  use options,      only:use_dustfrac
  integer, intent(in) :: iunit
  character(len=10)   :: numdust
  character(len=20)   :: duststring(maxdusttypes)
  integer             :: i
 
- write(numdust,'(I10)') ndusttypes
- if (iunit==iprint) then
-    write(iunit,"(/,a)") '# options controlling dust (incomplete list)'
- else
-    write(iunit,"(/,a)") '# options controlling dust ('//trim(adjustl(numdust))//' dust species)'
- endif
+ write(iunit,"(/,a)") '# options controlling dust'
 
  call write_inopt(idrag,'idrag','gas/dust drag (0=off,1=Epstein/Stokes,2=const K,3=const ts)',iunit)
 
- if (iunit/=iprint) then
-    select case(idrag)
-    case(1)
-       if (ndusttypes <= 1) then
-          if (use_dustgrowth) then
-             call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
-          else
-             call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
-          endif
-          call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
-       endif
-    case(2,3)
-       if (ndusttypes > 1) then
-          duststring='K_code'
-          call make_tags_unique(ndusttypes,duststring)
-          do i=1,ndusttypes
-             call write_inopt(K_code(i),duststring(i),'drag constant when constant drag is used',iunit)
-          enddo
+ select case(idrag)
+ case(1)
+    if (ndusttypes <= 1) then
+       if (use_dustgrowth) then
+          call write_inopt(grainsizecgs,'grainsize','Initial grain size in cm',iunit)
        else
-          call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
+          call write_inopt(grainsizecgs,'grainsize','Grain size in cm',iunit)
        endif
-    end select
-
-    if (use_dustfrac) then
-       call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
-    else
-       call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
+       call write_inopt(graindenscgs,'graindens','Intrinsic grain density in g/cm^3',iunit)
     endif
+ case(2,3)
+    if (ndusttypes > 1) then
+       write(numdust,'(i10)') ndusttypes
+       duststring='K_code'
+       call make_tags_unique(ndusttypes,duststring)
+       do i=1,ndusttypes
+          call write_inopt(K_code(i),duststring(i),'drag constant when constant drag is used',iunit)
+       enddo
+    else
+       call write_inopt(K_code(1),'K_code','drag constant when constant drag is used',iunit)
+    endif
+ end select
+
+ if (use_dustfrac) then
+    call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
+ else
+    call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
+    call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme',iunit)
  endif
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
@@ -341,6 +336,7 @@ end subroutine write_options_dust
 !+
 !--------------------------------------------------------------------------
 subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
+ use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -382,6 +378,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     !--no longer a compulsory parameter
  case('irecon')
     read(valstring,*,iostat=ierr) irecon
+ case('drag_implicit')
+    read(valstring,*,iostat=ierr) drag_implicit
  case default
     imatch = .false.
  end select
@@ -403,12 +401,12 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
 
  !--Parameters specific to particular setups
  select case(idrag)
- case(1)
+ case(0,1)
     ineed(iKcode) = 0
  case(2,3)
     ineed(iKcode) = 1
  case default
-    stop 'Error! Invalid idrag option passed to read_dust_infile_options'
+    call fatal('read_dust_infile_options','Invalid option',var='idrag',ival=idrag)
  end select
 
  !--Check that we have just the *necessary* parameters

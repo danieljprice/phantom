@@ -49,8 +49,10 @@ module dim
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
+ logical, parameter :: isothermal = .true.
 #else
  integer, parameter :: maxvxyzu = 4
+ logical, parameter :: isothermal = .false.
 #endif
 
  integer :: maxTdust = 0
@@ -128,7 +130,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -137,7 +139,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 58 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -334,6 +336,7 @@ module dim
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
  integer :: maxgran = 0
+ integer :: maxindan = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -432,6 +435,10 @@ subroutine update_max_sizes(n,ntot)
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
  maxgran = maxgr
+#endif
+
+#ifdef IND_TIMESTEPS
+ maxindan = maxan
 #endif
 
 #ifdef RADIATION

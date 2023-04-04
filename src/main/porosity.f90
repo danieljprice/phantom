@@ -41,7 +41,6 @@ module porosity
 subroutine init_porosity(ierr)
  use io,                only:error
  use dust,              only:idrag,grainsizecgs,graindenscgs
- use growth  ,          only:ifrag,gsizemincgs
  integer, intent(out)      :: ierr
 
  ierr = 0
@@ -95,7 +94,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  use viscosity,         only:shearparam
  use part,              only:idust,igas,iamtype,iphase,massoftype,&
                              rhoh,dustfrac,dustprop,filfac,Omega_k
- use dust,              only:get_viscmol_nu,grainsizecgs
+ use dust,              only:get_viscmol_nu!,grainsizecgs
  use eos,               only:gamma,get_spsound
  integer, intent(in)       :: npart
  real, intent(in)          :: xyzh(:,:)
@@ -104,7 +103,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  integer                   :: i,iam
  real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
  real                      :: sfrac,s1,s2,s3,filfacmax
- real                      :: mfrac,m1,m2,m3
+! real                      :: mfrac,m1,m2,m3
    
 
  select case (iporosity)   ! add other case for other models here
@@ -365,7 +364,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
  real, intent(in)          :: mprev,filfac,rhod,VrelVf,dt
  real, intent(in)          :: dustprop(:),dustgasprop(:)
  real, intent(out)         :: filfacfrag
- real                      :: sdust,vrel,ncoll,compfactor,vol,deltavol
+ real                      :: sdust,vrel,ncoll,vol,deltavol!,compfactor
  real                      :: ekin,pdyn
 
  select case (icompact)

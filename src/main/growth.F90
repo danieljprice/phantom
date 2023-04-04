@@ -11,16 +11,20 @@ module growth
 ! :References:
 !  Stepinski & Valageas (1997)
 !  Kobayashi & Tanaka (2009)
+!  Rozner & Grishin (2020)
 !
 ! :Owner: Arnaud Vericel
 !
 ! :Runtime parameters:
 !   - Tsnow         : *snow line condensation temperature in K*
 !   - bin_per_dex   : *(mcfost) number of bins of sizes per dex*
+!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
+!   - dsize         : *size of ejected grain during erosion in cm*
 !   - flyby         : *use primary for keplerian freq. calculation*
 !   - force_smax    : *(mcfost) set manually maximum size for binning*
 !   - grainsizemin  : *minimum allowed grain size in cm*
 !   - stokesmin     : *minimum allowed Stokes number when porosity is on*
+!   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
 !   - ieros         : *erosion of dust (0=off,1=on)
 !   - isnow         : *snow line (0=off,1=position based,2=temperature based)*
@@ -29,9 +33,6 @@ module growth
 !   - vfrag         : *uniform fragmentation threshold in m/s*
 !   - vfragin       : *inward fragmentation threshold in m/s*
 !   - vfragout      : *inward fragmentation threshold in m/s*
-!   - cohacc        : *strength of the cohesive acceleration in g/s^2*
-!   - dsize         : *size of ejected grain during erosion in cm*
-!   - wbymass       : *weight dustgasprops by mass rather than mass/density*
 !
 ! :Dependencies: checkconserved, dim, dust, eos, infile_utils, io, options,
 !   part, physcon, table_utils, units, viscosity
@@ -63,8 +64,6 @@ module growth
  real, public           :: grainsizemin
  real, public           :: cohacc
  real, public           :: dsize
-
- logical, public        :: wbymass         = .true.
 
 #ifdef MCFOST
  logical, public        :: f_smax    = .false.
@@ -231,6 +230,12 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
  rho  = 0.
 
  !--get dm/dt over all particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac,use_porosity) &
+ !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dmdt,filfac,VrelVf,tstop,deltav) &
+ !$omp private(i,iam,rho,rhog,rhod,vrel,sdust)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
@@ -274,7 +279,7 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
              case(2)
                 dmdt(i) = -fourpi*sdust**2*rhod*vrel*(VrelVf(i)**2)/(1+VrelVf(i)**2) ! Kobayashi model
              end select
-          endif
+          endif                           !sqrt(0.0123)=0.110905    !1.65 -> surface energy in cgs
           if (ieros == 1 .and. (dustgasprop(4,i) >= 0.110905*sqrt(1.65*utime*utime/umass/dustprop(2,i)/dsize))) then
              dmdt(i) = dmdt(i) - fourpi*sdust*dustprop(2,i)*dustgasprop(2,i)*(dustgasprop(4,i)**3)*(dsize**2)/(3.*cohacc) ! Erosion model
           endif
@@ -283,6 +288,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,d
        dmdt(i) = 0.
     endif
  enddo
+ !$omp end parallel do
+
 
 end subroutine get_growth_rate
 
@@ -367,7 +374,6 @@ subroutine write_options_growth(iunit)
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
- call write_inopt(wbymass,'wbymass','weight dustgasprops by mass rather than mass/density',iunit)
  if (nptmass > 1) call write_inopt(this_is_a_flyby,'flyby','use primary for keplerian freq. calculation',iunit)
  call write_inopt(ifrag,'ifrag','dust fragmentation (0=off,1=on,2=Kobayashi)',iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
@@ -387,8 +393,8 @@ subroutine write_options_growth(iunit)
     endif
  endif
  if (ieros == 1) then
-   call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
-   call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
+    call write_inopt(cohacccgs,'cohacc','strength of the cohesive acceleration in g/s^2',iunit)
+    call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
 #ifdef MCFOST
@@ -458,9 +464,6 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
     if (nptmass < 2) tmp = .true.
- case('wbymass')
-    read(valstring,*,iostat=ierr) wbymass
-    ngot = ngot + 1
 #ifdef MCFOST
  case('force_smax')
     read(valstring,*,iostat=ierr) f_smax
@@ -480,23 +483,23 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  imcf = 3
 #endif
 
- if (ieros == 1) goteros = 2
+ if (ieros == 1) goteros = 3
 
  if (nptmass > 1 .or. tmp) then
-    if ((ifrag <= 0) .and. ngot == 3+imcf+goteros) igotall = .true.
-    if (isnow == 0) then
-       if (ngot == 6+imcf+goteros) igotall = .true.
-    elseif (isnow > 0) then
-       if (ngot == 8+imcf+goteros) igotall = .true.
-    else
-       igotall = .false.
-    endif
- else
     if ((ifrag <= 0) .and. ngot == 2+imcf+goteros) igotall = .true.
     if (isnow == 0) then
        if (ngot == 5+imcf+goteros) igotall = .true.
     elseif (isnow > 0) then
        if (ngot == 7+imcf+goteros) igotall = .true.
+    else
+       igotall = .false.
+    endif
+ else
+    if ((ifrag <= 0) .and. ngot == 1+imcf+goteros) igotall = .true.
+    if (isnow == 0) then
+       if (ngot == 4+imcf+goteros) igotall = .true.
+    elseif (isnow > 0) then
+       if (ngot == 6+imcf+goteros) igotall = .true.
     else
        igotall = .false.
     endif
@@ -583,8 +586,9 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  real                      :: stokesnew,sdustprev,sdustmin,sdust
 
  !$omp parallel do default(none) &
- !$omp shared(iamtype,iphase,idust,igas,dustgasprop,use_dustfrac,use_porosity) &
- !$omp shared(npart,dustprop,filfac,mprev,filfacprev) &
+ !$omp shared(iphase,dustgasprop,use_dustfrac,use_porosity) &
+ !$omp shared(npart,ifrag,dustprop,filfac,mprev,filfacprev) &
+ !$omp shared(stokesmin,grainsizemin) &
  !$omp private(i,iam,stokesnew,sdustprev,sdustmin,sdust)
  do i=1,npart
     iam = iamtype(iphase(i))

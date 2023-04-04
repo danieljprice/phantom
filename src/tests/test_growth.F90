@@ -40,7 +40,7 @@ contains
 subroutine test_growth(ntests,npass)
 #ifdef DUST
 #ifdef DUSTGROWTH
- use growth,      only:init_growth,get_growth_rate,ifrag,isnow
+ use growth,      only:init_growth,ifrag,isnow
  use physcon,     only:solarm,au
  use units,       only:set_units
  use mpiutils,    only:barrier_mpi
@@ -115,7 +115,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma,get_spsound
  use dust,           only:idrag,init_drag
- use growth,         only:ifrag,init_growth,isnow,vfrag,wbymass,gsizemincgs,get_size
+ use growth,         only:ifrag,init_growth,isnow,vfrag,gsizemincgs,get_size
  use options,        only:alpha,alphamax,use_dustfrac
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,maxp,maxalpha
@@ -187,7 +187,6 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  ! initialise
  !
  this_is_a_test = .true.
- wbymass        = .false.
 
  !
  ! setup for dustybox problem

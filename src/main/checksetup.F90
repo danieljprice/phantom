@@ -37,12 +37,12 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
                 do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
-                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
-                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
+                idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
  use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
@@ -55,10 +55,10 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,j,nbad,itype,nunity,iu,ndead
+ integer      :: i,nbad,itype,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas_mean
+ real         :: hi,hmin,hmax
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -178,6 +178,18 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
+!
+!--check that no empty particle types have been added
+!
+    do i=1,size(npartoftype)
+       if (labeltype(i)=='empty' .and. npartoftype(i) > 0) then
+          print "(/,1x,a,i0,a,i0,a,/)",'ERROR: ',npartoftype(i),' particles of type ',i,&
+                ' set up but type=='//trim(labeltype(i))
+          if (i==2) print "(a,/)",&
+            ' *** This is the old dust particle type: edit setup to use itype=idust ***'
+          nerror = nerror + 1
+       endif
+    enddo
  endif
 !
 !--should not have negative or zero smoothing lengths in initial setup
@@ -388,52 +400,15 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check dust fraction is 0->1 if one fluid dust is used
 !
- if (use_dustfrac .and. npart > 0) then
-    nbad = 0
-    nunity = 0
-    dust_to_gas_mean = 0.
-    do i=1,npart
-       do j=1,ndustsmall
-          if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
-             nbad = nbad + 1
-             if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
-          elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
-             nunity = nunity + 1
-          else
-             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
-          endif
-       enddo
-    enddo
-    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
-    if (nbad > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
-       nerror = nerror + 1
-    endif
-    if (nunity > 0) then
-       print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
-       nwarn = nwarn + 1
-    endif
-    ! warn if compiled for one-fluid dust but not used
-    if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
-       print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-       if (maxdusttypes>1) then
-          print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
-          print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
-       endif
-       nwarn = nwarn + 1
-    endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
- endif
-
-#ifdef GR
- call check_gr(npart,nerror,xyzh,vxyzu)
-#endif
-
+ if (use_dustfrac .and. npart > 0) call check_setup_dustfrac(nerror,nwarn)
+!
+!--check GR setup
+!
+ if (gr) call check_gr(npart,nerror,xyzh,vxyzu)
 !
 !--check radiation setup
 !
  if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
-
 !
 !--check dust growth arrays
 !
@@ -465,7 +440,6 @@ subroutine check_setup(nerror,nwarn,restart)
     if (id==master) write(*,"(1x,a)") 'Particle setup OK'
  endif
 
- return
 end subroutine check_setup
 
 !----------------------------------------------------
@@ -497,6 +471,11 @@ pure logical function in_range(x,min,max)
 
 end function in_range
 
+!------------------------------------------------------------------
+!+
+! check sink particle properties are sensible
+!+
+!------------------------------------------------------------------
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
@@ -602,7 +581,7 @@ subroutine check_setup_growth(npart,nerror)
     do j=1,2
        if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
     enddo
-    if (any(dustprop(:,i) /= dustprop(:,i))) then
+    if (any(isnan(dustprop(:,i)))) then
        print*,'NaNs in dust properties (dustprop array)'
        nerror = nerror + 1
     endif
@@ -713,7 +692,76 @@ subroutine check_setup_dustgrid(nerror,nwarn)
 
 end subroutine check_setup_dustgrid
 
-#ifdef GR
+!------------------------------------------------------------------
+!+
+! check dust fractions are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_dustfrac(nerror,nwarn)
+ use io,   only:id,master
+ use dim,  only:maxdusttypes
+ use part, only:npart,ndustsmall,dustfrac
+ integer, intent(inout) :: nerror,nwarn
+ integer :: i,j,nbad,nunity
+ real :: dust_to_gas_mean
+
+ nbad = 0
+ nunity = 0
+ dust_to_gas_mean = 0.
+ do i=1,npart
+    do j=1,ndustsmall
+       if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
+          nbad = nbad + 1
+          if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
+       elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
+          nunity = nunity + 1
+       else
+          dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+       endif
+    enddo
+ enddo
+ dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
+ if (nbad > 0) then
+     print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
+     nerror = nerror + 1
+ endif
+ if (nunity > 0) then
+     print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
+     nwarn = nwarn + 1
+ endif
+
+ ! check for TOTAL dustfrac exceeding unity
+ nbad = 0
+ do i=1,npart
+    if (sum(dustfrac(1:ndustsmall,i)) > 1.) then
+       nbad = nbad + 1
+       if (nbad <= 10) print*,' particle ',i,' total dustfrac = ',sum(dustfrac(1:ndustsmall,i))
+    endif
+ enddo
+ if (nbad > 0) then
+     print*,'ERROR: ',nbad,' of ',npart,' particles with sum of dust fractions exceeding 1'
+     nerror = nerror + 1
+ endif
+
+ ! warn if compiled for one-fluid dust but not used
+ if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
+     print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
+     if (maxdusttypes > 1) then
+        print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
+        print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
+     endif
+     nwarn = nwarn + 1
+ endif
+
+ if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
+
+end subroutine check_setup_dustfrac
+
+!------------------------------------------------------------------
+!+
+! check things necessary for sensible GR evolution
+!+
+!------------------------------------------------------------------
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
@@ -765,7 +813,6 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  endif
 
 end subroutine check_gr
-#endif
 
 !------------------------------------------------------------------
 !+
@@ -775,7 +822,6 @@ end subroutine check_gr
 ! radius and check particles with identical radii
 !+
 !------------------------------------------------------------------
-
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
  use part,      only:maxphase,maxp,iphase,igas,iamtype
@@ -822,7 +868,6 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
 
 end subroutine check_for_identical_positions
 
-
 !------------------------------------------------------------------
 !+
 ! 1) check for optically thin particles when mcfost is disabled,
@@ -831,7 +876,6 @@ end subroutine check_for_identical_positions
 ! 3) check for NaNs
 !+
 !------------------------------------------------------------------
-
 subroutine check_setup_radiation(npart, nerror, radprop, rad)
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
@@ -865,6 +909,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
     ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
+
 end subroutine check_setup_radiation
 
 end module checksetup

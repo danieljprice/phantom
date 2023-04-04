@@ -24,6 +24,7 @@ module readwrite_infile
 !   - beta               : *beta viscosity*
 !   - bulkvisc           : *magnitude of bulk viscosity*
 !   - calc_erot          : *include E_rot in the ev_file*
+!   - cv_type            : *how to get cv and mean mol weight (0=constant,1=mesa)*
 !   - dtmax              : *time between dumps*
 !   - dtmax_dratio       : *dynamic dtmax: density ratio controlling decrease (<=0 to ignore)*
 !   - dtmax_max          : *dynamic dtmax: maximum allowed dtmax (=dtmax if <= 0)*
@@ -76,7 +77,7 @@ module readwrite_infile
                      icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
-                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM
+                     mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
  use timestep,  only:dtwallmax,tolv,xtol,ptol
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
@@ -128,7 +129,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use cooling,         only:write_options_cooling
  use gravwaveutils,   only:write_options_gravitationalwaves
  use radiation_utils,    only:kappa_cgs
- use radiation_implicit, only:tol_rad,itsmax_rad
+ use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
@@ -249,8 +250,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
       'Should mcfost use the PdV work and shock heating?',iwritein)
  call write_inopt(mcfost_keep_part,'mcfost_keep_part',&
       'Fraction of particles to keep for MCFOST',iwritein)
-      call write_inopt(ISM,'ISM',&
+ call write_inopt(ISM,'ISM',&
       'ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto',iwritein)
+ call write_inopt(mcfost_dust_subl,'mcfost_dust_subl',&
+      'Should mcfost do dust sublimation (experimental!)',iwritein)
 #endif
 
  ! only write sink options if they are used, or if self-gravity is on
@@ -305,6 +308,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     if (implicit_radiation) then
        call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
        call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
+       call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
     endif
  endif
 #ifdef GR
@@ -325,8 +329,8 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,store_dust_temperature
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
+                           itau_alloc,store_dust_temperature,gr
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
@@ -360,7 +364,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use ptmass,          only:read_options_ptmass
  use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad
  use radiation_utils,    only:kappa_cgs
- use radiation_implicit, only:tol_rad,itsmax_rad
+ use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  character(len=*), parameter   :: label = 'read_infile'
@@ -375,7 +379,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -406,6 +410,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallprad     = .true.
  igotalldustform = .true.
  igotallgw       = .true.
+ igotallgr       = .true.
+
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -470,6 +476,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) C_force
     case('tolv')
        read(valstring,*,iostat=ierr) tolv
+    case('C_ent')
+       read(valstring,*,iostat=ierr) C_ent
     case('xtol')
        read(valstring,*,iostat=ierr) xtol
     case('ptol')
@@ -531,7 +539,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_keep_part')
        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
-         read(valstring,*,iostat=ierr) ISM
+       read(valstring,*,iostat=ierr) ISM
+    case('mcfost_dust_subl')
+       read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
     case('implicit_radiation')
        read(valstring,*,iostat=ierr) implicit_radiation
@@ -542,6 +552,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
        read(valstring,*,iostat=ierr) iopacity_type
+    case('cv_type')
+       read(valstring,*,iostat=ierr) cv_type
     case('kappa_cgs')
        read(valstring,*,iostat=ierr) kappa_cgs
     case('tol_rad')
@@ -564,7 +576,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
 #endif
 #ifdef GR
-       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #endif
 #ifdef PHOTO
        if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
@@ -606,7 +618,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotalleos    .and. igotallcooling  .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject   .and. igotallionise  .and. igotallnonideal &
                     .and. igotallphoto  .and. igotallgrowth   .and. igotalldamping .and. igotallporosity &
-                    .and. igotallprad   .and. igotalldustform .and. igotallgw
+                    .and. igotallprad   .and. igotalldustform .and. igotallgw .and. igotallgr
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -623,10 +635,17 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalllink) write(*,*) 'missing link options'
           if (.not.igotallbowen) write(*,*) 'missing Bowen dust options'
           if (.not.igotalldust) write(*,*) 'missing dust options'
+          if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallporosity) write(*,*) 'missing porosity options'
           if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
-          if (.not.igotallextern) write(*,*) 'missing external force options'
+          if (.not.igotallextern) then
+             if (gr) then
+                write(*,*) 'missing GR quantities (eg: accretion radius)'
+             else
+                write(*,*) 'missing external force options'
+             endif
+          endif
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'
           if (.not.igotallionise) write(*,*) 'missing ionisation options'
           if (.not.igotallnonideal) write(*,*) 'missing non-ideal MHD options'
