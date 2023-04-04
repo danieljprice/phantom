@@ -618,7 +618,7 @@ end subroutine check_dustprop
 !  Set dustprop (used by moddump)
 !+
 !-----------------------------------------------------------------------
-subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
+subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref)
  use dust,    only:grainsizecgs,graindenscgs
  use part,    only:iamtype,iphase,idust,igas,dustprop,filfac,probastick
  use physcon, only:fourpi
@@ -628,16 +628,15 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
  integer                       :: i,iam
  real                          :: r,h
  logical, optional, intent(in) :: sizedistrib
- real, optional, intent(in)    :: pwl_sizedistrib,R_ref,H_R_ref,q_index
+ real, optional, intent(in)    :: pwl_sizedistrib,R_ref
 
  do i=1,npart
     iam = iamtype(iphase(i))
     if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
        dustprop(2,i) = graindenscgs / unit_density
        if (sizedistrib) then 
-          r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
-          h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
-          dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
+          r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2)
+          dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib
           dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
        else
           dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3
