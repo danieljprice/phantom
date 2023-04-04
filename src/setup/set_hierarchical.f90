@@ -19,7 +19,7 @@ module sethierarchical
 
  implicit none
 
- public :: set_hierarchical, set_multiple
+ public :: set_hierarchical, set_multiple, set_hier_multiple
  public :: set_hierarchical_interactively
  public :: write_hierarchical_setupfile
  public :: read_hierarchical_setupfile
@@ -78,16 +78,26 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
  call recursive_splitting(sink_num_temp, sink_list, split_list, splits)
 
+ !print*, splits
+ !print*, split_list
+
  do i=splits,1,-1
 
     hl_temp = trim(split_list(i))
+    !print*,'splitting: ',trim(adjustl(hl_temp))
+  
 
     call find_hier_level_orb_elem(hl_temp, m1, m2, accr1, accr2, &
                                   binary_a, binary_e, binary_i, binary_O, &
                                   binary_w, binary_f)
+    !print*,'elements of ', hl_temp, ' : ', m1, m2, accr1, accr2, &
+    !                              binary_a, binary_e, binary_i, binary_O, &
+    !                              binary_w, binary_f
 
     read(hl_temp,*,iostat=subst) subst
-    call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
+
+    !print*, 'passing subst = ', subst
+    call set_hier_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
             posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,&
@@ -256,6 +266,8 @@ recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits
 
  sink_list_temp = sink_list
 
+ !print *, 'sink to generate: ', sink_list_temp
+
  longest = 0
  if (sink_num>1) then
     ! Find the longest
@@ -264,6 +276,8 @@ recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits
           longest = len(trim(sink_list_temp(i)))
        endif
     enddo
+
+    !print*, 'longest lenght: ', longest
 
     ! Select the longests and cut them
     longests_len = 0
@@ -276,6 +290,9 @@ recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits
        endif
     enddo
 
+    !print*, 'found ', longests_len, ' sinks long ', longest
+    !print*, '  they are ', longests
+
 
     ! Cut the longest and add to split list with no doubles
     count=0
@@ -287,14 +304,21 @@ recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits
        endif
     enddo
 
+    !print *, 'new splits to generate longests are ', count
+    !print *, '    i.e. ', new_splits
+
+    !print *, 'up to now splits are ', split_list
+    
     ! Add new splits to split_list
     do i=splits+1, splits+count
        split_list(i) = new_splits(i-splits)
     enddo
     splits = splits + count
 
-    ! Clean sink_list_temp from doubles
 
+    !print *, 'adding new splits: ', split_list
+
+    ! Clean sink_list_temp from doubles
     count=0
     do i=1,sink_num
        if (.not. any(new_sink_list == sink_list_temp(i))) then
@@ -302,6 +326,14 @@ recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits
           new_sink_list(count) = sink_list_temp(i)
        endif
     enddo
+
+     !print *, 'sink to generate after new splits: ', sink_list_temp
+
+
+    !print *, '_'
+    !print *, new_sink_list(:count)
+    !print *, split_list(:splits)
+    !print *, splits
 
     call recursive_splitting(count, new_sink_list(:count), split_list(:splits), splits)
 
@@ -403,22 +435,22 @@ subroutine find_hier_level_orb_elem(hl_temp, m1, m2, accr1, accr2, &
 
   integer :: hl_index
   
-  m1 = get_hier_level_mass(trim(hl_temp)//'1')
-  m2 = get_hier_level_mass(trim(hl_temp)//'2')
+  m1 = get_hier_level_mass(trim(adjustl(hl_temp))//'1')
+  m2 = get_hier_level_mass(trim(adjustl(hl_temp))//'2')
   
-  if (any(sink_labels == trim(hl_temp)//'1')) then
-     accr1 = accr(findloc(sink_labels,trim(hl_temp)//'1', 1))
+  if (any(sink_labels == trim(adjustl(hl_temp))//'1')) then
+     accr1 = accr(findloc(sink_labels,trim(adjustl(hl_temp))//'1', 1))
   else
      accr1 = 1.
   endif
   
-  if (any(sink_labels == trim(hl_temp)//'2')) then
-     accr2 = accr(findloc(sink_labels,trim(hl_temp)//'2', 1))
+  if (any(sink_labels == trim(adjustl(hl_temp))//'2')) then
+     accr2 = accr(findloc(sink_labels,trim(adjustl(hl_temp))//'2', 1))
   else
      accr2 = 1.
   endif
   
-  hl_index = findloc(hl_labels, trim(hl_temp), 1)
+  hl_index = findloc(hl_labels, trim(adjustl(hl_temp)), 1)
   
   binary_a =  a(hl_index)
   binary_e = e(hl_index)
@@ -427,26 +459,29 @@ subroutine find_hier_level_orb_elem(hl_temp, m1, m2, accr1, accr2, &
   binary_i = inc(hl_index)
   binary_f = f(hl_index)
 
+  
+
 end subroutine find_hier_level_orb_elem
 
 
-!subroutine read_hierarchy_file(hier_label, index, prefix, ierr)
-!  integer,    intent(out)    :: index, ierr
-!  character(len=20), intent(in), optional:: prefix
-!  
-!  real, dimension(hier_db_size,hier_db_prop) :: data
-!  integer :: lines, hier_int
-!  
-!  call load_hierarchy_file(prefix, data, lines, ierr)
+subroutine find_data_index(hier_label, index, prefix, ierr)
+  integer,    intent(out)    :: index, ierr
+  character(len=20), intent(in), optional:: prefix, hier_label
+  
+  real, dimension(hier_db_size,hier_db_prop) :: data
+  integer :: lines, hier_int
+  
+  call load_hierarchy_file(prefix, data, lines, ierr)
 
-!  read(hier_label,*,iostat=hier_int) hier_int
+  read(hier_label,*,iostat=hier_int) hier_int
   
-!  index = findloc(int(data(:,1)), hier_int, 1)
+  index = findloc(int(data(:,2)), hier_int, 1)
 
-!  print*, index
+  !print*, int(data(:,2))
+  !print*, hier_label, index
   
   
-!end subroutine read_hierarchy_file
+end subroutine find_data_index
 
 
 subroutine load_hierarchy_file(prefix, data, lines, ierr)
@@ -482,9 +517,10 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
 end subroutine load_hierarchy_file
 
 subroutine update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr)
-  integer,    intent(in)    :: lines, i1, i2
+  integer,    intent(inout)    :: lines
+  integer, intent(in) :: i1, i2
   character(len=20), intent(in), optional:: prefix
-  real, dimension(hier_db_size,hier_db_prop), intent(in) :: data
+  real, dimension(hier_db_size,hier_db_prop), intent(inout) :: data
   character(len=20), intent(in) :: hier_prefix
   integer,    intent(out)    :: ierr
 
@@ -495,10 +531,18 @@ subroutine update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr)
   character(len=20) :: filename
   logical :: iexist
 
-  call find_hier_level_orb_elem(adjustl(hier_prefix), mprimary, msecondary, accr1, accr2, &
+  !print*,'updating: ',trim(adjustl(hier_prefix))
+  
+
+  call find_hier_level_orb_elem(hier_prefix, mprimary, msecondary, accr1, accr2, &
        semimajoraxis, eccentricity, incl, posang_ascnode, &
        arg_peri, binary_f)
 
+  !print*,'elements of ', hier_prefix, ' : ', mprimary, msecondary, accr1, accr2, &
+  !     semimajoraxis, eccentricity, incl, posang_ascnode, &
+  !     arg_peri, binary_f
+
+  
   period = sqrt(4.*pi**2*semimajoraxis**3/(mprimary+msecondary))
   
   if (present(prefix)) then
@@ -527,11 +571,64 @@ subroutine update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr)
   write(2,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
        period, incl, arg_peri, posang_ascnode
   close(2)
+
+  call load_hierarchy_file(prefix, data, lines, ierr)
   
 end subroutine update_hierarchy_file
 
-subroutine check_substitution()
+subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
+  character(len=20), intent(in) :: hier_prefix, prefix
+  real, intent(in) :: semimajoraxis
+  integer, intent(out) :: ierr
 
+  integer :: lines, subst_index
+  real :: ma, mb, a_comp, q_comp, e_comp, period_ratio, criterion
+  real, dimension(hier_db_size,hier_db_prop) :: data
+
+  ! Check that star to be substituted exists in HIERARCHY file
+  call find_data_index(hier_prefix, subst_index, prefix, ierr)
+  print*, 'checking ', hier_prefix, ' with index ', subst_index
+  
+  if(subst_index == 0) then
+     print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
+     ierr = ierr_missstar
+     return
+  endif
+
+  ! Check that star to be substituted has not already been substituted  
+  call load_hierarchy_file(prefix, data, lines, ierr)
+  
+  if(data(subst_index,1) == 0) then
+     print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
+     ierr = ierr_subststar
+     return
+  end if
+
+  ! Check that substituting binary Omega = 0
+  if (data(subst_index,10) /= 0) then
+     print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
+     ierr = ierr_Omegasubst
+     return
+  endif
+
+  ! Mardling&Aarseth (2001) criterion check
+  ma = data(subst_index, 3)
+  mb = data(subst_index, 4)
+  a_comp = data(subst_index, 5)
+  e_comp = data(subst_index, 6)
+  
+  q_comp = ma/mb
+  if (q_comp>1) q_comp=q_comp**(-1)
+  
+  ! Mardling&Aarseth (2001) criterion check
+  
+  period_ratio = sqrt((a_comp*a_comp*a_comp)/(ma+mb)/(semimajoraxis*semimajoraxis*semimajoraxis)*(ma)) ! Po/Pi
+  criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
+  
+  if (criterion > period_ratio) then
+     print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
+  endif
+  
 end subroutine check_substitution
 
 
@@ -541,7 +638,7 @@ end subroutine check_substitution
 !  setup for a multiple, using set_binary
 !+
 !----------------------------------------------------------------
-subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
+subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
@@ -568,16 +665,13 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  character(len=20)      :: filename
  character(len=20)      :: hier_prefix
  logical                :: iexist
- integer                :: io, lines
+ integer                :: io, lines, index
  real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
  real                   :: rel_posang_ascnode=0.,rel_arg_peri=0.,rel_incl=0.
  real                   :: q2,mprimary,msecondary
  real                   :: alpha_y, beta_y, gamma_y, alpha_z, beta_z, gamma_z, sign_alpha, sign_gamma
 
  ierr = 0
- !do_verbose = .true.
- !if (present(verbose)) do_verbose = verbose
-
   !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  if (present(subst) .and. subst>10) then
     call load_hierarchy_file(prefix, data, lines, ierr)
@@ -587,72 +681,22 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
     hier_prefix = '1'
 
-    call update_hierarchy_file(prefix, data, 0, hier_prefix, 1, 2, ierr) 
+    lines = 0
+    call update_hierarchy_file(prefix, data, lines, hier_prefix, 1, 2, ierr)
  endif
  subst_index = 0
  !--- Checks to avoid bad substitutions
  if (present(subst) .and. subst>10) then
     write(hier_prefix, *) subst
 
-    !call read_hierarchy_file(hier_prefix, index, prefix, ierr)!check_substitution()
-    
-    io=0
-    mtot = 0.
-    do i=1,lines
-       if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
-          if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
-             print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
-             ierr = ierr_subststar
-          endif
-          subst_index = int(data(i,1))
-          data(i,1) = 0
+    call check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
+    !call check_substitution('11                  ', semimajoraxis, prefix, ierr)
 
-          if (subst>0) then
-             rel_posang_ascnode = data(i, 10)
+    call find_data_index(hier_prefix, subst_index, prefix, ierr)
 
-             if (rel_posang_ascnode /= 0) then
-                print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
-                ierr = ierr_Omegasubst
-             endif
+    data(subst_index,1) = 0
 
-             rel_arg_peri= data(i, 9)
-             rel_incl = data(i, 8)
-          else
-             rel_posang_ascnode = posang_ascnode
-             rel_arg_peri = arg_peri
-             rel_incl = incl
-          endif
-
-          mtot = data(i, 3)
-          m_comp = data(i, 4)
-          a_comp = data(i, 5)
-          e_comp = data(i, 6)
-
-          q_comp = mtot/m_comp
-          if (q_comp>1) q_comp=q_comp**(-1)
-
-          ! Mardling&Aarseth (2001) criterion check
-
-          period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/(semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
-          criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
-
-          if (criterion > period_ratio) then
-             print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
-          endif
-
-          q2=m2/m1
-          mprimary = mtot/(1+q2)
-          msecondary = mtot*q2/(1+q2)
-
-          io=1
-          exit
-       endif
-    enddo
-
-    if (io == 0) then
-       print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
-       ierr = ierr_missstar
-    endif
+    q2=m2/m1
 
     if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
        x_subst(:)=xyzmh_ptmass(1:3,subst_index)
@@ -661,16 +705,15 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  else
-    mprimary = m1
-    msecondary = m2
 
     if (present(posang_ascnode)) rel_posang_ascnode = posang_ascnode
     if (present(arg_peri)) rel_arg_peri= arg_peri
     if (present(incl)) rel_incl = incl
 
  endif
+ !print*, 'set_binary args: ', mprimary, msecondary
  !--- Create the binary
- call set_binary(mprimary,msecondary,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
+ call set_binary(mprimary*0+m1,msecondary*0+m2,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
             posang_ascnode=rel_posang_ascnode,arg_peri=rel_arg_peri,incl=rel_incl, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
@@ -768,7 +811,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     call update_hierarchy_file(prefix, data, lines, hier_prefix, i1, i2, ierr) 
  endif
 
-end subroutine set_multiple
+end subroutine set_hier_multiple
 
 !------------------------------------
 ! Rotate an (x,y,z) point by theta
@@ -803,6 +846,293 @@ pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
 
 end subroutine gen_rotate
 
+
+
+
+!----------------------------------------------------------------
+!+
+!  setup for a multiple, using set_binary
+!+
+!----------------------------------------------------------------
+subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
+                      accretion_radius1,accretion_radius2, &
+                      xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
+                      posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
+  use setbinary, only: set_binary
+ real,    intent(in)    :: m1,m2
+ real,    intent(in)    :: semimajoraxis,eccentricity
+ real,    intent(in)    :: accretion_radius1,accretion_radius2
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: nptmass
+ integer, intent(out)   :: ierr
+ real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
+ integer, intent(in),  optional :: subst
+ real,    intent(out), optional :: omega_corotate
+ logical, intent(in),  optional :: verbose
+ character(len=20), optional, intent(in) :: prefix
+
+ integer :: i1,i2,i,subst_index
+ real    :: mtot,period
+ real    :: x_subst(3),v_subst(3)
+ real    :: omega,inc
+ !logical :: do_verbose
+
+ real, dimension(24,10) :: data
+ character(len=20)      :: hier_prefix, filename
+ logical                :: iexist
+ integer                :: io, lines
+ real                   :: period_ratio,criterion,q_comp,a_comp,e_comp,m_comp
+ real                   :: rel_posang_ascnode=0.,rel_arg_peri=0.,rel_incl=0.
+ real                   :: q2,mprimary,msecondary
+ real                   :: alpha_y, beta_y, gamma_y, alpha_z, beta_z, gamma_z, sign_alpha, sign_gamma
+
+ ierr = 0
+ !do_verbose = .true.
+ !if (present(verbose)) do_verbose = verbose
+
+ if (present(prefix)) then
+    filename = trim(prefix)//'.hierarchy'
+ else
+    filename = 'HIERARCHY'
+ endif
+
+ !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
+ inquire(file=trim(filename), exist=iexist)
+ if (present(subst) .and. subst>10) then
+    if (iexist) then
+       open(1, file = trim(filename), status = 'old')
+       lines=0
+       do
+          read(1, *, iostat=io) data(lines+1,:)
+          if (io/=0) exit
+          lines = lines + 1
+       enddo
+       close(1)
+    else
+       print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
+       ierr = ierr_HIER2
+    endif
+ else
+    if (iexist) then
+       print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
+       open(1, file=trim(filename), status='old')
+       close(1, status='delete')
+    endif
+
+    mtot = m1 + m2
+    period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
+
+    open(1, file = trim(filename), status = 'new')
+    if (present(incl)) then
+       if (present(posang_ascnode) .and. present(arg_peri)) then
+          write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
+          write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
+       else ! set binary at apastron with inclination
+          write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, 0, 0
+          write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, incl, 0, 0
+       endif
+    else ! set binary at apastron without inclination
+       write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, 0, 0, 0
+       write(1,*) 2, 12, m2, m1, semimajoraxis, eccentricity, period, 0, 0, 0
+    endif
+    close(1)
+ endif
+
+ subst_index = 0
+ !--- Checks to avoid bad substitutions
+ if (present(subst) .and. subst>10) then
+    write(hier_prefix, *) subst
+    io=0
+    mtot = 0.
+    do i=1,lines
+       if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
+          if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
+             print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
+             ierr = ierr_subststar
+          endif
+          subst_index = int(data(i,1))
+          data(i,1) = 0
+
+          if (subst>0) then
+             rel_posang_ascnode = data(i, 10)
+
+             if (rel_posang_ascnode /= 0) then
+                print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
+                ierr = ierr_Omegasubst
+             endif
+
+             rel_arg_peri= data(i, 9)
+             rel_incl = data(i, 8)
+          else
+             rel_posang_ascnode = posang_ascnode
+             rel_arg_peri = arg_peri
+             rel_incl = incl
+          endif
+
+          mtot = data(i, 3)
+          m_comp = data(i, 4)
+          a_comp = data(i, 5)
+          e_comp = data(i, 6)
+
+          q_comp = mtot/m_comp
+          if (q_comp>1) q_comp=q_comp**(-1)
+
+          ! Mardling&Aarseth (2001) criterion check
+
+          period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/(semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
+          criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
+
+          if (criterion > period_ratio) then
+             print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
+          endif
+
+          q2=m2/m1
+          mprimary = mtot/(1+q2)
+          msecondary = mtot*q2/(1+q2)
+
+          io=1
+          exit
+       endif
+    enddo
+
+    if (io == 0) then
+       print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
+       ierr = ierr_missstar
+    endif
+
+    if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
+       x_subst(:)=xyzmh_ptmass(1:3,subst_index)
+       v_subst(:)=vxyz_ptmass(:,subst_index)
+    endif
+    !i1 = subst_index
+    !i2 = nptmass + 1
+    !nptmass = nptmass + 1
+
+    period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
+ else
+    mprimary = m1
+    msecondary = m2
+
+    if (present(posang_ascnode)) rel_posang_ascnode = posang_ascnode
+    if (present(arg_peri)) rel_arg_peri= arg_peri
+    if (present(incl)) rel_incl = incl
+
+ endif
+
+ !--- Create the binary
+ call set_binary(mprimary,msecondary,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &
+            posang_ascnode=rel_posang_ascnode,arg_peri=rel_arg_peri,incl=rel_incl, &
+            f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
+
+ if (present(subst) .and. subst>10) then
+    !--- lower nptmass, copy one of the new sinks to the subst star
+    nptmass = nptmass-1
+    i1 = subst_index
+    i2 = nptmass
+
+    ! positions and accretion radii
+    xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
+
+    ! test Jolien
+!    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
+!    'i1     :',i1, &
+!     'mass i1:',xyzmh_ptmass(4,i1), &
+!     'i2     :',i2, &
+!     'mass i2:',xyzmh_ptmass(4,i2)
+
+    ! velocities
+    vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
+
+    !---
+    ! Rotate the substituting binary with orientational parameters
+    ! referring to the substituted star's orbital plane
+    if (subst>0) then
+
+       omega     = rel_arg_peri*pi/180.
+       !big_omega = rel_posang_ascnode*pi/180.! + 0.5*pi
+       inc       = rel_incl*pi/180.
+
+       ! Retrieve eulerian angles of the substituted star orbit's semi-major axis (y axis)
+       if (omega <= pi/2) then
+          beta_y = omega
+          sign_alpha=-1
+          if (inc <= pi) then
+             sign_gamma=1
+          else
+             sign_gamma=-1
+          endif
+       else
+          beta_y = 2*pi-omega
+          sign_alpha=1
+          if (inc <= pi) then
+             sign_gamma=-1
+          else
+             sign_gamma=1
+          endif
+       endif
+       gamma_y=acos(sign_gamma*sin(beta_y)*sin(inc))
+       alpha_y=acos(sign_alpha*sqrt(abs(sin(beta_y)**2-cos(gamma_y)**2))) ! Needs abs cause float approx for cos
+
+       ! Retrieve eulerian angles of the axis perpendicular to the substituted star orbital plane (z axis)
+       beta_z = pi/2.
+       gamma_z = inc
+       alpha_z = pi/2. - inc
+       if (inc <= pi) then
+          gamma_z=inc
+          if (inc <= pi/2.) then
+             alpha_z = pi/2.-inc
+          elseif (inc > pi/2.) then
+             alpha_z = inc-pi/2.
+          endif
+       elseif (inc < 2.*pi .and. inc > pi) then
+          gamma_z = 2.*pi-inc
+          if (inc <= 3.*pi/2.) then
+             alpha_z = inc-pi/2
+          elseif (inc > 3.*pi/2.) then
+             alpha_z = 5.*pi/2.-inc
+          endif
+       endif
+
+       ! Rotate substituting sinks by argument of pericenter around the z axis
+       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+
+       ! Rotate substituting sinks by inclination around the y axis
+       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
+       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
+
+       ! Rotate substituting sinks by ascending node longitude around the z axis
+       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+    endif
+
+    ! Move the substituting binary's center of mass in the substituted star position
+    xyzmh_ptmass(1:3,i1) = xyzmh_ptmass(1:3,i1)+x_subst
+    xyzmh_ptmass(1:3,i2) = xyzmh_ptmass(1:3,i2)+x_subst
+    ! Set the substituting binary's center of mass velocity
+    vxyz_ptmass(:,i1) = vxyz_ptmass(:,i1)+v_subst
+    vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
+
+    ! Write updated HIERARCHY file with the two new stars and the substituted one
+    open(1, file = trim(filename), status = 'old')
+    do i=1,lines
+       write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
+    enddo
+    write(1,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
+         period, incl, arg_peri, posang_ascnode
+    write(1,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
+         period, incl, arg_peri, posang_ascnode
+    close(1)
+ endif
+
+end subroutine set_multiple
 
 
 

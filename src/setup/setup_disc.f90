@@ -762,7 +762,7 @@ subroutine setup_central_objects(fileprefix)
  use setbinary,            only:set_binary
  use sethierarchical,      only:set_hierarchical,set_multiple
  use setflyby,             only:set_flyby
- character(len=20), intent(in) :: fileprefix=''
+ character(len=20), intent(in) :: fileprefix
 
  integer :: i,ierr
 
