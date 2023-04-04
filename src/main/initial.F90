@@ -424,6 +424,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  !print*, "Density value before prims2cons: ", dens(1)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
  !print*, "Density value after prims2cons: ", dens(1)
+ !print*, "internal energy is: ", vxyzu(4,1)
+ !print*, "initial entropy is : ", pxyzu(4,1)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)

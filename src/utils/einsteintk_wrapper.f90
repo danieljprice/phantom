@@ -21,7 +21,7 @@ module einsteintk_wrapper
         use einsteintk_utils
         use extern_gr
         use metric 
-        use part, only:xyzh,vxyzu,dens,metricderivs, metrics, npart, tmunus
+        use part, only:xyzh,pxyzu,vxyzu,dens,metricderivs, metrics, npart, tmunus
         
 
         implicit none
@@ -84,6 +84,7 @@ module einsteintk_wrapper
 
         call get_phantom_dt(dtout)
         
+        print*,"pxyzu: ", pxyzu(:,1)
         
     end subroutine init_et2phantom
 
@@ -242,7 +243,7 @@ module einsteintk_wrapper
         use densityforce, only:densityiterate
         use metric_tools, only:init_metric
         use linklist,     only:set_linklist
-        use einsteintk_utils, only:rhostargrid,pxgrid
+        use einsteintk_utils, only:rhostargrid,pxgrid,entropygrid
         use tmunu2grid, only:check_conserved_dens
 
         real :: stressmax
@@ -266,6 +267,9 @@ module einsteintk_wrapper
         ! Interpolate momentum to grid
         call phantom2et_momentum
 
+        ! Interpolate entropy to grid 
+        call phantom2et_entropy
+
 
         ! Conserved quantity checks + corrections
 
@@ -277,7 +281,7 @@ module einsteintk_wrapper
         ! Correct momentum and Density 
         rhostargrid = cfac*rhostargrid
         pxgrid = cfac*pxgrid
-        !entropygrid = cfac*entropygrid
+        entropygrid = cfac*entropygrid
 
 
     end subroutine phantom2et_consvar
@@ -319,6 +323,40 @@ module einsteintk_wrapper
         call interpolate_to_grid(rhostargrid,dat)
 
     end subroutine phantom2et_rhostar
+
+    subroutine phantom2et_entropy()
+        use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars,&
+        igas, massoftype,rhoh
+        use cons2prim, only: cons2primall
+        use deriv
+        use extern_gr
+        use tmunu2grid
+        use einsteintk_utils, only: get_phantom_dt,entropygrid
+        use metric_tools, only:init_metric
+        real :: dat(npart), h, pmass,rho
+        integer :: i  
+
+
+        ! Get new cons density from new particle positions somehow (maybe)? 
+        ! Set linklist to update the tree for neighbour finding
+        ! Calculate the density for the new particle positions
+        ! Call density iterate 
+
+        ! Interpolate from particles to grid
+        ! This can all go into its own function as it will essentially
+        ! be the same thing for all quantites  
+        ! get particle data 
+        ! get rho from xyzh and rhoh 
+        ! Get the conserved density on the particles 
+        dat = 0. 
+        do i=1, npart
+            ! Entropy is the u component of pxyzu 
+            dat(i) = pxyzu(4,i)
+        enddo 
+        entropygrid = 0. 
+        call interpolate_to_grid(entropygrid,dat)
+
+    end subroutine phantom2et_entropy
 
     subroutine phantom2et_momentum()
         use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars,&
@@ -449,6 +487,20 @@ module einsteintk_wrapper
     !      vxyzu(1:3,i) = vxyzu(1:3,i) + fext(:,i)*dt_et
     !    enddo 
     end subroutine get_metricderivs_all
+
+    subroutine get_eos_quantities(densi,en)
+        use cons2prim, only:cons2primall
+        use part, only:dens,vxyzu,npart,metrics,xyzh,pxyzu,eos_vars
+        real, intent(out) :: densi,en
+
+        !call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
+        densi = dens(1)                     ! Feed the newly computed dens back out of the routine
+        !call cons2primall(npart,xyzh,metrics,vxyzu,dens,pxyzu,.true.)
+        call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+        ! print*,"pxyzu: ",pxyzu(:,1)
+        ! print*, "vxyzu: ",vxyzu(:,1)
+        en = vxyzu(4,1)
+    end subroutine get_eos_quantities
 
 
 end module einsteintk_wrapper 

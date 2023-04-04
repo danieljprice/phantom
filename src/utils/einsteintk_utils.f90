@@ -6,6 +6,7 @@ module einsteintk_utils
       real, allocatable :: tmunugrid(:,:,:,:,:)
       real, allocatable :: rhostargrid(:,:,:)
       real, allocatable :: pxgrid(:,:,:,:)
+      real, allocatable :: entropygrid(:,:,:)
       real, allocatable :: metricderivsgrid(:,:,:,:,:,:)
       real              :: dxgrid(3), gridorigin(3), boundsize(3)
       integer           :: gridsize(3)
@@ -41,6 +42,9 @@ contains
       allocate(pxgrid(3,nx,ny,nz))
 
       allocate(rhostargrid(nx,ny,nz))
+      
+      ! TODO Toggle for this to save memory
+      allocate(entropygrid(nx,ny,nz))
 
       ! metric derivs are stored in the form 
       ! mu comp, nu comp, deriv, gridx,gridy,gridz 

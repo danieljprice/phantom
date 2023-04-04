@@ -294,13 +294,12 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
    use utils_gr,     only:get_u0
    real,    intent(in)  :: x(3),metrici(:,:,:),v(3),dens,u,p
    real,    intent(out) :: tmunu(0:3,0:3)
-   real                 :: tmunucon(0:3,0:3)
    logical, optional, intent(in) :: verbose 
-   real                 :: w,v4(0:3),vcov(3),lorentz,bigV(3),uzero
+   real                 :: w,v4(0:3),vcov(3),lorentz,bigV(3),uzero,u_upper(0:3),u_lower(0:3)
    real                 :: gcov(0:3,0:3), gcon(0:3,0:3)
    real                 :: gammaijdown(1:3,1:3),betadown(3),alpha
    real                 :: velshiftterm
-   integer              :: i,j,ierr
+   integer              :: i,j,ierr,mu,nu
    
    ! Reference for all the variables used in this routine:
    ! w - the enthalpy 
@@ -364,34 +363,23 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
    v4(0) = 1.
    v4(1:3) = v(:)
    
+
    ! first component of the upper-case 4-velocity (contravariant)
    call get_u0(gcov,v,uzero,ierr)
+   
+   u_upper = uzero*v4
+   do mu=0,3
+      u_lower(mu) = gcov(mu,0)*u_upper(0) + gcov(mu,1)*u_upper(1) & 
+                   + gcov(mu,2)*u_upper(2) + gcov(mu,3)*u_upper(3)
+   enddo 
 
    ! Stress energy tensor in contravariant form
-   do j=0,3
-      do i=0,3
-         tmunucon(i,j) = dens*w*uzero*uzero*v4(i)*v4(j) + p*gcon(i,j)
+   do nu=0,3
+      do mu=0,3
+         tmunu(mu,nu) = dens*u_lower(mu)*u_lower(nu) + p*gcov(mu,nu)
       enddo 
    enddo 
 
-   ! Lower the stress energy tensor using the metric
-   ! This gives you T^{\mu}_nu 
-   do j=0,3
-      do i=0,3
-         tmunu(i,j) = gcov(j,0)*tmunucon(i,0) &
-          + gcov(j,1)*tmunucon(i,1) + gcov(j,2)*tmunucon(i,2) + gcov(j,3)*tmunucon(i,3)
-      enddo 
-   enddo
-
-   ! Repeating it again gives T_{\mu\nu}
-   do j=0,3
-      do i=0,3
-         tmunu(i,j) = gcov(i,0)*tmunu(0,j) &
-          + gcov(i,1)*tmunu(1,j) + gcov(i,2)*tmunu(2,j) + gcov(i,3)*tmunu(3,j)
-      enddo 
-   enddo 
-
-   ! Check that the calculated diagonials are equal to 1/tmuncon 
    
    if (present(verbose) .and. verbose) then 
       ! Do we get sensible values 
