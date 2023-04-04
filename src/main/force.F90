@@ -111,16 +111,17 @@ module forces
        ifxi_drag       = 47, &
        ifyi_drag       = 48, &
        ifzi_drag       = 49, &
-       idvxdxi         = 50, &
-       idvzdzi         = 58, &
+       idti            = 50, &
+       idvxdxi         = 51, &
+       idvzdzi         = 59, &
  !--dust arrays initial index
-       idustfraci      = 59, &
+       idustfraci      = 60, &
  !--dust arrays final index
-       idustfraciend   = 59 + (maxdusttypes - 1), &
-       itstop          = 60 + (maxdusttypes - 1), &
-       itstopend       = 60 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 60 + (maxdusttypes - 1), &
+       itstop          = 61 + (maxdusttypes - 1), &
+       itstopend       = 61 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust     = 60 + 2*(maxdusttypes - 1), &
+       lastxpvdust     = 62 + 2*(maxdusttypes - 1), &
        iradxii         = lastxpvdust + 1, &
        iradfxi         = lastxpvdust + 2, &
        iradfyi         = lastxpvdust + 3, &
@@ -493,7 +494,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
                     dustfrac,dustprop,fxyz_dragold,eta_nimhd,eos_vars,alphaind,stressmax,&
-                    rad,radprop,dens,metrics)
+                    rad,radprop,dens,metrics,dt)
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -900,7 +901,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef PERIODIC
  use boundary,    only:dxbound,dybound,dzbound
 #endif
- use dim,         only:use_dust,use_dustgrowth
+ use dim,         only:use_dust,use_dustgrowth,ind_timesteps
 #ifdef DUST
  use dust,        only:get_ts,idrag,icut_backreaction,ilimitdustflux,irecon,drag_implicit
  use kernel,      only:wkern_drag,cnormk_drag
@@ -1011,7 +1012,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
             radDi,radDj,radeni,radenj,radlambdai,radlambdaj
  real    :: xi,yi,zi,densi,eni,metrici(0:3,0:3,2)
  real    :: vxi,vyi,vzi,vxj,vyj,vzj,projvi,projvj
- real    :: fxi_drag,fyi_drag,fzi_drag
+ real    :: fxi_drag,fyi_drag,fzi_drag,dti
  real    :: qrho2i,qrho2j
  integer :: ii,ia,ib,ic
  real    :: densj
@@ -1080,6 +1081,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fxi_drag = xpartveci(ifxi_drag)
  fyi_drag = xpartveci(ifyi_drag)
  fzi_drag = xpartveci(ifzi_drag)
+ if (ind_timesteps) then
+    dti      = xpartveci(idti)
+ endif
  dvdxi(1:9)    = xpartveci(idvxdxi:idvzdzi)
 
  if (gr) then
@@ -1833,6 +1837,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (iregime > 2)  nstokes = nstokes + 1
                 if (iregime == 2) nsuper = nsuper + 1
                 if (drag_implicit) then
+                   if (ind_timesteps) then
+                      call get_drag_terms(tsijtmp,dti,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
+                                       runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
+                   else
+                      call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
+                                       runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
+                   endif
                    ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
                    call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
                                        runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
@@ -1849,9 +1860,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 if (maxvxyzu >= 4) then
                    !--energy dissipation due to drag
                    dragheating = dragterm*projv
-                   if (drag_implicit) then
-                      dragheating = dragheating - 0.5*3.*pmassj*dt*(sdrag1*projvstar - sdrag2*projf_drag)**2/(rhoi + rhoj)*wdrag
-                   endif
                    fsum(idudtdissi) = fsum(idudtdissi) + dragheating
                 endif
              elseif (iamdusti .and. iamgasj) then
@@ -1885,8 +1893,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
                 if (drag_implicit) then
                    ! implicit drag, slightly modified version of Loren-Aguilar & Bate 2014, 2015
-                   call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
+                   if (ind_timesteps) then
+                      call get_drag_terms(tsijtmp,dti,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
                                        runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
+                   else
+                      call get_drag_terms(tsijtmp,dt,sdrag1,sdrag2,fxi_drag,fyi_drag,fzi_drag,&
+                                       runix,runiy,runiz,fxyz_drag(:,j),projf_drag)
+                   endif
                    dragterm = 3.*pmassj*(sdrag1*projvstar - sdrag2*projf_drag)/(rhoi + rhoj)*wdrag
                 else
                    ! explicit drag, with timestep condition
@@ -2063,19 +2076,19 @@ end subroutine get_stress
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
                      dustfrac,dustprop,fxyz_drag,eta_nimhd,eos_vars,alphaind,stressmax,&
-                     rad,radprop,dens,metrics)
+                     rad,radprop,dens,metrics,dt)
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
-                use_dustgrowth,gr,use_dust
+                use_dustgrowth,gr,use_dust,ind_timesteps
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp
  use viscosity, only:irealvisc,bulkvisc
-#ifdef DUST
- use dust,      only:get_ts,idrag
+ use dust,      only:get_ts,idrag,drag_implicit
  use part,      only:grainsize,graindens
-#endif
+ use part,        only:ibin_old
+ use timestep_ind only:get_dt
  use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
  use eos,       only:utherm
@@ -2099,6 +2112,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real,               intent(in)    :: dens(:)
  real,               intent(in)    :: metrics(:,:,:,:)
  real,               intent(in)    :: eos_vars(:,:)
+ real,               intent(in)    :: dt
  real         :: radRi
  real         :: radPi
 
@@ -2108,16 +2122,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real(kind=8) :: hi1
  real         :: dustfraci(maxdusttypes),dustfracisum,rhogasi,pro2i,pri,spsoundi,tempi
  real         :: sxxi,sxyi,sxzi,syyi,syzi,szzi,visctermiso,visctermaniso
-#ifdef DUST
  real         :: tstopi(maxdusttypes)
-#endif
  real         :: Bxi,Byi,Bzi,B2i,Bi1
  real         :: vwavei,alphai
  integer      :: i,j,iamtypei,ip,ii,ia,ib,ic
  real         :: densi
-#ifdef DUST
  integer :: iregime
-#endif
+ real    :: dti
 
  logical :: iactivei,iamgasi,iamdusti,realviscosity
 
@@ -2216,11 +2227,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                   visctermiso,visctermaniso,realviscosity,divcurlvi(1),bulkvisc,dvdxi,stressmax, &
                   radPi)
 
-#ifdef DUST
        !
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
        !
-       if (use_dustfrac .and. iamgasi) then
+       if (use_dust .and. use_dustfrac .and. iamgasi) then
           tstopi = 0.
           do j=1,ndustsmall
              if (use_dustgrowth) then
@@ -2230,7 +2240,6 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
              endif
           enddo
        endif
-#endif
 
     else ! not a gas particle
        vwavei = 0.
@@ -2309,11 +2318,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        cell%xpartvec(ivisctermanisoi,cell%npcell) = visctermaniso
        cell%xpartvec(ipri,cell%npcell)            = pri
        cell%xpartvec(ipro2i,cell%npcell)          = pro2i
-#ifdef DUST
        if (use_dustfrac) then
           cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
        endif
-#endif
+       if (use_dust .and. ind_timesteps .and. drag_implicit) then
+          dti = get_dt(dt,ibin_old(i))
+          cell%xpartvec(idti,cell%npcell) = dti
+       endif
 
        if (do_radiation) then
           radRi = get_rad_R(rhoi,rad(iradxi,i),radprop(ifluxx:ifluxz,i),radprop(ikappa,i))
@@ -2352,15 +2363,15 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        enddo
     endif
 
-#ifdef DUSTGROWTH
-    cell%xpartvec(igrainsizei,cell%npcell)        = dustprop(1,i)
-    cell%xpartvec(igraindensi,cell%npcell)        = dustprop(2,i)
-#endif
- if (use_dust) then
-    cell%xpartvec(ifxi_drag,cell%npcell)        = fxyz_drag(1,i)
-    cell%xpartvec(ifyi_drag,cell%npcell)        = fxyz_drag(2,i)
-    cell%xpartvec(ifzi_drag,cell%npcell)        = fxyz_drag(3,i)
- endif
+    if (use_dustgrowth) then
+       cell%xpartvec(igrainsizei,cell%npcell)     = dustprop(1,i)
+       cell%xpartvec(igraindensi,cell%npcell)     = dustprop(2,i)
+    endif
+    if (use_dust) then
+       cell%xpartvec(ifxi_drag,cell%npcell)       = fxyz_drag(1,i)
+       cell%xpartvec(ifyi_drag,cell%npcell)       = fxyz_drag(2,i)
+       cell%xpartvec(ifzi_drag,cell%npcell)       = fxyz_drag(3,i)
+    endif
     cell%xpartvec(idvxdxi:idvzdzi,cell%npcell)    = dvdx(1:9,i)
  enddo over_parts
 
