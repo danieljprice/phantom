@@ -582,6 +582,10 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  integer                   :: i,iam
  real                      :: stokesnew,sdustprev,sdustmin,sdust
 
+ !$omp parallel do default(none) &
+ !$omp shared(iamtype,iphase,idust,igas,dustgasprop,use_dustfrac,use_porosity) &
+ !$omp shared(npart,dustprop,filfac,mprev,filfacprev) &
+ !$omp private(i,iam,stokesnew,sdustprev,sdustmin,sdust)
  do i=1,npart
     iam = iamtype(iphase(i))
     if ((iam == idust .or. (use_dustfrac .and. iam == igas))  .and. ifrag > 0 .and. dustprop(1,i) <= mprev(i)) then
@@ -601,6 +605,7 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
       endif
     endif
  enddo
+ !$omp end parallel do
 
 end subroutine check_dustprop
 
