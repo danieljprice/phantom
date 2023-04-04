@@ -11,7 +11,8 @@ module units
 !   the units are printed in the dump file header
 !   and log output is scaled in these units)
 !
-! :References: None
+! :References:
+!   Price & Monaghan (2004) MNRAS 348, 123 (section 7.1.1 on MHD units)
 !
 ! :Owner: Daniel Price
 !
@@ -28,6 +29,7 @@ module units
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
+ real(kind=8), public :: unit_angmom
 
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
@@ -139,6 +141,7 @@ subroutine set_units_extra()
  unit_energ      = umass*unit_ergg
  unit_opacity    = udist**2/umass
  unit_luminosity = unit_energ/utime
+ unit_angmom     = udist*umass*unit_velocity
 
 end subroutine set_units_extra
 
@@ -276,10 +279,10 @@ end function is_digit
 !  Gravitational constant in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_G_code() result(G_code)
+real function get_G_code() result(G_code)
  use physcon, only:gg
 
- G_code = gg*umass*utime**2/udist**3
+ G_code = real(gg*umass*utime**2/udist**3)
 
 end function get_G_code
 
@@ -288,10 +291,10 @@ end function get_G_code
 !  speed of light in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_c_code() result(c_code)
+real function get_c_code() result(c_code)
  use physcon, only:c
 
- c_code = c*utime/udist
+ c_code = real(c*utime/udist)
 
 end function get_c_code
 
@@ -300,10 +303,10 @@ end function get_c_code
 !  radiation constant
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_radconst_code() result(radconst_code)
+real function get_radconst_code() result(radconst_code)
  use physcon, only:radconst
 
- radconst_code = radconst/unit_energ*udist**3
+ radconst_code = real(radconst/unit_energ*udist**3)
 
 end function get_radconst_code
 
@@ -312,10 +315,10 @@ end function get_radconst_code
 !  speed of light in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_kbmh_code() result(kbmh_code)
+real function get_kbmh_code() result(kbmh_code)
  use physcon, only:kb_on_mh
 
- kbmh_code = kb_on_mh/unit_velocity**2
+ kbmh_code = real(kb_on_mh/unit_velocity**2)
 
 end function get_kbmh_code
 
@@ -326,7 +329,7 @@ end function get_kbmh_code
 !---------------------------------------------------------------------------
 logical function G_is_unity()
 
- G_is_unity = abs(get_G_code() - 1.d0) < 1.d-12
+ G_is_unity = abs(get_G_code() - 1.) < 1.e-12
 
 end function G_is_unity
 
@@ -337,7 +340,7 @@ end function G_is_unity
 !---------------------------------------------------------------------------
 logical function c_is_unity()
 
- c_is_unity = abs(get_c_code() - 1.d0) < 1.d-12
+ c_is_unity = abs(get_c_code() - 1.) < 1.e-12
 
 end function c_is_unity
 !---------------------------------------------------------------------------

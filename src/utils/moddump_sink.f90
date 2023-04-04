@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! Change accretion radius of sink particle
+! Interactively change sink particle properties
 !
 ! :References: None
 !
@@ -16,32 +16,42 @@ module moddump
 !
 ! :Dependencies: centreofmass, part, prompting
 !
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,ihsoft
- use prompting,    only:prompt
- use centreofmass, only:reset_centreofmass
  implicit none
 
 contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- implicit none
- integer, intent(inout)               :: npart
- integer, dimension(:), intent(inout) :: npartoftype
- real, dimension(:), intent(inout)    :: massoftype
- real, dimension(:,:), intent(inout)  :: xyzh,vxyzu
- integer                              :: i,isinkpart
- real                                 :: racc,hsoft,mass,mass_old,newx
- logical                              :: iresetCM
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,ihsoft,ilum
+ use prompting,      only:prompt
+ use centreofmass,   only:reset_centreofmass
+ use ptmass_heating, only:Lnuc
+ use units,          only:unit_energ,utime
+ integer, intent(inout) :: npart,npartoftype(:)
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
+ integer                :: i,isinkpart
+ real                   :: racc,hsoft,mass,mass_old,newx,Lnuc_cgs
+ logical                :: iresetCM
 
  print*,'Sink particles in dump:'
  do i=1,nptmass
-    print*,'Sink ',i,' : ','pos = (',xyzmh_ptmass(1:3,i),') ',&
-           'mass = ',xyzmh_ptmass(4,i),' h = ',xyzmh_ptmass(ihsoft,i),&
-           'hacc = ',xyzmh_ptmass(ihacc,i)
+    print "(a,1x,i4,a)",'Sink',i,':'
+    print "(7(a5,1x,a,1x,f13.7,/))",&
+             'x','=',xyzmh_ptmass(1,i),&
+             'y','=',xyzmh_ptmass(2,i),&
+             'z','=',xyzmh_ptmass(3,i),&
+             'mass','=',xyzmh_ptmass(4,i),&
+             'h','=',xyzmh_ptmass(ihsoft,i),&
+             'hacc','=',xyzmh_ptmass(ihacc,i),&
+             'Lnuc','=',xyzmh_ptmass(ilum,i)
+    if (i > 10) then
+       print*, "The rest of the sink particles are not displayed"
+       exit
+    endif
  enddo
+
  isinkpart = 2
  do while (isinkpart /= 0)
-    call prompt('Enter the sink particle number to modify:',isinkpart,0,nptmass)
+    call prompt('Enter the sink particle number to modify (0 to exit):',isinkpart,0,nptmass)
     if (isinkpart <= 0) exit
 
     mass = xyzmh_ptmass(4,isinkpart)
@@ -66,16 +76,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Enter new x-coordinate for the sink in code units:',newx,0.)
     xyzmh_ptmass(1,isinkpart) = newx
     print*,'x-coordinate changed to ',xyzmh_ptmass(1,isinkpart)
+
+    Lnuc = xyzmh_ptmass(1,ilum)
+    Lnuc_cgs = Lnuc * unit_energ / utime
+    call prompt('Enter new sink heating luminosity in erg/s:',Lnuc_cgs,0.)
+    xyzmh_ptmass(ilum,isinkpart) = Lnuc_cgs / unit_energ * utime
+    print*,'Luminosity [erg/s] changed to ',xyzmh_ptmass(ilum,isinkpart) * unit_energ / utime
  enddo
 
  iresetCM = .false.
  call prompt('Reset centre of mass?',iresetCM)
- if (iresetCM) then
-    call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- endif
+ if (iresetCM) call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  return
-
 end subroutine modify_dump
 
 end module moddump

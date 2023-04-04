@@ -121,7 +121,7 @@ module forces
        itstop          = 61 + (maxdusttypes - 1), &
        itstopend       = 61 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust     = 62 + 2*(maxdusttypes - 1), &
+       lastxpvdust     = 61 + 2*(maxdusttypes - 1), &
        iradxii         = lastxpvdust + 1, &
        iradfxi         = lastxpvdust + 2, &
        iradfyi         = lastxpvdust + 3, &
@@ -1485,6 +1485,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !rhoj      = 0.
           rho1j     = 0.
           rho21j    = 0.
+          densj     = 0.
 
           mrhoj5    = 0.
           autermj   = 0.
@@ -2088,7 +2089,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dust,      only:get_ts,idrag,drag_implicit
  use part,      only:grainsize,graindens
  use part,        only:ibin_old
- use timestep_ind only:get_dt
+ use timestep_ind,    only:get_dt
  use nicil,     only:nimhd_get_jcbcb
  use radiation_utils, only:get_rad_R
  use eos,       only:utherm
@@ -2518,7 +2519,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2532,9 +2533,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
- use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
+ use timestep,       only:C_cour,C_cool,C_force,C_rad,C_ent,bignumber,dtmax
  use timestep_sts,   only:use_sts
- use units,          only:unit_ergg,unit_density,unit_velocity
+ use units,          only:unit_ergg,unit_density,get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
 #ifdef KROME
  use part,           only:gamma_chem
@@ -2548,10 +2549,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #endif
  use io,             only:warning
  use physcon,        only:c,kboltz
- use timestep,       only:C_rad
 #ifdef GR
  use part,           only:pxyzu
- use timestep,       only:C_ent
 #endif
 
  integer,            intent(in)    :: icall
@@ -2743,6 +2742,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
     else
        rho1i = 0.
+       vwavei = 0.
     endif
 
 #ifdef GRAVITY
@@ -2834,7 +2834,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (ien_type == ien_etotal) then
              fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
           elseif (ien_type == ien_entropy_s) then
-             fxyz4 = fxyz4 + u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz
+             fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
@@ -2855,14 +2855,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              fxyz4 = 0.
 #endif
              if (lightcurve) then
-                luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
+                luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
              endif
 #endif
           elseif (ieos==16) then ! here eni is the temperature
              if (abs(damp) < tiny(damp)) then
                 rho_cgs = rhoi * unit_density
                 call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
-                dTdui = dTdui_cgs / unit_ergg
+                dTdui = real(dTdui_cgs / unit_ergg)
                 !use cgs
                 fxyz4 = fxyz4 + dTdui*(pri*rho1i*rho1i*drhodti + fsum(idudtdissi))
              else
@@ -2991,12 +2991,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
-#ifdef GR
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature
-       if (ien_type == ien_entropy_s .and. gr) then
+       if (gr .and. ien_type == ien_entropy_s) then
           dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
        endif
-#endif
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
@@ -3094,7 +3092,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              dtradi = bignumber
           else
              drad(iradxi,i) = fsum(idradi) + radprop(iradP,i)*drhodti*rho1i*rho1i
-             c_code     = c/unit_velocity
+             c_code     = get_c_code()
              radkappai  = xpartveci(iradkappai)
              radlambdai = xpartveci(iradlambdai)
              ! eq30 Whitehouse & Bate 2004

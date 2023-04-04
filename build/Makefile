@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -1299,6 +1299,7 @@ compilers:
 	@if type -p xlf90_r > /dev/null; then echo "make SYSTEM=ukaff1a [uses xlf90_r]"; fi;
 	@if type -p gfortran > /dev/null; then echo "make SYSTEM=gfortran"; fi;
 	@if type -p g95 > /dev/null; then echo "make SYSTEM=g95"; fi;
+	@if type -p aocc > /dev/null; then echo "make SYSTEM=aocc"; fi;
 	@echo "(end of possible selections)"; echo;
 
 #----------------------------------------------------

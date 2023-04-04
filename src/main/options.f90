@@ -150,7 +150,7 @@ subroutine set_default_options
  mcfost_computes_Lacc = .false.
  mcfost_dust_subl = .false.
  mcfost_uses_PdV = .true.
- mcfost_keep_part = 0.999
+ mcfost_keep_part = real(0.999,kind=4)
  ISM = 0
 
  ! radiation
