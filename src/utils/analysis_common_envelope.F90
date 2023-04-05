@@ -45,7 +45,9 @@ module analysis
  real                                 :: omega_corotate=0,init_radius,rho_surface,gamma
  logical, dimension(5)                :: switch = .false.
  public                               :: do_analysis
+ public                               :: tconv_profile,get_interior_mass ! public = no unused fn warning
  private
+
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
@@ -67,19 +69,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  real, dimension(3)           :: com_xyz, com_vxyz
  real, dimension(3)           :: xyz_a, vxyz_a
- real, dimension(6,npart)     :: histogram_data
+ real, allocatable            :: histogram_data(:,:)
  real                         :: ang_vel
 
- real, dimension(npart)      :: pres_1, proint_1, peint_1, temp_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
+ real :: pres_1i, proint_1i, peint_1i, temp_1i
+ real :: troint_1i, teint_1i, entrop_1i, abad_1i, gamma1_1i, gam_1i
 
  !case 16 variables
- real                        :: thermodynamic_quantities(5,npart)
- real, dimension(npart)      :: radius_1, dens_1
+ real, allocatable :: thermodynamic_quantities(:,:)
+ real, allocatable :: radius_1i, dens_1i
 
 
  !chose analysis type
  if (dump_number==0) then
-    print "(37(a,/))", &
+    print "(40(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -116,13 +119,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '34) Velocity histogram',&
             '35) Unbound temperature',&
             '36) Planet mass distribution',&
-            '37) Planet profile'
+            '37) Planet profile',&
+            '38) Velocity profile',&
+            '39) Angular momentum profile',&
+            '40) Keplerian velocity profile'
     analysis_to_perform = 1
-    call prompt('Choose analysis type ',analysis_to_perform,1,37)
+    call prompt('Choose analysis type ',analysis_to_perform,1,40)
  endif
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
+ call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,&
+                                   xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
  requires_eos_opts = any((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32,33,35/) == analysis_to_perform)
@@ -189,31 +196,38 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call planet_mass_distribution(time,num,npart,xyzh)
  case(37) ! Calculate planet profile
     call planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
+ case(38) ! Velocity profile
+    call velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(39) ! Angular momentum profile
+    call angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ case(40) ! Keplerian velocity profile
+    call vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
     call bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  case(14) !MESA EoS save on file thermodynamical quantities for all particles
+    allocate(thermodynamic_quantities(5,npart))
     do i=1,npart
 
        !particle radius
-       radius_1(i) = distance(xyzh(1:3,i)) * udist
+       radius_1i = distance(xyzh(1:3,i)) * udist
 
        !particles density in code units
        rhopart = rhoh(xyzh(4,i), particlemass)
-       dens_1(i) = rhopart * unit_density
+       dens_1i = rhopart * unit_density
 
        !gets entropy for the current particle
        call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
-                                    pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
-                                    teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
+                                 pres_1i,proint_1i,peint_1i,temp_1i,troint_1i, &
+                                 teint_1i,entrop_1i,abad_1i,gamma1_1i,gam_1i)
 
        !stores everything in an array
-       thermodynamic_quantities(1,i) = radius_1(i)
-       thermodynamic_quantities(2,i) = dens_1(i)
-       thermodynamic_quantities(3,i) = pres_1(i)
-       thermodynamic_quantities(4,i) = temp_1(i)
-       thermodynamic_quantities(5,i) = entrop_1(i)
+       thermodynamic_quantities(1,i) = radius_1i
+       thermodynamic_quantities(2,i) = dens_1i
+       thermodynamic_quantities(3,i) = pres_1i
+       thermodynamic_quantities(4,i) = temp_1i
+       thermodynamic_quantities(5,i) = entrop_1i
 
     enddo
     ncols = 5
@@ -226,6 +240,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call write_file('td_quantities', 'thermodynamics', columns, thermodynamic_quantities, npart, ncols, num)
 
     unitnum = unitnum + 1
+    deallocate(thermodynamic_quantities)
 
  case(15) !Gravitational drag on sinks
     call gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
@@ -257,6 +272,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     ang_vel = ang_vel / 2.
 
+    allocate(histogram_data(6,npart))
+
     do i=1,npart
        xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
        vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
@@ -270,6 +287,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     enddo
 
     call write_file('specific_energy_particles', 'histogram', columns, histogram_data, size(histogram_data(1,:)), ncols, num)
+
+    deallocate(histogram_data)
 
  case(18)
     call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
@@ -480,7 +499,10 @@ subroutine m_vs_t(time,npart,particlemass,xyzh)
  real, intent(in)    :: time,particlemass,xyzh(:,:)
  character(len=17)   :: colname
  real                :: sinksinksep,mass(1)
- integer             :: i,k,iorder(npart)
+ integer             :: i,k
+ integer, allocatable :: iorder(:)
+
+ allocate(iorder(npart))
 
  call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -494,6 +516,9 @@ subroutine m_vs_t(time,npart,particlemass,xyzh)
  mass = i*particlemass + xyzmh_ptmass(4,1)
  write(colname, '(A11)') ' mass coord'
  call write_time_file('            m_vs_t',colname,time,mass,1,dump_number)
+
+ deallocate(iorder)
+
 end subroutine m_vs_t
 
 
@@ -554,6 +579,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
              '    He+HI bm', & ! Bound mass including recombination energy of HeII, HeI, HI
              ' He+HI+H2 bm'/)  ! Bound mass including recombination energy of HeII, HeI, HI, H2
 
+ Zfrac = 0.
  if (dump_number == 0) then
     if (ieos /= 10 .and. ieos /= 20) then ! For MESA EoS, just use X_in and Z_in from eos module
        Xfrac = 0.69843
@@ -917,8 +943,11 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  real                           :: rhovol, rhomass, rhopart, R1, rad_vel, sepCoO
  real                           :: temp_const, ponrhoi, spsoundi, tempi
  real, dimension(3)             :: rcrossmv, CoO, com_xyz, com_vxyz
- real, dimension(3,npart)       :: xyz_a
- integer                        :: npart_a, mean_rad_num, iorder(npart)
+ real, allocatable              :: xyz_a(:,:)
+ integer                        :: npart_a, mean_rad_num
+ integer, allocatable           :: iorder(:)
+
+ allocate(iorder(npart),xyz_a(3,npart))
 
  MRL = 0.
  rhovol = 0.
@@ -1082,8 +1111,8 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
 
  call write_time_file('roche_lobes', columns, time, MRL, ncols, dump_number)
  deallocate(columns)
-end subroutine roche_lobe_values
 
+end subroutine roche_lobe_values
 
 !----------------------------------------------------------------
 !+
@@ -1097,7 +1126,8 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  real, intent(in)               :: time, particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable :: columns(:)
- integer                        :: i,j,k,ncols,mean_rad_num,iorder(npart),npart_a,iorder_a(npart)
+ integer                        :: i,j,k,ncols,mean_rad_num,npart_a
+ integer, allocatable           :: iorder(:),iorder_a(:)
  real, allocatable              :: star_stability(:)
  real                           :: total_mass,rhovol,totvol,rhopart,virialpart,virialfluid
  real                           :: phii,ponrhoi,spsoundi,tempi,epoti,ekini,einti,etoti,totekin,totepot,virialintegral,gamma
@@ -1113,7 +1143,7 @@ subroutine star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  integer, parameter             :: ivirialfluid = 10
 
  ncols = 10
- allocate(columns(ncols),star_stability(ncols))
+ allocate(columns(ncols),star_stability(ncols),iorder(npart),iorder_a(npart))
  columns = (/'vol. eq. rad',&
              ' density rad',&
              'mass outside',&
@@ -1259,9 +1289,10 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,&
                                  dum1,dum2,dum3,dum4,dum5
  real, allocatable, save      :: init_entropy(:)
- real                         :: quant(4,npart)
+ real, allocatable            :: quant(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
+ allocate(quant(4,npart))
  Nquantities = 12
  if (dump_number == 0) then
     print "(12(a,/))",&
@@ -1293,11 +1324,16 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  do k=1,4
     select case (quantities_to_calculate(k))
     case(1,2,3,6,8,9) ! Nothing to do
-    case(4,5) ! Fractional difference between gas and orbital omega
-       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+    case(4,5,11,12) ! Fractional difference between gas and orbital omega
+       if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
+          com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+          com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+                     / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+       elseif (quantities_to_calculate(k) == 11 .or. quantities_to_calculate(k) == 12) then
+          com_xyz = xyzmh_ptmass(1:3,1)
+          com_vxyz = vxyz_ptmass(1:3,1)
+       endif
        do i=1,nptmass
           xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
           vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
@@ -1553,7 +1589,7 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:)
  integer                :: nbins
- real, dimension(npart) :: rad_part,kappa_part,rho_part
+ real, allocatable      :: rad_part(:),kappa_part(:),rho_part(:)
  real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:)
  real                   :: maxloga,minloga,kappa,kappat,kappar
  character(len=17)      :: filename
@@ -1562,6 +1598,8 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
 
  call compute_energies(time)
  nbins      = 500
+
+ allocate(rad_part(npart),kappa_part(npart),rho_part(npart))
  rad_part   = 0.
  kappa_part = 0.
  rho_part   = 0.
@@ -1605,8 +1643,8 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  open(unit=unitnum, file=trim(adjustl(filename)), position='append')
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
-end subroutine tau_profile
 
+end subroutine tau_profile
 
 !----------------------------------------------------------------
 !+
@@ -1621,7 +1659,7 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                :: nbins
- real, dimension(npart) :: rad_part,cs_part
+ real, allocatable      :: rad_part(:),cs_part(:)
  real, allocatable      :: cs_hist(:),tconv(:),sepbins(:)
  real                   :: maxloga,minloga,rhoi
  character(len=17)      :: filename
@@ -1630,6 +1668,7 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
  call compute_energies(time)
  nbins      = 500
+ allocate(rad_part(npart),cs_part(npart))
  rad_part   = 0.
  cs_part   = 0.
  minloga    = 0.5
@@ -1674,6 +1713,8 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  write(unitnum,data_formatter) time,tconv
  close(unit=unitnum)
 
+ deallocate(rad_part,cs_part)
+
 end subroutine tconv_profile
 
 
@@ -1688,8 +1729,9 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  integer, intent(in)    :: npart
  real,    intent(in)    :: time,particlemass
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: nbins,recombined_pid(npart)
- real, dimension(npart) :: rad_part,kappa_part,rho_part
+ integer                :: nbins
+ integer, allocatable   :: recombined_pid(:)
+ real, allocatable      :: rad_part(:),kappa_part(:),rho_part(:)
  real, allocatable, save:: tau_recombined(:)
  real, allocatable      :: kappa_hist(:),rho_hist(:),tau_r(:),sepbins(:),sepbins_cm(:)
  logical, allocatable, save :: prev_recombined(:)
@@ -1699,6 +1741,7 @@ subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  integer                :: i,j,nrecombined,bin_ind
 
  call compute_energies(time)
+ allocate(rad_part(npart),kappa_part(npart),rho_part(npart),recombined_pid(npart))
  rad_part   = 0.
  kappa_part = 0.
  rho_part   = 0.
@@ -1780,7 +1823,8 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  character(len=40)              :: data_formatter
  integer                        :: nbins,nhists,i,unitnum
  real, allocatable              :: hist(:),coord(:,:),Emin(:),Emax(:)
- real                           :: rhopart,ponrhoi,spsoundi,tempi,phii,epoti,ekini,einti,ethi,dum,quant(npart)
+ real                           :: rhopart,ponrhoi,spsoundi,tempi,phii,epoti,ekini,einti,ethi,dum
+ real, allocatable              :: quant(:)
  logical                        :: ilogbins
 
  nhists = 3
@@ -1792,6 +1836,8 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  filename = (/ '       hist_kp.ev', &
                '     hist_erec.ev', &
                '      hist_eth.ev' /)
+
+ allocate(quant(npart))
  quant = (/ (1., i=1,npart) /)
  do i=1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
@@ -1838,13 +1884,14 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  integer                :: nbins
- real, dimension(npart) :: coord
+ real, allocatable      :: coord(:)
  real, allocatable      :: hist(:),quant(:,:)
  real                   :: ekini,einti,epoti,ethi,phii,pgas,mu,dum,rhopart,ponrhoi,spsoundi,tempi,&
                            maxcoord,mincoord,xh0,xh1,xhe0,xhe1,xhe2
  character(len=17), allocatable :: filename(:),headerline(:)
  character(len=40)      :: data_formatter
- integer                :: i,k,unitnum,ierr,iorder(npart),ientropy,nvars
+ integer                :: i,k,unitnum,ierr,ientropy,nvars
+ integer, allocatable   :: iorder(:)
  integer, save          :: iquantity
  logical                :: ilogbins
  logical, save          :: use_mass_coord
@@ -1880,7 +1927,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  else
     nvars = 5
  endif
- allocate(filename(nvars),headerline(nvars),quant(npart,nvars))
+ allocate(filename(nvars),headerline(nvars),quant(npart,nvars),coord(npart))
 
  coord = 0.
  quant = 0.
@@ -1917,6 +1964,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
                     '          # HeIII' /)
  end select
 
+ allocate(iorder(npart))
  if (use_mass_coord) then
     call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1)) ! Order particles by distance from core
     call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -1994,21 +2042,21 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
  real, intent(in)             :: time
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
  integer                      :: nbins
- real, dimension(npart)       :: rad_part
+ real, allocatable            :: rad_part(:)
  real, allocatable            :: hist_var(:),dist_part(:,:)
- real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),xyz_origin(3),vxyz_origin(3),omega
+ real                         :: minloga,maxloga,sep_vector(3),vel_vector(3),J_vector(3),xyz_origin(3),vxyz_origin(3),omega,vphi
  character(len=17), allocatable :: grid_file(:)
  character(len=40)            :: data_formatter
  integer                      :: i,unitnum,nfiles,iradius
 
  nbins = 500
- rad_part = 0.
  minloga = 0.5
  maxloga = 4.3
  iradius = 1 ! 1: Bin by cylindrical radius; 2: Bin by spherical radius; 3: Bin by cylindrical radius from CM
 
  nfiles = 2
- allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart))
+ allocate(hist_var(nbins),grid_file(nfiles),dist_part(nfiles,npart),rad_part(npart))
+ rad_part = 0.
  dist_part = 0.
  grid_file = (/ '    grid_omega.ev', &
                 '       grid_Jz.ev' /)
@@ -2032,8 +2080,8 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
        rad_part(i) = separation(xyzh(1:3,i),xyz_origin)
     end select
 
-    call get_gas_omega(xyz_origin,vxyz_origin,xyzh(1:3,i),vxyzu(1:3,i),omega)
-    dist_part(1,i) = omega
+    call get_gas_omega(xyz_origin,vxyz_origin,xyzh(1:3,i),vxyzu(1:3,i),vphi,omega)
+    dist_part(1,i) = vphi
 
     sep_vector = xyzh(1:3,i) - xyz_origin(1:3)
     vel_vector = vxyzu(1:3,i) - vxyz_origin(1:3)
@@ -2074,8 +2122,9 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  character(len=40)   :: file_name1,file_name2
  integer             :: i,iu1,iu2,ncols
  real                :: ponrhoi,rhopart,spsoundi,phii,epoti,ekini,einti,tempi,ethi,dum
- real, dimension(npart) :: vbound,vunbound,vr
+ real, allocatable   :: vbound(:),vunbound(:),vr(:)
 
+ allocate(vbound(npart),vunbound(npart),vr(npart))
  do i = 1,npart
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
@@ -2110,7 +2159,179 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  close(unit=iu1)
  close(unit=iu2)
 
+ deallocate(vbound,vunbound,vr)
+
 end subroutine velocity_histogram
+
+
+!----------------------------------------------------------------
+!+
+!  Velocity profile
+!+
+!----------------------------------------------------------------
+subroutine velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ real, intent(in)    :: time,particlemass
+ integer, intent(in) :: npart,num
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=40)   :: data_formatter
+ character(len=40)   :: file_name
+ integer             :: i,nbins,iu,count
+ real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),vphi,omega,&
+                        theta1,theta2,tantheta1,tantheta2,tantheta
+ real, allocatable, dimension(:) :: rad_part,dist_part,hist
+
+ nbins = 500
+ rmin = 0.
+ rmax = 5.
+
+ allocate(hist(nbins),dist_part(npart),rad_part(npart))
+ dist_part = 0.
+ file_name = '  vphi_profile.ev'
+
+ ! Select origin
+ xyz_origin = xyzmh_ptmass(1:3,1)
+ vxyz_origin = vxyz_ptmass(1:3,1)    
+ 
+ ! Masking in polar angle
+ theta1 = 75.   ! Polar angle in deg
+ theta2 = 105.
+ tantheta1 = tan(theta1*3.14159/180.)
+ tantheta2 = tan(theta2*3.14159/180.)
+
+ count = 0
+ do i = 1,npart
+    rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyz_origin(1:2), xyzh(1:2,i) - xyz_origin(1:2)) )  ! Cylindrical radius
+
+    ! Masking in polar angle
+    tantheta = rad_part(i)/(xyzh(3,i) - xyzmh_ptmass(3,1))
+    if ( (tantheta>0. .and. tantheta<tantheta1) .or. (tantheta<0. .and. tantheta>tantheta2) ) cycle
+
+    call get_gas_omega(xyz_origin,vxyz_origin,xyzh(1:3,i),vxyzu(1:3,i),vphi,omega)
+    dist_part(i) = vphi
+    count = count + 1
+ enddo
+
+ call histogram_setup(rad_part,dist_part,hist,count,rmax,rmin,nbins,.true.,.false.)
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    write(iu, "(a)") '# Azimuthal velocity profile'
+    close(unit=iu)
+ endif
+ open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ write(iu,data_formatter) time,hist
+ close(unit=iu)
+
+end subroutine velocity_profile
+
+
+!----------------------------------------------------------------
+!+
+!  Specific z-angular momentum profile
+!+
+!----------------------------------------------------------------
+subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ real, intent(in)    :: time,particlemass
+ integer, intent(in) :: npart,num
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=40)   :: data_formatter
+ character(len=40)   :: file_name
+ integer             :: i,nbins,iu,count
+ real                :: rmin,rmax,xyz_origin(3),vxyz_origin(3),&
+                        theta1,theta2,tantheta1,tantheta2,tantheta
+ real, allocatable, dimension(:) :: rad_part,dist_part,hist
+ 
+ nbins = 500
+ rmin = 0.
+ rmax = 5.
+ 
+ allocate(hist(nbins),dist_part(npart),rad_part(npart))
+ dist_part = 0.
+ file_name = '    jz_profile.ev'
+ 
+ ! Select origin
+ xyz_origin = xyzmh_ptmass(1:3,1)
+ vxyz_origin = vxyz_ptmass(1:3,1)    
+ 
+ ! Masking in polar angle
+ theta1 = 75.   ! Polar angle in deg
+ theta2 = 105.
+ tantheta1 = tan(theta1*3.14159/180.)
+ tantheta2 = tan(theta2*3.14159/180.)
+ 
+ count = 0
+ do i = 1,npart
+    rad_part(i) = sqrt( dot_product(xyzh(1:2,i) - xyz_origin(1:2), xyzh(1:2,i) - xyz_origin(1:2)) )  ! Cylindrical radius
+ 
+    ! Masking in polar angle
+    tantheta = rad_part(i)/(xyzh(3,i) - xyzmh_ptmass(3,1))
+    if ( (tantheta>0. .and. tantheta<tantheta1) .or. (tantheta<0. .and. tantheta>tantheta2) ) cycle
+ 
+    dist_part(i) = ( (xyzh(1,i)-xyz_origin(1))*(vxyzu(2,i)-vxyz_origin(2)) - &
+                   (xyzh(2,i)-xyz_origin(2))*(vxyzu(1,i)-vxyz_origin(1)) )
+    count = count + 1
+ enddo
+ 
+ call histogram_setup(rad_part,dist_part,hist,count,rmax,rmin,nbins,.true.,.false.)
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    write(iu, "(a)") '# z-angular momentum profile'
+    close(unit=iu)
+ endif
+ open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ write(iu,data_formatter) time,hist
+ close(unit=iu)
+  
+end subroutine angular_momentum_profile
+
+
+!----------------------------------------------------------------
+!+
+!  Keplerian velocity profile
+!+
+!----------------------------------------------------------------
+subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
+ use sortutils, only:set_r2func_origin,r2func_origin,find_rank
+ use part,      only:iorder=>ll
+ real, intent(in)    :: time,particlemass
+ integer, intent(in) :: npart,num
+ real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ character(len=40)   :: data_formatter,file_name
+ integer             :: i,nbins,iu
+ real                :: rmin,rmax,massi,Mtot
+ real, allocatable   :: hist(:),rad_part(:),dist_part(:)
+ 
+ nbins = 500
+ rmin = 0.
+ rmax = 5.
+
+ allocate(hist(nbins),rad_part(npart),dist_part(npart))
+ dist_part = 0.
+ file_name = '  vkep_profile.ev'
+
+ call set_r2func_origin(xyzmh_ptmass(1,1),xyzmh_ptmass(2,1),xyzmh_ptmass(3,1))
+ call find_rank(npart,r2func_origin,xyzh(1:3,:),iorder)
+
+ Mtot = npart*particlemass
+ do i = 1,npart
+    massi = Mtot * real(iorder(i)-1) / real(npart) + xyzmh_ptmass(4,1)
+    rad_part(i) = separation( xyzh(1:3,i), xyzmh_ptmass(1:3,1) )
+    dist_part(i) = sqrt(massi/rad_part(i))
+ enddo
+
+ call histogram_setup(rad_part,dist_part,hist,npart,rmax,rmin,nbins,.true.,.false.)
+ write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
+ if (num == 0) then
+    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    write(iu, "(a)") '# Keplerian velocity profile'
+    close(unit=iu)
+ endif
+ open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ write(iu,data_formatter) time,hist
+ close(unit=iu)
+  
+end subroutine vkep_profile
 
 
 !----------------------------------------------------------------
@@ -2333,7 +2554,7 @@ subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
           xhe2 = xion(4) ! He+ ionisation to He++ fraction
           xhe0 = 1.-xion(3)
        else  ! Not supported
-          print*,"Error, insensible to use unbound_ionfrac when not using MESA EoS (ieos=10) or gas+rad+rec EoS (ieos=20)"
+          print*,"Error, not sensible to use unbound_ionfrac when not using MESA EoS (ieos=10) or gas+rad+rec EoS (ieos=20)"
           stop
        endif
        ionfrac(i,1) = xh0
@@ -2446,12 +2667,14 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  real                      :: etoti,ekini,einti,epoti,ethi,phii,dum,rhopart,&
                               ponrhoi,spsoundi,tempi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
  character(len=40)         :: data_formatter,logical_format
- logical, dimension(npart) :: isbound
- integer, dimension(npart) :: H_state,He_state
+ logical, allocatable      :: isbound(:)
+ integer, allocatable      :: H_state(:),He_state(:)
  integer                   :: i
  real, parameter           :: recomb_th=0.05
 
  call compute_energies(time)
+
+ allocate(isbound(npart),H_state(npart),He_state(npart))
  do i=1,npart
     ! Calculate total energy
     rhopart = rhoh(xyzh(4,i), particlemass)
@@ -2517,6 +2740,8 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  open(unit=1000, file="isbound.ev", position='append')
  write(1000,logical_format) time,isbound(:)
  close(unit=1000)
+
+ deallocate(isbound,H_state,He_state)
 
 end subroutine recombination_stats
 
@@ -2678,7 +2903,8 @@ subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
  integer                      :: i, ncols
  real, dimension(8)           :: entropy_array
  real                         :: etoti, ekini, einti, epoti, phii, rhopart
- real, dimension(npart)       :: pres_1, proint_1, peint_1, temp_1, troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
+ real                         :: pres_1, proint_1, peint_1, temp_1
+ real                         :: troint_1, teint_1, entrop_1, abad_1, gamma1_1, gam_1
  integer, parameter           :: ient_b   = 1
  integer, parameter           :: ient_ub  = 2
  integer, parameter           :: itemp_b  = 3
@@ -2705,8 +2931,8 @@ subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
 
     !gets entropy for the current particle
     call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
-                                    pres_1(i),proint_1(i),peint_1(i),temp_1(i),troint_1(i), &
-                                    teint_1(i),entrop_1(i),abad_1(i),gamma1_1(i),gam_1(i))
+                              pres_1,proint_1,peint_1,temp_1,troint_1, &
+                              teint_1,entrop_1,abad_1,gamma1_1,gam_1)
 
     !sums entropy and other quantities for bound particles and unbound particles
 
@@ -2715,15 +2941,15 @@ subroutine bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
     endif
 
     if (etoti < 0.0) then !bound
-       entropy_array(ient_b)  = entropy_array(ient_b) + entrop_1(i)
-       entropy_array(itemp_b) = entropy_array(itemp_b) + temp_1(i)
-       entropy_array(ipres_b) = entropy_array(ipres_b) + pres_1(i)
+       entropy_array(ient_b)  = entropy_array(ient_b) + entrop_1
+       entropy_array(itemp_b) = entropy_array(itemp_b) + temp_1
+       entropy_array(ipres_b) = entropy_array(ipres_b) + pres_1
        entropy_array(idens_b) = entropy_array(idens_b) + rhopart*unit_density
 
     else !unbound
-       entropy_array(ient_ub)  = entropy_array(ient_ub) + entrop_1(i)
-       entropy_array(itemp_ub) = entropy_array(itemp_ub) + temp_1(i)
-       entropy_array(ipres_ub) = entropy_array(ipres_ub) + pres_1(i)
+       entropy_array(ient_ub)  = entropy_array(ient_ub) + entrop_1
+       entropy_array(itemp_ub) = entropy_array(itemp_ub) + temp_1
+       entropy_array(ipres_ub) = entropy_array(ipres_ub) + pres_1
        entropy_array(idens_ub) = entropy_array(idens_ub) + rhopart*unit_density
 
     endif
@@ -2767,7 +2993,8 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  real,    intent(inout)                :: xyzh(:,:),vxyzu(:,:)
  character(len=17), allocatable        :: columns(:)
  character(len=17)                     :: filename
- integer                               :: i,j,k,iorder(npart),ncols,sizeRcut,vol_npart,merge_ij(nptmass),merge_n
+ integer                               :: i,j,k,ncols,sizeRcut,vol_npart,merge_ij(nptmass),merge_n
+ integer, allocatable                  :: iorder(:)
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass,fxyz_ptmass_sinksink
@@ -2782,7 +3009,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
                                           volume,vol_mass,vKep,omega,maxsep,cos_psi,mass_coregas,&
                                           com_sink_sep,Fgrav_mag
  real, dimension(:), allocatable       :: Rcut
- real, dimension(4,maxptmass,5)        :: force_cut_vec
+ real, dimension(:,:,:), allocatable   :: force_cut_vec
  logical, save                         :: iacc,icentreonCM
  integer, save                         :: iavgopt
 
@@ -2816,7 +3043,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  endif
 
  ncols = 31
- allocate(columns(ncols))
+ allocate(columns(ncols),iorder(npart),force_cut_vec(4,maxptmass,5))
  allocate(drag_force(ncols,nptmass))
  columns = (/'   drag_perp', & ! 1  Component of net force (excluding sink-sink) perpendicular to sink separation (projection on (r2-r1) x z)
              '    drag_par', & ! 2  Component of net force (excluding sink-sink) projected along sink separation, -(r2-r1)
@@ -3163,12 +3390,13 @@ subroutine create_bindingEnergy_profile(time,num,npart,particlemass,xyzh,vxyzu)
 
  character(len=17), allocatable :: columns(:)
  real, allocatable              :: profile(:,:)
- integer                        :: ncols,i,j,iorder(npart)
+ integer                        :: ncols,i,j
+ integer, allocatable           :: iorder(:)
  real                           :: currentInteriorMass,currentParticleGPE,currentCoreParticleSeparation
  real                           :: previousBindingEnergy,previousBindingEnergyU
 
  ncols=3
- allocate(columns(ncols))
+ allocate(columns(ncols),iorder(npart))
  allocate(profile(ncols,npart))
  columns=(/"      radius",&
            "     bEnergy",& !Binding energy without internal energy.
@@ -3301,7 +3529,7 @@ subroutine print_dump_numbers(dumpfile)
  endif
  if (i==nseps+1) then
     print "(5(a,/))",'../',dumpfiles
-    stop
+    return
  endif
 
 end subroutine print_dump_numbers
@@ -3323,7 +3551,7 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  character(len=17), allocatable  :: columns(:)
  real, allocatable               :: data(:,:)
  real                            :: diskz,diskR2,diskR1,R,omegai,phii,rhopart,ponrhoi,spsoundi,tempi,&
-                                    epoti,ekini,ethi,Ji(3),vrel2,fxi,fyi,fzi
+                                    epoti,ekini,ethi,Ji(3),vrel2,fxi,fyi,fzi,vphi
  integer                         :: ncols,i
 
  ncols = 9
@@ -3363,7 +3591,7 @@ subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),gamma,ethi)
 
-    call get_gas_omega(xyzmh_ptmass(1:3,2),vxyz_ptmass(1:3,2),xyzh(1:3,i),vxyzu(1:3,i),omegai)
+    call get_gas_omega(xyzmh_ptmass(1:3,2),vxyz_ptmass(1:3,2),xyzh(1:3,i),vxyzu(1:3,i),vphi,omegai)
     call cross_product3D(xyzh(1:3,i)-xyzmh_ptmass(1:3,2), vxyzu(1:3,i)-vxyz_ptmass(1:3,2), Ji)
 
     data(1,i) = R
@@ -3421,11 +3649,11 @@ end subroutine erec_vs_t
 !  relative to a reference point
 !+
 !----------------------------------------------------------------
-subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,omega)
+subroutine get_gas_omega(xyz_centre,vxyz_centre,xyzi,vxyzi,vphi,omega)
  use vectorutils, only:cross_product3D
  real, intent(in)  :: xyz_centre(3),vxyz_centre(3),xyzi(3),vxyzi(3)
- real, intent(out) :: omega
- real              :: vphi,Rmag,R(3),phi_unitvec(3),R_unitvec(3)
+ real, intent(out) :: vphi,omega
+ real              :: Rmag,R(3),phi_unitvec(3),R_unitvec(3)
 
  ! xyz_centre: Position vector of reference point
  ! vxyz_centre: Velocity vector of reference point
@@ -3633,9 +3861,11 @@ subroutine get_interior_mass(xyzh,vxyzu,donor_xyzm,companion_xyzm,particlemass,n
  real, intent(out) :: interior_mass,com_xyz(3),com_vxyz(3)
  integer, intent(in) :: npart,iavgopt
  real :: sinksinksep,maxsep,sep,xyz_int(3,npart),vxyz_int(3,npart)
- integer :: j,k,iorder(npart),npart_int
+ integer :: j,k,npart_int
+ integer, allocatable :: iorder(:)
 
  ! Calculate mass interior to companion
+ allocate(iorder(npart))
  call set_r2func_origin(donor_xyzm(1),donor_xyzm(2),donor_xyzm(3)) ! Order particles by distance from donor core
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
  sinksinksep = separation(donor_xyzm(1:3), companion_xyzm(1:3))
@@ -3674,11 +3904,14 @@ subroutine orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,c
  integer, intent(in)             :: npart,nptmass
  real, intent(in)                :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(out), dimension(3) :: com_xyz,com_vxyz
- real, dimension(4,npart)        :: xyz_a
- real, dimension(3,npart)        :: vxyz_a
- integer                         :: iorder(npart),npart_a
+ real, allocatable               :: xyz_a(:,:)
+ real, allocatable               :: vxyz_a(:,:)
+ integer, allocatable            :: iorder(:)
+ integer                         :: npart_a
  real                            :: sep
  integer                         :: i,j,k
+
+ allocate(iorder(npart),xyz_a(4,npart),vxyz_a(3,npart))
 
  ! Get order of particles by distance from CoM of point masses
  com_xyz(1) = sum(xyzmh_ptmass(1,:)*xyzmh_ptmass(4,:))/nptmass
@@ -3719,7 +3952,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  integer, intent(out) :: vol_npart
  integer, intent(in) :: npart,isink,iavgopt
  real :: orbit_centre(3),orbit_centre_vel(3),sphere_centre(3),Rarray(size(xyzh(1,:))),zarray(size(xyzh(1,:))),vxyzu_copy(4)
- real :: Rsphere,sep,omega_out,Rsinksink,dR,dz
+ real :: Rsphere,sep,omega_out,Rsinksink,dR,dz,vphi
  integer :: i,j,k,iorder(size(xyzh(1,:)))
 
  i = isink
@@ -3738,6 +3971,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  vol_npart = 0
  vol_mass = 0.
  omega = 0.
+ cs = 0.
 
  ! If averaging over a sphere, get order of particles from closest to farthest from sphere centre
  dr = 0.
@@ -3745,7 +3979,8 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  Rsinksink = 0.
  vol_npart = 0
  Rsphere = 0.
- if ((iavgopt == 1) .or. (iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) then
+ select case(iavgopt)
+ case(1,2,5,6)
     select case (iavgopt)
     case(1) ! Use companion position
        sphere_centre = xyzmh_ptmass(1:3,i)
@@ -3768,7 +4003,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
           vel(1:3) = vel(1:3) + vxyzu(1:3,k)
           vxyzu_copy = vxyzu(:,k)
           cs       = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
-          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
+          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),vphi,omega_out)
           omega    = omega + omega_out
        endif
     enddo
@@ -3777,7 +4012,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
     if ((iavgopt == 2) .or. (iavgopt == 5) .or. (iavgopt == 6)) vel = -vel ! To-do: get rid of this line
 
     ! Averaging in annulus
- elseif ((iavgopt == 3) .or. (iavgopt == 4)) then
+ case(3,4)
     Rarray = sqrt( (xyzh(1,:) - xyzmh_ptmass(1,3-i))**2 + (xyzh(2,:) - xyzmh_ptmass(2,3-i))**2) ! [(x-x1)^2 + (y-y1)^2]^0.5
     zarray = xyzh(3,:) - xyzmh_ptmass(3,3-i)
     if (iavgopt == 4) Rsphere = 0.2*separation(xyzmh_ptmass(1:3,3-i),xyzmh_ptmass(1:3,i))
@@ -3788,13 +4023,13 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
           vel   = vel + vxyzu(1:3,k)
           vxyzu_copy = vxyzu(:,k)
           cs    = cs + get_spsound(ieos,xyzh(1:3,k),rhoh(xyzh(4,k),particlemass),vxyzu_copy)
-          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),omega_out)
+          call get_gas_omega(orbit_centre,orbit_centre_vel,xyzh(1:3,k),vxyzu(1:3,k),vphi,omega_out)
           omega = omega + omega_out
           vol_npart = vol_npart + 1
        endif
     enddo
     vol_mass = vol_npart * particlemass
- endif
+ end select
 
  ! Calculate averaging volume based on averaging option
  select case (iavgopt)
@@ -3808,7 +4043,7 @@ subroutine average_in_vol(xyzh,vxyzu,npart,particlemass,com_xyz,com_vxyz,isink,i
  case default
     volume = 0.
     print*,'Unknown averaging option'
-    stop
+    return
  end select
 
  ! Calculate volume averages
@@ -4012,12 +4247,14 @@ function sphInterpolation(npart,particlemass,particleRho,particleXyzh,interpolat
  real, intent(in)    :: toInterpolate(:,:)
  real                :: interpolatedData(size(toInterpolate,1))
 
- integer             :: i,j,iorder(npart)
- real                :: currentR,currentQ,currentQ2
- real                :: nearestSphH
- real                :: currentParticleRho,currentSphSummandFactor
+ integer              :: i,j
+ integer, allocatable :: iorder(:)
+ real                 :: currentR,currentQ,currentQ2
+ real                 :: nearestSphH
+ real                 :: currentParticleRho,currentSphSummandFactor
 
  interpolatedData=0.0
+ allocate(iorder(npart))
  call set_r2func_origin(interpolateXyz(1),interpolateXyz(2),interpolateXyz(3))
  call indexxfunc(npart,r2func_origin,particleXyzh,iorder) !Gets the order of SPH particles from the interpolation point.
  nearestSphH=particleXyzh(4,iorder(1)) !The smoothing length of the nearest SPH particle to the ineterpolation point.

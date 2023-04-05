@@ -60,7 +60,7 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
-                          lightcurve,use_dust,maxdusttypes,do_radiation
+                          lightcurve,use_dust,maxdusttypes,do_radiation,gr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
 #ifdef GR
- use part,           only:metrics,metricderivs
+ use part,           only:metrics
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
@@ -91,19 +91,14 @@ subroutine compute_energies(t)
  use fastmath,       only:finvsqrt
 #endif
 #endif
-#ifdef LIGHTCURVE
  use part,           only:luminosity
-#endif
-#ifdef DUST
  use dust,           only:get_ts,idrag
- integer :: iregime,idusttype
- real    :: tsi(maxdustsmall)
-#endif
  real, intent(in) :: t
+ integer :: iregime,idusttype
  real    :: ev_data_thread(4,0:inumev)
  real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
- real    :: epoti,pmassi,dnptot,dnpgas
+ real    :: epoti,pmassi,dnptot,dnpgas,tsi
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
@@ -192,13 +187,9 @@ subroutine compute_energies(t)
 !$omp shared(metrics) &
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 #endif
-#ifdef DUST
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
-#endif
-#ifdef LIGHTCURVE
 !$omp shared(luminosity,track_lum) &
-#endif
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
@@ -331,12 +322,17 @@ subroutine compute_energies(t)
           epot = epot + pmassi*epoti
        endif
        if (gravity) epot = epot + poten(i)
-#ifdef DUST
-       if (iamdust(iphase(i))) then
-          idusttype = ndustsmall + itype - idust + 1
-          mdust(idusttype) = mdust(idusttype) + pmassi
+
+       !
+       ! total dust mass for each species
+       !
+       if (use_dust) then
+          if (iamdust(iphase(i))) then
+             idusttype = ndustsmall + itype - idust + 1
+             mdust(idusttype) = mdust(idusttype) + pmassi
+          endif
        endif
-#endif
+
        if (do_radiation) erad = erad + pmassi*rad(iradxi,i)
        !
        ! the following apply ONLY to gas particles
@@ -395,20 +391,17 @@ subroutine compute_energies(t)
           if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
              call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
           endif
-#ifdef DUST
+
           ! min and mean stopping time
           if (use_dustfrac) then
              rhogasi = rhoi*gasfrac
              do j=1,ndustsmall
-                call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi(j),iregime)
-                call ev_data_update(ev_data_thread,iev_ts,tsi(j))
+                call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfraci(j),spsoundi,0.,tsi,iregime)
+                call ev_data_update(ev_data_thread,iev_ts,tsi)
              enddo
           endif
-#endif
 
-#ifdef LIGHTCURVE
-          if (track_lum) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
-#endif
+          if (track_lum .and. lightcurve) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
 
           ! rms mach number
           if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2
@@ -601,12 +594,13 @@ subroutine compute_energies(t)
  !--Number of gas particles without a sound speed or energy
  np_cs_eq_0 = reduceall_mpi('+',np_cs_eq_0)
  np_e_eq_0  = reduceall_mpi('+',np_e_eq_0)
+ !
  !--Finalise the arrays & correct as necessary;
  !  Almost all of the average quantities are over gas particles only
+ !
  call finalise_ev_data(ev_data,dnpgas)
-#ifndef GR
- ekin = 0.5*ekin
-#endif
+
+ if (.not.gr) ekin = 0.5*ekin
  emag = 0.5*emag
  ekin = reduceall_mpi('+',ekin)
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduceall_mpi('+',etherm)
