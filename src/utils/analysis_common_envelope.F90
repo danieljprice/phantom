@@ -46,6 +46,7 @@ module analysis
  logical, dimension(5)                :: switch = .false.
  public                               :: do_analysis
  public                               :: tconv_profile,get_interior_mass ! public = no unused fn warning
+ public                               :: planet_destruction,total_dust_mass ! make public to avoid compiler warning
  private
 
 contains
