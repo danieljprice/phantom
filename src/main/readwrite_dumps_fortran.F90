@@ -1684,9 +1684,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
- call extract('idtmax_n',idtmax_n,hdr,ierr)
- call extract('idtmax_frac',idtmax_frac,hdr,ierr)
- call extract('idumpfile',idumpfile,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
  Bextx = 0.
  Bexty = 0.
@@ -1727,6 +1724,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
        call read_headeropts_extern(iextern_in_file,hdr,nptmass,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
     endif
+
+    call extract('idtmax_n',idtmax_n,hdr,ierr,default=1)
+    call extract('idtmax_frac',idtmax_frac,hdr,ierr)
+    call extract('idumpfile',idumpfile,hdr,ierr)
  else
     massoftype(1) = 0.
     hfactfile = 0.
@@ -1800,7 +1801,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     endif
  endif
 
- return
 end subroutine unfill_rheader
 
 
