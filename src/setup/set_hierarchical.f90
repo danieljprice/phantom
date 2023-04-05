@@ -74,8 +74,8 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
                                   binary_a, binary_e, binary_i, binary_O, &
                                   binary_w, binary_f)
     !print*,'elements of ', hl_temp, ' : ', m1, m2, accr1, accr2, &
-                                  binary_a, binary_e, binary_i, binary_O, &
-                                  binary_w, binary_f
+    !                              binary_a, binary_e, binary_i, binary_O, &
+    !                              binary_w, binary_f
 
     read(hl_temp,*,iostat=subst) subst
 
