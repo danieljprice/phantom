@@ -46,7 +46,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: i,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
  real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
  integer :: iremoveparttype
- real    :: inradius,outradius,pwl_sizedistrib,R_ref
+ real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: icutinside,icutoutside,sizedistrib
  
 
@@ -65,6 +65,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  dustbinfrac = 0.
  pwl_sizedistrib = -2
  R_ref = 100
+ H_R_ref = 0.0895
+ q_index = 0.25
 
  icutinside      = .false.
  icutoutside     = .false.
@@ -124,6 +126,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                 call prompt('Enter grain size in cm at Rref',grainsizecgs,0.)
                 call prompt('Enter power-law index ',pwl_sizedistrib)
                 call prompt('Enter R_ref ',R_ref,0.)
+                call prompt('Enter H/R at R_ref',H_R_ref,0.)
+                call prompt('Enter q index',q_index)
              else 
                 call prompt('Enter initial grain size in cm',grainsizecgs,0.)
              endif
@@ -190,7 +194,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
     endif
     if (use_dustgrowth) then
-          call set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref)
+          call set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
     endif
  endif
  !Delete particles if necessary

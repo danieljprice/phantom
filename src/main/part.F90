@@ -80,7 +80,6 @@ module part
  !- porosity
  integer, allocatable :: dragreg(:)    !- drag regime
  real, allocatable    :: mprev(:)      !- previous mass
- real, allocatable    :: filfacprev(:) !- previous filling factor needed for minimum St condition
  real, allocatable    :: filfac(:)     !- filling factor
  real, allocatable    :: probastick(:) !-probabily of sticking, when bounce is on
  character(len=*), parameter :: filfac_label = 'filfac'
@@ -475,7 +474,6 @@ subroutine allocate_part
  call allocate_array('dragreg', dragreg, maxp_growth)
  call allocate_array('filfac', filfac, maxp_growth)
  call allocate_array('mprev', mprev, maxp_growth)
- call allocate_array('filfacprev', filfacprev, maxp_growth)
  call allocate_array('probastick', probastick, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
@@ -559,7 +557,6 @@ subroutine deallocate_part
  if (allocated(dragreg))      deallocate(dragreg)
  if (allocated(filfac))       deallocate(filfac)
  if (allocated(mprev))        deallocate(mprev)
- if (allocated(filfacprev))   deallocate(filfacprev)
  if (allocated(probastick))   deallocate(probastick)
  if (allocated(deltav))       deallocate(deltav)
  if (allocated(pxyzu))        deallocate(pxyzu)
