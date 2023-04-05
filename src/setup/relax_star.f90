@@ -214,7 +214,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
           ! give the real thermal energy profile so the file is useable as a starting file for the main calculation
           if (use_var_comp) call set_star_composition(use_var_comp,eos_outputs_mu(ieos_prev),&
                                                       npart,xyzh,Xfrac,Yfrac,mu,mr,mstar,eos_vars)
-          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,r,npart,xyzh,vxyzu,rad,&
+          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,r,nt,npart,xyzh,vxyzu,rad,&
                                                        eos_vars,.true.,use_var_comp=.false.,initialtemp=1.e3)
           call write_fulldump(t,filename)
           call flush(iunit)
