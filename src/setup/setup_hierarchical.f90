@@ -36,8 +36,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use sethierarchical, only:set_hierarchical_default_options,set_hierarchical
  use units,     only:set_units
  use physcon,   only:solarm,au,pi
- use options,   only:iexternalforce
- use externalforces, only:iext_corotate,omega_corotate
+ !use options,   only:iexternalforce
+ use externalforces, only:iext_corotate!,omega_corotate
  use io,        only:master
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
