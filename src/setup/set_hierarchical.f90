@@ -68,7 +68,7 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
     hl_temp = trim(split_list(i))
     !print*,'splitting: ',trim(adjustl(hl_temp))
-  
+
 
     call find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                   binary_a, binary_e, binary_i, binary_O, &
@@ -164,7 +164,7 @@ subroutine set_hierarchical_default_options()!in_hierarchy)
  integer :: i
 
 ! hierarchy = in_hierarchy
- 
+
  hs%labels = process_hierarchy(hierarchy)
 
  do i=1,hs%labels%sink_num
@@ -208,7 +208,7 @@ subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxy
  mass = 0.
 
  !print*, xyzmh_ptmass(4,:5)
- 
+
  do i=1,inner_sinks_num
     xorigin(:) = xorigin(:)+xyzmh_ptmass(4,int_sinks(i))*xyzmh_ptmass(1:3,int_sinks(i))
     vorigin(:) = vorigin(:)+xyzmh_ptmass(4,int_sinks(i))*vxyz_ptmass(1:3,int_sinks(i))
@@ -230,9 +230,9 @@ end subroutine get_hierarchical_level_com
 real function get_hier_level_mass(level)
  use sethier_utils, only:get_hierarchical_level_mass
  character(len=10), intent(in) :: level
- 
+
  get_hier_level_mass = get_hierarchical_level_mass(level, hs)
- 
+
 end function get_hier_level_mass
 
 !----------------------------------------------------------------
@@ -294,8 +294,8 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     !print*,data(:,1)
     !print*,data(:,2)
     !print*,hier_prefix
-    
-    
+
+
     call find_data_index(hier_prefix, subst_index, prefix, ierr) ! QUI VOGLIO DATA INDEX
 
     data(subst_index,1) = 0
@@ -396,7 +396,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
           endif
        endif
 
-       
+
        ! Rotate substituting sinks by argument of pericenter around the z axis
        call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
@@ -415,7 +415,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
        call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
     endif
-    
+
     ! Move the substituting binary's center of mass in the substituted star position
     xyzmh_ptmass(1:3,i1) = xyzmh_ptmass(1:3,i1)+x_subst
     xyzmh_ptmass(1:3,i2) = xyzmh_ptmass(1:3,i2)+x_subst

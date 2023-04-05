@@ -1173,7 +1173,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
           !print*,disclabel,' com_pos ', xorigini
-          
+
        endif
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then

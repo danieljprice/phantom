@@ -41,23 +41,23 @@ module sethier_utils
  type hs_sink_properties
     real :: mass, accr
  end type hs_sink_properties
- 
+
  type hierarchical_system
    type(hs_labels) :: labels
    type(hs_orbital_elements) :: levels(max_hier_levels)
    type(hs_sink_properties) :: sinks(max_hier_levels)
  end type hierarchical_system
- 
+
  public :: hierarchical_system,process_hierarchy
  public :: recursive_splitting, get_hierarchical_level_mass
  public :: load_hierarchy_file,update_hierarchy_file,check_substitution
  public :: find_hierarchy_index,find_hier_level_orb_elem,find_data_index
  public :: gen_rotate
  public :: find_ptmass_index
- 
+
  private
 
- 
+
 contains
 
 !--------------------------------------------------------------------------
@@ -170,7 +170,7 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     !print *, '    i.e. ', new_splits
 
     !print *, 'up to now splits are ', split_list
-    
+
     ! Add new splits to split_list
     do i=splits+1, splits+count
        split_list(i) = new_splits(i-splits)
@@ -217,7 +217,7 @@ real function get_hierarchical_level_mass(level, hs) result(part_mass)
  integer :: i
 
  !print*,'get_hierarchical_lvl_mass ', trim(level)
- 
+
  part_mass = 0
  !print*, 'computing!'
  do i=1, hs%labels%sink_num
@@ -231,7 +231,7 @@ real function get_hierarchical_level_mass(level, hs) result(part_mass)
 
 end function get_hierarchical_level_mass
 
- 
+
 subroutine load_hierarchy_file(prefix, data, lines, ierr)
   character(len=20), intent(in), optional:: prefix
   integer,    intent(out)    :: ierr, lines
@@ -240,7 +240,7 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
   character(len=20) :: filename
   integer :: io
   logical :: iexist
- 
+
   if (present(prefix)) then
      filename = trim(prefix)//'.hierarchy'
   else
@@ -248,7 +248,7 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
   endif
 
   inquire(file=trim(filename), exist=iexist)
-  
+
   if (iexist) then
      open(2, file = trim(filename), status = 'old')
      lines=0
@@ -281,7 +281,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
   logical :: iexist
 
   !print*,'updating: ',trim(adjustl(hier_prefix))
-  
+
 
   call find_hier_level_orb_elem(hier_prefix, hs, mprimary, msecondary, accr1, accr2, &
        semimajoraxis, eccentricity, incl, posang_ascnode, &
@@ -291,16 +291,16 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
   !     semimajoraxis, eccentricity, incl, posang_ascnode, &
   !     arg_peri, binary_f
 
-  
+
   period = sqrt(4.*pi**2*semimajoraxis**3/(mprimary+msecondary))
-  
+
   if (present(prefix)) then
      filename = trim(prefix)//'.hierarchy'
   else
      filename = 'HIERARCHY'
   endif
-  
-  if (lines>0) then  
+
+  if (lines>0) then
      open(2, file = trim(filename), status = 'old')
      do i=1,lines
         write(2,*) int(data(i,1)), int(data(i,2)), data(i,3:)
@@ -312,7 +312,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
         open(1, file=trim(filename), status='old')
         close(1, status='delete')
      endif
-     
+
      open(2, file = trim(filename), status = 'new')
   end if
   write(2,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
@@ -322,7 +322,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
   close(2)
 
   call load_hierarchy_file(prefix, data, lines, ierr)
-  
+
 end subroutine update_hierarchy_file
 
 
@@ -337,16 +337,16 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
 
   ! Check that star to be substituted exists in HIERARCHY file
   call find_data_index(hier_prefix, subst_index, prefix, ierr)
-  
+
   if(subst_index == 0) then
      print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
      ierr = ierr_missstar
      return
   endif
 
-  ! Check that star to be substituted has not already been substituted  
+  ! Check that star to be substituted has not already been substituted
   call load_hierarchy_file(prefix, data, lines, ierr)
-  
+
   if(data(subst_index,1) == 0) then
      print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
      ierr = ierr_subststar
@@ -365,19 +365,19 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
   mb = data(subst_index, 4)
   a_comp = data(subst_index, 5)
   e_comp = data(subst_index, 6)
-  
+
   q_comp = ma/mb
   if (q_comp>1) q_comp=q_comp**(-1)
-  
+
   ! Mardling&Aarseth (2001) criterion check
-  
+
   period_ratio = sqrt((a_comp*a_comp*a_comp)/(ma+mb)/(semimajoraxis*semimajoraxis*semimajoraxis)*(ma)) ! Po/Pi
   criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
-  
+
   if (criterion > period_ratio) then
      print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
   endif
-  
+
 end subroutine check_substitution
 
 
@@ -394,26 +394,26 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
   integer :: hl_index
 
   !print*, 'find ', trim(hl_temp)
-  
+
   m1 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'1', hs)
   m2 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'2', hs)
 
   !print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
-  
+
   if (any(hs%labels%sink == trim(adjustl(hl_temp))//'1')) then
      accr1 = hs%sinks(findloc(hs%labels%sink,trim(adjustl(hl_temp))//'1', 1))%accr
   else
      accr1 = 1.
   endif
-  
+
   if (any(hs%labels%sink == trim(adjustl(hl_temp))//'2')) then
      accr2 = hs%sinks(findloc(hs%labels%sink,trim(adjustl(hl_temp))//'2', 1))%accr
   else
      accr2 = 1.
   endif
-  
+
   hl_index = findloc(hs%labels%hl, trim(adjustl(hl_temp)), 1)
-  
+
   binary_a = hs%levels(hl_index)%a
   binary_e = hs%levels(hl_index)%e
   binary_O = hs%levels(hl_index)%O
@@ -421,7 +421,7 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
   binary_i = hs%levels(hl_index)%inc
   binary_f = hs%levels(hl_index)%f
 
-  
+
 
 end subroutine find_hier_level_orb_elem
 
@@ -429,14 +429,14 @@ end subroutine find_hier_level_orb_elem
 subroutine find_ptmass_index(hier_label, index, prefix, ierr)
   integer,    intent(out)    :: index, ierr
   character(len=20), intent(in), optional:: prefix, hier_label
-  
+
   real, dimension(hier_db_size,hier_db_prop) :: data
   integer :: lines, hier_int
-  
+
   call load_hierarchy_file(prefix, data, lines, ierr)
 
   read(hier_label,*,iostat=hier_int) hier_int
-  
+
   index = int(data(findloc(int(data(:,2)), hier_int, 1),1))
 
   !print*, 'idx ', index, int(data(index,2))
@@ -445,8 +445,8 @@ subroutine find_ptmass_index(hier_label, index, prefix, ierr)
 
   !print*, int(data(:,2))
   !print*, hier_label, index
-  
-  
+
+
 end subroutine find_ptmass_index
 
 
@@ -487,16 +487,16 @@ end subroutine find_hierarchy_index
 subroutine find_data_index(hier_label, index, prefix, ierr)
   integer,    intent(out)    :: index, ierr
   character(len=20), intent(in), optional:: prefix, hier_label
-  
+
   real, dimension(hier_db_size,hier_db_prop) :: data
   integer :: lines, hier_int
-  
+
   call load_hierarchy_file(prefix, data, lines, ierr)
 
   read(hier_label,*,iostat=hier_int) hier_int
-  
+
   index = findloc(int(data(:,2)), hier_int, 1)
-  
+
 end subroutine find_data_index
 
 

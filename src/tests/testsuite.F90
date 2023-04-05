@@ -146,7 +146,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'poly')      /= 0) dopoly    = .true.
  if (index(string,'mpi')       /= 0) dompi     = .true.
  if (index(string,'hier')      /= 0) dohier    = .true.
- 
+
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
                dopart,dopoly,dohier/))

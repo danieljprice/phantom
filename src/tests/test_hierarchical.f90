@@ -34,11 +34,11 @@ subroutine test_sethier(ntests,npass)
  if (id==master) write(*,"(/,a,/)") '--> TESTING DISC SETUP'
 
  call test_heirarchical_string(ntests,npass)
- 
+
 ! call test_heirarchical_setup(ntests,npass)
 
  !call test_readwrite_heirarchy(ntests,npass)
- 
+
  if (id==master) write(*,"(/,a)") '<-- CHESS SETUP TESTS COMPLETE'
 
 
@@ -50,13 +50,13 @@ subroutine test_heirarchical_string(ntests,npass)
   print*,"test heirarchical string"
 !  result = parse_string(¨111,112,113¨)
  ! call checkval(result,result_ref,"check 111,112,113")
-  
+
 end subroutine test_heirarchical_string
 
 !subroutine test_heirarchical_setup
 
   ! call sethIERARCHICAL()
-  
+
 !
 !--check that set_disc passes check_setup routine
 !
