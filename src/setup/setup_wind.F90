@@ -133,7 +133,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: init_inject
- use setbinary, only: set_binary,set_multiple
+ use setbinary, only: set_binary
+ use sethierarchical, only: set_multiple
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
  use spherical, only:set_sphere
