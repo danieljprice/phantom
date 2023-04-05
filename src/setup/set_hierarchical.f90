@@ -14,7 +14,7 @@ module sethierarchical
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, prompting, setbinary
+! :Dependencies: infile_utils, setbinary, sethier_utils
 !
 
  use sethier_utils, only:process_hierarchy,max_hier_levels,lenhierstring,hierarchical_system,&

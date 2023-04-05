@@ -10,12 +10,11 @@ module testsethier
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Simone Ceppi
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: checksetup, deriv, dim, eos, io, options, part, physcon,
-!   setdisc, testutils, timing, units
+! :Dependencies: io
 !
  implicit none
  public :: test_sethier

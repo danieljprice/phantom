@@ -16,7 +16,7 @@ module raytracer
 !
 ! :References: Esseldeurs M., Siess L. et al, 2023, A&A, in press
 !
-! :Owner: Mats Esseldeurs
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !

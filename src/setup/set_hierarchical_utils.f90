@@ -14,7 +14,7 @@ module sethier_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils, prompting, setbinary
+! :Dependencies: None
 !
 
  implicit none
