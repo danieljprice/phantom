@@ -8,3 +8,5 @@ Testing:
 Describe how you have tested the change
 
 Did you run the bots? yes/no
+
+Did you update relevant documentation in the docs directory? yes/no
