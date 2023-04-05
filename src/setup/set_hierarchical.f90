@@ -67,13 +67,13 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  do i=splits,1,-1
 
     hl_temp = trim(split_list(i))
-    print*,'splitting: ',trim(adjustl(hl_temp))
+    !print*,'splitting: ',trim(adjustl(hl_temp))
   
 
     call find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                   binary_a, binary_e, binary_i, binary_O, &
                                   binary_w, binary_f)
-    print*,'elements of ', hl_temp, ' : ', m1, m2, accr1, accr2, &
+    !print*,'elements of ', hl_temp, ' : ', m1, m2, accr1, accr2, &
                                   binary_a, binary_e, binary_i, binary_O, &
                                   binary_w, binary_f
 
@@ -201,20 +201,20 @@ subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxy
  real :: mass
 
  call find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
- print*, 'found ', inner_sinks_num, ' sinks: ', int_sinks(:inner_sinks_num)
+ !print*, 'found ', inner_sinks_num, ' sinks: ', int_sinks(:inner_sinks_num)
 
  xorigin = 0.
  vorigin = 0.
  mass = 0.
 
- print*, xyzmh_ptmass(4,:5)
+ !print*, xyzmh_ptmass(4,:5)
  
  do i=1,inner_sinks_num
     xorigin(:) = xorigin(:)+xyzmh_ptmass(4,int_sinks(i))*xyzmh_ptmass(1:3,int_sinks(i))
     vorigin(:) = vorigin(:)+xyzmh_ptmass(4,int_sinks(i))*vxyz_ptmass(1:3,int_sinks(i))
     mass = mass + xyzmh_ptmass(4,int_sinks(i))
  enddo
- print*, '--> ', mass, xorigin, vorigin
+ !print*, '--> ', mass, xorigin, vorigin
  xorigin = xorigin/mass
  vorigin = vorigin/mass
 
@@ -344,7 +344,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     ! velocities
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,nptmass+1)
 
-    print*,xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2)
+    !print*,xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2)
 
     !---
     ! Rotate the substituting binary with orientational parameters

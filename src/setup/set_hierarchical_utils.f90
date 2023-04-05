@@ -216,15 +216,15 @@ real function get_hierarchical_level_mass(level, hs) result(part_mass)
 
  integer :: i
 
- print*,'get_hierarchical_lvl_mass ', trim(level)
+ !print*,'get_hierarchical_lvl_mass ', trim(level)
  
  part_mass = 0
- print*, 'computing!'
+ !print*, 'computing!'
  do i=1, hs%labels%sink_num
-    print*,'-',trim(hs%labels%sink(i)),'-', '   ', '-',trim(level),'- ', len(trim(level))
+    !print*,'-',trim(hs%labels%sink(i)),'-', '   ', '-',trim(level),'- ', len(trim(level))
     if ((len(trim(hs%labels%sink(i))) >= len(trim(level))) .and. &
          ((hs%labels%sink(i)(:len(trim(level))) == trim(level)))) then
-       print*,'inside ', trim(hs%labels%sink(i)), hs%sinks(i)%mass
+       !print*,'inside ', trim(hs%labels%sink(i)), hs%sinks(i)%mass
        part_mass = part_mass + hs%sinks(i)%mass
     endif
  enddo
@@ -393,12 +393,12 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
 
   integer :: hl_index
 
-  print*, 'find ', trim(hl_temp)
+  !print*, 'find ', trim(hl_temp)
   
   m1 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'1', hs)
   m2 = get_hierarchical_level_mass(trim(adjustl(hl_temp))//'2', hs)
 
-  print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
+  !print *,'labels passing: ', trim(adjustl(hl_temp))//'1 ', m1,trim(adjustl(hl_temp))//'2 ',m2
   
   if (any(hs%labels%sink == trim(adjustl(hl_temp))//'1')) then
      accr1 = hs%sinks(findloc(hs%labels%sink,trim(adjustl(hl_temp))//'1', 1))%accr

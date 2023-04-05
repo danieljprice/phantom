@@ -1172,7 +1172,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           star_m(i) = m2
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
-          print*,disclabel,' com_pos ', xorigini
+          !print*,disclabel,' com_pos ', xorigini
           
        endif
 
