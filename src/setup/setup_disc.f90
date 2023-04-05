@@ -1087,7 +1087,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
  use sethierarchical, only:get_hierarchical_level_com, get_hier_level_mass
- use sethierarchical, only:hl_labels, a
+ !use sethierarchical, only:hl_labels, a
+ use sethierarchical, only:hs
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -1161,8 +1162,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           if (len(trim(disclabel))>1) then
              m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
 
-             hl_index = findloc(hl_labels, disclabel(:len(trim(disclabel))-1), 1)
-             Rochelobe = Rochelobe_estimate(m1,m2,a(hl_index))
+             hl_index = findloc(hs%labels%hl, disclabel(:len(trim(disclabel))-1), 1)
+             Rochelobe = Rochelobe_estimate(m1,m2,hs%levels(hl_index)%a)
           else
              Rochelobe = huge(0.)
           endif
@@ -1171,7 +1172,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           star_m(i) = m2
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
-
+          print*,disclabel,' com_pos ', xorigini
+          
        endif
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
@@ -1862,8 +1864,8 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
- use sethierarchical, only:set_hierarchical_interactively,set_hierarchical_default_options, get_hier_level_mass
- use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
+ use sethierarchical, only:set_hierarchical_default_options, get_hier_level_mass
+ use sethierarchical, only:hs, hierarchy!sink_num, hl_num, sink_labels, hl_labels
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -1968,7 +1970,8 @@ subroutine setup_interactive()
 
        ibinary = 0
 
-       call set_hierarchical_interactively()
+       call prompt('What is the hierarchy?',hierarchy)
+       !call set_hierarchical_interactively()
        call set_hierarchical_default_options()
 
     case (3)
@@ -2096,12 +2099,12 @@ subroutine setup_interactive()
        !--2 bound binaries: circumbinary
        iuse_disc(:) = .false.
 
-       do i=1,sink_num
-          call prompt('Do you want a disc orbiting '//trim(sink_labels(i))//' star?',iuse_disc(i))
+       do i=1,hs%labels%sink_num
+          call prompt('Do you want a disc orbiting '//trim(hs%labels%sink(i))//' star?',iuse_disc(i))
        enddo
 
-       do i=1,hl_num
-          call prompt('Do you want a disc orbiting '//trim(hl_labels(i))//' hierarchical level?',iuse_disc(i+sink_num))
+       do i=1,hs%labels%hl_num
+          call prompt('Do you want a disc orbiting '//trim(hs%labels%hl(i))//' hierarchical level?',iuse_disc(i+hs%labels%sink_num))
        enddo
 
     endif
@@ -2173,13 +2176,19 @@ subroutine setup_interactive()
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
              higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels)
+             !print*, disclabel, higher_mass
+             !return
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
                    call get_hier_disc_label(i, disclabel)
                    current_mass = get_hier_level_mass(trim(disclabel))
+                   !print*, R_ref(i), R_ref(i), &
+                   !     higher_mass, current_mass, qindex(higher_disc_index),&
+                   !     H_R(higher_disc_index)
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
+                   !print*,'!!!!!!!!!!!!!!!!!!!!!!! ', H_R(i)
                 endif
              enddo
           endif
@@ -2207,7 +2216,14 @@ subroutine setup_interactive()
  endif
  do i=1,maxdiscs
     if (iuse_disc(i)) then
-       if (ndiscs > 1) print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
+       if (ndiscs > 1) then
+          if (nsinks<5) then
+             print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
+          else if (nsinks>4) then
+             call get_hier_disc_label(i, disclabel)
+             print "(/,a)",' >>>  circum'//trim(disclabel)//' disc  <<<'
+          end if
+       end if
        call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                   ' 0=total disc mass'//new_line('A')// &
                   ' 1=mass within annulus'//new_line('A')// &
@@ -2329,7 +2345,7 @@ subroutine write_setupfile(filename)
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
  use sethierarchical, only:write_hierarchical_setupfile
- use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
+ use sethierarchical, only:hs!sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in) :: filename
 
  integer, parameter :: iunit = 20
@@ -2550,14 +2566,14 @@ subroutine write_setupfile(filename)
     elseif (nsinks == 5) then
        write(iunit,"(/,a)") '# options for multiple discs'
 
-       do i=1,sink_num
-          call write_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc','setup circum-' &
-            //trim(sink_labels(i))//' disc',iunit)
+       do i=1,hs%labels%sink_num
+          call write_inopt(iuse_disc(i),'use_'//trim(hs%labels%sink(i))//'disc','setup circum-' &
+            //trim(hs%labels%sink(i))//' disc',iunit)
        enddo
 
-       do i=1,hl_num
-          call write_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc','setup circum-' &
-            //trim(hl_labels(i))//' disc',iunit)
+       do i=1,hs%labels%hl_num
+          call write_inopt(iuse_disc(i+hs%labels%sink_num),'use_'//trim(hs%labels%hl(i))//'disc','setup circum-' &
+            //trim(hs%labels%hl(i))//' disc',iunit)
        enddo
     endif
     call write_inopt(use_global_iso,'use_global_iso',&
@@ -2729,7 +2745,7 @@ subroutine read_setupfile(filename,ierr)
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
  use sethierarchical, only:read_hierarchical_setupfile
- use sethierarchical, only:sink_num, hl_num, sink_labels, hl_labels
+ use sethierarchical, only:hs!sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
 
@@ -2962,12 +2978,12 @@ subroutine read_setupfile(filename,ierr)
     elseif (nsinks == 4) then
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     elseif (nsinks == 5) then
-       do i=1,sink_num
-          call read_inopt(iuse_disc(i),'use_'//trim(sink_labels(i))//'disc',db,errcount=nerr)
+       do i=1,hs%labels%sink_num
+          call read_inopt(iuse_disc(i),'use_'//trim(hs%labels%sink(i))//'disc',db,errcount=nerr)
        enddo
 
-       do i=1,hl_num
-          call read_inopt(iuse_disc(i+sink_num),'use_'//trim(hl_labels(i))//'disc',db,errcount=nerr)
+       do i=1,hs%labels%hl_num
+          call read_inopt(iuse_disc(i+hs%labels%sink_num),'use_'//trim(hs%labels%hl(i))//'disc',db,errcount=nerr)
        enddo
     endif
  else
@@ -3285,14 +3301,14 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 end subroutine temp_to_HR
 
 subroutine get_hier_disc_label(i, disclabel)
- use sethierarchical, only:sink_num, sink_labels, hl_labels
+ use sethierarchical, only:hs!sink_num, sink_labels, hl_labels
  character(len=10), intent(out)  :: disclabel
  integer, intent(in) :: i
 
- if (i <= sink_num) then
-    disclabel = trim(sink_labels(i))
+ if (i <= hs%labels%sink_num) then
+    disclabel = trim(hs%labels%sink(i))
  else
-    disclabel = trim(hl_labels(i-sink_num))
+    disclabel = trim(hs%labels%hl(i-hs%labels%sink_num))
  endif
 
 end subroutine get_hier_disc_label
