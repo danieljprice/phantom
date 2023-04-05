@@ -314,7 +314,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
      endif
 
      open(2, file = trim(filename), status = 'new')
-  end if
+  endif
   write(2,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
        period, incl, arg_peri, posang_ascnode
   write(2,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
@@ -338,7 +338,7 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
   ! Check that star to be substituted exists in HIERARCHY file
   call find_data_index(hier_prefix, subst_index, prefix, ierr)
 
-  if(subst_index == 0) then
+  if (subst_index == 0) then
      print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
      ierr = ierr_missstar
      return
@@ -347,11 +347,11 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
   ! Check that star to be substituted has not already been substituted
   call load_hierarchy_file(prefix, data, lines, ierr)
 
-  if(data(subst_index,1) == 0) then
+  if (data(subst_index,1) == 0) then
      print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
      ierr = ierr_subststar
      return
-  end if
+  endif
 
   ! Check that substituting binary Omega = 0
   if (data(subst_index,10) /= 0) then

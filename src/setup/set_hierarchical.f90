@@ -322,7 +322,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  !if (subst==111) then
  !   print*, 'quiiiit'
  !   !return
- !end if
+ !endif
  !print*, 'set_binary args: ', mprimary, msecondary
  !--- Create the binary
  call set_binary(m1,m2,semimajoraxis=semimajoraxis,eccentricity=eccentricity, &

@@ -2220,11 +2220,11 @@ subroutine setup_interactive()
        if (ndiscs > 1) then
           if (nsinks<5) then
              print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
-          else if (nsinks>4) then
+          elseif (nsinks>4) then
              call get_hier_disc_label(i, disclabel)
              print "(/,a)",' >>>  circum'//trim(disclabel)//' disc  <<<'
-          end if
-       end if
+          endif
+       endif
        call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                   ' 0=total disc mass'//new_line('A')// &
                   ' 1=mass within annulus'//new_line('A')// &
