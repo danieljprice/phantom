@@ -244,7 +244,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
-  use setbinary, only: set_binary
+ use setbinary, only: set_binary
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
@@ -271,7 +271,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  real                   :: alpha_y, beta_y, gamma_y, alpha_z, beta_z, gamma_z, sign_alpha, sign_gamma
 
  ierr = 0
-  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
+ !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  if (present(subst) .and. subst>10) then
     call load_hierarchy_file(prefix, data, lines, ierr)
  else
@@ -445,7 +445,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                       posang_ascnode,arg_peri,incl,f,verbose,subst, prefix)
-  use setbinary, only: set_binary
+ use setbinary, only: set_binary
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2

@@ -45,9 +45,9 @@ subroutine test_sethier(ntests,npass)
 end subroutine test_sethier
 
 subroutine test_heirarchical_string(ntests,npass)
-  integer, intent(inout) :: ntests,npass
+ integer, intent(inout) :: ntests,npass
 
-  print*,"test heirarchical string"
+ print*,"test heirarchical string"
 !  result = parse_string(¨111,112,113¨)
  ! call checkval(result,result_ref,"check 111,112,113")
 
@@ -55,7 +55,7 @@ end subroutine test_heirarchical_string
 
 !subroutine test_heirarchical_setup
 
-  ! call sethIERARCHICAL()
+ ! call sethIERARCHICAL()
 
 !
 !--check that set_disc passes check_setup routine
@@ -68,7 +68,7 @@ end subroutine test_heirarchical_string
 !    call update_test_scores(ntests,nfailed(1:1),npass)
 
 
-    ! DO TESTS HERE
+ ! DO TESTS HERE
 !end subroutine test_heirarchical_setup
 
 end module testsethier
