@@ -106,7 +106,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  use sortutils,       only : set_r2func_origin,indexxfunc,r2func_origin
  use eos,             only : equationofstate,entropy,X_in,Z_in,gmw,init_eos
  use physcon,         only : kb_on_mh,kboltz,atomic_mass_unit,avogadro,gg,pi,pc,years
- use orbits_data,     only : escape, orbital_parameters
+ use orbits_data,     only : escape
  use linalg  ,        only : inverse
  integer,intent(in)               :: npart,numfile
  integer,intent(out)              :: ibin,columns_compo
@@ -123,18 +123,19 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  integer,allocatable :: index_particle_star(:),array_particle_j(:)
  integer :: dummy_size,dummy_bins,number_per_bin,count_particles,number_bins,no_particles,big_bins_no,tot_binned_particles
  real :: density_i,density_sum,rad_inner,rad_outer,radius_star
- logical :: double_the_no
- real :: omega_particle,omega_bin
+ logical :: double_the_no,escape_star
+ real :: omega_particle,omega_bin,pos_com(3),vel_com(3),pos_mag_star,vel_mag_star
  real :: eni_input,u_i,temperature_i,temperature_sum,mu
  real :: ponrhoi,spsoundi,rad_vel_i,momentum_i,rad_mom_sum
+ real :: bhmass
  real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3),L_reshape(3,1),matrix_result(3,1),omega(3)
  real,allocatable    :: A_array(:), Z_array(:)
  real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
-
+ real :: ke_star,u_star,total_star
  ieos = 2
  call init_eos(ieos,ierr)
  gmw=0.61
-
+ bhmass=1.
  ! performing a loop to determine maximum density particle position
  do j = 1,npart
     den_all(j) = rhoh(xyzh(4,j),pmass)
@@ -183,12 +184,19 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  write(iu2,*) "[pos]"," ","[omega]"
  open(newunit=iu3,file="radius_of_bins.info")
  write(iu3,*) "[ibin]"," ","[rad_inner]"," ","[rad_outer]"," ","[Position rad next]"," ","[particles in bin]"
-
+ pos_com(:) = 0.
+ vel_com(:) = 0.
  ! Now we calculate the different quantities of the particles and bin them
  do j=1,energy_verified_no
     i      = iorder(array_particle_j(j))
     i_next = iorder(array_particle_j(j+1))
+
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
+    
+    ! calculating centre of mass position and velocity wrt black hole
+    pos_com(:) = pos_com(:) + xyzh(1:3,i)*pmass
+    vel_com(:) = vel_com(:) + vxyzu(1:3,i)*pmass
+   
     if (j  /=  energy_verified_no) then
        call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
     endif
@@ -257,9 +265,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        bin_mass(ibin)      = count_particles*pmass
        temperature(ibin)   = max(temperature_sum/count_particles,1e3)
        rad_vel(ibin)       = rad_mom_sum/bin_mass(ibin) !Radial vel of each bin is summation(vel_rad_i*m_i)/summation(m_i)
-       print*,rad_vel(ibin),"bin radial vel"
        inverse_of_i  = inverse(I_sum, 3)
-       print*,matmul(inverse_of_i, I_sum)
        !print*,inverse_of_i,"inverse of matrix"
        L_reshape     = reshape(L_sum(:),(/3,1/))
        matrix_result = matmul(inverse_of_i,L_reshape)
@@ -289,12 +295,29 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
        ibin            = ibin+1
     endif
  enddo
+
  close(iu1)
  close(iu2)
  close(iu3)
- ibin = ibin-1
- print*,ibin,"ibin",tot_binned_particles
 
+ ibin = ibin-1
+ print*,mass_enclosed(ibin),"enclodsed mass",pos_com,"pos com"
+ pos_com(:) = pos_com(:)/mass_enclosed(ibin)
+ print*,pos_com,"pos of com" 
+ vel_com(:) = vel_com(:)/mass_enclosed(ibin)
+ print*,pos_com,"pos_com",xpos,"xpos",vel_com,"vel com",vpos,"vpos"
+ print*,ibin,"ibin",tot_binned_particles
+ pos_mag_star = sqrt(dot_product(pos_com,pos_com))
+ vel_mag_star = sqrt(dot_product(vel_com,vel_com))
+ escape_star=escape(pos_mag_star,bhmass,vel_mag_star)
+
+ ke_star = 0.5*vel_mag_star**2*unit_velocity**2
+ u_star = -gg*(bhmass*umass)/(pos_mag_star*udist)
+ total_star = u_star+ke_star
+ print*,total_star,"total_star",umass,"umass",gg,"gg",u_star,"ustar",ke_star,"ke_star"
+ print*,rad_grid(ibin),"rad_grid(ibin)"
+ print*,mass_enclosed(ibin),"/mass_enclosed(ibin)",mass_enclosed(ibin)*umass
+ print*,unit_velocity,"unit_vel"
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -673,5 +696,6 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
  endif
 
 end subroutine calculate_mu
+
 
 end module analysis
