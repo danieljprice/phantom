@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
+! :Dependencies: externalforces, infile_utils, io, part, physcon,
 !   setbinary, sethierarchical, units
 !
 

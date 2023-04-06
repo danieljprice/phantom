@@ -29,8 +29,7 @@ module extern_prdrag
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, infile_utils, io, lumin_nsdisc, physcon,
-!   units
+! :Dependencies: eos, infile_utils, io, lumin_nsdisc, units
 !
  use eos, only:qfacdisc
 

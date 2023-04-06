@@ -16,7 +16,7 @@ module setfixedentropycore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, kernel, physcon, table_utils
+! :Dependencies: dim, eos, io, kernel, physcon, table_utils
 !
  implicit none
  integer :: ientropy
