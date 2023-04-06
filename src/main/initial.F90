@@ -280,6 +280,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--reset dtmax (required only to permit restart dumps)
 !
  dtmax_user = dtmax           ! the user defined dtmax
+ if (idtmax_n < 1) idtmax_n = 1
  dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
 !
 !--initialise values for non-ideal MHD
