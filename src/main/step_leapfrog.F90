@@ -101,7 +101,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev
+                          filfac,filfacpred,mprev,filfacprev
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -179,7 +179,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(rad,drad,pxyzu)&
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
- !$omp shared(mprev,filfac,use_porosity) &
+ !$omp shared(mprev,filfacprev,filfac,use_porosity) &
  !$omp shared(ibin,ibin_old,twas,timei) &
  !$omp firstprivate(itype) &
  !$omp private(i,hdti) &
@@ -215,6 +215,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
        if (use_porosity) then
           mprev(i) = dustprop(1,i)
+          filfacprev(i) = filfac(i)
        endif
        if (itype==idust .and. use_dustgrowth) then
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
@@ -234,7 +235,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (use_porosity) then
        call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti) 
     endif
-    call check_dustprop(npart,dustprop,filfac,ddustprop(1,:))
+    call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
 
 
@@ -376,7 +377,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (use_porosity) then
        call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti) 
     endif
-    call check_dustprop(npart,dustproppred(:,:),filfacpred,ddustprop(1,:))
+    call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
  endif
 !
 ! recalculate all SPH forces, and new timestep
@@ -596,7 +597,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (use_porosity) then
           call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph)
        endif
-       call check_dustprop(npart,dustprop,filfac,ddustprop(1,:))
+       call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
    endif
 
     if (gr) then
@@ -670,7 +671,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (use_porosity) then
              call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph) 
           endif
-          call check_dustprop(npart,dustprop,filfac,ddustprop(1,:))
+          call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
        endif
 !
 !   get new force using updated velocity: no need to recalculate density etc.
