@@ -135,7 +135,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  rt = (m0/ms)**(1./3.) * rs
  rp = rt/beta
- r0 = 10.*rt
  theta=theta*pi/180.0
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -165,7 +164,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz0 = vxyzstar(3)
 
  elseif (abs(ecc-1.) < tiny(1.)) then
-    print*, 'Parabolic orbit'
+    print*, 'Parabolic orbit',r0,"r0"
     y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
     z0    = 0.
