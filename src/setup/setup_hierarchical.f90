@@ -108,9 +108,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
     print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
     print*,"                                                                      "
- endif
 
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",'  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+
+    
+    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+    !         '        simulate the universe as a hierarchical system'
+    
+ endif
+ 
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
