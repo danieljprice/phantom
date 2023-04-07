@@ -32,7 +32,7 @@ module dust_formation
  integer, public :: idust_opacity = 0
 
  public :: set_abundances,evolve_dust,evolve_chem,calc_kappa_dust,&
-      calc_kappa_bowen,chemical_equilibrium_light,&
+      calc_kappa_bowen,chemical_equilibrium_light,psat_C,calc_nucleation,&
       read_options_dust_formation,write_options_dust_formation,&
       calc_Eddington_factor,calc_muGamma,init_muGamma,init_nucleation,&
       write_headeropts_dust_formation,read_headeropts_dust_formation
@@ -41,6 +41,7 @@ module dust_formation
 !
 
  real, public :: kappa_gas   = 2.d-4
+ real, public, parameter :: Scrit = 2. ! Critical saturation ratio
 
  private
 
@@ -82,7 +83,6 @@ module dust_formation
       -4.38897d+05, -1.58111d+05, 2.49224d+01, 1.08714d-03, -5.62504d-08, & !TiO
       -3.32351d+05, -3.04694d+05, 5.86984d+01, 1.17096d-03, -5.06729d-08, & !TiO2
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
- real, parameter :: Scrit = 2. ! Critical saturation ratio
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
 
@@ -179,7 +179,7 @@ subroutine evolve_chem(dt, T, rho_cgs, JKmuS)
     S = pC/psat_C(T)
     if (S > Scrit) then
        !call nucleation(T, pC, pC2, 0., pC2H, pC2H2, S, JstarS, taustar, taugr)
-       call nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
+       call calc_nucleation(T, pC, 0., 0., 0., pC2H2, S, JstarS, taustar, taugr)
        JstarS = JstarS/ nH_tot
        call evol_K(JKmuS(idJstar), JKmuS(idK0:idK3), JstarS, taustar, taugr, dt, Jstar_new, K_new)
     else
@@ -272,7 +272,7 @@ end function calc_Eddington_factor
 !  Compute nucleation rate
 !
 !----------------------------
-subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
+subroutine calc_nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
 ! all quantities are in cgs
  real, intent(in)  :: T, pC, pC2, pC3, pC2H, pC2H2, S
  real, intent(out) :: JstarS, taustar, taugr
@@ -320,7 +320,7 @@ subroutine nucleation(T, pC, pC2, pC3, pC2H, pC2H2, S, JstarS, taustar, taugr)
     taustar = 1.d-30
  endif
  taugr = kboltz*T/(A0*v1*(alpha1*pC*(1.-1./S) + 2.*alpha2/sqrt(2.)*(pC2+pC2H+pC2H2)*(1.-1./S**2)))
-end subroutine nucleation
+end subroutine calc_nucleation
 
 !------------------------------------
 !
