@@ -242,7 +242,7 @@ subroutine Cint(val0,val1,val2,val3,u,val)
  val = 1./2.*(((-val0+3.*val1-3.*val2+val3)*u+(2.*val0-5.*val1+4.*val2-val3))*u+&
        (-val0+val2))*u+val1
 
-end subroutine CINT
+end subroutine Cint
 
 !------------------------------------------------------------------------
 !+

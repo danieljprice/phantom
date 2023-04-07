@@ -20,7 +20,7 @@ module test
 !   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
 !   testkernel, testlink, testmath, testmpi, testnimhd, testpart, testpoly,
 !   testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!   testsmol, teststep, timing
+!   testsethier, testsmol, teststep, timing
 !
  implicit none
  public :: testsuite
@@ -58,6 +58,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
  use testsetdisc,  only:test_setdisc
+ use testsethier,  only:test_sethier
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
  use testgeometry, only:test_geometry
@@ -75,7 +76,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -125,6 +126,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  doradiation = .false.
  dopoly     = .false.
  dompi      = .false.
+ dohier     = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -143,9 +145,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'rad')       /= 0) doradiation = .true.
  if (index(string,'poly')      /= 0) dopoly    = .true.
  if (index(string,'mpi')       /= 0) dompi     = .true.
+ if (index(string,'hier')      /= 0) dohier    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
-               doptmass,docooling,dogeom,dogr,dosmol,doradiation,dopart,dopoly/))
+               doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
+               dopart,dopoly,dohier/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -346,6 +350,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of set_hier module
+!
+ if (dohier.or.testall) then
+    call test_sethier(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

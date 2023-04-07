@@ -10,11 +10,11 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, physcon, vectorutils
+! :Dependencies: dim, energies, part, physcon, units, vectorutils
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'angmom'

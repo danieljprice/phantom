@@ -18,10 +18,10 @@ module inject
 !   - nfill_domain       : *number of spheres used to set the background density profile*
 !   - outer_boundary     : *delete gas particles outside this radius (au)*
 !   - sonic_type         : *find transonic solution (1=yes,0=no)*
-!   - wind_inject_radius : *wind injection radius (au, if 0 take Rstar)*
+!   - wind_inject_radius : *wind injection radius (au, if 0 takes Rstar)*
 !   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
 !   - wind_shell_spacing : *desired ratio of sphere spacing to particle spacing*
-!   - wind_temperature   : *wind temperature at the injection point (K)*
+!   - wind_temperature   : *wind temperature at injection radius (K, if 0 takes Teff)*
 !   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
 !
 ! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
@@ -34,7 +34,7 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,wind_injection_radius
  private
 !
 !--runtime settings for this module
@@ -108,7 +108,7 @@ subroutine init_inject(ierr)
  integer :: ires_min,nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
  real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject,tboundary
- real :: separation_cgs,wind_mass_rate_cgs, wind_velocity_cgs,ecc(3),eccentricity
+ real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar
 
  if (icooling > 0) nwrite = nwrite+1
  ierr = 0
@@ -116,6 +116,7 @@ subroutine init_inject(ierr)
  pulsating_wind = (pulsation_period_days > 0.) .and. (piston_velocity_km_s > 0.)
  if (pulsating_wind .and. ieos == 6) call fatal(label,'cannot use ieos=6 with pulsation')
 
+ Tstar              = xyzmh_ptmass(iTeff,wind_emitting_sink)
  Rstar_cgs          = xyzmh_ptmass(iReff,wind_emitting_sink)*udist
  Mstar_cgs          = xyzmh_ptmass(4,wind_emitting_sink)*umass
  wind_mass_rate_cgs = wind_mass_rate_Msun_yr * solarm / years
@@ -126,6 +127,7 @@ subroutine init_inject(ierr)
  wind_velocity    = wind_velocity_km_s * (km / unit_velocity)
  wind_mass_rate   = wind_mass_rate_Msun_yr * (solarm/umass) / (years/utime)
  if (wind_injection_radius_au == 0.)  wind_injection_radius_au = Rstar_cgs/au
+ if (wind_temperature == 0.)  wind_temperature = Tstar
  wind_injection_radius = wind_injection_radius_au * au / udist
  if (pulsating_wind) then
     pulsation_period = pulsation_period_days * (days/utime)
@@ -435,10 +437,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     else
        if (idust_opacity == 2) then
           call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKmuS)
-          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone, JKmuS)
        else
           call interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone)
-          !call wind_profile(local_time, r, v, u, rho, e, GM, wind_temperature, fdone)
        endif
        if (iverbose > 0) print '(" ##### boundary sphere ",i4,3(i4),i7,9(1x,es12.5))',i,&
             inner_sphere,nboundaries,outer_sphere,npart,time,local_time,r,v,fdone
@@ -469,10 +469,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        !initialize dust temperature to star's effective temperature
        if (isink_radiation > 0) dust_temp(npart+1:npart+particles_per_sphere) = xyzmh_ptmass(iTeff,wind_emitting_sink)
-       ! update the sink particle mass
-       if (nptmass > 0 .and. wind_emitting_sink <= nptmass) then
-          xyzmh_ptmass(4,wind_emitting_sink) = xyzmh_ptmass(4,wind_emitting_sink) - mass_of_spheres
-       endif
        print '(" ##### eject sphere ",4(i4),i7,9(1x,es12.5))',i,inner_sphere,nboundaries,&
             outer_sphere,npart,time,local_time,r/xyzmh_ptmass(iReff,1),v,u,rho
     endif
@@ -649,10 +645,10 @@ subroutine write_options_inject(iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
  !call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
- call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au, if 0 take Rstar)',iunit)
+ call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au, if 0 takes Rstar)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
  if (maxvxyzu==4) then
-    call write_inopt(wind_temperature,'wind_temperature','wind temperature at the injection point (K)',iunit)
+    call write_inopt(wind_temperature,'wind_temperature','wind temperature at injection radius (K, if 0 takes Teff)',iunit)
  endif
  call write_inopt(iwind_resolution,'iwind_resolution','if<>0 set number of particles on the sphere, reset particle mass',iunit)
  call write_inopt(nfill_domain,'nfill_domain','number of spheres used to set the background density profile',iunit)
