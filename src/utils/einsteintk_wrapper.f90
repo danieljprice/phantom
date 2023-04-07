@@ -310,7 +310,10 @@ module einsteintk_wrapper
         ! get particle data 
         ! get rho from xyzh and rhoh 
         ! Get the conserved density on the particles 
-        dat = 0. 
+        dat = 0.
+        !$omp parallel do default(none) &
+        !$omp shared(npart,xyzh,dat,igas) &
+        !$omp private(i,pmass,h,rho) 
         do i=1, npart
             ! Get the smoothing length 
             h = xyzh(4,i)
@@ -319,6 +322,7 @@ module einsteintk_wrapper
             rho = rhoh(h,pmass)
             dat(i) = rho
         enddo 
+        !$omp end parallel do 
         rhostargrid = 0. 
         call interpolate_to_grid(rhostargrid,dat)
 
@@ -349,10 +353,14 @@ module einsteintk_wrapper
         ! get rho from xyzh and rhoh 
         ! Get the conserved density on the particles 
         dat = 0. 
+        !$omp parallel do default(none) &
+        !$omp shared(npart,pxyzu,dat) &
+        !$omp private(i)
         do i=1, npart
             ! Entropy is the u component of pxyzu 
             dat(i) = pxyzu(4,i)
         enddo 
+        !$omp end parallel do 
         entropygrid = 0. 
         call interpolate_to_grid(entropygrid,dat)
 
@@ -375,13 +383,16 @@ module einsteintk_wrapper
 
         ! Interpolate from particles to grid 
         ! get particle data for the x component of momentum
-        dat = 0. 
+        dat = 0.
+        !$omp parallel do default(none) &
+        !$omp shared(npart,pxyzu,dat) &
+        !$omp private(i)  
         do i=1, npart
             dat(1,i) = pxyzu(1,i)
             dat(2,i) = pxyzu(2,i)
             dat(3,i) = pxyzu(3,i)
         enddo 
-        
+        !$omp end parallel do 
         pxgrid = 0. 
         ! call interpolate 3d 
         ! In this case call it 3 times one for each vector component

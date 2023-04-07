@@ -235,6 +235,9 @@ subroutine get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
 
    verbose = .false.
    ! TODO write openmp parallel code
+   !$omp parallel do default(none) &
+   !$omp shared(npart,xyzh,metrics,vxyzu,dens,ieos,tmunus) &
+   !$omp private(i,pi,verbose)
    do i=1, npart
       !print*, "i: ", i 
       if (i==1) then 
@@ -247,7 +250,8 @@ subroutine get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
          call get_tmunu(xyzh(:,i),metrics(:,:,:,i),&
          vxyzu(1:3,i),dens(i),vxyzu(4,i),pi,tmunus(:,:,i),verbose)
       endif 
-   enddo 
+   enddo
+   !$omp end parallel do  
    !print*, "tmunu calc val is: ", tmunus(0,0,5)
 end subroutine get_tmunu_all
 
