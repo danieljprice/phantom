@@ -1287,7 +1287,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
-             print *, "case 2. Tag:", tag
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
           case(4)
@@ -1685,9 +1684,6 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('time',tfile,hdr,ierr)
  if (ierr/=0)  call extract('gt',tfile,hdr,ierr)  ! this is sphNG's label for time
  call extract('dtmax',dtmaxi,hdr,ierr)
- call extract('idtmax_n',idtmax_n,hdr,ierr)
- call extract('idtmax_frac',idtmax_frac,hdr,ierr)
- call extract('idumpfile',idumpfile,hdr,ierr)
  call extract('rhozero',rhozero,hdr,ierr)
  Bextx = 0.
  Bexty = 0.
@@ -1728,6 +1724,10 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
        call read_headeropts_extern(iextern_in_file,hdr,nptmass,ierrs(1))
        if (ierrs(1) /= 0) ierr = 5
     endif
+
+    call extract('idtmax_n',idtmax_n,hdr,ierr,default=1)
+    call extract('idtmax_frac',idtmax_frac,hdr,ierr)
+    call extract('idumpfile',idumpfile,hdr,ierr)
  else
     massoftype(1) = 0.
     hfactfile = 0.
@@ -1796,12 +1796,11 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
     call extract('graindens',graindens(1:ndusttypes),hdr,ierrs(2))
     if (any(ierrs(1:2) /= 0)) then
        write(*,*) 'ERROR reading grain size/density from file header'
-       grainsize(1) = grainsizecgs/udist
-       graindens(1) = graindenscgs/unit_density
+       grainsize(1) = real(grainsizecgs/udist)
+       graindens(1) = real(graindenscgs/unit_density)
     endif
  endif
 
- return
 end subroutine unfill_rheader
 
 
@@ -1938,10 +1937,6 @@ subroutine count_particle_types(npartoftype)
  npartoftype(:) = 0
  do i = 1, npart
     itype = iamtype(iphase(i))
-    if (itype  >  8) then
-       print *, "particle i=", i,"is type", itype
-       cycle
-    endif
     npartoftype(itype) = npartoftype(itype) + 1
  enddo
 

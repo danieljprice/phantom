@@ -30,7 +30,6 @@ module radiation_implicit
                        ierr_negative_opacity = 2, &
                        ierr_neighbourlist_empty = 3
  integer, parameter :: gas_dust_collisional_term_type = 0
- integer, parameter :: cv_type = 0, mu_type = 0
 
  ! options for Bate & Keto ISM radiative transfer (not working yet)
  logical, parameter :: dustRT = .false.
@@ -42,6 +41,7 @@ module radiation_implicit
  ! options for the input file, with default values
  real, public       :: tol_rad = 1.e-4
  integer, public    :: itsmax_rad = 250
+ integer, public    :: cv_type = 0
 
  character(len=*), parameter :: label = 'radiation_implicit'
 
@@ -115,7 +115,7 @@ subroutine save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,save
  real                :: rhoi
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad) &
+ !$omp shared(rad,origeu,vxyzu,xyzh,npart,radprop,save_cv,iopacity_type,massoftype,drad,cv_type) &
  !$omp private(i,rhoi)
  do i = 1,npart
     origEU(1,i) = rad(iradxi,i)
@@ -175,16 +175,17 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
     ierr = ierr_neighbourlist_empty
     return
  endif
- call fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
+ call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
+                  xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
 
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
 
  iterations: do its=1,itsmax_rad
-    call compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radprop)
-    call calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
-    call calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varinew,ierr)
-    call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
+    call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,EU0,varinew,radprop)
+    call calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,ierr)
+    call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,radprop,vari,EU0,varinew,ierr)
+    call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
                                      vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
 
     if (iverbose >= 2) print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
@@ -202,7 +203,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
     moresweep = .true.
  endif
 
- call store_radiation_results(ncompactlocal,ivar,EU0,rad,vxyzu)
+ call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
 
 end subroutine do_radiation_onestep
 
@@ -344,16 +345,17 @@ end subroutine get_compacted_neighbour_list
 !  fill arrays
 !+
 !---------------------------------------------------------
-subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
+subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
  use dim,             only:periodic
  use boundary,        only:dxbound,dybound,dzbound
  use part,            only:dust_temp,nucleation,gradh,dvdx
  use units,           only:get_c_code
  use kernel,          only:grkern,cnormk
- integer, intent(in) :: ncompact,ncompactlocal,ivar(:,:),ijvar(:)
+ integer, intent(in) :: ncompact,ncompactlocal,icompactmax,npart
+ integer, intent(in) :: ivar(:,:),ijvar(:)
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
  real, intent(inout) :: radprop(:,:)
- real, intent(out)   :: vari(:,:),EU0(:,:),varij(:,:),varij2(:,:)
+ real, intent(out)   :: vari(:,:),EU0(2,npart),varij(4,icompactmax),varij2(3,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: cv_effective,pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi,&
@@ -367,7 +369,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
  dti = dt
  !$omp parallel do default(none) &
  !$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx,dxbound,dybound,dzbound) &
- !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh) &
+ !$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh,cv_type) &
  !$omp firstprivate(dti) &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi) &
  !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
@@ -393,7 +395,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
     !
     !--Note that CV and Kappa have already been done in ASS
     !
-    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i),mu_type)
+    cv_effective = radprop(icv,i)/get_1overmu(rhoi,vxyzu(4,i),cv_type)
     dvxdxi = 0.
     dvxdyi = 0.
     dvxdzi = 0.
@@ -422,7 +424,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,dt,xyzh,vxyzu,ivar,ijvar,radprop,r
        !--Note that CV and Kappa have already been done in ASS
        !
        rhoj = rhoh(xyzh(4,j), massoftype(igas))
-       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j),mu_type)
+       cv_effective = radprop(icv,j)/get_1overmu(rhoj,vxyzu(4,j),cv_type)
        !dti = dt
        !
        !--Calculate other quantities
@@ -530,11 +532,11 @@ end subroutine fill_arrays
 !  compute radiative flux
 !+
 !---------------------------------------------------------
-subroutine compute_flux(ivar,ijvar,ncompact,varij,varij2,vari,EU0,varinew,radprop)
- integer, intent(in) :: ivar(:,:),ijvar(:),ncompact
- real, intent(in)    :: varij(:,:),varij2(:,:),vari(:,:),EU0(:,:)
+subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,EU0,varinew,radprop)
+ integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
+ real, intent(in)    :: varij(4,icompactmax),varij2(3,icompactmax),vari(2,npart),EU0(2,npart)
  real, intent(inout) :: radprop(:,:)
- real, intent(out)   :: varinew(:,:)  ! we use this parallel loop to set varinew to zero
+ real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij
 
@@ -584,13 +586,13 @@ end subroutine compute_flux
 !  calculate flux limiter (lambda) and eddington factor
 !+
 !---------------------------------------------------------
-subroutine calc_lambda_and_eddington(ivar,ncompactlocal,vari,EU0,radprop,ierr)
+subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,ierr)
  use io,              only:error
  use part,            only:dust_temp,nucleation
  use radiation_utils, only:get_rad_R
  use options,         only:limit_radiation_flux
- integer, intent(in) :: ivar(:,:),ncompactlocal
- real, intent(in)    :: vari(:,:),EU0(:,:)
+ integer, intent(in) :: ivar(:,:),ncompactlocal,npart
+ real, intent(in)    :: vari(:,:),EU0(2,npart)
  real, intent(inout) :: radprop(:,:)
  integer             :: n,i,ierr
  real                :: rhoi,gradE1i,opacity,radRi
@@ -635,13 +637,14 @@ end subroutine calc_lambda_and_eddington
 !  calculate diffusion coefficients
 !+
 !---------------------------------------------------------
-subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,radprop,vari,EU0,varinew,ierr)
+subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
+                               radprop,vari,EU0,varinew,ierr)
  use io,   only:error
  use part, only:dust_temp,nucleation
- integer, intent(in)  :: ivar(:,:),ijvar(:),ncompact
- real, intent(in)     :: vari(:,:),varij(:,:),EU0(:,:),radprop(:,:)
+ integer, intent(in)  :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
+ real, intent(in)     :: vari(:,:),varij(4,icompactmax),EU0(2,npart),radprop(:,:)
  integer, intent(out) :: ierr
- real, intent(inout)  :: varinew(:,:)
+ real, intent(inout)  :: varinew(3,npart)
  integer              :: n,i,j,k,icompact
  real                 :: rhoi,rhoj,opacityi,opacityj,bi,bj,b1
  real                 :: dWiidrlightrhorhom,dWidrlightrhorhom,dWjdrlightrhorhom
@@ -735,7 +738,7 @@ end subroutine calc_diffusion_term
 !  update gas and radiation energy
 !+
 !---------------------------------------------------------
-subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
+subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
                                        vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
  use io,      only:fatal,error
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
@@ -743,9 +746,9 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
  use options, only:implicit_radiation_store_drad
- integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,ncompactlocal
- real, intent(in)    :: vari(:,:),varinew(:,:),rad(:,:),origEU(:,:),vxyzu(:,:)
- real, intent(inout) :: radprop(:,:),EU0(:,:)
+ integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,ncompactlocal
+ real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:),vxyzu(:,:)
+ real, intent(inout) :: radprop(:,:),EU0(2,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(out):: moresweep
  integer             :: i,j,n,ieqtype,ierr
@@ -766,7 +769,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,ncompactlocal,&
 
  !$omp parallel do default(none)&
  !$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
- !$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad) &
+ !$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad,cv_type) &
  !$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
@@ -1302,9 +1305,9 @@ subroutine turn_heating_cooling_off(ieqtype,dust_tempi,gas_dust_val,dustgammaval
 end subroutine turn_heating_cooling_off
 
 
-subroutine store_radiation_results(ncompactlocal,ivar,EU0,rad,vxyzu)
- integer, intent(in) :: ncompactlocal,ivar(:,:)
- real, intent(in)    :: EU0(:,:)
+subroutine store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
+ integer, intent(in) :: ncompactlocal,npart,ivar(:,:)
+ real, intent(in)    :: EU0(2,npart)
  real, intent(out)   :: rad(:,:),vxyzu(:,:)
  integer :: i,n
 

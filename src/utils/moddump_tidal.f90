@@ -32,16 +32,17 @@ module moddump
 !
  implicit none
 
- real :: beta,   &  ! penetration factor
+ real :: beta,    &  ! penetration factor
          Mh1,     &  ! BH mass1
-         ms,     &  ! stellar mass
-         rs,     &  ! stellar radius
-         theta,  &  ! stellar tilting along x
-         phi,    &  ! stellar tilting along y
-         r0,     &  ! starting distance
-         ecc,    &  ! eccentricity
-         spin,   &       !spin of black hole
-         Mh2,    &  ! BH mass2
+         ms,      &  ! stellar mass
+         rs,      &  ! stellar radius
+         theta,   &  ! stellar tilting along x
+         phi,     &  ! stellar tilting along y
+         r0,      &  ! starting distance
+         ecc,     &  ! eccentricity
+         incline, &  ! inclination (about y axis)
+         spin,    &  ! spin of black hole
+         Mh2,     &  ! BH mass2
          semimajoraxis_binary, & !sepration
          ecc_binary !eccentricity of the black hole
 
@@ -64,6 +65,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use vectorutils,    only:rotatevec
  use setbinary,      only:set_binary
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use io,             only:fatal
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
  real,     intent(inout) :: massoftype(:)
@@ -71,13 +73,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  character(len=120)      :: filename
  integer                 :: i,ierr
  logical                 :: iexist
- real                    :: Lx,Ly,Lz,L,Lp,Ltot(3),L_sum(3)
+ real                    :: Ltot(3)
  real                    :: rp,rt
- real                    :: x,y,z,vx,vy,vz
- real                    :: x0,y0,vx0,vy0,alpha,z0,vz0
+ real                    :: x0,y0,vx0,vy0,vz0,alpha,z0
+ real                    :: x,z,vx,vz
  real                    :: c_light,m0
- real                    :: unit_ltot(3),unit_L_sum(3),ltot_mag,L_mag,accradius2
- real                    :: dot_value_angvec,angle_btw_vec,xyzstar(3),vxyzstar(3)
+ real                    :: accradius2
+ real                    :: xyzstar(3),vxyzstar(3)
  real                    :: semia,period,hacc1,hacc2
 !
 !-- Default runtime parameters
@@ -91,6 +93,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta = 0.                  ! stellar tilting along x
  phi   = 0.                  ! stellar tilting along y
  ecc   = 1.                  ! eccentricity
+ incline = 0.                ! inclination (in x-z plane)
 
  semimajoraxis_binary = 1000.*solarr/udist   !separation distance
  if (.not. gr) then
@@ -106,8 +109,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  ! default parameters for binary (overwritten from .tdeparams file)
  use_binary = .false.
  iorigin = 0
- rp = rt/beta
- r0 = 10.*rt
 
  filename = 'tde'//'.tdeparams'                                ! moddump should really know about the output file prefix...
  inquire(file=filename,exist=iexist)
@@ -134,26 +135,21 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  rt = (m0/ms)**(1./3.) * rs
  rp = rt/beta
- r0 = 10.*rt
  theta=theta*pi/180.0
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
  call get_angmom(ltot,npart,xyzh,vxyzu)
- if (ecc<1.) then
-    print*, 'Eliptical orbit'
+ if (ecc < 1.) then
+    print*, 'Elliptical orbit'
 
     alpha = acos((rt*(1.+ecc)/(r0*beta)-1.)/ecc)     ! starting angle anti-clockwise from positive x-axis
 
     print*,rt*(1.+ecc),"(rt*(1.+ecc)",(r0*beta),"(r0*beta)",(rt*(1.+ecc)/(r0*beta)-1.),"(rt*(1.+ecc)/(r0*beta)-1.)"
     print*,(rt*(1.+ecc)/(r0*beta)-1.)/ecc,"(rt*(1.+ecc)/(r0*beta)-1.)/ecc"
-    !x0    = -r0*cos(alpha)
-    !y0    = r0*sin(alpha)
-    !vx0   = sqrt(m0*beta/((1.+ecc)*rt)) * sin(alpha)
-    !vy0   = -sqrt(m0*beta/((1.+ecc)*rt)) * (cos(alpha)+ecc)
 
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
-    hacc1    = rs/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+    hacc1    = rs/1.e8    ! Something small so set_binary doesn't warn about Roche lobe
     hacc2    = hacc1
     call set_binary(m0,ms,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
@@ -168,7 +164,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz0 = vxyzstar(3)
 
  elseif (abs(ecc-1.) < tiny(1.)) then
-    print*, 'Parabolic orbit'
+    print*, 'Parabolic orbit',r0,"r0"
     y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
     z0    = 0.
@@ -177,6 +173,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz0   = 0.
     xyzstar = (/x0,y0,z0/)
     vxyzstar = (/vx0,vy0,vz0/)
+ else
+    call fatal('moddump_tidal',' Hyperbolic orbits not implemented')
+    x0 = 0.; y0 = 0.; z0 = 0.; vx0 = 0.; vy0 = 0.; vz0 = 0. ! avoid compiler warning
  endif
 
  !--Set input file parameters
@@ -246,6 +245,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
+ !--Incline the orbit
+ incline = incline*pi/180
+ do i = 1, npart
+    x=xyzh(1,i)
+    z=xyzh(3,i)
+    xyzh(1,i)= x*cos(incline) - z*sin(incline)
+    xyzh(3,i)= x*sin(incline) + z*cos(incline)
+    vx=vxyzu(1,i)
+    vz=vxyzu(3,i)
+    vxyzu(1,i)= vx*cos(incline) - vz*sin(incline)
+    vxyzu(3,i)= vx*sin(incline) + vz*cos(incline)
+ enddo
+
  theta=theta*180.0/pi
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
@@ -255,6 +267,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,'(a,Es12.5,a)') ' Stellar mass        = ',ms,' code units'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity of stellar orbit      = ',ecc
+ write(*,'(a,Es12.5,a)') ' Inclination         = ',incline,' degrees'
  if (gr) then
     write(*,'(a,Es12.5,a)') ' Spin of black hole "a"       = ',a
  endif
@@ -289,6 +302,7 @@ subroutine write_setupfile(filename)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity of stellar orbit (1 for parabolic)',                      iunit)
+ call write_inopt(incline,'incline','inclination (in x-z plane)',                          iunit)
  if (gr) then
     call write_inopt(spin,   'a',   'spin of SMBH',                                       iunit)
  endif
@@ -319,13 +333,14 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(beta,  'beta',  db,min=0.,errcount=nerr)
- call read_inopt(Mh1,    'mh',   db,min=0.,errcount=nerr)
- call read_inopt(ms,    'ms',    db,min=0.,errcount=nerr)
- call read_inopt(rs,    'rs',    db,min=0.,errcount=nerr)
- call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
- call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
- call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
+ call read_inopt(mh1,    'mh',     db,min=0.,errcount=nerr)
+ call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
+ call read_inopt(rs,     'rs',     db,min=0.,errcount=nerr)
+ call read_inopt(theta,  'theta',  db,min=0.,errcount=nerr)
+ call read_inopt(r0,     'r0',     db,min=0.,errcount=nerr)
+ call read_inopt(ecc,    'ecc',    db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(incline,'incline',db,       errcount=nerr)
 
  if (gr) then
     call read_inopt(spin, 'a',    db,min=-1.,max=1.,errcount=nerr)

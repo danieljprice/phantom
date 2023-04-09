@@ -143,7 +143,8 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,cgsdens,cgsu
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1
+ real(kind=8) :: cgsdens,cgsu
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
@@ -188,7 +189,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
-          u = cgsu / unit_ergg
+          u = real(cgsu / unit_ergg)
           if (u > 0.) then
              gamma1 = P/(u*dens)
              gamma = 1. + gamma1
@@ -205,7 +206,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = en*dens**gamma
     endif
 
-    f = 1. + gamfac*P/dens - enth_old
+    if (ien_type /= ien_entropy_s) f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_etotal) then
@@ -213,20 +214,15 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     elseif (ien_type == ien_entropy_s) then
-       select case (ieos)
-       case (12)
-          df = -1. + (pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
-       case (2)
-          df = -1. + (2.*gamfac*pmom2*P)/(3.*lorentz_LEO2 * enth_old**3 * dens)
-       case default
-          df = 0.
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
-       end select
     else
        df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
-    enth = enth_old - f/df
+    if (ien_type /= ien_entropy_s) then ! .or. ieos /= 12) then
+       enth = enth_old - f/df
+    else
+       enth = 1. + gamfac*P/dens ! update enth with temp instead of NR
+    endif
 
     ! Needed in dust case when f/df = NaN casuses enth = NaN
     if (enth-1. < tiny(enth)) enth = 1. + 1.5e-6
@@ -251,7 +247,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
-       u = cgsu / unit_ergg
+       u = real(cgsu / unit_ergg)
        if (u > 0.) then
           gamma = 1. + P/(u*dens)
        else

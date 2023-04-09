@@ -131,7 +131,7 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  real :: i_matrix(3,3),I_sum(3,3),Li(3),L_i(3),L_sum(3),inverse_of_i(3,3),L_reshape(3,1),matrix_result(3,1),omega(3)
  real,allocatable    :: A_array(:), Z_array(:)
  real,allocatable    :: interpolate_comp(:,:),composition_i(:),composition_sum(:)
- real :: ke_star,u_star,total_star
+ real :: ke_star,u_star,total_star,distance_from_bh
  ieos = 2
  call init_eos(ieos,ierr)
  gmw=0.61
@@ -141,11 +141,11 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     den_all(j) = rhoh(xyzh(4,j),pmass)
  enddo
  location = maxloc(den_all,dim=1)
-
+ print*,location,"location of max density"
  ! Determining centre of star as max density particle
  xpos(:) = xyzh(1:3,location)
  vpos(:) = vxyzu(1:3,location)
-
+ distance_from_bh = sqrt(dot_product(xpos(:),xpos(:)))
  ! sorting particles
  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -163,7 +163,6 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  double_the_no        = .True.
 
  allocate(density(dummy_bins),rad_grid(dummy_bins),mass_enclosed(dummy_bins),bin_mass(dummy_bins),temperature(dummy_bins),rad_vel(dummy_bins),angular_vel_3D(3,dummy_bins))
- print*,energy_verified_no/500,number_per_bin,"number perbin",number_per_bin*number_bins
  density_sum     = 0.
  temperature_sum = 0.
  rad_mom_sum     = 0.
@@ -178,19 +177,23 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  composition_i(:)   = 0.
 
  ! writing files with angular velocity info
- open(newunit=iu1,file="particleOmega.info")
- write(iu1,*) "[pos]"," ","[omega]"
- open(newunit=iu2,file="binOmega.info")
- write(iu2,*) "[pos]"," ","[omega]"
- open(newunit=iu3,file="radius_of_bins.info")
- write(iu3,*) "[ibin]"," ","[rad_inner]"," ","[rad_outer]"," ","[Position rad next]"," ","[particles in bin]"
+ open(1,file="particleOmega.info")
+ write(1,*) "[pos]"," ","[omega]"
+ open(2,file="binOmega.info")
+ write(2,*) "[pos]"," ","[omega]"
+ open(3,file="radius_of_bins.info")
+ write(3,*) "[ibin]"," ","[rad_inner]"," ","[rad_outer]"," ","[Position rad next]"," ","[particles in bin]"
  pos_com(:) = 0.
  vel_com(:) = 0.
  ! Now we calculate the different quantities of the particles and bin them
  do j=1,energy_verified_no
     i      = iorder(array_particle_j(j))
-    i_next = iorder(array_particle_j(j+1))
 
+    if (j /= energy_verified_no) then 
+       i_next = iorder(array_particle_j(j+1))
+    else 
+       i_next = iorder(array_particle_j(j))
+    endif
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
     
     ! calculating centre of mass position and velocity wrt black hole
@@ -248,14 +251,17 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     call cross_product3D(pos(:),vel(:),Li(:))
     L_i(:)   = Li(:)*pmass
     L_sum(:) = L_sum(:) + L_i(:)
-
-    omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
-    write(iu1,*)pos_mag,omega_particle
-
+    if (pos_mag == 0.) then 
+          omega_particle = 0.
+    else 
+          omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
+    endif
+    
+    write(1,*)pos_mag,omega_particle
     ! Moment of inertia
     call moment_of_inertia(pos,pos_mag,pmass,i_matrix)
     I_sum(:,:) = I_sum(:,:) + i_matrix(:,:)
-
+    
     if (count_particles==number_per_bin .or. j==energy_verified_no) then
        tot_binned_particles = tot_binned_particles+count_particles
        call radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,energy_verified_no,xpos,vpos,xyzh,vxyzu,iorder,pos_mag,radius_star)
@@ -277,14 +283,18 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
              angular_vel_3D(:,ibin) = L_sum(:) / (pos_mag**2*pmass)
           endif
        else
+          inverse_of_i  = inverse(I_sum, 3)
+          L_reshape     = reshape(L_sum(:),(/3,1/))
+          matrix_result = matmul(inverse_of_i,L_reshape)
+          omega         = reshape(matrix_result,(/3/))
           angular_vel_3D(:,ibin) = omega
        endif
        omega_bin = sqrt(dot_product(angular_vel_3D(:,ibin),angular_vel_3D(:,ibin)))
 
-       write(iu2,*)pos_mag,omega_bin
+       write(2,*)pos_mag,omega_bin
        composition_kepler(:,ibin) = composition_sum(:)/count_particles
 
-       write(iu3,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
+       write(3,*) ibin,rad_inner,rad_outer,pos_mag_next,count_particles
        count_particles = 0
        density_sum     = 0.
        temperature_sum = 0.
@@ -296,12 +306,13 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
     endif
  enddo
 
- close(iu1)
- close(iu2)
- close(iu3)
+ close(1)
+ close(2)
+ close(3)
 
  ibin = ibin-1
  print*,mass_enclosed(ibin),"enclodsed mass",pos_com,"pos com"
+ print*,rad_grid(ibin),"Radius MAX"
  pos_com(:) = pos_com(:)/mass_enclosed(ibin)
  print*,pos_com,"pos of com" 
  vel_com(:) = vel_com(:)/mass_enclosed(ibin)
@@ -315,9 +326,10 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  u_star = -gg*(bhmass*umass)/(pos_mag_star*udist)
  total_star = u_star+ke_star
  print*,total_star,"total_star",umass,"umass",gg,"gg",u_star,"ustar",ke_star,"ke_star"
- print*,rad_grid(ibin),"rad_grid(ibin)"
  print*,mass_enclosed(ibin),"/mass_enclosed(ibin)",mass_enclosed(ibin)*umass
- print*,unit_velocity,"unit_vel"
+ print*,umass,"umass",udist,"udist",unit_density,"unit_density",unit_velocity,"unit_velocity",utime,"utime"
+ ! write information to the dump_info file 
+ call write_dump_info(numfile,density(1),temperature(1),mass_enclosed(ibin),xpos,rad_grid(ibin),distance_from_bh)
 end subroutine phantom_to_kepler_arrays
 
  !----------------------------------------------------------------
@@ -697,5 +709,41 @@ subroutine calculate_mu(A_array,Z_array,composition_i,columns_compo,mu)
 
 end subroutine calculate_mu
 
+
+subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance)
+ use units , only: udist,umass,unit_velocity,utime,unit_energ,unit_density
+ real, intent(in) :: density,temperature,mass,xpos(3),rad,distance
+ integer, intent(in) :: fileno
+ integer :: status, file_id,iostat
+ character(len=10) :: filename
+ logical :: file_exists
+
+ ! set a file name 
+ filename = 'dump_info'
+ 
+ ! check if the file exists
+ inquire(file=filename, exist=file_exists)
+ 
+ ! open the file for appending or creating
+ if (file_exists) then
+      open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
+      if (status /= 0) then
+           write(*,*) 'Error opening file: ', filename
+           stop
+       endif
+     
+else
+      open(unit=file_id, file=filename, status='new', action='write', iostat=status)
+      if (status /= 0) then
+         write(*,*) 'Error creating file: ', filename
+         stop
+      endif
+      ! Write headers to file 
+      write(file_id,*) "[FileNo]"," ","[Density]"," ","[Temperature]"," ","[Mass]"," ","[x]"," ","[y]"," ","[z]"," ","[radius]", " ","[DistanceFromBH]"
+endif
+write(file_id,'(i5, 1x,8(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist
+close(file_id)
+
+end subroutine write_dump_info
 
 end module analysis

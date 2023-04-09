@@ -247,6 +247,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              dustfrac(1:ndustsmall,i) = dustevol(1:ndustsmall,i)**2/(1.+dustevol(1:ndustsmall,i)**2)
           gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
           rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
+          if (gasfrac < 0.) call warning('cons2prim','total dust fraction > 1: try limiting dust flux',i,'eps',1.-gasfrac)
        else
           rhogas  = rhoi
        endif
@@ -292,11 +293,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              ! Get the opacity from the density and temperature if required
              !
              if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
-             !
-             ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
-             !
-             call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
           endif
+          !
+          ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
+          !
+          call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhogas)
        endif
        !
        ! Cullen & Dehnen (2010) viscosity switch, set alphaloc

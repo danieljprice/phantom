@@ -97,6 +97,7 @@ program phantomevcompare
     !--List the models to compare
     !  Note: will check to ensure that 01.ev exists
     enter_filename = .true.
+    add_prefix = .false.
     write(*,'(a)') ' '
     write(*,'(a)') 'Enter the file prefixes you wish to compare; press enter when complete.'
     i = 0

@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2020 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -636,8 +636,10 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
-            utils_binary.f90 set_binary.f90 set_flyby.f90 set_unifdis.f90 set_sphere.f90 set_shock.f90 \
-            set_dust.f90 libsetup.f90
+            utils_binary.f90 set_binary.f90 set_flyby.f90 \
+            set_hierarchical_utils.f90 set_hierarchical.f90 \
+            set_unifdis.f90 set_sphere.f90 set_shock.f90 \
+            set_dust.f90 libsetup.f90 
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
 
 libsetup: $(OBJLIBSETUP)
@@ -692,6 +694,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
 	 test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
+         test_hierarchical.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
@@ -1299,6 +1302,7 @@ compilers:
 	@if type -p xlf90_r > /dev/null; then echo "make SYSTEM=ukaff1a [uses xlf90_r]"; fi;
 	@if type -p gfortran > /dev/null; then echo "make SYSTEM=gfortran"; fi;
 	@if type -p g95 > /dev/null; then echo "make SYSTEM=g95"; fi;
+	@if type -p aocc > /dev/null; then echo "make SYSTEM=aocc"; fi;
 	@echo "(end of possible selections)"; echo;
 
 #----------------------------------------------------

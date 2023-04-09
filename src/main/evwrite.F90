@@ -336,10 +336,10 @@ end subroutine fill_ev_header
 !+
 !----------------------------------------------------------------
 subroutine write_evfile(t,dt)
- use timestep,      only:dtmax_user
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
 #ifndef GR
+ use timestep,      only:dtmax_user
  use options,       only:iexternalforce
  use extern_binary, only:accretedmass1,accretedmass2
 #endif
