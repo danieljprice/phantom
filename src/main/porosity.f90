@@ -622,8 +622,8 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  if (ibounce == 1) then
      !$omp parallel do default(none) &
      !$omp shared(xyzh,npart,iphase,use_dustfrac) &
-     !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick) &
-     !$omp private(i,iam,vrel,vstick,vend,sdust,shearparam)
+     !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick,shearparam) &
+     !$omp private(i,iam,vrel,vstick,vend,sdust)
      do i=1, npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
              iam = iamtype(iphase(i))
