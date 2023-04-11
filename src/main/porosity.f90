@@ -22,7 +22,6 @@ module porosity
  real, public           :: surfenerg
  real, public           :: youngmod
  real, private          :: eroll                         !--rolling 
- real, private          :: grainmassmin = 1e-09          !--minimum grain mass for disruption (~100µm)
  real, private          :: grainmassminlog
  real, private          :: Yd0                           !test for compaction
  real, private          :: Ydpow                         !test for compaction
@@ -55,7 +54,7 @@ subroutine init_porosity(ierr)
  Yd0 = 9.5e6 *10/unit_pressure ! for water+silicate; 9.8e6 for water only
  Ydpow = 6.4    !for silicate+water, 4 for water only
 
- grainmassminlog = log10(grainmassmin/umass)
+ grainmassminlog = log10(50.*mmono)
 
  if (smono <= 0.) then
    call error('init_porosity','smonocgs <= 0',var='smonocgs',val=smonocgs)
@@ -333,7 +332,8 @@ subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,
              ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev     !-number of collision in dt
              ekin = mprev*vrel*vrel/4.
              coeffrest = get_coeffrest(vstick/vrel,vyield/vrel)                !-coefficient of restitution
-             pdyn = eroll * (filfac/(maxpacking - filfac)/smono)**3
+             !pdyn = eroll * (filfac/(maxpacking - filfac)/smono)**3
+             pdyn = eroll /((1./filfac - 1./maxpacking)*smono)**3
              deltavol = (1.-coeffrest*coeffrest)*ekin/pdyn
              if (deltavol > vol) deltavol = vol
 
@@ -426,7 +426,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
      ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev                                 !number of collisions in dt
 
      ekin = mprev*vrel*vrel/4. - (2.*mprev - dustprop(1))*0.23805*eroll/mmono       !0.23805 = 1.5 * 48/302.46
-     pdyn = eroll * (filfac/(maxpacking - filfac)/smono)**3
+     pdyn = eroll /((1./filfac - 1./maxpacking)*smono)**3
      deltavol = ekin/pdyn                                                       !-ekin is kinetic energy - all energy needed to break monomers 
 
      if (deltavol < 0) deltavol = 0.
@@ -551,6 +551,11 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
 
  select case (idisrupt)
  case(1)
+     !$omp parallel do default(none) &
+     !$omp shared(xyzh,npart,massoftype,iphase,use_dustfrac) &
+     !$omp shared(filfac,dustprop,dustgasprop,mmono,smono,grainmassminlog,surfenerg,gammaft) &
+     !$omp private(grainmasscurlog,grainmassmaxlog,randmass) &
+     !$omp private(i,iam,rho,filfacmin,stress,strength)
      do i=1, npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
              iam = iamtype(iphase(i))
@@ -587,11 +592,11 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                      !-compute filfacmin and compare it to filfac(i)
                      call get_filfac_min(i,rho,dustprop(1,i)/mmono,dustprop(2,i),dustgasprop(:,i),filfacmin)
                      filfac(i) = max(filfac(i),filfacmin)
-
                  endif
              endif
          endif
      enddo
+     !$omp end parallel do
  end select
 
 end subroutine get_disruption
@@ -615,6 +620,10 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  real                      :: vrel,vstick,vend,sdust
 
  if (ibounce == 1) then
+     !$omp parallel do default(none) &
+     !$omp shared(xyzh,npart,iphase,use_dustfrac) &
+     !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick) &
+     !$omp private(i,iam,vrel,vstick,vend,sdust,shearparam)
      do i=1, npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
              iam = iamtype(iphase(i))
@@ -643,6 +652,7 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
              endif
          endif
      enddo
+     !$omp end parallel do
  endif
 
 end subroutine get_probastick
