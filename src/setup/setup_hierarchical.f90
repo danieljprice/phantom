@@ -76,7 +76,49 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_hierarchical_default_options()
 
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+
+ if (id==master) then
+    print*,"                                                                      " 
+    print*,"                                                       _:_            "
+    print*,"                                                      '-.-'           "
+    print*,"                                             ()      __.'.__          "
+    print*,"                                          .-:--:-.  |_______|         "
+    print*,"                                   ()      \____/    \=====/          "
+    print*,"                                   /\      {====}     )___(           "
+    print*,"                        (\=,      //\\      )__(     /_____\          "
+    print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
+    print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
+    print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
+    print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
+    print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
+    print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
+    print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
+    print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
+    print*,"     (______)(_______)(_______)(________)(________)(_________)        "
+    print*,"                                                                      "
+    print*,"          _             _       _    _           _           _        "
+    print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
+    print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
+    print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
+    print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
+    print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
+    print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
+    print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
+    print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
+    print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
+    print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
+    print*,"                                                                      "
+
+    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+
+    
+    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+    !         '        simulate the universe as a hierarchical system'
+    
+ endif
+ 
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
