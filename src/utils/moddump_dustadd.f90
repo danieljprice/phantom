@@ -121,16 +121,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           call prompt('Use porosity ? (0=no,1=yes)',iporosity,0,1)
           if (iporosity == 1) then 
              use_porosity = .true.
-             call prompt('Set dust size via size distribution ?',sizedistrib)
-             if (sizedistrib) then
-                call prompt('Enter grain size in cm at Rref',grainsizecgs,0.)
-                call prompt('Enter power-law index ',pwl_sizedistrib)
-                call prompt('Enter R_ref ',R_ref,0.)
-                call prompt('Enter H/R at R_ref',H_R_ref,0.)
-                call prompt('Enter q index',q_index)
-             else 
-                call prompt('Enter initial grain size in cm',grainsizecgs,0.)
-             endif
+          endif
+          call prompt('Set dust size via size distribution ?',sizedistrib)
+          if (sizedistrib) then
+             call prompt('Enter grain size in cm at Rref',grainsizecgs,0.)
+             call prompt('Enter power-law index ',pwl_sizedistrib)
+             call prompt('Enter R_ref ',R_ref,0.)
+             call prompt('Enter H/R at R_ref',H_R_ref,0.)
+             call prompt('Enter q index',q_index)
           else
             call prompt('Enter initial grain size in cm',grainsizecgs,0.)
           endif

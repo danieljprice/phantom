@@ -578,7 +578,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                     
                      !--call random number between 2 float values to assign a random mass to dustprop(1)
                      if (grainmassmaxlog > grainmassminlog) then
-                         randmass = (grainmassmaxlog - grainmassminlog) * rand() + grainmassminlog
+                         randmass = (grainmassmaxlog - grainmassminlog) * random_number() + grainmassminlog
                      else
                          if (grainmasscurlog > grainmassminlog) then
                              randmass = grainmassminlog
