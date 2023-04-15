@@ -40,7 +40,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  use options, only:icooling,ieos,ipdv_heating,ishock_heating,&
                    iresistive_heating,use_dustfrac,iexternalforce
  use dim,     only:mhd,maxvxyzu,periodic,particles_are_injected
- use part,    only:iboundary,npartoftype
+ use part,    only:iboundary,npartoftype,sinks_have_heating,xyzmh_ptmass,nptmass
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
  logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
 
@@ -48,8 +48,8 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
  !
- should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. &
-                          icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
+ should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. sinks_have_heating(nptmass,xyzmh_ptmass) &
+                          .and. icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
                           .and. (.not.mhd .or. iresistive_heating==1))
  !
  ! code should conserve momentum unless boundary particles are employed
