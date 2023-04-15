@@ -24,12 +24,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,           only:xyzmh_ptmass,vxyz_ptmass,nptmass,ihacc,ihsoft,ilum
  use prompting,      only:prompt
  use centreofmass,   only:reset_centreofmass
- use ptmass_heating, only:Lnuc
  use units,          only:unit_energ,utime
  integer, intent(inout) :: npart,npartoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),massoftype(:)
  integer                :: i,isinkpart
- real                   :: racc,hsoft,mass,mass_old,newx,Lnuc_cgs
+ real                   :: racc,hsoft,mass,mass_old,newx,Lnuc_cgs,Lnuc
  logical                :: iresetCM
 
  print*,'Sink particles in dump:'
@@ -49,7 +48,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  enddo
 
- isinkpart = 2
+ isinkpart = nptmass
  do while (isinkpart /= 0)
     call prompt('Enter the sink particle number to modify (0 to exit):',isinkpart,0,nptmass)
     if (isinkpart <= 0) exit
@@ -77,7 +76,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     xyzmh_ptmass(1,isinkpart) = newx
     print*,'x-coordinate changed to ',xyzmh_ptmass(1,isinkpart)
 
-    Lnuc = xyzmh_ptmass(1,ilum)
+    Lnuc = xyzmh_ptmass(ilum,isinkpart)
     Lnuc_cgs = Lnuc * unit_energ / utime
     call prompt('Enter new sink heating luminosity in erg/s:',Lnuc_cgs,0.)
     xyzmh_ptmass(ilum,isinkpart) = Lnuc_cgs / unit_energ * utime

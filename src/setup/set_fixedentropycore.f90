@@ -176,7 +176,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
                 + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
     rhoguess = rho(i)
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1),mu,rhoguess,ientropy)
-    mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
+    mass = mass - 0.5*rho(i) * dvol(i)
     if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
  enddo
 

@@ -19,7 +19,6 @@ module ptmass_heating
 
  implicit none
  public :: energ_sinkheat
- real, public :: Lnuc
  private
 
 contains
@@ -29,7 +28,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
- use part,   only:ihsoft,imassenc,iLum
+ use part,   only:ihsoft,imassenc,ilum
  use kernel, only:radkern2
  integer, intent(in) :: nptmass
  real, intent(in)    :: xi,yi,zi,xyzmh_ptmass(:,:)
@@ -41,22 +40,11 @@ subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
  do i = 1,nptmass
     dri2 = (xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2
     if (dri2 < radkern2*xyzmh_ptmass(ihsoft,i)**2) then
-       dudtheati = xyzmh_ptmass(iLum,i) / xyzmh_ptmass(imassenc,i)
+       dudtheati = xyzmh_ptmass(ilum,i) / xyzmh_ptmass(imassenc,i)
     endif
  enddo
 
 end subroutine energ_sinkheat
-
-
-!-----------------------------------------------------------------------
-!+
-!  Heating from nuclear burning
-!+
-!-----------------------------------------------------------------------
-! subroutine nuc_heating()
-
-
-! end subroutine nuc_heating
 
 
 end module ptmass_heating
