@@ -29,13 +29,12 @@ contains
 !  all boundary particles.
 !+
 !---------------------------------------------------------------
-subroutine get_boundary_particle_forces(npart,iphase,fxyz,dBevol,drad,ddustprop,ddustevol)
+subroutine get_boundary_particle_forces(npart,iphase,fxyzu,dBevol,drad,ddustprop,ddustevol)
  use part, only:iamboundary,iamtype,iradxi
  use dim, only:mhd,do_radiation,use_dust,use_dustgrowth,maxvxyzu
- 
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
- real, intent(inout) :: fxyz(:,:)
+ real, intent(inout) :: fxyzu(:,:)
  integer             :: nboundary,i
  real                :: avg_accel(1:3)
  real, intent(out)   :: dBevol(:,:)
@@ -45,26 +44,26 @@ subroutine get_boundary_particle_forces(npart,iphase,fxyz,dBevol,drad,ddustprop,
  nboundary = 0
  avg_accel = 0.
  !$omp parallel do default(none) &
- !$omp shared(npart,iphase,fxyz) &
+ !$omp shared(npart,iphase,fxyzu) &
  !$omp private(i) &
  !$omp reduction(+:avg_accel,nboundary)
  do i=1,npart
     if (iamboundary(iamtype(iphase(i)))) then
        nboundary = nboundary + 1
-       avg_accel = avg_accel + fxyz(1:3,i)
+       avg_accel = avg_accel + fxyzu(1:3,i)
     endif
  enddo
  !$omp end parallel do
 
  if (nboundary > 0) then
-    avg_accel = avg_accel / nboundary
+    avg_accel = avg_accel / real(nboundary)
     !$omp parallel do default(none) &
-    !$omp shared(npart,iphase,fxyz,avg_accel,dBevol,drad,ddustevol,ddustprop) &
+    !$omp shared(npart,iphase,fxyzu,avg_accel,dBevol,drad,ddustevol,ddustprop) &
     !$omp private(i)
     do i=1,npart
        if (iamboundary(iamtype(iphase(i)))) then
-          fxyz(1:3,i) = avg_accel
-          if (maxvxyzu==4) fxyz(4,i) = 0.
+          fxyzu(1:3,i) = avg_accel
+          if (maxvxyzu==4) fxyzu(4,i) = 0.
           if (mhd) dBevol(:,i) = 0.
           if (do_radiation) drad(iradxi,i) = 0.
           if (use_dust) ddustevol(:,i) = 0.
@@ -84,22 +83,22 @@ end subroutine get_boundary_particle_forces
 !  co-rotation
 !+
 !---------------------------------------------------------------
-subroutine average_boundary_particle_rotation(npart,iphase,fxyz,xyz)
+subroutine average_boundary_particle_rotation(npart,iphase,fxyzu,xyz)
  use part,        only:iamboundary,iamtype
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
  real, intent(in)    :: xyz(:,:)
- real, intent(inout) :: fxyz(:,:)
+ real, intent(inout) :: fxyzu(:,:)
  integer             :: i,nboundary
- real, dimension(3) :: accel_i,torquei,avg_torque,xyz_core_CM
+ real, dimension(3)  :: accel_i,torquei,avg_torque,xyz_core_CM
  real                :: sep2
 
  ! Calculate core centre of mass
  nboundary = 0
  xyz_core_CM = 0.
  !$omp parallel do default(none) &
- !$omp shared(npart,iphase,fxyz,xyz) &
+ !$omp shared(npart,iphase,fxyzu,xyz) &
  !$omp private(i) &
  !$omp reduction(+:xyz_core_CM,nboundary)
  do i=1,npart
@@ -116,12 +115,12 @@ subroutine average_boundary_particle_rotation(npart,iphase,fxyz,xyz)
     ! Calculate average torque w.r.t. centre of mass
     avg_torque = 0.
     !$omp parallel do default(none) &
-    !$omp shared(npart,iphase,fxyz,xyz_core_CM,xyz) &
+    !$omp shared(npart,iphase,fxyzu,xyz_core_CM,xyz) &
     !$omp private(i,torquei) &
     !$omp reduction(+:avg_torque)
     do i=1,npart
        if (iamboundary(iamtype(iphase(i)))) then
-          call cross_product3D(xyz(1:3,i) - xyz_core_CM, fxyz(1:3,i), torquei)
+          call cross_product3D(xyz(1:3,i) - xyz_core_CM, fxyzu(1:3,i), torquei)
           avg_torque = avg_torque + torquei
        endif
     enddo
@@ -129,13 +128,13 @@ subroutine average_boundary_particle_rotation(npart,iphase,fxyz,xyz)
     avg_torque = avg_torque / nboundary
 
     !$omp parallel do default(none) &
-    !$omp shared(npart,iphase,xyz,fxyz,avg_torque,xyz_core_CM) &
+    !$omp shared(npart,iphase,xyz,fxyzu,avg_torque,xyz_core_CM) &
     !$omp private(i,accel_i,sep2)
     do i=1,npart
        if (iamboundary(iamtype(iphase(i)))) then
           sep2 = dot_product(xyz(1:3,i)-xyz_core_CM, xyz(1:3,i)-xyz_core_CM)
           call cross_product3D(avg_torque / sep2, xyz(1:3,i)-xyz_core_CM, accel_i)
-          fxyz(1:3,i) = fxyz(1:3,i) + accel_i
+          fxyzu(1:3,i) = fxyzu(1:3,i) + accel_i
        endif
     enddo
     !$omp end parallel do
