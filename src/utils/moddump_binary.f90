@@ -296,8 +296,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
 
           if (nptmass2 == 1) then
-            xyzmh_ptmass(1:nsinkproperties,nptmass1+nptmass2) = xyzmh2_stash(1:nsinkproperties)
-            vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
+             xyzmh_ptmass(1:nsinkproperties,nptmass1+nptmass2) = xyzmh2_stash(1:nsinkproperties)
+             vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
           endif
 
        else

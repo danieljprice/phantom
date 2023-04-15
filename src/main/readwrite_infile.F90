@@ -328,7 +328,7 @@ end subroutine write_infile
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
                            itau_alloc,store_dust_temperature,gr
- use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
+ use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
  use infile_utils,    only:read_next_inopt,contains_loop,write_infile_series
@@ -359,7 +359,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad,iget_tdust,iray_resolution
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
@@ -472,6 +472,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) C_force
     case('tolv')
        read(valstring,*,iostat=ierr) tolv
+    case('C_ent')
+       read(valstring,*,iostat=ierr) C_ent
     case('xtol')
        read(valstring,*,iostat=ierr) xtol
     case('ptol')
@@ -732,6 +734,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+    if (iget_tdust > 2 .and. iray_resolution < 0 ) &
+         call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
  endif
  return
 

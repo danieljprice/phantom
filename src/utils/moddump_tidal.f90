@@ -18,6 +18,7 @@ module moddump
 !   - beta                 : *penetration factor*
 !   - ecc                  : *eccentricity of stellar orbit (1 for parabolic)*
 !   - ecc_binary           : *eccenticity of black hole binary (1 for parabolic)*
+!   - incline              : *inclination (in x-z plane)*
 !   - iorigin              : *0 = COM of BBH, 1 = Sink 1, 2 = Sink 2*
 !   - mh                   : *mass of black hole (code units)*
 !   - ms                   : *mass of star       (code units)*
@@ -32,16 +33,17 @@ module moddump
 !
  implicit none
 
- real :: beta,   &  ! penetration factor
+ real :: beta,    &  ! penetration factor
          Mh1,     &  ! BH mass1
-         ms,     &  ! stellar mass
-         rs,     &  ! stellar radius
-         theta,  &  ! stellar tilting along x
-         phi,    &  ! stellar tilting along y
-         r0,     &  ! starting distance
-         ecc,    &  ! eccentricity
-         spin,   &       !spin of black hole
-         Mh2,    &  ! BH mass2
+         ms,      &  ! stellar mass
+         rs,      &  ! stellar radius
+         theta,   &  ! stellar tilting along x
+         phi,     &  ! stellar tilting along y
+         r0,      &  ! starting distance
+         ecc,     &  ! eccentricity
+         incline, &  ! inclination (about y axis)
+         spin,    &  ! spin of black hole
+         Mh2,     &  ! BH mass2
          semimajoraxis_binary, & !sepration
          ecc_binary !eccentricity of the black hole
 
@@ -75,6 +77,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                    :: Ltot(3)
  real                    :: rp,rt
  real                    :: x0,y0,vx0,vy0,vz0,alpha,z0
+ real                    :: x,z,vx,vz
  real                    :: c_light,m0
  real                    :: accradius2
  real                    :: xyzstar(3),vxyzstar(3)
@@ -91,6 +94,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  theta = 0.                  ! stellar tilting along x
  phi   = 0.                  ! stellar tilting along y
  ecc   = 1.                  ! eccentricity
+ incline = 0.                ! inclination (in x-z plane)
 
  semimajoraxis_binary = 1000.*solarr/udist   !separation distance
  if (.not. gr) then
@@ -243,6 +247,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
+ !--Incline the orbit
+ incline = incline*pi/180
+ do i = 1, npart
+    x=xyzh(1,i)
+    z=xyzh(3,i)
+    xyzh(1,i)= x*cos(incline) - z*sin(incline)
+    xyzh(3,i)= x*sin(incline) + z*cos(incline)
+    vx=vxyzu(1,i)
+    vz=vxyzu(3,i)
+    vxyzu(1,i)= vx*cos(incline) - vz*sin(incline)
+    vxyzu(3,i)= vx*sin(incline) + vz*cos(incline)
+ enddo
+
  theta=theta*180.0/pi
  write(*,'(a)') "======================================================================"
  write(*,'(a,Es12.5,a)') ' Pericenter distance = ',rp,' code units'
@@ -252,6 +269,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,'(a,Es12.5,a)') ' Stellar mass        = ',ms,' code units'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity of stellar orbit      = ',ecc
+ write(*,'(a,Es12.5,a)') ' Inclination         = ',incline,' degrees'
  if (gr) then
     write(*,'(a,Es12.5,a)') ' Spin of black hole "a"       = ',a
  endif
@@ -286,6 +304,7 @@ subroutine write_setupfile(filename)
  call write_inopt(theta, 'theta', 'stellar rotation with respect to y-axis (in degrees)',iunit)
  call write_inopt(r0,    'r0',    'starting distance  (code units)',                     iunit)
  call write_inopt(ecc,   'ecc',   'eccentricity of stellar orbit (1 for parabolic)',                      iunit)
+ call write_inopt(incline,'incline','inclination (in x-z plane)',                          iunit)
  if (gr) then
     call write_inopt(spin,   'a',   'spin of SMBH',                                       iunit)
  endif
@@ -316,13 +335,14 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(beta,  'beta',  db,min=0.,errcount=nerr)
- call read_inopt(Mh1,    'mh',   db,min=0.,errcount=nerr)
- call read_inopt(ms,    'ms',    db,min=0.,errcount=nerr)
- call read_inopt(rs,    'rs',    db,min=0.,errcount=nerr)
- call read_inopt(theta, 'theta', db,min=0.,errcount=nerr)
- call read_inopt(r0,    'r0',    db,min=0.,errcount=nerr)
- call read_inopt(ecc,   'ecc',   db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
+ call read_inopt(mh1,    'mh',     db,min=0.,errcount=nerr)
+ call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
+ call read_inopt(rs,     'rs',     db,min=0.,errcount=nerr)
+ call read_inopt(theta,  'theta',  db,min=0.,errcount=nerr)
+ call read_inopt(r0,     'r0',     db,min=0.,errcount=nerr)
+ call read_inopt(ecc,    'ecc',    db,min=0.,max=1.,errcount=nerr)
+ call read_inopt(incline,'incline',db,       errcount=nerr)
 
  if (gr) then
     call read_inopt(spin, 'a',    db,min=-1.,max=1.,errcount=nerr)

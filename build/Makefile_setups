@@ -169,6 +169,7 @@ ifeq ($(SETUP), grtde)
     METRIC=kerr
     KNOWN_SETUP=yes
     GRAVITY=yes
+    IND_TIMESTEPS=yes
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS= analysis_gws.f90
 endif
@@ -709,6 +710,15 @@ ifeq ($(SETUP), binary)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), hierarchical)
+#   hierarchical system setup
+    FPPFLAGS= -DCONST_AV
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90 
+    SETUPFILE= setup_hierarchical.f90
+    KNOWN_SETUP=yes
+endif
+
+
 ifeq ($(SETUP), common)
 #   binary setup
     FPPFLAGS=
@@ -772,6 +782,19 @@ ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_cooling.F90
+    WIND=yes
+endif
+ifeq ($(SETUP), ismwind)
+#   wind setup with dust nucleation and ISM cooling
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= analysis_cooling.F90
+    H2CHEM=yes
+    WIND=yes
+endif
+ifeq ($(SETUP), radwind)
+#   wind setup with dust nucleation
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.F90 analysis_raytracer.f90
     WIND=yes
 endif
 
