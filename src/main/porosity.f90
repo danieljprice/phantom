@@ -542,10 +542,11 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
  use options,           only:use_dustfrac
  use part,              only:idust,igas,iamtype,iphase,massoftype,isdead_or_accreted,rhoh
  use growth,            only:check_dustprop,get_size
+ use random,            only:ran2
  integer, intent(in)    :: npart
  real, intent(in)       :: xyzh(:,:),dustgasprop(:,:)
  real, intent(inout)    :: dustprop(:,:),filfac(:)
- integer                :: i,iam
+ integer                :: i,iam,seed
  real                   :: stress,strength,filfacmin,rho
  real                   :: grainmasscurlog,grainmassmaxlog,randmass
 
@@ -554,7 +555,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
      !$omp parallel do default(none) &
      !$omp shared(xyzh,npart,massoftype,iphase,use_dustfrac) &
      !$omp shared(filfac,dustprop,dustgasprop,mmono,smono,grainmassminlog,surfenerg,gammaft) &
-     !$omp private(grainmasscurlog,grainmassmaxlog,randmass) &
+     !$omp private(grainmasscurlog,grainmassmaxlog,randmass,seed) &
      !$omp private(i,iam,rho,filfacmin,stress,strength)
      do i=1, npart
          if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -563,6 +564,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
 
                  stress = 25./36. * dustprop(2,i) * filfac(i) * gammaft**2 * dustgasprop(4,i)**2
                  strength = 0.6*filfac(i)**(1.8)*surfenerg/smono
+                 seed = int(stress)
 
                  if (stress >= strength) then   !-grain is rotationnaly disrupted
                      !-compute rho to compute filfacmin
@@ -578,7 +580,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                     
                      !--call random number between 2 float values to assign a random mass to dustprop(1)
                      if (grainmassmaxlog > grainmassminlog) then
-                         randmass = (grainmassmaxlog - grainmassminlog) * random_number() + grainmassminlog
+                         randmass = (grainmassmaxlog - grainmassminlog) * ran2(seed) + grainmassminlog
                      else
                          if (grainmasscurlog > grainmassminlog) then
                              randmass = grainmassminlog
