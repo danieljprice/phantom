@@ -193,7 +193,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
  endif
 
- call get_boundary_particle_forces(npart,iphase,fxyzu,dBevol,drad,ddustprop,ddustevol)
+ call get_boundary_particle_forces(npart,iphase,xyzh(1:3,:),fxyzu,dBevol,drad,ddustprop,ddustevol)
 
 !
 ! compute dust temperature
