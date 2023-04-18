@@ -42,6 +42,7 @@ module setup
  integer           :: npartx,ilattice
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
+ real              :: perturb_wavelength 
  real(kind=8)      :: udist,umass
 
  !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
@@ -90,7 +91,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: kwave,denom,length, c1,c3,lambda
  real    :: perturb_rho0,xval
  real    :: Vup(0:3),v(0:3),const,phi,rhoprim,sqrtg,u0,x,gcov(0:3,0:3),alpha,hub
- real    :: perturb_wavelength
  real    :: last_scattering_temp
  real    :: u 
  procedure(rho_func), pointer :: density_func
@@ -530,6 +530,7 @@ subroutine write_setupfile(filename)
  call write_inopt(phaseoffset,'FLRWSolver::phi_phase_offset','Pertubation phase offset',iunit)
  call write_inopt(perturb_direction, 'FLRWSolver::FLRW_perturb_direction','Pertubation direction',iunit)
  call write_inopt(radiation_dominated, 'radiation_dominated','Radiation dominated universe (yes/no)',iunit)
+ call write_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength','Perturbation wavelength',iunit)
  if (use_dustfrac) then
     call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
  endif
@@ -588,6 +589,7 @@ subroutine read_setupfile(filename,ierr)
  ! TODO Work out why this doesn't read in correctly
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
+ call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
  !print*, db 
  call close_db(db)
 

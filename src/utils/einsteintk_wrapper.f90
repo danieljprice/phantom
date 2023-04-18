@@ -311,18 +311,19 @@ module einsteintk_wrapper
         ! get rho from xyzh and rhoh 
         ! Get the conserved density on the particles 
         dat = 0.
-        !$omp parallel do default(none) &
-        !$omp shared(npart,xyzh,dat,igas) &
-        !$omp private(i,pmass,h,rho) 
+        pmass = massoftype(igas)
+        ! $omp parallel do default(none) &
+        ! $omp shared(npart,xyzh,dat,pmass) &
+        ! $omp private(i,h,rho) 
         do i=1, npart
             ! Get the smoothing length 
             h = xyzh(4,i)
             ! Get pmass
-            pmass = massoftype(igas)
+            
             rho = rhoh(h,pmass)
             dat(i) = rho
         enddo 
-        !$omp end parallel do 
+        ! $omp end parallel do 
         rhostargrid = 0. 
         call interpolate_to_grid(rhostargrid,dat)
 
