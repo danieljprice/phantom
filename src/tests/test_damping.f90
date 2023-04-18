@@ -52,7 +52,7 @@ subroutine test_damping_disc(ntests,npass)
  integer :: nfail(1),ipos
  real :: xyz(3),v0(3),fac,r,damp_fac
  real :: omega,t_orb,t_damp,time
- real, parameter :: tol = epsilon(0.)
+ real, parameter :: tol = 3.e-16
  real :: rpos(4)
  character(len=5) :: label(4)
 
@@ -62,7 +62,7 @@ subroutine test_damping_disc(ntests,npass)
  damp = 0.01
 
  ! set positions of damping zones
- r1in = 1.; r2in = 2.
+ r1in = 0.3; r2in = 2.
  r1out = 2.52; r2out = 3.0
  call calc_damp(time,damp_fac)
 

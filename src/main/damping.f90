@@ -59,7 +59,7 @@ subroutine calc_damp(time, damp_fac)
 
  select case(idamp)
  case(3)
-    orbital_period = 2.*pi/sqrt(r1in**3)
+    orbital_period = 2.*pi*sqrt(r1in**3)  ! G=M=1
     damp_fac = damp/orbital_period ! fraction of orbital time at r=r1in with G=M=1
  case(2)
     tdyn_star = tdyn_s / utime
