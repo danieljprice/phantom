@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -29,8 +29,7 @@ module extern_prdrag
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, infile_utils, io, lumin_nsdisc, physcon,
-!   units
+! :Dependencies: eos, infile_utils, io, lumin_nsdisc, units
 !
  use eos, only:qfacdisc
 
@@ -57,28 +56,20 @@ contains
 !+
 !------------------------------------------------
 subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  use lumin_nsdisc, only:beta
- use physcon, only: gg
- use units, only: udist, umass, utime
+ use units,        only:get_G_code
  real, intent(in)    :: xi,yi,zi,Mstar
  real, intent(inout) :: fextxi,fextyi,fextzi
  real, intent(out)   :: phi
  real                   :: r2,dr,dr3,betai,Mbdr3,rbetai,gcode
 
- gcode = gg / (udist**3/(utime**2*umass))
+ gcode = get_G_code()
 
  r2 = xi*xi + yi*yi + zi*zi
  betai = beta(xi,yi,zi)
  rbetai = k0*betai
  if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-    dr  = finvsqrt(r2)
-#else
     dr = 1./sqrt(r2)
-#endif
     dr3 = dr**3
     Mbdr3 = Mstar*gcode*(1.-rbetai)*dr3
     fextxi = fextxi - xi*Mbdr3
@@ -95,17 +86,16 @@ end subroutine get_prdrag_spatial_force
 !+
 !-----------------------------------------------------------------------
 subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
- use lumin_nsdisc, only: beta      !Change your Poynting-Robertson here.
- use physcon, only: gg, c
- use units, only: udist, umass, utime
+ use lumin_nsdisc, only:beta      !Change your Poynting-Robertson here.
+ use units,        only:get_c_code,get_G_code
  real, intent(in)  :: xyzi(3), vel(3)
  real, intent(in)  :: Mstar
  real, intent(out) :: fexti(3)
  real :: rhat(3)
- real                              :: betai, r, r2, r3, vr, gcode, ccode
+ real :: betai, r, r2, r3, vr, gcode, ccode
 
- ccode = c  / (udist/utime)
- gcode = gg / (udist**3/(utime**2*umass))
+ ccode = get_c_code()
+ gcode = get_G_code()
 
  r2     = dot_product( xyzi, xyzi )
  r      = sqrt(r2)
@@ -123,8 +113,7 @@ end subroutine get_prdrag_vdependent_force
 
 subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,Mstar)
  use lumin_nsdisc,  only:beta
- use physcon, only: c
- use units, only: udist, utime
+ use units,         only:get_c_code
  use io,            only:warn
  real, intent(in)    :: dt,xi,yi,zi, Mstar
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
@@ -136,7 +125,7 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
  real                              :: xi2, yi2, zi2, ccode, kd
  character(len=30), parameter :: label = 'update_prdrag_leapfrog'
 
- ccode = c  / (udist/utime)
+ ccode = get_c_code()
 
  xi2    = xi*xi
  yi2    = yi*yi

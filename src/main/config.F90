@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -28,14 +28,14 @@ module dim
  public
 
  character(len=80), parameter :: &
-    tagline='Phantom v'//phantom_version_string//' (c) 2007-2020 The Authors'
+    tagline='Phantom v'//phantom_version_string//' (c) 2007-2023 The Authors'
 
  ! maximum number of particles
  integer :: maxp = 0 ! memory not allocated initially
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1200000
+ integer, parameter :: maxp_hard = 5200000
 #endif
 
  ! maximum number of point masses
@@ -49,8 +49,10 @@ module dim
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
+ logical, parameter :: isothermal = .true.
 #else
  integer, parameter :: maxvxyzu = 4
+ logical, parameter :: isothermal = .false.
 #endif
 
  integer :: maxTdust = 0
@@ -154,10 +156,10 @@ module dim
  ! storage for artificial viscosity switch
  integer :: maxalpha = 0
 #ifdef DISC_VISCOSITY
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef CONST_AV
- integer, parameter :: nalpha = 1
+ integer, parameter :: nalpha = 0
 #else
 #ifdef USE_MORRIS_MONAGHAN
  integer, parameter :: nalpha = 1
@@ -202,7 +204,6 @@ module dim
 ! KROME chemistry
 !-----------------
  integer :: maxp_krome = 0
- logical :: store_gamma = .false.
 #ifdef KROME
  logical, parameter :: use_krome = .true.
 #else
@@ -277,32 +278,20 @@ module dim
  integer :: maxsts = 1
 
 !--------------------
-! Wind cooling
-!--------------------
-#if defined(WIND) || !defined (ISOTHERMAL)
- logical :: windcooling = .true.
-#else
- logical :: windcooling = .false.
-#endif
-
-!--------------------
 ! Dust formation
 !--------------------
  logical :: do_nucleation = .false.
- integer :: inucleation = 0
+ integer :: itau_alloc    = 0
+ integer :: itauL_alloc   = 0
+ integer :: inucleation   = 0
+ !number of elements considered in the nucleation chemical network
+ integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
-#ifdef STAR
- logical :: star_radiation = .true.
-#else
- logical :: star_radiation = .false.
-#endif
  logical :: nucleation = .true.
- integer :: maxsp = maxp_hard
 #else
- logical :: star_radiation = .false.
  logical :: nucleation = .false.
- integer :: maxsp = 0
 #endif
+ integer :: maxp_nucleation = 0
 
 !--------------------
 ! MCFOST library
@@ -348,12 +337,18 @@ module dim
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
  integer :: maxgran = 0
+ integer :: maxindan = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
  !--------------------
  integer :: maxphase = 0
  integer :: maxgradh = 0
+
+ !--------------------
+ ! a place to store the number of the dumpfile; required for restart dumps
+ !--------------------
+ integer :: idumpfile = 0
 
 contains
 
@@ -368,8 +363,11 @@ subroutine update_max_sizes(n,ntot)
 #endif
 
 #ifdef SINK_RADIATION
- maxTdust = maxp
+ store_dust_temperature = .true.
 #endif
+
+ if (store_dust_temperature) maxTdust = maxp
+ if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
  ncellsmax       = NCELLSMAX
@@ -440,8 +438,13 @@ subroutine update_max_sizes(n,ntot)
  maxgran = maxgr
 #endif
 
+#ifdef IND_TIMESTEPS
+ maxindan = maxan
+#endif
+
 #ifdef RADIATION
  maxprad = maxp
+ maxlum = maxp
 #endif
 ! Very convoluted, but follows original logic...
  maxphase = maxan

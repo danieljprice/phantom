@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -63,7 +63,7 @@ subroutine step_sts(npart,nactive,time,dt,dtextforce,dtnew,iprint)
  real,    intent(in)    :: time,dt
  real,    intent(inout) :: dtextforce
  real,    intent(out)   :: dtnew
- real, parameter        :: time_tol = 1.0d-8
+ real, parameter        :: time_tol = 1.0e-8
  integer                :: nactive_sts
 #ifndef IND_TIMESTEPS
  integer(kind=1), parameter :: nbinmax = 0  ! The simplest way to keep everything clean

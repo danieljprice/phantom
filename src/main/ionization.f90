@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module ionization_mod
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos_idealplusrad, part, physcon, units
+! :Dependencies: eos_idealplusrad, io, part, physcon, units, vectorutils
 !
  implicit none
 
@@ -311,6 +311,27 @@ real function get_erec(logd,T,X,Y)
  return
 end function get_erec
 
+!-----------------------------------------------------------------------
+!+
+!  Get recombination energy components
+!+
+!-----------------------------------------------------------------------
+subroutine get_erec_components(logd,T,X,Y,erec)
+ real, intent(in)     :: logd,T,X,Y
+ real, intent(out)    :: erec(4)
+ real, dimension(1:4) :: e,xi
+
+ e(1) = eion(1)*X*0.5
+ e(2) = eion(2)*X
+ e(3) = eion(3)*Y*0.25
+ e(4) = eion(4)*Y*0.25
+
+ call get_xion(logd,T,X,Y,xi)
+
+ erec = sum(erec(1:4)*xi(1:4))
+
+end subroutine get_erec_components
+
 !----------------------------------------------------------------
 !+
 !  Calculate thermal (gas + radiation internal energy) energy of a
@@ -339,5 +360,68 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,et
  end select
 
 end subroutine calc_thermal_energy
+
+
+!----------------------------------------------------------------
+!+
+!  Solves three Saha equations simultaneously to return ion
+!  fractions of hydrogen and helium. Assumes inputs in cgs units
+!+
+!----------------------------------------------------------------
+subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
+ use physcon,     only:twopi,kboltz,eV,planckh,mass_electron_cgs,mass_proton_cgs
+ use vectorutils, only:matrixinvert3D
+ use io,          only:fatal
+ real, intent(in)     :: dens,temp,X,Y
+ real, intent(out)    :: xh0,xh1,xhe0,xhe1,xhe2
+ real                 :: n,nh,nhe
+ real                 :: A,B,C,const
+ real                 :: xh1g,xhe1g,xhe2g
+ real                 :: f,g,h
+ real, parameter      :: chih0=13.598,chihe0=24.587,chihe1=54.418
+ real, dimension(3,3) :: M,M_inv
+ real, dimension(3)   :: dx
+ integer              :: i,ierr
+
+ nh = X * dens / mass_proton_cgs
+ nhe = Y * dens / (4. * mass_proton_cgs)
+ n = nh + nhe
+
+ const = (sqrt(twopi * mass_electron_cgs * kboltz) / planckh)**3 / n
+
+ A = 1. * const * temp**(1.5) * exp(-chih0 * eV / (kboltz * temp))
+ B = 4. * const * temp**(1.5) * exp(-chihe0 * eV / (kboltz * temp))
+ C = 1. * const * temp**(1.5) * exp(-chihe1 * eV / (kboltz * temp))
+
+ xh1g = 0.4
+ xhe1g = 0.3
+ xhe2g = 0.2
+
+ do i=1,50
+    f = xh1g * (xh1g + xhe1g + 2*xhe2g) - A * ((nh/n) - xh1g)
+    g = xhe1g * (xh1g + xhe1g + 2*xhe2g) - B * ((nhe/n) - xhe1g - xhe2g)
+    h = xhe2g * (xh1g + xhe1g + 2*xhe2g) - C * xhe1g
+
+    M(1,:) = (/ 2*xh1g + xhe1g + 2*xhe2g + A, xh1g, 2*xh1g /)
+    M(2,:) = (/ xhe1g, xh1g + 2*xhe1g + 2*xhe2g + B, 2*xhe1g + B /)
+    M(3,:) = (/ xhe2g, xhe2g - C, xh1g + xhe1g + 4*xhe2g /)
+
+    call matrixinvert3D(M,M_inv,ierr)
+    if (ierr /= 0) call fatal("ionisation_fraction","Error inverting matrix")
+
+    dx = matmul(M_inv, (/ -f, -g, -h/))
+
+    xh1g = xh1g + dx(1)
+    xhe1g = xhe1g + dx(2)
+    xhe2g = xhe2g + dx(3)
+ enddo
+
+ xh1 = xh1g * n / nh
+ xhe1 = xhe1g * n / nhe
+ xhe2 = xhe2g * n / nhe
+ xh0 = ((nh/n) - xh1g) * n / nh
+ xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
+
+end subroutine ionisation_fraction
 
 end module ionization_mod

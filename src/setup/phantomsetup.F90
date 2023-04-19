@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -42,9 +42,6 @@ program phantomsetup
  use fileutils,       only:strip_extension
  use gravwaveutils,   only:calc_gravitwaves
  use systemutils,     only:get_command_option
-#ifdef LIGHTCURVE
- use part,            only:luminosity,maxlum,lightcurve
-#endif
 #ifdef KROME
  use krome_interface, only:write_KromeSetupFile
 #endif
@@ -57,6 +54,7 @@ program phantomsetup
  real                        :: time,pmassi
  logical                     :: iexist
 
+ nprocs = 1    ! for MPI, this is not initialised until init_mpi, but an initialised value is required for init_part
  call set_io_unit_numbers
  call set_units
  call set_boundary
@@ -118,7 +116,7 @@ program phantomsetup
     call init_domains(nprocs)
     nprocsfake = 1
  else ! non-mpi
-    nprocsfake = get_command_option('nprocsfake',default=1)
+    nprocsfake = int(get_command_option('nprocsfake',default=1))
     nprocs= nprocsfake
     print*,' nprocs = ',nprocs
     call init_domains(nprocs)
@@ -150,7 +148,7 @@ program phantomsetup
        pmassi = massoftype(igas)
        do i=1,npart
           if (maxphase==maxp) pmassi = massoftype(iamtype(iphase(i)))
-          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(maxvxyzu,i),rhoh(xyzh(4,i),pmassi))
+          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(:,i),rhoh(xyzh(4,i),pmassi),gamma)
        enddo
     endif
 

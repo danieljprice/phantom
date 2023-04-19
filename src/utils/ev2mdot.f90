@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -122,6 +122,8 @@ program get_mdot
           allocate(dat_combined(ncols,nsteps))
           dat_combined = dat
        endif
+    else
+       if (.not.allocated(dat_combined)) allocate(dat_combined(0,0)) ! to avoid compiler warning
     endif
 
     nsteps_keep = 0

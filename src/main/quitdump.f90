@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -31,7 +31,7 @@ subroutine quit
  use part,            only:nptmass
  integer  :: i
 
-!$omp critical (quit_summary)
+!$omp critical (crit_quit_summary)
  call summary_printout(iprint,nptmass)
  write(iprint,10)
 10 format(/, &
@@ -43,7 +43,7 @@ subroutine quit
 
  write(iprint,*) 'run terminated abnormally'
  call write_fulldump(time,'phantom.debugdump')
-!$omp end critical (quit_summary)
+!$omp end critical (crit_quit_summary)
 !
 ! close ev, log& ptmass-related files
  close(unit=ievfile)

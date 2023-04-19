@@ -38,9 +38,9 @@ checksetup:
         endif
 	@echo $(SETUP) > .make_lastsetup
    else
-	@echo "setup '$(SETUP)' not recognised..."
+	@echo "SETUP='$(SETUP)' not recognised..."
 	@echo ""
-	@echo "Please set SETUP to one listed in build/Makefile"
+	@echo "Please set SETUP to one listed in build/Makefile_setups"
 	@echo ""
 	@echo " e.g.:"
 	@echo " make SETUP=sedov"
@@ -51,12 +51,10 @@ checksetup:
 	@echo " export SETUP=sedov"
 	@echo " make"
 	@echo ""
-	@echo "You may also wish to consider the following compile-time options:"
+	@echo "Understand this here:"
 	@echo ""
-	@echo " DEBUG=yes/no"
-	@echo " DOUBLEPRECISION=yes/no"
-	@echo " OPENMP=yes/no"
-	@echo " ENDIAN=BIG/LITTLE"
+	@echo ' https://phantomsph.readthedocs.io/en/latest/setups.html'
+	@echo ' https://phantomsph.readthedocs.io/en/latest/config.html'
 	@echo ""
 	@${MAKE} err;
    endif
@@ -107,7 +105,11 @@ checkmcfost:
    ifneq ("X$(MCFOST_DIR)","X")
 	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
    else
-	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+      ifneq ("X$(PREFIX)","X")
+		@echo; echo "assuming MCFOST directory is "$(PREFIX)" from PREFIX env variable"; echo;
+      else
+		@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+      endif
    endif
 
 checksmol:

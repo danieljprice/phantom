@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module mpidens
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, mpi, mpiutils
+! :Dependencies: dim, io, mpi
 !
  use io,       only:nprocs,fatal,error
  use dim,      only:minpart,maxrhosum,maxxpartvecidens
@@ -25,6 +25,26 @@ module mpidens
  public :: celldens
  public :: stackdens
  public :: get_mpitype_of_celldens
+ public :: free_mpitype_of_celldens
+
+ integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
+                                         8 * minpart                    + & !  h_old(minpart)
+                                         8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
+                                         8 * maxrhosum * minpart        + & !  rhosums(maxrhosum,minpart)
+                                         8 * 3                          + & !  xpos(3)
+                                         8                              + & !  xsizei
+                                         8                              + & !  rcuti
+                                         8                              + & !  hmax
+                                         4                              + & !  icell
+                                         4                              + & !  npcell
+                                         4 * minpart                    + & !  arr_index(minpart)
+                                         4                              + & !  owner
+                                         4                              + & !  nits
+                                         4                              + & !  nneightry
+                                         4 * minpart                    + & !  nneigh(minpart)
+                                         4                              + & !  waiting_index
+                                         1 * minpart                        !  iphase(minpart)
 
  type celldens
     sequence
@@ -45,7 +65,7 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(4 * (6 + 2 * minpart) + minpart, 8))
+    integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
  type stackdens
@@ -61,17 +81,16 @@ contains
 subroutine get_mpitype_of_celldens(dtype)
 #ifdef MPI
  use mpi
- use mpiutils, only:mpierr
  use io,       only:error
-
- integer, parameter              :: ndata = 18
-
+#endif
  integer, intent(out)            :: dtype
+#ifdef MPI
  integer                         :: nblock, blens(ndata), mpitypes(ndata)
  integer(kind=MPI_ADDRESS_KIND)  :: disp(ndata)
 
- type(celldens)                 :: cell
+ type(celldens)                  :: cell
  integer(kind=MPI_ADDRESS_KIND)  :: addr,start,lb,extent
+ integer                         :: mpierr
 
  nblock = 0
 
@@ -195,9 +214,21 @@ subroutine get_mpitype_of_celldens(dtype)
  endif
 
 #else
- integer, intent(out) :: dtype
  dtype = 0
 #endif
 end subroutine get_mpitype_of_celldens
+
+subroutine free_mpitype_of_celldens(dtype)
+#ifdef MPI
+ use mpi
+#endif
+ integer, intent(inout) :: dtype
+#ifdef MPI
+ integer                :: mpierr
+
+ call MPI_Type_free(dtype,mpierr)
+#endif
+
+end subroutine free_mpitype_of_celldens
 
 end module mpidens

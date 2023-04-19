@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,7 +17,7 @@ module extern_gwinspiral
 ! :Runtime parameters:
 !   - stop_ratio : *ratio of particles crossing CoM to indicate a merger*
 !
-! :Dependencies: centreofmass, dump_utils, infile_utils, io, physcon, units
+! :Dependencies: centreofmass, dump_utils, infile_utils, io, units
 !
  implicit none
  !
@@ -81,8 +81,7 @@ end subroutine initialise_gwinspiral
 !+
 !-----------------------------------------------------------------------
 subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
- use physcon,      only: c
- use units,        only: unit_velocity
+ use units,        only:get_c_code
  use centreofmass, only:get_centreofmass
  integer, intent(in)  :: npart,nptmass
  real,    intent(in)  :: xyzh(:,:),vxyzu(:,:),xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -96,7 +95,7 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
 !
 ! Calculate force coefficients
 !
- c_code      = c/unit_velocity
+ c_code      = get_c_code()
  fstar1_coef = 0.
  fstar2_coef = 0.
  stopped_now = .false.
@@ -173,6 +172,9 @@ subroutine gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptma
           isseparate = .false.    ! Stop emitting gravitational waves
           stopped_now = .true.    ! to trigger a print statement
        endif
+    elseif (nptmass == 1) then
+       sep = sqrt(dot_product(comstar1 - comstar2,comstar1 - comstar2))
+       print*,' SEP is ',sep,mstar1,mstar2,fstar1_coef,fstar2_coef
     endif
  endif
 

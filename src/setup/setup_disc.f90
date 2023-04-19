@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -25,6 +25,8 @@ module setup
 !   - Ratm_in       : *inner atmosphere radius (planet radii)*
 !   - Ratm_out      : *outer atmosphere radius (planet radii)*
 !   - accr1         : *single star accretion radius*
+!   - accr1a        : *single star accretion radius*
+!   - accr1b        : *single star accretion radius*
 !   - accr2         : *perturber accretion radius*
 !   - accr2a        : *tight binary primary accretion radius*
 !   - accr2b        : *tight binary secondary accretion radius*
@@ -34,12 +36,18 @@ module setup
 !   - beta_z        : *variation in transition height over radius*
 !   - bhspin        : *black hole spin*
 !   - bhspinangle   : *black hole spin angle (deg)*
-!   - binary2_O     : *tight binary Omega, PA of ascending node (deg)*
-!   - binary2_a     : *tight binary semi-major axis*
-!   - binary2_e     : *tight binary eccentricity*
-!   - binary2_f     : *tight binary f, initial true anomaly (deg,180=apastron)*
-!   - binary2_i     : *tight binary i, inclination (deg)*
-!   - binary2_w     : *tight binary w, argument of periapsis (deg)*
+!   - binary1_O     : *tight binary 1 Omega, PA of ascending node (deg)*
+!   - binary1_a     : *tight binary 1 semi-major axis*
+!   - binary1_e     : *tight binary 1 eccentricity*
+!   - binary1_f     : *tight binary 1 f, initial true anomaly (deg,180=apastron)*
+!   - binary1_i     : *tight binary 1 i, inclination (deg)*
+!   - binary1_w     : *tight binary 1 w, argument of periapsis (deg)*
+!   - binary2_O     : *tight binary 2 Omega, PA of ascending node (deg)*
+!   - binary2_a     : *tight binary 2 semi-major axis*
+!   - binary2_e     : *tight binary 2 eccentricity*
+!   - binary2_f     : *tight binary 2 f, initial true anomaly (deg,180=apastron)*
+!   - binary2_i     : *tight binary 2 i, inclination (deg)*
+!   - binary2_w     : *tight binary 2 w, argument of periapsis (deg)*
 !   - binary_O      : *wide binary Omega, PA of ascending node (deg)*
 !   - binary_a      : *wide binary semi-major axis*
 !   - binary_e      : *wide binary eccentricity*
@@ -56,6 +64,7 @@ module setup
 !   - flyby_i       : *inclination (deg)*
 !   - ibinary       : *binary orbit (0=bound,1=unbound [flyby])*
 !   - ipotential    : *potential (1=central point mass,*
+!   - istrat        : *temperature prescription (0=MAPS, 1=Dartois)*
 !   - m1            : *first hierarchical level primary mass*
 !   - m2            : *first hierarchical level secondary mass*
 !   - mass_unit     : *mass unit (e.g. solarm,jupiterm,earthm)*
@@ -63,12 +72,15 @@ module setup
 !   - np            : *number of gas particles*
 !   - nplanets      : *number of planets*
 !   - nsinks        : *number of sinks*
-!   - q2            : *tight binary mass ratio*
+!   - q1            : *tight binary 1 mass ratio*
+!   - q2            : *tight binary 2 mass ratio*
 !   - qatm          : *sound speed power law index of atmosphere*
 !   - radkappa      : *constant radiation opacity kappa*
 !   - ramp          : *Do you want to ramp up the planet mass slowly?*
 !   - rho_core      : *planet core density (cgs units)*
 !   - subst         : *star to substitute*
+!   - subst1        : *first star to substitute*
+!   - subst2        : *second star to substitute*
 !   - surface_force : *model m1 as planet with surface*
 !   - temp_atm0     : *atmosphere temperature scaling factor*
 !   - temp_mid0     : *midplane temperature scaling factor*
@@ -79,7 +91,8 @@ module setup
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
 !   growth, infile_utils, io, kernel, memory, options, part, physcon,
 !   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, setflyby, spherical, timestep, units, vectorutils
+!   setdisc, setflyby, sethierarchical, spherical, timestep, units,
+!   vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -92,7 +105,7 @@ module setup
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid
- use options,          only:use_mcfost,use_mcfost_stellar_parameters,mcfost_computes_Lacc
+ use options,          only:use_mcfost,use_mcfost_stellar_parameters
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
@@ -106,6 +119,7 @@ module setup
  use dim,              only:do_radiation
  use radiation_utils,  only:set_radiation_and_gas_temperature_equal
  use memory,           only:allocate_memory
+
  implicit none
 
  public  :: setpart
@@ -118,12 +132,19 @@ module setup
  !--setup filename
  character(len=100) :: filename
 
+ !--hierarchical configuration
+ integer :: hl_index
+ real :: current_mass, higher_mass
+ integer :: higher_disc_index
+
  !--central objects
  real    :: mcentral
- real    :: m1,m2,accr1,accr2,m2a,m2b,q2,accr2a,accr2b
+ real    :: m1,m2,m1a,m1b,m2a,m2b,q1,q2,accr1,accr2,accr1a,accr1b,accr2a,accr2b
+ real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f
+ real    :: binary1_a,binary1_e,binary1_i,binary1_O,binary1_w,binary1_f
+ real    :: binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
  integer :: icentral,ipotential,ibinary
- integer :: nsinks,subst
- real    :: binary_a,binary_e,binary_i,binary_O,binary_w,binary_f,binary2_a,binary2_e,binary2_i,binary2_O,binary2_w,binary2_f
+ integer :: nsinks,subst,subst1,subst2
  real    :: flyby_a,flyby_d,flyby_O,flyby_i
  real    :: bhspin,bhspinangle
  logical :: einst_prec
@@ -133,10 +154,11 @@ module setup
  real    :: z0_ref
 
  !--discs
- integer, parameter :: maxdiscs = 4
+ integer, parameter :: maxdiscs = 10
+ real               :: discpos(3),discvel(3)
 
  character(len=20) :: disclabel
- character(len=*), dimension(maxdiscs), parameter :: disctype = &
+ character(len=*), dimension(maxdiscs), parameter :: disctype(1:4) = &
     (/'binary   ', &
       'primary  ', &
       'secondary', &
@@ -250,7 +272,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call number_of_discs()
 
  !--setup central object(s), i.e. sink particle(s) or potential
- call setup_central_objects()
+ call setup_central_objects(fileprefix)
 
  !--setup equation of state
  call equation_of_state(gamma)
@@ -315,6 +337,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()
+ use sethierarchical, only:set_hierarchical_default_options
 
  integer :: i
 
@@ -357,6 +380,9 @@ subroutine set_default_options()
  binary_O = 0.
  binary_w = 270.
  binary_f = 180.
+
+ !--hierarchical
+ call set_hierarchical_default_options()
 
  !--flyby
  flyby_a  = 200.
@@ -576,9 +602,14 @@ subroutine equation_of_state(gamma)
  integer :: i
 
  is_isothermal = (maxvxyzu==3)
- if (use_mcfost) then
-    is_isothermal = .false.
-    nfulldump = 1
+
+ if (compiled_with_mcfost) then
+    if (use_mcfost) then
+       is_isothermal = .false.
+       nfulldump = 1
+    else
+       is_isothermal = .true.
+    endif
  endif
 
  if (is_isothermal) then
@@ -603,14 +634,24 @@ subroutine equation_of_state(gamma)
           endif
        else
           !--locally isothermal prescription from Farris et al. (2014) for binary system
-          ieos = 14
-          print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
-          if (iuse_disc(1)) then
-             qfacdisc = qindex(1)
-             call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
-          elseif (iuse_disc(2)) then
-             qfacdisc = qindex(2)
-             call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+          if (nsinks>4) then
+             ieos = 13
+             print "(/,a)",' setting ieos=13 for locally isothermal from generalised Farris et al. (2014) prescription'
+             higher_disc_index = findloc(iuse_disc, .true., 1)
+             qfacdisc = qindex(higher_disc_index)
+             call get_hier_disc_label(higher_disc_index, disclabel)
+
+             call warning('setup_disc','using circum-'//trim(disclabel)//' (H/R)_ref to set global temperature')
+          else
+             ieos = 14
+             print "(/,a)",' setting ieos=14 for locally isothermal from Farris et al. (2014)'
+             if (iuse_disc(1)) then
+                qfacdisc = qindex(1)
+                call warning('setup_disc','using circumbinary (H/R)_ref to set global temperature')
+             elseif (iuse_disc(2)) then
+                qfacdisc = qindex(2)
+                call warning('setup_disc','using circumprimary (H/R)_ref to set global temperature')
+             endif
           endif
        endif
     else
@@ -647,7 +688,7 @@ subroutine equation_of_state(gamma)
     !--adiabatic
     ieos = 2
     gamma = 5./3.
-    icooling = 1
+    icooling = 3
 
     if (use_mcfost) then
        icooling = 0
@@ -715,11 +756,13 @@ end subroutine surface_density_profile
 ! Set up the central object(s)
 !
 !--------------------------------------------------------------------------
-subroutine setup_central_objects()
+subroutine setup_central_objects(fileprefix)
  use externalforces,       only:mass1,accradius1
  use extern_lensethirring, only:blackhole_spin,blackhole_spin_angle
- use setbinary,            only:set_binary,set_multiple
+ use setbinary,            only:set_binary
+ use sethierarchical,      only:set_hierarchical,set_multiple
  use setflyby,             only:set_flyby
+ character(len=20), intent(in) :: fileprefix
 
  integer :: i,ierr
 
@@ -777,6 +820,8 @@ subroutine setup_central_objects()
        xyzmh_ptmass(ihsoft,nptmass) = accr1
        vxyz_ptmass                  = 0.
        mcentral                     = m1
+       discpos                      = 0.
+       discvel                      = 0.
     case (2)
        !--binary
        select case (ibinary)
@@ -806,6 +851,12 @@ subroutine setup_central_objects()
                          xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
           mcentral = m1
        end select
+       discpos = 0.
+       discvel = 0.
+
+    case (5)
+       call set_hierarchical(fileprefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
+
     case (3)
        !-- hierarchical triple
        nptmass  = 0
@@ -832,18 +883,74 @@ subroutine setup_central_objects()
             f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
 
+       if (iuse_disc(1)) then
+          discpos=xyzmh_ptmass(1:3,2)
+          discvel=vxyz_ptmass(1:3,2)
+       else
+          discpos = 0.
+          discvel = 0.
+       endif
+
        call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
             posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
             f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst,ierr=ierr)
 
 
-       mcentral = m1 + m2
+       mcentral = m2
+    case(4)
+       !-- hierarchical quadruple
+       nptmass  = 0
+       print "(/,a)",' Central objects represented by a hierarchical quadruple'
+       print "(a,g10.3,a)",'     First hierarchical level primary mass: ', m1,    trim(mass_unit)
+       print "(a,g10.3,a)",'   First hierarchical level secondary mass: ', m2,    trim(mass_unit)
+       print "(a,g10.3)",  '                    Wide binary mass ratio: ', m2/m1
+       print "(a,g10.3)",  '                 Tight binary 1 mass ratio: ', q1
+       print "(a,g10.3)",  '                 Tight binary 2 mass ratio: ', q2
+       print "(a,g10.3)",  '              First star to be substituted: ', abs(subst1)
+       print "(a,g10.3)",  '             Second star to be substituted: ', abs(subst2)
+       print "(a,g10.3,a)",'                        Accretion Radius 1: ', accr1, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 1a: ', accr1a, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 1b: ', accr1b, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 2a: ', accr2a, trim(dist_unit)
+       print "(a,g10.3,a)",'                       Accretion Radius 2b: ', accr2b, trim(dist_unit)
+
+       if (subst1>0) then
+          print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary 1 orientation referred to: sky'
+       endif
+       if (subst2>0) then
+          print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: substituted star orbital plane'
+       else
+          print "(a,g10.3,a)",'      Tight binary 2 orientation referred to: sky'
+       endif
+
+       call set_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
+            posang_ascnode=binary_O,arg_peri=binary_w,incl=binary_i, &
+            f=binary_f,accretion_radius1=accr1,accretion_radius2=accr1, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass,ierr=ierr)
+
+       discpos=xyzmh_ptmass(1:3,2)
+       discvel=vxyz_ptmass(1:3,2)
+
+       call set_multiple(m1/(q1+1),m1*q1/(q1+1),semimajoraxis=binary1_a,eccentricity=binary1_e, &
+         posang_ascnode=binary1_O,arg_peri=binary1_w,incl=binary1_i, &
+         f=binary1_f,accretion_radius1=accr1a,accretion_radius2=accr1b, &
+         xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst1,ierr=ierr)
+
+       call set_multiple(m2/(q2+1),m2*q2/(q2+1),semimajoraxis=binary2_a,eccentricity=binary2_e, &
+            posang_ascnode=binary2_O,arg_peri=binary2_w,incl=binary2_i, &
+            f=binary2_f,accretion_radius1=accr2a,accretion_radius2=accr2b, &
+            xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, subst=subst2,ierr=ierr)
+
+       mcentral = m2
+
     end select
  end select
 
  !--set array of central object masses
- star_m = (/mcentral, m1, m2, m1+m2/)
+ star_m(1:4) = (/mcentral, m1, m2, m1+m2/)
  do i=1,maxdiscs
     if (.not.iuse_disc(i)) star_m(i) = 0.
  enddo
@@ -979,6 +1086,9 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                        npartoftype,massoftype,xyzh,vxyzu)
  use options,   only:alpha
  use setbinary, only:Rochelobe_estimate
+ use sethierarchical, only:get_hierarchical_level_com, get_hier_level_mass
+ !use sethierarchical, only:hl_labels, a
+ use sethierarchical, only:hs
  use setdisc,   only:set_disc
  integer,           intent(in)    :: id
  character(len=20), intent(in)    :: fileprefix
@@ -1012,35 +1122,63 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
     if (iuse_disc(i)) then
 
        if (ndiscs > 1) then
-          print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
-          prefix = trim(fileprefix)//'-'//disctype(i)
+          if (nsinks<4) then
+             print "(/,a)",'>>> Setting up circum'//trim(disctype(i))//' disc <<<'
+             prefix = trim(fileprefix)//'-'//disctype(i)
+          else
+             call get_hier_disc_label(i, disclabel)
+             print "(/,a)",'>>> Setting up circum-'//trim(disclabel)//' disc <<<'
+             prefix = trim(fileprefix)//'-'//trim(disclabel)
+          endif
        else
           prefix = fileprefix
        endif
 
-       !--set disc origin
-       select case(i)
-       case(3)
-          !--circumsecondary
-          xorigini  = xyzmh_ptmass(1:3,2)
-          vorigini  = vxyz_ptmass(1:3,2)
-          Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
-       case(2)
-          !--circumprimary
-          xorigini  = xyzmh_ptmass(1:3,1)
-          vorigini  = vxyz_ptmass(1:3,1)
-          Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
-       case default
-          !--single disc or circumbinary or circumtriple
-          !  centre of mass of binary defined to be zero (see set_binary)
-          xorigini  = 0.
-          vorigini  = 0.
-          Rochelobe = huge(0.)
-       end select
+       if (nsinks < 4) then
+          !--set disc origin
+          select case(i)
+          case(3)
+             !--circumsecondary
+             xorigini  = xyzmh_ptmass(1:3,2)
+             vorigini  = vxyz_ptmass(1:3,2)
+             Rochelobe = Rochelobe_estimate(m1,m2,binary_a)
+          case(2)
+             !--circumprimary
+             xorigini  = xyzmh_ptmass(1:3,1)
+             vorigini  = vxyz_ptmass(1:3,1)
+             Rochelobe = Rochelobe_estimate(m2,m1,binary_a)
+          case default
+             !--single disc or circumbinary or circumtriple
+             !  centre of mass of binary defined to be zero (see set_binary)
+             xorigini  = discpos
+             vorigini  = discvel
+             Rochelobe = huge(0.)
+          end select
+       else
+          call get_hier_disc_label(i, disclabel)
+
+          m2 = get_hier_level_mass(disclabel)
+
+          if (len(trim(disclabel))>1) then
+             m1 = get_hier_level_mass(disclabel(:len(trim(disclabel))-1))-m2
+
+             hl_index = findloc(hs%labels%hl, disclabel(:len(trim(disclabel))-1), 1)
+             Rochelobe = Rochelobe_estimate(m1,m2,hs%levels(hl_index)%a)
+          else
+             Rochelobe = huge(0.)
+          endif
+
+
+          star_m(i) = m2
+
+          call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
+          !print*,disclabel,' com_pos ', xorigini
+
+       endif
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
           call warning('setup_disc', &
-             'Outer disc radius for circum'//trim(disctype(i))//' > Roche lobe of ' &
+             'Outer disc radius for circum-'//trim(disctype(i))//' > Roche lobe of ' &
              //trim(disctype(i)))
        endif
 
@@ -1307,6 +1445,8 @@ subroutine planet_atmosphere(id,npart,xyzh,vxyzu,npartoftype,gamma,hfact)
     npart_disc = npart
  endif
 
+ itype = igas
+
  !--set up an atmosphere around one of the binary masses (i.e. planet)
  if (surface_force .and. npart_planet_atm > 0) then
     call set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in(1), &
@@ -1329,7 +1469,7 @@ end subroutine planet_atmosphere
 subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                           HoverR,Mstar,q_index,gamma,Ratm_in,Ratm_out,r_surface, &
                           npart,npart_planet_atm,npart_disc,hfact)
- use part,          only:set_particle_type
+ use part,          only:set_particle_type,igas
  use spherical,     only:set_sphere,rho_func
  integer, intent(in)    :: id
  real,    intent(inout) :: xyzh(:,:)
@@ -1351,7 +1491,6 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
  integer, intent(inout) :: npart_disc
  real,    intent(in)    :: hfact
 
- integer, parameter :: igas = 1
  integer(kind=8)    :: nptot
  integer            :: i,nx
  real               :: xyz_orig(3)
@@ -1383,10 +1522,10 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
                  np_requested=npart_planet_atm,xyz_origin=xyz_orig)
 
  npart_planet_atm = npart-npart_disc
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  do i=npart_disc+1,npart
     !--set the particle type for the atmosphere particles
-    call set_particle_type(i,1)
+    call set_particle_type(i,itype)
     !--------------------------------------------------------------------------
     !  Set thermal energy
     !  utherm generally should not be stored
@@ -1665,7 +1804,7 @@ subroutine set_tmax_dtmax()
  use setflyby, only:get_T_flyby
  use timestep, only:tmax,dtmax
 
- real :: period, period2
+ real :: period, period1, period2
 
  period2 = 0.
  if (icentral==1 .and. nsinks==2 .and. ibinary==0) then
@@ -1675,6 +1814,13 @@ subroutine set_tmax_dtmax()
     !--wide binary orbital period
     period = sqrt(4.*pi**2*binary_a**3/mcentral)
     !--tight binary orbital period
+    period2 = sqrt(4.*pi**2*binary2_a**3/m2)
+ elseif (icentral==1 .and. nsinks==4 .and. ibinary==0) then
+    !--wide binary orbital period
+    period = sqrt(4.*pi**2*binary_a**3/mcentral)
+    !--tight binary 1 orbital period
+    period1 = sqrt(4.*pi**2*binary1_a**3/m1)
+    !--tight binary 2 orbital period
     period2 = sqrt(4.*pi**2*binary2_a**3/m2)
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==1) then
     !--time of flyby
@@ -1699,6 +1845,8 @@ subroutine set_tmax_dtmax()
     elseif (deltat > 0.) then
        dtmax = deltat*period
     endif
+ elseif (nsinks==4) then
+    dtmax = deltat*period
     if (norbits < 0 .and. period2 > 0.) then
        tmax = -norbits*period2
     elseif (norbits >= 0) then
@@ -1717,6 +1865,8 @@ end subroutine set_tmax_dtmax
 subroutine setup_interactive()
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
+ use sethierarchical, only:set_hierarchical_default_options, get_hier_level_mass
+ use sethierarchical, only:hs, hierarchy!sink_num, hl_num, sink_labels, hl_labels
 
  integer :: i
  real    :: disc_mfac(maxdiscs)
@@ -1778,7 +1928,7 @@ subroutine setup_interactive()
     end select
  case (1)
     !--sink particle(s)
-    call prompt('How many sinks?',nsinks,1,3)
+    call prompt('How many sinks?',nsinks,1,5)
     select case (nsinks)
     case (1)
        !--single star
@@ -1813,6 +1963,18 @@ subroutine setup_interactive()
           flyby_O  = 0.
           flyby_i  = 0.
        end select
+
+    case (5)
+       print "(/,a)",'================================'
+       print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
+       print "(a)",  '================================'
+
+       ibinary = 0
+
+       call prompt('What is the hierarchy?',hierarchy)
+       !call set_hierarchical_interactively()
+       call set_hierarchical_default_options()
+
     case (3)
        !-- hierarchical triple --!
        print "(/,a)",'================================'
@@ -1844,6 +2006,52 @@ subroutine setup_interactive()
        binary2_f = 180.
        accr2a    = 0.1
        accr2b    = 0.1
+    case(4)
+       !-- hierarchical quadruple --!
+       print "(/,a)",'================================'
+       print "(a)",  '+++   HIERARCHICAL QUADRUPLE    +++'
+       print "(a)",  '================================'
+       ibinary = 0
+
+       !-- Wide binary
+       m1       = 1.
+       m2       = 0.2
+       binary_a = 10.
+       binary_e = 0.
+       binary_i = 0.
+       binary_O = 0.
+       binary_w = 270.
+       binary_f = 180.
+       accr1    = 1.
+
+       !-- Tight binary 1
+       subst1    = 11
+       q1        = 1
+       m1a       = m1/(q1+1)
+       m1b       = m1*q1/(q1+1)
+       binary1_a = 1.
+       binary1_e = 0.
+       binary1_i = 0.
+       binary1_O = 0.
+       binary1_w = 270.
+       binary1_f = 180.
+       accr1a    = 0.1
+       accr1b    = 0.1
+
+       !-- Tight binary 2
+       subst2    = 12
+       q2       = 1
+       m2a      = m2/(q2+1)
+       m2b      = m2*q2/(q2+1)
+       binary2_a = 1.
+       binary2_e = 0.
+       binary2_i = 0.
+       binary2_O = 0.
+       binary2_w = 270.
+       binary2_f = 180.
+       accr2a    = 0.1
+       accr2b    = 0.1
+
 
     end select
  end select
@@ -1875,7 +2083,31 @@ subroutine setup_interactive()
        iuse_disc(2) = .false.
        iuse_disc(3) = .false.
        iuse_disc(4) = .true.
-       print "(/,a)",'Setting circum-triple disc.'
+       call prompt('Do you want a circum-triple disc?',iuse_disc(4))
+       if (.not.iuse_disc(4)) then
+          call prompt('Do you want a circumbinary disc around the first hierarchical level secondary?',iuse_disc(1))
+       else
+          print "(/,a)",'Setting circum-triple disc.'
+       endif
+    elseif (nsinks==4) then
+       !--2 bound binaries: circumbinary
+       iuse_disc(1) = .true.
+       iuse_disc(2) = .false.
+       iuse_disc(3) = .false.
+       iuse_disc(4) = .false.
+       print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
+    elseif (nsinks==5) then
+       !--2 bound binaries: circumbinary
+       iuse_disc(:) = .false.
+
+       do i=1,hs%labels%sink_num
+          call prompt('Do you want a disc orbiting '//trim(hs%labels%sink(i))//' star?',iuse_disc(i))
+       enddo
+
+       do i=1,hs%labels%hl_num
+          call prompt('Do you want a disc orbiting '//trim(hs%labels%hl(i))//' hierarchical level?',iuse_disc(i+hs%labels%sink_num))
+       enddo
+
     endif
     if (.not.any(iuse_disc)) iuse_disc(1) = .true.
     !--number of discs
@@ -1901,11 +2133,11 @@ subroutine setup_interactive()
     !--don't smooth circumbinary, by default
     ismoothgas(1) = .false.
     !--set appropriate disc radii for bound binary
-    R_in      = (/2.5*binary_a, accr1, accr2, 2.5*binary_a /)
-    R_out     = (/5.*R_in(1), 5.*accr1, 5.*accr2, 5.*R_in(1) /)
+    R_in(1:4)      = (/2.5*binary_a, accr1, accr2, 2.5*binary_a /)
+    R_out(1:4)     = (/5.*R_in(1), 5.*accr1, 5.*accr2, 5.*R_in(1) /)
     R_ref     = R_in
     R_c       = R_out
-    disc_mfac = (/1., 0.1, 0.01, 1./)
+    disc_mfac(1:4) = (/1., 0.1, 0.01, 1./)
     if (ndiscs > 1) then
        !--set H/R so temperature is globally constant
        call prompt('Do you want a globally isothermal disc (if not Farris et al. 2014)?',use_global_iso)
@@ -1921,23 +2153,51 @@ subroutine setup_interactive()
        if (.not. use_global_iso) then
           call prompt('Enter q_index',qindex(1))
           qindex=qindex(1)
-          if (iuse_disc(1)) then
-             call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
-             H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
-             H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
-          else
-             if (iuse_disc(2)) then
-                call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
-                H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
-                H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+          if (nsinks<5) then
+             if (iuse_disc(1)) then
+                call prompt('Enter H/R of circumbinary at R_ref',H_R(1))
+                H_R(2) = (R_ref(2)/R_ref(1)*(m1+m2)/m1)**(0.5-qindex(1)) * H_R(1)
+                H_R(3) = (R_ref(3)/R_ref(1)*(m1+m2)/m2)**(0.5-qindex(1)) * H_R(1)
              else
-                call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
-                H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
-                H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+                if (iuse_disc(2)) then
+                   call prompt('Enter H/R of circumprimary at R_ref',H_R(2))
+                   H_R(1) = (R_ref(1)/R_ref(2)*m1/(m1+m2))**(0.5-qindex(2)) * H_R(2)
+                   H_R(3) = (R_ref(3)/R_ref(2)*m2/m1)**(0.5-qindex(2)) * H_R(2)
+                else
+                   call prompt('Enter H/R of circumsecondary at R_ref',H_R(3))
+                   H_R(1) = sqrt(R_ref(1)/R_ref(3)*m2/(m1+m2))**(0.5-qindex(3)) * H_R(3)
+                   H_R(2) = sqrt(R_ref(2)/R_ref(3)*m2/m1)**(0.5-qindex(3)) * H_R(3)
+                endif
              endif
+             !H_R(2) = nint(H_R(2)*10000.)/10000.
+             !H_R(3) = nint(H_R(3)*10000.)/10000.
+          else
+             higher_disc_index = findloc(iuse_disc, .true., 1)
+             call get_hier_disc_label(higher_disc_index, disclabel)
+             call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
+
+             higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels)
+             !print*, disclabel, higher_mass
+             !return
+             do i=1,maxdiscs
+                if (iuse_disc(i) .and. i /= higher_disc_index) then
+                   call get_hier_disc_label(i, disclabel)
+                   current_mass = get_hier_level_mass(trim(disclabel))
+                   !print*, R_ref(i), R_ref(i), &
+                   !     higher_mass, current_mass, qindex(higher_disc_index),&
+                   !     H_R(higher_disc_index)
+                   H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
+                        higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
+                        H_R(higher_disc_index)
+                   !print*,'!!!!!!!!!!!!!!!!!!!!!!! ', H_R(i)
+                endif
+             enddo
           endif
-          H_R(2) = nint(H_R(2)*10000.)/10000.
-          H_R(3) = nint(H_R(3)*10000.)/10000.
+          do i=1, maxdiscs
+             if (iuse_disc(i)) then
+                H_R(i) = nint(H_R(i)*10000.)/10000.
+             endif
+          enddo
        else
           if (iuse_disc(1)) then
              H_R(2) = sqrt(R_ref(2)/R_ref(1)*(m1+m2)/m1) * H_R(1)
@@ -1957,7 +2217,14 @@ subroutine setup_interactive()
  endif
  do i=1,maxdiscs
     if (iuse_disc(i)) then
-       if (ndiscs > 1) print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
+       if (ndiscs > 1) then
+          if (nsinks<5) then
+             print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
+          elseif (nsinks>4) then
+             call get_hier_disc_label(i, disclabel)
+             print "(/,a)",' >>>  circum'//trim(disclabel)//' disc  <<<'
+          endif
+       endif
        call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                   ' 0=total disc mass'//new_line('A')// &
                   ' 1=mass within annulus'//new_line('A')// &
@@ -2050,7 +2317,7 @@ subroutine setup_interactive()
  elseif (icentral==1 .and. nsinks==2 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period',deltat,0.)
     call prompt('Enter number of orbits to simulate',norbits,0)
- elseif (icentral==1 .and. nsinks==3 .and. ibinary==0) then
+ elseif (icentral==1 .and. nsinks>=3 .and. ibinary==0) then
     call prompt('Enter time between dumps as fraction of binary period'//new_line('A')// &
          '(enter a negative number to refer to the shorter period)',deltat)
     call prompt('Enter number of orbits to simulate'//new_line('A')// &
@@ -2075,9 +2342,11 @@ end subroutine setup_interactive
 !
 !--------------------------------------------------------------------------
 subroutine write_setupfile(filename)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use infile_utils,     only:write_inopt
  use set_dust_options, only:write_dust_setup_options
+ use sethierarchical, only:write_hierarchical_setupfile
+ use sethierarchical, only:hs!sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in) :: filename
 
  integer, parameter :: iunit = 20
@@ -2197,6 +2466,11 @@ subroutine write_setupfile(filename)
           call write_inopt(flyby_O,'flyby_O','position angle of ascending node (deg)',iunit)
           call write_inopt(flyby_i,'flyby_i','inclination (deg)',iunit)
        end select
+
+    case (5)
+
+       call write_hierarchical_setupfile(iunit)
+
     case (3)
        !-- hierarchical triple
        write(iunit,"(/,a)") '# options for hierarchical triple'
@@ -2227,6 +2501,48 @@ subroutine write_setupfile(filename)
        call write_inopt(accr1,'accr1','single star accretion radius',iunit)
        call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
        call write_inopt(accr2b,'accr2b','tight binary secondary accretion radius',iunit)
+    case(4)
+       !-- hierarchical quadruple
+       write(iunit,"(/,a)") '# options for hierarchical quadruple'
+
+       !-- masses
+       call write_inopt(m1,'m1','first hierarchical level primary mass',iunit)
+       call write_inopt(m2,'m2','first hierarchical level secondary mass',iunit)
+       call write_inopt(q1,'q1','tight binary 1 mass ratio',iunit)
+       call write_inopt(q2,'q2','tight binary 2 mass ratio',iunit)
+       call write_inopt(subst1,'subst1','first star to substitute',iunit)
+       call write_inopt(subst2,'subst2','second star to substitute',iunit)
+
+       !-- wide binary parameters
+       call write_inopt(binary_a,'binary_a','wide binary semi-major axis',iunit)
+       call write_inopt(binary_e,'binary_e','wide binary eccentricity',iunit)
+       call write_inopt(binary_i,'binary_i','wide binary i, inclination (deg)',iunit)
+       call write_inopt(binary_O,'binary_O','wide binary Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary_w,'binary_w','wide binary w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary_f,'binary_f','wide binary f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- tight binary 1 parameters
+       call write_inopt(binary1_a,'binary1_a','tight binary 1 semi-major axis',iunit)
+       call write_inopt(binary1_e,'binary1_e','tight binary 1 eccentricity',iunit)
+       call write_inopt(binary1_i,'binary1_i','tight binary 1 i, inclination (deg)',iunit)
+       call write_inopt(binary1_O,'binary1_O','tight binary 1 Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary1_w,'binary1_w','tight binary 1 w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary1_f,'binary1_f','tight binary 1 f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- tight binary 2 parameters
+       call write_inopt(binary2_a,'binary2_a','tight binary 2 semi-major axis',iunit)
+       call write_inopt(binary2_e,'binary2_e','tight binary 2 eccentricity',iunit)
+       call write_inopt(binary2_i,'binary2_i','tight binary 2 i, inclination (deg)',iunit)
+       call write_inopt(binary2_O,'binary2_O','tight binary 2 Omega, PA of ascending node (deg)',iunit)
+       call write_inopt(binary2_w,'binary2_w','tight binary 2 w, argument of periapsis (deg)',iunit)
+       call write_inopt(binary2_f,'binary2_f','tight binary 2 f, initial true anomaly (deg,180=apastron)',iunit)
+
+       !-- accretion radii
+       call write_inopt(accr1a,'accr1a','single star accretion radius',iunit)
+       call write_inopt(accr1b,'accr1b','single star accretion radius',iunit)
+       call write_inopt(accr2a,'accr2a','tight binary primary accretion radius',iunit)
+       call write_inopt(accr2b,'accr2b','tight binary secondary accretion radius',iunit)
+
 
     end select
  end select
@@ -2234,33 +2550,51 @@ subroutine write_setupfile(filename)
  if (n_possible_discs > 1) then
     if (nsinks == 2) then
        write(iunit,"(/,a)") '# options for multiple discs'
-       do i=1,maxdiscs-1
+       do i=1,3!maxdiscs-1
           call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
                //trim(disctype(i))//' disc',iunit)
        enddo
-       call write_inopt(use_global_iso,'use_global_iso',&
-            'globally isothermal or Farris et al. (2014)',iunit)
     elseif (nsinks == 3) then
        write(iunit,"(/,a)") '# options for multiple discs'
-       do i=4,maxdiscs
-          call write_inopt(iuse_disc(i),'use_'//trim(disctype(i))//'disc','setup circum' &
-               //trim(disctype(i))//' disc',iunit)
+       call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+            //trim(disctype(1))//' disc',iunit)
+       call write_inopt(iuse_disc(4),'use_'//trim(disctype(4))//'disc','setup circum' &
+            //trim(disctype(4))//' disc',iunit)
+    elseif (nsinks == 4) then
+       write(iunit,"(/,a)") '# options for multiple discs'
+       call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
+            //trim(disctype(1))//' disc',iunit)
+    elseif (nsinks == 5) then
+       write(iunit,"(/,a)") '# options for multiple discs'
+
+       do i=1,hs%labels%sink_num
+          call write_inopt(iuse_disc(i),'use_'//trim(hs%labels%sink(i))//'disc','setup circum-' &
+            //trim(hs%labels%sink(i))//' disc',iunit)
        enddo
-       call write_inopt(use_global_iso,'use_global_iso',&
-            'globally isothermal or Farris et al. (2014)',iunit)
+
+       do i=1,hs%labels%hl_num
+          call write_inopt(iuse_disc(i+hs%labels%sink_num),'use_'//trim(hs%labels%hl(i))//'disc','setup circum-' &
+            //trim(hs%labels%hl(i))//' disc',iunit)
+       enddo
     endif
+    call write_inopt(use_global_iso,'use_global_iso',&
+        'globally isothermal or Farris et al. (2014)',iunit)
+
  endif
  !--individual disc(s)
  do i=1,maxdiscs
     if (iuse_disc(i)) then
        if (n_possible_discs > 1) then
           disclabel = disctype(i)
+          if (nsinks > 4) then
+             call get_hier_disc_label(i, disclabel)
+          endif
        else
           disclabel = ''
        endif
        !--gas disc
        if (n_possible_discs > 1) then
-          write(iunit,"(/,a)") '# options for circum'//trim(disclabel)//' gas disc'
+          write(iunit,"(/,a)") '# options for circum-'//trim(disclabel)//' gas disc'
        else
           write(iunit,"(/,a)") '# options for gas accretion disc'
        endif
@@ -2367,6 +2701,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# thermal stratification'
  call write_inopt(discstrat,'discstrat','stratify disc? (0=no,1=yes)',iunit)
  if (discstrat==1) then
+    call write_inopt(istrat,'istrat','temperature prescription (0=MAPS, 1=Dartois)',iunit)
     call write_inopt(z0_ref,'z0', 'z scaling factor',iunit)
     call write_inopt(alpha_z,'alpha_z', 'height of transition in tanh vertical temperature profile',iunit)
     call write_inopt(beta_z,'beta_z', 'variation in transition height over radius',iunit)
@@ -2392,8 +2727,6 @@ subroutine write_setupfile(filename)
     call write_inopt(use_mcfost,'use_mcfost','use the mcfost library',iunit)
     call write_inopt(use_mcfost_stellar_parameters,'use_mcfost_stars',&
         'Fix the stellar parameters to mcfost values or update using sink mass',iunit)
-    call write_inopt(mcfost_computes_Lacc,'mcfost_computes_Lacc',&
-        'Should mcfost compute the accretion luminosity',iunit)
  endif
 
  if (do_radiation) call write_inopt(iradkappa,'radkappa','constant radiation opacity kappa',iunit)
@@ -2408,10 +2741,12 @@ end subroutine write_setupfile
 !
 !--------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
- use eos,              only:alpha_z,beta_z,qfacdisc2
+ use eos,              only:istrat,alpha_z,beta_z,qfacdisc2
  use dust,             only:ilimitdustflux
  use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
  use set_dust_options, only:read_dust_setup_options,ilimitdustfluxinp
+ use sethierarchical, only:read_hierarchical_setupfile
+ use sethierarchical, only:hs!sink_num, hl_num, sink_labels, hl_labels
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
 
@@ -2474,7 +2809,7 @@ subroutine read_setupfile(filename,ierr)
  case (1)
     iexternalforce = 0
     !--sink particles
-    call read_inopt(nsinks,'nsinks',db,min=1,max=3,errcount=nerr)
+    call read_inopt(nsinks,'nsinks',db,min=1,max=5,errcount=nerr)
     select case (nsinks)
     case (1)
        !--single star
@@ -2509,6 +2844,10 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(flyby_O,'flyby_O',db,min=0.,errcount=nerr)
           call read_inopt(flyby_i,'flyby_i',db,min=0.,errcount=nerr)
        end select
+    case (5)
+
+       call read_hierarchical_setupfile(db, nerr)
+
     case (3)
        !-- hierarchical triple
 
@@ -2538,12 +2877,53 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(accr1,'accr1',db,errcount=nerr)
        call read_inopt(accr2a,'accr2a',db,errcount=nerr)
        call read_inopt(accr2b,'accr2b',db,errcount=nerr)
+    case(4)
+       !-- hierarchical quadruple
+
+       !-- masses
+       call read_inopt(m1,'m1',db,min=0.,errcount=nerr)
+       call read_inopt(m2,'m2',db,min=0.,errcount=nerr)
+       call read_inopt(q1,'q1',db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(q2,'q2',db,min=0.,max=1.,errcount=nerr)
+       call read_inopt(subst1,'subst1',db,errcount=nerr)
+       call read_inopt(subst2,'subst2',db,errcount=nerr)
+
+       !-- wide binary parameters
+       call read_inopt(binary_a,'binary_a',db,errcount=nerr)
+       call read_inopt(binary_e,'binary_e',db,errcount=nerr)
+       call read_inopt(binary_i,'binary_i',db,errcount=nerr)
+       call read_inopt(binary_O,'binary_O',db,errcount=nerr)
+       call read_inopt(binary_w,'binary_w',db,errcount=nerr)
+       call read_inopt(binary_f,'binary_f',db,errcount=nerr)
+
+       !-- tight binary 1 parameters
+       call read_inopt(binary1_a,'binary1_a',db,errcount=nerr)
+       call read_inopt(binary1_e,'binary1_e',db,errcount=nerr)
+       call read_inopt(binary1_i,'binary1_i',db,errcount=nerr)
+       call read_inopt(binary1_O,'binary1_O',db,errcount=nerr)
+       call read_inopt(binary1_w,'binary1_w',db,errcount=nerr)
+       call read_inopt(binary1_f,'binary1_f',db,errcount=nerr)
+
+       !-- tight binary 2 parameters
+       call read_inopt(binary2_a,'binary2_a',db,errcount=nerr)
+       call read_inopt(binary2_e,'binary2_e',db,errcount=nerr)
+       call read_inopt(binary2_i,'binary2_i',db,errcount=nerr)
+       call read_inopt(binary2_O,'binary2_O',db,errcount=nerr)
+       call read_inopt(binary2_w,'binary2_w',db,errcount=nerr)
+       call read_inopt(binary2_f,'binary2_f',db,errcount=nerr)
+
+       !-- accretion radii
+       call read_inopt(accr1a,'accr1a',db,errcount=nerr)
+       call read_inopt(accr1b,'accr1b',db,errcount=nerr)
+       call read_inopt(accr2a,'accr2a',db,errcount=nerr)
+       call read_inopt(accr2b,'accr2b',db,errcount=nerr)
 
     end select
  end select
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  if (discstrat==1) then
+    call read_inopt(istrat,'istrat',db,errcount=nerr)
     call read_inopt(z0_ref,'z0',db,errcount=nerr)
     call read_inopt(alpha_z,'alpha_z',db,errcount=nerr)
     call read_inopt(beta_z,'beta_z',db,errcount=nerr)
@@ -2595,6 +2975,17 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
     elseif (nsinks == 3) then
        call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+    elseif (nsinks == 4) then
+       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
+    elseif (nsinks == 5) then
+       do i=1,hs%labels%sink_num
+          call read_inopt(iuse_disc(i),'use_'//trim(hs%labels%sink(i))//'disc',db,errcount=nerr)
+       enddo
+
+       do i=1,hs%labels%hl_num
+          call read_inopt(iuse_disc(i+hs%labels%sink_num),'use_'//trim(hs%labels%hl(i))//'disc',db,errcount=nerr)
+       enddo
     endif
  else
     iuse_disc(1) = .true.
@@ -2608,6 +2999,9 @@ subroutine read_setupfile(filename,ierr)
     if (iuse_disc(i)) then
        if (nsinks >= 2) then
           disclabel = disctype(i)
+          if (nsinks > 4) then
+             call get_hier_disc_label(i, disclabel)
+          endif
        else
           disclabel = ''
        endif
@@ -2906,5 +3300,19 @@ subroutine temp_to_HR(temp,H_R,radius,M,cs)
 
 
 end subroutine temp_to_HR
+
+subroutine get_hier_disc_label(i, disclabel)
+ use sethierarchical, only:hs!sink_num, sink_labels, hl_labels
+ character(len=10), intent(out)  :: disclabel
+ integer, intent(in) :: i
+
+ if (i <= hs%labels%sink_num) then
+    disclabel = trim(hs%labels%sink(i))
+ else
+    disclabel = trim(hs%labels%hl(i-hs%labels%sink_num))
+ endif
+
+end subroutine get_hier_disc_label
+
 
 end module setup

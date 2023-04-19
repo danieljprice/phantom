@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,7 +21,7 @@ module externalforces
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !   extern_densprofile, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
+!   infile_utils, io, lumin_nsdisc, part, units
 !
  use extern_binary,   only:accradius1
  use extern_corotate, only:omega_corotate  ! so public from this module
@@ -97,9 +97,6 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,dtf,ii)
-#ifdef FINVSQRT
- use fastmath,         only:finvsqrt
-#endif
  use extern_corotate,  only:get_centrifugal_force,get_companion_force,icompanion_grav
  use extern_binary,    only:binary_force
  use extern_prdrag,    only:get_prdrag_spatial_force
@@ -113,8 +110,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
  use extern_gwinspiral,  only:get_gw_force_i
- use units,              only:udist,umass,utime
- use physcon,            only:pc,pi,gg
+ use units,              only:get_G_code
  use io,                 only:fatal
  use part,               only:rhoh,massoftype,igas
  integer, intent(in)  :: iexternalforce
@@ -145,11 +141,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     r2 = xi*xi + yi*yi + zi*zi + eps2_soft
 
     if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-       dr  = finvsqrt(r2)
-#else
        dr = 1./sqrt(r2)
-#endif
        dr3 = mass1*dr**3
        fextxi = fextxi - xi*dr3
        fextyi = fextyi - yi*dr3
@@ -220,13 +212,9 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 
 !--Spiral/galactic potential references in extern_spiral.
 !--Calc r^2 (3D) and d^2 (2D), phi (x-y), theta (xy-z)
-    gcode = gg*umass*utime**2/udist**3 !Needed to convert gg in codes natural units
+    gcode = get_G_code() !Needed to convert gg in codes natural units
     d2   = (xi*xi + yi*yi)       !or  r    = sqrt(d2+zi*zi)
-#ifdef FINVSQRT
-    dr   = finvsqrt(d2+zi*zi)    !1/r
-#else
     dr   = 1./sqrt(d2+zi*zi)    !1/r
-#endif
     r    = 1./dr
     phii = atan2(yi,xi)
 
@@ -343,11 +331,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
     r2 = xi*xi + yi*yi + zi*zi + eps2_soft
 
     if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-       dr  = finvsqrt(r2)
-#else
        dr = 1./sqrt(r2)
-#endif
        R_g = 1.0
        factor = 1. + 6.*R_g*dr
        dr3 = mass1*dr**3
@@ -423,11 +407,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        !--external force timestep based on sqrt(h/accel)
        !
        if (hi > epsilon(hi)) then
-#ifdef FINVSQRT
-          dtf1 = sqrt(hi*finvsqrt(f2i))
-#else
           dtf1 = sqrt(hi/sqrt(f2i))
-#endif
        else
           dtf1 = huge(dtf1)
        endif
@@ -540,7 +520,7 @@ end subroutine update_vdependent_extforce_leapfrog
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
  use io,                only:iprint,iverbose,warn
- use lumin_nsdisc,      only:set_Lstar, BurstProfile, LumAcc, make_beta_grids
+ use lumin_nsdisc,      only:set_Lstar,BurstProfile,LumAcc,make_beta_grids
  use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
                              xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force

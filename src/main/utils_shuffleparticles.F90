@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,7 +21,8 @@ module utils_shuffleparticles
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: allocutils, boundary, densityforce, dim, io, kdtree,
+!   kernel, linklist, mpidomain, part
 !
  implicit none
  public :: shuffleparticles
@@ -73,9 +74,11 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use densityforce, only:densityiterate
  use linklist,     only:ncells,ifirstincell,set_linklist,get_neighbour_list,allocate_linklist,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
+#ifdef PERIODIC
  use boundary,     only:dxbound,dybound,dzbound,cross_boundary
- use kdtree,       only:inodeparts,inoderange
  use mpidomain,    only:isperiodic
+#endif
+ use kdtree,       only:inodeparts,inoderange
  use allocutils,   only:allocate_array
  integer,           intent(in)    :: iprint
  integer,           intent(inout) :: npart
@@ -121,6 +124,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  n_part            = npart
  is_ref            = .false.
  radkern12         = 1.0/radkern2
+ ncross            = 0
 
  !--Determine what has been passed in
  if (idebug > 0 .and. id==master) then

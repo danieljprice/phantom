@@ -11,8 +11,8 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'README.md'
-  schedule:
-    - cron: "0 0 * * *"
+#  schedule:
+#    - cron: "0 0 * * *"
 
 env:
   OMP_STACKSIZE: 512M
@@ -27,7 +27,7 @@ env:
 
 jobs:
   matrix_prep:
-    # Skip schedueld runs on forks
+    # Skip scheduled runs on forks
     if: ${{ github.event_name != 'schedule' || github.repository == 'danieljprice/phantom' }}
     runs-on: ubuntu-latest
     outputs:
@@ -35,7 +35,7 @@ jobs:
       nbatch: ${{ steps.set-sequence.outputs.nbatch }}
     steps:
     - name: Check out repo
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
     - name: Generate sequence of batch numbers for normal tests, or run sequentially for scheduled tests
       id: set-sequence
       run: |
@@ -82,7 +82,7 @@ jobs:
     - name: Cache intel installation
       if: matrix.system == 'ifort'
       id: cache-intel
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
           /opt/intel
@@ -102,11 +102,16 @@ jobs:
         source /opt/intel/oneapi/setvars.sh
         printenv >> $GITHUB_ENV
 
+    - name: Install numpy and matplotlib for analysis unit tests
+      run: |
+        sudo apt-get install -y python3-numpy
+        sudo apt-get install -y python3-matplotlib
+
     - name: "Clone phantom"
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: "Grab a copy of splash source code"
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         repository: danieljprice/splash
         path: splash
@@ -115,11 +120,11 @@ jobs:
       if: github.event_name == 'schedule'
       run: mkdir logs
 
-    - name: "Grab previous build logs from web server"
-      if: github.event_name == 'schedule'
-      env:
-        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
+#    - name: "Grab previous build logs from web server"
+#      if: github.event_name == 'schedule'
+#      env:
+#        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
+#      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
 
     - name: "Run buildbot.sh"
       run: ./buildbot.sh --maxdim 17000000 --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
@@ -128,22 +133,22 @@ jobs:
         SYSTEM: ${{ matrix.system }}
         RETURN_ERR: yes
 
-    - name: "Install SSH Key"
-      if: github.event_name == 'schedule'
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
+#    - name: "Install SSH Key"
+#      if: github.event_name == 'schedule'
+#      uses: webfactory/ssh-agent@v0.5.3
+#      with:
+#        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
 
-    - name: "Copy new build logs to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
-      run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
+#    - name: "Copy new build logs to web server"
+#      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+#      run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
 
-    - name: "Copy HTML files to web server"
-      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
-      run: |
-        export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
-        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
-        rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
+#    - name: "Copy HTML files to web server"
+#      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
+#      run: |
+#        export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
+#        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
+#        rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
 
     - name: logs/build-failures-${{ matrix.system }}.txt
       if: always()
@@ -152,6 +157,10 @@ jobs:
     - name: logs/setup-failures-${{ matrix.system }}.txt
       if: always()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
+
+    - name: logs/analysis-failures-${{ matrix.system }}.txt
+      if: always()
+      run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
 
     - name: logs/make-*-${{ matrix.system }}.txt
       if: always()

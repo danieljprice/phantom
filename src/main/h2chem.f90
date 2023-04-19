@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -21,7 +21,7 @@ module chem
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: h2cooling, part, physcon, units
+! :Dependencies: cooling_ism, part, physcon, units
 !
 
  implicit none
@@ -118,7 +118,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  use part,      only:ih2ratio,iHI,iproton,ielectron,iCO
  use units,     only:utime,uergg=>unit_ergg,udens=>unit_density
  use physcon,   only:mp=>mass_proton_cgs,Rg
- use h2cooling, only:nrates,dchem,cosmic_ray_ion_rate,&
+ use cooling_ism, only:nrates,dchem,cosmic_ray_ion_rate,&
                    abundc,abundo,abunde,AV_conversion_factor
  real,    intent(in)    :: ui,rhoi,dt,dphot
  integer, intent(in)    :: nchem
@@ -217,7 +217,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
 ! Set number of steps for subcycling. In the event that the h2 is 0 (i.e. for the first timestep) or h2
 ! being created, the number of timesteps is 201 (chosen by running the simulation initially and finding
 ! a sensible value).
-    if (th2 > 0.d0) nstep=MAX(INT(1.d0/th2)+1,201)
+    if (th2 > 0.d0) nstep=MAX(int(1.d0/th2)+1,201)
  endif
 !--Final timesteps:
  tstep=dtclare/nstep
@@ -261,13 +261,13 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
        nstep2=1
        tstep2=tstep
     elseif (abco <= 0.d0) then
-       nstep2=INT(rhoi*1000.d0)
+       nstep2=int(rhoi*1000.d0)
        tstep2=tstep/nstep2
     else
 !       tsteptest=-abco/(k0*abcp*beta*np1*np1 - gamma_co*abco*np1)
        tsteptest1=-(k0_np1sq*abcp*beta - gammaco_np1*abco)/abco
-!           nstep2=max(INT(tstep*10./tsteptest),INT(trho(ipart)*10.),1)
-       nstep2=max(INT(tstep10*tsteptest1),1)
+!           nstep2=max(int(tstep*10./tsteptest),int(trho(ipart)*10.),1)
+       nstep2=max(int(tstep10*tsteptest1),1)
        tstep2=tstep/nstep2       !Step at some whole fraction of H2 time step.
     endif
 
@@ -446,8 +446,8 @@ end subroutine H2fd_rate
 !------------------------------------------------------
 pure subroutine hchem(temp, yn, NH, abe, abhp, C, D, sqrttemp)
  use physcon, only:kboltz,eV
- use h2cooling, only:iphoto,uv_field_strength,dust_to_gas_ratio,AV_conversion_factor,&
-                     cosmic_ray_ion_rate
+ use cooling_ism, only:iphoto,uv_field_strength,dust_to_gas_ratio,AV_conversion_factor,&
+                       cosmic_ray_ion_rate
  real,         intent(in)  :: temp, yn, abe, abhp, sqrttemp
  real(kind=8), intent(in)  :: NH
  real,         intent(out) :: C, D

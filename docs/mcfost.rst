@@ -75,7 +75,13 @@ get the various moments:
 Producing scattered light images
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-See e.g. `Mentiplay et al.
+You can produce scattered light images using the -img flag along with
+the wavelength of interest. For example, to produce a synthetic image
+at 1.6 microns::
+
+   mcfost discA.para -phantom disc_00100 -img 1.6
+
+See examples in `Mentiplay et al.
 (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.484L.130M/>`__,
 `Nealon et al.
 (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.484.4951N>`__
@@ -102,7 +108,8 @@ is set by the “nfulldumps = 10” parameter in the phantom .in file).
 Using MCFOST to set temperatures in a live calculation
 ------------------------------------------------------
 
-This is a work in progress, so please *ask* before using this feature.
+Compiling phantom with MCFOST in a live calculation is a bit more tricky
+as you need to have MCFOST compiled from source.
 
 You first need to compile libmcfost:
 
@@ -134,3 +141,28 @@ To run the code with MCFOST you will need:
    ./phantom disc
 
 You will also need a disc.para file
+
+Using Phantom+MCFOST on Mac OS with mcfost installed using homebrew
+--------------------------------------------------------------------------
+A simple way to install mcfost from source on Mac OS is to use the homebrew package::
+
+  brew tap danieljprice/all
+  brew install mcfost
+
+This will install mcfost into /usr/local/bin, libmcfost.a into /usr/local/lib/ 
+and mcfost2phantom.mod into /usr/local/include. You can then compile phantom 
+linked against MCFOST by overriding the linker flags as follows::
+
+   ~/phantom/scripts/writemake.sh disc > Makefile
+   make MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
+   make setup MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
+   ./phantomsetup disc
+   
+To run the code with MCFOST you will need to create a directory where MCFOST utilities can be installed::
+
+   mkdir -p ~/mcfost-utils/
+   export MCFOST_UTILS=~/mcfost-utils
+   ./phantom disc
+
+You will also need a disc.para file
+

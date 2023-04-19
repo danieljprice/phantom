@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@ module utils_dumpfiles_hdf5
 ! :Dependencies: dim, eos, part, utils_hdf5
 !
  use dim,        only:maxtypes,maxdustsmall,maxdustlarge,nabundances,nsinkproperties
- use part,       only:eos_vars_label,igasP,itemp,maxirad
- use eos,        only:ieos,eos_is_nonideal,eos_outputs_gasP
+ use part,       only:eos_vars_label,igasP,itemp,iX,iZ,imu,maxirad,n_nucleation
+ use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
  use utils_hdf5, only:write_to_hdf5,    &
                       read_from_hdf5,   &
                       create_hdf5file,  &
@@ -70,9 +70,13 @@ module utils_dumpfiles_hdf5
                           nparttot,                      &
                           npartoftypetot(maxtypes),      &
                           iexternalforce,                &
-                          ieos
+                          ieos,                          &
+                          idumpfile,                     &
+                          idtmax_n_next,                 &
+                          idtmax_frac_next
     real               :: time,                          &
                           dtmax,                         &
+                          dtmax_user,                    &
                           gamma,                         &
                           rhozero,                       &
                           polyk,                         &
@@ -150,6 +154,10 @@ module utils_dumpfiles_hdf5
                got_krome_gamma,                      &
                got_krome_mu,                         &
                got_krome_T,                          &
+               got_x,                                &
+               got_z,                                &
+               got_mu,                               &
+               got_nucleation(n_nucleation),         &
                got_orig
  end type got_arrays_hdf5
 
@@ -401,7 +409,7 @@ subroutine write_hdf5_arrays( &
  if (eos_outputs_gasP(ieos)) then
     call write_to_hdf5(eos_vars(igasP,1:npart), eos_vars_label(igasP), group_id, error)
  endif
- if (eos_is_nonideal(ieos)) then
+ if (eos_is_non_ideal(ieos)) then
     call write_to_hdf5(eos_vars(itemp,1:npart), eos_vars_label(itemp), group_id, error)
  endif
  if (array_options%lightcurve) then
@@ -862,6 +870,10 @@ subroutine read_hdf5_arrays( &
  got_arrays%got_krome_gamma = .false.
  got_arrays%got_krome_mu    = .false.
  got_arrays%got_krome_T     = .false.
+ got_arrays%got_x           = .false.
+ got_arrays%got_z           = .false.
+ got_arrays%got_mu          = .false.
+ got_arrays%got_nucleation  = .false.
 
  ! Open particles group
  call open_hdf5group(file_id, 'particles', group_id, error)
@@ -884,9 +896,13 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(vxyzu(4,:), 'u', group_id, got, error)
     if (.not.got) got_arrays%got_vxyzu = .false.
  endif
- if (eos_is_nonideal(ieos)) then
+ if (eos_is_non_ideal(ieos)) then
     call read_from_hdf5(eos_vars(itemp,:), eos_vars_label(itemp), group_id, got_arrays%got_temp, error)
  endif
+
+ call read_from_hdf5(eos_vars(iX,:), eos_vars_label(iX), group_id, got_arrays%got_x, error)
+ call read_from_hdf5(eos_vars(iZ,:), eos_vars_label(iZ), group_id, got_arrays%got_z, error)
+ call read_from_hdf5(eos_vars(imu,:), eos_vars_label(imu), group_id, got_arrays%got_mu, error)
 
  ! General relativity
  if (array_options%gr) then
@@ -959,6 +975,7 @@ subroutine read_hdf5_arrays( &
     call read_from_hdf5(nucleation(7,1:npart), 'nucleation_gamma', group_id, got, error)
     call read_from_hdf5(nucleation(8,1:npart), 'nucleation_S', group_id, got, error)
     call read_from_hdf5(nucleation(9,1:npart), 'nucleation_kappa', group_id, got, error)
+    if (got) got_arrays%got_nucleation = .true.
  endif
 
  ! Radiation

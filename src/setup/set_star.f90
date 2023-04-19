@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -46,6 +46,7 @@ module setstar
  public :: set_star_composition
  public :: set_star_thermalenergy
  public :: set_stellar_core
+ public :: write_kepler_comp
 
  private
 
@@ -60,7 +61,8 @@ contains
 !-------------------------------------------------------------------------------
 subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
                              Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
-                             isoftcore,isofteningopt,rcore,hsoft,outputfilename)
+                             isoftcore,isofteningopt,rcore,hsoft,outputfilename,&
+                             composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
@@ -72,13 +74,15 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
- real,              intent(inout) :: gamma,polyk
+ real,              intent(inout) :: gamma,polyk,hsoft
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
- real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:)
+ real, allocatable, intent(out)  :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
  integer,           intent(out)   :: npts
- real,              intent(out)   :: rmin,Rstar,Mstar,rhocentre,hsoft
+ real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre
  integer,           intent(in)    :: isoftcore,isofteningopt
  real,              intent(in)    :: rcore
+ integer,           intent(out)   :: columns_compo
+ character(len=20), allocatable, intent(out)   :: comp_label(:)
  integer :: ierr,i
  logical :: calc_polyk,iexist
  real    :: eni,tempi,guessene
@@ -87,7 +91,6 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  ! set up tabulated density profile
  !
  calc_polyk = .true.
- hsoft = 0.
  allocate(r(ng_max),den(ng_max),pres(ng_max),temp(ng_max),en(ng_max),mtab(ng_max))
 
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
@@ -148,7 +151,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
     rmin  = r(1)
     Rstar = r(npts)
  case(ikepler)
-    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,ierr)
+    call read_kepler_file(trim(input_profile),ng_max,npts,r,den,pres,temp,en,Mstar,composition,comp_label,columns_compo,ierr)
     if (ierr==1) call fatal('set_star',trim(input_profile)//' does not exist')
     if (ierr==2) call fatal('set_star','insufficient data points read from file')
     if (ierr==3) call fatal('set_star','too many data points; increase ng')
@@ -227,11 +230,22 @@ end subroutine set_star_density
 !  Add a sink particle as a stellar core
 !+
 !-----------------------------------------------------------------------
-subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft)
- integer, intent(out) :: nptmass
+subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,ierr)
+ integer, intent(out) :: nptmass,ierr
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(in)     :: mcore,hsoft
  integer              :: n,ihsoft
+
+ ierr = 0
+ ! Check for sensible values
+ if (mcore < tiny(mcore)) then
+    ierr = 1
+    return
+ endif
+ if (hsoft < tiny(hsoft)) then
+    ierr = 2
+    return
+ endif
 
  nptmass                = 1
  n                      = nptmass
@@ -278,13 +292,13 @@ end subroutine set_star_composition
 !  Set the thermal energy profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,relaxed,use_var_comp,initialtemp)
+subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,relaxed,use_var_comp,initialtemp)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
  use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
- integer, intent(in)    :: ieos,npart
+ integer, intent(in)    :: ieos,npart,npts
  real,    intent(in)    :: den(:), pres(:), r(:)  ! density and pressure tables
  real,    intent(in)    :: xyzh(:,:)
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
@@ -307,8 +321,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,
     else
        !  Interpolate density and pressure from table
        ri    = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-       densi = yinterp(den,r,ri)
-       presi = yinterp(pres,r,ri)
+       densi = yinterp(den(1:npts),r(1:npts),ri)
+       presi = yinterp(pres(1:npts),r(1:npts),ri)
     endif
 
     select case(ieos)
@@ -342,5 +356,66 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npart,xyzh,vxyzu,rad,eos_vars,
  enddo
 
 end subroutine set_star_thermalenergy
+
+!-----------------------------------------------------------------------
+!+
+!  Write kepler.comp which is file that contains interpolated composition
+!  for each particle. This works for ikepler only.
+!  Interpolating composition for each particle in the star.
+!  For now I write a file with the interpolate data
+!  This is used in analysis kepler file to bin composition.
+!
+!+
+!-----------------------------------------------------------------------
+subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
+                             xyzh,npart,npts,composition_exists)
+
+ use table_utils, only                      :  yinterp
+ integer, intent(in)                        :: columns_compo,npart,npts
+ real,    intent(in)                        :: xyzh(:,:)
+ real, allocatable,intent(in)               :: r(:)
+ real, allocatable, intent(in)              :: composition(:,:)
+ character(len=20), allocatable,intent(in)  :: comp_label(:)
+ real , allocatable                         :: compositioni(:,:)
+ logical, intent(out)                       :: composition_exists
+ real, allocatable                          :: comp(:)
+ integer                                    :: i,j
+ real                                       :: ri
+
+
+ composition_exists = .false.
+
+ ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
+ ! !in the star.
+ if (columns_compo /= 0) then
+    composition_exists = .true.
+ endif
+
+ if (composition_exists) then
+    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
+
+    open(11,file='kepler.comp')
+    write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
+            comp_label
+    !Now setting the composition of star if the case used was ikepler
+    allocate(compositioni(columns_compo,1))
+    allocate(comp(1:npts))
+    do i = 1,npart
+       !Interpolate compositions
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+
+       do j = 1,columns_compo
+          comp(1:npts)      = composition(1:npts,j)
+          compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
+       enddo
+       write(11,'(50(es18.10,1X))') &
+            (compositioni(j,1),j=1,columns_compo)
+    enddo
+    close(11)
+    print*, '>>>>>> done'
+ endif
+
+
+end subroutine write_kepler_comp
 
 end module setstar

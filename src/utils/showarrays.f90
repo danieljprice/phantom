@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ program showarrays
  use dump_utils, only:print_arrays_in_file
  implicit none
  integer, parameter   :: iu = 23
- integer              :: nargs,ierr,i
+ integer              :: nargs,i
  character(len=120)   :: dumpfile
  !
  ! get filenames from the command line

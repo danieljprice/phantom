@@ -98,7 +98,7 @@ endif
 ifeq ($(SETUP), turbdrive)
 #   driven turbulence
     ifeq ($(IND_TIMESTEPS), yes)
-        FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+        FPPFLAGS= -DPERIODIC -DCORRECT_BULK_MOTION
     else
         FPPFLAGS= -DPERIODIC # -DCORRECT_MEAN_FORCE
     endif
@@ -122,7 +122,7 @@ endif
 
 ifeq ($(SETUP), turb)
 #   driven supersonic turbulence (hydro, mhd, dusty)
-    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION -DSTIR_FROM_FILE
+    FPPFLAGS      = -DPERIODIC -DCORRECT_BULK_MOTION
     SETUPFILE     = setup_turb.f90
     SRCTURB       = forcing.F90
     IND_TIMESTEPS = yes
@@ -169,6 +169,7 @@ ifeq ($(SETUP), grtde)
     METRIC=kerr
     KNOWN_SETUP=yes
     GRAVITY=yes
+    IND_TIMESTEPS=yes
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS= analysis_gws.f90
 endif
@@ -243,9 +244,9 @@ ifeq ($(SETUP), gwdisc)
     MAXP=2000000
     IND_TIMESTEPS=yes
     ISOTHERMAL=yes
-    KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
     SRCPOT= ${SRCPOTS:extern_binary.f90=extern_binary_gw.f90}
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), nshwdisc)
@@ -257,8 +258,8 @@ ifeq ($(SETUP), nshwdisc)
     ISOTHERMAL=yes
     DISC_VISCOSITY=yes
     IND_TIMESTEPS=yes
-    KNOWN_SETUP=yes
     NCELLSMAX=3*maxp
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), prtest)
@@ -277,32 +278,42 @@ ifeq ($(SETUP), binarydiscMFlow)
     MAXP=1000000
     ISOTHERMAL=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     LIVE_ANALYSIS=no
     IND_TIMESTEPS=yes
     MODFILE= moddump_removeparticles_cylinder.f90 #moddump_addpartfortest.f90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), planetdisc)
 #   planet disc interaction with fixed planet orbit
-    FPPFLAGS=
     SETUPFILE= setup_planetdisc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     ANALYSIS=analysis_disc.f90
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), exoALMA)
+#   exoALMA comparison project: planet disc interaction with fixed planet orbit
+    SETUPFILE=setup_disc.f90
+    ISOTHERMAL=yes
+    IND_TIMESTEPS=yes
+    CURLV=yes
+    ANALYSIS=analysis_disc.f90
+    SRCINJECT=inject_steadydisc.f90
+    SRCINJECT_DEPS=set_disc.F90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), planetatm)
 #   disc interaction with fixed planet orbit + atmosphere
-    FPPFLAGS=
     SETUPFILE= setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
     CURLV=yes
-    KNOWN_SETUP=yes
     ANALYSIS=analysis_disc.f90
+    KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), torus)
@@ -389,7 +400,7 @@ endif
 ifeq ($(SETUP), sphereinbox)
 #   sphere-in-box setup
     PERIODIC=yes
-    SETUPFILE= velfield_fromcubes.f90  setup_sphereinbox.f90
+    SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     KNOWN_SETUP=yes
 endif
 
@@ -699,6 +710,15 @@ ifeq ($(SETUP), binary)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), hierarchical)
+#   hierarchical system setup
+    FPPFLAGS= -DCONST_AV
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90 
+    SETUPFILE= setup_hierarchical.f90
+    KNOWN_SETUP=yes
+endif
+
+
 ifeq ($(SETUP), common)
 #   binary setup
     FPPFLAGS=
@@ -714,6 +734,19 @@ ifeq ($(SETUP), star)
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
     KNOWN_SETUP=yes
     MAXP=10000000
+    GRAVITY=yes
+endif
+
+ifeq ($(SETUP), grstar)
+#   import stellar model from 1D stellar evolution code in GR using Minkowski metric
+    GR=yes
+    METRIC=minkowski
+    FPPFLAGS=
+    SETUPFILE= setup_star.f90
+    MODFILE= moddump_tidal.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    KNOWN_SETUP=yes
+    MAXP=100000000
     GRAVITY=yes
 endif
 
@@ -748,7 +781,20 @@ endif
 ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= analysis_dustywind.F90 dust_formation.F90
+    ANALYSIS= analysis_cooling.F90
+    WIND=yes
+endif
+ifeq ($(SETUP), ismwind)
+#   wind setup with dust nucleation and ISM cooling
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= analysis_cooling.F90
+    H2CHEM=yes
+    WIND=yes
+endif
+ifeq ($(SETUP), radwind)
+#   wind setup with dust nucleation
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.F90 analysis_raytracer.f90
     WIND=yes
 endif
 
@@ -825,6 +871,29 @@ ifeq ($(SETUP), dustysgdisc)
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
+endif
+
+ifeq ($(SETUP), isosgdisc)
+#   isothermal self-gravitating disc
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    DISC_VISCOSITY=yes
+endif
+
+ifeq ($(SETUP), dustyisosgdisc)
+#   isothermal self-gravitating dustydisc
+    SETUPFILE= setup_disc.f90
+    GRAVITY=yes
+    DUST=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_dustydisc.f90
+    ISOTHERMAL=yes
+    DISC_VISCOSITY=yes
 endif
 
 ifeq ($(SETUP), dustsettle)

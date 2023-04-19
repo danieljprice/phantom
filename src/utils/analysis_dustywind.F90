@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -94,10 +94,10 @@ subroutine get_Teq_from_Lucy(npart,xyzh,xa,ya,za,R_star,T_star,dust_temp)
        !d2_axis = sq_distance_to_z(r)
        d2_axis = sq_distance_to_line(r,u)
        if (d2_axis < 4.*xyzh(4,i)*xyzh(4,i)) then
-          !$omp critical (naxis_add)
+          !$omp critical (crit_naxis_add)
           naxis = naxis+1
           idx_axis(naxis) = i
-          !$omp end critical (naxis_add)
+          !$omp end critical (crit_naxis_add)
        endif
     endif
  enddo

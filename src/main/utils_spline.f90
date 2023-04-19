@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -58,7 +58,7 @@ subroutine spline_eval(nval, positions, values, nnew, new_positions, new_values)
 ! anything fancier should probably be handled in the caller.
     if (pt  <  positions(1) .or. pt  >  positions(nval)) then
        index         = -1
-       new_values(i) = 0d0
+       new_values(i) = 0.
     elseif (pt == positions(nval)) then
 ! Another special case, but this one is easy to deal with
        index         = -1
@@ -117,9 +117,9 @@ subroutine spline_coefficients(nval, values, coefficients)
  do i = 1, nval-1
     coefficients(1,i) = values(i)
     coefficients(2,i) = derivatives(i)
-    coefficients(3,i) = 3d0 * (values(i+1) - values(i)) - &
-                        2d0 * derivatives(i) - derivatives(i+1)
-    coefficients(4,i) = 2d0 * (values(i) - values(i+1)) +  &
+    coefficients(3,i) = 3. * (values(i+1) - values(i)) - &
+                        2. * derivatives(i) - derivatives(i+1)
+    coefficients(4,i) = 2. * (values(i) - values(i+1)) +  &
                         derivatives(i) + derivatives(i+1)
  enddo
 
@@ -158,21 +158,21 @@ subroutine spline_derivatives(nval, values, derivatives)
 
  do i = 1, nval
     do j = 1, nval+1
-       Cc(I,J) = 0d0
+       Cc(I,J) = 0.
     enddo
     if (i == 1) then
-       Cc(i,i)      = 2d0
-       Cc(i,i+1)    = 1d0
-       Cc(i,nval+1) = 3d0 * (values(2) - values(1))
+       Cc(i,i)      = 2.
+       Cc(i,i+1)    = 1.
+       Cc(i,nval+1) = 3. * (values(2) - values(1))
     elseif (i == nval) then
-       Cc(i,i-1)    = 1d0
-       Cc(i,i)      = 2d0
-       Cc(i,nval+1) = 3d0 * (values(nval) - values(nval-1))
+       Cc(i,i-1)    = 1.
+       Cc(i,i)      = 2.
+       Cc(i,nval+1) = 3. * (values(nval) - values(nval-1))
     else
-       Cc(i,i-1)    = 1d0
-       Cc(i,i)      = 4d0
-       Cc(i,i+1)    = 1d0
-       Cc(i,nval+1) = 3d0 * (values(i+1) - values(i-1))
+       Cc(i,i-1)    = 1.
+       Cc(i,i)      = 4.
+       Cc(i,i+1)    = 1.
+       Cc(i,nval+1) = 3. * (values(i+1) - values(i-1))
     endif
  enddo
 
@@ -189,7 +189,7 @@ subroutine spline_derivatives(nval, values, derivatives)
  derivatives(nval) = Cc(nval,nval+1) / Cc(nval,nval)
 
  do i = nval-1, 1, -1
-    sum = 0d0
+    sum = 0.
     do j = i+1, nval
        sum = sum + Cc(i,j) * derivatives(j)
     enddo

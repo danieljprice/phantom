@@ -16,6 +16,16 @@ from the code. It reads the raw data files and gives you plots and visualisation
 
   splash file_00000 -r 6
 
+sarracen
+~~~~~~~~
+:doc:`Sarracen <sarracen>` is a package with similar functionality to splash but done in Python::
+
+   import sarracen
+   sdf = sarracen.read_phantom('file_00000')
+   sdf.render('rho')
+
+the sdf object is a pandas dataframe that you can use to access the raw data in the snapshot.
+
 phantomanalysis
 ~~~~~~~~~~~~~~~~
 phantomanalysis is a phantom utility which allows you
@@ -75,9 +85,16 @@ Compile `showarrays <https://github.com/danieljprice/phantom/blob/master/src/uti
     y               real    [  0.18615987303660178       -86.722973955883475      ]
 
 
-Reading datafiles into Python
-------------------------------
-If your aim is to read the raw datafiles into Python you can use the
+Reading datafiles into Python (recommended way)
+------------------------------------------------
+The simplest way to read the raw datafiles into Python is to use the
+:doc:`sarracen <sarracen>` package:
+
+   - https://github.com/ttricco/sarracen
+
+Reading datafiles into Python (other ways)
+------------------------------------------------
+Another possibility to read the raw datafiles into Python you can use the
 `pre-cooked python script <https://github.com/danieljprice/phantom/blob/master/scripts/readPhantomDump.py>`__ for this::
 
   phantom/scripts/readPhantomDump.py
@@ -107,7 +124,7 @@ which can be plotted with::
 
 An alternative to splash with similar functionality in Python is Plonk. The main
 limitation is that currently Plonk cannot read the native file format
-and requires conversion to hdf5 format first (the best way is using the `readPhantomDump.py <https://github.com/danieljprice/phantom/blob/master/scripts/readPhantomDump.py>`__ Python script).
+and requires conversion to hdf5 format first.
 
 A portable Fortran module for reading the datafiles
 ----------------------------------------------------

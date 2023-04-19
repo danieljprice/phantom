@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -69,12 +69,12 @@ subroutine calculate_strain(hx,hp,pmass,ddq_xy,x0,v0,a0,npart,xyzh,vxyz,axyz,&
  eta = 0.
  phi = phi_gw*pi/180.
  ! define new functions instead of sin and cos
- sinphi=sin(phi)
- cosphi=cos(phi)
- sinphi2=sinphi*sinphi
- cosphi2=cosphi*cosphi
- sin2phi=sin(2*phi)
- cos2phi=cos(2*phi)
+ sinphi = sin(phi)
+ cosphi = cos(phi)
+ sinphi2 = sinphi*sinphi
+ cosphi2 = cosphi*cosphi
+ sin2phi = sin(2*phi)
+ cos2phi = cos(2*phi)
  !
  ! initialise moment of inertia and its second deriv to zero
  !
@@ -227,7 +227,7 @@ real function get_G_on_dc4() result(fac)
 
  d   = Mpc/udist                            ! 1Mpc in code units
  gc4 = (gg/c**4) / (utime**2/(umass*udist)) ! G/c^4 in code units
- fac = (gc4/d)
+ fac = real(gc4/d)
 
 end function get_G_on_dc4
 
@@ -237,11 +237,9 @@ end function get_G_on_dc4
 !+
 !--------------------------------------------------------------------------------
 subroutine get_strain_from_circular_binary(t,m1,m2,r,eta,hx,hp)
- use units,   only:get_G_code,get_c_code,udist
- use physcon, only:Mpc
- real, intent(in) :: t,m1,m2,r,eta
+ real, intent(in)  :: t,m1,m2,r,eta
  real, intent(out) :: hx,hp
- real :: mred,term,d,omega2,omega,fac
+ real :: mred,term,omega2,omega,fac
 
  mred = m1*m2/(m1 + m2)   ! reduced mass
  omega2 = (m1 + m2)/r**3  ! Keplerian speed
@@ -249,8 +247,8 @@ subroutine get_strain_from_circular_binary(t,m1,m2,r,eta,hx,hp)
 
  ! following lines are written a bit differently to the expression
  ! in calculate_strain as a better check of the code
- d   = Mpc/udist   ! 1Mpc in code units
- fac = get_G_code()/(d*get_c_code()**4)
+
+ fac = get_G_on_dc4()
  term = 4.*mred*r**2*omega2*fac
 
  ! Eqs 7-8 in Toscani et al. 2021, see e.g. Maggiore (2007)

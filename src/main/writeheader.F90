@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -84,7 +84,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
- use cooling,          only:cooling_implicit,cooling_explicit,Tfloor,ufloor
+ use cooling,          only:cooling_in_step,Tfloor,ufloor
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
@@ -150,9 +150,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
           write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
        else
-          write(iprint,"(2x,2(a,f10.5))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,f10.5))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,f10.5))")  'zmin = ',zmin,' zmax = ',zmax
+          write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+          write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+          write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
        endif
     else
        write(iprint,"(a)") ' No boundaries set '
@@ -170,8 +170,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
-    if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
-    if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
+    if (cooling_in_step)  then
+       write(iprint,"(1x,a)") 'Cooling is calculated in step'
+    else
+       write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+    endif
     if (ufloor > 0.) then
        write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
        ufloor*unit_ergg,' erg/g = ',ufloor,' code units'

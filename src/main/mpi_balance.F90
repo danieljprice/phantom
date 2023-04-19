@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -77,6 +77,11 @@ subroutine balancedomains(npart)
  integer :: i,newproc
  integer(kind=8) :: ntot
  real(kind=4) :: tstart
+ ! initialise to check for receives every 2 particles
+ ! note that this is saved across calls, so it remembers the previous value
+ integer :: check_interval=2
+ integer :: recv_gap
+ logical :: gotpart
 
  ! Balance is only necessary when there are more than 1 MPI tasks
  if (nprocs > 1) then
@@ -87,17 +92,38 @@ subroutine balancedomains(npart)
     call balance_init(npart)
     ntot_start = reduceall_mpi('+',npart - count_dead_particles())
 
+    recv_gap = 0
     do i=1,npart
-!
-!--attempt to receive particles
-!
-       call recv_part()
-!
-!--send particles which belong to other processors
-!
+       !
+       !--attempt to receive a particle
+       !
+       if (mod(i,check_interval) == 0) then
+          call recv_part(gotpart)
+          !
+          !--if there is a long gap between receiving particles, then decrease
+          !  the check frequency. if there is no gap, then increase frequency.
+          !  the frequency should roughly match the rate that particles are
+          !  available to be received.
+          !
+          if (gotpart) then
+             ! Halve period if 2 consecutive checks both return a particle
+             if (recv_gap == 0) check_interval = max(1, check_interval/2)
+             recv_gap = 0
+          else
+             recv_gap = recv_gap + 1
+             ! Double period if 4 consecutive checks do not return a particle
+             if (recv_gap > 4) then
+                check_interval = check_interval * 2
+                ! Half the gap counter to correspond to current frequency
+                recv_gap = recv_gap / 2
+             endif
+          endif
+       endif
+       !
+       !--send particles which belong to other processors
+       !
        newproc = ibelong(i)
        if (newproc /= id) call send_part(i,newproc)
-
     enddo
 
     if (iverbose >= 5) then
@@ -183,20 +209,21 @@ end subroutine balance_init
 !  simply add new particles to the end of the array.
 !+
 !-----------------------------------------------------------------------
-subroutine recv_part(replace)
+subroutine recv_part(replace,gotpart)
  use io,      only:fatal,id
  use part,    only:isdead,unfill_buffer,maxp,ll,ideadhead,ibelong
- logical, intent(in), optional :: replace
+ logical, intent(in),  optional :: replace
+ logical, intent(out), optional :: gotpart
  logical :: igotpart
  integer :: inew
 
  igotpart = .false.
  call MPI_TEST(irequestrecv(1),igotpart,status,mpierr)
 
+ if (present(gotpart)) gotpart = igotpart
+
  if (igotpart) then
-!$omp critical (nrecv_add)
     nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
-!$omp end critical (nrecv_add)
     if (present(replace)) then
        if (replace) then
           inew = ideadhead
@@ -218,17 +245,13 @@ subroutine recv_part(replace)
        !--assume that this particle landed in the right place
        !
        ibelong(inew) = id
-!$omp critical (ideadhead_ll)
        ideadhead = ll(inew)
-!$omp end critical (ideadhead_ll)
     else
        if (inew /= 0) call fatal('balance','error in dead particle list',inew)
        !
        !--make a new particle
        !
-!$omp critical (npartnew_add)
        npartnew = npartnew + 1
-!$omp end critical (npartnew_add)
        if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
        call unfill_buffer(npartnew,xbuffer)
        ibelong(npartnew) = id

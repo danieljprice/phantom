@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -105,7 +105,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyz,pmass,npart,time,iunit)
        found_rtracked = .true.
     endif
 
-    rad_int = INT((rad_i-rad(1))/hr + 1)
+    rad_int = int((rad_i-rad(1))/hr + 1)
 
     If (rad_int  >  nr) rad_int = nr
     If (rad_int  <  1) rad_int = 1

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -417,7 +417,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !  also shift particles to new origin if this is not at (0,0,0)
  !
  if (present(phimax)) then
-    print "(a)",'Setting up disc sector - not adjusting centre of mass'
+    if (do_verbose) print "(a)",'Setting up disc sector - not adjusting centre of mass'
  else
     call adjust_centre_of_mass(xyzh,vxyzu,particle_mass,npart_start_count,npart_tot,xorigini,vorigini)
  endif
@@ -540,7 +540,7 @@ subroutine set_disc_positions(npart_tot,npart_start_count,do_mixture,R_ref,R_in,
 
  !--loop over particles
  do i=npart_start_count,npart_tot,2
-    if (id==master .and. mod(i,npart_tot/10)==0 .and. verbose) print*,i
+    if (id==master .and. mod(i,max(npart_tot/10,10))==0 .and. verbose) print*,i
     !--get a random angle between phi_min and phi_max
     rand_no = ran2(iseed)
     phi = phi_min + (phi_max - phi_min)*ran2(iseed)

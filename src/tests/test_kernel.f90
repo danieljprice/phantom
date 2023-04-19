@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -41,7 +41,7 @@ subroutine test_kernel(ntests,npass)
  real :: dq,q2,qi,errmax(nktest),eps,tolgrad
  real :: potensoft,fsoft,potensofte,fsofte,dp
 
- if (id==master) write(stderr,"(a,/)") '--> TESTING '//trim(kernelname)//' kernel'
+ if (id==master) write(*,"(a,/)") '--> TESTING '//trim(kernelname)//' kernel'
 !
 !--check that wab0 and gradh0 are equal to values at q=zero
 !
@@ -120,7 +120,7 @@ subroutine test_kernel(ntests,npass)
  call checkvalbuf_end('get_kernel_grav1 == grkern',ncheck(6),nerr(6),errmax(6),tiny(0.))
  call checkvalbuf_end('dphi/dh = phi - q*dphi/dq',ncheck(7),nerr(7),errmax(7),2.e-7)
 
- if (id==master) write(stderr,"(/,a,/)") '<-- KERNEL TEST COMPLETE'
+ if (id==master) write(*,"(/,a,/)") '<-- KERNEL TEST COMPLETE'
 
 end subroutine test_kernel
 

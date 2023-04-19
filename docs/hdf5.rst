@@ -319,5 +319,5 @@ Plonk
 ~~~~~
 
 Plonk is a Python package for analysis and visualisation of SPH
-data. Plonk is open source and available at
+data in hdf5 format. Plonk is open source and available at
 https://github.com/dmentipl/plonk.

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -235,14 +235,14 @@ end subroutine read_binary_table
 !  Interpolate between values using cubic interpolation
 !+
 !------------------------------------------------------------------------
-subroutine CINT(val0,val1,val2,val3,u,val)
+subroutine Cint(val0,val1,val2,val3,u,val)
  real, intent(out) :: val
  real, intent(in)  :: val0,val1,val2,val3,u
 
  val = 1./2.*(((-val0+3.*val1-3.*val2+val3)*u+(2.*val0-5.*val1+4.*val2-val3))*u+&
        (-val0+val2))*u+val1
 
-end subroutine CINT
+end subroutine Cint
 
 !------------------------------------------------------------------------
 !+
@@ -283,7 +283,7 @@ subroutine cubic_interpolator(valu,val1,grho,gtem,gye,iff,jff,kff)
           call linear_interpolator_one_d(val1(kff,iff-2+i,jff-2+j),&
                val1(kff+1,iff-2+i,jff-2+j),grho,val_tmp)
        else
-          call CINT(val1(kff-1,iff-2+i,jff-2+j),val1(kff,iff-2+i,jff-2+j),&
+          call Cint(val1(kff-1,iff-2+i,jff-2+j),val1(kff,iff-2+i,jff-2+j),&
                val1(kff+1,iff-2+i,jff-2+j),val1(kff+2,iff-2+i,jff-2+j),grho,val_tmp)
        endif
        r(j,i)=val_tmp
@@ -298,7 +298,7 @@ subroutine cubic_interpolator(valu,val1,grho,gtem,gye,iff,jff,kff)
     if ((iff==1).or.(iff==(nt-1))) then
        call linear_interpolator_one_d(r(j,2),r(j,3),gtem,val_tmp)
     else
-       call CINT(r(j,1),r(j,2),r(j,3),r(j,4),gtem,val_tmp)
+       call Cint(r(j,1),r(j,2),r(j,3),r(j,4),gtem,val_tmp)
     endif
     t(j)=val_tmp
  enddo
@@ -307,7 +307,7 @@ subroutine cubic_interpolator(valu,val1,grho,gtem,gye,iff,jff,kff)
  if ((jff==1).or.(jff==(53-1))) then
     call linear_interpolator_one_d(t(2),t(3),gye,valu)
  else
-    call CINT(t(1),t(2),t(3),t(4),gye,valu)
+    call Cint(t(1),t(2),t(3),t(4),gye,valu)
  endif
 
 end subroutine cubic_interpolator
@@ -532,7 +532,7 @@ subroutine sound_speed_clas(rin,tin,yin,spsound)
 
  call partial(pre_tmp,pre_r1_tmp,rin_tmp,rin_r1_tmp,par_pr)
 
- spsound=sqrt(ABS(par_pr))
+ spsound=sqrt(abs(par_pr))
 
 end subroutine sound_speed_clas
 
@@ -570,7 +570,7 @@ subroutine sound_speed_rel(rin,tin,yin,spsound)
 
  call partial(pre_tmp,pre_r1_tmp,e,e_r1,par_pe)
 
- spsound=sqrt(ABS(light_speed**2*par_pe))
+ spsound=sqrt(abs(light_speed**2*par_pe))
 
 end subroutine sound_speed_rel
 
@@ -662,7 +662,7 @@ subroutine eos_shen_get_dTdu(rin_cgs,temp_cgs,yin,dTdui)
 
  call find_cv(rin,temp,yin,cv,ene)
 
- dTdui=1./cv*ABS(dlnPdlnT)
+ dTdui=1./cv*abs(dlnPdlnT)
 
 end subroutine eos_shen_get_dTdu
 
