@@ -637,7 +637,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 LIBSETUP=$(BINDIR)/libphantomsetup.a
 SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             utils_binary.f90 set_binary.f90 set_flyby.f90 \
-            set_hierarchical_utils.f90 set_hierarchical.f90 \
+            set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
             set_dust.f90 libsetup.f90
 OBJLIBSETUP=${SRCLIBSETUP:.f90=.o}
@@ -650,25 +650,21 @@ libsetup: $(OBJLIBSETUP)
 
 #----------------------------------------------------
 # these are the sources for phantom setup utility
+# (just the list of extra files not included in libphantom)
 #
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= utils_summary.F90 utils_gravwave.f90 \
-          set_dust_options.f90 \
-          utils_indtimesteps.F90 partinject.F90 \
-          ${SRCTURB} ${SRCNIMHD} ${SRCCHEM} \
-          ptmass.F90 energies.F90 density_profiles.f90 set_slab.f90 set_disc.F90 \
-          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 set_star.f90 relax_star.f90 \
-          set_vfield.f90 ptmass_radiation.F90 ${SRCINJECT} \
-          ${SETUPFILE} checksetup.F90 \
-          set_Bfield.f90 readwrite_infile.f90 ${SRCKROME}
+SRCSETUP= prompting.f90 set_dust_options.f90 \
+          density_profiles.f90 set_slab.f90 set_disc.F90 \
+          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+          set_star_kepler.f90 set_star_mesa.f90 \
+          set_star.f90 relax_star.f90 set_hierarchical.f90 \
+          set_vfield.f90 set_Bfield.f90 \
+          ${SETUPFILE}
 
 OBJSETUP1= $(SRCSETUP:.f90=.o)
-ifeq ($(KROME), krome)
-    OBJSETUP1 += $(KROME_OBJS)
-endif
-OBJSETUP= $(OBJDUMP) $(OBJSETUP1:.F90=.o) phantomsetup.o
+OBJSETUP= $(OBJSETUP1:.F90=.o) phantomsetup.o
 
 setup: checksystem checkparams libsetup libphantom $(OBJSETUP)
 	$(FC) $(FFLAGS) -o $(BINDIR)/phantomsetup  $(OBJSETUP) $(LIBSETUP) $(LIBPHANTOM) $(LDFLAGS) $(LIBS)
@@ -800,7 +796,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o density_profiles.o set_star_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)

@@ -19,6 +19,7 @@ module setstar
 !   spherical, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
+ use setstar_kepler,     only:write_kepler_comp
  implicit none
  !
  ! Index of setup options
@@ -66,8 +67,9 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
- use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,&
-                              read_mesa,read_kepler_file,write_profile,func
+ use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
+ use setstar_mesa,       only:read_mesa,write_mesa
+ use setstar_kepler,     only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
  use physcon,            only:kb_on_mh,radconst
@@ -76,7 +78,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  real,              intent(in)    :: ui_coef
  real,              intent(inout) :: gamma,polyk,hsoft
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
- real, allocatable, intent(out)  :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
+ real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
  integer,           intent(out)   :: npts
  real,              intent(inout) :: rmin,Rstar,Mstar,rhocentre
  integer,           intent(in)    :: isoftcore,isofteningopt
@@ -137,7 +139,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
           en(i) = eni
           temp(i) = tempi
        enddo
-       call write_profile(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
+       call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
        ! now read the softened profile instead
        call read_mesa(outputfilename,den,r,pres,mtab,en,temp,Xfrac,Yfrac,Mstar,ierr)
     else
@@ -356,66 +358,5 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  enddo
 
 end subroutine set_star_thermalenergy
-
-!-----------------------------------------------------------------------
-!+
-!  Write kepler.comp which is file that contains interpolated composition
-!  for each particle. This works for ikepler only.
-!  Interpolating composition for each particle in the star.
-!  For now I write a file with the interpolate data
-!  This is used in analysis kepler file to bin composition.
-!
-!+
-!-----------------------------------------------------------------------
-subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
-                             xyzh,npart,npts,composition_exists)
-
- use table_utils, only                      :  yinterp
- integer, intent(in)                        :: columns_compo,npart,npts
- real,    intent(in)                        :: xyzh(:,:)
- real, allocatable,intent(in)               :: r(:)
- real, allocatable, intent(in)              :: composition(:,:)
- character(len=20), allocatable,intent(in)  :: comp_label(:)
- real , allocatable                         :: compositioni(:,:)
- logical, intent(out)                       :: composition_exists
- real, allocatable                          :: comp(:)
- integer                                    :: i,j
- real                                       :: ri
-
-
- composition_exists = .false.
-
- ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
- ! !in the star.
- if (columns_compo /= 0) then
-    composition_exists = .true.
- endif
-
- if (composition_exists) then
-    print*, 'Writing the stellar composition for each particle into ','kepler.comp'
-
-    open(11,file='kepler.comp')
-    write(11,"('#',50(1x,'[',1x,a7,']',2x))") &
-            comp_label
-    !Now setting the composition of star if the case used was ikepler
-    allocate(compositioni(columns_compo,1))
-    allocate(comp(1:npts))
-    do i = 1,npart
-       !Interpolate compositions
-       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-
-       do j = 1,columns_compo
-          comp(1:npts)      = composition(1:npts,j)
-          compositioni(j,1) = yinterp(comp(1:npts),r(1:npts),ri)
-       enddo
-       write(11,'(50(es18.10,1X))') &
-            (compositioni(j,1),j=1,columns_compo)
-    enddo
-    close(11)
-    print*, '>>>>>> done'
- endif
-
-
-end subroutine write_kepler_comp
 
 end module setstar
