@@ -43,6 +43,7 @@ subroutine test_externf(ntests,npass)
  use units,    only:set_units
  use physcon,  only:pc,solarm
  use mpidomain,only:i_belong
+ use kernel,   only:hfact_default
  integer, intent(inout) :: ntests,npass
  integer                :: i,iextf,nfail1,ierr
  logical                :: dotest1,dotest2,dotest3,accreted
@@ -65,7 +66,7 @@ subroutine test_externf(ntests,npass)
 !
  xmini(:) = -100.
  xmaxi(:) = 100.
- hfact      = 1.2
+ hfact      = hfact_default
  accradius1 = 100.  ! should be >6 for Lense-Thirring to pass
  psep  = (xmaxi(1) - xmini(1))/10.
  npart = 0
