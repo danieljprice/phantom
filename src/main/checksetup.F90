@@ -421,6 +421,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check point mass setup
 !
  call check_setup_ptmass(nerror,nwarn,hmin)
+!
+!--check centre of mass
+!
+ call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -435,7 +439,6 @@ subroutine check_setup(nerror,nwarn,restart)
 !--print centre of mass (must be done AFTER types have been checked)
 !  ALSO, only print this if there are no warnings or errors to avoid obscuring warnings
 !
-    call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
     if (id==master) then
        write(*,"(a,2(es10.3,', '),es10.3,a)") ' Centre of mass is at (x,y,z) = (',xcom,')'
        write(*,"(1x,a)") 'Particle setup OK'
