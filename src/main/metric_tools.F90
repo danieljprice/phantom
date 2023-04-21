@@ -33,7 +33,7 @@ module metric_tools
  integer, public, parameter :: &
     imet_minkowski      = 1,   &    ! Minkowski metric
     imet_schwarzschild  = 2,   &    ! Schwarzschild metric
-    imet_kerr           = 3,        ! Kerr metric
+    imet_kerr           = 3,   &    ! Kerr metric
     imet_et             = 6         ! Tabulated metric from Einstein toolkit
 
 !--- Choice of coordinate system

@@ -16,7 +16,7 @@ module einsteintk_wrapper
         use io,              only:id,master,nprocs,set_io_unit_numbers,die
         use mpiutils,        only:init_mpi,finalise_mpi
         use initial,         only:initialise,finalise,startrun,endrun
-        use evolve,          only:evol_init
+        !use evolve,          only:evol_init
         use tmunu2grid
         use einsteintk_utils
         use extern_gr
@@ -69,8 +69,9 @@ module einsteintk_wrapper
         !print*, "tmunugrid: ", tmunugrid(1,1,6,6,6)
         !stop 
         ! Intialises values for the evol routine: t, dt, etc..
-        call evol_init(infilestor,logfilestor,evfilestor,dumpfilestor,dt_et,nophantompart)
-        print*, "Evolve init finished!"
+        !call evol_init(infilestor,logfilestor,evfilestor,dumpfilestor,dt_et,nophantompart)
+        !print*, "Evolve init finished!"
+        nophantompart = npart
         ! Calculate the stress energy tensor for each particle
         ! Might be better to do this in evolve init 
         !call get_tmunugrid_all
@@ -113,28 +114,29 @@ module einsteintk_wrapper
         ! send grid limits 
     end subroutine et2phantom
 
-    subroutine step_et2phantom(infile,dt_et)
-        use einsteintk_utils
-        use evolve,          only:evol_step
-        use tmunu2grid
-        character(len=*),  intent(in) :: infile
-        real,          intent(inout) :: dt_et
-        character(len=500) :: logfile,evfile,dumpfile,path
+    ! DONT THINK THIS IS USED ANYWHERE!!! 
+    ! subroutine step_et2phantom(infile,dt_et)
+    !     use einsteintk_utils
+    !     use evolve,          only:evol_step
+    !     use tmunu2grid
+    !     character(len=*),  intent(in) :: infile
+    !     real,          intent(inout) :: dt_et
+    !     character(len=500) :: logfile,evfile,dumpfile,path
          
        
-        ! Print the values of logfile, evfile, dumpfile to check they are sensible
-        !print*, "logfile, evfile, dumpfile: ", logfile, evfile, dumpfile
-        print*, "stored values of logfile, evfile, dumpfile: ", logfilestor, evfilestor, dumpfilestor
+    !     ! Print the values of logfile, evfile, dumpfile to check they are sensible
+    !     !print*, "logfile, evfile, dumpfile: ", logfile, evfile, dumpfile
+    !     print*, "stored values of logfile, evfile, dumpfile: ", logfilestor, evfilestor, dumpfilestor
         
-        ! Interpolation stuff 
-        ! Call et2phantom (construct global grid, metric, metric derivs, determinant)
-        ! Run phantom for a step 
-        call evol_step(infile,logfilestor,evfilestor,dumpfilestor,dt_et)
-        ! Interpolation stuff back to et
-        !call get_tmunugrid_all()
-        ! call phantom2et (Tmunu_grid)
+    !     ! Interpolation stuff 
+    !     ! Call et2phantom (construct global grid, metric, metric derivs, determinant)
+    !     ! Run phantom for a step 
+    !     call evol_step(infile,logfilestor,evfilestor,dumpfilestor,dt_et)
+    !     ! Interpolation stuff back to et
+    !     !call get_tmunugrid_all()
+    !     ! call phantom2et (Tmunu_grid)
     
-    end subroutine step_et2phantom
+    ! end subroutine step_et2phantom
     
     subroutine phantom2et()
         ! should take in the cctk_array for tmunu??

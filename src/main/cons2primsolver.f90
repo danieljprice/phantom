@@ -144,7 +144,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,sqrt_gamma
  real(kind=8) :: cgsdens,cgsu
  integer :: niter, i
  real, parameter :: tol = 1.e-12
