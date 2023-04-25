@@ -14,10 +14,10 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, energies, eos, eos_gasradrec, eos_mesa,
-!   extern_corotate, io, ionization_mod, kernel, mesa_microphysics, part,
-!   physcon, prompting, ptmass, setbinary, sortutils, table_utils, units,
-!   vectorutils
+! :Dependencies: centreofmass, dust_formation, energies, eos,
+!   eos_gasradrec, eos_mesa, extern_corotate, io, ionization_mod, kernel,
+!   mesa_microphysics, part, physcon, prompting, ptmass, setbinary,
+!   sortutils, table_utils, units, vectorutils
 !
 
  use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
@@ -46,6 +46,7 @@ module analysis
  logical, dimension(5)                :: switch = .false.
  public                               :: do_analysis
  public                               :: tconv_profile,get_interior_mass ! public = no unused fn warning
+ public                               :: planet_destruction,total_dust_mass ! make public to avoid compiler warning
  private
 
 contains
@@ -92,7 +93,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 7) Simulation units and particle properties', &
             ' 8) Output .divv', &
             ' 9) EoS testing', &
-            '10) Planet destruction', &
             '11) Profile of newly unbound particles', &
             '12) Sink properties', &
             '13) MESA EoS compute total entropy and other average td quantities', &
@@ -154,8 +154,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(9) !EoS testing
     call eos_surfaces
- case(10) !Planet destruction
-    call planet_destruction(time,npart,particlemass,xyzh,vxyzu)
  case(11) !New unbound particle profiles in time
     call unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  case(19) ! Rotation profile
@@ -301,6 +299,41 @@ end subroutine do_analysis
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!                Analysis  routines                !!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+subroutine total_dust_mass(time,npart,particlemass,xyzh)
+ use part,           only:nucleation,idK3
+ use dust_formation, only:set_abundances, mass_per_H
+ use physcon, only:atomic_mass_unit
+ real, intent(in)               :: time,particlemass,xyzh(:,:)
+ integer, intent(in)            :: npart
+ integer                        :: i,ncols
+ real, dimension(1)            :: dust_mass
+ character(len=17), allocatable :: columns(:)
+
+ call set_abundances !without the calling, the parameter mass_per_H is zero
+ dust_mass(1) = 0
+ ncols = 1
+ print *,'size(nucleation,1) = ',size(nucleation,1)
+ print *,'size(nucleation,2) = ',size(nucleation,2)
+ allocate(columns(ncols))
+ columns = (/'total dust mass'/)
+ do i = 1,npart
+    if (.not. isdead_or_accreted(xyzh(4,i))) then
+       dust_mass(1) = dust_mass(1) + nucleation(idK3,i) &
+                         * 12*atomic_mass_unit*particlemass*2.0E+33/mass_per_H
+       !the factor 2.0E+33 convert particlemass from solar units to cgs
+       !12*atomic_mass_unit is the mass of a Carbon atom
+    endif
+ enddo
+
+ call write_time_file('total_dust_mass_vs_time', columns, time, dust_mass, ncols, dump_number)
+ !after execution of the analysis routine, a file named "total_dust_mass_vs_time.ev" appears
+ deallocate(columns)
+
+end subroutine total_dust_mass
+
+
 
 
 !----------------------------------------------------------------

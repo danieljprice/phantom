@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc
+               inucleation,itau_alloc,itauL_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -207,6 +207,7 @@ module part
 !-- Ray tracing : optical depth
 !
  real, allocatable :: tau(:)
+ real, allocatable :: tau_lucy(:)
 !
 !--Dust formation - theory of moments
 !
@@ -500,6 +501,7 @@ subroutine allocate_part
  call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
+ call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -563,6 +565,7 @@ subroutine deallocate_part
  if (allocated(twas))         deallocate(twas)
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
+ if (allocated(tau_lucy))     deallocate(tau_lucy)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -1175,6 +1178,8 @@ subroutine copy_particle(src,dst,new_part)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+ if (itau_alloc == 1) tau(dst) = tau(src)
+ if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (new_part) then
     norig      = norig + 1
@@ -1272,6 +1277,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
  if (itau_alloc == 1) tau(dst) = tau(src)
+ if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
@@ -1480,12 +1486,15 @@ subroutine fill_sendbuf(i,xtemp)
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
-    if (do_nucleation) then
-       call fill_buffer(xtemp, nucleation(:,i),nbuf)
-    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
+    if (do_nucleation) then
+       call fill_buffer(xtemp, nucleation(:,i),nbuf)
+    endif
+    if (itau_alloc == 1)  call fill_buffer(xtemp, tau(i),nbuf)
+    if (itauL_alloc == 1) call fill_buffer(xtemp, tau_lucy(i),nbuf)
+
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
@@ -1562,12 +1571,14 @@ subroutine unfill_buffer(ipart,xbuf)
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
- if (do_nucleation) then
-    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
- endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
+ if (do_nucleation) then
+    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
+ endif
+ if (itau_alloc == 1)  tau(ipart) = unfill_buf(xbuf,j)
+ if (itauL_alloc == 1) tau_lucy(ipart) = unfill_buf(xbuf,j)
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
  endif

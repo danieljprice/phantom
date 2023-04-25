@@ -894,7 +894,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ireconav
+ use options,     only:overcleanfac,use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -1698,8 +1698,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radprop(ikappa,j)
                 radenj = rad(iradxi,j)
                 radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
-                !radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                radlambdaj = 1./3.
+
+                if (limit_radiation_flux) then
+                   radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                else
+                   radlambdaj = 1./3.
+                endif
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2022,7 +2026,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                      rad,radprop,dens,metrics)
 
  use io,        only:fatal
- use options,   only:alpha,use_dustfrac
+ use options,   only:alpha,use_dustfrac,limit_radiation_flux
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
@@ -2275,9 +2279,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          !cell%xpartvec(iradlambdai,cell%npcell)     = &
-          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          if (limit_radiation_flux) then
+             cell%xpartvec(iradlambdai,cell%npcell) = (2. + radRi)/(6. + 3.*radRi + radRi*radRi)
+          else
+             cell%xpartvec(iradlambdai,cell%npcell) = 1./3.
+          endif
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2456,7 +2462,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
@@ -2985,8 +2991,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi) then
-       if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
-          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
+       if (minval(dustfraci(1:ndustsmall)) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
+          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(1:ndustsmall)*tstopi(1:ndustsmall))
           dtdustdenom = dustfracisum*tseff*spsoundi**2
           if (dtdustdenom > tiny(dtdustdenom)) then
              dtdusti = C_force*hi*hi/dtdustdenom
