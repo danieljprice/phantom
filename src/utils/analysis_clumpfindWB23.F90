@@ -17,8 +17,9 @@ module analysis
 !  the data based upon the ellipse fitting routine and repeat.  When the data is no longer being rotated, we
 !  take the final values to determine the lengths of the three semi-axes.
 !  WARNING! this currently cannot track across dumps
+!  WARNING! there is a bug fix on line labeled 'Used in WB23'; the patch is untested
 !
-! :References: Wurster & Bonnell (2023)
+! :References: Wurster & Bonnell (2023) MNRAS, 522, 891-911.
 !
 ! :Owner: James Wurster
 !
@@ -303,7 +304,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                    if (dr < radkern*hi .or. dr < xyzmh_ptmass(ihacc,p)*racc_fac) connected = .true.
                 enddo
              endif
-             ekin = 0.5*(pmassi*clump(j)%mass)/(pmassi+clump(j)%mass)*dv2
+             !ekin = 0.5*(pmassi*clump(j)%mass)/(pmassi+clump(j)%mass)*dv2  ! Used in WB23
+             ekin = clump(j)%kinetic   + 0.5*(pmassi*clump(j)%mass)/(pmassi+clump(j)%mass)*dv2  ! likely the correct version (untested)
              epot = clump(j)%potential + epot*pmassi
              if (connected .and. ekin_coef*ekin + epot < 0.) then
                 eclumpcandidate(1,j) = ekin
