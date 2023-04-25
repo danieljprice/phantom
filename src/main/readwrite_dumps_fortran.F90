@@ -1136,9 +1136,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,itemp,igasP,iorig
+                      ithick,itemp,igasP,ilambda,iorig
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
@@ -1292,6 +1292,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ikappa,:),radprop_label(ikappa),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ilambda,:),radprop_label(ilambda),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxx,:),radprop_label(ifluxx),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxy,:),radprop_label(ifluxy),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxz,:),radprop_label(ifluxz),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
