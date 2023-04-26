@@ -16,7 +16,7 @@ module orbits_data
 !
 ! :Dependencies: physcon, units, vectorutils
 !
-
+! Accepts values in cgs units 
  implicit none
 
  public :: escape, eccentricity_vector, eccentricity_star
@@ -45,14 +45,16 @@ logical function escape(velocity_on_orbit,central_obj_m,position_of_obj)
  real             :: escape_vel
 
 
- escape_vel = sqrt((2.*gg*central_obj_m*umass)/(position_of_obj*udist))
-
- if (velocity_on_orbit*unit_velocity > escape_vel) then
-    print*,'star has escaped',(velocity_on_orbit*unit_velocity)/escape_vel,'vel bh/escape vel'
+ escape_vel = sqrt((2.*gg*central_obj_m)/(position_of_obj))
+ print*,escape_vel,"escape vel",unit_velocity,"unit velocity"
+ if (velocity_on_orbit > escape_vel) then
+    print*,'star has escaped',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
+    print*, velocity_on_orbit/(1e5),"vel of star in Km/s"
     escape = .true.
  else
-    print*,'star is bound',(velocity_on_orbit*unit_velocity)/escape_vel,'vel bh/escape vel'
+    print*,'star is bound',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
     escape = .false.
+    print*, velocity_on_orbit/(1e5),"in Km/s"
  endif
 end function escape
 
@@ -106,7 +108,7 @@ function  eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
  pos_vec_mag = sqrt(dot_product(pos_vec,pos_vec)) 
 
  ! eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat 
- eccentricity_vector(:) = (vcrossh_vec(:)/(gg*(mass1+mass2)*umass)) - (pos_vec/pos_vec_mag)
+ eccentricity_vector(:) = (vcrossh_vec(:)/(gg*(mass1+mass2))) - (pos_vec/pos_vec_mag)
 
 end function eccentricity_vector
 
@@ -145,7 +147,7 @@ real function semimajor_axis(mass1,mass2,pos_vec,vel_vec)
  h2 = dot_product(h_vector,h_vector)
 
  !formula used is a = h^2/(G(M*+M_BH)*(1-e^2))
- semimajor_axis = h2/((gg*(mass1+mass2)*umass)*(1-eccentricity_value**2))
+ semimajor_axis = h2/((gg*(mass1+mass2))*(1-eccentricity_value**2))
 
 
 end function semimajor_axis
@@ -167,7 +169,7 @@ real function period_star(mass1,mass2,pos_vec,vel_vec)
  semimajor = semimajor_axis(mass1,mass2,pos_vec,vel_vec)
 
  ! using Kepler's 3rd law to calculated period 
- period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass1+mass2)*umass))
+ period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass1+mass2)))
 
 end function period_star
 
