@@ -380,7 +380,7 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
    ! Stress energy tensor in contravariant form
    do nu=0,3
       do mu=0,3
-         tmunu(mu,nu) = dens*u_lower(mu)*u_lower(nu) + p*gcov(mu,nu)
+         tmunu(mu,nu) = w*dens*u_lower(mu)*u_lower(nu) + p*gcov(mu,nu)
       enddo 
    enddo 
 
@@ -403,6 +403,13 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
       print*, "p: ", p 
       print*, "gcov: ", gcov
    endif
+
+   ! print*, "tmunu part: ", tmunu
+   ! print*, "dens: ", dens
+   ! print*, "w: ", w 
+   ! print*, "p: ", p 
+   ! print*, "gcov: ", gcov
+   ! stop 
 end subroutine get_tmunu
 
 subroutine get_tmunu_exact(x,metrici,metricderivsi,v,dens,u,p,tmunu)
