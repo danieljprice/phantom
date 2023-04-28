@@ -74,7 +74,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  use physcon,         only:pi
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
- use setstar,         only:set_star_thermalenergy,set_star_composition
+ use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)

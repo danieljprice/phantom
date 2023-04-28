@@ -19,8 +19,6 @@ module setsoftenedcore
 !   table_utils
 !
  implicit none
- real :: rcore,mcore
-
  ! rcore: Radius / Rsun below which we replace the original profile with a
  !        softened profile.
  ! mcore: Mass / Msun of core particle
@@ -32,14 +30,16 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(isoftcore,isofteningopt,r,den,pres,m,X,Y,ierr)
- use eos,         only:ieos,X_in,Z_in,init_eos,get_mean_molecular_weight
- use io,          only:fatal
- use table_utils, only:interpolator,yinterp,flip_array
- use setcubiccore,only:set_cubic_core,find_mcore_given_rcore,find_rcore_given_mcore,check_rcore_and_mcore
- use setfixedentropycore,only:set_fixedS_softened_core
- use physcon, only:solarr,solarm
+subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,m,X,Y,ierr)
+ use eos,                 only:ieos,X_in,Z_in,init_eos,get_mean_molecular_weight
+ use io,                  only:fatal
+ use table_utils,         only:interpolator,yinterp,flip_array
+ use setcubiccore,        only:set_cubic_core,find_mcore_given_rcore,&
+                               find_rcore_given_mcore,check_rcore_and_mcore
+ use setfixedentropycore, only:set_fixedS_softened_core
+ use physcon,             only:solarr,solarm
  integer, intent(in) :: isoftcore,isofteningopt
+ real, intent(inout) :: rcore,mcore
  real, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr
  real                :: Xcore,Zcore,rc

@@ -14,7 +14,7 @@ module setstar_mesa
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, eos, fileutils, physcon, units
+! :Dependencies: datafiles, fileutils, physcon, units
 !
  implicit none
 
@@ -29,9 +29,8 @@ contains
 !  the P12 star (phantom/data/star_data_files/P12_Phantom_Profile.data)
 !+
 !-----------------------------------------------------------------------
-subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits)
+subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
- use eos,       only:X_in,Z_in
  use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
@@ -44,6 +43,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
  character(len=24),allocatable              :: header(:),dum(:)
  logical                                    :: iexist,usecgs,ismesafile,got_column
  real,allocatable,dimension(:,:)            :: dat
+ real, intent(in)                           :: X_in,Z_in
  real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
  real, intent(out)                          :: Mstar
 
@@ -107,7 +107,7 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,Xfrac,Yfrac,Mstar,ierr,cgsun
              temp(lines),Xfrac(lines),Yfrac(lines))
 
  close(iu)
- ! Set mass fractions to default in eos module if not in file
+ ! Set mass fractions to fixed inputs if not in file
  Xfrac = X_in
  Yfrac = 1. - X_in - Z_in
  do i = 1,rows

@@ -44,6 +44,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use io,                only:fatal,idisk1,iprint
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
+ use eos,               only:X_in,Z_in
 
  integer, intent(inout)    :: npart
  integer, intent(inout)    :: npartoftype(:)
@@ -330,7 +331,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
 
-       call read_mesa(densityfile,den,r,pres,m,enitab,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
+       call read_mesa(densityfile,den,r,pres,m,enitab,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
        rcut = yinterp(r,m,mcut)
 
        irhomax = 1
