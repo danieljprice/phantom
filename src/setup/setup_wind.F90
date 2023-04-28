@@ -9,7 +9,7 @@ module setup
 ! initial conditions for binary wind accretion / AGB star wind injection
 !
 ! :References:
-!   Siess et al.
+!   Siess et al. 2022, A&A, 667, 75
 !
 ! :Owner: Lionel Siess
 !
@@ -46,7 +46,7 @@ module setup
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
 ! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
-!   prompting, setbinary, spherical, units
+!   prompting, setbinary, sethierarchical, spherical, units
 !
  use dim, only:isothermal
  implicit none
@@ -133,10 +133,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: init_inject
- use setbinary, only: set_binary,set_multiple
+ use setbinary, only: set_binary
+ use sethierarchical, only: set_multiple
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
- use spherical, only:set_sphere
+ use spherical, only: set_sphere
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -265,7 +266,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  !
- ! for binary wind simulations this mass is IRRELEVANT
+ ! for binary wind simulations the particle mass is IRRELEVANT
  ! since it will be over-written on the first call to init_inject
  !
  massoftype(igas) = default_particle_mass * (solarm / umass)
@@ -587,7 +588,8 @@ subroutine write_setupfile(filename)
     if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
         secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
 
-    secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+    secondary_Reff = secondary_Reff_au*(au / udist)
+    secondary_lum  = secondary_lum_lsun * (solarl * utime / unit_energ)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     !-- hierarchical triple
     write(iunit,"(/,a)") '# options for hierarchical triple'
@@ -667,6 +669,7 @@ subroutine write_setupfile(filename)
        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
  endif
+
  call write_inopt(default_particle_mass,'mass_of_particles','particle mass (Msun, overwritten if iwind_resolution <>0)',iunit)
 
  if (isothermal) then
@@ -712,6 +715,11 @@ subroutine read_setupfile(filename,ierr)
  primary_Reff = primary_Reff_au * au / udist
  call read_inopt(primary_racc_au,'primary_racc',db,min=0.,errcount=nerr)
  primary_racc = primary_racc_au * au / udist
+ if (primary_racc < tiny(0.)) then
+    print *,'ERROR: primary accretion radius not defined'
+    nerr = nerr+1
+ endif
+
  call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
  if (icompanion_star == 1) then
     call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
@@ -723,12 +731,17 @@ subroutine read_setupfile(filename,ierr)
     secondary_Reff = secondary_Reff_au * au / udist
     call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,errcount=nerr)
     secondary_racc = secondary_racc_au * au / udist
+    if (secondary_racc < tiny(0.)) then
+       print *,'ERROR: secondary accretion radius not defined'
+       nerr = nerr+1
+    endif
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
  elseif (icompanion_star == 2) then
     !-- hierarchical triple
     call read_inopt(subst,'subst',db,errcount=nerr)
+    !replace primary by tight binary system : 2+1
     if (subst == 11) then
        call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1000.,errcount=nerr)
        secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
@@ -762,14 +775,18 @@ subroutine read_setupfile(filename,ierr)
     !-- accretion radii,...
     call read_inopt(racc2b_au,'racc2b',db,errcount=nerr)
     racc2b = racc2b_au * au / udist
+    if (racc2b < tiny(0.)) then
+       print *,'WARNING: secondary accretion radius not defined'
+       !nerr = nerr+1
+    endif
     call read_inopt(lum2b_lsun,'lum2b',db,errcount=nerr)
     lum2b = lum2b_lsun * (solarl * utime / unit_energ)
     call read_inopt(Teff2b,'Teff2b',db,errcount=nerr)
     call read_inopt(Reff2b_au,'Reff2b',db,errcount=nerr)
     Reff2b = Reff2b_au * au / udist
     call read_inopt(binary2_i,'inclination',db,errcount=nerr)
-
  endif
+
  call read_inopt(default_particle_mass,'mass_of_particles',db,min=0.,errcount=nerr)
 
  if (isothermal) then
@@ -780,30 +797,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
  endif
  call close_db(db)
- if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff > 0.) then
-    ichange = ichange+1
-    primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*(primary_Reff*udist)**2))**0.25
- endif
- if (primary_Reff == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) then
-    ichange = ichange+1
-    primary_Reff = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/udist
-    primary_Reff_au = primary_Reff * udist / au
- endif
- if (primary_Reff > 0.  .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) then
-    ichange = ichange+1
-    primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff*udist)**2/solarl
- endif
- if (icompanion_star == 1) then
-    if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
-       ichange = ichange+1
-       secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff*udist)**2))**0.25
-    endif
-    if (secondary_Reff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) then
-       ichange = ichange+1
-       secondary_Reff = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/udist
-       secondary_Reff_au = secondary_Reff * udist / au
-    endif
- endif
  ierr = nerr
  call write_setupfile(filename)
 

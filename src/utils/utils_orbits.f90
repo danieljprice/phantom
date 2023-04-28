@@ -66,7 +66,7 @@ subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,posi
  real               :: eccentricity_value,semimajor_value,period_value
  real               :: h_value
  real               :: vcrossh(3),eccentricity_vector(3)
- real               :: inclination_angle,arguement_of_periestron,longitude_ascending_node
+ real               :: inclination_angle,argument_of_periestron,longitude_ascending_node
 
  !h_value is the magnitude of angular_momentum_h vector squared.
  h_value = dot_product(angular_momentum_h,angular_momentum_h) !square of the magnitude of h vector
@@ -93,9 +93,9 @@ subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,posi
  print*, period_value/years, "Period of the orbit in years"
 
  call orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
-                              inclination_angle,arguement_of_periestron,longitude_ascending_node)
+                              inclination_angle,argument_of_periestron,longitude_ascending_node)
 
- print*,inclination_angle*(180/pi),'i',arguement_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
+ print*,inclination_angle*(180/pi),'i',argument_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
 
 end subroutine orbital_parameters
 
@@ -170,7 +170,7 @@ end function period_star
  !+
  !----------------------------------------------------------------
 subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
-                            inclination_angle,arguement_of_periestron,longitude_ascending_node)
+                            inclination_angle,argument_of_periestron,longitude_ascending_node)
 
  use vectorutils, only : cross_product3D
 
@@ -178,7 +178,7 @@ subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_va
  real , intent(in)  :: h_value,eccentricity_value
  real               :: i_vector(3),j_vector(3),k_vector(3),n_vector(3)
  real               :: n_vector_mag
- real, intent(out)  :: inclination_angle,arguement_of_periestron,longitude_ascending_node
+ real, intent(out)  :: inclination_angle,argument_of_periestron,longitude_ascending_node
 
 
  i_vector = (/1,0,0/)
@@ -188,7 +188,7 @@ subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_va
  call cross_product3D(k_vector,angular_momentum_h,n_vector)
  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
  inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
- arguement_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_value,n_vector/n_vector_mag))
+ argument_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_value,n_vector/n_vector_mag))
  longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
 
 

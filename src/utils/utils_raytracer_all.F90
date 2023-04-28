@@ -22,34 +22,36 @@ module raytracer_all
  private
 contains
 
- !*********************************************************************!
- !***************************   ADAPTIVE   ****************************!
- !*********************************************************************!
+!*********************************************************************!
+!***************************   ADAPTIVE   ****************************!
+!*********************************************************************!
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of each particle, using the adaptive ray-
- !  tracing scheme
- !+
- !  IN: primary:         The location of the primary star
- !  IN: xyzh:            The xyzh of all the particles
- !  IN: opacities:       The list of the opacities of the particles
- !  IN: Rstar:           The radius of the star
- !  IN: minOrder:        The minimal order in which the rays are sampled
- !  IN: refineLevel:     The amount of orders in which the rays can be
- !                       sampled deeper
- !+
- !  OUT: taus:           The list of optical depths for each particle
- !+
- !  OPT: companion:      The location of the companion
- !  OPT: R:              The radius of the companion
- !+
- !--------------------------------------------------------------------------
-subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
-                                   Rstar, minOrder, refineLevel, taus, companion, R)
- integer, intent(in) :: minOrder, refineLevel
- real, intent(in)    :: primary(3), opacities(:), xyzh(:,:), Rstar
- real, optional      :: R, companion(3)
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of each particle, using the adaptive ray-
+!  tracing scheme
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: kappa:           The array containing the kappa of all SPH particles
+!  IN: Rstar:           The radius of the star
+!  IN: minOrder:        The minimal order in which the rays are sampled
+!  IN: refineLevel:     The amount of orders in which the rays can be
+!                       sampled deeper
+!  IN: refineScheme:    The refinement scheme used for adaptive ray selection
+!+
+!  OUT: taus:           The list of optical depths for each particle
+!+
+!  OPT: companion:      The xyz coordinates of the companion
+!  OPT: Rcomp:          The radius of the companion
+!+
+!--------------------------------------------------------------------------
+subroutine get_all_tau_adaptive(npart, primary, xyzh, kappa, Rstar, minOrder,&
+                              refineLevel, refineScheme, taus, companion, Rcomp)
+ integer, intent(in) :: npart, minOrder, refineLevel, refineScheme
+ real, intent(in)    :: primary(3), kappa(:), xyzh(:,:), Rstar
+ real, optional      :: Rcomp, companion(3)
  real, intent(out)   :: taus(:)
 
  integer     :: i, nrays, nsides, index
@@ -59,13 +61,13 @@ subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
  integer, dimension(:), allocatable :: indices, rays_dim
  real, dimension(:), allocatable    :: tau, dists
 
- if (present(companion) .and. present(R)) then
+ if (present(companion) .and. present(Rcomp)) then
     unitCompanion = companion-primary
     normCompanion = norm2(unitCompanion)
-    theta0 = asin(R/normCompanion)
+    theta0 = asin(Rcomp/normCompanion)
     unitCompanion = unitCompanion/normCompanion
 
-    call get_rays(primary, companion, xyzh, size(taus), minOrder, refineLevel, R, dirs, indices, nrays)
+    call get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLevel, refineScheme, dirs, indices, nrays)
     allocate(listsOfDists(200, nrays))
     allocate(listsOfTaus(size(listsOfDists(:,1)), nrays))
     allocate(tau(size(listsOfDists(:,1))))
@@ -79,11 +81,11 @@ subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
        dir = dirs(:,i)
        theta = acos(dot_product(unitCompanion, dir))
        if (theta < theta0) then
-          root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+R**2)
+          root = sqrt(normCompanion**2*cos(theta)**2-normCompanion**2+Rcomp**2)
           dist = normCompanion*cos(theta)-root
-          call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, rays_dim(i), dist)
+          call ray_tracer(primary, dir, xyzh, kappa, Rstar, tau, dists, rays_dim(i), dist)
        else
-          call ray_tracer(primary, dir, xyzh, opacities, Rstar, tau, dists, rays_dim(i))
+          call ray_tracer(primary, dir, xyzh, kappa, Rstar, tau, dists, rays_dim(i))
        endif
        listsOfTaus(:,i) = tau
        listsOfDists(:,i) = dists
@@ -93,7 +95,7 @@ subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
     nsides = 2**(minOrder+refineLevel)
     taus = 0.
     !$omp parallel do private(index,vec)
-    do i = 1, size(taus(:))
+    do i = 1, npart
        vec = xyzh(1:3,i)-primary
        call vec2pix_nest(nsides, vec, index)
        index = indices(index + 1)
@@ -102,34 +104,36 @@ subroutine get_all_tau_adaptive(primary, xyzh, opacities, &
     !$omp end parallel do
 
  else
-    call get_all_tau_outwards_single(size(taus(:)), primary, xyzh, opacities, &
-         Rstar, minOrder+refineLevel, 0, taus)
+    call get_all_tau_outwards_single(npart, primary, xyzh, kappa, &
+    Rstar, minOrder+refineLevel, 0, taus)
  endif
 end subroutine get_all_tau_adaptive
 
- !--------------------------------------------------------------------------
- !+
- !  Return all the directions of the rays that need to be traced for the
- !  adaptive ray-tracing scheme
- !+
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: companion:       The xyz coordinates of the companion
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: npart:           The number of particles in the simulation
- !  IN: minOrder:        The minimal order in which the rays are sampled
- !  IN: refineLevel:     The amount of orders in which the rays can be
- !                       sampled deeper
- !  IN: R:               The radius of the companion
- !+
- !  OUT: rays:           A list containing the rays that need to be traced
- !                       in the adaptive ray-tracing scheme
- !  OUT: indices:        A list containing a link between the index in the
- !                       deepest order and the rays in the adaptive ray-tracing scheme
- !+
- !--------------------------------------------------------------------------
-subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, rays, indices, nrays)
- real, intent(in)     :: primary(3), companion(3), xyzh(:,:), R
- integer, intent(in)  :: minOrder, refineLevel, npart
+!--------------------------------------------------------------------------
+!+
+!  Return all the directions of the rays that need to be traced for the
+!  adaptive ray-tracing scheme
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: companion:       The xyz coordinates of the companion
+!  IN: Rcomp:           The radius of the companion
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: minOrder:        The minimal order in which the rays are sampled
+!  IN: refineLevel:     The amount of orders in which the rays can be
+!                       sampled deeper
+!  IN: refineScheme:    The refinement scheme used for adaptive ray selection
+!+
+!  OUT: rays:           A list containing the rays that need to be traced
+!                       in the adaptive ray-tracing scheme
+!  OUT: indices:        A list containing a link between the index in the
+!                       deepest order and the rays in the adaptive ray-tracing scheme
+!  OUT: nrays:          The number of rays after the ray selection
+!+
+!--------------------------------------------------------------------------
+subroutine get_rays(npart, primary, companion, Rcomp, xyzh, minOrder, refineLevel, refineScheme, rays, indices, nrays)
+ integer, intent(in)  :: npart, minOrder, refineLevel, refineScheme
+ real, intent(in)     :: primary(3), companion(3), xyzh(:,:), Rcomp
  real, allocatable, intent(out)    :: rays(:,:)
  integer, allocatable, intent(out) :: indices(:)
  integer, intent(out) :: nrays
@@ -140,7 +144,7 @@ subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, r
  integer, dimension(:,:), allocatable  :: distrs
 
  maxOrder = minOrder+refineLevel
- nrays = 12*4**(maxOrder)!int(12*4**minOrder*(-1+2**(refineLevel) + 2**(refineLevel+1))/2)!
+ nrays = 12*4**(maxOrder)
  allocate(rays(3, nrays))
  allocate(indices(12*4**(maxOrder)))
  rays = 0.
@@ -168,7 +172,7 @@ subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, r
 
  !Make sure the companion is described using the highest refinement
  dist = norm2(primary-companion)
- theta = asin(R/dist)
+ theta = asin(Rcomp/dist)
  phi = atan2(companion(2)-primary(2),companion(1)-primary(1))
  cosphi = cos(phi)
  sinphi = sin(phi)
@@ -199,22 +203,44 @@ subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, r
 
  !Fill the rays array walking through the orders
  ind=1
- do i=0, refineLevel-1
-    call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
-    j=1
-    do while (distrs(distr(j),refineLevel-i+1)<npart/(12*4**(minOrder+i)))
-       call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
-       indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
-       ind=ind+1
-       distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
-       j=j+1
-    enddo
-    do j = j, 12*4**(minOrder+i)
-       if (distrs(distr(j),refineLevel-i+1) == max) then
+
+ ! refine half in each order
+ if (refineScheme == 1) then
+    do i=0, refineLevel-1
+       call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
+       do j=1, 6*4**minOrder*2**(i)
+          call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
+          indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
+          ind=ind+1
           distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
-       endif
+       enddo
+       do j = j+1, 12*4**(minOrder+i)
+          if (distrs(distr(j),refineLevel-i+1) == max) then
+             distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+          endif
+       enddo
     enddo
- enddo
+
+    ! refine overdens regions in each order
+ elseif (refineScheme == 2) then
+    do i=0, refineLevel-1
+       call merge_argsort(distrs(1:12*4**(minOrder+i),refineLevel-i+1), distr)
+       j=1
+       do while (distrs(distr(j),refineLevel-i+1)<npart/(12*4**(minOrder+i)))
+          call pix2vec_nest(2**(minOrder+i), distr(j)-1, rays(:,ind))
+          indices(4**(refineLevel-i)*(distr(j)-1)+1:4**(refineLevel-i)*distr(j)) = ind
+          ind=ind+1
+          distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+          j=j+1
+       enddo
+       do j = j, 12*4**(minOrder+i)
+          if (distrs(distr(j),refineLevel-i+1) == max) then
+             distrs(4*(distr(j)-1)+1:4*(distr(j)), refineLevel-i) = max
+          endif
+       enddo
+    enddo
+ endif
+
  do i=1, 12*4**maxOrder
     if (distrs(i,1)  /=  max) then
        call pix2vec_nest(2**maxOrder, i-1, rays(:,ind))
@@ -225,12 +251,12 @@ subroutine get_rays(primary, companion, xyzh, npart, minOrder, refineLevel, R, r
  nrays = ind-1
 end subroutine get_rays
 
- !--------------------------------------------------------------------------
- !+
- !  Routine that returns the arguments of the sorted array
- !  Source: https://github.com/Astrokiwi/simple_fortran_argsort/blob/master/sort_test.f90
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Routine that returns the arguments of the sorted array
+!  Source: https://github.com/Astrokiwi/simple_fortran_argsort/blob/master/sort_test.f90
+!+
+!--------------------------------------------------------------------------
 subroutine merge_argsort(r,d)
  integer, intent(in), dimension(:) :: r
  integer, intent(out), dimension(size(r)) :: d
@@ -281,28 +307,29 @@ subroutine merge_argsort(r,d)
  enddo
 end subroutine merge_argsort
 
- !*********************************************************************!
- !***************************   OUTWARDS   ****************************!
- !*********************************************************************!
+!*********************************************************************!
+!***************************   OUTWARD    ****************************!
+!*********************************************************************!
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of each particle, using the uniform outwards
- !  ray-tracing scheme
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: kappa:           The array containing the kappa of all SPH particles
- !  IN: Rstar:           The radius of the star
- !  IN: order:           The order in which the rays are sampled
- !+
- !  OUT: taus:           The list of optical depths for each particle
- !+
- !  OPT: companion:      The location of the companion
- !  opt: Rcomp:          The radius of the primary star
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of each particle, using the uniform outwards
+!  ray-tracing scheme
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: kappa:           The array containing the kappa of all SPH particles
+!  IN: Rstar:           The radius of the star
+!  IN: order:           The order in which the rays are sampled
+!  IN: raypolation:     The interpolation scheme used for the ray interpolation
+!+
+!  OUT: taus:           The list of optical depths for each particle
+!+
+!  OPT: companion:      The location of the companion
+!  opt: Rcomp:          The radius of the primary star
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_outwards(npart, primary, xyzh, kappa, Rstar, order, raypolation, taus, companion, Rcomp)
  integer, intent(in) :: npart, order, raypolation
  real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
@@ -316,23 +343,24 @@ subroutine get_all_tau_outwards(npart, primary, xyzh, kappa, Rstar, order, raypo
  endif
 end subroutine get_all_tau_outwards
 
- !--------------------------------------------------------------------------
- !+
- !  Calculates the optical depth to each SPH particle, using the uniform outwards
- !  ray-tracing scheme for models containing a single star
- !
- !  Relies on healpix, for more information: https://healpix.sourceforge.io/
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: kappa:           The array containing the kappa of all SPH particles
- !  IN: Rstar:           The radius of the primary star
- !  IN: order:           The healpix order which is used for the uniform ray sampling
- !+
- !  OUT: taus:           The array of optical depths to each SPH particle
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculates the optical depth to each SPH particle, using the uniform outwards
+!  ray-tracing scheme for models containing a single star
+!
+!  Relies on healpix, for more information: https://healpix.sourceforge.io/
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: kappa:           The array containing the kappa of all SPH particles
+!  IN: Rstar:           The radius of the primary star
+!  IN: order:           The healpix order which is used for the uniform ray sampling
+!  IN: raypolation:     The interpolation scheme used for the ray interpolation
+!+
+!  OUT: taus:           The array of optical depths to each SPH particle
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order, raypolation, tau)
  use part, only : isdead_or_accreted
  integer, intent(in) :: npart,order, raypolation
@@ -392,25 +420,26 @@ subroutine get_all_tau_outwards_single(npart, primary, xyzh, kappa, Rstar, order
  !$omp end parallel
 end subroutine get_all_tau_outwards_single
 
- !--------------------------------------------------------------------------
- !+
- !  Calculates the optical depth to each SPH particle, using the uniform outwards
- !  ray-tracing scheme for models containing primary star and a companion
- !
- !  Relies on healpix, for more information: https://healpix.sourceforge.io/
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: kappa:           The array containing the opacity of all the SPH particles
- !  IN: Rstar:           The radius of the primary star
- !  IN: companion:       The xyz coordinates of the companion
- !  IN: Rcomp:           The radius of the companion
- !  IN: order:           The healpix order which is used for the uniform ray sampling
- !+
- !  OUT: tau:            The array of optical depths for each SPH particle
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculates the optical depth to each SPH particle, using the uniform outwards
+!  ray-tracing scheme for models containing primary star and a companion
+!
+!  Relies on healpix, for more information: https://healpix.sourceforge.io/
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: kappa:           The array containing the opacity of all the SPH particles
+!  IN: Rstar:           The radius of the primary star
+!  IN: companion:       The xyz coordinates of the companion
+!  IN: Rcomp:           The radius of the companion
+!  IN: order:           The healpix order which is used for the uniform ray sampling
+!  IN: raypolation:     The interpolation scheme used for the ray interpolation
+!+
+!  OUT: tau:            The array of optical depths for each SPH particle
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_outwards_companion(npart, primary, xyzh, kappa, Rstar, companion, Rcomp, order, raypolation, tau)
  use part, only : isdead_or_accreted
  integer, intent(in) :: npart, order, raypolation
@@ -493,26 +522,27 @@ subroutine get_all_tau_outwards_companion(npart, primary, xyzh, kappa, Rstar, co
  !$omp end parallel
 end subroutine get_all_tau_outwards_companion
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of a particle.
- !  Search for the four closest rays to a particle, perform four-point
- !  interpolation of the optical depts from these rays. Weighted by the
- !  inverse square of the perpendicular distance to the rays.
- !
- !  Relies on healpix, for more information: https://healpix.sourceforge.io/
- !+
- !  IN: nsides:          The healpix nsides of the simulation
- !  IN: vec:             The vector from the primary to a point
- !  IN: rays_tau:        2-dimensional array containing the cumulative optical
- !                       depts along each ray
- !  IN: rays_dist:       2-dimensional array containing the distances from the
- !                       primary along each ray
- !  IN: rays_dim:        The vector containing the number of points defined along each ray
- !+
- !  OUT: tau:            The interpolated optical depth at the particle's location
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of a particle.
+!  Search for the four closest rays to a particle, perform four-point
+!  interpolation of the optical depts from these rays. Weighted by the
+!  inverse square of the perpendicular distance to the rays.
+!
+!  Relies on healpix, for more information: https://healpix.sourceforge.io/
+!+
+!  IN: nsides:          The healpix nsides of the simulation
+!  IN: vec:             The vector from the primary to a point
+!  IN: rays_tau:        2-dimensional array containing the cumulative optical
+!                       depts along each ray
+!  IN: rays_dist:       2-dimensional array containing the distances from the
+!                       primary along each ray
+!  IN: rays_dim:        The vector containing the number of points defined along each ray
+!  IN: raypolation:     The interpolation scheme used for the ray interpolation
+!+
+!  OUT: tau:            The interpolated optical depth at the particle's location
+!+
+!--------------------------------------------------------------------------
 subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolation, tau)
  integer, intent(in) :: nsides, rays_dim(:), raypolation
  real, intent(in)    :: vec(:), rays_tau(:,:), rays_dist(:,:)
@@ -693,7 +723,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
     tau = tau / weight
 
     ! 4 rays, cubed interpolation
- elseif (raypolation==3) then
+ elseif (raypolation==5) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
     call vec2pix_nest(nsides, vec, rayIndex)
@@ -727,14 +757,14 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
        k       = minloc(tempdist,1,mask)
        mask(k) = .false.
        call get_tau_on_ray(vec_norm2, rays_tau(:,neighbours(k)), &
-                   rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
+                rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
        tau    = tau + tautemp/tempdist(k)
        weight = weight + 1./tempdist(k)
     enddo
     tau = tau / weight
 
     ! 9 rays, cubed interpolation
- elseif (raypolation==4) then
+ elseif (raypolation==6) then
     vec_norm2 = norm2(vec)
     !returns rayIndex, the index of the ray vector that points to the particle (direction vec)
     call vec2pix_nest(nsides, vec, rayIndex)
@@ -768,7 +798,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
        k       = minloc(tempdist,1,mask)
        mask(k) = .false.
        call get_tau_on_ray(vec_norm2, rays_tau(:,neighbours(k)), &
-                   rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
+                rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
        tau    = tau + tautemp/tempdist(k)
        weight = weight + 1./tempdist(k)
     enddo
@@ -777,20 +807,20 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, raypolati
 end subroutine interpolate_tau
 
 
- !--------------------------------------------------------------------------
- !+
- !  Interpolation of the optical depth for an arbitrary point on the ray,
- !  with a given distance to the starting point of the ray.
- !+
- !  IN: distance:        The distance from the staring point of the ray to a
- !                       point on the ray
- !  IN: tau_along_ray:   The vector of cumulative optical depths along the ray
- !  IN: dist_along_ray:  The vector of distances from the primary along the ray
- !  IN: len:             The length of listOfTau and listOfDist
- !+
- !  OUT: tau:            The optical depth to the given distance along the ray
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Interpolation of the optical depth for an arbitrary point on the ray,
+!  with a given distance to the starting point of the ray.
+!+
+!  IN: distance:        The distance from the staring point of the ray to a
+!                       point on the ray
+!  IN: tau_along_ray:   The vector of cumulative optical depths along the ray
+!  IN: dist_along_ray:  The vector of distances from the primary along the ray
+!  IN: len:             The length of listOfTau and listOfDist
+!+
+!  OUT: tau:            The optical depth to the given distance along the ray
+!+
+!--------------------------------------------------------------------------
 subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
  real, intent(in)    :: distance, tau_along_ray(:), dist_along_ray(:)
  integer, intent(in) :: len
@@ -820,24 +850,24 @@ subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
  endif
 end subroutine get_tau_on_ray
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth along a given ray
- !+
- !  IN: primary:         The location of the primary star
- !  IN: ray:             The unit vector of the direction in which the
- !                       optical depts will be calculated
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: kappa:           The array containing the particles opacity
- !  IN: Rstar:           The radius of the primary star
- !+
- !  OUT: taus:           The distribution of optical depths throughout the ray
- !  OUT: listOfDists:    The distribution of distances throughout the ray
- !  OUT: len:            The length of tau_along_ray and dist_along_ray
- !+
- !  OPT: maxDistance:    The maximal distance the ray needs to be traced
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth along a given ray
+!+
+!  IN: primary:         The location of the primary star
+!  IN: ray:             The unit vector of the direction in which the
+!                       optical depts will be calculated
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: kappa:           The array containing the particles opacity
+!  IN: Rstar:           The radius of the primary star
+!+
+!  OUT: taus:           The distribution of optical depths throughout the ray
+!  OUT: listOfDists:    The distribution of distances throughout the ray
+!  OUT: len:            The length of tau_along_ray and dist_along_ray
+!+
+!  OPT: maxDistance:    The maximal distance the ray needs to be traced
+!+
+!--------------------------------------------------------------------------
 subroutine ray_tracer(primary, ray, xyzh, kappa, Rstar, tau_along_ray, dist_along_ray, len, maxDistance)
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use kernel,   only:radkern
@@ -894,29 +924,29 @@ logical function hasNext(inext, tau, distance, maxDistance)
  endif
 end function hasNext
 
- !*********************************************************************!
- !****************************   INWARDS   ****************************!
- !*********************************************************************!
+!*********************************************************************!
+!****************************   INWARDS   ****************************!
+!*********************************************************************!
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of each particle, using the inwards ray-
- !  tracing scheme
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       each particle
- !  IN: kappa:           The array containing the opacity of all the SPH particles
- !  IN: Rstar:           The radius of the primary star
- !+
- !  OUT: tau:            The array of optical depths for each SPH particle
- !+
- !  OPT: companion:      The location of the companion
- !  OPT: R:              The radius of the companion
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of each particle, using the inwards ray-
+!  tracing scheme
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       each particle
+!  IN: kappa:           The array containing the opacity of all the SPH particles
+!  IN: Rstar:           The radius of the primary star
+!+
+!  OUT: tau:            The array of optical depths for each SPH particle
+!+
+!  OPT: companion:      The location of the companion
+!  OPT: R:              The radius of the companion
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_inwards(npart, primary, xyzh, neighbors, kappa, Rstar, tau, companion, R)
  real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
  integer, intent(in) :: npart, neighbors(:,:)
@@ -930,22 +960,22 @@ subroutine get_all_tau_inwards(npart, primary, xyzh, neighbors, kappa, Rstar, ta
  endif
 end subroutine get_all_tau_inwards
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of each particle, using the inwards ray-
- !  tracing scheme concerning only a single star
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       each particle
- !  IN: kappa:           The array containing the opacity of all the SPH particles
- !  IN: Rstar:           The radius of the primary star
- !+
- !  OUT: taus:           The list of optical depths for each particle
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of each particle, using the inwards ray-
+!  tracing scheme concerning only a single star
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       each particle
+!  IN: kappa:           The array containing the opacity of all the SPH particles
+!  IN: Rstar:           The radius of the primary star
+!+
+!  OUT: taus:           The list of optical depths for each particle
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_inwards_single(npart, primary, xyzh, neighbors, kappa, Rstar, tau)
  real, intent(in)    :: primary(3), kappa(:), Rstar, xyzh(:,:)
  integer, intent(in) :: npart, neighbors(:,:)
@@ -953,31 +983,31 @@ subroutine get_all_tau_inwards_single(npart, primary, xyzh, neighbors, kappa, Rs
 
  integer :: i
 
- !$omp parallel do private(tau)
+ !$omp parallel do
  do i = 1, npart
     call get_tau_inwards(i, primary, xyzh, neighbors, kappa, Rstar, tau(i))
  enddo
  !$omp end parallel do
 end subroutine get_all_tau_inwards_single
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth of each particle, using the inwards ray-
- !  tracing scheme concerning a binary system
- !+
- !  IN: npart:           The number of SPH particles
- !  IN: primary:         The xyz coordinates of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       each particle
- !  IN: kappa:           The array containing the opacity of all the SPH particles
- !  IN: Rstar:           The radius of the primary star
- !  IN: companion:       The xyz coordinates of the companion
- !  IN: Rcomp:           The radius of the companion
- !+
- !  OUT: tau:            The array of optical depths for each SPH particle
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth of each particle, using the inwards ray-
+!  tracing scheme concerning a binary system
+!+
+!  IN: npart:           The number of SPH particles
+!  IN: primary:         The xyz coordinates of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       each particle
+!  IN: kappa:           The array containing the opacity of all the SPH particles
+!  IN: Rstar:           The radius of the primary star
+!  IN: companion:       The xyz coordinates of the companion
+!  IN: Rcomp:           The radius of the companion
+!+
+!  OUT: tau:            The array of optical depths for each SPH particle
+!+
+!--------------------------------------------------------------------------
 subroutine get_all_tau_inwards_companion(npart, primary, xyzh, neighbors, kappa, Rstar, companion, Rcomp, tau)
  real, intent(in)    :: primary(3), companion(3), kappa(:), Rstar, xyzh(:,:), Rcomp
  integer, intent(in) :: npart, neighbors(:,:)
@@ -1010,22 +1040,22 @@ subroutine get_all_tau_inwards_companion(npart, primary, xyzh, neighbors, kappa,
  !$omp end parallel do
 end subroutine get_all_tau_inwards_companion
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the optical depth for a given particle, using the inwards ray-
- !  tracing scheme
- !+
- !  IN: point:           The index of the point that needs to be calculated
- !  IN: primary:         The location of the primary star
- !  IN: xyzh:            The array containing the particles position+smooting lenght
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       each particle
- !  IN: opacities:       The list of the opacities of the particles
- !  IN: Rstar:           The radius of the star
- !+
- !  OUT: tau:           The list of optical depth of the given particle
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the optical depth for a given particle, using the inwards ray-
+!  tracing scheme
+!+
+!  IN: point:           The index of the point that needs to be calculated
+!  IN: primary:         The location of the primary star
+!  IN: xyzh:            The array containing the particles position+smooting lenght
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       each particle
+!  IN: kappa:           The array containing the opacity of all the SPH particles
+!  IN: Rstar:           The radius of the star
+!+
+!  OUT: tau:           The list of optical depth of the given particle
+!+
+!--------------------------------------------------------------------------
 subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
  use linklist, only:getneigh_pos,ifirstincell,listneigh
  use kernel,   only:radkern
@@ -1070,29 +1100,29 @@ subroutine get_tau_inwards(point, primary, xyzh, neighbors, kappa, Rstar, tau)
  tau = tau*umass/(udist**2)
 end subroutine get_tau_inwards
 
- !*********************************************************************!
- !****************************   COMMON   *****************************!
- !*********************************************************************!
+!*********************************************************************!
+!****************************   COMMON   *****************************!
+!*********************************************************************!
 
- !--------------------------------------------------------------------------
- !+
- !  Find the next point on a ray
- !+
- !  IN: inpoint:         The coordinate of the initial point projected on the
- !                       ray for which the next point will be calculated
- !  IN: ray:             The unit vector of the direction in which the next
- !                       point will be calculated
- !  IN: xyzh:            The array containing the particles position+smoothing length
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       the initial point
- !  IN: inext:           The index of the initial point
- !                       (this point will not be considered as possible next point)
- !+
- !  OPT: nneighin:       The amount of neighbors
- !+
- !  OUT: inext:          The index of the next point on the ray
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Find the next point on a ray
+!+
+!  IN: inpoint:         The coordinate of the initial point projected on the
+!                       ray for which the next point will be calculated
+!  IN: ray:             The unit vector of the direction in which the next
+!                       point will be calculated
+!  IN: xyzh:            The array containing the particles position+smoothing length
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       the initial point
+!  IN: inext:           The index of the initial point
+!                       (this point will not be considered as possible next point)
+!+
+!  OPT: nneighin:       The amount of neighbors
+!+
+!  OUT: inext:          The index of the next point on the ray
+!+
+!--------------------------------------------------------------------------
 subroutine find_next(inpoint, ray, dist, xyzh, neighbors, inext, nneighin)
  integer, intent(in)    :: neighbors(:)
  real, intent(in)       :: xyzh(:,:), inpoint(:), ray(:)
@@ -1135,20 +1165,20 @@ subroutine find_next(inpoint, ray, dist, xyzh, neighbors, inext, nneighin)
  dist=nextdist
 end subroutine find_next
 
- !--------------------------------------------------------------------------
- !+
- !  Calculate the opacity in a given location
- !+
- !  IN: r0:              The location where the opacity will be calculated
- !  IN: xyzh:            The xyzh of all the particles
- !  IN: opacities:       The list of the opacities of the particles
- !  IN: neighbors:       A list containing the indices of the neighbors of
- !                       the initial point
- !  IN: nneigh:          The amount of neighbors
- !+
- !  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
- !+
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  Calculate the opacity in a given location
+!+
+!  IN: r0:              The location where the opacity will be calculated
+!  IN: xyzh:            The xyzh of all the particles
+!  IN: opacities:       The list of the opacities of the particles
+!  IN: neighbors:       A list containing the indices of the neighbors of
+!                       the initial point
+!  IN: nneigh:          The amount of neighbors
+!+
+!  OUT: dtaudr:         The local optical depth derivative at the given location (inpoint)
+!+
+!--------------------------------------------------------------------------
 subroutine calc_opacity(r0, xyzh, opacities, neighbors, nneigh, dtaudr)
  use kernel,   only:cnormk,wkern
  use part,     only:hfact,rhoh,massoftype,igas
