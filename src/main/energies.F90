@@ -205,7 +205,6 @@ subroutine compute_energies(t)
  np_rho_thread  = 0
 !$omp do
  do i=1,npart
-!    valfven2i = 0.; rho1i = 0.; bxi = 0.; byi = 0.; bzi = 0. ! to prevent compiler warnings
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
