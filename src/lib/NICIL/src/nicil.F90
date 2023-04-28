@@ -1174,6 +1174,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
     eta_ohm  = 0.0
     eta_hall = 0.0
     eta_ambi = 0.0
+    fdg_inClean = 0.0
     if (T > small2 .and. (Bfield > small2 .or. icall==1)) then
        !--Determine actual gas density (i.e. remove the dust component)
        if (.not. use_fdg_in) then
