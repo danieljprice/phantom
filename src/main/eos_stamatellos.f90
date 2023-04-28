@@ -5,26 +5,34 @@
 module eos_stamatellos
  implicit none
  real, public :: optable(260,1001,6)
- real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
+ real,allocatable,public :: Gpot_cool(:), du_FLD(:),gradP_cool(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
+ real, parameter,public      :: arad=7.5657d-15
+ logical,parameter,public :: FLD = .true.
  integer,public :: iunitst=19
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
 
  subroutine init_S07cool()
-    use part, only:npart
+    use part, only:npart,maxradprop
     
     print *, "Allocating S07 arrays"
     allocate(gradP_cool(npart))
     allocate(Gpot_cool(npart))
+    allocate(du_FLD(npart))
+    allocate(radprop_FLD(maxradprop,npart))
+    
     open (unit=iunitst,file='EOSinfo.dat',status='replace')
     
     
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
+  use part, only: radprop
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
+  if (allocated(du_FLD)) deallocate(du_FLD)
+  if (allocated(radprop_FLD)) deallocate(radprop_FLD)
   close(iunitst)
 end subroutine finish_S07cool
  

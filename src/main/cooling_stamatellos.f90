@@ -58,17 +58,19 @@ end subroutine init_star
      use physcon,  only:steboltz,pi,solarl
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
-          iunitst
-     use part,       only:eos_vars,igasP,xyzmh_ptmass
+          iunitst,du_FLD,FLD
+     use dim,  only:do_radiation
+     use part,      only:eos_vars,igasP,xyzmh_ptmass
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,ri2
-     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi
-     real            :: tcool,ueqi,umini,tthermi,poti,presi
+     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi,du_tot
+     real            :: tcool,ueqi,umini,tthermi,poti,presi,du_FLDi
      
      poti = Gpot_cool(i)
      presi = eos_vars(igasP,i)
+     du_FLDi = du_FLD(i)
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
      if (isink_star > 0 .and. Lstar > 0) then
@@ -103,7 +105,14 @@ end subroutine init_star
      
 ! calculate Teqi
 	if (od_method == 1) then
-		Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+		if (FLD) then
+		! include term from FLD
+			Teqi = du_FLDi*dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+			du_tot = dudti_sph + dudt_rad + du_FLDi
+		else
+			Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+			du_tot = dudti_sph + dudt_rad 
+		endif
      	Teqi = Teqi/4.d0/steboltz
     	Teqi = Teqi + Tmini4
     	if (Teqi < Tmini4) then
@@ -115,18 +124,18 @@ end subroutine init_star
    		ueqi = ueqi/unit_ergg
 	endif
     
-     call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
-     umini = umini/unit_ergg
+    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+    umini = umini/unit_ergg
      
 ! calculate thermalization timescale and
 ! internal energy update -> put in form where it'll work as dudtcool
 	select case (od_method)
 	case (1)
-     if ((dudti_sph + dudt_rad) == 0.d0) then
+     if ((du_tot) == 0.d0) then
         tthermi = 0d0
         write(iunitst,'(A)') "ttherm=0"
      else
-        tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
+        tthermi = abs((ueqi - ui)/(du_tot))
      endif
      if (tthermi == 0d0) then
         dudti_cool = 0.d0 ! condition if denominator above is zero
@@ -199,5 +208,6 @@ use eos_stamatellos, only: eos_file
  if (ngot >= 3) igotallstam = .true.
 
 end subroutine read_options_cooling_stamatellos
+
 
  end module cooling_stamatellos

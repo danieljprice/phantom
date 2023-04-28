@@ -72,8 +72,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use radiation_implicit, only:do_radiation_implicit
- use options,        only:implicit_radiation,implicit_radiation_store_drad
+ use radiation_implicit, only:do_radiation_implicit,get_diffusion_term_only
+ use options,        only:implicit_radiation,implicit_radiation_store_drad,icooling
+ use eos_stamatellos, only:FLD,du_FLD,radprop_FLD
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -175,7 +176,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0) call fatal('radiation','Failed to converge')
  endif
-
+ 
+ ! compute diffusion term for hybrid RT & polytropic cooling method
+ if (icooling == 8 .and. dt > 0. .and. FLD) then
+ 	!print *, "calling diff term from deriv"
+ 	call get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
+ endif
+ 
 !
 ! compute forces
 !

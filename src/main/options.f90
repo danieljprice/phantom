@@ -167,6 +167,7 @@ subroutine set_default_options
  endif
  implicit_radiation_store_drad = .false.
 
+
  ! variable composition
  use_var_comp = .false.
 

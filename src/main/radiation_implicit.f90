@@ -46,7 +46,7 @@ module radiation_implicit
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
- public :: do_radiation_implicit
+ public :: do_radiation_implicit,get_diffusion_term_only
 
 contains
 
@@ -1512,4 +1512,268 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
 
 end subroutine solve_quartic
 
+!---------------------------------------------------------
+!+
+!  Calculate the diffusion term for implementing hybrid 
+!  radiative transfer method of Forgan et al. (2009).
+!  Used in cooling_stamatellos.f90
+!+
+!---------------------------------------------------------
+subroutine get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
+ use io, only:fatal,warning
+ use eos_stamatellos, only:getopac_opdep
+ use kernel,          only:radkern,grkern,cnormk
+ use part,            only:hfact,ilambda,gradh,rhoh
+ use physcon,         only:steboltz,pi
+ use units,           only:unit_density,unit_energ,unit_opacity,udist,utime,unit_ergg
+ use timestep,        only:dtmax
+ real, intent(in)     :: xyzh(:,:),vxyzu(:,:)
+ real, intent(inout)  :: radprop_FLD(:,:)
+ real, intent(out)    :: du_FLD(:)
+ integer,allocatable  :: ivar(:,:),ijvar(:)
+ real,allocatable     :: utherm(:),rho_all(:)
+ integer 			  :: npart,nneigh_average,icompactmax,ncompact,ncompactlocal,i,j,k
+ integer              :: icompact,ierr,n
+ real                 :: dudiffi,err,steboltz_code,dx,dy,dz,runix,runiy,runiz,rij,rij2,rij1
+ real                 :: diffusion_numerator,diffusion_denominator,dWi,hi,hi1,hi21,q,q2
+ real                 :: kappaBari,kappaParti,Ti,gmwi,gammai,kappaBarj,kappaPartj,Tj,gmwj
+ real                 :: rdotdW,rhoi,rhoj,gammaj,ki,kj,pmassj,tdiff
+ 
+ steboltz_code = steboltz/unit_energ*udist*udist*utime
+ !print *, 'set steboltz_code'
+ npart = size(xyzh(1,:))
+ nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
+ icompactmax = int(1.2*nneigh_average*npart)
+ allocate(ivar(3,npart),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for ivar')
+ allocate(ijvar(icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for ijvar')
+ allocate(utherm(npart),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for utherm')
+ allocate(rho_all(npart),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for rho_all')
+ !dtimax = dt/imaxstep ?what's this?
+ 
+ call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ ! check for errors
+ if (ncompact <= 0 .or. ncompactlocal <= 0) then
+    call fatal('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+ endif
+ 
+ utherm(:) = vxyzu(4,:)
+ du_FLD(:) = 0.
+ 
+!$omp parallel do default(none)&
+!$omp shared(npart,rho_all,vxyzu,ivar,massoftype,utherm)&
+!$omp private(n,i)
+ do i = 1, npart
+ 	rho_all(i) = rhoh(vxyzu(4,i),massoftype(igas))
+ 	if (utherm(i) > 1e-4) print *, "i=", i , utherm(i)
+ enddo
+!$omp end parallel do
+ 
+  if (any(utherm > 1e-4,1)) print *, "utherm dodgy before got lambda"
+ radprop_FLD(:,:) = 0.
+ call get_lambda_hybrid(ivar,ijvar,ncompact,npart,icompactmax,utherm,radprop_FLD,xyzh,rho_all)
+ 
+ if (any(utherm> 1e-4)) print *, "utherm dodgy after got lambda"
+ 
+ pmassj = massoftype(igas)
+ !$omp parallel do default(none)&
+ !$omp shared(ivar,ijvar,radprop_FLD,rho_all,unit_energ,unit_density,steboltz_code)&
+ !$omp shared(xyzh,du_FLD,gradh,unit_ergg,utherm,unit_opacity,dtmax)&
+ !$omp private(i,j,n,ki,kj,rhoi,rhoj,diffusion_numerator,diffusion_denominator)&
+ !$omp private(icompact,kappaBari,kappaParti,Ti,gmwi,gammai)&
+ !$omp private(dudiffi,pmassj,rdotdW,rij,rij2,rij1,hi,hi1,hi21,q,q2,dx,dy,dz)&
+ !$omp private(runix,runiy,runiz,dWi,kappaBarj,kappaPartj,Tj,gmwj,gammaj,tdiff)
+ do n = 1,ncompact
+    i = ivar(3,n)
+    hi = xyzh(4,i)
+    hi21 = 1./(hi*hi)
+    hi1 = 1./hi
+    rhoi = rho_all(i)
+    if (utherm(i) > 1e-4) print *, i, "utherm dodgy"
+    call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi,gammai)
+    if (kappaParti <= 0.) then
+    	print *, "fail", rhoi*unit_density,kappaParti,Ti, utherm(i)
+         call fatal('get_diffusion_term_only - i','Negative or zero opacity')
+    endif
+    ki = 16d0*steboltz_code*radprop_FLD(ilambda,i)*Ti**3.d0!thermal conductivity
+    ki = ki/rhoi/kappaParti/unit_opacity
+    
+    !
+    !--NOTE: Needs to do this loop even for boundaryparticles because active
+    !     boundary particles will need to contribute to the varinew()
+    !     quantities (i.e. diffusion terms) of particle j due to the way that
+    !     particle j only finds neighbours inside h_j or non-active particles
+    !     inside h_i.  The varinew() quantities of a boundaryparticle are
+    !     not used, but its contributions to j are.
+  
+    diffusion_numerator = 0.
+    diffusion_denominator = 0.
+    dudiffi = 0.
+    !
+    !--All the neighbours loop
+    !
+    do k = 1,ivar(1,n)
+       icompact = ivar(2,n) + k
+       j = ijvar(icompact)
+       rhoj = rho_all(j)
+       dx = xyzh(1,i) - xyzh(1,j)
+       dy = xyzh(2,i) - xyzh(2,j)
+       dz = xyzh(3,i) - xyzh(3,j)
+       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj,gammaj)
+       if (kappaPartj <= 0.) then
+         print *, "fail", rhoj*unit_density,kappaPartj,Tj, utherm(j)*unit_energ
+         call fatal('get_diffusion_term_only - j','Negative or zero opacity')
+       endif
+       
+       kj = 16d0*steboltz_code*radprop_FLD(ilambda,j)*Tj**3.d0!thermal conductivity
+       kj = kj/rhoj/kappaPartj/unit_opacity 
+       rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
+       rij = sqrt(rij2)
+       rij1 = 1./rij
+    
+       q = rij/hi
+       q2 = rij2*hi21
+       ! unit vector components
+       runix = dx*rij1
+       runiy = dy*rij1
+       runiz = dz*rij1
+       
+       dWi = grkern(q2,q)*cnormk*hi21*hi21*gradh(1,i)
+        ! r.grad(W) along the separation vector
+      rdotdW = cnormk*dWi*(runix*dx + runiy*dy + runiz*dz) !Why the cnormk?
+      diffusion_numerator = 4d0*pmassj*ki*kj*(Ti-Tj)*rdotdW 
+      diffusion_denominator = rhoi*rhoj*(ki+kj)*rij2
+	 dudiffi = dudiffi + diffusion_numerator/diffusion_denominator    
+	! Timestep switch: define diffusion timescale between this particle pair: if this is too small, diffusion
+    ! is so efficient that it is essentially cooling, so diff term is set to zero.
+     if (dudiffi.ne.0.0d0) then
+    	tdiff = ABS((utherm(i) + utherm(j))/(2.0d0*dudiffi))
+        	if (tdiff.lt.dtmax) then
+                  dudiffi = 0.0d0
+             endif
+     endif
+       
+    enddo
+   du_FLD(i) = dudiffi
+ enddo
+ !$omp end parallel do
+  
+ !check energy conserved - what's the tolerance? tiny(err) is machine precision...     
+ err = sum(du_FLD)/minval(du_FLD,MASK= abs(du_FLD) > 0)
+ err = abs(err)
+ if (err > 1e-7) then
+ 	print *, 'err sum=', sum(du_FLD), "max:", maxval(du_FLD,MASK= abs(du_FLD) > 0),"min:", minval(du_FLD,MASK= abs(du_FLD) > 0)
+ 	call fatal('get_diffusion_term_only','energy not conserved',var='err',val=err)
+ endif
+ !print *, "about to deallocate"
+ deallocate(ivar,ijvar,utherm,rho_all)
+ 
+ end subroutine get_diffusion_term_only
+ 
+!---------------------------------------------------------
+!+
+!  Calculate the radiation energy density and flux from 
+!  temperature for hybrid cooling
+!+
+!---------------------------------------------------------
+ subroutine get_lambda_hybrid(ivar,ijvar,ncompact,npart,icompactmax,&
+ 	utherm,radprop_FLD,xyzh,rho_all)
+ use eos_stamatellos, only:getopac_opdep,arad
+ use kernel,          only:get_kernel,cnormk
+ use units,           only:unit_density,unit_ergg,unit_opacity,udist
+ use part, 			  only:massoftype,igas,gradh
+
+ integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
+ real, intent(in)    :: xyzh(:,:),utherm(:),rho_all(:)
+ real, intent(inout) :: radprop_FLD(:,:)
+ integer             :: i,j,k,n,icompact
+ real                :: rhoi,rhoj
+ real                :: uradi,dradi,Ti,Tj,kappaBarj,kappaPartj,gmwj,gammaj,wkerni,grkerni
+ real                :: kappaBari,kappaParti,gmwi,gammai,dx,dy,dz,rij2,rij,rij1,Wi,dWi
+ real                :: dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,dT4
+ real                :: pmassj,hi,hi21,hi1,q,q2
+
+ pmassj = massoftype(igas)
+ !$omp parallel do default(none)&
+ !$omp shared(ivar,ijvar,ncompact,radprop_FLD,unit_opacity,gradh,xyzh,unit_density,unit_ergg)&
+ !$omp shared(rho_all,utherm,pmassj,udist)&
+ !$omp private(i,j,k,n,rhoi,rhoj,icompact,uradi,dradi,Ti,Tj,wkerni,grkerni,dT4)&
+ !$omp private(kappaBarj,kappaPartj,gmwj,gammaj,dx,dy,dz,rij,rij2,rij1,Wi,dWi)&
+ !$omp private(dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,hi,hi21,hi1,q,q2)&
+ !$omp private(kappaBari,kappaParti,gmwi,gammai)
+ do n = 1,ncompact ! over compact particle list
+    i = ivar(3,n)
+   ! print *, n,ncompact,utherm(i)
+	uradi = 0.
+	dradi = 0.
+	dradxi = 0.
+	dradyi = 0.
+	dradzi = 0.
+    rhoi = rho_all(i)
+    
+ 	call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi,gammai)
+
+    do k = 1,ivar(1,n) !loop over n neighbours
+       icompact = ivar(2,n) + k
+    !  print *, 'icompact',icompact
+       j = ijvar(icompact)
+   !  print *,'j',j
+       rhoj = rho_all(j)
+   !  print *, 'rhoj',rhoj
+     !  print *, 'xyzh(1,i)', xyzh(1,i)
+     !  print *,  ' xyzh(1,j)', xyzh(1,j)
+       dx = xyzh(1,i) - xyzh(1,j)
+      ! print *, 'dx', dx
+       dy = xyzh(2,i) - xyzh(2,j)
+       dz = xyzh(3,i) - xyzh(3,j)
+       
+       rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
+       rij = sqrt(rij2)
+       rij1 = 1./rij
+       hi = xyzh(4,i)
+       hi21 = 1./(hi*hi)
+       hi1 = 1./hi
+       q = rij/hi
+       q2 = rij2*hi21
+       
+       call get_kernel(q2,q,wkerni,grkerni)
+       !print *, 'got kernel'
+       Wi = wkerni*cnormk*hi21*hi1
+       dWi = grkerni*cnormk*hi21*hi21*gradh(1,i)
+       
+       ! unit vector components
+       runix = dx/rij
+       runiy = dy/rij
+       runiz = dz/rij
+
+       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj,gammaj)
+       uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj*udist**3)
+     !  print *, 'got opdep j'
+       
+       dT4 = Ti**4d0 - Tj**4d0
+	   dradxi = dradxi + pmassj*arad*dT4*dWi*runix/rhoj
+	   dradyi = dradyi + pmassj*arad*dT4*dWi*runiy/rhoj
+	   dradzi = dradzi + pmassj*arad*dT4*dWi*runiz/rhoj
+
+    enddo ! loop over n neighbours
+   ! print *, 'done neighbour loop for ', i,n
+
+	uradi = uradi + arad*Ti**4d0 ! add self contribution
+	dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! magnitude
+	if ( (uradi == 0d0) .or. (dradi ==0d0) ) then
+		R_rad = 0d0
+	else	
+		R_rad = dradi / (uradi*rhoi*kappaParti/unit_opacity) !code units
+	endif
+
+	radprop_FLD(ilambda,i) = (2d0 + R_rad) / (6d0 + 3d0*R_rad + R_rad*R_rad)
+	!print *, 'radprop_FLD', radprop_FLD(ilambda,i)
+    radprop_FLD(ikappa,i) = kappaParti / unit_opacity
+ enddo ! over particles
+ !$omp end parallel do
+
+ end subroutine get_lambda_hybrid
 end module radiation_implicit
