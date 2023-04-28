@@ -109,7 +109,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use cooling,        only:ufloor
- use boundary,       only:dynamic_bdy,xmin,xmax,ymin,ymax,zmin,zmax,vbdyx,vbdyy,vbdyz
+ use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -666,14 +666,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  nvfloorps = int(reduceall_mpi('+', nvfloorps))
  nvfloorc  = int(reduceall_mpi('+', nvfloorc))
 
- if (dynamic_bdy) then
-    xmin = xmin + dtsph*vbdyx
-    xmax = xmax + dtsph*vbdyx
-    ymin = ymin + dtsph*vbdyy
-    ymax = ymax + dtsph*vbdyy
-    zmin = zmin + dtsph*vbdyz
-    zmax = zmax + dtsph*vbdyz
- endif
+ if (dynamic_bdy) call update_xyzminmax(dtsph)
 
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )

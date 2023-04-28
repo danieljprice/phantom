@@ -131,7 +131,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
- use boundary,           only:write_options_boundary
+ use boundary_dyn,       only:write_options_boundary
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -367,7 +367,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
- use boundary,        only:read_options_boundary
+ use boundary_dyn,    only:read_options_boundary
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile

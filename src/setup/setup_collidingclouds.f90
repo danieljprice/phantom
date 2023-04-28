@@ -33,9 +33,9 @@ module setup
 !   kernel, mpidomain, options, part, physcon, prompting, ptmass,
 !   setup_params, spherical, timestep, unifdis, units, velfield
 !
- use part,     only:mhd
- use dim,      only:maxvxyzu,maxp_hard
- use boundary, only:dynamic_bdy
+ use part,         only:mhd
+ use dim,          only:maxvxyzu,maxp_hard
+ use boundary_dyn, only:dynamic_bdy
  implicit none
  public :: setpart
 
@@ -69,9 +69,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master,fatal,warning
  use unifdis,      only:set_unifdis,get_xyzmin_xyzmax_exact
  use spherical,    only:set_ellipse
- use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound, &
-                        width_bkg,rho_thresh_bdy,rho_bkg_ini,dxyz,vbdyx,vbdyy,vbdyz,in_domain, &
-                        irho_bkg_ini
+ use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
+ use boundary_dyn, only:width_bkg,rho_thresh_bdy,rho_bkg_ini,dxyz,vbdyx,vbdyy,vbdyz,in_domain,irho_bkg_ini
  use prompting,    only:prompt
  use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
  use eos,          only:polyk2,gmw

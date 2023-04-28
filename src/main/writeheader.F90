@@ -77,8 +77,8 @@ end subroutine write_codeinfo
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
  use io,               only:iprint
- use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax,&
-                            dynamic_bdy,rho_thresh_bdy,width_bkg
+ use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,massoftype,npartoftypetot,&

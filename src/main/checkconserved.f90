@@ -37,11 +37,11 @@ contains
 !----------------------------------------------------------------
 subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                     should_conserve_angmom,should_conserve_dustmass)
- use options, only:icooling,ieos,ipdv_heating,ishock_heating,&
-                   iresistive_heating,use_dustfrac,iexternalforce
- use dim,     only:mhd,maxvxyzu,periodic,particles_are_injected
- use part,    only:iboundary,npartoftype
- use boundary,only:dynamic_bdy
+ use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
+                       iresistive_heating,use_dustfrac,iexternalforce
+ use dim,         only:mhd,maxvxyzu,periodic,particles_are_injected
+ use part,        only:iboundary,npartoftype
+ use boundary_dyn,only:dynamic_bdy
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
  logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
 

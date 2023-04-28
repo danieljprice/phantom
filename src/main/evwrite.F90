@@ -81,10 +81,10 @@ subroutine init_evfile(iunit,evfile,open_file)
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
- use gravwaveutils, only:calc_gravitwaves
  use mpiutils,  only:reduceall_mpi
  use eos,       only:ieos,eos_is_non_ideal,eos_outputs_gasP
- use boundary,  only:dynamic_bdy
+ use gravwaveutils, only:calc_gravitwaves
+ use boundary_dyn,  only:dynamic_bdy
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file

@@ -94,7 +94,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
- use boundary,         only:dynamic_bdy,update_boundaries
+ use boundary_dyn,     only:dynamic_bdy,update_boundaries
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
