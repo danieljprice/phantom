@@ -133,7 +133,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     if (itype/=igas) cycle parts         ! not gas
     rhoi = rhoh(hi,particlemass)
-    if (rhoh(hi,particlemass) > rhothresh) then
+    if (rhoi > rhothresh) then
        rad   = sqrt(xi*xi + yi*yi + zi*zi)
        rad2d = sqrt(xi*xi + yi*yi)
        vxi   = vxyzu(1,i)
@@ -164,27 +164,27 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        else
           angm = angm + vphi*rad2d
        endif
-    endif
 
-    ! find the bin
-    j = 1
-    do while (rad > rbins(j) .and. j<nbins)
-       j = j + 1
-    enddo
-    if (j < nbins) then
-       ibins(1,j) = ibins(1,j) + 1
-       vbins(1,j) = vbins(1,j) + angi
-       vbins(2,j) = vbins(2,j) + rhoi
-       vbins(3,j) = vbins(3,j) + hi
-       vbins(4,j) = vbins(4,j) + ui
-       vbins(5,j) = vbins(5,j) + vr
-       vbins(6,j) = vbins(6,j) + vphi
-       if (vphi > 0.) then             
-          ibins(2,j) = ibins(2,j) + 1
-          vbins(7,j) = vbins(7,j) + vphi
-       elseif (vphi < 0.) then             
-          ibins(3,j) = ibins(3,j) + 1
-          vbins(8,j) = vbins(8,j) + vphi
+       ! find the bin
+       j = 1
+       do while (rad > rbins(j) .and. j<nbins)
+          j = j + 1
+       enddo
+       if (j < nbins) then
+          ibins(1,j) = ibins(1,j) + 1
+          vbins(1,j) = vbins(1,j) + angi
+          vbins(2,j) = vbins(2,j) + rhoi
+          vbins(3,j) = vbins(3,j) + hi
+          vbins(4,j) = vbins(4,j) + ui
+          vbins(5,j) = vbins(5,j) + vr
+          vbins(6,j) = vbins(6,j) + vphi
+          if (vphi > 0.) then             
+             ibins(2,j) = ibins(2,j) + 1
+             vbins(7,j) = vbins(7,j) + vphi
+          elseif (vphi < 0.) then             
+             ibins(3,j) = ibins(3,j) + 1
+             vbins(8,j) = vbins(8,j) + vphi
+          endif
        endif
     endif
  enddo parts
