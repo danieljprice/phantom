@@ -149,6 +149,9 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  vpos(:) = vxyzu(1:3,location)
  distance_from_bh = sqrt(dot_product(xpos(:),xpos(:)))
  vel_from_bh = sqrt(dot_product(vpos(:),vpos(:)))
+ print*,"******************"
+print*,distance_from_bh*udist,"distance from bh",vel_from_bh*unit_velocity,"velfrom bh"
+print*,"*******************"
  ! sorting particles
  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -340,8 +343,12 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  print*,"-------------------------------------------------------------------------"
  ke_star = 0.5*(vel_mag_star*unit_velocity)**2
  u_star = -gg*(bhmass*umass)/(pos_mag_star*udist)
+ print*,"--------------"
+ print*,bhmass*umass,"BH mass", pos_mag_star*udist, "Pos Mag star",vel_mag_star*unit_velocity,"Vel Mag Star"
+ print*,"--------------"
  total_star = u_star+ke_star
- print*,total_star,"total_star",umass,"umass",gg,"gg",u_star,"ustar",ke_star,"ke_star"
+ print*,umass,"umass",gg,"gg"
+ print*,total_star,"total_star",u_star,"ustar",ke_star,"ke_star"
  print*,mass_enclosed(ibin),"/mass_enclosed(ibin)",mass_enclosed(ibin)*umass
  vel_at_infinity = sqrt(2.*total_star)
  if (isnan(vel_at_infinity)) then 
@@ -820,7 +827,7 @@ else
          stop
       endif
       ! Write headers to file 
-      write(file_id,'(15(a22,1x))') &
+      write(file_id,'(16(a22,1x))') &
               "FileNo", &
               "Density",& 
               "Temperature",&
@@ -836,9 +843,9 @@ else
                "specKE",&
                "specPE",&
                "time",&
-               "velAtInf"
+               "Escape_in"
 endif
-write(file_id,'(i5,1x,14(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
+write(file_id,'(i5,1x,15(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
                       vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,vel_at_infinity*1e-5
 close(file_id)
 
