@@ -852,6 +852,18 @@ ifeq ($(SETUP), jetdusty)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), converging)
+#   Simulation from Wurster & Bonnell (2023)
+    SETUPFILE= velfield_fromcubes.f90 setup_collidingclouds.f90
+    PERIODIC=yes
+    GRAVITY=yes
+    ISOTHERMAL=no
+    MHD=no
+    IND_TIMESTEPS=yes
+    ANALYSIS= analysis_clumpfindWB23.F90
+    KNOWN_SETUP=yes
+endif
+
 ifeq ($(SETUP), sgdisc)
 #   self-gravitating disc
     IND_TIMESTEPS=yes

@@ -15,7 +15,7 @@ module checkconserved
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, externalforces, io, options, part
+! :Dependencies: boundary, dim, externalforces, io, options, part
 !
  use dim, only:maxdusttypes
  implicit none
@@ -37,10 +37,11 @@ contains
 !----------------------------------------------------------------
 subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                     should_conserve_angmom,should_conserve_dustmass)
- use options, only:icooling,ieos,ipdv_heating,ishock_heating,&
-                   iresistive_heating,use_dustfrac,iexternalforce
- use dim,     only:mhd,maxvxyzu,periodic,particles_are_injected
- use part,    only:iboundary,npartoftype
+ use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
+                       iresistive_heating,use_dustfrac,iexternalforce
+ use dim,         only:mhd,maxvxyzu,periodic,particles_are_injected
+ use part,        only:iboundary,npartoftype
+ use boundary_dyn,only:dynamic_bdy
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
  logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
 
@@ -72,7 +73,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  !
  ! Each injection routine will need to bookeep conserved quantities, but until then...
  !
- if (particles_are_injected) then
+ if (particles_are_injected .or. dynamic_bdy) then
     should_conserve_energy   = .false.
     should_conserve_momentum = .false.
     should_conserve_angmom   = .false.
