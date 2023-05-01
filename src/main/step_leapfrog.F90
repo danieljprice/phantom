@@ -22,11 +22,11 @@ module step_lf_global
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cons2prim, cons2primsolver, cooling, cooling_ism,
-!   damping, deriv, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, io, io_summary, krome_interface, metric_tools, mpiutils,
-!   options, part, ptmass, ptmass_radiation, timestep, timestep_ind,
-!   timestep_sts, timing
+! :Dependencies: boundary, chem, cons2prim, cons2primsolver, cooling,
+!   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
+!   externalforces, growth, io, io_summary, krome_interface, metric_tools,
+!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!   timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -109,6 +109,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use cooling,        only:ufloor
+ use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -173,7 +174,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(rad,drad,pxyzu)&
+ !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
  !$omp shared(ibin,ibin_old,twas,timei) &
@@ -664,6 +665,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
  nvfloorps = int(reduceall_mpi('+', nvfloorps))
  nvfloorc  = int(reduceall_mpi('+', nvfloorc))
+
+ if (dynamic_bdy) call update_xyzminmax(dtsph)
 
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )

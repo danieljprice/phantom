@@ -188,7 +188,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
-                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB
+                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB,iosumdense
 #ifdef FINVSQRT
  use fastmath,     only:finvsqrt
 #endif
@@ -246,7 +246,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real, save :: xyzcache(maxcellcache,4)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
- integer :: nstokes,nsuper,ndrag,ndustres
+ integer :: nstokes,nsuper,ndrag,ndustres,ndense
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
 #ifdef GRAVITY
@@ -353,6 +353,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndustres      = 0
 
  ! sink particle creation
+ ndense        = 0
  ipart_rhomax  = 0
 #ifdef GRAVITY
  rhomax        = 0.
@@ -435,7 +436,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
 #endif
-!$omp reduction(+:ndustres,dustresfacmean) &
+!$omp reduction(+:ndustres,dustresfacmean,ndense) &
 !$omp reduction(min:dtrad) &
 !$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
@@ -657,6 +658,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                        (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
+                      ndense   = ndense + 1
                       use_part = .false.
                       exit over_ptmass
                    endif
@@ -702,6 +704,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
     print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
  endif
+ ndense = int(reduce_mpi('+',ndense))
+ if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
 
 #ifdef DUST

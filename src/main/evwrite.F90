@@ -54,7 +54,7 @@ module evwrite
                           iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah,&
                           iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n,&
                           iev_dtg,iev_ts,iev_dm,iev_momall,iev_angall,iev_angall,iev_maccsink,&
-                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws
+                          iev_macc,iev_eacc,iev_totlum,iev_erot,iev_viscrat,iev_erad,iev_gws,iev_mass,iev_bdy
 
  implicit none
  public                    :: init_evfile, write_evfile, write_evlog
@@ -75,15 +75,16 @@ contains
 !----------------------------------------------------------------
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
- use dim,       only:maxtypes,maxalpha,maxp,mhd,mhd_nonideal,lightcurve
+ use dim,       only:maxtypes,maxalpha,maxp,maxp_hard,mhd,mhd_nonideal,lightcurve
  use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
  use viscosity, only:irealvisc
- use gravwaveutils, only:calc_gravitwaves
  use mpiutils,  only:reduceall_mpi
  use eos,       only:ieos,eos_is_non_ideal,eos_outputs_gasP
+ use gravwaveutils, only:calc_gravitwaves
+ use boundary_dyn,  only:dynamic_bdy
  integer,            intent(in) :: iunit
  character(len=  *), intent(in) :: evfile
  logical,            intent(in) :: open_file
@@ -118,6 +119,9 @@ subroutine init_evfile(iunit,evfile,open_file)
  call fill_ev_tag(ev_fmt,iev_dt,     'dt',       '0', i,j)
  if (dtmax_dratio > 0.) then
     call fill_ev_tag(ev_fmt,iev_dtx, 'dtmax',    '0', i,j)
+ endif
+ if (maxp==maxp_hard) then
+    call fill_ev_tag(ev_fmt,iev_mass,'mass',     '0', i,j)
  endif
  call fill_ev_tag(ev_fmt,iev_entrop, 'totentrop','s', i,j)
  call fill_ev_tag(ev_fmt,iev_rmsmach,'rmsmach',  '0', i,j)
@@ -215,6 +219,14 @@ subroutine init_evfile(iunit,evfile,open_file)
     call fill_ev_tag(ev_fmt,iev_gws(6),'hp_{60}','0',i,j)
     call fill_ev_tag(ev_fmt,iev_gws(7),'hx_{90}','0',i,j)
     call fill_ev_tag(ev_fmt,iev_gws(8),'hp_{90}','0',i,j)
+ endif
+ if (dynamic_bdy) then
+    call fill_ev_tag(ev_fmt,iev_bdy(1,1),'min_x','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_bdy(1,2),'max_x','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_bdy(2,1),'min_y','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_bdy(2,2),'max_y','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_bdy(3,1),'min_z','0',i,j)
+    call fill_ev_tag(ev_fmt,iev_bdy(3,2),'max_z','0',i,j)
  endif
  iquantities = i - 1 ! The number of different quantities to analyse
  ielements   = j - 1 ! The number of values to be calculated (i.e. the number of columns in .ve)

@@ -115,6 +115,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
+ use energies,         only:compute_energies
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
@@ -132,6 +133,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
+ use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
 #ifdef GR
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
@@ -282,6 +284,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  dtmax_user = dtmax           ! the user defined dtmax
  if (idtmax_n < 1) idtmax_n = 1
  dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
+!
+!--Initialise dynamic boundaries in the first instance
+!
+ if (dynamic_bdy) call init_dynamic_bdy(1,npart,nptmass,dtmax)
 !
 !--initialise values for non-ideal MHD
 !
@@ -615,6 +621,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) 'dt initial    = ',dt
     endif
  endif
+!
+!--initialise dynamic boundaries in the second instance
+!
+ if (dynamic_bdy) call init_dynamic_bdy(2,npart,nptmass,dtmax)
 !
 !--Calculate current centre of mass
 !
