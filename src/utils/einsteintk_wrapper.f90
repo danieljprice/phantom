@@ -178,10 +178,8 @@ module einsteintk_wrapper
         ! Perform the calculation of the stress energy tensor 
         ! Interpolate the stress energy tensor back to the ET grid!
         ! Calculate the stress energy tensor
-        call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
         ! Interpolate stress energy tensor from particles back 
         ! to grid
-        call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus) 
         call get_phantom_dt(dtout)
 
 
