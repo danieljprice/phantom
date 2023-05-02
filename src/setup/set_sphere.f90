@@ -349,7 +349,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
           ierr = ierr_unknown
           return
        endif
-       if (npart==nps_hi) nps_hi_nx = nx
+       if ((npart-npin)==nps_hi) nps_hi_nx = nx
     endif
  enddo
  if (iter >= 100 .or. nps_lo > nps_requested .or. nps_requested > nps_hi) then
