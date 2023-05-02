@@ -112,7 +112,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 4./3.
  endif
  ! Redefinition of pi to fix numerical error 
- pi = 4.D0*DATAN(1.0D0)
+ pi = 4.D0*Datan(1.0D0)
  !
  ! default units
  !

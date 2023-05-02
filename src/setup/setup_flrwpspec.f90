@@ -115,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 4./3.
  endif
  ! Redefinition of pi to fix numerical error 
- pi = 4.D0*DATAN(1.0D0)
+ pi = 4.D0*Datan(1.0D0)
  !
  ! default units
  !
@@ -239,11 +239,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
+ massoftype(1) = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
- 
+  
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
     polyk = cs0**2
