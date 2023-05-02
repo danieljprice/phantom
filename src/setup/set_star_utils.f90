@@ -15,8 +15,8 @@ module setstar_utils
 ! :Runtime parameters: None
 !
 ! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
-!   radiation_utils, rho_profile, setsoftenedcore, setup_params, sortutils,
-!   spherical, table_utils, unifdis, units
+!   radiation_utils, rho_profile, setsoftenedcore, setstar_kepler,
+!   setstar_mesa, sortutils, spherical, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
  use setstar_kepler,     only:write_kepler_comp

@@ -16,7 +16,8 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, part, physcon, units
+! :Dependencies: boundary, centreofmass, kernel, part, physcon, sortutils,
+!   units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'Orientation'

@@ -14,7 +14,7 @@ module testdamping
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io
+! :Dependencies: damping, io, physcon, testutils
 !
  implicit none
  public :: test_damping

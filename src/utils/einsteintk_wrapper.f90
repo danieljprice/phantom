@@ -1,9 +1,22 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module einsteintk_wrapper
 !
+! einsteintk_wrapper
 !
-! This module is a "wrapper" for the hydro evol + communication with ET
-! Subroutines here should be called by ET rather than calling phantom subroutines
-! directly 
+! :References: None
+!
+! :Owner: Spencer Magnall
+!
+! :Runtime parameters: None
+!
+! :Dependencies: cons2prim, densityforce, deriv, einsteintk_utils, evwrite,
+!   extern_gr, fileutils, initial, io, linklist, metric, metric_tools,
+!   mpiutils, part, readwrite_dumps, timestep, tmunu2grid
 !
     implicit none 
     contains

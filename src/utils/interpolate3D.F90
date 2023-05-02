@@ -1,24 +1,21 @@
-!-----------------------------------------------------------------
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
+module interpolations3D
 !
-!  This file is (or was) part of SPLASH, a visualisation tool
-!  for Smoothed Particle Hydrodynamics written by Daniel Price:
+! interpolations3D
 !
-!  http://users.monash.edu.au/~dprice/splash
+! :References: None
 !
-!  SPLASH comes with ABSOLUTELY NO WARRANTY.
-!  This is free software; and you are welcome to redistribute
-!  it under the terms of the GNU General Public License
-!  (see LICENSE file for details) and the provision that
-!  this notice remains intact. If you modify this file, please
-!  note section 2a) of the GPLv2 states that:
+! :Owner: Spencer Magnall
 !
-!  a) You must cause the modified files to carry prominent notices
-!     stating that you changed the files and the date of any change.
+! :Runtime parameters: None
 !
-!  Copyright (C) 2005-2019 Daniel Price. All rights reserved.
-!  Contact: daniel.price@monash.edu
+! :Dependencies: einsteintk_utils, kernel
 !
-!-----------------------------------------------------------------
 
 !----------------------------------------------------------------------
 !
@@ -27,7 +24,6 @@
 !
 !----------------------------------------------------------------------
 
-module interpolations3D
     use einsteintk_utils,  only:exact_rendering
     use kernel,       only:radkern2,radkern,cnormk,wkern!,wallint  ! Moved to this module
     !use interpolation, only:iroll ! Moved to this module 

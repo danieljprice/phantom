@@ -14,38 +14,24 @@ module setup
 !
 ! :Runtime parameters:
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
-!   - Mstar             : *mass of star*
-!   - Rstar             : *radius of star*
 !   - X                 : *hydrogen mass fraction*
 !   - dist_unit         : *distance unit (e.g. au)*
 !   - gamma             : *Adiabatic index*
-!   - hsoft             : *Softening length of sink particle stellar core*
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp       : *initial temperature of the star*
-!   - input_profile     : *Path to input profile*
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
-!   - isinkcore         : *Add a sink particle stellar core*
-!   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
-!   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*
 !   - mass_unit         : *mass unit (e.g. solarm)*
-!   - mcore             : *Mass of sink particle stellar core*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
-!   - np                : *approx number of particles (in box of size 2R)*
-!   - outputfilename    : *Output path for softened MESA profile*
 !   - polyk             : *polytropic constant (cs^2 if isothermal)*
-!   - rcore             : *Radius of core softening*
-!   - relax_star        : *relax star automatically during setup*
-!   - ui_coef           : *specific internal energy (units of GM/R)*
-!   - use_exactN        : *find closest particle number to np*
+!   - relax_star        : *relax star(s) automatically during setup*
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
-!   - write_rho_to_file : *write density profile to file*
+!   - write_rho_to_file : *write density profile(s) to file*
 !
-! :Dependencies: centreofmass, dim, eos, eos_gasradrec, eos_piecewise,
+! :Dependencies: dim, eos, eos_gasradrec, eos_piecewise,
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
-!   mpidomain, mpiutils, options, part, physcon, prompting,
-!   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
-!   table_utils, timestep, units
+!   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
+!   setstar, setup_params, timestep, units
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr

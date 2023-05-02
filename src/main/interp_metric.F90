@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module metric_interp
+!
+! metric_interp
+!
+! :References: None
+!
+! :Owner: Spencer Magnall
+!
+! :Runtime parameters: None
+!
+! :Dependencies: einsteintk_utils
+!
     
     interface trilinear_interp
         module procedure interp_g, interp_sqrtg, interp_gderiv

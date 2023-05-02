@@ -10,7 +10,7 @@ module extern_gr
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Spencer Magnall
 !
 ! :Runtime parameters: None
 !

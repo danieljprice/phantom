@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,11 +10,11 @@ module metric
 !
 ! :References: None
 !
-! :Owner: David Liptai
+! :Owner: Spencer Magnall
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: infile_utils
+! :Dependencies: einsteintk_utils, eos_shen, infile_utils
 !
  implicit none
  character(len=*), parameter :: metric_type = 'et'

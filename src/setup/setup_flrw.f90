@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -10,27 +10,22 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Spencer Magnall
 !
 ! :Runtime parameters:
-!   - Bzero       : *magnetic field strength in code units*
-!   - cs0         : *initial sound speed in code units*
-!   - dist_unit   : *distance unit (e.g. au)*
-!   - dust_to_gas : *dust-to-gas ratio*
-!   - ilattice    : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit   : *mass unit (e.g. solarm)*
-!   - nx          : *number of particles in x direction*
-!   - rhozero     : *initial density in code units*
-!   - xmax        : *xmax boundary*
-!   - xmin        : *xmin boundary*
-!   - ymax        : *ymax boundary*
-!   - ymin        : *ymin boundary*
-!   - zmax        : *zmax boundary*
-!   - zmin        : *zmin boundary*
+!   - Bzero               : *magnetic field strength in code units*
+!   - cs0                 : *initial sound speed in code units*
+!   - dist_unit           : *distance unit (e.g. au)*
+!   - dust_to_gas         : *dust-to-gas ratio*
+!   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
+!   - mass_unit           : *mass unit (e.g. solarm)*
+!   - nx                  : *number of particles in x direction*
+!   - radiation_dominated : *Radiation dominated universe (yes/no)*
+!   - rhozero             : *initial density in code units*
 !
-! :Dependencies: boundary, cooling, dim, eos, h2cooling, infile_utils, io,
-!   mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
-!   setup_params, timestep, unifdis, units
+! :Dependencies: boundary, dim, infile_utils, io, mpidomain, mpiutils,
+!   options, part, physcon, prompting, setup_params, stretchmap, unifdis,
+!   units, utils_gr
 !
  use dim,          only:use_dust,mhd
  use options,      only:use_dustfrac

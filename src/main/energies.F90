@@ -12,11 +12,11 @@ module energies
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, dust, eos, eos_piecewise,
+! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, fastmath, gravwaveutils, io, kernel, metric_tools,
 !   mpiutils, nicil, options, part, ptmass, timestep, units, utils_gr,
 !   vectorutils, viscosity

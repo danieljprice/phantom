@@ -15,11 +15,23 @@ module setstar
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Mstar          : *mass of star*
+!   - Rstar          : *radius of star*
+!   - hsoft          : *Softening length of sink particle stellar core*
+!   - input_profile  : *Path to input profile*
+!   - isinkcore      : *Add a sink particle stellar core*
+!   - isoftcore      : *0=no core softening, 1=cubic core, 2=constant entropy core*
+!   - isofteningopt  : *1=supply rcore, 2=supply mcore, 3=supply both*
+!   - mcore          : *Mass of sink particle stellar core*
+!   - np             : *number of particles*
+!   - outputfilename : *Output path for softened MESA profile*
+!   - rcore          : *Radius of core softening*
+!   - ui_coef        : *specific internal energy (units of GM/R)*
 !
-! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
-!   radiation_utils, rho_profile, setsoftenedcore, setup_params, sortutils,
-!   spherical, table_utils, unifdis, units
+! :Dependencies: centreofmass, dim, eos, extern_densprofile, infile_utils,
+!   io, mpiutils, part, physcon, prompting, radiation_utils, relaxstar,
+!   setstar_utils, unifdis, units
 !
  use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk

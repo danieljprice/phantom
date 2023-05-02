@@ -64,7 +64,7 @@ module readwrite_infile
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
 !
-! :Dependencies: boundary, cooling, damping, dim, dust, dust_formation,
+! :Dependencies: boundary_dyn, cooling, damping, dim, dust, dust_formation,
 !   eos, externalforces, forcing, gravwaveutils, growth, infile_utils,
 !   inject, io, linklist, metric, nicil_sup, options, part, photoevap,
 !   ptmass, ptmass_radiation, radiation_implicit, radiation_utils,

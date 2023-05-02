@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters: None
 !
