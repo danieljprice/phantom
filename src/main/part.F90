@@ -546,6 +546,7 @@ subroutine deallocate_part
  if (allocated(metrics))      deallocate(metrics)
  if (allocated(metricderivs)) deallocate(metricderivs)
  if (allocated(tmunus))       deallocate(tmunus)
+ if (allocated(sqrtgs))       deallocate(sqrtgs)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
