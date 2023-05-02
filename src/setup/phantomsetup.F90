@@ -118,7 +118,7 @@ program phantomsetup
  else ! non-mpi
     nprocsfake = int(get_command_option('nprocsfake',default=1))
     nprocs= nprocsfake
-    print*,' nprocs = ',nprocs
+    if (nprocs > 1) print*,' nprocs = ',nprocs
     call init_domains(nprocs)
     id = 0
  endif

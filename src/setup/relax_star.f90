@@ -35,7 +35,8 @@ module relaxstar
 
  integer, public :: ierr_setup_errors = 1, &
                     ierr_no_pressure  = 2, &
-                    ierr_unbound = 3
+                    ierr_unbound = 3, &
+                    ierr_notconverged = 4
 
  private
 
@@ -73,7 +74,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
  use physcon,         only:pi
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
- use setstar,         only:set_star_thermalenergy,set_star_composition
+ use setstar_utils,   only:set_star_thermalenergy,set_star_composition
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -166,7 +167,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     call init_step(npart,t,dtmax)
  endif
  nits = 0
- do while (.not. converged)
+ do while (.not. converged .and. nits < maxits)
     nits = nits + 1
     !
     ! shift particles by one "timestep"
@@ -186,8 +187,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     ! compute energies and check for convergence
     !
     call compute_energies(t)
-    converged = ((ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. &
-                 rmserr < 0.01*tol_dens) .or. nits >= maxits)
+    converged = (ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. rmserr < 0.01*tol_dens)
     !
     ! print information to screen
     !
@@ -209,9 +209,12 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
        !
        ! write dump files
        !
-       if (mod(nits,10)==0) then
+       if (mod(nits,100)==0) then
           filename = getnextfilename(filename)
-          ! give the real thermal energy profile so the file is useable as a starting file for the main calculation
+          !
+          ! before writing a file, set the real thermal energy profile
+          ! so the file is useable as a starting file for the main calculation
+          !
           if (use_var_comp) call set_star_composition(use_var_comp,eos_outputs_mu(ieos_prev),&
                                                       npart,xyzh,Xfrac,Yfrac,mu,mr,mstar,eos_vars)
           if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,r,nt,npart,xyzh,vxyzu,rad,&
@@ -224,6 +227,13 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr)
     endif
  enddo
  if (write_files) close(iunit)
+ !
+ ! warn if relaxation finished due to hitting nits=nitsmax
+ !
+ if (.not.converged) then
+    call warning('relax_star','relaxation did not converge, just reached max iterations')
+    ierr = ierr_notconverged
+ endif
  !
  ! unfake some things
  !
@@ -352,8 +362,6 @@ subroutine set_options_for_relaxation(tdyn)
  !
  ! turn on settings appropriate to relaxation
  !
- !gamma = 2.
- !hfact = 0.8 !0.7
  if (maxvxyzu >= 4) ieos = 2
  if (tdyn > 0.) then
     idamp = 2

@@ -12,13 +12,14 @@ module energies
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, dust, eos, eos_piecewise,
-!   externalforces, fastmath, gravwaveutils, io, metric_tools, mpiutils,
-!   nicil, options, part, ptmass, units, utils_gr, vectorutils, viscosity
+! :Dependencies: boundary, centreofmass, dim, dust, eos, eos_piecewise,
+!   externalforces, fastmath, gravwaveutils, io, kernel, metric_tools,
+!   mpiutils, nicil, options, part, ptmass, timestep, units, utils_gr,
+!   vectorutils, viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime
@@ -37,7 +38,8 @@ module energies
                                iev_alpha,iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah(2),&
                                iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n(7),&
                                iev_dtg,iev_ts,iev_dm(maxdusttypes),iev_momall,iev_angall,iev_maccsink(2),&
-                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8)
+                               iev_macc,iev_eacc,iev_totlum,iev_erot(4),iev_viscrat,iev_gws(8),&
+                               iev_mass,iev_bdy(3,2)
  integer,         public    :: iev_erad
  real,            public    :: erad
  integer,         parameter :: inumev  = 150  ! maximum number of quantities to be printed in .ev
@@ -59,7 +61,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine compute_energies(t)
- use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,&
+ use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
@@ -82,6 +84,9 @@ subroutine compute_energies(t)
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn
+ use boundary_dyn,   only:dynamic_bdy,find_dynamic_boundaries
+ use kernel,         only:radkern
+ use timestep,       only:dtmax
 #ifdef GR
  use part,           only:metrics
  use metric_tools,   only:unpack_metric
@@ -94,18 +99,19 @@ subroutine compute_energies(t)
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
  real, intent(in) :: t
- integer :: iregime,idusttype
+ integer :: iregime,idusttype,ierr
  real    :: ev_data_thread(4,0:inumev)
- real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
+ real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,vi1,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas,tsi
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
- real    :: ponrhoi,spsoundi,dumx,dumy,dumz,divBi,hdivBonBi,alphai,valfven2i,betai
+ real    :: ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,dumx,dumy,dumz
+ real    :: divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
  real    :: etaohm,etahall,etaambi,vhall,vion
  real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
- real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3)
+ real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
  real    :: ethermi
 #ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
@@ -114,6 +120,7 @@ subroutine compute_energies(t)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
+ !real, allocatable :: axyz(:,:)
 
  ! initialise values
  itype  = igas
@@ -175,8 +182,8 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
-!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
-!$omp private(ponrhoi,spsoundi,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i,vi1) &
+!$omp private(ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(etaohm,etahall,etaambi,vhalli,vhall,vioni,vion,data_out) &
@@ -195,7 +202,7 @@ subroutine compute_energies(t)
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
 !$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist)
  call initialise_ev_data(ev_data_thread)
- np_rho_thread = 0
+ np_rho_thread  = 0
 !$omp do
  do i=1,npart
     xi = xyzh(1,i)
@@ -739,6 +746,21 @@ subroutine compute_energies(t)
  if (mhd) then
     hdivBB_xa(1) = ev_data(iev_max,iev_hdivB)
     hdivBB_xa(2) = ev_data(iev_ave,iev_hdivB)
+ endif
+
+ if (maxp==maxp_hard) then
+    ev_data(iev_sum,iev_mass) = mtot
+ endif
+
+ if (dynamic_bdy) then
+    call find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
+    ev_data(iev_sum,iev_bdy(1,1)) = xyz_n_all(1)
+    ev_data(iev_sum,iev_bdy(1,2)) = xyz_x_all(1)
+    ev_data(iev_sum,iev_bdy(2,1)) = xyz_n_all(2)
+    ev_data(iev_sum,iev_bdy(2,2)) = xyz_x_all(2)
+    ev_data(iev_sum,iev_bdy(3,1)) = xyz_n_all(3)
+    ev_data(iev_sum,iev_bdy(3,2)) = xyz_x_all(3)
+    if (ierr==1) call fatal('energies','there is no high density gas for the dynamic boundaries')
  endif
 
  return

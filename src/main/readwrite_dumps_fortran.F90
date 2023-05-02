@@ -674,11 +674,12 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
                     xyzmh_ptmass,vxyz_ptmass
- use dump_utils, only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
-                      open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
- use mpiutils,   only:reduce_mpi,reduceall_mpi
- use sphNGutils, only:convert_sinks_sphNG,mass_sphng
- use options,    only:use_dustfrac
+ use dump_utils,   only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
+                        open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
+ use mpiutils,     only:reduce_mpi,reduceall_mpi
+ use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
+ use options,      only:use_dustfrac
+ use boundary_dyn, only:dynamic_bdy
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -811,11 +812,15 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !
 !--Allocate main arrays
 !
+       if (dynamic_bdy) then
+          call allocate_memory(int(maxp_hard,kind=8))
+       else
 #ifdef INJECT_PARTICLES
-       call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
+          call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
 #else
-       call allocate_memory(nparttot)
+          call allocate_memory(nparttot)
 #endif
+       endif
     endif
 !
 !--determine whether or not to read this particular block
@@ -926,17 +931,15 @@ end subroutine check_npartoftype
 
 subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxvxyzu,mhd,maxphase,maxp
-#ifdef INJECT_PARTICLES
- use dim,      only:maxp_hard
-#endif
+ use dim,      only:maxvxyzu,mhd,maxphase,maxp,maxp_hard
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
- use dump_utils, only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
-                      ierr_realsize,read_header,extract,free_header,read_block_header
- use mpiutils,   only:reduce_mpi,reduceall_mpi
- use options,    only:use_dustfrac
+ use dump_utils,   only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
+                        ierr_realsize,read_header,extract,free_header,read_block_header
+ use mpiutils,     only:reduce_mpi,reduceall_mpi
+ use options,      only:use_dustfrac
+ use boundary_dyn, only:dynamic_bdy
  character(len=*),  intent(in)  :: dumpfile
  real,              intent(out) :: tfile,hfactfile
  integer,           intent(in)  :: idisk1,iprint,id,nprocs
@@ -1014,12 +1017,15 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  !
  !--Allocate main arrays
  !
+ if (dynamic_bdy) then
+    call allocate_memory(int(maxp_hard,kind=8))
+ else
 #ifdef INJECT_PARTICLES
- call allocate_memory(int(maxp_hard,kind=8))
+    call allocate_memory(int(maxp_hard,kind=8))
 #else
- call allocate_memory(nparttot)
+    call allocate_memory(nparttot)
 #endif
-
+ endif
 !
 !--arrays
 !
@@ -1160,9 +1166,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust,dustfrac_label, &
                       eos_vars,eos_vars_label,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
-                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop, &
+                      rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,itemp,igasP,iorig
+                      ithick,itemp,igasP,ilambda,iorig
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use eos,        only:ieos,eos_is_non_ideal,eos_outputs_gasP
 #ifdef IND_TIMESTEPS
@@ -1316,6 +1322,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(rad,rad_label,got_raden,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ikappa,:),radprop_label(ikappa),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(radprop(ithick,:),radprop_label(ithick),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ilambda,:),radprop_label(ilambda),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxx,:),radprop_label(ifluxx),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxy,:),radprop_label(ifluxy),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(radprop(ifluxz,:),radprop_label(ifluxz),got_kappa,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
@@ -1564,6 +1574,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
  use externalforces, only:write_headeropts_extern
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary_dyn,   only:dynamic_bdy,dxyz,rho_bkg_ini,irho_bkg_ini
  use dump_utils,     only:reset_header,add_to_rheader,add_to_header,add_to_iheader,num_in_header
  use dim,            only:use_dust,maxtypes,use_dustgrowth,do_nucleation, &
                           phantom_version_major,phantom_version_minor,phantom_version_micro,periodic,idumpfile
@@ -1651,6 +1662,11 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
        call add_to_rheader(zmin,'zmin',hdr,ierr)
        call add_to_rheader(zmax,'zmax',hdr,ierr)
     endif
+    if (dynamic_bdy) then
+       call add_to_rheader(dxyz,'dxyz',hdr,ierr)
+       call add_to_iheader(irho_bkg_ini,'irho_bkg_ini',hdr,ierr)
+       call add_to_rheader(rho_bkg_ini,'rho_bkg_ini',hdr,ierr)
+    endif
     call add_to_rheader(get_conserv,'get_conserv',hdr,ierr)
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
@@ -1694,6 +1710,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use setup_params,   only:rhozero
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
+ use boundary_dyn,   only:dynamic_bdy,dxyz,irho_bkg_ini,rho_bkg_ini,rho_bkg_ini1
  use dump_utils,     only:extract
  use dust,           only:grainsizecgs,graindenscgs
  use units,          only:unit_density,udist
@@ -1792,6 +1809,17 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
        endif
     else
        call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
+    endif
+ endif
+
+ if (dynamic_bdy) then
+    call extract('irho_bkg_ini',irho_bkg_ini,hdr,ierrs(1))
+    call extract('rho_bkg_ini',rho_bkg_ini,hdr,ierrs(1))
+    call extract('dxyz',dxyz,hdr,ierrs(2))
+    if (rho_bkg_ini > 0.) then
+       rho_bkg_ini1 = 1.0/rho_bkg_ini
+    else
+       rho_bkg_ini1 = 0.
     endif
  endif
 
