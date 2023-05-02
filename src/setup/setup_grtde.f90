@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup GR TDE
+! Setup for general relativistic tidal disruption event
 !
 ! :References: None
 !
@@ -57,7 +57,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use kernel,    only:hfact_default
  use extern_densprofile, only:nrhotab
  use externalforces,only:accradius1,accradius1_hard
- use rho_profile,   only:rho_polytrope,read_kepler_file
+ use rho_profile,   only:rho_polytrope
+ use setstar_kepler,only:read_kepler_file
  use vectorutils,   only:rotatevec
  use gravwaveutils, only:theta_gw,calc_gravitwaves
  integer,           intent(in)    :: id

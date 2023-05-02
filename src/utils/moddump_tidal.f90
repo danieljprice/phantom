@@ -18,6 +18,7 @@ module moddump
 !   - beta                 : *penetration factor*
 !   - ecc                  : *eccentricity of stellar orbit (1 for parabolic)*
 !   - ecc_binary           : *eccenticity of black hole binary (1 for parabolic)*
+!   - incline              : *inclination (in x-z plane)*
 !   - iorigin              : *0 = COM of BBH, 1 = Sink 1, 2 = Sink 2*
 !   - mh                   : *mass of black hole (code units)*
 !   - ms                   : *mass of star       (code units)*

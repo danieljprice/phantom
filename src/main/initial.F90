@@ -110,11 +110,12 @@ end subroutine initialise
 !----------------------------------------------------------------
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
- use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes, itau_alloc,&
+ use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
+ use energies,         only:compute_energies
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
                             die,fatal,id,master,nprocs,real4,warning
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
@@ -122,7 +123,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
  use readwrite_infile, only:read_infile,write_infile
  use readwrite_dumps,  only:read_dump,write_fulldump
- use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, &
+ use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
@@ -132,6 +133,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
+ use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
 #ifdef GR
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
@@ -282,6 +284,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  dtmax_user = dtmax           ! the user defined dtmax
  if (idtmax_n < 1) idtmax_n = 1
  dtmax      = dtmax/idtmax_n  ! dtmax required to satisfy the walltime constraints
+!
+!--Initialise dynamic boundaries in the first instance
+!
+ if (dynamic_bdy) call init_dynamic_bdy(1,npart,nptmass,dtmax)
 !
 !--initialise values for non-ideal MHD
 !
@@ -540,6 +546,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (do_nucleation) call init_nucleation
     !initialize optical depth array tau
     if (itau_alloc == 1) tau = 0.
+    !initialize Lucy optical depth array tau_lucy
+    if (itauL_alloc == 1) tau_lucy = 2./3.
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this
@@ -613,6 +621,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        write(iprint,*) 'dt initial    = ',dt
     endif
  endif
+!
+!--initialise dynamic boundaries in the second instance
+!
+ if (dynamic_bdy) call init_dynamic_bdy(2,npart,nptmass,dtmax)
 !
 !--Calculate current centre of mass
 !
@@ -727,8 +739,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (id==master) then
        if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
        if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
-      ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
-      !call warning('initial','consider changing code-units to have box length closer to unity')
+       ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
+       !call warning('initial','consider changing code-units to have box length closer to unity')
     endif
  endif
 !

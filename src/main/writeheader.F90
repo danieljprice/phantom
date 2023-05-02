@@ -78,6 +78,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
  use part,             only:hfact,massoftype,mhd,&
                             gravity,h2chemistry,periodic,massoftype,npartoftypetot,&
@@ -86,10 +87,10 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use eos,              only:eosinfo
  use cooling,          only:cooling_in_step,Tfloor,ufloor
  use readwrite_infile, only:write_infile
- use physcon,          only:pi
+ use physcon,          only:pi,pc
  use kernel,           only:kernelname,radkern
  use viscosity,        only:irealvisc,viscinfo
- use units,            only:print_units,unit_ergg
+ use units,            only:print_units,unit_density,udist,unit_ergg
  use dust,             only:print_dustinfo
  use growth,           only:print_growthinfo
 #ifdef GR
@@ -156,6 +157,13 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        endif
     else
        write(iprint,"(a)") ' No boundaries set '
+    endif
+    if (dynamic_bdy) then
+       write(iprint,"(a)") ' Using dynamic boundaries '
+       write(iprint,"(2x,a,Es18.6)") ' Min density of relevant gas (cgs): ',rho_thresh_bdy*unit_density
+       write(iprint,"(2x,a,2f10.5)") ' dx/pc on both sides of relevant gas: ',width_bkg(1,:)*udist/pc
+       write(iprint,"(2x,a,2f10.5)") ' dy/pc on both sides of relevant gas: ',width_bkg(2,:)*udist/pc
+       write(iprint,"(2x,a,2f10.5)") ' dz/pc on both sides of relevant gas: ',width_bkg(3,:)*udist/pc
     endif
 
     write(iprint,"(/,a)") ' Using '//trim(kernelname)//' kernel'
