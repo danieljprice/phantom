@@ -71,7 +71,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  in_orbit = 1
  in_shape = 0
  r_slope = 0.0
- inc = 0.
+ inc = 90.
  big_omega = 0.
  tiny_number = 1e-4
  lrhofunc = .false.
@@ -120,7 +120,7 @@ if (call_prompt) then
    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
    write(*,*), "Initial radial distance is centre of star/sphere or ellipse."
    r_init_min = r_a + r_close
-   r_init = r_init_min
+   r_init = 3*r_init_min
    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
 
    if (r_slope > tiny_number) then
@@ -403,7 +403,7 @@ endif
  if (use_star==0) then
    ipart = npart ! The initial particle number (post shuffle)
    inc = inc*pi/180.
-   rot_axis = (/0.,0.,1./)
+   rot_axis = (/1.,1.,0./)
    do i = 1,n_add
       ! Rotate particle to correct position and velocity
       ! First rotate to get the right initial position
@@ -413,8 +413,16 @@ endif
       call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
 
       ! Now rotate around z axis
-      call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
-      call rotatevec(vxyzu_add(1:3,i),rot_axis,inc)
+      ! call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
+      ! call rotatevec(vxyzu_add(1:3,i),rot_axis,inc)
+
+
+      call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),inc)
+      call rotatevec(vxyzu_add(1:3,i),(/1.,0.,0./),inc)
+
+      ! call rotatevec(xyzh_add(1:3,i),(/0.,1.,0./),inc)
+      ! call rotatevec(vxyzu_add(1:3,i),(/0.,1.,0./),inc)
+
 
       ! Add the particle
       ipart = ipart + 1
