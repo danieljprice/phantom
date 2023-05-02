@@ -26,14 +26,14 @@ module interpolations3D
 
     use einsteintk_utils,  only:exact_rendering
     use kernel,       only:radkern2,radkern,cnormk,wkern!,wallint  ! Moved to this module
-    !use interpolation, only:iroll ! Moved to this module 
+    !use interpolation, only:iroll ! Moved to this module
 
-    !use timing,        only:wall_time,print_time ! Using cpu_time for now 
+    !use timing,        only:wall_time,print_time ! Using cpu_time for now
     implicit none
     integer, parameter :: doub_prec = kind(0.d0)
     real :: cnormk3D = cnormk
-    public :: interpolate3D!,interpolate3D_vec not needed 
-   
+    public :: interpolate3D!,interpolate3D_vec not needed
+
    contains
    !--------------------------------------------------------------------------
    !     subroutine to interpolate from particle data to even grid of pixels
@@ -64,22 +64,22 @@ module interpolations3D
    !     Revised for "splash to grid", Monash University 02/11/09
    !     Maya Petkova contributed exact subgrid interpolation, April 2019
    !--------------------------------------------------------------------------
-   
+
    subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
         xmin,ymin,zmin,datsmooth,npixx,npixy,npixz,pixwidthx,pixwidthy,pixwidthz,&
         normalise,periodicx,periodicy,periodicz)
-   
+
     integer, intent(in) :: npart,npixx,npixy,npixz
     real, intent(in)    :: xyzh(4,npart)
     !real, intent(in), dimension(npart) :: x,y,z,hh ! change to xyzh()
-    real, intent(in), dimension(npart) :: weight,dat 
+    real, intent(in), dimension(npart) :: weight,dat
     integer, intent(in), dimension(npart) :: itype
     real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
     real(doub_prec), intent(out), dimension(npixx,npixy,npixz) :: datsmooth
     logical, intent(in) :: normalise,periodicx,periodicy,periodicz
     !logical, intent(in), exact_rendering
     real(doub_prec), allocatable :: datnorm(:,:,:)
-   
+
     integer :: i,ipix,jpix,kpix
     integer :: iprintinterval,iprintnext
     integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
@@ -92,17 +92,17 @@ module interpolations3D
     logical :: iprintprogress
     real, dimension(npart) :: x,y,z,hh
     real :: radkernel, radkernel2, radkernh
-   
+
    ! Exact rendering
     real :: pixint, wint
     !logical, parameter :: exact_rendering = .true.   ! use exact rendering y/n
     integer :: usedpart, negflag
 
-   
+
    !$ integer :: omp_get_num_threads,omp_get_thread_num
     integer(kind=selected_int_kind(10)) :: iprogress,j  ! up to 10 digits
-   
-    ! Fill the particle data with xyzh 
+
+    ! Fill the particle data with xyzh
     x(:) = xyzh(1,:)
     y(:) = xyzh(2,:)
     z(:) = xyzh(3,:)
@@ -132,9 +132,9 @@ module interpolations3D
     if (any(hh(1:npart) <= tiny(hh))) then
        print*,'interpolate3D: WARNING: ignoring some or all particles with h < 0'
     endif
-   
+
     !call wall_time(t_start)
-   
+
     datsmooth = 0.
     if (normalise) then
        allocate(datnorm(npixx,npixy,npixz))
@@ -155,9 +155,9 @@ module interpolations3D
     !--get starting CPU time
     !
     call cpu_time(t_start)
-   
+
     usedpart = 0
-   
+
     xminpix = xmin !- 0.5*pixwidthx
     yminpix = ymin !- 0.5*pixwidthy
     zminpix = zmin !- 0.5*pixwidthz
@@ -173,7 +173,7 @@ module interpolations3D
     !
     hmin = 0.5*pixwidthmax
     !dhmin3 = 1./(hmin*hmin*hmin)
-   
+
     const = cnormk3D  ! normalisation constant (3D)
     print*, "const: ", const
     nwarn = 0
@@ -201,7 +201,7 @@ module interpolations3D
    !$omp master
    !$ print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
    !$omp end master
-   
+
    !$omp do schedule (guided, 2)
     over_parts: do i=1,npart
        !
@@ -221,7 +221,7 @@ module interpolations3D
        !--skip particles with itype < 0
        !
        if (itype(i) < 0 .or. weight(i) < tiny(0.)) cycle over_parts
-   
+
        hi = hh(i)
        if (hi <= 0.) then
           cycle over_parts
@@ -235,14 +235,14 @@ module interpolations3D
        else
           termnorm = const*weight(i)
        endif
-   
+
        !
        !--set kernel related quantities
        !
        xi = x(i)
        yi = y(i)
        zi = z(i)
-   
+
        hi1 = 1./hi
        hi21 = hi1*hi1
        radkernh = radkernel*hi   ! radius of the smoothing kernel
@@ -259,7 +259,7 @@ module interpolations3D
        ipixmax = int((xi + radkernh - xmin)/pixwidthx) + 1
        jpixmax = int((yi + radkernh - ymin)/pixwidthy) + 1
        kpixmax = int((zi + radkernh - zmin)/pixwidthz) + 1
-   
+
        if (.not.periodicx) then
           if (ipixmin < 1)     ipixmin = 1      ! make sure they only contribute
           if (ipixmax > npixx) ipixmax = npixx  ! to pixels in the image
@@ -272,9 +272,9 @@ module interpolations3D
           if (kpixmin < 1)     kpixmin = 1
           if (kpixmax > npixz) kpixmax = npixz
        endif
-   
+
        negflag = 0
-   
+
        !
        !--precalculate an array of dx2 for this particle (optimisation)
        !
@@ -292,7 +292,7 @@ module interpolations3D
              dx2i(nxpix) = ((xpixi - xi)**2)*hi21
           endif
        enddo
-   
+
        !--if particle contributes to more than npixx pixels
        !  (i.e. periodic boundaries wrap more than once)
        !  truncate the contribution and give warning
@@ -306,63 +306,63 @@ module interpolations3D
        do kpix = kpixmin,kpixmax
           kpixi = kpix
           if (periodicz) kpixi = iroll(kpix,npixz)
-   
+
           zpix = zminpix + kpix*pixwidthz
           dz = zpix - zi
           dz2 = dz*dz*hi21
-   
+
           do jpix = jpixmin,jpixmax
              jpixi = jpix
              if (periodicy) jpixi = iroll(jpix,npixy)
-   
+
              ypix = yminpix + jpix*pixwidthy
              dy = ypix - yi
              dyz2 = dy*dy*hi21 + dz2
-   
+
              nxpix = 0
              do ipix = ipixmin,ipixmax
                 if ((kpix==kpixmin).and.(jpix==jpixmin).and.(ipix==ipixmin)) then
                    usedpart = usedpart + 1
                 endif
-   
+
                 nxpix = nxpix + 1
                 ipixi = ipix
                 if (periodicx) ipixi = iroll(ipix,npixx)
-   
+
                 q2 = dx2i(nxpix) + dyz2 ! dx2 pre-calculated; dy2 pre-multiplied by hi21
-   
+
                 if (exact_rendering .and. ipixmax-ipixmin <= 4) then
                    if (q2 < radkernel2 + 3.*pixwidthmax**2*hi21) then
                       xpixi = xminpix + ipix*pixwidthx
-   
+
                       ! Contribution of the cell walls in the xy-plane
                       pixint = 0.0
                       wint = wallint(zpix-zi+0.5*pixwidthz,xi,yi,xpixi,ypix,pixwidthx,pixwidthy,hi)
                       pixint = pixint + wint
-   
+
                       wint = wallint(zi-zpix+0.5*pixwidthz,xi,yi,xpixi,ypix,pixwidthx,pixwidthy,hi)
                       pixint = pixint + wint
-   
+
                       ! Contribution of the cell walls in the xz-plane
                       wint = wallint(ypix-yi+0.5*pixwidthy,xi,zi,xpixi,zpix,pixwidthx,pixwidthz,hi)
                       pixint = pixint + wint
-   
+
                       wint = wallint(yi-ypix+0.5*pixwidthy,xi,zi,xpixi,zpix,pixwidthx,pixwidthz,hi)
                       pixint = pixint + wint
-   
+
                       ! Contribution of the cell walls in the yz-plane
                       wint = wallint(xpixi-xi+0.5*pixwidthx,zi,yi,zpix,ypix,pixwidthz,pixwidthy,hi)
                       pixint = pixint + wint
-   
+
                       wint = wallint(xi-xpixi+0.5*pixwidthx,zi,yi,zpix,ypix,pixwidthz,pixwidthy,hi)
                       pixint = pixint + wint
-   
+
                       wab = pixint*dfac ! /(pixwidthx*pixwidthy*pixwidthz*const)*hi**3
-   
+
                       if (pixint < -0.01d0) then
                          print*, "Error: (",ipixi,jpixi,kpixi,") -> ", pixint, term*wab
                       endif
-   
+
                       !
                       !--calculate data value at this pixel using the summation interpolant
                       !
@@ -375,7 +375,7 @@ module interpolations3D
                    endif
                 else
                    if (q2 < radkernel2) then
-                      
+
                       !
                       !--SPH kernel - standard cubic spline
                       !
@@ -397,7 +397,7 @@ module interpolations3D
     enddo over_parts
    !$omp enddo
    !$omp end parallel
-   
+
     if (nwarn > 0) then
        print "(a,i11,a,/,a)",' interpolate3D: WARNING: contributions truncated from ',nwarn,' particles',&
                               '                that wrap periodic boundaries more than once'
@@ -411,13 +411,13 @@ module interpolations3D
        end where
     endif
     if (allocated(datnorm)) deallocate(datnorm)
-   
+
     !call wall_time(t_end)
     call cpu_time(t_end)
     t_used = t_end - t_start
     print*, 'completed in ',t_end-t_start,'s'
     !if (t_used > 10.) call print_time(t_used)
-   
+
     !print*, 'Number of particles in the volume: ', usedpart
    !  datsmooth(1,1,1) = 3.14159
    !  datsmooth(32,32,32) = 3.145159
@@ -425,11 +425,11 @@ module interpolations3D
    !  datsmooth(10,10,10) = 3.145159
 
    end subroutine interpolate3D
-   
+
    ! subroutine interpolate3D_vec(x,y,z,hh,weight,datvec,itype,npart,&
    !      xmin,ymin,zmin,datsmooth,npixx,npixy,npixz,pixwidthx,pixwidthy,pixwidthz,&
    !      normalise,periodicx,periodicy,periodicz)
-   
+
    !  integer, intent(in) :: npart,npixx,npixy,npixz
    !  real, intent(in), dimension(npart)    :: x,y,z,hh,weight
    !  real, intent(in), dimension(npart,3)  :: datvec
@@ -438,7 +438,7 @@ module interpolations3D
    !  real(doub_prec), intent(out), dimension(3,npixx,npixy,npixz) :: datsmooth
    !  logical, intent(in) :: normalise,periodicx,periodicy,periodicz
    !  real(doub_prec), dimension(npixx,npixy,npixz) :: datnorm
-   
+
    !  integer :: i,ipix,jpix,kpix
    !  integer :: iprintinterval,iprintnext
    !  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
@@ -452,7 +452,7 @@ module interpolations3D
    !  logical :: iprintprogress
    !  !$ integer :: omp_get_num_threads
    !  integer(kind=selected_int_kind(10)) :: iprogress  ! up to 10 digits
-   
+
    !  datsmooth = 0.
    !  datnorm = 0.
    !  if (normalise) then
@@ -467,7 +467,7 @@ module interpolations3D
    !  if (any(hh(1:npart) <= tiny(hh))) then
    !     print*,'interpolate3D: WARNING: ignoring some or all particles with h < 0'
    !  endif
-   
+
    !  !
    !  !--print a progress report if it is going to take a long time
    !  !  (a "long time" is, however, somewhat system dependent)
@@ -484,14 +484,14 @@ module interpolations3D
    !  !--get starting CPU time
    !  !
    !  !call cpu_time(t_start)
-   
+
    !  xminpix = xmin - 0.5*pixwidthx
    !  yminpix = ymin - 0.5*pixwidthy
    !  zminpix = zmin - 0.5*pixwidthz
-   
+
    !  const = cnormk3D  ! normalisation constant (3D)
    !  nwarn = 0
-   
+
    ! !$omp parallel default(none) &
    ! !$omp shared(hh,z,x,y,weight,datvec,itype,datsmooth,npart) &
    ! !$omp shared(xmin,ymin,zmin,radkernel,radkernel2) &
@@ -528,17 +528,17 @@ module interpolations3D
    !     !--skip particles with itype < 0
    !     !
    !     if (itype(i) < 0 .or. weight(i) < tiny(0.)) cycle over_parts
-   
+
    !     hi = hh(i)
    !     if (hi <= 0.) cycle over_parts
-   
+
    !     !
    !     !--set kernel related quantities
    !     !
    !     xi = x(i)
    !     yi = y(i)
    !     zi = z(i)
-   
+
    !     hi1 = 1./hi
    !     hi21 = hi1*hi1
    !     radkern = radkernel*hi   ! radius of the smoothing kernel
@@ -553,7 +553,7 @@ module interpolations3D
    !     ipixmax = int((xi + radkern - xmin)/pixwidthx) + 1
    !     jpixmax = int((yi + radkern - ymin)/pixwidthy) + 1
    !     kpixmax = int((zi + radkern - zmin)/pixwidthz) + 1
-   
+
    !     if (.not.periodicx) then
    !        if (ipixmin < 1)     ipixmin = 1      ! make sure they only contribute
    !        if (ipixmax > npixx) ipixmax = npixx  ! to pixels in the image
@@ -580,7 +580,7 @@ module interpolations3D
    !           dx2i(nxpix) = ((xpixi - xi)**2)*hi21
    !        endif
    !     enddo
-   
+
    !     !--if particle contributes to more than npixx pixels
    !     !  (i.e. periodic boundaries wrap more than once)
    !     !  truncate the contribution and give warning
@@ -597,14 +597,14 @@ module interpolations3D
    !        zpix = zminpix + kpix*pixwidthz
    !        dz = zpix - zi
    !        dz2 = dz*dz*hi21
-   
+
    !        do jpix = jpixmin,jpixmax
    !           jpixi = jpix
    !           if (periodicy) jpixi = iroll(jpix,npixy)
    !           ypix = yminpix + jpix*pixwidthy
    !           dy = ypix - yi
    !           dyz2 = dy*dy*hi21 + dz2
-   
+
    !           nxpix = 0
    !           do ipix = ipixmin,ipixmax
    !              ipixi = ipix
@@ -636,7 +636,7 @@ module interpolations3D
    !  enddo over_parts
    ! !$omp enddo
    ! !$omp end parallel
-   
+
    !  if (nwarn > 0) then
    !     print "(a,i11,a,/,a)",' interpolate3D: WARNING: contributions truncated from ',nwarn,' particles',&
    !                            '                that wrap periodic boundaries more than once'
@@ -662,21 +662,21 @@ module interpolations3D
    !     enddo
    !     !$omp end parallel do
    !  endif
-   
+
    !  return
-   
+
    ! end subroutine interpolate3D_vec
-   
+
    !------------------------------------------------------------
    ! interface to kernel routine to avoid problems with openMP
    !-----------------------------------------------------------
    real function wkernel(q2)
     use kernel, only:wkern
     real, intent(in) :: q2
-    real :: q 
+    real :: q
     q = sqrt(q2)
     wkernel = wkern(q2,q)
-   
+
    end function wkernel
 
     !------------------------------------------------------------

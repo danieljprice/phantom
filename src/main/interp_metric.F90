@@ -16,12 +16,12 @@ module metric_interp
 !
 ! :Dependencies: einsteintk_utils
 !
-    
+
     interface trilinear_interp
         module procedure interp_g, interp_sqrtg, interp_gderiv
     end interface trilinear_interp
-    contains 
-    
+    contains
+
     subroutine interp_g()
     end subroutine interp_g
 
@@ -38,12 +38,12 @@ module metric_interp
     real, intent(in) :: position(3)
     real, intent(in) :: dx(3)
     integer, intent(out) :: xlower,ylower,zlower
-    
-    ! Get the lower grid neighbours of the position 
+
+    ! Get the lower grid neighbours of the position
     ! If this is broken change from floor to int
     ! How are we handling the edge case of a particle being
     ! in exactly the same position as the grid?
-    ! Hopefully having different grid sizes in each direction 
+    ! Hopefully having different grid sizes in each direction
     ! Doesn't break the lininterp
     xlower = floor((position(1)-gridorigin(1))/dx(1))
     ylower = floor((position(2)-gridorigin(2))/dx(2))

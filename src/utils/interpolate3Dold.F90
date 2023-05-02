@@ -61,7 +61,7 @@ subroutine interpolate3D(xyzh,weight,npart, &
  integer,      intent(in)  :: npart,nnodes,ngrid(3)
  real,         intent(in)  :: xyzh(:,:)! ,vxyzu(:,:)
  real,         intent(in)  :: weight !,pmass
- real,         intent(in)  :: xmin(3),dxgrid(3) 
+ real,         intent(in)  :: xmin(3),dxgrid(3)
  real,         intent(out) :: datsmooth(:,:,:)
  logical,      intent(in)  :: normalise, vertexcen
  real,         intent(in), optional :: dat(:)
@@ -136,12 +136,12 @@ subroutine interpolate3D(xyzh,weight,npart, &
  npixy = ngrid(2)
  npixz = ngrid(3)
  print "(3(a,i4))",' root grid: ',npixx,' x ',npixy,' x ',npixz
- print*, "position of i cell  is: ", 1*dxcell(1) + xmin(1) 
+ print*, "position of i cell  is: ", 1*dxcell(1) + xmin(1)
  print*, "npart: ", npart
 
  const = cnormk  ! kernel normalisation constant (3D)
- print*,"const: ", const 
- !stop 
+ print*,"const: ", const
+ !stop
 
  !
  !--loop over particles
@@ -207,12 +207,12 @@ subroutine interpolate3D(xyzh,weight,npart, &
     jpixmax = int((yi + radkernh - xmin(2))/dxcell(2)) + 1
     kpixmax = nint((zi + radkernh - xmin(3))/dxcell(3)) + 1
 
-    !if (ipixmax == 33) stop 
-    
-    
+    !if (ipixmax == 33) stop
+
+
     !if (ipixmin == 4 .and. jpixmin == 30 .and. kpixmin == 33) print*, "particle (min): ", i
     !if (ipixmax == 4 .and. jpixmax == 30 .and. kpixmax == 33)  print*, "particle (max): ", i
-#ifndef PERIODIC 
+#ifndef PERIODIC
     if (ipixmin < 1)     ipixmin = 1  ! make sure they only contribute
     if (jpixmin < 1)     jpixmin = 1  ! to pixels in the image
     if (kpixmin < 1)     kpixmin = 1
@@ -225,7 +225,7 @@ subroutine interpolate3D(xyzh,weight,npart, &
     !print*, "jpixmax: ", jpixmax
     !print*, "kpixmin: ", kpixmin
     !print*, "kpixmax: ", kpixmax
-#endif 
+#endif
     !print*,' part ',i,' lims = ',ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
     !
     !--loop over pixels, adding the contribution from this particle
@@ -244,18 +244,18 @@ subroutine interpolate3D(xyzh,weight,npart, &
        else
           zi    = zorigi
        endif
-#endif 
-       if (vertexcen) then 
+#endif
+       if (vertexcen) then
          zpix = xmin(3) + (kpixi-1)*dxcell(3)
-       else 
+       else
          zpix = xmin(3) + (kpixi-0.5)*dxcell(3)
-       endif 
+       endif
        dz   = zpix - zi
        dz2  = dz*dz*hi21
 
        do jpix = jpixmin,jpixmax
           jpixi = jpix
-#ifdef PERIODIC 
+#ifdef PERIODIC
           if (jpixi < 1) then
              jpixi = jpixi  + npixy
              yi    = yorigi !+ dxmax(2)
@@ -266,26 +266,26 @@ subroutine interpolate3D(xyzh,weight,npart, &
              yi    = yorigi
           endif
 #endif
-          if (vertexcen) then 
+          if (vertexcen) then
             ypix = xmin(2) + (jpixi-1)*dxcell(2)
           else
             ypix = xmin(2) + (jpixi-0.5)*dxcell(2)
-          endif 
+          endif
           dy   = ypix - yi
           dyz2 = dy*dy*hi21 + dz2
 
           do ipix = ipixmin,ipixmax
              ipixi = ipix
-#ifdef PERIODIC 
+#ifdef PERIODIC
              if (ipixi < 1) then
                 ipixi = ipixi  + npixx
                 xi    = xorigi !+ dxmax(1)
              elseif (ipixi > npixx) then
-                if (ipixi == 33) then 
-                   print*,"xi old: ", xorigi 
-                   print*, "xi new: ", xorigi-dxmax(1) 
-                   print*, "ipixi new: ", ipixi - npixx 
-                endif 
+                if (ipixi == 33) then
+                   print*,"xi old: ", xorigi
+                   print*, "xi new: ", xorigi-dxmax(1)
+                   print*, "ipixi new: ", ipixi - npixx
+                endif
                 ipixi = ipixi  - npixx
                 xi    = xorigi !- dxmax(1)
              else
@@ -297,11 +297,11 @@ subroutine interpolate3D(xyzh,weight,npart, &
                 !--particle interpolates directly onto the root grid
                 !
                 !print*,'onto root grid ',ipixi,jpixi,kpixi
-                if (vertexcen) then 
+                if (vertexcen) then
                   xpix = xmin(1) + (ipixi-1)*dxcell(1)
-                else 
+                else
                   xpix = xmin(1) + (ipixi-0.5)*dxcell(1)
-                endif  
+                endif
                !print*, "xpix: ", xpix
                 !xpix = xmin(1) + (ipixi-1)*dxcell(1) ! Since we are vertex centered from Et
                 dx   = xpix - xi
@@ -317,21 +317,21 @@ subroutine interpolate3D(xyzh,weight,npart, &
                   !     qq = sqrt(q2)
                   !     wab = 0.25*(2.-qq)**3
                   !  endif
-                  ! Call the kernel routine 
+                  ! Call the kernel routine
                   qq  = sqrt(q2)
                   wab = wkern(q2,qq)
                    !
                    !--calculate data value at this pixel using the summation interpolant
                    !
                    ! Change this to the access the pixel coords x,y,z
-                   !$omp critical 
+                   !$omp critical
                    datsmooth(ipixi,jpixi,kpixi) = datsmooth(ipixi,jpixi,kpixi) + term*wab
-                  
+
                    !if (ipixi==1 .and. jpixi==1 .and. kpixi==1) print*, "x position of 1,1,1", xi,yi,zi
                    if (normalise) then
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
                    endif
-                   !$omp end critical 
+                   !$omp end critical
                 endif
           enddo
        enddo

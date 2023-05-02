@@ -68,13 +68,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real               :: absB,absrho,costheta,vtheta,absV
  real               :: rhobins(nbins),Bbins(nbins),costbins(nbins),vbins(nbins),vtbins(nbins)
  real               :: mixedavg(nbins,nbins),paralavg(nbins,nbins),perpavg(nbins,nbins)
- logical            :: keep_searching 
+ logical            :: keep_searching
  character(len=200) :: fileout
  !
  !-- Initialise parameters
  !-- Converting cgs units to code units
- ! 
- rhomin = rhomin_cgs/unit_density 
+ !
+ rhomin = rhomin_cgs/unit_density
  rhomax = rhomax_cgs/unit_density
  Bmin   = Bmin_cgs/unit_Bfield
  Bmax   = Bmax_cgs/unit_Bfield
@@ -114,11 +114,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     vtbins(i)   = (vtmin   + (i-1)*dvt)
  enddo
 
- !--Sorting all particles into list ordered by ascending Z position 
+ !--Sorting all particles into list ordered by ascending Z position
  !  Used to find the neighbouring particles without the full neighbour-finding process
  ikount = 0
  do i = 1,npart
-    if (xyzh(4,i) > 0) then  
+    if (xyzh(4,i) > 0) then
        ikount = ikount + 1
        ipos(ikount) = i
        dpos(ikount) = xyzh(3,i)
@@ -130,13 +130,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !$omp shared(npart,xyzh,particlemass,Bxyz,costbins,Bbins,rhobins,Bmin,rhomin,unit_density,ikount,vxyzu) &
  !$omp shared(ipos,lst,vbins,vtbins) &
 #ifdef PERIODIC
-!$omp shared(dxbound,dybound,dzbound) & 
+!$omp shared(dxbound,dybound,dzbound) &
 #endif
  !$omp private(i,xi,yi,zi,hi,rhoi,rhoi1,Bxi,Byi,Bzi,rhxi,rhyi,rhzi,xj,yj,zj,hj,j,dxi,dyi,dzi,dri,q,rhoj,l,vt) &
  !$omp private(grki,grkxi,grkyi,grkzi,absB,absrho,costheta,k,p,t,b,r,o,ii,jj,twohi,vxi,vyi,vzi,vtheta,absV) &
- !$omp private(keep_searching) & 
+ !$omp private(keep_searching) &
  !$omp reduction(+:thetB,thetrho,vvt,bvt,vcost,cost) &
- !$omp reduction(+:paralavg,perpavg,mixedavg,perpi,parali,mixedi) 
+ !$omp reduction(+:paralavg,perpavg,mixedavg,perpi,parali,mixedi)
  !$omp do schedule(runtime)
  aparts: do ii = 1,ikount
     ! properties of particle i
@@ -165,7 +165,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! not require the full neighbour finding algorithm
     bparts: do p = 1,2
        jj = ii
-        
+
        keep_searching = .true.
        do while (keep_searching)
           if (p==1) then
@@ -220,9 +220,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     vtheta   = (Bxi*vxi  + Byi*vyi  + Bzi*vzi) / (absB*absV)
 
     ! Finding bins
-    t  = 1 ! cosTheta/angle 
+    t  = 1 ! cosTheta/angle
     b  = 1 ! mag/B field
-    r  = 1 ! rho/density 
+    r  = 1 ! rho/density
     l  = 1 ! velocity
     vt = 1 ! psi angle
     do while (costheta > costbins(t) .and. t < nbins)
@@ -302,7 +302,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
       1,'cost', &
       2,'B',    &
-      3,'freq'    
+      3,'freq'
  do i = 1,nbins
     do j = 1,nbins
        write(iunit,'(2(1pe18.10,1x),(I18,1x))') costbins(i),Bbins(j)*unit_Bfield,thetB(i,j)
@@ -316,7 +316,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
       1,'cost',  &
       2,'rho',   &
-      3,'freq'      
+      3,'freq'
  do i = 1,nbins
     do j = 1,nbins
        write(iunit,'(2(1pe18.10,1x),(I18,1x))') costbins(i),rhobins(j)*unit_density,thetrho(i,j)
@@ -346,7 +346,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
       1,'vcost', &
       2,'B',     &
-      3,'freq'    
+      3,'freq'
  do i = 1,nbins
     do j = 1,nbins
        write(iunit,'(2(1pe18.10,1x),(I18,1x))') vtbins(i),Bbins(j)*unit_Bfield,bvt(i,j)
@@ -360,7 +360,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(iunit,"('#',3(1x,'[',i2.2,1x,a11,']',2x))") &
       1,'vcost', &
       2,'v',     &
-      3,'freq'      
+      3,'freq'
  do i = 1,nbins
     do j = 1,nbins
        write(iunit,'(2(1pe18.10,1x),(I18,1x))') vtbins(i),vbins(j)*unit_velocity,vvt(i,j)
@@ -375,7 +375,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
       1,'vcost',   &
       2,'freq' ,   &
       3,'cost' ,   &
-      4,'freq'      
+      4,'freq'
  do i = 1,nbins
     write(iunit,'((1pe18.10,1x),(I18,1x),(1pe18.10,1x),(I18,1x))') vtbins(i), vcost(i), costbins(i), cost(i)
  enddo

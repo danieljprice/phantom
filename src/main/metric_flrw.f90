@@ -16,13 +16,13 @@ module metric
 !
 ! :Dependencies: infile_utils, timestep
 !
- 
- 
-use timestep,            only:  time 
+
+
+use timestep,            only:  time
 implicit none
  character(len=*), parameter :: metric_type = 'flrw'
  integer,          parameter :: imetric     = 5
-  
+
 contains
 
 !----------------------------------------------------------------
@@ -36,9 +36,9 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
- real :: a,t 
- 
- t = time 
+ real :: a,t
+
+ t = time
  gcov = 0.
  ! Get the scale factor for the current time
  call get_scale_factor(t,a)
@@ -47,13 +47,13 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(2,2) = a
  gcov(3,3) = a
 
- if (present(gcon)) then 
+ if (present(gcon)) then
    gcon = 0.
    gcon(0,0) = -1.
    gcon(1,1) = 1./a
    gcon(2,2) = 1./a
    gcon(3,3) = 1./a
- endif  
+ endif
  if (present(sqrtg)) sqrtg = a*a*a
 
 end subroutine get_metric_cartesian
@@ -64,9 +64,9 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
  real :: r2,sintheta
- real :: t,a 
+ real :: t,a
 
- t = time 
+ t = time
  ! Get the scale factor for the current time
  call get_scale_factor(t,a)
 
@@ -106,7 +106,7 @@ pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgco
  real :: r, theta
  real :: t, a
 
- t = time 
+ t = time
  ! Get the scale factor for the current time
  call get_scale_factor(t,a)
 
@@ -229,8 +229,8 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_metric
 
 pure subroutine get_scale_factor(t,a)
-  real, intent(in) :: t 
-  real, intent(out) :: a 
+  real, intent(in) :: t
+  real, intent(out) :: a
 
   a = t*(0.5) + 1
 

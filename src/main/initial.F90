@@ -142,7 +142,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
  use metric_tools,     only:init_metric,imet_minkowski,imetric
  use einsteintk_utils
- use tmunu2grid  
+ use tmunu2grid
 #endif
 #ifdef PHOTO
  use photoevap,        only:set_photoevap_grid

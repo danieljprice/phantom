@@ -192,7 +192,7 @@ subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
 
  fmts = "a20"
  if (len_trim(name) > 20) fmts = "a"
- 
+
  if (dotime) then
     trem = rval
     nhr = int(trem/3600.d0)
@@ -219,7 +219,7 @@ subroutine write_inopt_real8(rval,name,descript,iunit,ierr,exp,time)
           write(tmpstring,"(g16.9)",iostat=ierror) rval
           tmpstring = adjustl(strip_zeros(tmpstring,3))
        endif
-       
+
        if (len_trim(tmpstring) > 10) then
           write(iunit,"("//trim(fmts)//",' = ',1x,a,2x,'! ',a)",iostat=ierror) name,adjustr(trim(tmpstring)),descript
        else
@@ -278,7 +278,7 @@ subroutine write_inopt_string(sval,name,descript,iunit,ierr)
 
  fmts = "a20"
  if (len_trim(name) > 20) fmts = "a"
- 
+
  if (len_trim(sval) > 10) then
     fmtstring = '('//fmts//','' = '',1x,a,3x,''! '',a)'
  else

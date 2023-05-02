@@ -127,7 +127,7 @@ program phantomsetup
     myid1 = myid
     if (mpi) myid1 = id
     call setpart(myid1,npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk,gamma,hfact,time,fileprefix)
-!  
+!
 !--setup magnetic field if code compiled with MHD
 !
     if (mhd .and. .not.ihavesetupB) then

@@ -50,7 +50,7 @@ module stretchmap
   real function mass_func(x,xmin)
    real, intent(in) :: x, xmin
   end function mass_func
- end interface 
+ end interface
 
  private
 
@@ -117,7 +117,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
 
  if (present(verbose)) isverbose = verbose
  if (present(rhotab)) use_rhotab = .true.
- if (present(massfunc)) use_massfunc = .true. 
+ if (present(massfunc)) use_massfunc = .true.
  print*,"Use mass func?: ", use_massfunc
  if (present(rhofunc) .or. present(rhotab)) then
     if (isverbose) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
@@ -187,7 +187,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
           totmass = get_mass_r(rhofunc,xmax,xmin)
        elseif (is_rcyl) then
           totmass = get_mass_rcyl(rhofunc,xmax,xmin)
-       elseif (use_massfunc) then 
+       elseif (use_massfunc) then
          totmass = massfunc(xmax,min)
        else
           totmass = get_mass(rhofunc,xmax,xmin)
@@ -252,7 +252,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
                 func  = get_mass_r(rhofunc,xi,xmin)
              elseif (is_rcyl) then
                 func  = get_mass_rcyl(rhofunc,xi,xmin)
-             elseif (use_massfunc) then 
+             elseif (use_massfunc) then
                 func = massfunc(xi,xmin)
              else
                 func  = get_mass(rhofunc,xi,xmin)
@@ -281,9 +281,9 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
                 elseif (is_rcyl) then
                    func  = get_mass_rcyl(rhofunc,xi,xmin) - fracmassold
                    dfunc = 2.*pi*xi*rhofunc(xi)
-                elseif (use_massfunc) then 
+                elseif (use_massfunc) then
                   func  = massfunc(xi,xmin) - fracmassold
-                  dfunc = rhofunc(xi) 
+                  dfunc = rhofunc(xi)
                 else
                    func  = get_mass(rhofunc,xi,xmin) - fracmassold
                    dfunc = rhofunc(xi)

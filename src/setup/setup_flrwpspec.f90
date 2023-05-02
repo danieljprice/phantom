@@ -37,7 +37,7 @@ module setup
  integer           :: npartx,ilattice
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
- real              :: perturb_wavelength 
+ real              :: perturb_wavelength
  real(kind=8)      :: udist,umass
 
  !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: filename,lattice,pspec_filename1,pspec_filename2,pspec_filename3
  real    :: totmass,deltax,pi
- integer :: i,j,k,ierr,ncross 
+ integer :: i,j,k,ierr,ncross
  logical :: iexist,isperiodic(3)
  real    :: kwave,denom,length, c1,c3,lambda
  real    :: perturb_rho0,xval
@@ -95,21 +95,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !  procedure(mass_func), pointer :: mass_function
 
 !  density_func => rhofunc  ! desired density function
-!  mass_function => massfunc ! desired mass funciton 
+!  mass_function => massfunc ! desired mass funciton
 
  !
  !--general parameters
  !
- !perturb_wavelength = 1. 
+ !perturb_wavelength = 1.
  time = 0.
  if (maxvxyzu < 4) then
     gamma = 1.
  else
-    ! 4/3 for radiation dominated case 
-    ! irrelevant for 
+    ! 4/3 for radiation dominated case
+    ! irrelevant for
     gamma = 4./3.
  endif
- ! Redefinition of pi to fix numerical error 
+ ! Redefinition of pi to fix numerical error
  pi = 4.D0*Datan(1.0D0)
  !
  ! default units
@@ -131,25 +131,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  perturb_direction = '"none"'
  radiation_dominated = '"no"'
 
- ! Ideally this should read the values of the box length 
+ ! Ideally this should read the values of the box length
  ! and initial Hubble parameter from the par file.
- ! Then it should be set using the Friedmann equation: 
+ ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
  hub = 10.553495658357338
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
  phaseoffset = 0.
 
- ! Set some default values for the grid 
+ ! Set some default values for the grid
  nghost = 6
  gridres = 64
- 
+
  gridsize = nghost + gridres
  gridorigin = 0.
- xmax = 1. 
+ xmax = 1.
  dxgrid = xmax/gridres
  gridorigin = gridorigin-3*dxgrid
- 
+
  isperiodic = .true.
  ncross = 0
 
@@ -157,14 +157,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  allocate(vygrid(gridsize,gridsize,gridsize))
  allocate(vzgrid(gridsize,gridsize,gridsize))
 
- ! Approx Temp of the CMB in Kelvins 
+ ! Approx Temp of the CMB in Kelvins
  last_scattering_temp = 3000
  last_scattering_temp = (rhozero/radconst)**(1./4.)*0.99999
- 
+
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
  c1 = 1.d0/(4.d0*PI*rhozero)
- !c2 = We set g(x^i) = 0 as we only want to extract the growing mode 
+ !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
  c3 = - sqrt(1.d0/(6.d0*PI*rhozero))
 
 
@@ -205,7 +205,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup particles
  !
- 
+
  npart = 0
  npart_total = 0
  length = xmaxi - xmini
@@ -213,20 +213,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! general parameters
 !
-! time should be read in from the par file 
- time   = 0.18951066686763596 ! z~1000 
+! time should be read in from the par file
+ time   = 0.18951066686763596 ! z~1000
 !  lambda = perturb_wavelength*length
 !  kwave  = (2.d0*pi)/lambda
 !  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
  ! Hardcode to ensure double precision, that is requried
  !rhozero = 13.294563008157013D0
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
- 
 
- lattice = 'cubic' 
+
+ lattice = 'cubic'
 
  call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-      npart,xyzh,periodic,nptot=npart_total,mask=i_belong) 
+      npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -238,7 +238,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
-  
+
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
     polyk = cs0**2
@@ -250,34 +250,34 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  pspec_filename2 = 'init_vel2_64.dat'
  pspec_filename3 = 'init_vel3_64.dat'
  ! Read in velocities from vel file here
- ! Should be made into a function at some point 
+ ! Should be made into a function at some point
 !  open(unit=444,file=pspec_filename,status='old')
 !   do k=1,gridsize
 !     do j=1,gridsize
 !       read(444,*) (vxgrid(i,j,k), i=1, 9)
-       
+
 !    enddo
-!  enddo 
+!  enddo
 ! close(444)
  call read_veldata(vxgrid,pspec_filename1,gridsize)
  call read_veldata(vygrid,pspec_filename2,gridsize)
  call read_veldata(vzgrid,pspec_filename3,gridsize)
 
-!  vxgrid = 1. 
-!  vygrid = 2. 
-!  vzgrid = 3. 
- !stop 
+!  vxgrid = 1.
+!  vygrid = 2.
+!  vzgrid = 3.
+ !stop
  do i=1,npart
     ! Assign new particle possition + particle velocities here using the Zeldovich approximation:
-    ! Valid for Omega = 1 
+    ! Valid for Omega = 1
     ! x = q - a grad phi (1), where q is the non perturbed lattice point position
     ! v = -aH grad phi (2)
     ! Interpolate grid velocities to particles
     ! big v vs small v?
-    ! Call interpolate from grid 
-    !get_velocity_fromgrid(vxyz,pos) 
+    ! Call interpolate from grid
+    !get_velocity_fromgrid(vxyz,pos)
     ! CHECK THAT GRID ORIGIN IS CORRECT !!!!!!!!!!!
-    ! DO I NEED TO UPDATE THE GHOST CELLS?? 
+    ! DO I NEED TO UPDATE THE GHOST CELLS??
     ! Get x velocity at particle position
     call interpolate_val(xyzh(1:3,i),vxgrid,gridsize,gridorigin,dxgrid,vxyz(1))
     print*, "Finished x interp"
@@ -289,16 +289,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i)  = vxyz
     print*, vxyz
     ! solve eqn (2) for grad phi
-    ! This is probally not constant?? 
+    ! This is probally not constant??
     scale_factor = 1.
-    gradphi = -vxyz/(scale_factor*hub)  
+    gradphi = -vxyz/(scale_factor*hub)
     ! Set particle pos
     xyzh(1:3,i) = xyzh(1:3,i) - scale_factor*gradphi
     ! Apply periodic boundary conditions to particle position
     call cross_boundary(isperiodic,xyzh(1:3,i),ncross)
 
-    ! Calculate a new smoothing length?? Since the particle distrubtion has changed 
-   
+    ! Calculate a new smoothing length?? Since the particle distrubtion has changed
+
  enddo
 
 
@@ -410,8 +410,8 @@ subroutine write_setupfile(filename)
  call write_inopt(ymaxi,'CoordBase::ymax','ymax boundary',iunit)
  call write_inopt(zmini,'CoordBase::zmin','zmin boundary',iunit)
  call write_inopt(zmaxi,'CoordBase::zmax','zmax boundary',iunit)
- 
- 
+
+
 
  !
  ! other parameters
@@ -476,8 +476,8 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(npartx,'nx',db,min=8,errcount=nerr)
  call read_inopt(rhozero,'rhozero',db,min=0.,errcount=nerr)
  call read_inopt(cs0,'cs0',db,min=0.,errcount=nerr)
- 
- call read_inopt(perturb_direction,'FLRWSolver::FLRW_perturb_direction',db,errcount=nerr) 
+
+ call read_inopt(perturb_direction,'FLRWSolver::FLRW_perturb_direction',db,errcount=nerr)
  call read_inopt(ampl, 'FLRWSolver::phi_amplitude',db,errcount=nerr)
  call read_inopt(phaseoffset,'FLRWSolver::phi_phase_offset',db,errcount=nerr)
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
@@ -485,7 +485,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(perturb,'FLRWSolver::FLRW_perturb',db,errcount=nerr)
  call read_inopt(radiation_dominated,'radiation_dominated',db,errcount=nerr)
  call read_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength',db,errcount=nerr)
- !print*, db 
+ !print*, db
  call close_db(db)
 
  if (nerr > 0) then
@@ -519,23 +519,23 @@ subroutine read_veldata(velarray,vfile,gridsize)
    open(unit=444,file=vfile,status='old')
    do k=1,gridsize
       do j=1,gridsize
-         read(444,*) (velarray(i,j,k), i=1, gridsize)       
+         read(444,*) (velarray(i,j,k), i=1, gridsize)
       enddo
-   enddo 
+   enddo
    close(444)
    print*, "Finished reading ", vfile
 
 end subroutine read_veldata
 
 subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
-   ! Subroutine to interpolate quanities to particle positions given a cube 
+   ! Subroutine to interpolate quanities to particle positions given a cube
    ! Note we have assumed that the grid will always be cubic!!!!
    use eos_shen, only:linear_interpolator_one_d
    real, intent(in)    :: valgrid(:,:,:)
    real, intent(inout)    :: position(3)
    real, intent(inout) :: dxgrid,gridorigin
    integer, intent(in) :: gridsize
-   real, intent(out)   :: val 
+   real, intent(out)   :: val
    integer :: xupper,yupper,zupper,xlower,ylower,zlower
    real    :: xlowerpos,ylowerpos,zlowerpos,xupperpos,yupperpos,zupperpos
    real    :: interptmp(7)
@@ -548,9 +548,9 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
     print*,"Neighbours: ", xlower,ylower,zlower
     print*,"Position: ", position
     ! This is not true as upper neighbours on the boundary will be on the side
-    ! take a mod of grid size  
+    ! take a mod of grid size
     xupper = mod(xlower + 1, gridsize)
-    yupper = mod(ylower + 1, gridsize) 
+    yupper = mod(ylower + 1, gridsize)
     zupper = mod(zlower + 1, gridsize)
     ! xupper - xlower should always just be dx provided we are using a uniform grid
     ! xd = (position(1) - xlower)/(xupper - xlower)
@@ -563,44 +563,44 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
     xd = (position(1) - xlowerpos)/(dxgrid)
     yd = (position(2) - ylowerpos)/(dxgrid)
     zd = (position(3) - zlowerpos)/(dxgrid)
-    
+
     interptmp = 0.
 
-    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower), & 
+    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower), &
                 valgrid(xlower+1,ylower,zlower),xd,interptmp(1))
-    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower+1), & 
+    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower+1), &
                 valgrid(xlower+1,ylower,zlower+1),xd,interptmp(2))
     call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower), &
                 valgrid(xlower+1,ylower+1,zlower),xd,interptmp(3))
     call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower+1), &
                 valgrid(xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-        ! Interpolate along y 
+        ! Interpolate along y
     call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
     call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
         ! Interpolate along z
     call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
      val = interptmp(7)
 
 end subroutine interpolate_val
 
 subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
-    ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE 
+    ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE
     ! WITH THE VERSION USED IN METRIC_ET
     real, intent(in) :: position(3), gridorigin
     real, intent(in) :: dx
     integer, intent(out) :: xlower,ylower,zlower
-    
-    ! Get the lower grid neighbours of the position 
+
+    ! Get the lower grid neighbours of the position
     ! If this is broken change from floor to int
     ! How are we handling the edge case of a particle being
     ! in exactly the same position as the grid?
-    ! Hopefully having different grid sizes in each direction 
+    ! Hopefully having different grid sizes in each direction
     ! Doesn't break the lininterp
     xlower = floor((position(1)-gridorigin)/dx)
     print*, "pos x: ", position(1)
     print*, "gridorigin: ", gridorigin
-    print*, "dx: ", dx 
+    print*, "dx: ", dx
     ylower = floor((position(2)-gridorigin)/dx)
     zlower = floor((position(3)-gridorigin)/dx)
 

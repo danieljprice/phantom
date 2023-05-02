@@ -54,13 +54,13 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
      gcon(1,1) = 1.
      gcon(2,2) = 1.
      gcon(3,3) = 1.
-  endif 
-  if (present(sqrtg)) sqrtg   = -1. 
- else if (present(gcon) .and. present(sqrtg)) then 
-    call interpolate_metric(position,gcov,gcon,sqrtg) 
- else 
+  endif
+  if (present(sqrtg)) sqrtg   = -1.
+ else if (present(gcon) .and. present(sqrtg)) then
+    call interpolate_metric(position,gcov,gcon,sqrtg)
+ else
     call interpolate_metric(position,gcov)
- endif 
+ endif
 end subroutine get_metric_cartesian
 
 pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
@@ -96,13 +96,13 @@ pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
  use einsteintk_utils, only:gridinit
  real,    intent(in)  :: position(3)
  real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
- if (.not. gridinit) then 
+ if (.not. gridinit) then
     dgcovdx = 0.
     dgcovdy = 0.
     dgcovdz = 0.
  else
     call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
- endif 
+ endif
 end subroutine metric_cartesian_derivatives
 
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
@@ -171,16 +171,16 @@ end subroutine read_options_metric
 
 !-----------------------------------------------------------------------
 !+
-! Interpolates value from grid to position 
+! Interpolates value from grid to position
 !+
 !-----------------------------------------------------------------------
 
 pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
-    ! linear and cubic interpolators should be moved to their own subroutine 
+    ! linear and cubic interpolators should be moved to their own subroutine
     ! away from eos_shen
     use eos_shen, only:linear_interpolator_one_d
     use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridsize,gridorigin
-    real, intent(in)  :: position(3) 
+    real, intent(in)  :: position(3)
     real, intent(out) :: gcov(0:3,0:3)
     real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
     integer :: xlower,ylower,zlower,xupper,yupper,zupper
@@ -188,20 +188,20 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
     real :: xd,yd,zd
     real :: interptmp(7)
     integer :: i,j
-    
-    ! If the issue is that the metric vals are undefined on 
+
+    ! If the issue is that the metric vals are undefined on
     ! Setup since we have not recieved anything about the metric
     ! from ET during phantomsetup
-    ! Then simply set gcov and gcon to 0 
+    ! Then simply set gcov and gcon to 0
     ! as these values will be overwritten during the run anyway
     !print*, "Calling interp metric!"
-    ! Get neighbours 
+    ! Get neighbours
     call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
     !print*,"Neighbours: ", xlower,ylower,zlower
     ! This is not true as upper neighbours on the boundary will be on the side
-    ! take a mod of grid size  
+    ! take a mod of grid size
     xupper = mod(xlower + 1, gridsize(1))
-    yupper = mod(ylower + 1, gridsize(2)) 
+    yupper = mod(ylower + 1, gridsize(2))
     zupper = mod(zlower + 1, gridsize(3))
     ! xupper - xlower should always just be dx provided we are using a uniform grid
     ! xd = (position(1) - xlower)/(xupper - xlower)
@@ -214,74 +214,74 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
     xd = (position(1) - xlowerpos)/(dxgrid(1))
     yd = (position(2) - ylowerpos)/(dxgrid(2))
     zd = (position(3) - zlowerpos)/(dxgrid(3))
-    
+
     interptmp = 0.
     ! All the interpolation should go into an interface, then you should just call trilinear_interp
     ! interpolate for gcov
-    do i=0, 3 
+    do i=0, 3
         do j=0, 3
-            ! Interpolate along x 
-            call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower), & 
+            ! Interpolate along x
+            call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower), &
                 gcovgrid(i,j,xlower+1,ylower,zlower),xd,interptmp(1))
-            call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower+1), & 
+            call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower,zlower+1), &
                 gcovgrid(i,j,xlower+1,ylower,zlower+1),xd,interptmp(2))
             call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower+1,zlower), &
                 gcovgrid(i,j,xlower+1,ylower+1,zlower),xd,interptmp(3))
             call linear_interpolator_one_d(gcovgrid(i,j,xlower,ylower+1,zlower+1), &
                 gcovgrid(i,j,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-            ! Interpolate along y 
+            ! Interpolate along y
             call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
             call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
             ! Interpolate along z
             call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
             gcov(i,j) = interptmp(7)
         enddo
-    enddo 
-    
-    if (present(gcon)) then 
+    enddo
+
+    if (present(gcon)) then
     ! interpolate for gcon
-    do i=0, 3 
+    do i=0, 3
         do j=0, 3
-            ! Interpolate along x 
-            call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower), & 
+            ! Interpolate along x
+            call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower), &
                 gcongrid(i,j,xlower+1,ylower,zlower),xd,interptmp(1))
-            call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower+1), & 
+            call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower,zlower+1), &
                 gcongrid(i,j,xlower+1,ylower,zlower+1),xd,interptmp(2))
             call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower+1,zlower), &
                 gcongrid(i,j,xlower+1,ylower+1,zlower),xd,interptmp(3))
             call linear_interpolator_one_d(gcongrid(i,j,xlower,ylower+1,zlower+1), &
                 gcongrid(i,j,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-            ! Interpolate along y 
+            ! Interpolate along y
             call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
             call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
             ! Interpolate along z
             call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
             gcon(i,j) = interptmp(7)
         enddo
-    enddo 
-    endif 
+    enddo
+    endif
 
-    if (present(sqrtg)) then 
-        ! Interpolate for sqrtg 
-        ! Interpolate along x 
-        call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower), & 
+    if (present(sqrtg)) then
+        ! Interpolate for sqrtg
+        ! Interpolate along x
+        call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower), &
                 sqrtggrid(xlower+1,ylower,zlower),xd,interptmp(1))
-        call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower+1), & 
+        call linear_interpolator_one_d(sqrtggrid(xlower,ylower,zlower+1), &
                 sqrtggrid(xlower+1,ylower,zlower+1),xd,interptmp(2))
         call linear_interpolator_one_d(sqrtggrid(xlower,ylower+1,zlower), &
                 sqrtggrid(xlower+1,ylower+1,zlower),xd,interptmp(3))
         call linear_interpolator_one_d(sqrtggrid(xlower,ylower+1,zlower+1), &
                 sqrtggrid(xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-        ! Interpolate along y 
+        ! Interpolate along y
         call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
         call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
         ! Interpolate along z
         call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
         sqrtg = interptmp(7)
-    endif 
+    endif
 
 
 end subroutine interpolate_metric
@@ -290,8 +290,8 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     use eos_shen, only:linear_interpolator_one_d
     use einsteintk_utils, only:metricderivsgrid, dxgrid,gridorigin
     real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
-    real, intent(in)  :: position(3) 
-    integer :: xlower,ylower,zlower,xupper,yupper,zupper 
+    real, intent(in)  :: position(3)
+    integer :: xlower,ylower,zlower,xupper,yupper,zupper
     real :: xd,yd,zd,xlowerpos, ylowerpos,zlowerpos
     real :: interptmp(7)
     integer :: i,j
@@ -299,7 +299,7 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
     !print*,"Neighbours: ", xlower,ylower,zlower
     xupper = xlower + 1
-    yupper = yupper + 1 
+    yupper = yupper + 1
     zupper = zupper + 1
     ! xd = (position(1) - xlower)/(xupper - xlower)
     ! yd = (position(2) - ylower)/(yupper - ylower)
@@ -313,89 +313,89 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
     yd = (position(2) - ylowerpos)/(dxgrid(2))
     zd = (position(3) - zlowerpos)/(dxgrid(3))
 
-    interptmp = 0. 
+    interptmp = 0.
 
     ! Interpolate for dx
-    do i=0, 3 
+    do i=0, 3
         do j=0, 3
-            ! Interpolate along x 
-            call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower), & 
+            ! Interpolate along x
+            call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower), &
                 metricderivsgrid(i,j,1,xlower+1,ylower,zlower),xd,interptmp(1))
-            call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower+1), & 
+            call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower,zlower+1), &
                 metricderivsgrid(i,j,1,xlower+1,ylower,zlower+1),xd,interptmp(2))
             call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower+1,zlower), &
                 metricderivsgrid(i,j,1,xlower+1,ylower+1,zlower),xd,interptmp(3))
             call linear_interpolator_one_d(metricderivsgrid(i,j,1,xlower,ylower+1,zlower+1), &
                 metricderivsgrid(i,j,1,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-            ! Interpolate along y 
+            ! Interpolate along y
             call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
             call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
             ! Interpolate along z
             call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
             dgcovdx(i,j) = interptmp(7)
         enddo
-    enddo 
+    enddo
     ! Interpolate for dy
-    do i=0, 3 
+    do i=0, 3
         do j=0, 3
-            ! Interpolate along x 
-            call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower), & 
+            ! Interpolate along x
+            call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower), &
                 metricderivsgrid(i,j,2,xlower+1,ylower,zlower),xd,interptmp(1))
-            call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower+1), & 
+            call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower,zlower+1), &
                 metricderivsgrid(i,j,2,xlower+1,ylower,zlower+1),xd,interptmp(2))
             call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower+1,zlower), &
                 metricderivsgrid(i,j,2,xlower+1,ylower+1,zlower),xd,interptmp(3))
             call linear_interpolator_one_d(metricderivsgrid(i,j,2,xlower,ylower+1,zlower+1), &
                 metricderivsgrid(i,j,2,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-            ! Interpolate along y 
+            ! Interpolate along y
             call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
             call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
             ! Interpolate along z
             call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
             dgcovdy(i,j) = interptmp(7)
         enddo
     enddo
-    
+
     ! Interpolate for dz
-    do i=0, 3 
+    do i=0, 3
         do j=0, 3
-            ! Interpolate along x 
-            call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower), & 
+            ! Interpolate along x
+            call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower), &
                 metricderivsgrid(i,j,3,xlower+1,ylower,zlower),xd,interptmp(1))
-            call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower+1), & 
+            call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower,zlower+1), &
                 metricderivsgrid(i,j,3,xlower+1,ylower,zlower+1),xd,interptmp(2))
             call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower+1,zlower), &
                 metricderivsgrid(i,j,3,xlower+1,ylower+1,zlower),xd,interptmp(3))
             call linear_interpolator_one_d(metricderivsgrid(i,j,3,xlower,ylower+1,zlower+1), &
                 metricderivsgrid(i,j,3,xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-            ! Interpolate along y 
+            ! Interpolate along y
             call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
             call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
             ! Interpolate along z
             call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
-            
+
             dgcovdz(i,j) = interptmp(7)
         enddo
     enddo
-    
+
 
 
 
 end subroutine interpolate_metric_derivs
-    
+
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
     use einsteintk_utils, only:gridorigin
     real, intent(in) :: position(3)
     real, intent(in) :: dx(3)
     integer, intent(out) :: xlower,ylower,zlower
-    
-    ! Get the lower grid neighbours of the position 
+
+    ! Get the lower grid neighbours of the position
     ! If this is broken change from floor to int
     ! How are we handling the edge case of a particle being
     ! in exactly the same position as the grid?
-    ! Hopefully having different grid sizes in each direction 
+    ! Hopefully having different grid sizes in each direction
     ! Doesn't break the lininterp
     xlower = floor((position(1)-gridorigin(1))/dx(1))
     ylower = floor((position(2)-gridorigin(2))/dx(2))
