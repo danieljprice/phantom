@@ -163,7 +163,7 @@ subroutine interpolate3D(xyzh,weight,npart, &
     !
     !--report on progress
     !
-   !print*, i
+    !print*, i
 #ifndef _OPENMP
     if (iprintprogress) then
        iprogress = nint(100.*i/npart)
@@ -185,9 +185,9 @@ subroutine interpolate3D(xyzh,weight,npart, &
     if (hi <= 0.) cycle over_parts
     hi1 = 1./hi; hi21 = hi1*hi1
     termnorm = const*weight
-   !  print*, "const: ", const
-   !  print*, "weight: ", weight
-   !  print*, "termnorm: ", termnorm
+    !  print*, "const: ", const
+    !  print*, "weight: ", weight
+    !  print*, "termnorm: ", termnorm
 
     !radkern      = 2.*hi   ! radius of the smoothing kernel
     !print*, "radkern: ", radkern
@@ -246,9 +246,9 @@ subroutine interpolate3D(xyzh,weight,npart, &
        endif
 #endif
        if (vertexcen) then
-         zpix = xmin(3) + (kpixi-1)*dxcell(3)
+          zpix = xmin(3) + (kpixi-1)*dxcell(3)
        else
-         zpix = xmin(3) + (kpixi-0.5)*dxcell(3)
+          zpix = xmin(3) + (kpixi-0.5)*dxcell(3)
        endif
        dz   = zpix - zi
        dz2  = dz*dz*hi21
@@ -267,9 +267,9 @@ subroutine interpolate3D(xyzh,weight,npart, &
           endif
 #endif
           if (vertexcen) then
-            ypix = xmin(2) + (jpixi-1)*dxcell(2)
+             ypix = xmin(2) + (jpixi-1)*dxcell(2)
           else
-            ypix = xmin(2) + (jpixi-0.5)*dxcell(2)
+             ypix = xmin(2) + (jpixi-0.5)*dxcell(2)
           endif
           dy   = ypix - yi
           dyz2 = dy*dy*hi21 + dz2
@@ -293,46 +293,46 @@ subroutine interpolate3D(xyzh,weight,npart, &
              endif
 #endif
              icell    = ((kpixi-1)*nsub + (jpixi-1))*nsub + ipixi
+             !
+             !--particle interpolates directly onto the root grid
+             !
+             !print*,'onto root grid ',ipixi,jpixi,kpixi
+             if (vertexcen) then
+                xpix = xmin(1) + (ipixi-1)*dxcell(1)
+             else
+                xpix = xmin(1) + (ipixi-0.5)*dxcell(1)
+             endif
+             !print*, "xpix: ", xpix
+             !xpix = xmin(1) + (ipixi-1)*dxcell(1) ! Since we are vertex centered from Et
+             dx   = xpix - xi
+             q2   = dx*dx*hi21 + dyz2 ! dx2 pre-calculated; dy2 pre-multiplied by hi21
+             !
+             !--SPH kernel - standard cubic spline
+             !
+             if (q2 < radkern2) then
+                !  if (q2 < 1.0) then
+                !     qq = sqrt(q2)
+                !     wab = 1.-1.5*q2 + 0.75*q2*qq
+                !  else
+                !     qq = sqrt(q2)
+                !     wab = 0.25*(2.-qq)**3
+                !  endif
+                ! Call the kernel routine
+                qq  = sqrt(q2)
+                wab = wkern(q2,qq)
                 !
-                !--particle interpolates directly onto the root grid
+                !--calculate data value at this pixel using the summation interpolant
                 !
-                !print*,'onto root grid ',ipixi,jpixi,kpixi
-                if (vertexcen) then
-                  xpix = xmin(1) + (ipixi-1)*dxcell(1)
-                else
-                  xpix = xmin(1) + (ipixi-0.5)*dxcell(1)
-                endif
-               !print*, "xpix: ", xpix
-                !xpix = xmin(1) + (ipixi-1)*dxcell(1) ! Since we are vertex centered from Et
-                dx   = xpix - xi
-                q2   = dx*dx*hi21 + dyz2 ! dx2 pre-calculated; dy2 pre-multiplied by hi21
-                !
-                !--SPH kernel - standard cubic spline
-                !
-                if (q2 < radkern2) then
-                  !  if (q2 < 1.0) then
-                  !     qq = sqrt(q2)
-                  !     wab = 1.-1.5*q2 + 0.75*q2*qq
-                  !  else
-                  !     qq = sqrt(q2)
-                  !     wab = 0.25*(2.-qq)**3
-                  !  endif
-                  ! Call the kernel routine
-                  qq  = sqrt(q2)
-                  wab = wkern(q2,qq)
-                   !
-                   !--calculate data value at this pixel using the summation interpolant
-                   !
-                   ! Change this to the access the pixel coords x,y,z
-                   !$omp critical
-                   datsmooth(ipixi,jpixi,kpixi) = datsmooth(ipixi,jpixi,kpixi) + term*wab
+                ! Change this to the access the pixel coords x,y,z
+                !$omp critical
+                datsmooth(ipixi,jpixi,kpixi) = datsmooth(ipixi,jpixi,kpixi) + term*wab
 
-                   !if (ipixi==1 .and. jpixi==1 .and. kpixi==1) print*, "x position of 1,1,1", xi,yi,zi
-                   if (normalise) then
-                      datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                   endif
-                   !$omp end critical
+                !if (ipixi==1 .and. jpixi==1 .and. kpixi==1) print*, "x position of 1,1,1", xi,yi,zi
+                if (normalise) then
+                   datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
                 endif
+                !$omp end critical
+             endif
           enddo
        enddo
     enddo
@@ -349,10 +349,10 @@ subroutine interpolate3D(xyzh,weight,npart, &
  !--normalise dat array
  !
  if (normalise) then
-   where (datnorm > tiny(datnorm))
-      datsmooth = datsmooth/datnorm
-   end where
-endif
+    where (datnorm > tiny(datnorm))
+       datsmooth = datsmooth/datnorm
+    end where
+ endif
  if (allocated(datnorm)) deallocate(datnorm)
  !
  !--get ending CPU time

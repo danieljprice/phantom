@@ -18,8 +18,8 @@ module metric
 !
 
 
-use timestep,            only:  time
-implicit none
+ use timestep,            only:  time
+ implicit none
  character(len=*), parameter :: metric_type = 'flrw'
  integer,          parameter :: imetric     = 5
 
@@ -48,11 +48,11 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
  gcov(3,3) = a
 
  if (present(gcon)) then
-   gcon = 0.
-   gcon(0,0) = -1.
-   gcon(1,1) = 1./a
-   gcon(2,2) = 1./a
-   gcon(3,3) = 1./a
+    gcon = 0.
+    gcon(0,0) = -1.
+    gcon(1,1) = 1./a
+    gcon(2,2) = 1./a
+    gcon(3,3) = 1./a
  endif
  if (present(sqrtg)) sqrtg = a*a*a
 
@@ -229,10 +229,10 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_metric
 
 pure subroutine get_scale_factor(t,a)
-  real, intent(in) :: t
-  real, intent(out) :: a
+ real, intent(in) :: t
+ real, intent(out) :: a
 
-  a = t*(0.5) + 1
+ a = t*(0.5) + 1
 
 end subroutine get_scale_factor
 

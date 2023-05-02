@@ -205,7 +205,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(radiation_dominated)
  case('"yes"')
 
-   rhozero = rhozero - radconst*last_scattering_temp**4
+    rhozero = rhozero - radconst*last_scattering_temp**4
  end select
 
  xval = density_func(0.75)
@@ -213,36 +213,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  select case(ilattice)
  case(2)
-   lattice = 'closepacked'
+    lattice = 'closepacked'
  case default
-   if (ilattice /= 1) print*,' error: chosen lattice not available, using cubic'
-   lattice = 'cubic'
+    if (ilattice /= 1) print*,' error: chosen lattice not available, using cubic'
+    lattice = 'cubic'
  end select
 
-   select case(perturb)
-   case('"yes"')
-      select case(perturb_direction)
-      !TODO Z AND Y LINEAR PERTURBATIONS
-      case('"x"')
-         call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+ select case(perturb)
+ case('"yes"')
+    select case(perturb_direction)
+       !TODO Z AND Y LINEAR PERTURBATIONS
+    case('"x"')
+       call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
                      npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
-      case('"y"')
-         call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+    case('"y"')
+       call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
          npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-         call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
+       call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
                geom=1,coord=2)
-      case('"all"')
-         call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+    case('"all"')
+       call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
                      npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
-         call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
+       call set_density_profile(npart,xyzh,min=ymin,max=ymax,rhofunc=density_func,&
                geom=1,coord=2)
-         call set_density_profile(npart,xyzh,min=zmin,max=zmax,rhofunc=density_func,&
+       call set_density_profile(npart,xyzh,min=zmin,max=zmax,rhofunc=density_func,&
                geom=1,coord=3)
-      end select
-   case('"no"')
-      call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
+    end select
+ case('"no"')
+    call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
       npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
-   end select
+ end select
 
  npartoftype(:) = 0
  npartoftype(1) = npart
@@ -263,49 +263,49 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
  do i=1,npart
 
-   select case(perturb_direction)
-      case ('"x"')
-         ! should not be zero, for a pertrubed wave
-         !vxyzu(1,i) = ampl*sin(kwave*(xyzh(1,i)-xmin))
-         vxyzu(1,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
-         phi = ampl*sin(kwave*xyzh(1,i)-phaseoffset)
-         Vup(1)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(1,i) - phaseoffset)
-         Vup(2:3) = 0.
-         call perturb_metric(phi,gcov)
-         call get_sqrtg(gcov,sqrtg)
+    select case(perturb_direction)
+    case ('"x"')
+       ! should not be zero, for a pertrubed wave
+       !vxyzu(1,i) = ampl*sin(kwave*(xyzh(1,i)-xmin))
+       vxyzu(1,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
+       phi = ampl*sin(kwave*xyzh(1,i)-phaseoffset)
+       Vup(1)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(1,i) - phaseoffset)
+       Vup(2:3) = 0.
+       call perturb_metric(phi,gcov)
+       call get_sqrtg(gcov,sqrtg)
 
-         alpha = sqrt(-gcov(0,0))
-         vxyzu(1,i) = Vup(1)*alpha
-         vxyzu(2:3,i) = 0.
-      case ('"y"')
-         vxyzu(2,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
-         phi = ampl*sin(kwave*xyzh(2,i)-phaseoffset)
-         Vup = 0.
-         Vup(2)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(2,i) - phaseoffset)
+       alpha = sqrt(-gcov(0,0))
+       vxyzu(1,i) = Vup(1)*alpha
+       vxyzu(2:3,i) = 0.
+    case ('"y"')
+       vxyzu(2,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
+       phi = ampl*sin(kwave*xyzh(2,i)-phaseoffset)
+       Vup = 0.
+       Vup(2)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(2,i) - phaseoffset)
 
-         call perturb_metric(phi,gcov)
-         call get_sqrtg(gcov,sqrtg)
+       call perturb_metric(phi,gcov)
+       call get_sqrtg(gcov,sqrtg)
 
-         alpha = sqrt(-gcov(0,0))
-         vxyzu(:,i) = 0.
-         vxyzu(2,i) = Vup(2)*alpha
+       alpha = sqrt(-gcov(0,0))
+       vxyzu(:,i) = 0.
+       vxyzu(2,i) = Vup(2)*alpha
 
-      case ('"all"')
-         phi = ampl*(sin(kwave*xyzh(1,i)-phaseoffset) - sin(kwave*xyzh(2,i)-phaseoffset) - sin(kwave*xyzh(3,i)-phaseoffset))
-         Vup(1)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
-         Vup(2)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
-         Vup(3)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(3,i))/lambda - phaseoffset)
+    case ('"all"')
+       phi = ampl*(sin(kwave*xyzh(1,i)-phaseoffset) - sin(kwave*xyzh(2,i)-phaseoffset) - sin(kwave*xyzh(3,i)-phaseoffset))
+       Vup(1)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
+       Vup(2)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
+       Vup(3)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(3,i))/lambda - phaseoffset)
 
-         call perturb_metric(phi,gcov)
-         call get_sqrtg(gcov,sqrtg)
+       call perturb_metric(phi,gcov)
+       call get_sqrtg(gcov,sqrtg)
 
-         alpha = sqrt(-gcov(0,0))
+       alpha = sqrt(-gcov(0,0))
 
-         ! perturb the y and z velocities
-         vxyzu(1,i)  = Vup(1)*alpha
-         vxyzu(2,i)  = Vup(2)*alpha
-         vxyzu(3,i)  = Vup(3)*alpha
-   end select
+       ! perturb the y and z velocities
+       vxyzu(1,i)  = Vup(1)*alpha
+       vxyzu(2,i)  = Vup(2)*alpha
+       vxyzu(3,i)  = Vup(3)*alpha
+    end select
     ! Setup the intial internal energy here?
     ! This should be u = aT^4/\rho
     ! Choose an initial temp of the cmb ~ 3000K
@@ -313,18 +313,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! Asssuming that this is constant density/pressure for now so I'm making sure that
     ! Note that rhozero != rho
     ! rhozero = rho + rho*u as this is the energy density
-   select case(radiation_dominated)
-   case('"yes"')
-    if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = (radconst*(last_scattering_temp**4))/rhozero !vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
-      ! Check that the pressure is correct
-      print*, "Pressure: ", (gamma-1)*rhozero*vxyzu(4,i)
-      print*, "Pressure from energy density: ", 3.d0 * hub**2 / (8.d0 * pi)/3.
-      print*, "Pressure 1/3 \rho u: ",radconst*(last_scattering_temp**4)/3.
-   end select
+    select case(radiation_dominated)
+    case('"yes"')
+       if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = (radconst*(last_scattering_temp**4))/rhozero !vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
+       ! Check that the pressure is correct
+       print*, "Pressure: ", (gamma-1)*rhozero*vxyzu(4,i)
+       print*, "Pressure from energy density: ", 3.d0 * hub**2 / (8.d0 * pi)/3.
+       print*, "Pressure 1/3 \rho u: ",radconst*(last_scattering_temp**4)/3.
+    end select
  enddo
 
 
- contains
+contains
 !----------------------------------------------------
 !+
 !  callback function giving desired density profile
@@ -369,36 +369,36 @@ real function rhofunc(x)
 end function rhofunc
 
 real function massfunc(x,xmin)
-   use utils_gr, only:perturb_metric, get_u0, get_sqrtg
-   real, intent(in) :: x,xmin
-   real :: const, expr, exprmin, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
-   real :: massprimx,massprimmin,massprim
+ use utils_gr, only:perturb_metric, get_u0, get_sqrtg
+ real, intent(in) :: x,xmin
+ real :: const, expr, exprmin, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
+ real :: massprimx,massprimmin,massprim
 
-   ! The value inside the bracket
-   const = -kwave*kwave*c1 - 2.d0
-   expr = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*x)/lambda)
-   exprmin = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*xmin)/lambda)
-   massprimx = (x-const*expr)
-   massprimmin = (xmin-const*exprmin)
-   ! Evalutation of the integral
-   ! rho0[x-Acos(kx)]^x_0
-   massprim = rhozero*(massprimx - massprimmin)
+ ! The value inside the bracket
+ const = -kwave*kwave*c1 - 2.d0
+ expr = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*x)/lambda)
+ exprmin = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*xmin)/lambda)
+ massprimx = (x-const*expr)
+ massprimmin = (xmin-const*exprmin)
+ ! Evalutation of the integral
+ ! rho0[x-Acos(kx)]^x_0
+ massprim = rhozero*(massprimx - massprimmin)
 
-   ! Get the perturbed 4-metric
-   call perturb_metric(phi,gcov)
-   ! Get sqrt(-det(g))
-   call get_sqrtg(gcov,sqrtg)
-   ! Define the 3 velocities to calculate u0
-   ! Three velocity will need to be converted from big V to small v
-   !
-   Vup(1) = kwave*c3*ampl*cos((2.d0*pi*x)/lambda-phaseoffset)
-   Vup(2:3) = 0.
-   alpha = sqrt(-gcov(0,0))
-   v(1) = Vup(1)*alpha
-   v(2:3) = 0.
+ ! Get the perturbed 4-metric
+ call perturb_metric(phi,gcov)
+ ! Get sqrt(-det(g))
+ call get_sqrtg(gcov,sqrtg)
+ ! Define the 3 velocities to calculate u0
+ ! Three velocity will need to be converted from big V to small v
+ !
+ Vup(1) = kwave*c3*ampl*cos((2.d0*pi*x)/lambda-phaseoffset)
+ Vup(2:3) = 0.
+ alpha = sqrt(-gcov(0,0))
+ v(1) = Vup(1)*alpha
+ v(2:3) = 0.
 
-   call get_u0(gcov,v,u0,ierr)
-   massfunc = massprim*sqrtg*u0
+ call get_u0(gcov,v,u0,ierr)
+ massfunc = massprim*sqrtg*u0
 
 
 end function massfunc
@@ -589,9 +589,9 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
  if (nerr > 0) then
-   print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
-   ierr = nerr
-endif
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
  !
  ! parse units
  !

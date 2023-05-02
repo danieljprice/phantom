@@ -188,7 +188,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
        elseif (is_rcyl) then
           totmass = get_mass_rcyl(rhofunc,xmax,xmin)
        elseif (use_massfunc) then
-         totmass = massfunc(xmax,min)
+          totmass = massfunc(xmax,min)
        else
           totmass = get_mass(rhofunc,xmax,xmin)
        endif
@@ -282,8 +282,8 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
                    func  = get_mass_rcyl(rhofunc,xi,xmin) - fracmassold
                    dfunc = 2.*pi*xi*rhofunc(xi)
                 elseif (use_massfunc) then
-                  func  = massfunc(xi,xmin) - fracmassold
-                  dfunc = rhofunc(xi)
+                   func  = massfunc(xi,xmin) - fracmassold
+                   dfunc = rhofunc(xi)
                 else
                    func  = get_mass(rhofunc,xi,xmin) - fracmassold
                    dfunc = rhofunc(xi)

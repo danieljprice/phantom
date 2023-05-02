@@ -159,112 +159,112 @@ subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
 end subroutine get_geodesic_accel
 
 subroutine get_sqrtg(gcov, sqrtg)
-   use metric, only: metric_type
-   real, intent(in) :: gcov(0:3,0:3)
-   real, intent(out) :: sqrtg
-   real :: det
-   real :: a11,a12,a13,a14
-   real :: a21,a22,a23,a24
-   real :: a31,a32,a33,a34
-   real :: a41,a42,a43,a44
+ use metric, only: metric_type
+ real, intent(in) :: gcov(0:3,0:3)
+ real, intent(out) :: sqrtg
+ real :: det
+ real :: a11,a12,a13,a14
+ real :: a21,a22,a23,a24
+ real :: a31,a32,a33,a34
+ real :: a41,a42,a43,a44
 
 
-   if (metric_type == 'et') then
+ if (metric_type == 'et') then
 
-      a11 = gcov(0,0)
-      a21 = gcov(1,0)
-      a31 = gcov(2,0)
-      a41 = gcov(3,0)
-      a12 = gcov(0,1)
-      a22 = gcov(1,1)
-      a32 = gcov(2,1)
-      a42 = gcov(3,1)
-      a13 = gcov(0,2)
-      a23 = gcov(1,2)
-      a33 = gcov(2,2)
-      a43 = gcov(3,2)
-      a14 = gcov(0,3)
-      a24 = gcov(1,3)
-      a34 = gcov(2,3)
-      a44 = gcov(3,3)
+    a11 = gcov(0,0)
+    a21 = gcov(1,0)
+    a31 = gcov(2,0)
+    a41 = gcov(3,0)
+    a12 = gcov(0,1)
+    a22 = gcov(1,1)
+    a32 = gcov(2,1)
+    a42 = gcov(3,1)
+    a13 = gcov(0,2)
+    a23 = gcov(1,2)
+    a33 = gcov(2,2)
+    a43 = gcov(3,2)
+    a14 = gcov(0,3)
+    a24 = gcov(1,3)
+    a34 = gcov(2,3)
+    a44 = gcov(3,3)
 
-      ! Calculate the determinant
-      det = a14*a23*a32*a41 - a13*a24*a32*a41 - a14*a22*a33*a41 + a12*a24*a33*a41 + &
+    ! Calculate the determinant
+    det = a14*a23*a32*a41 - a13*a24*a32*a41 - a14*a22*a33*a41 + a12*a24*a33*a41 + &
        a13*a22*a34*a41 - a12*a23*a34*a41 - a14*a23*a31*a42 + a13*a24*a31*a42 + &
        a14*a21*a33*a42 - a11*a24*a33*a42 - a13*a21*a34*a42 + a11*a23*a34*a42 + &
        a14*a22*a31*a43 - a12*a24*a31*a43 - a14*a21*a32*a43 + a11*a24*a32*a43 + &
        a12*a21*a34*a43 - a11*a22*a34*a43 - a13*a22*a31*a44 + a12*a23*a31*a44 + &
        a13*a21*a32*a44 - a11*a23*a32*a44 - a12*a21*a33*a44 + a11*a22*a33*a44
 
-      sqrtg = sqrt(-det)
-      !print*, "sqrtg: ", sqrtg
-      !stop
-   else
-      ! If we are not using an evolving metric then
-      ! Sqrtg = 1
-      sqrtg = 1.
-   endif
+    sqrtg = sqrt(-det)
+    !print*, "sqrtg: ", sqrtg
+    !stop
+ else
+    ! If we are not using an evolving metric then
+    ! Sqrtg = 1
+    sqrtg = 1.
+ endif
 
 
 end subroutine get_sqrtg
 
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
-   use metric, only: metric_type
-   real, intent(in)  :: gcov(0:3,0:3)
-   real, intent(out) :: sqrt_gamma
-   real :: a11,a12,a13
-   real :: a21,a22,a23
-   real :: a31,a32,a33
-   real :: a41,a42,a43
-   real :: det
+ use metric, only: metric_type
+ real, intent(in)  :: gcov(0:3,0:3)
+ real, intent(out) :: sqrt_gamma
+ real :: a11,a12,a13
+ real :: a21,a22,a23
+ real :: a31,a32,a33
+ real :: a41,a42,a43
+ real :: det
 
-   if (metric_type == 'et') then
-      ! Calculate the determinant of a 3x3 matrix
-      ! Spatial metric is just the physical metric
-      ! without the tt component
+ if (metric_type == 'et') then
+    ! Calculate the determinant of a 3x3 matrix
+    ! Spatial metric is just the physical metric
+    ! without the tt component
 
-      a11 = gcov(1,1)
-      a12 = gcov(1,2)
-      a13 = gcov(1,3)
-      a21 = gcov(2,1)
-      a22 = gcov(2,2)
-      a23 = gcov(2,3)
-      a31 = gcov(3,1)
-      a32 = gcov(3,2)
-      a33 = gcov(3,3)
+    a11 = gcov(1,1)
+    a12 = gcov(1,2)
+    a13 = gcov(1,3)
+    a21 = gcov(2,1)
+    a22 = gcov(2,2)
+    a23 = gcov(2,3)
+    a31 = gcov(3,1)
+    a32 = gcov(3,2)
+    a33 = gcov(3,3)
 
-      det = a11*(a22*a33 - a23*a32) - a12*(a21*a33 - a23*a31) + a13*(a21*a32-a22*a31)
-      sqrt_gamma = sqrt(det)
+    det = a11*(a22*a33 - a23*a32) - a12*(a21*a33 - a23*a31) + a13*(a21*a32-a22*a31)
+    sqrt_gamma = sqrt(det)
 
-   else
-      sqrt_gamma = -1.
+ else
+    sqrt_gamma = -1.
 
-   endif
+ endif
 
 
 end subroutine get_sqrt_gamma
 
 subroutine perturb_metric(phi,gcovper,gcov)
-   real, intent(in) :: phi
-   real, intent(out) :: gcovper(0:3,0:3)
-   real, optional, intent(in) :: gcov(0:3,0:3)
+ real, intent(in) :: phi
+ real, intent(out) :: gcovper(0:3,0:3)
+ real, optional, intent(in) :: gcov(0:3,0:3)
 
 
-   if (present(gcov)) then
-      gcovper = gcov
-   else
-      gcovper = 0.
-      gcovper(0,0) = -1.
-      gcovper(1,1) = 1.
-      gcovper(2,2) = 1.
-      gcovper(3,3) = 1.
-   endif
+ if (present(gcov)) then
+    gcovper = gcov
+ else
+    gcovper = 0.
+    gcovper(0,0) = -1.
+    gcovper(1,1) = 1.
+    gcovper(2,2) = 1.
+    gcovper(3,3) = 1.
+ endif
 
-   ! Set the pertubed metric based on the Bardeen formulation
-   gcovper(0,0) = gcovper(0,0) - 2.*phi
-   gcovper(1,1) = gcovper(1,1) - 2.*phi
-   gcovper(2,2) = gcovper(2,2) - 2.*phi
-   gcovper(3,3) = gcovper(3,3) - 2.*phi
+ ! Set the pertubed metric based on the Bardeen formulation
+ gcovper(0,0) = gcovper(0,0) - 2.*phi
+ gcovper(1,1) = gcovper(1,1) - 2.*phi
+ gcovper(2,2) = gcovper(2,2) - 2.*phi
+ gcovper(3,3) = gcovper(3,3) - 2.*phi
 
 
 end subroutine perturb_metric

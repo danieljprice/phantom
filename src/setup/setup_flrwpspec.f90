@@ -489,9 +489,9 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
  if (nerr > 0) then
-   print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
-   ierr = nerr
-endif
+    print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
+    ierr = nerr
+ endif
  !
  ! parse units
  !
@@ -510,104 +510,104 @@ endif
 end subroutine read_setupfile
 
 subroutine read_veldata(velarray,vfile,gridsize)
-   ! TODO ERROR HANDLING??
-   integer, intent(in) :: gridsize
-   character(len=20),intent(in) :: vfile
-   real,intent(out) :: velarray(:,:,:)
-   integer :: i,j,k
+ ! TODO ERROR HANDLING??
+ integer, intent(in) :: gridsize
+ character(len=20),intent(in) :: vfile
+ real,intent(out) :: velarray(:,:,:)
+ integer :: i,j,k
 
-   open(unit=444,file=vfile,status='old')
-   do k=1,gridsize
-      do j=1,gridsize
-         read(444,*) (velarray(i,j,k), i=1, gridsize)
-      enddo
-   enddo
-   close(444)
-   print*, "Finished reading ", vfile
+ open(unit=444,file=vfile,status='old')
+ do k=1,gridsize
+    do j=1,gridsize
+       read(444,*) (velarray(i,j,k), i=1, gridsize)
+    enddo
+ enddo
+ close(444)
+ print*, "Finished reading ", vfile
 
 end subroutine read_veldata
 
 subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
-   ! Subroutine to interpolate quanities to particle positions given a cube
-   ! Note we have assumed that the grid will always be cubic!!!!
-   use eos_shen, only:linear_interpolator_one_d
-   real, intent(in)    :: valgrid(:,:,:)
-   real, intent(inout)    :: position(3)
-   real, intent(inout) :: dxgrid,gridorigin
-   integer, intent(in) :: gridsize
-   real, intent(out)   :: val
-   integer :: xupper,yupper,zupper,xlower,ylower,zlower
-   real    :: xlowerpos,ylowerpos,zlowerpos,xupperpos,yupperpos,zupperpos
-   real    :: interptmp(7)
-   real    :: xd,yd,zd
+ ! Subroutine to interpolate quanities to particle positions given a cube
+ ! Note we have assumed that the grid will always be cubic!!!!
+ use eos_shen, only:linear_interpolator_one_d
+ real, intent(in)    :: valgrid(:,:,:)
+ real, intent(inout)    :: position(3)
+ real, intent(inout) :: dxgrid,gridorigin
+ integer, intent(in) :: gridsize
+ real, intent(out)   :: val
+ integer :: xupper,yupper,zupper,xlower,ylower,zlower
+ real    :: xlowerpos,ylowerpos,zlowerpos,xupperpos,yupperpos,zupperpos
+ real    :: interptmp(7)
+ real    :: xd,yd,zd
 
 
 
-   call get_grid_neighbours(position,gridorigin,dxgrid,xlower,ylower,zlower)
+ call get_grid_neighbours(position,gridorigin,dxgrid,xlower,ylower,zlower)
 
-    print*,"Neighbours: ", xlower,ylower,zlower
-    print*,"Position: ", position
-    ! This is not true as upper neighbours on the boundary will be on the side
-    ! take a mod of grid size
-    xupper = mod(xlower + 1, gridsize)
-    yupper = mod(ylower + 1, gridsize)
-    zupper = mod(zlower + 1, gridsize)
-    ! xupper - xlower should always just be dx provided we are using a uniform grid
-    ! xd = (position(1) - xlower)/(xupper - xlower)
-    ! yd = (position(2) - ylower)/(yupper - ylower)
-    ! zd = (position(3) - zlower)/(zupper - zlower)
-    xlowerpos = gridorigin + (xlower-1)*dxgrid
-    ylowerpos = gridorigin + (ylower-1)*dxgrid
-    zlowerpos = gridorigin + (zlower-1)*dxgrid
+ print*,"Neighbours: ", xlower,ylower,zlower
+ print*,"Position: ", position
+ ! This is not true as upper neighbours on the boundary will be on the side
+ ! take a mod of grid size
+ xupper = mod(xlower + 1, gridsize)
+ yupper = mod(ylower + 1, gridsize)
+ zupper = mod(zlower + 1, gridsize)
+ ! xupper - xlower should always just be dx provided we are using a uniform grid
+ ! xd = (position(1) - xlower)/(xupper - xlower)
+ ! yd = (position(2) - ylower)/(yupper - ylower)
+ ! zd = (position(3) - zlower)/(zupper - zlower)
+ xlowerpos = gridorigin + (xlower-1)*dxgrid
+ ylowerpos = gridorigin + (ylower-1)*dxgrid
+ zlowerpos = gridorigin + (zlower-1)*dxgrid
 
-    xd = (position(1) - xlowerpos)/(dxgrid)
-    yd = (position(2) - ylowerpos)/(dxgrid)
-    zd = (position(3) - zlowerpos)/(dxgrid)
+ xd = (position(1) - xlowerpos)/(dxgrid)
+ yd = (position(2) - ylowerpos)/(dxgrid)
+ zd = (position(3) - zlowerpos)/(dxgrid)
 
-    interptmp = 0.
+ interptmp = 0.
 
-    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower), &
+ call linear_interpolator_one_d(valgrid(xlower,ylower,zlower), &
                 valgrid(xlower+1,ylower,zlower),xd,interptmp(1))
-    call linear_interpolator_one_d(valgrid(xlower,ylower,zlower+1), &
+ call linear_interpolator_one_d(valgrid(xlower,ylower,zlower+1), &
                 valgrid(xlower+1,ylower,zlower+1),xd,interptmp(2))
-    call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower), &
+ call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower), &
                 valgrid(xlower+1,ylower+1,zlower),xd,interptmp(3))
-    call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower+1), &
+ call linear_interpolator_one_d(valgrid(xlower,ylower+1,zlower+1), &
                 valgrid(xlower+1,ylower+1,zlower+1),xd,interptmp(4))
-        ! Interpolate along y
-    call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
-    call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
-        ! Interpolate along z
-    call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
+ ! Interpolate along y
+ call linear_interpolator_one_d(interptmp(1),interptmp(3),yd,interptmp(5))
+ call linear_interpolator_one_d(interptmp(2),interptmp(4),yd,interptmp(6))
+ ! Interpolate along z
+ call linear_interpolator_one_d(interptmp(5),interptmp(6),zd,interptmp(7))
 
-     val = interptmp(7)
+ val = interptmp(7)
 
 end subroutine interpolate_val
 
 subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
-    ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE
-    ! WITH THE VERSION USED IN METRIC_ET
-    real, intent(in) :: position(3), gridorigin
-    real, intent(in) :: dx
-    integer, intent(out) :: xlower,ylower,zlower
+ ! TODO IDEALLY THIS SHOULDN'T BE HERE AND SHOULD BE IN A UTILS MODULE
+ ! WITH THE VERSION USED IN METRIC_ET
+ real, intent(in) :: position(3), gridorigin
+ real, intent(in) :: dx
+ integer, intent(out) :: xlower,ylower,zlower
 
-    ! Get the lower grid neighbours of the position
-    ! If this is broken change from floor to int
-    ! How are we handling the edge case of a particle being
-    ! in exactly the same position as the grid?
-    ! Hopefully having different grid sizes in each direction
-    ! Doesn't break the lininterp
-    xlower = floor((position(1)-gridorigin)/dx)
-    print*, "pos x: ", position(1)
-    print*, "gridorigin: ", gridorigin
-    print*, "dx: ", dx
-    ylower = floor((position(2)-gridorigin)/dx)
-    zlower = floor((position(3)-gridorigin)/dx)
+ ! Get the lower grid neighbours of the position
+ ! If this is broken change from floor to int
+ ! How are we handling the edge case of a particle being
+ ! in exactly the same position as the grid?
+ ! Hopefully having different grid sizes in each direction
+ ! Doesn't break the lininterp
+ xlower = floor((position(1)-gridorigin)/dx)
+ print*, "pos x: ", position(1)
+ print*, "gridorigin: ", gridorigin
+ print*, "dx: ", dx
+ ylower = floor((position(2)-gridorigin)/dx)
+ zlower = floor((position(3)-gridorigin)/dx)
 
-    ! +1 because fortran
-    xlower = xlower + 1
-    ylower = ylower + 1
-    zlower = zlower + 1
+ ! +1 because fortran
+ xlower = xlower + 1
+ ylower = ylower + 1
+ zlower = zlower + 1
 
 
 end subroutine get_grid_neighbours

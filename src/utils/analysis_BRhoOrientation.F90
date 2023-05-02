@@ -238,7 +238,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        r = r + 1
     enddo
     do while (absV > vbins(l) .and. l < nbins)
-      l = l + 1
+       l = l + 1
     enddo
 
     ! Binning particles (B-costheta, rho-costheta, rho-B plane and by orientation)
@@ -246,9 +246,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        cost(t) = cost(t) + 1
        if (b < nbins) then
           thetB(t,b) = thetB(t,b) + 1
-           if (r < nbins) then
-            !-- Binning by orientation, perpendicular, parallel and mixed - not being used
-            if (costheta > 0.0 .and. costheta < 0.4) then
+          if (r < nbins) then
+             !-- Binning by orientation, perpendicular, parallel and mixed - not being used
+             if (costheta > 0.0 .and. costheta < 0.4) then
                 perpavg(b,r) = perpavg(b,r) + costheta
                 perpi(b,r)   = perpi(b,r)   + 1
              endif
@@ -380,7 +380,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(iunit,'((1pe18.10,1x),(I18,1x),(1pe18.10,1x),(I18,1x))') vtbins(i), vcost(i), costbins(i), cost(i)
  enddo
  close(iunit)
- end subroutine do_analysis
+end subroutine do_analysis
 !-----------------------------------------------------------------------
 
 end module analysis

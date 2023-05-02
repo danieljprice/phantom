@@ -580,7 +580,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
-print*, "after corrector"
+    print*, "after corrector"
     if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
     if (gr) then
