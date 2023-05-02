@@ -56,7 +56,7 @@ pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
      gcon(3,3) = 1.
   endif
   if (present(sqrtg)) sqrtg   = -1.
- else if (present(gcon) .and. present(sqrtg)) then
+ elseif (present(gcon) .and. present(sqrtg)) then
     call interpolate_metric(position,gcov,gcon,sqrtg)
  else
     call interpolate_metric(position,gcov)
