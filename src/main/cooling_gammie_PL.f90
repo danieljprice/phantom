@@ -12,10 +12,12 @@ module cooling_gammie_PL
 ! :References:
 !   Gammie (2001), ApJ 553, 174-183
 !
-! :Owner: Daniel Price
+! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   - beta_cool : *beta factor in Gammie (2001) cooling*
+!   - beta_cool : *beta factor in Gammie (2001) cooling @ R_beta*
+!   - eta       : *Power law coefficient of the cooling factor*
+!   - r_beta    : *Characteristic radius of the cooling power law profile*
 !
 ! :Dependencies: infile_utils, io
 !

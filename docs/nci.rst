@@ -3,11 +3,12 @@ Getting started on the NCI supercomputer (Australian National Supercomputing Fac
 
 Apply for an account at http://nci.org.au
 
-If you are in Daniel Price’s research group, request to join project “fu7”
+If you are in Daniel Price’s research group, request to join project “wk74”
 
 Log in
 -------
 
+Please read the :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 ::
 
    ssh -Y USER@gadi.nci.org.au
@@ -62,7 +63,7 @@ Finally, make a shortcut to the /g/data filesystem::
    cd /g/data/$PROJECT
    mkdir $USER
    cd
-   ln -s /scratch/$PROJECT/$USER runs
+   ln -s /g/data/$PROJECT/$USER runs
    cd runs
    pwd -P
 
@@ -74,6 +75,12 @@ Clone a copy of phantom into your home directory::
    $ cd $HOME
    $ git clone https://github.com/danieljprice/phantom.git
    $ cd phantom
+   
+and tell git who you are::
+
+   $ git config --global user.name "Joe Bloggs"
+   $ git config --global user.email "joe.bloggs@monash.edu"
+
 
 Run a calculation
 ------------------
@@ -214,7 +221,7 @@ this way each process is short and your movie-making can proceed without getting
 
 more info
 ---------
-See :doc:`<running-clusters>`
+See :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 
 For more information on the actual machine `read the
 userguide <https://opus.nci.org.au/display/Help/Preparing+for+Gadi>`__

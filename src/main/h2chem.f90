@@ -217,7 +217,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
 ! Set number of steps for subcycling. In the event that the h2 is 0 (i.e. for the first timestep) or h2
 ! being created, the number of timesteps is 201 (chosen by running the simulation initially and finding
 ! a sensible value).
-    if (th2 > 0.d0) nstep=MAX(INT(1.d0/th2)+1,201)
+    if (th2 > 0.d0) nstep=MAX(int(1.d0/th2)+1,201)
  endif
 !--Final timesteps:
  tstep=dtclare/nstep
@@ -261,13 +261,13 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
        nstep2=1
        tstep2=tstep
     elseif (abco <= 0.d0) then
-       nstep2=INT(rhoi*1000.d0)
+       nstep2=int(rhoi*1000.d0)
        tstep2=tstep/nstep2
     else
 !       tsteptest=-abco/(k0*abcp*beta*np1*np1 - gamma_co*abco*np1)
        tsteptest1=-(k0_np1sq*abcp*beta - gammaco_np1*abco)/abco
-!           nstep2=max(INT(tstep*10./tsteptest),INT(trho(ipart)*10.),1)
-       nstep2=max(INT(tstep10*tsteptest1),1)
+!           nstep2=max(int(tstep*10./tsteptest),int(trho(ipart)*10.),1)
+       nstep2=max(int(tstep10*tsteptest1),1)
        tstep2=tstep/nstep2       !Step at some whole fraction of H2 time step.
     endif
 

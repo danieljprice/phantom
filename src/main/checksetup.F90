@@ -37,12 +37,12 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
                 do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
-                idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
-                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
+                idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
+                kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
  use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
@@ -52,13 +52,14 @@ subroutine check_setup(nerror,nwarn,restart)
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
+ use boundary_dyn,    only:dynamic_bdy,adjust_particles_dynamic_boundary
  use nicil,           only:n_nden
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
- integer      :: i,j,nbad,itype,nunity,iu,ndead
+ integer      :: i,nbad,itype,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas_mean
+ real         :: hi,hmin,hmax
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -73,15 +74,15 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
 
  if (npart > maxp) then
-    print*,'Error in setup: npart (',npart,') > maxp (',maxp,')'
+    print*,'ERROR: npart (',npart,') > maxp (',maxp,')'
     nerror = nerror + 1
  endif
  if (any(npartoftype < 0)) then
-    print*,'Error in setup: npartoftype -ve: ',npartoftype(:)
+    print*,'ERROR: npartoftype -ve: ',npartoftype(:)
     nerror = nerror + 1
  endif
  if (sum(npartoftype) > maxp) then
-    print*,'Error in setup: sum(npartoftype) > maxp ',sum(npartoftype(:))
+    print*,'ERROR: sum(npartoftype) > maxp ',sum(npartoftype(:))
     nerror = nerror + 1
  endif
  if (sum(npartoftype) /= npart) then
@@ -90,16 +91,16 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
 #ifndef KROME
  if (gamma <= 0.) then
-    print*,'WARNING! Error in setup: gamma not set (should be set > 0 even if not used)'
+    print*,'WARNING! gamma not set (should be set > 0 even if not used)'
     nwarn = nwarn + 1
  endif
 #endif
  if (hfact < 1. .or. hfact /= hfact) then
-    print*,'Error in setup: hfact = ',hfact,', should be >= 1'
+    print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
  if (polyk < 0. .or. polyk /= polyk) then
-    print*,'Error in setup: polyk = ',polyk,', should be >= 0'
+    print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
 #ifdef KROME
@@ -114,7 +115,7 @@ subroutine check_setup(nerror,nwarn,restart)
  endif
 #endif
  if (npart < 0) then
-    print*,'Error in setup: npart = ',npart,', should be >= 0'
+    print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
  elseif (npart==0 .and. nptmass==0) then
     print*,'WARNING! setup: npart = 0 (and no sink particles either)'
@@ -130,12 +131,12 @@ subroutine check_setup(nerror,nwarn,restart)
 !
     if (all(iphase(1:npart)==0)) then
        if (any(npartoftype(2:) > 0)) then
-          print*,'Error in setup: npartoftype > 0 for non-gas particles, but types have not been assigned'
+          print*,'ERROR: npartoftype > 0 for non-gas particles, but types have not been assigned'
           nerror = nerror + 1
        endif
        iphase(1:npart) = isetphase(igas,iactive=.true.)
     elseif (any(iphase(1:npart)==0)) then
-       print*,'Error in setup: types need to be assigned to all particles (or none)'
+       print*,'ERROR: types need to be assigned to all particles (or none)'
        nerror = nerror + 1
     endif
 !
@@ -178,6 +179,18 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
+!
+!--check that no empty particle types have been added
+!
+    do i=1,size(npartoftype)
+       if (labeltype(i)=='empty' .and. npartoftype(i) > 0) then
+          print "(/,1x,a,i0,a,i0,a,/)",'ERROR: ',npartoftype(i),' particles of type ',i,&
+                ' set up but type=='//trim(labeltype(i))
+          if (i==2) print "(a,/)",&
+            ' *** This is the old dust particle type: edit setup to use itype=idust ***'
+          nerror = nerror + 1
+       endif
+    enddo
  endif
 !
 !--should not have negative or zero smoothing lengths in initial setup
@@ -220,7 +233,7 @@ subroutine check_setup(nerror,nwarn,restart)
     hmax = max(hi,hmax)
  enddo
  if (nbad > 0) then
-    print*,'Error in setup: negative, zero or ridiculous h on ',nbad,' of ',npart,' particles'
+    print*,'ERROR: negative, zero or ridiculous h on ',nbad,' of ',npart,' particles'
     print*,' hmin = ',hmin,' hmax = ',hmax
     nerror = nerror + 1
  endif
@@ -237,12 +250,12 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
     enddo
     if (nbad > 0) then
-       print*,'Error in setup: negative thermal energy on ',nbad,' of ',npart,' particles'
+       print*,'ERROR: negative thermal energy on ',nbad,' of ',npart,' particles'
        nerror = nerror + 1
     endif
  else
     if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /=9)) then
-       print*,'*** Error in setup: using isothermal EOS, but gamma = ',gamma
+       print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
        nwarn = nwarn + 1
@@ -257,7 +270,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nwarn = nwarn + 1
     endif
     if (npartoftype(itype) > 0 .and. .not.(in_range(massoftype(itype),0.))) then
-       print*,'Error in setup: massoftype = ',massoftype(itype),' for '//trim(labeltype(itype))// &
+       print*,'ERROR: massoftype = ',massoftype(itype),' for '//trim(labeltype(itype))// &
               ' particles (n'//trim(labeltype(itype))//' = ',npartoftype(itype),')'
        nerror = nerror + 1
     endif
@@ -267,7 +280,7 @@ subroutine check_setup(nerror,nwarn,restart)
  !
  call check_for_identical_positions(npart,xyzh,nbad)
  if (nbad > 0) then
-    print*,'Error in setup: ',nbad,' of ',npart,' particles have identical or near-identical positions'
+    print*,'ERROR: ',nbad,' of ',npart,' particles have identical or near-identical positions'
     nwarn = nwarn + 1
  endif
 !
@@ -275,17 +288,21 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (periodic) then
     nbad = 0
-    do i=1,npart
-       if (xyzh(1,i) < xmin .or. xyzh(1,i) > xmax &
-       .or.xyzh(2,i) < ymin .or. xyzh(2,i) > ymax &
-       .or.xyzh(3,i) < zmin .or. xyzh(3,i) > zmax) then
-          nbad = nbad + 1
-          if (nbad <= 10) print*,' particle ',i,' xyz = ',xyzh(1:3,i)
+    if (dynamic_bdy) then
+       call adjust_particles_dynamic_boundary(npart,xyzh)
+    else
+       do i=1,npart
+          if (xyzh(1,i) < xmin .or. xyzh(1,i) > xmax &
+          .or.xyzh(2,i) < ymin .or. xyzh(2,i) > ymax &
+          .or.xyzh(3,i) < zmin .or. xyzh(3,i) > zmax) then
+             nbad = nbad + 1
+             if (nbad <= 10) print*,' particle ',i,' xyz = ',xyzh(1:3,i)
+          endif
+       enddo
+       if (nbad > 0) then
+          print*,'ERROR: ',nbad,' of ',npart,' particles setup OUTSIDE the periodic box'
+          if (.not. dynamic_bdy) nerror = nerror + 1
        endif
-    enddo
-    if (nbad > 0) then
-       print*,'Error in setup: ',nbad,' of ',npart,' particles setup OUTSIDE the periodic box'
-       nerror = nerror + 1
     endif
  endif
 !
@@ -305,7 +322,7 @@ subroutine check_setup(nerror,nwarn,restart)
        if (accreted) nbad = nbad + 1
     enddo
     if (nbad > 0) then
-       print*,'Warning: ',nbad,' of ',npart,' particles setup within the accretion boundary'
+       print*,'WARNING: ',nbad,' of ',npart,' particles setup within the accretion boundary'
        nwarn = nwarn + 1
     endif
     !--check if we are using a central accretor
@@ -313,7 +330,7 @@ subroutine check_setup(nerror,nwarn,restart)
     call accrete_particles(iexternalforce,0.,0.,0.,hi,massoftype(1),time,accreted)
     !--if so, check for unresolved accretion radius
     if (accreted .and. accradius1 < 0.5*hmin) then
-       print*,'Warning: accretion radius is unresolved by a factor of hmin/racc = ',hmin/accradius1
+       print*,'WARNING: accretion radius is unresolved by a factor of hmin/racc = ',hmin/accradius1
        print*,'(this will cause the code to run needlessly slow)'
        nwarn = nwarn + 1
     endif
@@ -324,9 +341,9 @@ subroutine check_setup(nerror,nwarn,restart)
  if (gravity .or. nptmass > 0) then
     if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'Error in setup: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
+          print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'Error in setup: sink particles used but G /= 1 in code units, got G=',get_G_code()
+          print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
     endif
@@ -345,7 +362,7 @@ subroutine check_setup(nerror,nwarn,restart)
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'Error in setup: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
+          print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
@@ -355,7 +372,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (npartoftype(idust) > 0) then
     if (.not. use_dust) then
-       if (id==master) print*,'Error in setup: dust particles present but -DDUST is not set'
+       if (id==master) print*,'ERROR: dust particles present but -DDUST is not set'
        nerror = nerror + 1
     endif
     if (use_dustfrac) then
@@ -388,52 +405,15 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check dust fraction is 0->1 if one fluid dust is used
 !
- if (use_dustfrac .and. npart > 0) then
-    nbad = 0
-    nunity = 0
-    dust_to_gas_mean = 0.
-    do i=1,npart
-       do j=1,ndustsmall
-          if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
-             nbad = nbad + 1
-             if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
-          elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
-             nunity = nunity + 1
-          else
-             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
-          endif
-       enddo
-    enddo
-    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
-    if (nbad > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
-       nerror = nerror + 1
-    endif
-    if (nunity > 0) then
-       print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
-       nwarn = nwarn + 1
-    endif
-    ! warn if compiled for one-fluid dust but not used
-    if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
-       print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
-       if (maxdusttypes>1) then
-          print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
-          print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
-       endif
-       nwarn = nwarn + 1
-    endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
- endif
-
-#ifdef GR
- call check_gr(npart,nerror,xyzh,vxyzu)
-#endif
-
+ if (use_dustfrac .and. npart > 0) call check_setup_dustfrac(nerror,nwarn)
+!
+!--check GR setup
+!
+ if (gr) call check_gr(npart,nerror,xyzh,vxyzu)
 !
 !--check radiation setup
 !
  if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
-
 !
 !--check dust growth arrays
 !
@@ -447,25 +427,29 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  call check_setup_ptmass(nerror,nwarn,hmin)
 !
-!--print centre of mass (must be done AFTER types have been checked)
+!--check centre of mass
 !
  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
- if (id==master) &
-    write(*,"(a,2(es10.3,', '),es10.3,a)") ' Centre of mass is at (x,y,z) = (',xcom,')'
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
     if (dot_product(xcom,xcom) >  1.e-2) then
-       print*,'Error in setup: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
+       print*,'ERROR: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
        print*,'                but the centre of mass is not at the origin!'
        nerror = nerror + 1
     endif
  endif
 
  if (nerror==0 .and. nwarn==0) then
-    if (id==master) write(*,"(1x,a)") 'Particle setup OK'
+!
+!--print centre of mass (must be done AFTER types have been checked)
+!  ALSO, only print this if there are no warnings or errors to avoid obscuring warnings
+!
+    if (id==master) then
+       write(*,"(a,2(es10.3,', '),es10.3,a)") ' Centre of mass is at (x,y,z) = (',xcom,')'
+       write(*,"(1x,a)") 'Particle setup OK'
+    endif
  endif
 
- return
 end subroutine check_setup
 
 !----------------------------------------------------
@@ -497,6 +481,11 @@ pure logical function in_range(x,min,max)
 
 end function in_range
 
+!------------------------------------------------------------------
+!+
+! check sink particle properties are sensible
+!+
+!------------------------------------------------------------------
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
@@ -507,17 +496,17 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  real :: r,hsink
 
  if (gr .and. nptmass > 0) then
-    print*,' Warning! Error in setup: nptmass = ',nptmass, ' should be = 0 for GR'
+    print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
     nwarn = nwarn + 1
     return
  endif
 
  if (nptmass < 0) then
-    print*,' Error in setup: nptmass = ',nptmass, ' should be >= 0 '
+    print*,' ERROR: nptmass = ',nptmass, ' should be >= 0 '
     nerror = nerror + 1
  endif
  if (nptmass > maxptmass) then
-    print*,' Error in setup: nptmass = ',nptmass,' exceeds ptmass array dimensions of ',maxptmass
+    print*,' ERROR: nptmass = ',nptmass,' exceeds ptmass array dimensions of ',maxptmass
     nerror = nerror + 1
     return
  endif
@@ -533,10 +522,10 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
-          print*,'Error in setup: sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
+          print*,'ERROR: sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
           nerror = nerror + 1
        elseif (r <= max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihacc,j))) then
-          print*,'Warning: sinks ',i,' and ',j,' within each others accretion radii: sep =',&
+          print*,'WARNING: sinks ',i,' and ',j,' within each others accretion radii: sep =',&
                   r,' h = ',xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihacc,j)
           nwarn = nwarn + 1
        endif
@@ -550,7 +539,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  do i=1,nptmass
     if (.not.in_range(xyzmh_ptmass(4,i))) then
        nerror = nerror + 1
-       print*,' Error in setup: sink ',i,' mass = ',xyzmh_ptmass(4,i)
+       print*,' ERROR: sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
        n = n + 1
@@ -565,11 +554,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
     if (hsink <= 0.) then
        nerror = nerror + 1
-       print*,'Error in setup: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
+       print*,'ERROR: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
               ' and softening radius ',xyzmh_ptmass(ihsoft,i)
     elseif (hsink <= 0.5*hmin .and. hmin > 0.) then
        nwarn = nwarn + 1
-       print*,'Warning: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
+       print*,'WARNING: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
     endif
  enddo
@@ -602,7 +591,7 @@ subroutine check_setup_growth(npart,nerror)
     do j=1,2
        if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
     enddo
-    if (any(dustprop(:,i) /= dustprop(:,i))) then
+    if (any(isnan(dustprop(:,i)))) then
        print*,'NaNs in dust properties (dustprop array)'
        nerror = nerror + 1
     endif
@@ -713,7 +702,76 @@ subroutine check_setup_dustgrid(nerror,nwarn)
 
 end subroutine check_setup_dustgrid
 
-#ifdef GR
+!------------------------------------------------------------------
+!+
+! check dust fractions are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_dustfrac(nerror,nwarn)
+ use io,   only:id,master
+ use dim,  only:maxdusttypes
+ use part, only:npart,ndustsmall,dustfrac
+ integer, intent(inout) :: nerror,nwarn
+ integer :: i,j,nbad,nunity
+ real :: dust_to_gas_mean
+
+ nbad = 0
+ nunity = 0
+ dust_to_gas_mean = 0.
+ do i=1,npart
+    do j=1,ndustsmall
+       if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
+          nbad = nbad + 1
+          if (nbad <= 10) print*,' particle ',i,' dustfrac = ',dustfrac(j,i)
+       elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
+          nunity = nunity + 1
+       else
+          dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+       endif
+    enddo
+ enddo
+ dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
+ if (nbad > 0) then
+    print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
+    nerror = nerror + 1
+ endif
+ if (nunity > 0) then
+    print*,'WARNING: ',nunity,' of ',npart,' PARTICLES ARE PURE DUST (dustfrac=1.0)'
+    nwarn = nwarn + 1
+ endif
+
+ ! check for TOTAL dustfrac exceeding unity
+ nbad = 0
+ do i=1,npart
+    if (sum(dustfrac(1:ndustsmall,i)) > 1.) then
+       nbad = nbad + 1
+       if (nbad <= 10) print*,' particle ',i,' total dustfrac = ',sum(dustfrac(1:ndustsmall,i))
+    endif
+ enddo
+ if (nbad > 0) then
+    print*,'ERROR: ',nbad,' of ',npart,' particles with sum of dust fractions exceeding 1'
+    nerror = nerror + 1
+ endif
+
+ ! warn if compiled for one-fluid dust but not used
+ if (all(dustfrac(:,1:npart) < tiny(dustfrac))) then
+    print*,'WARNING: one fluid dust is used but dust fraction is zero everywhere'
+    if (maxdusttypes > 1) then
+       print*,'WARNING about the previous WARNING: maxdusttypes > 1 so dust arrays are unnecessarily large!'
+       print*,'                                    Recompile with maxdusttypes = 1 for better efficiency.'
+    endif
+    nwarn = nwarn + 1
+ endif
+
+ if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
+
+end subroutine check_setup_dustfrac
+
+!------------------------------------------------------------------
+!+
+! check things necessary for sensible GR evolution
+!+
+!------------------------------------------------------------------
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
@@ -765,7 +823,6 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
  endif
 
 end subroutine check_gr
-#endif
 
 !------------------------------------------------------------------
 !+
@@ -775,7 +832,6 @@ end subroutine check_gr
 ! radius and check particles with identical radii
 !+
 !------------------------------------------------------------------
-
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
  use part,      only:maxphase,maxp,iphase,igas,iamtype
@@ -822,7 +878,6 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
 
 end subroutine check_for_identical_positions
 
-
 !------------------------------------------------------------------
 !+
 ! 1) check for optically thin particles when mcfost is disabled,
@@ -831,7 +886,6 @@ end subroutine check_for_identical_positions
 ! 3) check for NaNs
 !+
 !------------------------------------------------------------------
-
 subroutine check_setup_radiation(npart, nerror, radprop, rad)
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
@@ -865,6 +919,7 @@ subroutine check_setup_radiation(npart, nerror, radprop, rad)
     ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
+
 end subroutine check_setup_radiation
 
 end module checksetup

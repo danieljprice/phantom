@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! this module does setup
+! initial conditions for binary wind accretion / AGB star wind injection
 !
-! :References: None
+! :References:
+!   Siess et al. 2022, A&A, 667, 75
 !
 ! :Owner: Lionel Siess
 !
@@ -44,84 +45,83 @@ module setup
 !   - temp_exponent     : *temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)*
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
-! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
-!   setbinary, spherical, units
+! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
+!   prompting, setbinary, sethierarchical, spherical, units
 !
-
-
-!   incl,posang_ascnode, arg_peri, omega_corotate, f, verbose not needed but may be included
-
-!
-! :Dependencies: eos, infile_utils, inject, io, part, physcon, prompting,
-!   setbinary, spherical, units
-!
-
+ use dim, only:isothermal
  implicit none
  public :: setpart
 
  private
- real, public :: wind_gamma    = 5./3.
-#ifdef ISOTHERMAL
- real, public :: T_wind        = 30000.
- real :: temp_exponent         = 0.5
- ! real :: primary_racc_au       = 0.465
- ! real :: primary_mass_msun     = 1.5
- ! real :: primary_lum_lsun      = 0.
- ! real :: primary_Reff_au       = 0.465240177008 !100 Rsun
-#else
- real, public :: T_wind = 3000.
- !real :: primary_racc_au       = 1.
- !real :: primary_mass_msun     = 1.5
- !real :: primary_lum_lsun      = 20000.
- !real :: primary_Reff_au       = 0.
-#endif
- integer :: icompanion_star = 0
- integer :: iwind
- real :: semi_major_axis       = 4.0
- real :: eccentricity          = 0.
- real :: primary_Teff          = 3000.
- real :: secondary_Teff        = 0.
- real :: semi_major_axis_au    = 4.0
- real :: default_particle_mass = 1.e-11
- real :: primary_lum_lsun      = 5315.
- real :: primary_mass_msun     = 1.5
- real :: primary_Reff_au       = 1.
- real :: primary_racc_au       = 1.
- real :: secondary_lum_lsun    = 0.
- real :: secondary_mass_msun   = 1.0
- real :: secondary_Reff_au     = 0.
- real :: secondary_racc_au     = 0.1
- real :: lum2a_lsun            = 0.
- real :: lum2b_lsun            = 0.
- real :: Teff2a                = 0.
- real :: Teff2b                = 0.
- real :: Reff2a_au             = 0.
- real :: Reff2b_au             = 0.
- real :: binary2_a_au          = 0.3
- real :: racc2a_au             = 0.1
- real :: racc2b_au             = 0.1
- real :: binary2_i             = 0.
- real :: primary_Reff
- real :: primary_lum
- real :: primary_mass
- real :: primary_racc
- real :: secondary_Reff
- real :: secondary_lum
- real :: secondary_mass
- real :: secondary_racc
- real :: Reff2a
- real :: Reff2b
- real :: racc2a
- real :: racc2b
- real :: lum2a
- real :: lum2b
- real :: q2
+ real, public :: wind_gamma
+ real, public :: T_wind
+ real :: temp_exponent
+ integer :: icompanion_star,iwind
+ real :: semi_major_axis,semi_major_axis_au,eccentricity
+ real :: default_particle_mass
+ real :: primary_lum_lsun,primary_mass_msun,primary_Reff_au,primary_racc_au
+ real :: secondary_lum_lsun,secondary_mass_msun,secondary_Reff_au,secondary_racc_au
+ real :: lum2a_lsun,lum2b_lsun,Teff2a,Teff2b,Reff2a_au,Reff2b_au
+ real :: binary2_a_au,racc2a_au,racc2b_au,binary2_i,q2
+ real :: primary_Reff,primary_Teff,primary_lum,primary_mass,primary_racc
+ real :: secondary_Reff,secondary_Teff,secondary_lum,secondary_mass,secondary_racc
+ real :: Reff2a,Reff2b
+ real :: racc2a,racc2b
+ real :: lum2a,lum2b
  real :: binary2_a
  real :: binary2_e
  integer :: subst
 
-
 contains
+!----------------------------------------------------------------
+!+
+!  default parameter choices
+!+
+!----------------------------------------------------------------
+subroutine set_default_parameters_wind()
+
+ wind_gamma    = 5./3.
+ if (isothermal) then
+    T_wind        = 30000.
+    temp_exponent         = 0.5
+    ! primary_racc_au       = 0.465
+    ! primary_mass_msun     = 1.5
+    ! primary_lum_lsun      = 0.
+    ! primary_Reff_au       = 0.465240177008 !100 Rsun
+ else
+    T_wind = 3000.
+    !primary_racc_au       = 1.
+    !primary_mass_msun     = 1.5
+    !primary_lum_lsun      = 20000.
+    !primary_Reff_au       = 0.
+ endif
+ icompanion_star = 0
+ semi_major_axis       = 4.0
+ eccentricity          = 0.
+ primary_Teff          = 3000.
+ secondary_Teff        = 0.
+ semi_major_axis_au    = 4.0
+ default_particle_mass = 1.e-11
+ primary_lum_lsun      = 5315.
+ primary_mass_msun     = 1.5
+ primary_Reff_au       = 1.
+ primary_racc_au       = 1.
+ secondary_lum_lsun    = 0.
+ secondary_mass_msun   = 1.0
+ secondary_Reff_au     = 0.
+ secondary_racc_au     = 0.1
+ lum2a_lsun            = 0.
+ lum2b_lsun            = 0.
+ Teff2a                = 0.
+ Teff2b                = 0.
+ Reff2a_au             = 0.
+ Reff2b_au             = 0.
+ binary2_a_au          = 0.3
+ racc2a_au             = 0.1
+ racc2b_au             = 0.1
+ binary2_i             = 0.
+
+end subroutine set_default_parameters_wind
 
 !----------------------------------------------------------------
 !+
@@ -133,10 +133,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: init_inject
- use setbinary, only: set_binary,set_multiple
+ use setbinary, only: set_binary
+ use sethierarchical, only: set_multiple
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
- use spherical, only:set_sphere
+ use spherical, only: set_sphere
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -151,6 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical :: iexist
 
  call set_units(dist=au,mass=solarm,G=1.)
+ call set_default_parameters_wind()
 !
 !--general parameters
 !
@@ -264,25 +266,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  !
- ! for binary wind simulations this mass is IRRELEVANT
+ ! for binary wind simulations the particle mass is IRRELEVANT
  ! since it will be over-written on the first call to init_inject
  !
  massoftype(igas) = default_particle_mass * (solarm / umass)
 
-#ifdef ISOTHERMAL
- gamma = 1.
- if (iwind == 3) then
-    ieos = 6
-    qfacdisc = 0.5*temp_exponent
-    isink = 1
-    T_wind = primary_Teff
+ if (isothermal) then
+    gamma = 1.
+    if (iwind == 3) then
+       ieos = 6
+       qfacdisc = 0.5*temp_exponent
+       isink = 1
+       T_wind = primary_Teff
+    else
+       isink = 1
+       ieos = 1
+    endif
  else
-    isink = 1
-    ieos = 1
+    gamma = wind_gamma
  endif
-#else
- gamma = wind_gamma
-#endif
  polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
 
 end subroutine setpart
@@ -299,16 +301,16 @@ subroutine setup_interactive()
  use io,        only:fatal
  integer :: ichoice
 
-#ifdef ISOTHERMAL
- iwind = 2
-#else
- iwind = 1
- call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
- if (iwind == 2 .or. iwind == 3) then
-    call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
+ if (isothermal) then
+    iwind = 2
+ else
+    iwind = 1
+    call prompt('Type of wind:  1=adia, 2=isoT, 3=T(r)',iwind,1,3)
+    if (iwind == 2 .or. iwind == 3) then
+       call fatal('setup','If you choose options 2 or 3, the code must be compiled with SETUP=isowind')
+    endif
+    if (iwind == 3) T_wind = primary_Teff
  endif
- if (iwind == 3) T_wind = primary_Teff
-#endif
 
  icompanion_star = 1
  call prompt('Add binary?',icompanion_star,0,2)
@@ -586,7 +588,8 @@ subroutine write_setupfile(filename)
     if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
         secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
 
-    secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+    secondary_Reff = secondary_Reff_au*(au / udist)
+    secondary_lum  = secondary_lum_lsun * (solarl * utime / unit_energ)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     !-- hierarchical triple
     write(iunit,"(/,a)") '# options for hierarchical triple'
@@ -666,19 +669,20 @@ subroutine write_setupfile(filename)
        call write_inopt(eccentricity,'eccentricity','eccentricity of the binary system',iunit)
     endif
  endif
+
  call write_inopt(default_particle_mass,'mass_of_particles','particle mass (Msun, overwritten if iwind_resolution <>0)',iunit)
 
-#ifdef ISOTHERMAL
- wind_gamma = 1.
- if (iwind == 3) then
-    call write_inopt(primary_Teff,'T_wind','wind temperature at injection radius (K)',iunit)
-    call write_inopt(temp_exponent,'temp_exponent','temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)',iunit)
+ if (isothermal) then
+    wind_gamma = 1.
+    if (iwind == 3) then
+       call write_inopt(primary_Teff,'T_wind','wind temperature at injection radius (K)',iunit)
+       call write_inopt(temp_exponent,'temp_exponent','temperature profile T(r) = T_wind*(r/Reff)^(-temp_exponent)',iunit)
+    else
+       call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+    endif
  else
-    call write_inopt(T_wind,'T_wind','wind temperature (K)',iunit)
+    call write_inopt(wind_gamma,'wind_gamma','adiabatic index (initial if Krome chemistry used)',iunit)
  endif
-#else
- call write_inopt(wind_gamma,'wind_gamma','adiabatic index (initial if Krome chemistry used)',iunit)
-#endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -711,6 +715,11 @@ subroutine read_setupfile(filename,ierr)
  primary_Reff = primary_Reff_au * au / udist
  call read_inopt(primary_racc_au,'primary_racc',db,min=0.,errcount=nerr)
  primary_racc = primary_racc_au * au / udist
+ if (primary_racc < tiny(0.)) then
+    print *,'ERROR: primary accretion radius not defined'
+    nerr = nerr+1
+ endif
+
  call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
  if (icompanion_star == 1) then
     call read_inopt(secondary_mass_msun,'secondary_mass',db,min=0.,max=1000.,errcount=nerr)
@@ -722,12 +731,17 @@ subroutine read_setupfile(filename,ierr)
     secondary_Reff = secondary_Reff_au * au / udist
     call read_inopt(secondary_racc_au,'secondary_racc',db,min=0.,errcount=nerr)
     secondary_racc = secondary_racc_au * au / udist
+    if (secondary_racc < tiny(0.)) then
+       print *,'ERROR: secondary accretion radius not defined'
+       nerr = nerr+1
+    endif
     call read_inopt(semi_major_axis_au,'semi_major_axis',db,min=0.,errcount=nerr)
     semi_major_axis = semi_major_axis_au * au / udist
     call read_inopt(eccentricity,'eccentricity',db,min=0.,errcount=nerr)
  elseif (icompanion_star == 2) then
     !-- hierarchical triple
     call read_inopt(subst,'subst',db,errcount=nerr)
+    !replace primary by tight binary system : 2+1
     if (subst == 11) then
        call read_inopt(secondary_lum_lsun,'secondary_lum',db,min=0.,max=1000.,errcount=nerr)
        secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
@@ -761,49 +775,31 @@ subroutine read_setupfile(filename,ierr)
     !-- accretion radii,...
     call read_inopt(racc2b_au,'racc2b',db,errcount=nerr)
     racc2b = racc2b_au * au / udist
+    if (racc2b < tiny(0.)) then
+       print *,'WARNING: secondary accretion radius not defined'
+       !nerr = nerr+1
+    endif
     call read_inopt(lum2b_lsun,'lum2b',db,errcount=nerr)
     lum2b = lum2b_lsun * (solarl * utime / unit_energ)
     call read_inopt(Teff2b,'Teff2b',db,errcount=nerr)
     call read_inopt(Reff2b_au,'Reff2b',db,errcount=nerr)
     Reff2b = Reff2b_au * au / udist
     call read_inopt(binary2_i,'inclination',db,errcount=nerr)
+ endif
 
- endif
  call read_inopt(default_particle_mass,'mass_of_particles',db,min=0.,errcount=nerr)
-#ifdef ISOTHERMAL
- wind_gamma = 1.
- call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
- if (iwind == 3) call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
-#else
- call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
-#endif
+
+ if (isothermal) then
+    wind_gamma = 1.
+    call read_inopt(T_wind,'T_wind',db,min=0.,errcount=nerr)
+    if (iwind == 3) call read_inopt(temp_exponent,'temp_exponent',db,min=0.,max=5.,errcount=nerr)
+ else
+    call read_inopt(wind_gamma,'wind_gamma',db,min=1.,max=4.,errcount=nerr)
+ endif
  call close_db(db)
- if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff > 0.) then
-    ichange = ichange+1
-    primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*(primary_Reff*udist)**2))**0.25
- endif
- if (primary_Reff == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) then
-    ichange = ichange+1
-    primary_Reff = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/udist
-    primary_Reff_au = primary_Reff * udist / au
- endif
- if (primary_Reff > 0.  .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) then
-    ichange = ichange+1
-    primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff*udist)**2/solarl
- endif
- if (icompanion_star == 1) then
-    if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff > 0.) then
-       ichange = ichange+1
-       secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff*udist)**2))**0.25
-    endif
-    if (secondary_Reff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) then
-       ichange = ichange+1
-       secondary_Reff = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/udist
-       secondary_Reff_au = secondary_Reff * udist / au
-    endif
- endif
  ierr = nerr
  call write_setupfile(filename)
 
 end subroutine read_setupfile
+
 end module setup

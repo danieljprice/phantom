@@ -75,7 +75,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
 
  if (ISM > 0) then
-   ISM_heating = .true.
+    ISM_heating = .true.
  endif
 
  if (.not.init_mcfost) then

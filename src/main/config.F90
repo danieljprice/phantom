@@ -49,8 +49,10 @@ module dim
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
+ logical, parameter :: isothermal = .true.
 #else
  integer, parameter :: maxvxyzu = 4
+ logical, parameter :: isothermal = .false.
 #endif
 
  integer :: maxTdust = 0
@@ -280,6 +282,7 @@ module dim
 !--------------------
  logical :: do_nucleation = .false.
  integer :: itau_alloc    = 0
+ integer :: itauL_alloc   = 0
  integer :: inucleation   = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
@@ -334,6 +337,7 @@ module dim
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
  integer :: maxgran = 0
+ integer :: maxindan = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
@@ -432,6 +436,10 @@ subroutine update_max_sizes(n,ntot)
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
  maxgran = maxgr
+#endif
+
+#ifdef IND_TIMESTEPS
+ maxindan = maxan
 #endif
 
 #ifdef RADIATION
