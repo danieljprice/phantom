@@ -38,7 +38,6 @@ logical function escape(velocity_on_orbit,central_obj_m,position_of_obj)
  ! orbit is velocity of object wrt central obj, central_obh_m is mass of central
  ! object
 
- use units , only : umass,udist,unit_velocity
  use physcon,only : gg
 
  real, intent(in) :: velocity_on_orbit,central_obj_m,position_of_obj
@@ -46,13 +45,11 @@ logical function escape(velocity_on_orbit,central_obj_m,position_of_obj)
 
 
  escape_vel = sqrt((2.*gg*central_obj_m)/(position_of_obj))
- print*,escape_vel,"escape vel",unit_velocity,"unit velocity"
  if (velocity_on_orbit > escape_vel) then
     print*,'star has escaped',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
     print*, velocity_on_orbit/(1e5),"vel of star in Km/s"
     escape = .true.
  else
-    print*,'star is bound',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
     escape = .false.
     print*, velocity_on_orbit/(1e5),"in Km/s"
  endif
@@ -95,7 +92,6 @@ end function vcrossh
  !+
  !----------------------------------------------------------------
 function  eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
- use units , only : umass
  use physcon,only : gg,pi
 
  real, intent(in)  :: pos_vec(3),vel_vec(3)
@@ -135,7 +131,6 @@ end function eccentricity_star
  !----------------------------------------------------------------
 real function semimajor_axis(mass1,mass2,pos_vec,vel_vec)
 
- use units , only : umass
  use physcon,only : gg,pi
 
  real, intent(in) :: mass1,mass2
@@ -159,7 +154,6 @@ end function semimajor_axis
  !----------------------------------------------------------------
 real function period_star(mass1,mass2,pos_vec,vel_vec)
 
- use units , only : umass
  use physcon,only : gg,pi
 
  real, intent(in) :: mass1,mass2
