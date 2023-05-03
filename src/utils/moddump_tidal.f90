@@ -255,6 +255,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(2,i) = vxyzu(2,i) + vy0
     vxyzu(3,i) = vxyzu(3,i) + vz0
  enddo
+
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
