@@ -16,10 +16,10 @@ module orbits_data
 !
 ! :Dependencies: physcon, units, vectorutils
 !
-
+! Accepts values in cgs units 
  implicit none
 
- public :: escape, orbital_parameters, eccentricity_vector_v, eccentricity_star
+ public :: escape, eccentricity_vector, eccentricity_star
  public :: semimajor_axis, period_star, orbital_angles
  public :: isco_kerr
 
@@ -32,134 +32,138 @@ contains
  !  This function tells if the star escaped the black hole or not
  !+
  !----------------------------------------------------------------
-logical function escape(velocity_bh,bh_mass,position_bh)
+logical function escape(velocity_on_orbit,central_obj_m,position_of_obj)
 
- use units , only : umass
+ ! we require the position of object on orbit/ wrt central object, velocity on
+ ! orbit is velocity of object wrt central obj, central_obh_m is mass of central
+ ! object
+
  use physcon,only : gg
 
- real, intent(in) :: velocity_bh, position_bh, bh_mass
+ real, intent(in) :: velocity_on_orbit,central_obj_m,position_of_obj
  real             :: escape_vel
 
 
- escape_vel = sqrt((2.*gg*bh_mass*umass)/position_bh)
-
- if (velocity_bh > escape_vel) then
-    print*,'star has escaped',velocity_bh/escape_vel,'vel bh/escape vel'
+ escape_vel = sqrt((2.*gg*central_obj_m)/(position_of_obj))
+ if (velocity_on_orbit > escape_vel) then
+    print*,'star has escaped',(velocity_on_orbit)/escape_vel,'vel bh/escape vel'
+    print*, velocity_on_orbit/(1e5),"vel of star in Km/s"
     escape = .true.
  else
-    print*,'star is bound',velocity_bh/escape_vel,'vel bh/escape vel'
     escape = .false.
+    print*, velocity_on_orbit/(1e5),"in Km/s"
  endif
 end function escape
- !----------------------------------------------------------------
- !+
- !  This routine calculates orbital parameters.
- !+
- !----------------------------------------------------------------
-subroutine orbital_parameters(angular_momentum_h,bh_mass,mass_star,com_star,position_bh,velocity_wrt_bh)
 
+ !----------------------------------------------------------------
+ !+
+ !  This function calculates h vector.
+ !+
+ !----------------------------------------------------------------
+function hvector(pos_vec,vel_vec)
  use vectorutils,     only : cross_product3D
- use physcon,         only : years,pc,pi
+ 
+ real,intent(in) :: pos_vec(3),vel_vec(3)
+ real,dimension(3) :: hvector
 
- real, intent(in)   :: angular_momentum_h(3),com_star(3),velocity_wrt_bh(3)
- real, intent(in)   :: bh_mass, mass_star, position_bh
- real               :: eccentricity_value,semimajor_value,period_value
- real               :: h_value
- real               :: vcrossh(3),eccentricity_vector(3)
- real               :: inclination_angle,argument_of_periestron,longitude_ascending_node
+ call cross_product3D(vel_vec,pos_vec,hvector)
 
- !h_value is the magnitude of angular_momentum_h vector squared.
- h_value = dot_product(angular_momentum_h,angular_momentum_h) !square of the magnitude of h vector
- print*,acos(abs(angular_momentum_h(1))/h_value),'inclination x',abs(angular_momentum_h(1))/h_value
- print*,acos(abs(angular_momentum_h(2))/h_value),'inclination y',abs(angular_momentum_h(2))/h_value
- print*,acos(abs(angular_momentum_h(3))/h_value),'inclination z',abs(angular_momentum_h(3))/h_value
- print*,'h_value',h_value,angular_momentum_h(1),angular_momentum_h(2),angular_momentum_h(3)
+end function hvector
 
- ! semimajor = h_value/((gg*(mass(ngrid-1)+bh_mass)*umass)*(1-eccentricity_star**2))
- ! period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass(ngrid-1)+bh_mass)*umass))
- ! print*,semimajor/pc,'semimajor axis in Parsec',period_star/years,'period in years'
+ !----------------------------------------------------------------
+ !+
+ !  This function calculates h vector.
+ !+
+ !----------------------------------------------------------------
+function vcrossh(pos_vec,vel_vec)
+ use vectorutils,     only : cross_product3D
 
- call cross_product3D(velocity_wrt_bh,angular_momentum_h,vcrossh)
+ real,intent(in) :: vel_vec(3),pos_vec(3)
+ real,dimension(3) :: h_vector,vcrossh
 
- call eccentricity_vector_v(vcrossh, mass_star, bh_mass, com_star, position_bh, eccentricity_vector)
+ h_vector = hvector(pos_vec,vel_vec)
+ call cross_product3D(vel_vec,h_vector,vcrossh)
 
- eccentricity_value = eccentricity_star(eccentricity_vector)
- print*, eccentricity_value, "eccentricity"
-
- semimajor_value = semimajor_axis(h_value,mass_star,bh_mass,eccentricity_value)
- print*, semimajor_value/pc, "value of semi-major axis `a` in Parsec"
-
- period_value = period_star(semimajor_value,mass_star,bh_mass)
- print*, period_value/years, "Period of the orbit in years"
-
- call orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
-                              inclination_angle,argument_of_periestron,longitude_ascending_node)
-
- print*,inclination_angle*(180/pi),'i',argument_of_periestron*(180/pi),'w',longitude_ascending_node*(180/pi),'omega'
-
-end subroutine orbital_parameters
+end function vcrossh
 
  !----------------------------------------------------------------
  !+
  !  This function calculates eccentricity vector of the orbit.
  !+
  !----------------------------------------------------------------
-subroutine eccentricity_vector_v(vcrossh, mass_star, bh_mass, com_star, position_bh,eccentricity_vector)
- use units , only : umass
+function  eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
  use physcon,only : gg,pi
 
- real, intent(in)  :: vcrossh(3), com_star(3)
- real, intent(in)  :: mass_star, bh_mass, position_bh
- real, intent(out) :: eccentricity_vector(3)
+ real, intent(in)  :: pos_vec(3),vel_vec(3)
+ real, intent(in)  :: mass1,mass2
+ real, dimension(3) :: eccentricity_vector
+ real, dimension(3) :: vcrossh_vec
+ real               :: pos_vec_mag
 
- !eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
- eccentricity_vector(:) = (vcrossh(:)/(gg*(mass_star+bh_mass)*umass)) - (com_star(:)/position_bh)
+ vcrossh_vec = vcrossh(pos_vec,vel_vec)
+ pos_vec_mag = sqrt(dot_product(pos_vec,pos_vec)) 
 
-end subroutine eccentricity_vector_v
+ ! eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat 
+ eccentricity_vector(:) = (vcrossh_vec(:)/(gg*(mass1+mass2))) - (pos_vec/pos_vec_mag)
+
+end function eccentricity_vector
+
  !----------------------------------------------------------------
  !+
  !  This function calculates eccentricity of the orbit.
  !+
  !----------------------------------------------------------------
-real function eccentricity_star(eccentricity_vector)
-
- real, intent(in) :: eccentricity_vector(3)
-
- eccentricity_star = sqrt(dot_product(eccentricity_vector,eccentricity_vector))
+real function eccentricity_star(mass1,mass2,pos_vec,vel_vec)
+ 
+ real, intent(in)  :: pos_vec(3),vel_vec(3)
+ real, intent(in)  :: mass1,mass2
+ real, dimension(3) :: ecc_vector
+ ecc_vector = eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
+ 
+ eccentricity_star = sqrt(dot_product(ecc_vector,ecc_vector))
 
 end function eccentricity_star
 
  !----------------------------------------------------------------
  !+
- !  This function calculates semimajor axis of the orbit.
+ !  This function calculates semimajor axis of the orbit in cm.
  !+
  !----------------------------------------------------------------
-real function semimajor_axis(h2_value,mass_star,bh_mass,eccentricity_value)
+real function semimajor_axis(mass1,mass2,pos_vec,vel_vec)
 
- use units , only : umass
  use physcon,only : gg,pi
 
- real, intent(in) :: h2_value,mass_star,bh_mass,eccentricity_value
+ real, intent(in) :: mass1,mass2
+ real, intent(in) :: pos_vec(3),vel_vec(3)
+ real :: h2,eccentricity_value,h_vector(3)
+
+ eccentricity_value = eccentricity_star(mass1,mass2,pos_vec,vel_vec)
+ h_vector = hvector(pos_vec,vel_vec)
+ h2 = dot_product(h_vector,h_vector)
 
  !formula used is a = h^2/(G(M*+M_BH)*(1-e^2))
- semimajor_axis = h2_value/((gg*(mass_star+bh_mass)*umass)*(1-eccentricity_value**2))
+ semimajor_axis = h2/((gg*(mass1+mass2))*(1-eccentricity_value**2))
+
 
 end function semimajor_axis
 
  !----------------------------------------------------------------
  !+
- !  This function calculates period of the orbit.
+ !  This function calculates period of the orbit in seconds.
  !+
  !----------------------------------------------------------------
-real function period_star(semimajor_value,mass_star,bh_mass)
+real function period_star(mass1,mass2,pos_vec,vel_vec)
 
- use units , only : umass
  use physcon,only : gg,pi
 
- real, intent(in) :: semimajor_value,mass_star,bh_mass
+ real, intent(in) :: mass1,mass2
+ real, intent(in) :: pos_vec(3),vel_vec(3)
+ real :: semimajor
+ 
+ semimajor = semimajor_axis(mass1,mass2,pos_vec,vel_vec)
 
-
- period_star = sqrt((4*pi**2*abs(semimajor_value)**3)/(gg*(mass_star+bh_mass)*umass))
+ ! using Kepler's 3rd law to calculated period 
+ period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass1+mass2)))
 
 end function period_star
 
@@ -169,28 +173,39 @@ end function period_star
  !  argument of pariestron, longitude ascending node.
  !+
  !----------------------------------------------------------------
-subroutine orbital_angles(angular_momentum_h,eccentricity_vector,eccentricity_value,h_value,&
+subroutine orbital_angles(mass1,mass2,pos_vec,vel_vec,&
                             inclination_angle,argument_of_periestron,longitude_ascending_node)
 
  use vectorutils, only : cross_product3D
 
- real, intent(in)   :: angular_momentum_h(3),eccentricity_vector(3)
- real , intent(in)  :: h_value,eccentricity_value
+ real, intent(in)   :: mass1,mass2
+ real, intent(in)   :: pos_vec(3),vel_vec(3)
  real               :: i_vector(3),j_vector(3),k_vector(3),n_vector(3)
- real               :: n_vector_mag
+ real               :: n_vector_mag,h_val,h_vector(3),ecc_vec(3),ecc_val,ecc_hat(3),n_hat(3),h_hat(3)
  real, intent(out)  :: inclination_angle,argument_of_periestron,longitude_ascending_node
 
+ h_vector = hvector(pos_vec,vel_vec)
+ h_val = sqrt(dot_product(h_vector,h_vector))
+ h_hat = h_vector(:)/h_val
+
+ ecc_vec = eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
+ ecc_val = eccentricity_star(mass1,mass2,pos_vec,vel_vec)
+ ecc_hat = ecc_vec(:)/ecc_val
 
  i_vector = (/1,0,0/)
  j_vector = (/0,1,0/)
  k_vector = (/0,0,1/)
 
- call cross_product3D(k_vector,angular_momentum_h,n_vector)
+ ! n vector = k cross h 
+ call cross_product3D(k_vector,h_vector,n_vector)
  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
- inclination_angle = acos(dot_product(k_vector,angular_momentum_h/sqrt(h_value)))
- argument_of_periestron = acos(dot_product(eccentricity_vector/eccentricity_value,n_vector/n_vector_mag))
- longitude_ascending_node = acos(dot_product(j_vector,n_vector/n_vector_mag))
+ n_hat = n_vector/n_vector_mag
 
+ ! calculate inclination angle 
+ inclination_angle = acos(dot_product(k_vector,h_hat))
+ argument_of_periestron = acos(dot_product(ecc_hat,n_hat))
+ longitude_ascending_node = acos(dot_product(i_vector,n_hat))
+ 
 
 end subroutine orbital_angles
 

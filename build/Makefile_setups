@@ -742,6 +742,7 @@ ifeq ($(SETUP), grstar)
     GR=yes
     METRIC=minkowski
     FPPFLAGS=
+    IND_TIMESTEPS=yes
     SETUPFILE= setup_star.f90
     MODFILE= moddump_tidal.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90

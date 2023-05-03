@@ -48,7 +48,7 @@ module moddump
          ecc_binary !eccentricity of the black hole
 
  integer, public :: iorigin  ! which black hole to use for the origin
- logical,public :: use_binary
+ logical,public :: use_binary,use_sink
 
 contains
 
@@ -65,7 +65,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use orbits_data,    only:isco_kerr
  use vectorutils,    only:rotatevec
  use setbinary,      only:set_binary
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use io,             only:fatal
  integer,  intent(inout) :: npart
  integer,  intent(inout) :: npartoftype(:)
@@ -95,7 +95,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  phi   = 0.                  ! stellar tilting along y
  ecc   = 1.                  ! eccentricity
  incline = 0.                ! inclination (in x-z plane)
-
  semimajoraxis_binary = 1000.*solarr/udist   !separation distance
  if (.not. gr) then
     spin = 0.
@@ -105,10 +104,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  Mh2        = 1.e6*solarm/umass !setting mass of a second BH
  ecc_binary = 1.                !Eccentricity of the binary system
  m0 = Mh1
- print*,ecc_binary,"Ecc of binary",semimajoraxis_binary,"semimajoraxis binary"
+ rt = (m0/ms)**(1./3.) * rs
 
+ ! setting a default r0 value 
+ r0 = 10*rt
+ 
  ! default parameters for binary (overwritten from .tdeparams file)
  use_binary = .false.
+ use_sink = .false.
  iorigin = 0
 
  filename = 'tde'//'.tdeparams'                                ! moddump should really know about the output file prefix...
@@ -122,7 +125,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,"--------------------------------------------"
  print*,use_binary,"use_binary"
  print*,"--------------------------------------------"
-
+ 
+ m0 = Mh1
  if (use_binary) then
     select case(iorigin)
     case(1)
@@ -133,10 +137,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        m0 = Mh1 + Mh2
     end select
  endif
-
+ 
  rt = (m0/ms)**(1./3.) * rs
  rp = rt/beta
- r0 = 10.*rt
  theta=theta*pi/180.0
  !--Reset center of mass
  call reset_centreofmass(npart,xyzh,vxyzu)
@@ -166,7 +169,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vz0 = vxyzstar(3)
 
  elseif (abs(ecc-1.) < tiny(1.)) then
-    print*, 'Parabolic orbit'
+    print*, 'Parabolic orbit',r0,"r0"
     y0    = -2.*rp + r0
     x0    = -sqrt(r0**2 - y0**2)
     z0    = 0.
@@ -183,7 +186,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set input file parameters
  print*,x0,y0,"x0,y0",vx0,"vx0",vy0,"vy0"
  accradius1     = (2*Mh1)/(c_light**2) ! R_sch = 2*G*Mh/c**2
-
+ print*,"use sink", use_sink
  !--Set input file parameters
  if (gr) then
     ! single black hole in GR
@@ -197,6 +200,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call set_binary(Mh1,Mh2,semimajoraxis_binary,ecc_binary, &
                     accradius1,accradius2, &
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+ elseif (use_sink) then
+   ! single black hole in Newtonian gravity using a sink particle
+    nptmass = nptmass + 1
+    xyzmh_ptmass(:,nptmass) = 0.
+    xyzmh_ptmass(4,nptmass) = m0
+    xyzmh_ptmass(ihacc,nptmass) = accradius1
+    xyzmh_ptmass(ihsoft,nptmass) = accradius1
+    vxyz_ptmass(:,nptmass) = 0.
  else
     ! single black hole in Newtonian gravity
     mass1          = m0
@@ -244,6 +255,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(2,i) = vxyzu(2,i) + vy0
     vxyzu(3,i) = vxyzu(3,i) + vz0
  enddo
+
  !check angular momentum after putting star on orbit
  call get_angmom(ltot,npart,xyzh,vxyzu)
 
@@ -269,6 +281,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  write(*,'(a,Es12.5,a)') ' Stellar mass        = ',ms,' code units'
  write(*,'(a,Es12.5,a)') ' Tilting along y     = ',theta,' degrees'
  write(*,'(a,Es12.5,a)') ' Eccentricity of stellar orbit      = ',ecc
+ write(*,'(a,Es12.5,a)') ' Mass of BH =',m0,' code units'
  write(*,'(a,Es12.5,a)') ' Inclination         = ',incline,' degrees'
  if (gr) then
     write(*,'(a,Es12.5,a)') ' Spin of black hole "a"       = ',a
@@ -277,6 +290,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     write(*,'(a)') "Use Binary BH = True"
     write(*,'(a,Es12.5,a)')'Eccentricity of the binary black hole system = ', ecc_binary
     write(*,'(a,Es12.5,a)') 'Separation betweent the two black holes = ', semimajoraxis_binary
+ elseif (use_sink .and. .not.gr) then 
+    write(*,'(a)') "Use Sink particle as BH = True"
  else
     write(*,'(a)') "Use Binary BH = False"
  endif
@@ -310,6 +325,7 @@ subroutine write_setupfile(filename)
  endif
  if (.not. gr) then
     call write_inopt(use_binary, 'use binary', 'true/false', iunit)
+    call write_inopt(use_sink, 'use sink', 'true/false', iunit)
     if (use_binary) then
        call write_inopt(iorigin,'iorigin','0 = COM of BBH, 1 = Sink 1, 2 = Sink 2', iunit)
        call write_inopt(Mh2,    'Mh2',    'mass of second black hole (code units)',iunit)
@@ -336,7 +352,7 @@ subroutine read_setupfile(filename,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_inopt(beta,   'beta',   db,min=0.,errcount=nerr)
- call read_inopt(mh1,    'mh',     db,min=0.,errcount=nerr)
+ call read_inopt(Mh1,    'mh',     db,min=0.,errcount=nerr)
  call read_inopt(ms,     'ms',     db,min=0.,errcount=nerr)
  call read_inopt(rs,     'rs',     db,min=0.,errcount=nerr)
  call read_inopt(theta,  'theta',  db,min=0.,errcount=nerr)
@@ -349,6 +365,7 @@ subroutine read_setupfile(filename,ierr)
  endif
  if (.not. gr) then
     call read_inopt(use_binary, 'use binary', db, errcount=nerr)
+    call read_inopt(use_sink, 'use sink', db, errcount=nerr)
     if (use_binary) then
        call read_inopt(iorigin,'iorigin',db,min=0,max=2,errcount=nerr)
        call read_inopt(Mh2, 'Mh2',    db,min=0.,errcount=nerr)
