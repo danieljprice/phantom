@@ -200,7 +200,7 @@ end subroutine read_kepler_file
 !+
 !-----------------------------------------------------------------------
 subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
-                             xyzh,npart,npts,composition_exists)
+                             xyzh,npart,npts,composition_exists,npin)
 
  use table_utils, only:yinterp
  integer, intent(in)                        :: columns_compo,npart,npts
@@ -208,13 +208,16 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
  real, allocatable,intent(in)               :: r(:)
  real, allocatable, intent(in)              :: composition(:,:)
  character(len=20), allocatable,intent(in)  :: comp_label(:)
- real , allocatable                         :: compositioni(:,:)
  logical, intent(out)                       :: composition_exists
+ integer, intent(in), optional              :: npin
+ real , allocatable                         :: compositioni(:,:)
  real, allocatable                          :: comp(:)
- integer                                    :: i,j,iu
+ integer                                    :: i,j,iu,i1
  real                                       :: ri
 
  composition_exists = .false.
+ i1 = 0
+ if (present(npin)) i1=npin
 
  ! !Check if composition exists. If composition array is non-zero, we use it to interpolate composition for each particle
  ! !in the star.
@@ -231,7 +234,7 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
     !Now setting the composition of star if the case used was ikepler
     allocate(compositioni(columns_compo,1))
     allocate(comp(1:npts))
-    do i = 1,npart
+    do i = i1+1,npart
        !Interpolate compositions
        ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
 
