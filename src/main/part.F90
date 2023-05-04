@@ -1120,6 +1120,25 @@ end subroutine set_particle_type
 
 !----------------------------------------------------------------
 !+
+!  utility function to retrieve particle type
+!  This routine accesses iphase from the global arrays:
+!  hence it is NOT safe to use in parallel loops
+!+
+!----------------------------------------------------------------
+subroutine get_particle_type(i,itype)
+ integer, intent(in)  :: i
+ integer, intent(out) :: itype
+
+ if (maxphase==maxp) then
+    itype = iamtype(iphase(i))
+ else
+    itype = igas
+ endif
+
+end subroutine get_particle_type
+
+!----------------------------------------------------------------
+!+
 !  utility function to get strain tensor from dvdx array
 !+
 !----------------------------------------------------------------
