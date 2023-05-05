@@ -286,6 +286,28 @@ end function is_length_unit
 
 !------------------------------------------------------------------------------------
 !+
+!  parse a string like "10.*days" or "10*au" and return the value in code units
+!  if there is no recognisable units, the value is returned unscaled
+!+
+!------------------------------------------------------------------------------------
+real function in_code_units(string,ierr) result(rval)
+ character(len=*), intent(in)  :: string
+ integer,          intent(out) :: ierr
+ real(kind=8) :: val
+
+ call select_unit(string,val,ierr)
+ if (is_time_unit(string) .and. ierr == 0) then
+    rval = real(val/utime)
+ elseif (is_length_unit(string) .and. ierr == 0) then
+    rval = real(val/udist)
+ else
+    rval = real(val)  ! no unit conversion
+ endif
+
+end function in_code_units
+
+!------------------------------------------------------------------------------------
+!+
 !  Utility routine to extract the number in front of the unit info (e.g. 100 au)
 !+
 !------------------------------------------------------------------------------------
