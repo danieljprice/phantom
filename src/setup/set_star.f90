@@ -79,7 +79,7 @@ subroutine set_defaults_star(star)
  star%rcore          = 0.
  star%mcore          = 0.
  star%isofteningopt  = 1 ! By default, specify rcore
- star%np             = 0
+ star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
  star%outputfilename = 'mysoftenedstar.dat'
  star%dens_profile   = 'density-profile.tab'
@@ -306,13 +306,30 @@ end subroutine set_star
 !  shift star to the desired position and velocity
 !+
 !-----------------------------------------------------------------------
-subroutine shift_star(npart,xyz,vxyz,x0,v0,itype)
- use part, only:get_particle_type,set_particle_type,igas
+subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
+ use part,        only:get_particle_type,set_particle_type,igas
+ use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(inout) :: xyz(:,:),vxyz(:,:)
  real, intent(in)    :: x0(3),v0(3)
  integer, intent(in), optional :: itype
+ logical, intent(in), optional :: corotate
+ logical :: add_spin
  integer :: i,mytype
+ real    :: omega(3),L(3),lhat(3),rcyl(3),vspin(3)
+
+ !
+ !--put star in corotating frame
+ !
+ add_spin = .false.
+ if (present(corotate)) add_spin = corotate
+ if (add_spin) then
+    call cross_product3D(x0,v0,L)
+    lhat   = L/sqrt(dot_product(L,L))
+    rcyl   = x0 - dot_product(x0,lhat)*lhat
+    omega  = L/dot_product(rcyl,rcyl)
+    print*,'Adding spin to star: omega = ',omega
+ endif
 
  over_parts: do i=1,npart
     if (present(itype)) then
@@ -325,6 +342,10 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype)
     endif
     xyz(1:3,i) = xyz(1:3,i) + x0(:)
     vxyz(1:3,i) = vxyz(1:3,i) + v0(:)
+    if (add_spin) then
+       call cross_product3D(xyz(1:3,i),omega,vspin)
+       vxyz(1:3,i) = vxyz(1:3,i) + (vspin(1:3)-v0)
+    endif
  enddo over_parts
 
 end subroutine shift_star
