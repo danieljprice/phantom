@@ -13,15 +13,14 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - a            : *semi-major axis (+ve) or period (-ve)*
+!   - a            : *semi-major axis (e.g. 1 au) or period (e.g. 10*days)*
+!   - corotate     : *set stars in corotation*
 !   - eccentricity : *eccentricity*
-!   - hacc1        : *primary accretion radius*
-!   - hacc2        : *secondary accretion radius*
-!   - m1           : *mass of primary*
-!   - m2           : *mass of secondary*
+!   - relax        : *relax stars into equilibrium*
 !
-! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
-!   setbinary, units
+! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
+!   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
+!   setunits, setup_params, units
 !
  use setstar, only:star_t
  use dim,     only:gr

@@ -20,7 +20,7 @@ module relaxstar
 !
 ! :Dependencies: checksetup, damping, deriv, dim, energies, eos, fileutils,
 !   infile_utils, initial, io, io_summary, memory, options, part, physcon,
-!   ptmass, readwrite_dumps, setstar, sortutils, step_lf_global,
+!   ptmass, readwrite_dumps, setstar_utils, sortutils, step_lf_global,
 !   table_utils, units
 !
  implicit none

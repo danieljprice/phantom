@@ -11,7 +11,7 @@ module readwrite_kepler
 !
 ! :References: None
 !
-! :Owner: Megha Sharma
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

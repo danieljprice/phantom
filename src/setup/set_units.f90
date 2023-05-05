@@ -13,9 +13,11 @@ module setunits
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - dist_unit : *distance unit (e.g. au)*
+!   - mass_unit : *mass unit (e.g. solarm)*
 !
-! :Dependencies: None
+! :Dependencies: infile_utils, io, prompting, units
 !
  implicit none
  public :: write_options_units

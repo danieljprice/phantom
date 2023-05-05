@@ -27,7 +27,7 @@ module boundary_dyn
 !   - width_bkg_py   : *width of the boundary in the +y direction*
 !   - width_bkg_pz   : *width of the boundary in the +z direction*
 !
-! :Dependencies: dim, infile_utils, io, kernel, mpidomain, part
+! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain, part
 !
 
  use dim, only: maxvxyzu

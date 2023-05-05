@@ -14,9 +14,9 @@ module checksetup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
-!   units, utils_gr
+! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
+!   externalforces, io, metric_tools, nicil, options, part, physcon,
+!   sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup

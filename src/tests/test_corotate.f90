@@ -14,7 +14,8 @@ module testcorotate
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: extern_corotate, io, testutils
+! :Dependencies: extern_corotate, externalforces, io, part, ptmass,
+!   setbinary, testutils
 !
  implicit none
  public :: test_corotate

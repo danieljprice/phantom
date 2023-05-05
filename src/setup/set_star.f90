@@ -17,9 +17,9 @@ module setstar
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
-!   radiation_utils, rho_profile, setsoftenedcore, setup_params, sortutils,
-!   spherical, table_utils, unifdis, units
+! :Dependencies: centreofmass, dim, eos, extern_densprofile, infile_utils,
+!   io, mpiutils, part, physcon, prompting, radiation_utils, relaxstar,
+!   setstar_utils, unifdis, units, vectorutils
 !
  use setstar_utils, only:ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard,&
                          need_polyk

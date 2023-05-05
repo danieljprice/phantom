@@ -26,7 +26,8 @@ module setup
 !
 ! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
 !   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, spherical, table_utils, timestep, units, vectorutils
+!   setbinary, setstar_kepler, spherical, table_utils, timestep, units,
+!   vectorutils
 !
  implicit none
  public :: setpart
