@@ -14,38 +14,22 @@ module setup
 !
 ! :Runtime parameters:
 !   - EOSopt            : *EOS: 1=APR3,2=SLy,3=MS1,4=ENG (from Read et al 2009)*
-!   - Mstar             : *mass of star*
-!   - Rstar             : *radius of star*
 !   - X                 : *hydrogen mass fraction*
-!   - dist_unit         : *distance unit (e.g. au)*
 !   - gamma             : *Adiabatic index*
-!   - hsoft             : *Softening length of sink particle stellar core*
 !   - ieos              : *1=isothermal,2=adiabatic,10=MESA,12=idealplusrad*
 !   - initialtemp       : *initial temperature of the star*
-!   - input_profile     : *Path to input profile*
 !   - irecomb           : *Species to include in recombination (0: H2+H+He, 1:H+He, 2:He*
-!   - isinkcore         : *Add a sink particle stellar core*
-!   - isoftcore         : *0=no core softening, 1=cubic core, 2=constant entropy core*
-!   - isofteningopt     : *1=supply rcore, 2=supply mcore, 3=supply both*
-!   - mass_unit         : *mass unit (e.g. solarm)*
-!   - mcore             : *Mass of sink particle stellar core*
 !   - metallicity       : *metallicity*
 !   - mu                : *mean molecular weight*
-!   - np                : *approx number of particles (in box of size 2R)*
-!   - outputfilename    : *Output path for softened MESA profile*
 !   - polyk             : *polytropic constant (cs^2 if isothermal)*
-!   - rcore             : *Radius of core softening*
-!   - relax_star        : *relax star automatically during setup*
-!   - ui_coef           : *specific internal energy (units of GM/R)*
-!   - use_exactN        : *find closest particle number to np*
+!   - relax_star        : *relax star(s) automatically during setup*
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
-!   - write_rho_to_file : *write density profile to file*
+!   - write_rho_to_file : *write density profile(s) to file*
 !
-! :Dependencies: centreofmass, dim, eos, eos_gasradrec, eos_piecewise,
+! :Dependencies: dim, eos, eos_gasradrec, eos_piecewise,
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
-!   mpidomain, mpiutils, options, part, physcon, prompting,
-!   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
-!   table_utils, timestep, units
+!   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
+!   setstar, setunits, setup_params, timestep, units
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr
@@ -62,7 +46,6 @@ module setup
  !
  integer            :: EOSopt
  integer            :: need_iso
- real(kind=8)       :: udist,umass
  real               :: maxvxyzu
  logical            :: iexist
  logical            :: relax_star_in_setup,write_rho_to_file
@@ -169,14 +152,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (maxvxyzu > 3  .and. need_iso == 1) call fatal('setup','require ISOTHERMAL=yes')
  if (maxvxyzu < 4  .and. need_iso ==-1) call fatal('setup','require ISOTHERMAL=no')
  !
- ! set units
- !
- if (.not.gr) then
-    call set_units(dist=udist,mass=umass,G=1.d0)
- else
-    call set_units(mass=umass,c=1.d0,G=1.d0) ! use geometric units for gr
- endif
- !
  ! initialise the equation of state
  !
  if (ieos==9) call init_eos_piecewise_preset(EOSopt)
@@ -225,6 +200,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  use eos,           only:X_in,Z_in,gmw
  use eos_gasradrec, only:irecomb
  use setstar,       only:set_star_interactive
+ use setunits,      only:set_units_interactive
  real, intent(out)    :: polyk,gamma
  logical, intent(in)  :: iexist
  integer, intent(in)  :: id,master
@@ -233,23 +209,13 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  ierr = 0
 
  ! units
- ierr = 1
- do while (ierr /= 0)
-    call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-    call select_unit(mass_unit,umass,ierr)
-    if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
- enddo
- ierr = 1
- do while (ierr /= 0)
-    call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-    call select_unit(dist_unit,udist,ierr)
-    if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
- enddo
+ call set_units_interactive(gr)
 
+ ! star
  call set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
 
  ! equation of state
- call prompt('Enter the desired EoS for setup',ieos)
+ call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)
  select case(ieos)
  case(15) ! Helmholtz
     call prompt('Enter temperature',star%initialtemp,1.0e3,1.0e11)
@@ -289,7 +255,8 @@ subroutine write_setupfile(filename,gamma,polyk)
  use relaxstar,     only:write_options_relax
  use eos,           only:X_in,Z_in,gmw
  use eos_gasradrec, only:irecomb
- use setstar,       only:write_star_options,need_polyk
+ use setstar,       only:write_options_star,need_polyk
+ use setunits,      only:write_options_units
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -299,11 +266,8 @@ subroutine write_setupfile(filename,gamma,polyk)
  write(iunit,"(a)") '# '//trim(tagline)
  write(iunit,"(a)") '# input file for Phantom star setup'
 
- write(iunit,"(/,a)") '# units'
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
-
- call write_star_options(star,iunit)
+ call write_options_units(iunit,gr)
+ call write_options_star(star,iunit)
 
  write(iunit,"(/,a)") '# equation of state'
  call write_inopt(ieos,'ieos','1=isothermal,2=adiabatic,10=MESA,12=idealplusrad',iunit)
@@ -355,7 +319,8 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  use relaxstar,     only:read_options_relax
  use eos,           only:X_in,Z_in,gmw
  use eos_gasradrec, only:irecomb
- use setstar,       only:read_star_options
+ use setstar,       only:read_options_star
+ use setunits,      only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: need_iso,ierr
@@ -369,11 +334,10 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  nerr = 0
 
  ! units
- call read_inopt(mass_unit,'mass_unit',db,ierr)
- call read_inopt(dist_unit,'dist_unit',db,ierr)
+ call read_options_and_set_units(db,nerr,gr)
 
  ! star options
- call read_star_options(star,need_iso,ieos,polyk,db,nerr)
+ call read_options_star(star,need_iso,ieos,polyk,db,nerr)
 
  ! equation of state
  call read_inopt(ieos,'ieos',db,errcount=nerr)
@@ -401,7 +365,6 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  end select
 
  if (need_polyk(star%iprofile)) call read_inopt(polyk,'polyk',db,errcount=nerr)
- if (star%iprofile==ievrard) call read_inopt(star%ui_coef,'ui_coef',db,errcount=nerr)
 
  ! relax star options
  call read_inopt(relax_star_in_setup,'relax_star',db,errcount=nerr)
@@ -410,20 +373,6 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
 
  ! option to write density profile to file
  call read_inopt(write_rho_to_file,'write_rho_to_file',db)
-
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_star','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_star','length unit not recognised')
-    ierr = ierr + 1
- endif
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'setup_star: ',nerr,' error(s) during read of setup file'

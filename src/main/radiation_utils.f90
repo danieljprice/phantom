@@ -61,19 +61,24 @@ end function get_rad_R
 !  set equal gas and radiation temperatures for all particles
 !+
 !-------------------------------------------------------------
-subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad,mu_local)
+subroutine set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,&
+            rad,mu_local,npin)
  use part,      only:rhoh,igas,iradxi
  use eos,       only:gmw,gamma
  integer, intent(in) :: npart
  real, intent(in)    :: xyzh(:,:),vxyzu(:,:),massoftype(:)
- real, intent(in), optional :: mu_local(:)
  real, intent(out)   :: rad(:,:)
+ real,    intent(in), optional :: mu_local(:)
+ integer, intent(in), optional :: npin
  real                :: rhoi,pmassi,mu
- integer             :: i
+ integer             :: i,i1
+
+ i1 = 0
+ if (present(npin)) i1 = npin
 
  pmassi = massoftype(igas)
  mu = gmw
- do i=1,npart
+ do i=i1+1,npart
     rhoi = rhoh(xyzh(4,i),pmassi)
     if (present(mu_local)) mu = mu_local(i)
     rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,vxyzu(4,i),gamma,mu)

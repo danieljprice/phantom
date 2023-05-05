@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module setstar_mesa
+module readwrite_mesa
 !
 ! Utility routines for reading stellar profiles from the MESA code
 !
@@ -225,4 +225,4 @@ subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
 
 end subroutine write_mesa
 
-end module setstar_mesa
+end module readwrite_mesa

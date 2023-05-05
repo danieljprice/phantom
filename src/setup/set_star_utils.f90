@@ -15,11 +15,11 @@ module setstar_utils
 ! :Runtime parameters: None
 !
 ! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
-!   radiation_utils, rho_profile, setsoftenedcore, setup_params, sortutils,
-!   spherical, table_utils, unifdis, units
+!   radiation_utils, readwrite_kepler, readwrite_mesa, rho_profile,
+!   setsoftenedcore, sortutils, spherical, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
- use setstar_kepler,     only:write_kepler_comp
+ use readwrite_kepler,   only:write_kepler_comp
  implicit none
  !
  ! Index of setup options
@@ -61,16 +61,17 @@ contains
 !  read stellar profile (density, pressure, temperature, composition) from file
 !+
 !-------------------------------------------------------------------------------
-subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,den,pres,temp,en,mtab,&
-                             X_in,Z_in,Xfrac,Yfrac,mu,npts,rmin,Rstar,Mstar,rhocentre,&
+subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
+                             r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
+                             npts,rmin,Rstar,Mstar,rhocentre,&
                              isoftcore,isofteningopt,rcore,mcore,hsoft,outputfilename,&
                              composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
  use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
- use setstar_mesa,       only:read_mesa,write_mesa
- use setstar_kepler,     only:read_kepler_file
+ use readwrite_mesa,     only:read_mesa,write_mesa
+ use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
  use physcon,            only:kb_on_mh,radconst
@@ -100,6 +101,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,r,d
  print "(/,a,/)",' Using '//trim(profile_opt(iprofile))
  select case(iprofile)
  case(ipoly)
+    polyk = 1.  ! overwrite initial value of polyk
     call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,calc_polyk,Rstar)
     rmin = r(1)
     pres = polyk*den**gamma
@@ -224,7 +226,7 @@ logical function need_rstar(iprofile)
  integer, intent(in) :: iprofile
 
  select case(iprofile)
- case(ibpwpoly)
+ case(ibpwpoly,:0) ! no Rstar for iprofile <= 0
     need_rstar = .false.
  case default
     need_rstar = .true.
@@ -254,28 +256,46 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  real,             intent(inout) :: xyzh(:,:),massoftype(:)
  logical,          intent(in)    :: use_exactN
  procedure(mask_prototype) :: mask
- integer :: nx,i,ntot
+ integer :: nx,i,ntot,npart_old,n
  real :: vol_sphere,psep
+ logical :: mass_is_set
+
+ !
+ ! if this is the first call to set_star_density (npart_old=0),
+ ! set the number of particles to the requested np and set
+ ! the particle mass accordingly, otherwise assume particle mass
+ ! is already set and use Mstar to determine np
+ !
+ npart_old = npart
+ n = np
+ mass_is_set = .false.
+ if (npart_old /= 0 .and. massoftype(igas) > tiny(0.)) then
+    n = nint(Mstar/massoftype(igas))
+    mass_is_set = .true.
+    print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
+ endif
  !
  ! place particles in sphere
  !
  vol_sphere  = 4./3.*pi*Rstar**3
- nx          = int(np**(1./3.))
+ nx          = int(n**(1./3.))
  psep        = vol_sphere**(1./3.)/real(nx)
  call set_sphere(lattice,id,master,rmin,Rstar,psep,hfact,npart,xyzh, &
                  rhotab=den(1:npts),rtab=r(1:npts),nptot=npart_total, &
-                 exactN=use_exactN,np_requested=np,mask=mask)
+                 exactN=use_exactN,np_requested=n,mask=mask)
  !
  ! get total particle number across all MPI threads
  ! and use this to set the particle mass
  !
  ntot = int(npart_total,kind=(kind(ntot)))
- massoftype(igas) = Mstar/ntot
+ if (.not.mass_is_set) then
+    massoftype(igas) = Mstar/ntot
+ endif
  !
  ! set particle type as gas particles
  !
  npartoftype(igas) = npart   ! npart is number on this thread only
- do i=1,npart
+ do i=npart_old+1,npart_old+npart
     call set_particle_type(i,igas)
  enddo
  !
@@ -321,7 +341,8 @@ end subroutine set_stellar_core
 !  Set the composition, if variable composition is used
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,mu,mtab,Mstar,eos_vars)
+subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
+           mu,mtab,Mstar,eos_vars,npin)
  use part,        only:iorder=>ll,iX,iZ,imu  ! borrow the unused linklist array for the sort
  use sortutils,   only:find_rank,r2func
  use table_utils, only:yinterp
@@ -330,14 +351,18 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,mu,mt
  real,    intent(in)  :: xyzh(:,:)
  real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
  real,    intent(out) :: eos_vars(:,:)
+ integer, intent(in), optional :: npin
  real :: ri,massri
- integer :: i
+ integer :: i,i1
+
+ i1 = 0
+ if (present(npin)) i1 = npin  ! starting position in particle array
 
  ! this does NOT work with MPI
- call find_rank(npart,r2func,xyzh(1:3,:),iorder)
- do i = 1,npart
+ call find_rank(npart-i1,r2func,xyzh(1:3,i1:npart),iorder)
+ do i = i1+1,npart
     ri  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = Mstar * real(iorder(i)-1) / real(npart) ! mass coordinate of particle i
+    massri = Mstar * real(iorder(i)-1) / real(npart-i1) ! mass coordinate of particle i
     if (use_var_comp) then
        eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
        eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
@@ -352,7 +377,8 @@ end subroutine set_star_composition
 !  Set the thermal energy profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,relaxed,use_var_comp,initialtemp)
+subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_vars,&
+                                  relaxed,use_var_comp,initialtemp,npin)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
  use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
@@ -364,16 +390,21 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real,    intent(inout) :: vxyzu(:,:),eos_vars(:,:),rad(:,:)
  logical, intent(in)    :: relaxed,use_var_comp
  real,    intent(in)    :: initialtemp
+ integer, intent(in), optional :: npin
  integer :: eos_type,i,ierr
  real    :: xi,yi,zi,hi,presi,densi,tempi,eni,ri,p_on_rhogas,spsoundi
  real    :: rho_cgs,p_cgs
+ integer :: i1
+
+ i1 = 0
+ if (present(npin)) i1 = npin  ! starting position in particle array
 
  if (do_radiation) then
     eos_type=12  ! Calculate temperature from both gas and radiation pressure
  else
     eos_type=ieos
  endif
- do i = 1,npart
+ do i = i1+1,npart
     if (relaxed) then
        hi = xyzh(4,i)
        densi = rhoh(hi,massoftype(igas))

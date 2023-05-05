@@ -14,9 +14,9 @@ module checksetup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
-!   units, utils_gr
+! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
+!   externalforces, io, metric_tools, nicil, options, part, physcon,
+!   sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -203,27 +203,6 @@ subroutine check_setup(nerror,nwarn,restart)
     hmin = 0.
  endif
  do i=1,npart
-    !--check for NaNs in xyzh
-    if (any(xyzh(:,i) /= xyzh(:,i))) then
-       print*,'NaN in position/smoothing length (xyzh array) : ', i
-       nerror = nerror + 1
-    endif
-    !--check for NaNs in velocity
-    if (any(vxyzu(:,i) /= vxyzu(:,i))) then
-       if (maxvxyzu >= 4) then
-          print*,'NaN in velocity/utherm (vxyzu array) : ', i
-       else
-          print*,'NaN in velocity field (vxyzu array) : ', i
-       endif
-       nerror = nerror + 1
-    endif
-    !--check for NaNs in B field
-    if (mhd) then
-       if (any(Bxyz(:,i) /= Bxyz(:,i))) then
-          print*,'NaN in magnetic field (Bxyz array) : ', i
-          nerror = nerror + 1
-       endif
-    endif
     hi = xyzh(4,i)
     if ((.not.dorestart .and. hi <= 0.) .or. hi > 1.e20) then
        nbad = nbad + 1
@@ -237,6 +216,12 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,' hmin = ',hmin,' hmax = ',hmax
     nerror = nerror + 1
  endif
+!
+!--check for NaNs in arrays
+!
+ call check_NaN(npart,xyzh,'position/smoothing length (xyzh array)',nerror)
+ call check_NaN(npart,vxyzu,'velocity/thermal energy (vxyzu array)',nerror)
+ if (mhd) call check_NaN(npart,Bxyz,'magnetic field (Bxyz array)',nerror)
 !
 !--check for negative thermal energies
 !
@@ -454,6 +439,33 @@ end subroutine check_setup
 
 !----------------------------------------------------
 !+
+!  function to check for NaNs in particle arrays
+!+
+!----------------------------------------------------
+subroutine check_NaN(npart,array,label,nerror)
+ integer,          intent(in)    :: npart
+ real,             intent(in)    :: array(:,:)
+ character(len=*), intent(in)    :: label
+ integer,          intent(inout) :: nerror
+ integer :: nbad,i
+
+ nbad = 0
+ do i=1,npart
+    !--check for NaNs in xyzh
+    if (any(isnan(array(:,i)))) then
+       if (nbad < 10) print*,'NaN in '//trim(label)//' : ', i
+       nbad = nbad + 1
+    endif
+ enddo
+ if (nbad > 0) then
+    print*,'ERROR: NaN in '//trim(label)//' on ',nbad,' of ',npart,' particles'
+    nerror = nerror + 1
+ endif
+
+end subroutine check_NaN
+
+!----------------------------------------------------
+!+
 ! function to check if a value is
 ! within the allowed range
 ! if min/max arguments are given
@@ -591,18 +603,15 @@ subroutine check_setup_growth(npart,nerror)
     do j=1,2
        if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
     enddo
-    if (any(isnan(dustprop(:,i)))) then
-       print*,'NaNs in dust properties (dustprop array)'
-       nerror = nerror + 1
-    endif
  enddo
-
  do j=1,2
     if (nbad(j) > 0) then
        print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1
     endif
  enddo
+ !-- check for NaN
+ call check_NaN(npart,dustprop,'dust properties (dustprop array)',nerror)
 
 end subroutine check_setup_growth
 
@@ -622,21 +631,14 @@ subroutine check_setup_nucleation(npart,nerror)
  do i=1,npart
     if (nucleation(idmu,i) < 0.1) nbad(idmu) = nbad(idmu) + 1
     if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
-
-    if (any(isnan(nucleation(:,i)))) then
-       do j = 1,n_nucleation
-          if (isnan(nucleation(j,i))) print*,'NaNs in nucleation array for particle #',i,j
-       enddo
-       nerror = nerror + 1
-    endif
  enddo
-
  do j=1,n_nucleation
     if (nbad(j) > 0) then
        print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(nucleation_label(j))//' <= 0'
        nerror = nerror + 1
     endif
  enddo
+ call check_NaN(npart,nucleation,'nucleation array',nerror)
 
 end subroutine check_setup_nucleation
 
@@ -834,7 +836,7 @@ end subroutine check_gr
 !------------------------------------------------------------------
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype
+ use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -855,23 +857,26 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  do i=1,npart
-    j = i+1
-    dx2 = 0.
-    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
-    do while (dx2 < epsilon(dx2) .and. j < npart)
-       dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
-       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
-       dx2 = dot_product(dx,dx)
-       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
-          nbad = nbad + 1
-          if (nbad <= 100) then
-             print*,'WARNING: particles of same type at same position: '
-             print*,' ',index(i),':',xyzh(1:3,index(i))
-             print*,' ',index(j),':',xyzh(1:3,index(j))
+    if (.not.isdead_or_accreted(xyzh(4,index(i)))) then
+       j = i+1
+       dx2 = 0.
+       if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
+       do while (dx2 < epsilon(dx2) .and. j < npart)
+          if (isdead_or_accreted(xyzh(4,index(j)))) exit
+          dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+          if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
+          dx2 = dot_product(dx,dx)
+          if (dx2 < epsilon(dx2) .and. itypei==itypej) then
+             nbad = nbad + 1
+             if (nbad <= 100) then
+                print*,'WARNING: particles of same type at same position: '
+                print*,' ',index(i),':',xyzh(1:3,index(i))
+                print*,' ',index(j),':',xyzh(1:3,index(j))
+             endif
           endif
-       endif
-       j = j + 1
-    enddo
+          j = j + 1
+       enddo
+    endif
  enddo
 
  deallocate(index)

@@ -26,7 +26,8 @@ module setup
 !
 ! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
 !   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, spherical, table_utils, timestep, units, vectorutils
+!   setbinary, setstar_kepler, spherical, table_utils, timestep, units,
+!   vectorutils
 !
  implicit none
  public :: setpart
@@ -56,11 +57,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,       only:ieos,calc_temp_and_ene
  use kernel,    only:hfact_default
  use extern_densprofile, only:nrhotab
- use externalforces,only:accradius1,accradius1_hard
- use rho_profile,   only:rho_polytrope
- use setstar_kepler,only:read_kepler_file
- use vectorutils,   only:rotatevec
- use gravwaveutils, only:theta_gw,calc_gravitwaves
+ use readwrite_kepler,   only:read_kepler_file
+ use externalforces,     only:accradius1,accradius1_hard
+ use rho_profile,        only:rho_polytrope
+ use vectorutils,        only:rotatevec
+ use gravwaveutils,      only:theta_gw,calc_gravitwaves
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -134,7 +135,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Convert to code untis
 !
  mhole = mhole*solarm
- call set_units(mass=mhole,c=1.,G=1.) !--Set central mass to M=1 in code units
+ call set_units(mass=mhole,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
  mstar         = mstar*solarm/umass
  rstar         = rstar*solarr/udist
  print*, 'mstar', mstar
@@ -160,9 +161,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
-    print*, 'print period', period
+    print*, 'period', period
     print*, 'mass1', mass1
-    print*, 'tidal radisu', rtidal
+    print*, 'tidal radius', rtidal
     print*, 'beta', beta
     hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
@@ -271,7 +272,7 @@ subroutine write_setupfile(filename)
  call write_inopt(mhole,          'mhole',          'mass of black hole (solar mass)',             iunit)
  call write_inopt(mstar,          'mstar',          'mass of star       (solar mass)',             iunit)
  call write_inopt(rstar,          'rstar',          'radius of star     (solar radii)',            iunit)
- call write_inopt(stardensprofile,'stardensprofile','star density profile (1=adiabatic, 2=kepler)',iunit)
+ call write_inopt(stardensprofile,'stardensprofile','star density profile (1=polytrope, 2=kepler)',iunit)
  call write_inopt(beta,           'beta',           'penetration factor',                          iunit)
  call write_inopt(ecc,            'ecc',            'eccentricity (1 for parabolic)',              iunit)
  call write_inopt(norbits,        'norbits',        'number of orbits',                            iunit)
