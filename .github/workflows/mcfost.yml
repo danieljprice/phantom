@@ -37,7 +37,7 @@ jobs:
     - name: install gfortran
       env:
          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: brew install gcc
+      run: brew install gfortran
 
     - name: "Compile phantom and link with mcfost"
       run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++
