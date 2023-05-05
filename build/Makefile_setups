@@ -702,7 +702,7 @@ ifeq ($(SETUP), cluster)
 endif
 
 ifeq ($(SETUP), binary)
-#   binary setup
+#   binary stars
     FPPFLAGS=
     #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
@@ -739,7 +739,7 @@ ifeq ($(SETUP), star)
 endif
 
 ifeq ($(SETUP), grstar)
-#   import stellar model from 1D stellar evolution code in GR using Minkowski metric
+#   star in GR using Minkowski metric
     GR=yes
     METRIC=minkowski
     FPPFLAGS=
@@ -843,6 +843,7 @@ ifeq ($(SETUP), jetnimhd)
 endif
 
 ifeq ($(SETUP), jetdusty)
+#   dust in star formation
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     PERIODIC=yes
     GRAVITY=yes
