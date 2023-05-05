@@ -9,9 +9,10 @@ on:
       - 'README.md'
 
 env:
-  PREFIX: /opt/homebrew
+  PREFIX: /usr/local/
   MCFOST_GIT: 1
   SYSTEM: gfortran
+  HOMEBREW_NO_INSTALL_CLEANUP: 1
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -32,6 +33,11 @@ jobs:
 
     - name: "Clone phantom"
       uses: actions/checkout@v3
+
+    - name: install gfortran
+      env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: brew install gcc
 
     - name: "Compile phantom and link with mcfost"
       run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++
