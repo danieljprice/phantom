@@ -91,7 +91,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  if (do_verbose) then
     print "(/,2x,a)",'---------- binary parameters ----------- '
-    print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
+    print "(8(2x,a,g14.6,/),2x,a,g14.6)", &
         'primary mass     :',m1, &
         'secondary mass   :',m2, &
         'mass ratio m2/m1 :',m2/m1, &
@@ -198,7 +198,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
  v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
 
- omega0 = dv(2)/semimajoraxis
+ omega0 = v1(2)/x1(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
