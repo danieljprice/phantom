@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup of two sink particles in a binary
+! Setup of two stars or sink particles in a binary
 !
 ! :References: None
 !
@@ -28,9 +28,9 @@ module setup
  implicit none
  public :: setpart
 
- real :: a,ecc
+ real    :: a,ecc
+ logical :: relax,corotate
  type(star_t) :: star(2)
- logical :: relax
  character(len=20) :: semi_major_axis
 
  private
@@ -39,17 +39,17 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for sink particle binary simulation (no gas)
+!  setup for binary star simulations (with or without gas)
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
- use part,      only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                     ihacc,ihsoft,eos_vars,rad,nsinkproperties
- use setbinary, only:set_binary,get_a_from_period
- use units,     only:is_time_unit,is_length_unit,select_unit,utime,udist
- use physcon,   only:solarm,au,pi,solarr,days
- use options,   only:iexternalforce
+ use part,           only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
+                          ihacc,ihsoft,eos_vars,rad,nsinkproperties
+ use setbinary,      only:set_binary,get_a_from_period
+ use units,          only:is_time_unit,in_code_units,utime
+ use physcon,        only:solarm,au,pi,solarr,days
+ use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
  use io,             only:master
  use setstar,        only:set_star,set_defaults_star,shift_star
@@ -68,16 +68,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr,i,nstar,nptmass_in
- logical :: iexist,write_profile,use_var_comp
+ integer :: ierr,i,nstar,nptmass_in,iextern_prev
+ logical :: iexist,write_profile,use_var_comp,add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
- real(kind=8) :: a_tmp
 !
 !--general parameters
 !
  dist_unit = 'solarr'
  mass_unit = 'solarm'
- semi_major_axis = '1.'
  time = 0.
  polyk = 0.
  gamma = 1.
@@ -94,12 +92,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  nptmass = 0
  nstar = 2
  relax = .true.
+ corotate = .false.
  do i=1,nstar
     call set_defaults_star(star(i))
-    star(i)%mstar = 1.
  enddo
- a     = 1.
- ecc   = 0.7
+ semi_major_axis = '10.'
+ a    = 10.
+ ecc  = 0.
  ieos = 2
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
@@ -116,28 +115,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     stop
  endif
  !
- !--if a is negative or is given time units, interpret this as a period
- !
- call select_unit(semi_major_axis,a_tmp,ierr)
- a = real(a_tmp)
-
- if (is_time_unit(semi_major_axis) .and. ierr == 0) then
-    a = -abs(a)/utime
-    print "(a,g0,a,g0,a)",&
-       ' Using PERIOD = ',abs(a),' = ',abs(a)*utime/days,' days'
- elseif (is_length_unit(semi_major_axis) .and. ierr == 0) then
-    a = a/udist
- endif
- if (a < 0.) a = get_a_from_period(star(1)%mstar,star(2)%mstar,abs(a))
- !
  !--setup and relax stars as needed
  !
  use_var_comp = .false.
  write_profile = .false.
+ iextern_prev = iexternalforce
+ iexternalforce = 0
  gamma = 5./3.
  do i=1,nstar
     if (star(i)%iprofile > 0) then
-       print "(a,i0,a)",' replacing star ',i,' with gas...'
+       print "(/,a,i0,a)",' --- STAR ',i,' ---'
        call set_star(id,master,star(i),xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
                      massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
                      X_in,Z_in,relax,use_var_comp,write_profile,&
@@ -146,34 +133,54 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  enddo
 
  !
+ !--if a is negative or is given time units, interpret this as a period
+ !
+ a = in_code_units(semi_major_axis,ierr)
+ if (is_time_unit(semi_major_axis) .and. ierr == 0) then
+    a = -abs(a)
+    print "(a,g0,a,g0,a)",' Using PERIOD = ',abs(a),' = ',abs(a)*utime/days,' days'
+ endif
+ if (a < 0.) a = get_a_from_period(star(1)%mstar,star(2)%mstar,abs(a))
+ !
  !--now setup orbit using fake sink particles
  !
  nptmass_in = 0
  if (iexternalforce==iext_corotate) then
     call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
                     xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate)
+    add_spin = .false.  ! already in corotating frame
  else
     call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
                     xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr)
+    add_spin = corotate
  endif
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
  do i=1,nstar
     if (star(i)%iprofile > 0) then
-       call shift_star(npart,xyzh,vxyzu,&
-                       x0=xyzmh_ptmass_in(1:3,i),v0=vxyz_ptmass_in(1:3,i),itype=i)
+       call shift_star(npart,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
+                       v0=vxyz_ptmass_in(1:3,i),itype=i,corotate=add_spin)
     else
        nptmass = nptmass + 1
        xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,i)
        vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,i)
     endif
  enddo
+ !
+ !--restore options
+ !
+ iexternalforce = iextern_prev
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
 end subroutine setpart
 
+!----------------------------------------------------------------
+!+
+!  write options to .setup file
+!+
+!----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_star
@@ -193,6 +200,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# orbit settings'
  call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au) or period (e.g. 10*days)',iunit)
  call write_inopt(ecc,'ecc','eccentricity',iunit)
+ call write_inopt(corotate,'corotate','set stars in corotation',iunit)
 
  if (any(star(:)%iprofile > 0)) then
     write(iunit,"(/,a)") '# relaxation options'
@@ -203,6 +211,11 @@ subroutine write_setupfile(filename)
 
 end subroutine write_setupfile
 
+!----------------------------------------------------------------
+!+
+!  read options from .setup file
+!+
+!----------------------------------------------------------------
 subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
@@ -227,6 +240,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
 
  call read_inopt(semi_major_axis,'a',db,errcount=nerr)
  call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
+ call read_inopt(corotate,'corotate',db,errcount=nerr)
 
  if (any(star(:)%iprofile > 0)) then
     call read_inopt(relax,'relax',db,errcount=nerr)

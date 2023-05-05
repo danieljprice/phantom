@@ -703,17 +703,18 @@ endif
 
 ifeq ($(SETUP), binary)
 #   binary setup
-    FPPFLAGS= -DCONST_AV
+    FPPFLAGS=
     #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
+    GRAVITY=yes
 endif
 
 ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
     FPPFLAGS= -DCONST_AV
-    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90 
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90
     SETUPFILE= setup_hierarchical.f90
     KNOWN_SETUP=yes
 endif
