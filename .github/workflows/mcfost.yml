@@ -1,0 +1,46 @@
+name: mcfost
+
+# Trigger on pull request, but only for the master branch
+on:
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+env:
+  PREFIX: /opt/homebrew
+  MCFOST_GIT: 1
+  SYSTEM: gfortran
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  mcfost:
+
+    # The type of runner that the job will run on
+    runs-on: macos-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    - name: tap the homebrew repo
+      run: brew tap danieljprice/all
+
+    - name: install mcfost with homebrew
+      env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: brew install mcfost
+
+    - name: "Clone phantom"
+      uses: actions/checkout@v3
+
+    - name: "Compile phantom and link with mcfost"
+      run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++
+
+    - name: "Compile phantomsetup and link with mcfost"
+      run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++ setup
+
+    - name: "Compile phantomanalysis and link with mcfost"
+      run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++ analysis
+
+    - name: "Compile phantommoddump and link with mcfost"
+      run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++ moddump
