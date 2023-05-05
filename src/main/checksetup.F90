@@ -836,7 +836,7 @@ end subroutine check_gr
 !------------------------------------------------------------------
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype
+ use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -857,23 +857,26 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  do i=1,npart
-    j = i+1
-    dx2 = 0.
-    if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
-    do while (dx2 < epsilon(dx2) .and. j < npart)
-       dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
-       if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
-       dx2 = dot_product(dx,dx)
-       if (dx2 < epsilon(dx2) .and. itypei==itypej) then
-          nbad = nbad + 1
-          if (nbad <= 100) then
-             print*,'WARNING: particles of same type at same position: '
-             print*,' ',index(i),':',xyzh(1:3,index(i))
-             print*,' ',index(j),':',xyzh(1:3,index(j))
+    if (.not.isdead_or_accreted(xyzh(4,index(i)))) then
+       j = i+1
+       dx2 = 0.
+       if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
+       do while (dx2 < epsilon(dx2) .and. j < npart)
+          if (isdead_or_accreted(xyzh(4,index(j)))) exit
+          dx = xyzh(1:3,index(i)) - xyzh(1:3,index(j))
+          if (maxphase==maxp) itypej = iamtype(iphase(index(j)))
+          dx2 = dot_product(dx,dx)
+          if (dx2 < epsilon(dx2) .and. itypei==itypej) then
+             nbad = nbad + 1
+             if (nbad <= 100) then
+                print*,'WARNING: particles of same type at same position: '
+                print*,' ',index(i),':',xyzh(1:3,index(i))
+                print*,' ',index(j),':',xyzh(1:3,index(j))
+             endif
           endif
-       endif
-       j = j + 1
-    enddo
+          j = j + 1
+       enddo
+    endif
  enddo
 
  deallocate(index)
