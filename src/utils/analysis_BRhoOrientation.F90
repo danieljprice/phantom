@@ -164,7 +164,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! not require the full neighbour finding algorithm
     bparts: do p = 1,2
        jj = ii
-	
+        
        keep_searching = .true.
        do while (keep_searching)
           if (p==1) then
