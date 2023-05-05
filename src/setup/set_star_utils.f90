@@ -19,7 +19,7 @@ module setstar_utils
 !   spherical, table_utils, unifdis, units
 !
  use extern_densprofile, only:nrhotab
- use setstar_kepler,     only:write_kepler_comp
+ use readwrite_kepler,   only:write_kepler_comp
  implicit none
  !
  ! Index of setup options
@@ -70,8 +70,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
  use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
- use setstar_mesa,       only:read_mesa,write_mesa
- use setstar_kepler,     only:read_kepler_file
+ use readwrite_mesa,     only:read_mesa,write_mesa
+ use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
  use physcon,            only:kb_on_mh,radconst

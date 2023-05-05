@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module setstar_kepler
+module readwrite_kepler
 !
 ! Utilities for reading in/out stellar profiles from the Kepler stellar
 ! evolution code
@@ -251,4 +251,4 @@ subroutine write_kepler_comp(composition,comp_label,columns_compo,r,&
 
 end subroutine write_kepler_comp
 
-end module setstar_kepler
+end module readwrite_kepler
