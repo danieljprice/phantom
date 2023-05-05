@@ -30,22 +30,22 @@ module setstar
  ! to setup star (these are per-star, not per-simulation options)
  !
  type star_t
-  integer :: iprofile
-  integer :: isoftcore
-  logical :: isinkcore
-  integer :: isofteningopt
-  integer :: np
-  real :: Rstar
-  real :: Mstar
-  real :: ui_coef
-  real :: initialtemp
-  real :: rcore
-  real :: mcore
-  real :: hsoft
-  real :: hacc   ! accretion radius if star is a sink particle
-  character(len=120) :: input_profile,dens_profile
-  character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
-  character(len=2) :: label ! used to rename relax_star snapshots to relax1, relax2 etc.
+    integer :: iprofile
+    integer :: isoftcore
+    logical :: isinkcore
+    integer :: isofteningopt
+    integer :: np
+    real :: Rstar
+    real :: Mstar
+    real :: ui_coef
+    real :: initialtemp
+    real :: rcore
+    real :: mcore
+    real :: hsoft
+    real :: hacc   ! accretion radius if star is a sink particle
+    character(len=120) :: input_profile,dens_profile
+    character(len=120) :: outputfilename ! outputfilename is the path to the cored profile
+    character(len=2) :: label ! used to rename relax_star snapshots to relax1, relax2 etc.
  end type star_t
 
  public :: star_t
