@@ -23,21 +23,22 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+    - name: install gfortran
+      run: brew install gfortran
+
+    - name: soft link gfortran and check version
+      run: |
+        ln -s `ls $PREFIX/bin/gfortran-* | tail -1` $PREFIX/bin/gfortran
+        gfortran -v
+
     - name: tap the homebrew repo
       run: brew tap danieljprice/all
 
     - name: install mcfost with homebrew
-      env:
-         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: brew install mcfost
 
     - name: "Clone phantom"
       uses: actions/checkout@v3
-
-    - name: install gfortran
-      env:
-         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: brew install gfortran
 
     - name: "Compile phantom and link with mcfost"
       run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++
