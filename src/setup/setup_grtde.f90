@@ -148,16 +148,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--place star into orbit
  !
- print*, 'mstar', star%mstar
- print*, 'rstar', star%rstar
- print*, 'umass', umass
- print*, 'udist', udist
  rtidal          = star%rstar*(mass1/star%mstar)**(1./3.)
  rp              = rtidal/beta
  accradius1_hard = 5.*mass1
  accradius1      = accradius1_hard
  a               = 0.
  theta           = theta*pi/180.
+
+ print*, 'mstar', star%mstar
+ print*, 'rstar', star%rstar
+ print*, 'umass', umass
+ print*, 'udist', udist
+ print*, 'mass1', mass1
+ print*, 'tidal radius', rtidal
+ print*, 'beta', beta
 
  xyzstar  = 0.
  vxyzstar = 0.
@@ -170,9 +174,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
     print*, 'period', period
-    print*, 'mass1', mass1
-    print*, 'tidal radius', rtidal
-    print*, 'beta', beta
     hacc1    = star%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     ! apocentre = rp*(1.+ecc)/(1.-ecc)
