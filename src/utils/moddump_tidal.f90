@@ -201,7 +201,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                     accradius1,accradius2, &
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  elseif (use_sink) then
-   ! single black hole in Newtonian gravity using a sink particle
+    ! single black hole in Newtonian gravity using a sink particle
     nptmass = nptmass + 1
     xyzmh_ptmass(:,nptmass) = 0.
     xyzmh_ptmass(4,nptmass) = m0

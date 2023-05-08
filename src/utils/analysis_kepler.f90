@@ -150,8 +150,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  distance_from_bh = sqrt(dot_product(xpos(:),xpos(:)))
  vel_from_bh = sqrt(dot_product(vpos(:),vpos(:)))
  print*,"******************"
-print*,distance_from_bh*udist,"distance from bh",vel_from_bh*unit_velocity,"velfrom bh"
-print*,"*******************"
+ print*,distance_from_bh*udist,"distance from bh",vel_from_bh*unit_velocity,"velfrom bh"
+ print*,"*******************"
  ! sorting particles
  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -276,9 +276,9 @@ print*,"*******************"
     L_i(:)   = Li(:)*pmass
     L_sum(:) = L_sum(:) + L_i(:)
     if (pos_mag == 0.) then
-          omega_particle = 0.
+       omega_particle = 0.
     else
-          omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
+       omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
     endif
 
     write(1,*)pos_mag,omega_particle
@@ -352,7 +352,7 @@ print*,"*******************"
  print*,mass_enclosed(ibin),"/mass_enclosed(ibin)",mass_enclosed(ibin)*umass
  vel_at_infinity = sqrt(2.*total_star)
  if (isnan(vel_at_infinity)) then
-         vel_at_infinity = 0.
+    vel_at_infinity = 0.
  endif
  print*,vel_at_infinity*1.e-5,"vel at infinity in Km/s"
  print*,umass,"umass",udist,"udist",unit_density,"unit_density",unit_velocity,"unit_velocity",utime,"utime"
@@ -424,8 +424,8 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  count_bound_both = 0
 
  write(output,"(a8,i5.5)") 'compfull',numfile
-   open(5,file=output)
-   write(5,"(18(a22,1x))") &
+ open(5,file=output)
+ write(5,"(18(a22,1x))") &
           comp_label
 
  allocate(index_particle_star(dummy_size),index_particle_bh(dummy_size))
@@ -465,17 +465,17 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
     endif
 
     if (bound_to_bh == .True. .and. bound_to_star == .false.) then
-        count_val = count_val + 1
-        index_particle_bh(index_val_bh) = j
-        particle_bound_bh = particle_bound_bh +1
-        index_val_bh = index_val_bh+1
+       count_val = count_val + 1
+       index_particle_bh(index_val_bh) = j
+       particle_bound_bh = particle_bound_bh +1
+       index_val_bh = index_val_bh+1
     endif
     if (bound_to_bh == .True. .and. bound_to_star == .True.) then
-        count_bound_both = count_bound_both + 1
+       count_bound_both = count_bound_both + 1
     endif
 
     if (bound_to_bh == .false. .and. bound_to_star == .false.) then
-        count_val_unbound = count_val_unbound + 1
+       count_val_unbound = count_val_unbound + 1
     endif
     bound_to_bh = .false.
     bound_to_star = .false.
@@ -547,7 +547,7 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
     if (pos_mag_next - rad_inner > 0.1) then
        number_per_bin=count_particles
        if (number_per_bin < 10) then
-           number_per_bin = 10
+          number_per_bin = 10
        endif
     endif
  endif
@@ -814,20 +814,20 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
  ! open the file for appending or creating
  if (file_exists) then
-      open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
-      if (status /= 0) then
-           write(*,*) 'Error opening file: ', filename
-           stop
-       endif
+    open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
+    if (status /= 0) then
+       write(*,*) 'Error opening file: ', filename
+       stop
+    endif
 
-else
-      open(unit=file_id, file=filename, status='new', action='write', iostat=status)
-      if (status /= 0) then
-         write(*,*) 'Error creating file: ', filename
-         stop
-      endif
-      ! Write headers to file
-      write(file_id,'(16(a22,1x))') &
+ else
+    open(unit=file_id, file=filename, status='new', action='write', iostat=status)
+    if (status /= 0) then
+       write(*,*) 'Error creating file: ', filename
+       stop
+    endif
+    ! Write headers to file
+    write(file_id,'(16(a22,1x))') &
               "FileNo", &
               "Density",&
               "Temperature",&
@@ -844,10 +844,10 @@ else
                "specPE",&
                "time",&
                "Escape_in"
-endif
-write(file_id,'(i5,1x,15(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
+ endif
+ write(file_id,'(i5,1x,15(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
                       vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,vel_at_infinity*1e-5
-close(file_id)
+ close(file_id)
 
 end subroutine write_dump_info
 
@@ -859,42 +859,42 @@ end subroutine write_dump_info
  !+
  !----------------------------------------------------------------
 subroutine write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j,interpolate_comp,columns_compo,comp_label,energy_verified_no,last_particle_with_neg_e)
-   use units , only: udist
+ use units , only: udist
 
-   real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
-   real,intent(in)    :: xpos(3),vpos(3),pmass
-   integer,intent(in) :: npart,iorder(:),columns_compo
-   integer,allocatable,intent(in) :: array_bh_j(:)
-   integer,intent(in) :: energy_verified_no,last_particle_with_neg_e
-   character(len=20),intent(in) :: comp_label(:)
-   real,intent(in)    :: interpolate_comp(:,:)
+ real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real,intent(in)    :: xpos(3),vpos(3),pmass
+ integer,intent(in) :: npart,iorder(:),columns_compo
+ integer,allocatable,intent(in) :: array_bh_j(:)
+ integer,intent(in) :: energy_verified_no,last_particle_with_neg_e
+ character(len=20),intent(in) :: comp_label(:)
+ real,intent(in)    :: interpolate_comp(:,:)
 
-   integer,allocatable :: array_particle_j(:)
-   real,allocatable    :: composition_i(:)
-   integer             :: i,j
-   real                :: pos_to_bh
-   character(len=120)  :: output
+ integer,allocatable :: array_particle_j(:)
+ real,allocatable    :: composition_i(:)
+ integer             :: i,j
+ real                :: pos_to_bh
+ character(len=120)  :: output
 
-   !call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j,array_bh_j)
-   !call composition_array(interpolate_comp,columns_compo,comp_label)
-   write(output,"(a8)") 'compo_bh'
-   open(4,file=output)
-   write(4,"(19(a22,1x))") &
+ !call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j,array_bh_j)
+ !call composition_array(interpolate_comp,columns_compo,comp_label)
+ write(output,"(a8)") 'compo_bh'
+ open(4,file=output)
+ write(4,"(19(a22,1x))") &
           "posToBH",      &
           comp_label
 
-   allocate(composition_i(columns_compo))
-   do j = 1, size(array_bh_j)
-      i  = iorder(j) !Access the rank of each particle in radius.
-      pos_to_bh = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-      if (columns_compo /= 0) then
+ allocate(composition_i(columns_compo))
+ do j = 1, size(array_bh_j)
+    i  = iorder(j) !Access the rank of each particle in radius.
+    pos_to_bh = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    if (columns_compo /= 0) then
        composition_i(:) = interpolate_comp(:,i)
-      endif
-      write(4,'(19(e18.10,1x))') &
+    endif
+    write(4,'(19(e18.10,1x))') &
               pos_to_bh*udist,&
               composition_i(:)
-   enddo
-   close(4)
+ enddo
+ close(4)
 
 end subroutine write_compo_wrt_bh
 
