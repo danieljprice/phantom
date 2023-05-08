@@ -204,9 +204,6 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
-ifeq ($(METRIC), kerr)
-    FPPFLAGS += -DKERR
-endif
 ifeq ($(ISENTROPIC), yes)
     FPPFLAGS += -DISENTROPIC
     FPPFLAGS += -DLIGHTCURVE
