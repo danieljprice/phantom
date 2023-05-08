@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: James Wurster
 !
 ! :Runtime parameters: None
 !
@@ -113,7 +113,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     ! adjust centres
     do i = 1,npart
        xyzh(1:3,i) = xyzh(1:3,i) - xcom
-    enddo     
+    enddo
  else
     ! move to centre of mass
     call reset_centreofmass(npart,xyzh,vxyzu)
@@ -178,10 +178,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           vbins(4,j) = vbins(4,j) + ui
           vbins(5,j) = vbins(5,j) + vr
           vbins(6,j) = vbins(6,j) + vphi
-          if (vphi > 0.) then             
+          if (vphi > 0.) then
              ibins(2,j) = ibins(2,j) + 1
              vbins(7,j) = vbins(7,j) + vphi
-          elseif (vphi < 0.) then             
+          elseif (vphi < 0.) then
              ibins(3,j) = ibins(3,j) + 1
              vbins(8,j) = vbins(8,j) + vphi
           endif

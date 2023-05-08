@@ -29,9 +29,9 @@ module setup
 !   - r_crit             : *critical radius (code units)*
 !   - rho_crit_cgs       : *sink formation density (cgs)*
 !
-! :Dependencies: boundary, cooling, datafiles, dim, eos, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, prompting, ptmass,
-!   setup_params, spherical, timestep, unifdis, units, velfield
+! :Dependencies: boundary, boundary_dyn, cooling, datafiles, dim, eos,
+!   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
+!   ptmass, setup_params, spherical, timestep, unifdis, units, velfield
 !
  use part,         only:mhd
  use dim,          only:maxvxyzu,maxp_hard

@@ -16,9 +16,9 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
+! :Dependencies: centreofmass, dim, eos, extern_corotate, externalforces,
 !   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
-!   rho_profile, setbinary, table_utils, timestep, units, vectorutils
+!   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
 
@@ -39,7 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                              primarycore_mass,primarycore_hsoft,hsoft
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
- use setstar_mesa,      only:read_mesa
+ use readwrite_mesa,    only:read_mesa
  use dim,               only:maxptmass,maxp,nsinkproperties
  use io,                only:fatal,idisk1,iprint
  use timestep,          only:tmax,dtmax

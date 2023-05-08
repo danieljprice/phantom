@@ -338,9 +338,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(13)
 !
-!--Locally isothermal eos for generic hierarchical system from a generalisation of Farris et al. (2014) for binary system
+!--Locally isothermal eos for generic hierarchical system
 !
-!  Assuming all sink particles are stars
+!  Assuming all sink particles are stars.
+!  Generalisation of Farris et al. (2014; for binaries) to N stars.
+!  For two sink particles this is identical to ieos=14
 !
     mass_r = 0
     mass = 0

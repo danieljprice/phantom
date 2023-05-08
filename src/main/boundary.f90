@@ -11,11 +11,11 @@ module boundary
 !
 ! :References:
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
-! :Runtime parameters:
+! :Runtime parameters: None
 !
-! :Dependencies: dim, infile_utils, io, kernel, mpidomain, part
+! :Dependencies: dim
 !
 
  use dim, only: maxvxyzu

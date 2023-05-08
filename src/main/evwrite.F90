@@ -37,7 +37,7 @@ module evwrite
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, energies, eos, extern_binary,
+! :Dependencies: boundary, boundary_dyn, dim, energies, eos, extern_binary,
 !   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
 !   part, ptmass, timestep, units, viscosity
 !

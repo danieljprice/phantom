@@ -16,7 +16,7 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary, centreofmass, checkconserved, dim,
+! :Dependencies: analysis, boundary_dyn, centreofmass, checkconserved, dim,
 !   energies, evwrite, externalforces, fileutils, forcing, inject, io,
 !   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
 !   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
