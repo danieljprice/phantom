@@ -14,9 +14,8 @@ module orbits_data
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, units, vectorutils
+! :Dependencies: physcon, vectorutils
 !
-! Accepts values in cgs units 
  implicit none
 
  public :: escape, eccentricity_vector, eccentricity_star

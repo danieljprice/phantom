@@ -13,21 +13,16 @@ module setup
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - beta            : *penetration factor*
-!   - dumpsperorbit   : *number of dumps per orbit*
-!   - ecc             : *eccentricity (1 for parabolic)*
-!   - mhole           : *mass of black hole (solar mass)*
-!   - mstar           : *mass of star       (solar mass)*
-!   - norbits         : *number of orbits*
-!   - nr              : *particles per star radius (i.e. resolution)*
-!   - rstar           : *radius of star     (solar radii)*
-!   - stardensprofile : *star density profile (1=adiabatic, 2=kepler)*
-!   - theta           : *inclination of orbit (degrees)*
+!   - beta          : *penetration factor*
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - ecc           : *eccentricity (1 for parabolic)*
+!   - mhole         : *mass of black hole (solar mass)*
+!   - norbits       : *number of orbits*
+!   - theta         : *inclination of orbit (degrees)*
 !
-! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
-!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, setstar_kepler, spherical, table_utils, timestep, units,
-!   vectorutils
+! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
+!   kernel, metric, mpidomain, part, physcon, setbinary, setstar,
+!   setup_params, timestep, units, vectorutils
 !
  use setstar, only:star_t
  implicit none
