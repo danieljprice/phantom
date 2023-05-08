@@ -1,27 +1,26 @@
-Binary stars and common envelopes
-==================================
+Binary stars and common envelope evolution
+============================================
 
 Using SETUP=binary
 ------------------
 The one-stop-shop to setup a binary star simulation is to use SETUP=binary::
 
    ~/phantom/scripts/writemake.sh binary > Makefile
-
-::
-
    make setup
    ./phantomsetup sim
 
-```
------------------------------------------------------------------
- Welcome to the Ultimate Binary Setup
------------------------------------------------------------------
+giving::
 
- writing setup options file binary.setup
-  Edit sim.setup and rerun phantomsetup
-```
+  -----------------------------------------------------------------
+   Welcome to the Ultimate Binary Setup
+  -----------------------------------------------------------------
 
-Will create sim.setup which contains setup options.
+   writing setup options file binary.setup
+    Edit sim.setup and rerun phantomsetup
+
+
+This will create a file called sim.setup which contains setup options. Open this file in
+your favourite text editor to proceed...
 
 
 Two sink particles in orbit
@@ -67,14 +66,12 @@ to give the desired finishing time (tmax) and time between snapshots (dtmax)::
                   f_acc =       0.500    ! particles < f_acc*h_acc accreted without checks
 
 
-After editing the .in file, proceed to run the simulation
+After editing the .in file, proceed to run the simulation::
 
    make
    ./phantom sim
 
-and have a look at the outputs with splash:
-
-::
+and have a look at the outputs with splash::
 
    splash sim_0*
 
@@ -140,11 +137,11 @@ In the options above you have the option to remove the dense core of the star
 which causes small timesteps in the code, and replace it with a softened point
 mass. The default option for this is isoftcore1=2 and isinkcore1=1.
 
-For more details, see :doc:`<softstar>`
+For more details, see :doc:`Setting up a softened star <softstar>`
 
 
 Using SETUP=star and moddump_binary
 ------------------------------------
-See :doc:`<star>` for the older two-step procedure. The options available are
+See :doc:`Setting up stars and tidal disruption events <star>` for the older two-step procedure. The options available are
 identical, but with a bit more flexibility and without
 having to re-run the relaxation procedure over and over again.
