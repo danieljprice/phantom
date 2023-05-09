@@ -30,6 +30,7 @@ module setup
 
  real    :: mhole,beta,ecc,norbits,theta
  integer :: dumpsperorbit
+ logical :: relax
  type(star_t) :: star
 
  private
@@ -69,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
  integer :: ierr
- logical :: iexist,write_profile,use_var_comp,relax
+ logical :: iexist,write_profile,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3)
  real    :: r0,vel,lorentz
@@ -106,7 +107,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  theta           = 0.
  write_profile   = .false.
  use_var_comp    = .false.
- relax           = .true.
+ relax           = .false.
 !
 !-- Read runtime parameters from setup file
 !
@@ -242,6 +243,7 @@ end subroutine setpart
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_star
+ use relaxstar,    only:write_options_relax
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
@@ -250,6 +252,8 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for tidal disruption setup'
 
  call write_options_star(star,iunit)
+ call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
+ if (relax) call write_options_relax(iunit)
 
  write(iunit,"(/,a)") '# options for black hole and orbit'
 
@@ -267,6 +271,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
  use setstar,      only:read_options_star
+ use relaxstar,    only:read_options_relax
  character(len=*), intent(in)    :: filename
  integer,          intent(inout) :: ieos
  real,             intent(inout) :: polyk
@@ -280,6 +285,8 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_star(star,need_iso,ieos,polyk,db,nerr)
+ call read_inopt(relax,'relax',db,errcount=nerr)
+ if (relax) call read_options_relax(db,nerr)
 
  call read_inopt(mhole,          'mhole',          db,min=0.,errcount=nerr)
  call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
