@@ -6,8 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! This module sets up sphere(s).  There are multiple options,
-! as listed in set_sphere.
+! Setup procedure for stars
 !
 ! :References: None
 !
@@ -48,7 +47,7 @@ module setup
 !   radiation_utils, relaxstar, setsoftenedcore, setstar, setup_params,
 !   table_utils, timestep, units
 !
- use io,             only:fatal,error,master
+ use io,             only:fatal,error,warning,master
  use part,           only:gravity,ihsoft
  use physcon,        only:solarm,solarr,km,pi,c,kb_on_mh,radconst
  use options,        only:nfulldump,iexternalforce,calc_erot,use_var_comp
@@ -165,17 +164,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  need_iso = 0       ! -1 = no; 0 = doesn't matter; 1 = yes
  !
- ! determine if an .in file exists
+ ! determine if the .in file exists
  !
  inname=trim(fileprefix)//'.in'
  inquire(file=inname,exist=iexist)
  if (.not. iexist) then
-    tmax      = 100.
-    dtmax     = 1.0
-    ieos      = 2
+    tmax  = 100.
+    dtmax = 1.0
+    ieos  = 2
  endif
  !
- ! determine if an .setup file exists
+ ! determine if the .setup file exists
  !
  setupfile = trim(fileprefix)//'.setup'
  inquire(file=setupfile,exist=setexists)
@@ -227,6 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (ieos==9) call init_eos_piecewise_preset(EOSopt)
  call init_eos(ieos,ierr)
+ if (ierr /= 0) call fatal('setup','could not initialise equation of state')
 
  !
  ! get the desired tables of density, pressure, temperature and composition
@@ -270,11 +270,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Write composition file called kepler.comp contaning composition of each particle after interpolation
  !
- select case (iprofile)
- case(ikepler)
-    call write_kepler_comp(composition,comp_label,columns_compo,r,&
-                                       xyzh,npart,npts,composition_exists)
- end select
+ if (iprofile==ikepler) call write_kepler_comp(composition,comp_label,columns_compo,r,&
+                                               xyzh,npart,npts,composition_exists)
  !
  ! set the internal energy and temperature
  !
@@ -302,36 +299,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Print summary to screen
  !
- write(*,"(70('='))")
- if (ieos /= 9) then
-    write(*,'(1x,a,f12.5)')       'gamma               = ', gamma
+ if (id==master) then
+    write(*,"(70('='))")
+    if (ieos /= 9) then
+       write(*,'(1x,a,f12.5)')       'gamma               = ', gamma
+    endif
+    if (maxvxyzu <= 4) then
+       write(*,'(1x,a,f12.5)')       'polyk               = ', polyk
+       write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', polyk*Rstar/Mstar,' GM/R'
+    endif
+    call write_mass('particle mass       = ',massoftype(igas),umass)
+    call write_dist('Radius              = ',Rstar,udist)
+    call write_mass('Mass                = ',Mstar,umass)
+    if (iprofile==ipoly) then
+       write(*,'(1x,a,es12.5,a)') 'rho_central         = ', rhocentre*unit_density,' g/cm^3'
+    endif
+    write(*,'(1x,a,i12)')         'N                   = ', npart_total
+    write(*,'(1x,a,2(es12.5,a))') 'rho_mean            = ', rhozero*unit_density,  ' g/cm^3 = '&
+                                                          , rhozero,               ' code units'
+    write(*,'(1x,a,es12.5,a)')    'free fall time      = ', sqrt(3.*pi/(32.*rhozero))*utime,' s'
+
+    if (composition_exists) then
+       write(*,'(a)') 'Composition written to kepler.comp file.'
+    endif
+    write(*,"(70('='))")
  endif
- if (maxvxyzu <= 4) then
-    write(*,'(1x,a,f12.5)')       'polyk               = ', polyk
-    write(*,'(1x,a,f12.6,a)')     'specific int. energ = ', polyk*Rstar/Mstar,' GM/R'
- endif
- call write_mass('particle mass       = ',massoftype(igas),umass)
- call write_dist('Radius              = ',Rstar,udist)
- call write_mass('Mass                = ',Mstar,umass)
- if (iprofile==ipoly) then
-    write(*,'(1x,a,es12.5,a)') 'rho_central         = ', rhocentre*unit_density,' g/cm^3'
- endif
- write(*,'(1x,a,i12)')         'N                   = ', npart_total
- write(*,'(1x,a,2(es12.5,a))')    'rho_mean            = ', rhozero*unit_density,  ' g/cm^3 = '&
-                                                       , rhozero,               ' code units'
- write(*,'(1x,a,es12.5,a)')       'free fall time      = ', sqrt(3.*pi/(32.*rhozero))*utime,' s'
+
  if ( (iprofile==iuniform .and. .not.gravity) .or. iprofile==ifromfile) then
-    write(*,'(a)') 'WARNING! This setup may not be stable'
- endif
- write(*,"(70('='))")
- if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
-
- if (composition_exists) then
-    write(*,'(a)') 'Composition written to kepler.comp file.'
+    call warning('setup_star','This setup may not be stable')
  endif
 
- if (ierr_relax /= 0) write(*,"(/,a,/)") ' WARNING: ERRORS DURING RELAXATION, SEE ABOVE!!'
-
+ if (ierr_relax /= 0) call warning('setup_star','ERRORS DURING RELAXATION, SEE ABOVE!!')
 
 end subroutine setpart
 
@@ -688,7 +686,6 @@ subroutine read_setupfile(filename,gamma,polyk,ierr)
 
  call open_db_from_file(db,filename,lu,ierr)
  if (ierr /= 0) return
- write(*, '(1x,2a)') 'setup_star: Reading setup options from ',trim(filename)
 
  nerr = 0
  call read_inopt(iprofile,'iprofile',db,errcount=nerr)

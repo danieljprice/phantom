@@ -43,7 +43,7 @@ applychanges=0;
 doindent=1;
 gitstaged=0;
 input_file='';
-
+bot_names='';
 while [[ "$1" == --* ]]; do
   case $1 in
     --apply)
@@ -65,14 +65,19 @@ while [[ "$1" == --* ]]; do
 
    --file)
       shift
-      input_file=$1
+      input_file=$1;
       break;
       ;;
 
    --files)
       shift
-      input_files="$*"
+      input_files="$*";
       break;
+      ;;
+
+    --only)
+      shift
+      bot_names=$1;
       ;;
 
     *)
@@ -126,6 +131,17 @@ if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
 #bots_to_run='shout';
+
+#
+# if --only flag is given, override list of bots_to_run
+#
+if [[ "$bot_names" != "" ]]; then
+   bots_to_run="${bot_names}"
+   echo ">> Running only ${bots_to_run} bots via --only flag"
+fi
+#
+# cycle over all the possible bots and run them...
+#
 modified=0
 for edittype in $bots_to_run; do
     filelist='';
@@ -164,6 +180,9 @@ for edittype in $bots_to_run; do
            for file in $myfiles; do
                if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
                  continue
+               fi
+               if [[ "$file" == "libphantom-evolve.F90" ]]; then # skip as causes indent-bot trouble
+                  continue
                fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
