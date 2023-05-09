@@ -322,7 +322,7 @@ subroutine write_options_dust(iunit)
     call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
  else
     call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
-    call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme',iunit)
+    call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme (!!! Works only with IND_TIMESTEPS=no !!!)',iunit)
  endif
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)

@@ -912,6 +912,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old,iamboundary
+ use timestep_ind,only:get_dt
 #endif
  use timestep,    only:bignumber
  use options,     only:overcleanfac,use_dustfrac,ireconav
@@ -1315,6 +1316,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              ibin_wake(j)  = max(ibinnow_m1,ibin_wake(j))
              ibin_neighi = max(ibin_neighi,ibin_old(j))
           endif
+#ifdef DUST
+          if (drag_implicit) then
+             dti = min(dti,get_dt(dt,ibin_old(j)))
+         endif
+#endif
 #endif
        endif
        pmassj = massoftype(iamtypej)
@@ -2128,8 +2134,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real         :: vwavei,alphai
  integer      :: i,j,iamtypei,ip,ii,ia,ib,ic
  real         :: densi
- integer :: iregime
- real    :: dti
+ integer      :: iregime
+ real         :: dti
 
  logical :: iactivei,iamgasi,iamdusti,realviscosity
 
@@ -2322,7 +2328,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_dustfrac) then
           cell%xpartvec(itstop:itstopend,cell%npcell) = tstopi
        endif
-       if (use_dust .and. ind_timesteps .and. drag_implicit) then
+       if (use_dust .and. ind_timesteps) then
           dti = get_dt(dt,ibin_old(i))
           cell%xpartvec(idti,cell%npcell) = dti
        endif
