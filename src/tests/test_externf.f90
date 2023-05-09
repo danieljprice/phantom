@@ -14,8 +14,8 @@ module testexternf
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: extern_corotate, externalforces, io, mpidomain, part,
-!   physcon, testutils, unifdis, units
+! :Dependencies: extern_corotate, externalforces, io, kernel, mpidomain,
+!   part, physcon, testutils, unifdis, units
 !
  implicit none
  public :: test_externf

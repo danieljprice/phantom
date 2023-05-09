@@ -13,26 +13,25 @@ module setup
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - beta            : *penetration factor*
-!   - dumpsperorbit   : *number of dumps per orbit*
-!   - ecc             : *eccentricity (1 for parabolic)*
-!   - mhole           : *mass of black hole (solar mass)*
-!   - mstar           : *mass of star       (solar mass)*
-!   - norbits         : *number of orbits*
-!   - nr              : *particles per star radius (i.e. resolution)*
-!   - rstar           : *radius of star     (solar radii)*
-!   - stardensprofile : *star density profile (1=adiabatic, 2=kepler)*
-!   - theta           : *inclination of orbit (degrees)*
+!   - beta          : *penetration factor*
+!   - dumpsperorbit : *number of dumps per orbit*
+!   - ecc           : *eccentricity (1 for parabolic)*
+!   - mhole         : *mass of black hole (solar mass)*
+!   - norbits       : *number of orbits*
+!   - theta         : *inclination of orbit (degrees)*
 !
-! :Dependencies: eos, extern_densprofile, externalforces, gravwaveutils,
-!   infile_utils, io, kernel, metric, part, physcon, rho_profile,
-!   setbinary, spherical, table_utils, timestep, units, vectorutils
+! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
+!   kernel, metric, mpidomain, part, physcon, setbinary, setstar,
+!   setup_params, timestep, units, vectorutils
 !
+ use setstar, only:star_t
  implicit none
  public :: setpart
 
- real    :: mhole,mstar,rstar,beta,ecc,norbits,theta
- integer :: dumpsperorbit,nr,stardensprofile
+ real    :: mhole,beta,ecc,norbits,theta
+ integer :: dumpsperorbit
+ logical :: relax
+ type(star_t) :: star
 
  private
 
@@ -44,23 +43,22 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,set_particle_type,rhoh,gravity,eos_vars,itemp
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
+                     gravity,eos_vars,rad
  use setbinary, only:set_binary
- use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,unit_density,unit_pressure,unit_ergg
+ use setstar,   only:set_star,shift_star
+ use units,     only:set_units,umass,udist
  use physcon,   only:solarm,pi,solarr
- use table_utils,only:yinterp
  use io,        only:master,fatal,warning
  use timestep,  only:tmax,dtmax
  use metric,    only:mass1,a
- use eos,       only:ieos,calc_temp_and_ene
+ use eos,       only:ieos,X_in,Z_in
  use kernel,    only:hfact_default
- use extern_densprofile, only:nrhotab
- use externalforces,only:accradius1,accradius1_hard
- use rho_profile,   only:rho_polytrope
- use setstar_kepler,only:read_kepler_file
- use vectorutils,   only:rotatevec
- use gravwaveutils, only:theta_gw,calc_gravitwaves
+ use mpidomain, only:i_belong
+ use externalforces, only:accradius1,accradius1_hard
+ use vectorutils,    only:rotatevec
+ use gravwaveutils,  only:theta_gw,calc_gravitwaves
+ use setup_params,   only:rhozero,npart_total
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -71,17 +69,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer, parameter :: ntab=5000
- integer, parameter :: ng_max = nrhotab
- integer :: ierr,i,npts,columns_compo
- logical :: iexist
- real    :: rtidal,rp,semia,psep,period,hacc1,hacc2
+ integer :: ierr
+ logical :: iexist,write_profile,use_var_comp
+ real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3)
- real    :: densi,r0,vel,lorentz,eni,tempi,presi,ri
+ real    :: r0,vel,lorentz
  real    :: vhat(3),x0,y0
- real,allocatable :: rtab(:),rhotab(:)
- real,allocatable :: pres(:), temp(:), en(:),composition(:,:)
- character(len=20), allocatable :: comp_label(:)
 !
 !-- general parameters
 !
@@ -91,7 +84,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 5./3.
  ieos  = 2
  if (.not.gravity) call fatal('setup','recompile with GRAVITY=yes')
-
 !
 !-- space available for injected gas particles
 !
@@ -100,28 +92,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)      = 0.
  vxyzu(:,:)     = 0.
  nptmass        = 0
-
 !
 !-- Default runtime parameters
 !
-!
  mhole           = 1.e6  ! (solar masses)
- mstar           = 1.    ! (solar masses)
- rstar           = 1.    ! (solar radii)
+ star%mstar      = 1.    ! (solar masses)
+ star%rstar      = 1.    ! (solar radii)
+ star%np         = 1e6
+ star%iprofile   = 2
  beta            = 5.
  ecc             = 0.8
  norbits         = 5.
  dumpsperorbit   = 100
- nr              = 50
  theta           = 0.
- stardensprofile = 1
+ write_profile   = .false.
+ use_var_comp    = .false.
+ relax           = .false.
 !
 !-- Read runtime parameters from setup file
 !
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' Tidal disruption in GR'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
- if (iexist) call read_setupfile(filename,ierr)
+ if (iexist) call read_setupfile(filename,ieos,polyk,ierr)
  if (.not. iexist .or. ierr /= 0) then
     if (id==master) then
        call write_setupfile(filename)
@@ -134,21 +127,37 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Convert to code untis
 !
  mhole = mhole*solarm
- call set_units(mass=mhole,c=1.,G=1.) !--Set central mass to M=1 in code units
- mstar         = mstar*solarm/umass
- rstar         = rstar*solarr/udist
- print*, 'mstar', mstar
- print*, 'rstar', rstar
- print*, 'umass', umass
- print*, 'udist', udist
- rtidal          = rstar*(mass1/mstar)**(1./3.)
+ call set_units(mass=mhole,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
+ star%mstar = star%mstar*solarm/umass
+ star%rstar = star%rstar*solarr/udist
+
+ !
+ !--set up and relax a star
+ !
+ call set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+               massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+               X_in,Z_in,relax,use_var_comp,write_profile,&
+               rhozero,npart_total,i_belong,ierr)
+
+ if (ierr /= 0) call fatal('setup','errors in set_star')
+
+ !
+ !--place star into orbit
+ !
+ rtidal          = star%rstar*(mass1/star%mstar)**(1./3.)
  rp              = rtidal/beta
- psep            = rstar/nr
  accradius1_hard = 5.*mass1
  accradius1      = accradius1_hard
  a               = 0.
-
  theta           = theta*pi/180.
+
+ print*, 'mstar', star%mstar
+ print*, 'rstar', star%rstar
+ print*, 'umass', umass
+ print*, 'udist', udist
+ print*, 'mass1', mass1
+ print*, 'tidal radius', rtidal
+ print*, 'beta', beta
 
  xyzstar  = 0.
  vxyzstar = 0.
@@ -160,15 +169,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !
     semia    = rp/(1.-ecc)
     period   = 2.*pi*sqrt(semia**3/mass1)
-    print*, 'print period', period
-    print*, 'mass1', mass1
-    print*, 'tidal radisu', rtidal
-    print*, 'beta', beta
-    hacc1    = rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
+    print*, 'period', period
+    hacc1    = star%rstar/1.e8    ! Something small so that set_binary doesnt warn about Roche lobe
     hacc2    = hacc1
     ! apocentre = rp*(1.+ecc)/(1.-ecc)
     ! trueanom = acos((rp*(1.+ecc)/r0 - 1.)/ecc)*180./pi
-    call set_binary(mass1,mstar,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+    call set_binary(mass1,star%mstar,semia,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
                     posang_ascnode=0.,arg_peri=90.,incl=0.,f=-180.)
     vxyzstar = vxyz_ptmass(1:3,2)
     xyzstar  = xyzmh_ptmass(1:3,2)
@@ -177,10 +183,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call rotatevec(xyzstar,(/0.,1.,0./),-theta)
     call rotatevec(vxyzstar,(/0.,1.,0./),-theta)
 
+ elseif (abs(ecc-1.) < tiny(0.)) then
     !
     !-- Setup a parabolic orbit
     !
- elseif (abs(ecc-1.) < tiny(0.)) then
     r0       = 10.*rtidal              ! A default starting distance from the black hole.
     period   = 2.*pi*sqrt(r0**3/mass1) !period not defined for parabolic orbit, so just need some number
     y0       = -2.*rp + r0
@@ -195,7 +201,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  else
     call fatal('setup','please choose a valid eccentricity (0<ecc<=1)',var='ecc',val=ecc)
-
  endif
 
  lorentz = 1./sqrt(1.-dot_product(vxyzstar,vxyzstar))
@@ -203,33 +208,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  tmax      = norbits*period
  dtmax     = period/dumpsperorbit
- select case (stardensprofile)
- case (2)
-    allocate(pres(ng_max), temp(ng_max), en(ng_max), rtab(ng_max), rhotab(ng_max))
-    call read_kepler_file(trim('star1@hign'),ng_max,npts,rtab,rhotab,pres,temp,en,mstar,composition,comp_label,columns_compo,ierr)
- case default
-    allocate(rtab(ntab),rhotab(ntab))
-    call rho_polytrope(gamma,polyk,mstar,rtab,rhotab,npts,set_polyk=.true.,Rstar=rstar)
- end select
- call set_sphere('cubic',id,master,0.,rstar,psep,hfact,npart,xyzh,xyz_origin=xyzstar,rhotab=rhotab(1:npts),rtab=rtab(1:npts))
-
- npartoftype(igas) = npart
- massoftype(igas)  = mstar/npart
- do i=1,npart
-    call set_particle_type(i,igas)
-    densi        = rhoh(xyzh(4,i),massoftype(igas))
-    select case (stardensprofile)
-    case (2)
-       ri        = sqrt(dot_product(xyzh(1:3,i)-xyzstar,xyzh(1:3,i)-xyzstar))
-       presi     = yinterp(pres(1:npts),rtab(1:npts),ri)
-       call calc_temp_and_ene(ieos,densi*unit_density,presi*unit_pressure,eni,tempi,ierr)
-       vxyzu(4,i) = eni / unit_ergg
-       eos_vars(itemp,i) = tempi
-    case default
-       vxyzu(4,i)   = polyk*densi**(gamma-1.) / (gamma-1.)
-    end select
-    vxyzu(1:3,i) = vxyzstar(1:3)
- enddo
 
  if (id==master) then
     print "(/,a)",       ' STAR SETUP:'
@@ -239,6 +217,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,1f10.3)"  ,' Polytropic gamma = ',gamma
     print "(a,3f10.3,/)",'       Pericentre = ',rp
  endif
+
+ call shift_star(npart,xyzh,vxyzu,x0=xyzstar,v0=vxyzstar)
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
@@ -262,48 +242,57 @@ end subroutine setpart
 !
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use setstar,      only:write_options_star
+ use relaxstar,    only:write_options_relax
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for binary setup routines'
+ write(iunit,"(a)") '# input file for tidal disruption setup'
+
+ call write_options_star(star,iunit)
+ call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
+ if (relax) call write_options_relax(iunit)
+
+ write(iunit,"(/,a)") '# options for black hole and orbit'
+
  call write_inopt(mhole,          'mhole',          'mass of black hole (solar mass)',             iunit)
- call write_inopt(mstar,          'mstar',          'mass of star       (solar mass)',             iunit)
- call write_inopt(rstar,          'rstar',          'radius of star     (solar radii)',            iunit)
- call write_inopt(stardensprofile,'stardensprofile','star density profile (1=adiabatic, 2=kepler)',iunit)
  call write_inopt(beta,           'beta',           'penetration factor',                          iunit)
  call write_inopt(ecc,            'ecc',            'eccentricity (1 for parabolic)',              iunit)
  call write_inopt(norbits,        'norbits',        'number of orbits',                            iunit)
  call write_inopt(dumpsperorbit,  'dumpsperorbit',  'number of dumps per orbit',                   iunit)
- call write_inopt(nr,             'nr',             'particles per star radius (i.e. resolution)', iunit)
  call write_inopt(theta,          'theta',          'inclination of orbit (degrees)',              iunit)
  close(iunit)
 
 end subroutine write_setupfile
 
-subroutine read_setupfile(filename,ierr)
+subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
- character(len=*), intent(in)  :: filename
- integer,          intent(out) :: ierr
+ use setstar,      only:read_options_star
+ use relaxstar,    only:read_options_relax
+ character(len=*), intent(in)    :: filename
+ integer,          intent(inout) :: ieos
+ real,             intent(inout) :: polyk
+ integer,          intent(out)   :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr
+ integer :: nerr,need_iso
  type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ call read_options_star(star,need_iso,ieos,polyk,db,nerr)
+ call read_inopt(relax,'relax',db,errcount=nerr)
+ if (relax) call read_options_relax(db,nerr)
+
  call read_inopt(mhole,          'mhole',          db,min=0.,errcount=nerr)
- call read_inopt(mstar,          'mstar',          db,min=0.,errcount=nerr)
- call read_inopt(rstar,          'rstar',          db,min=0.,errcount=nerr)
- call read_inopt(stardensprofile,'stardensprofile',db,min=1,max=2,errcount=nerr)
  call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
  call read_inopt(ecc,            'ecc',            db,min=0.,max=1.,errcount=nerr)
  call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,  'dumpsperorbit',  db,min=0 ,errcount=nerr)
- call read_inopt(nr,             'nr',             db,min=0 ,errcount=nerr)
  call read_inopt(theta,          'theta',          db,       errcount=nerr)
  call close_db(db)
  if (nerr > 0) then

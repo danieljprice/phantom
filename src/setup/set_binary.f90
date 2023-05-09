@@ -91,7 +91,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  if (do_verbose) then
     print "(/,2x,a)",'---------- binary parameters ----------- '
-    print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
+    print "(8(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
         'primary mass     :',m1, &
         'secondary mass   :',m2, &
         'mass ratio m2/m1 :',m2/m1, &
@@ -167,7 +167,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     E_dot = sqrt((m1 + m2)/(a**3))/(1.-eccentricity*cos(E))
 
     if (do_verbose) then
-       print "(4(2x,a,g12.4,/),2x,a,g12.4)", &
+       print "(4(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
              'Eccentric anomaly:',E, &
              'E_dot            :',E_dot, &
              'inclination     (i, deg):',incl, &
@@ -198,11 +198,11 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
  v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
 
- omega0 = dv(2)/semimajoraxis
+ omega0 = v1(2)/x1(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(7(2x,a,g12.4,/),2x,a,g12.4)", &
+    print "(7(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
         'Omega_0 (prim)   :',v1(2)/x1(1), &
@@ -218,7 +218,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     omega_corotate = omega0
     v1(2) = v1(2) - omega0*x1(1)
     v2(2) = v2(2) - omega0*x2(1)
-    if (do_verbose) print "(2(2x,a,g12.4,/))", &
+    if (do_verbose) print "(2(2x,a,1pg14.6,/))", &
      'Omega_0 (primary)     :',v1(2)/x1(1), &
      'Omega_0 (secondary)   :',v2(2)/x2(1)
  endif

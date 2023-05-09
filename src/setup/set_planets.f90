@@ -29,8 +29,8 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine set_planets(xyzmh_ptmass,vxyz_ptmass,nptmass)
- use part, only:ihacc,ihsoft
- use physcon,only:pi
+ use part,    only:ihacc,ihsoft
+ use physcon, only:pi
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
 

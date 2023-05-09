@@ -204,9 +204,6 @@ endif
 
 ifeq ($(GR), yes)
     FPPFLAGS += -DGR
-ifeq ($(METRIC), kerr)
-    FPPFLAGS += -DKERR
-endif
 ifeq ($(ISENTROPIC), yes)
     FPPFLAGS += -DISENTROPIC
     FPPFLAGS += -DLIGHTCURVE
@@ -527,11 +524,11 @@ else
     SRCKROME=
 endif
 
-SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 boundary.f90 \
+SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_dens.F90 mpi_force.F90 mpi_utils.F90 dtype_kdtree.F90 utils_omp.F90 utils_cpuinfo.f90 \
-         utils_allocate.f90 icosahedron.f90 quartic.f90 \
-         utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} utils_timing.f90 mpi_balance.F90 \
-         setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 utils_infiles.f90 \
+         utils_infiles.f90 utils_allocate.f90 icosahedron.f90 quartic.f90 \
+         utils_system.f90 utils_mathfunc.f90 part.F90 ${DOMAIN} boundary.f90 boundary_dynamic.f90 utils_timing.f90 mpi_balance.F90 \
+         setup_params.f90 timestep.f90 utils_dumpfiles.f90 utils_indtimesteps.F90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
@@ -612,7 +609,7 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 boundary.f90 mpi_utils.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 boundary.f90 boundary_dynamic.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
          mpi_dens.F90 mpi_force.F90 \
          mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
@@ -655,11 +652,11 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= prompting.f90 set_dust_options.f90 \
-          density_profiles.f90 set_slab.f90 set_disc.F90 \
+SRCSETUP= prompting.f90 set_dust_options.f90 set_units.f90 \
+          density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+          set_slab.f90 set_disc.F90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_star_kepler.f90 set_star_mesa.f90 \
-          set_star.f90 relax_star.f90 set_hierarchical.f90 \
+          set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
@@ -796,7 +793,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o set_star_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o density_profiles.o readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
