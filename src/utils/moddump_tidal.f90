@@ -106,9 +106,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  m0 = Mh1
  rt = (m0/ms)**(1./3.) * rs
 
- ! setting a default r0 value 
+ ! setting a default r0 value
  r0 = 10*rt
- 
+
  ! default parameters for binary (overwritten from .tdeparams file)
  use_binary = .false.
  use_sink = .false.
@@ -125,7 +125,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,"--------------------------------------------"
  print*,use_binary,"use_binary"
  print*,"--------------------------------------------"
- 
+
  m0 = Mh1
  if (use_binary) then
     select case(iorigin)
@@ -137,7 +137,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        m0 = Mh1 + Mh2
     end select
  endif
- 
+
  rt = (m0/ms)**(1./3.) * rs
  rp = rt/beta
  theta=theta*pi/180.0
@@ -201,7 +201,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                     accradius1,accradius2, &
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
  elseif (use_sink) then
-   ! single black hole in Newtonian gravity using a sink particle
+    ! single black hole in Newtonian gravity using a sink particle
     nptmass = nptmass + 1
     xyzmh_ptmass(:,nptmass) = 0.
     xyzmh_ptmass(4,nptmass) = m0
@@ -290,7 +290,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     write(*,'(a)') "Use Binary BH = True"
     write(*,'(a,Es12.5,a)')'Eccentricity of the binary black hole system = ', ecc_binary
     write(*,'(a,Es12.5,a)') 'Separation betweent the two black holes = ', semimajoraxis_binary
- elseif (use_sink .and. .not.gr) then 
+ elseif (use_sink .and. .not.gr) then
     write(*,'(a)') "Use Sink particle as BH = True"
  else
     write(*,'(a)') "Use Binary BH = False"

@@ -18,10 +18,10 @@ module relaxstar
 !   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: checksetup, damping, deriv, dim, energies, eos, fileutils,
-!   infile_utils, initial, io, io_summary, memory, options, part, physcon,
-!   ptmass, readwrite_dumps, setstar_utils, sortutils, step_lf_global,
-!   table_utils, units
+! :Dependencies: checksetup, damping, deriv, dim, energies, eos,
+!   externalforces, fileutils, infile_utils, initial, io, io_summary,
+!   memory, options, part, physcon, ptmass, readwrite_dumps, setstar_utils,
+!   sortutils, step_lf_global, table_utils, units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
@@ -30,7 +30,7 @@ module relaxstar
  real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
  integer, private :: maxits = 1000
 
- real,    private :: gammaprev,hfactprev
+ real,    private :: gammaprev,hfactprev,mass1prev
  integer, private :: ieos_prev
 
  integer, public :: ierr_setup_errors = 1, &
@@ -113,7 +113,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  !
  ! check particle setup is sensible
  !
- call check_setup(nwarn,nerr,restart=.true.) ! restart=T allows accreted/masked particles
+ call check_setup(nerr,nwarn,restart=.true.) ! restart=T allows accreted/masked particles
  if (nerr > 0) then
     call error('relax_star','cannot relax star because particle setup contains errors')
     call restore_original_options(i1,npart)
@@ -372,15 +372,17 @@ end subroutine reset_u_and_get_errors
 !----------------------------------------------------------------
 subroutine set_options_for_relaxation(tdyn)
  use eos,  only:ieos,gamma
- use part, only:hfact,maxvxyzu
+ use part, only:hfact,maxvxyzu,gr
  use damping, only:damp,tdyn_s
  use options, only:idamp
- use units,   only:utime
+ use units,          only:utime
+ use externalforces, only:mass1
  real, intent(in) :: tdyn
 
  gammaprev = gamma
  hfactprev = hfact
  ieos_prev = ieos
+ mass1prev = mass1
  !
  ! turn on settings appropriate to relaxation
  !
@@ -392,6 +394,7 @@ subroutine set_options_for_relaxation(tdyn)
     idamp = 1
     damp = 0.05
  endif
+ if (gr) mass1 = 0. ! use Minkowski metric during relaxation
 
 end subroutine set_options_for_relaxation
 
@@ -422,7 +425,8 @@ subroutine restore_original_options(i1,npart)
  use eos,     only:ieos,gamma
  use damping, only:damp
  use options, only:idamp
- use part,    only:hfact,vxyzu
+ use part,    only:hfact,vxyzu,gr
+ use externalforces, only:mass1
  integer, intent(in) :: i1,npart
 
  gamma = gammaprev
@@ -431,6 +435,7 @@ subroutine restore_original_options(i1,npart)
  idamp = 0
  damp = 0.
  vxyzu(1:3,i1+1:npart) = 0.
+ if (gr) mass1 = mass1prev
 
 end subroutine restore_original_options
 

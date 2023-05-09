@@ -16,11 +16,11 @@ module externalforces
 !   - accradius1      : *soft accretion radius of black hole*
 !   - accradius1_hard : *hard accretion radius of black hole*
 !
-! :Dependencies: dump_utils, infile_utils, io, metric_tools, part, units
+! :Dependencies: dump_utils, infile_utils, io, metric, metric_tools, part,
+!   units
 !
+ use metric, only:mass1
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  private
  public :: externalforce,externalforce_vdependent
@@ -36,7 +36,7 @@ module externalforces
  !
  integer, parameter, public :: iext_gr = 1
 
- real, public :: mass1 = 1.0
+ public :: mass1  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
 

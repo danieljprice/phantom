@@ -804,10 +804,6 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
        call pack_metric(xyzh(1:3,i),metrici)
        call unpack_metric(metrici,gcov=gcov)
        call get_u0(gcov,vxyzu(1:3,i),U0,ierr)
-       if (ierr /= 0) then
-          print*,vxyzu(1:3,i),gcov,U0
-          read*
-       endif
        if (ierr/=0) nbad = nbad + 1
     endif
  enddo

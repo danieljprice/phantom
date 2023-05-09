@@ -150,8 +150,8 @@ subroutine phantom_to_kepler_arrays(xyzh,vxyzu,pmass,npart,time,density,rad_grid
  distance_from_bh = sqrt(dot_product(xpos(:),xpos(:)))
  vel_from_bh = sqrt(dot_product(vpos(:),vpos(:)))
  print*,"******************"
-print*,distance_from_bh*udist,"distance from bh",vel_from_bh*unit_velocity,"velfrom bh"
-print*,"*******************"
+ print*,distance_from_bh*udist,"distance from bh",vel_from_bh*unit_velocity,"velfrom bh"
+ print*,"*******************"
  ! sorting particles
  call set_r2func_origin(xpos(1),xpos(2),xpos(3))
  call indexxfunc(npart,r2func_origin,xyzh,iorder)
@@ -204,29 +204,29 @@ print*,"*******************"
  ! Now we calculate the different quantities of the particles and bin them
  do j=1,energy_verified_no
     i      = iorder(array_particle_j(j))
-    if (j /= energy_verified_no) then 
+    if (j /= energy_verified_no) then
        i_next = iorder(array_particle_j(j+1))
-    else 
+    else
        i_next = iorder(array_particle_j(j))
     endif
 
     call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos,vel,i,pos_mag,vel_mag)
-    
+
     ! calculating centre of mass position and velocity wrt black hole
     pos_com(:) = pos_com(:) + xyzh(1:3,i)*pmass
     vel_com(:) = vel_com(:) + vxyzu(1:3,i)*pmass
-   
+
     if (j  /=  energy_verified_no) then
        call particle_pos_and_vel_wrt_centre(xpos,vpos,xyzh,vxyzu,pos_next,vel_next,i_next,pos_mag_next,vel_mag_next)
     endif
-   
+
     count_particles = count_particles + 1
     if (count_particles == 1) then
        rad_inner = pos_mag
        !print*,j,"j","first",rad_inner,"rad_inner",count_particles
     endif
-    
-    !print*,pos_mag_next-pos_mag,"difference in pos mag of next and current particle",i,"i",i_next,"i_next",j,"j",j+1,"jnext"    
+
+    !print*,pos_mag_next-pos_mag,"difference in pos mag of next and current particle",i,"i",i_next,"i_next",j,"j",j+1,"jnext"
     call  no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no,energy_verified_no,pos_mag_next,rad_inner)
     if (number_per_bin == count_particles) then
        rad_outer = pos_mag
@@ -236,7 +236,7 @@ print*,"*******************"
        composition_i(:) = interpolate_comp(:,i)
     endif
     composition_sum(:) = composition_sum(:) + composition_i(:)
-    
+
     write(4,'(i9,1x,i5,1x,23(e18.10,1x))') &
                i, &
                ibin, &
@@ -275,17 +275,17 @@ print*,"*******************"
     call cross_product3D(pos(:),vel(:),Li(:))
     L_i(:)   = Li(:)*pmass
     L_sum(:) = L_sum(:) + L_i(:)
-    if (pos_mag == 0.) then 
-          omega_particle = 0.
-    else 
-          omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
+    if (pos_mag == 0.) then
+       omega_particle = 0.
+    else
+       omega_particle = sqrt(dot_product(Li(:)/(pos_mag**2),Li(:)/(pos_mag**2)))
     endif
-    
+
     write(1,*)pos_mag,omega_particle
     ! Moment of inertia
     call moment_of_inertia(pos,pos_mag,pmass,i_matrix)
     I_sum(:,:) = I_sum(:,:) + i_matrix(:,:)
-    
+
     if (count_particles==number_per_bin .or. j==energy_verified_no) then
        tot_binned_particles = tot_binned_particles+count_particles
        call radius_of_remnant(array_particle_j,count_particles,number_per_bin,j,energy_verified_no,xpos,vpos,xyzh,vxyzu,iorder,pos_mag,radius_star)
@@ -331,7 +331,7 @@ print*,"*******************"
  print*,mass_enclosed(ibin)*umass,"enclodsed mass",pos_com,"pos com"
  print*,rad_grid(ibin),"Radius MAX"
  pos_com(:) = pos_com(:)/mass_enclosed(ibin)
- print*,pos_com,"pos of com" 
+ print*,pos_com,"pos of com"
  vel_com(:) = vel_com(:)/mass_enclosed(ibin)
  print*,pos_com,"pos_com",xpos,"xpos",vel_com,"vel com",vpos,"vpos"
  print*,ibin,"ibin",tot_binned_particles
@@ -351,12 +351,12 @@ print*,"*******************"
  print*,total_star,"total_star",u_star,"ustar",ke_star,"ke_star"
  print*,mass_enclosed(ibin),"/mass_enclosed(ibin)",mass_enclosed(ibin)*umass
  vel_at_infinity = sqrt(2.*total_star)
- if (isnan(vel_at_infinity)) then 
-         vel_at_infinity = 0.
+ if (isnan(vel_at_infinity)) then
+    vel_at_infinity = 0.
  endif
  print*,vel_at_infinity*1.e-5,"vel at infinity in Km/s"
  print*,umass,"umass",udist,"udist",unit_density,"unit_density",unit_velocity,"unit_velocity",utime,"utime"
- ! write information to the dump_info file 
+ ! write information to the dump_info file
  call write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j,interpolate_comp,columns_compo,comp_label,energy_verified_no,last_particle_with_neg_e)
  call write_dump_info(numfile,density(1),temperature(1),mass_enclosed(ibin),xpos,rad_grid(ibin),distance_from_bh,&
                          pos_mag_star,vel_mag_star,total_star,ke_star,u_star,time,vel_at_infinity)
@@ -403,7 +403,7 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  integer,intent(in)               :: columns_compo
  integer,intent(out)              :: energy_verified_no,last_particle_with_neg_e
  integer,allocatable,intent(out)  :: array_particle_j(:),array_bh_j(:)
- 
+
  character(len=120)  :: output
  integer,allocatable :: index_particle_star(:),index_particle_bh(:)
  integer :: i,j,dummy_size,index_val,particle_bound_bh,index_val_bh,count_val,count_val_unbound,count_bound_both
@@ -411,7 +411,7 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  real :: potential_i, kinetic_i,energy_i,pos_mag,vel_mag
  logical :: bound_to_bh,bound_to_star
  real,allocatable    :: composition_i(:)
- 
+
  bound_to_bh = .false.
  bound_to_star = .false.
  particle_bound_bh = 0
@@ -424,12 +424,12 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  count_bound_both = 0
 
  write(output,"(a8,i5.5)") 'compfull',numfile
-   open(5,file=output)
-   write(5,"(18(a22,1x))") &
+ open(5,file=output)
+ write(5,"(18(a22,1x))") &
           comp_label
 
  allocate(index_particle_star(dummy_size),index_particle_bh(dummy_size))
- allocate(composition_i(columns_compo)) 
+ allocate(composition_i(columns_compo))
  do j = 1, npart
 
     i  = iorder(j) !Access the rank of each particle in radius.
@@ -454,7 +454,7 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
     kinetic_i     = 0.5*pmass*vel_mag**2
 
     energy_i = potential_i + kinetic_i + vxyzu(4,i)*pmass
-    
+
     !if energy is less than 0, we have bound system. We can accept these particles.
     if (energy_i < 0. .and. kinetic_i < 0.5*abs(potential_i)) then
        bound_to_star = .True.
@@ -464,19 +464,19 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
        index_val = index_val+1
     endif
 
-    if (bound_to_bh == .True. .and. bound_to_star == .false.) then 
-        count_val = count_val + 1
-        index_particle_bh(index_val_bh) = j
-        particle_bound_bh = particle_bound_bh +1
-        index_val_bh = index_val_bh+1
+    if (bound_to_bh == .True. .and. bound_to_star == .false.) then
+       count_val = count_val + 1
+       index_particle_bh(index_val_bh) = j
+       particle_bound_bh = particle_bound_bh +1
+       index_val_bh = index_val_bh+1
     endif
-    if (bound_to_bh == .True. .and. bound_to_star == .True.) then 
-        count_bound_both = count_bound_both + 1
-    endif 
+    if (bound_to_bh == .True. .and. bound_to_star == .True.) then
+       count_bound_both = count_bound_both + 1
+    endif
 
     if (bound_to_bh == .false. .and. bound_to_star == .false.) then
-        count_val_unbound = count_val_unbound + 1
-    endif 
+       count_val_unbound = count_val_unbound + 1
+    endif
     bound_to_bh = .false.
     bound_to_star = .false.
  enddo
@@ -496,7 +496,7 @@ subroutine particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energ
  allocate(array_bh_j(particle_bound_bh))
  do i=1,particle_bound_bh
     array_bh_j(i) = index_particle_bh(i)
- enddo 
+ enddo
 
  print*,"--------"
  print*,particle_bound_bh,"particle bound to the bh",size(array_bh_j),"array bh j"
@@ -543,13 +543,13 @@ subroutine no_per_bin(j,count_particles,double_the_no,number_per_bin,big_bins_no
        number_per_bin = big_bins_no
        double_the_no = .False.
     endif
- else 
+ else
     if (pos_mag_next - rad_inner > 0.1) then
        number_per_bin=count_particles
-       if (number_per_bin < 10) then 
-           number_per_bin = 10
+       if (number_per_bin < 10) then
+          number_per_bin = 10
        endif
-    endif 
+    endif
  endif
  if (j==energy_verified_no) then
     number_per_bin = count_particles
@@ -806,30 +806,30 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
  character(len=10) :: filename
  logical :: file_exists
 
- ! set a file name 
+ ! set a file name
  filename = 'dump_info'
- 
+
  ! check if the file exists
  inquire(file=filename, exist=file_exists)
- 
+
  ! open the file for appending or creating
  if (file_exists) then
-      open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
-      if (status /= 0) then
-           write(*,*) 'Error opening file: ', filename
-           stop
-       endif
-     
-else
-      open(unit=file_id, file=filename, status='new', action='write', iostat=status)
-      if (status /= 0) then
-         write(*,*) 'Error creating file: ', filename
-         stop
-      endif
-      ! Write headers to file 
-      write(file_id,'(16(a22,1x))') &
+    open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
+    if (status /= 0) then
+       write(*,*) 'Error opening file: ', filename
+       stop
+    endif
+
+ else
+    open(unit=file_id, file=filename, status='new', action='write', iostat=status)
+    if (status /= 0) then
+       write(*,*) 'Error creating file: ', filename
+       stop
+    endif
+    ! Write headers to file
+    write(file_id,'(16(a22,1x))') &
               "FileNo", &
-              "Density",& 
+              "Density",&
               "Temperature",&
               "Mass",&
               "x",&
@@ -844,10 +844,10 @@ else
                "specPE",&
                "time",&
                "Escape_in"
-endif
-write(file_id,'(i5,1x,15(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
+ endif
+ write(file_id,'(i5,1x,15(e18.10,1x))')fileno,density*unit_density,temperature,mass*umass,xpos(1)*udist,xpos(2)*udist,xpos(3)*udist,rad*udist,distance*udist,pos_mag_star*udist,&
                       vel_mag_star*unit_velocity,tot_energy,kinetic_energy,potential_energy,time*utime,vel_at_infinity*1e-5
-close(file_id)
+ close(file_id)
 
 end subroutine write_dump_info
 
@@ -855,46 +855,46 @@ end subroutine write_dump_info
  !----------------------------------------------------------------
  !+
  !  This subroutine can write a file with composition of particles wrt black hole
- !  
+ !
  !+
  !----------------------------------------------------------------
 subroutine write_compo_wrt_bh(xyzh,vxyzu,xpos,vpos,pmass,npart,iorder,array_bh_j,interpolate_comp,columns_compo,comp_label,energy_verified_no,last_particle_with_neg_e)
-   use units , only: udist
-   
-   real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
-   real,intent(in)    :: xpos(3),vpos(3),pmass
-   integer,intent(in) :: npart,iorder(:),columns_compo  
-   integer,allocatable,intent(in) :: array_bh_j(:) 
-   integer,intent(in) :: energy_verified_no,last_particle_with_neg_e
-   character(len=20),intent(in) :: comp_label(:)
-   real,intent(in)    :: interpolate_comp(:,:) 
-   
-   integer,allocatable :: array_particle_j(:) 
-   real,allocatable    :: composition_i(:)
-   integer             :: i,j
-   real                :: pos_to_bh
-   character(len=120)  :: output
-      
-   !call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j,array_bh_j)
-   !call composition_array(interpolate_comp,columns_compo,comp_label)
-   write(output,"(a8)") 'compo_bh'
-   open(4,file=output)
-   write(4,"(19(a22,1x))") &
+ use units , only: udist
+
+ real,intent(in)    :: xyzh(:,:),vxyzu(:,:)
+ real,intent(in)    :: xpos(3),vpos(3),pmass
+ integer,intent(in) :: npart,iorder(:),columns_compo
+ integer,allocatable,intent(in) :: array_bh_j(:)
+ integer,intent(in) :: energy_verified_no,last_particle_with_neg_e
+ character(len=20),intent(in) :: comp_label(:)
+ real,intent(in)    :: interpolate_comp(:,:)
+
+ integer,allocatable :: array_particle_j(:)
+ real,allocatable    :: composition_i(:)
+ integer             :: i,j
+ real                :: pos_to_bh
+ character(len=120)  :: output
+
+ !call particles_bound_to_star(xpos,vpos,xyzh,vxyzu,pmass,npart,iorder,energy_verified_no,last_particle_with_neg_e,array_particle_j,array_bh_j)
+ !call composition_array(interpolate_comp,columns_compo,comp_label)
+ write(output,"(a8)") 'compo_bh'
+ open(4,file=output)
+ write(4,"(19(a22,1x))") &
           "posToBH",      &
           comp_label
 
-   allocate(composition_i(columns_compo))
-   do j = 1, size(array_bh_j)
-      i  = iorder(j) !Access the rank of each particle in radius.
-      pos_to_bh = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-      if (columns_compo /= 0) then
+ allocate(composition_i(columns_compo))
+ do j = 1, size(array_bh_j)
+    i  = iorder(j) !Access the rank of each particle in radius.
+    pos_to_bh = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    if (columns_compo /= 0) then
        composition_i(:) = interpolate_comp(:,i)
-      endif
-      write(4,'(19(e18.10,1x))') &
-              pos_to_bh*udist,& 
-              composition_i(:)      
-   enddo
-   close(4)
+    endif
+    write(4,'(19(e18.10,1x))') &
+              pos_to_bh*udist,&
+              composition_i(:)
+ enddo
+ close(4)
 
 end subroutine write_compo_wrt_bh
 

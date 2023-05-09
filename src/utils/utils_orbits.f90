@@ -14,9 +14,8 @@ module orbits_data
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon, units, vectorutils
+! :Dependencies: physcon, vectorutils
 !
-! Accepts values in cgs units 
  implicit none
 
  public :: escape, eccentricity_vector, eccentricity_star
@@ -62,7 +61,7 @@ end function escape
  !----------------------------------------------------------------
 function hvector(pos_vec,vel_vec)
  use vectorutils,     only : cross_product3D
- 
+
  real,intent(in) :: pos_vec(3),vel_vec(3)
  real,dimension(3) :: hvector
 
@@ -101,9 +100,9 @@ function  eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
  real               :: pos_vec_mag
 
  vcrossh_vec = vcrossh(pos_vec,vel_vec)
- pos_vec_mag = sqrt(dot_product(pos_vec,pos_vec)) 
+ pos_vec_mag = sqrt(dot_product(pos_vec,pos_vec))
 
- ! eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat 
+ ! eccentricity vector = (rdot cross h )/(G(m1+m2)) - rhat
  eccentricity_vector(:) = (vcrossh_vec(:)/(gg*(mass1+mass2))) - (pos_vec/pos_vec_mag)
 
 end function eccentricity_vector
@@ -114,12 +113,12 @@ end function eccentricity_vector
  !+
  !----------------------------------------------------------------
 real function eccentricity_star(mass1,mass2,pos_vec,vel_vec)
- 
+
  real, intent(in)  :: pos_vec(3),vel_vec(3)
  real, intent(in)  :: mass1,mass2
  real, dimension(3) :: ecc_vector
  ecc_vector = eccentricity_vector(mass1,mass2,pos_vec,vel_vec)
- 
+
  eccentricity_star = sqrt(dot_product(ecc_vector,ecc_vector))
 
 end function eccentricity_star
@@ -159,10 +158,10 @@ real function period_star(mass1,mass2,pos_vec,vel_vec)
  real, intent(in) :: mass1,mass2
  real, intent(in) :: pos_vec(3),vel_vec(3)
  real :: semimajor
- 
+
  semimajor = semimajor_axis(mass1,mass2,pos_vec,vel_vec)
 
- ! using Kepler's 3rd law to calculated period 
+ ! using Kepler's 3rd law to calculated period
  period_star = sqrt((4*pi**2*abs(semimajor)**3)/(gg*(mass1+mass2)))
 
 end function period_star
@@ -196,16 +195,16 @@ subroutine orbital_angles(mass1,mass2,pos_vec,vel_vec,&
  j_vector = (/0,1,0/)
  k_vector = (/0,0,1/)
 
- ! n vector = k cross h 
+ ! n vector = k cross h
  call cross_product3D(k_vector,h_vector,n_vector)
  n_vector_mag = sqrt(dot_product(n_vector,n_vector))
  n_hat = n_vector/n_vector_mag
 
- ! calculate inclination angle 
+ ! calculate inclination angle
  inclination_angle = acos(dot_product(k_vector,h_hat))
  argument_of_periestron = acos(dot_product(ecc_hat,n_hat))
  longitude_ascending_node = acos(dot_product(i_vector,n_hat))
- 
+
 
 end subroutine orbital_angles
 
