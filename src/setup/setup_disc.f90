@@ -177,7 +177,6 @@ module setup
  integer :: itapersetgas(maxdiscs)
  logical :: iwarp(maxdiscs)
  logical :: use_global_iso
- logical :: triple
  real    :: alphaSS
 
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
@@ -398,7 +397,6 @@ subroutine set_default_options()
 
  !--eos
  use_global_iso = .false.
- triple = .false.
 
  !--dust distribution
  call set_dust_default_options()
@@ -618,7 +616,7 @@ subroutine equation_of_state(gamma)
 
     !--isothermal
     gamma = 1.0
-    if ((ndiscs /= 1) .or. (triple)) then
+    if (ndiscs /= 1) then
        !--multiple discs
        if (use_global_iso) then
           !--globally isothermal
@@ -2976,10 +2974,6 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
     elseif (nsinks == 3) then
-      triple = .true.
-       call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
-       call read_inopt(iuse_disc(2),'use_primarydisc',db,errcount=nerr)
-       call read_inopt(iuse_disc(3),'use_secondarydisc',db,errcount=nerr)
        call read_inopt(iuse_disc(4),'use_tripledisc',db,errcount=nerr)
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     elseif (nsinks == 4) then
