@@ -532,7 +532,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
-	 checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
+	 	     checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
@@ -543,11 +543,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
          utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
-<<<<<<< HEAD
-         mf_write.f90 evolve.F90 set_vfield.f90 velfield_fromcubes.f90\
-=======
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
->>>>>>> upstream/master
          checksetup.F90 initial.F90
 
 OBJECTS1 = $(SOURCES:.f90=.o)
@@ -797,11 +793,7 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-<<<<<<< HEAD
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o set_disc.o ${MODFILE:.f90=.o} phantom_moddump.o
-=======
 OBJMOD1 = prompting.o set_Bfield.o density_profiles.o readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
->>>>>>> upstream/master
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
