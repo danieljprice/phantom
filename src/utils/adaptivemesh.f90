@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -217,7 +217,7 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
              !  criterion is satisfied (here if h < 0.5*dx)
              !
 
-             !$omp critical (nmesh_add)
+             !$omp critical (crit_nmesh_add)
              nmesh = nmesh + 1
              if (nmesh > maxmeshes) then
                 !print*,'ERROR: nmesh > maxmeshes (',maxmeshes,'): change parameter and recompile'
@@ -239,7 +239,7 @@ recursive subroutine refine_mesh(xyzhi,imesh,level,xminl,dxmax,nmesh,ierr)
                 isublevel = level + 1
                 isubmesh  = nmesh      ! be careful to pass by value here, not by reference...
              endif
-             !$omp end critical (nmesh_add)
+             !$omp end critical (crit_nmesh_add)
 
              if (ierr /= 0) return
 

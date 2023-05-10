@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,7 +17,7 @@ module extern_gnewton
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, io, physcon, units
+! :Dependencies: io, units
 !
  implicit none
  public  :: get_gnewton_spatial_force, get_gnewton_vdependent_force
@@ -34,28 +34,19 @@ contains
 !+
 !------------------------------------------------
 subroutine get_gnewton_spatial_force(xi,yi,zi,mass,fextxi,fextyi,fextzi,phi)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
- use units, only: udist, utime
- use physcon, only: c
+ use units, only:get_c_code
  real, intent(in)    :: xi,yi,zi,mass
  real, intent(inout) :: fextxi,fextyi,fextzi
  real, intent(out)   :: phi
  real                :: r2,dr,dr3,ccode,rg
 
- ccode = c/(udist/utime)
+ ccode = get_c_code()
  rg = (mass)/(ccode)**2
 
  r2 = xi*xi + yi*yi + zi*zi
 
  if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-    dr  = finvsqrt(r2)
-#else
     dr = 1./sqrt(r2)
-#endif
-
     dr3 = dr**3
     fextxi = fextxi - mass*xi*dr3*(1.-2.*rg*dr)**2
     fextyi = fextyi - mass*yi*dr3*(1.-2.*rg*dr)**2
@@ -72,18 +63,14 @@ end subroutine get_gnewton_spatial_force
 !+
 !-----------------------------------------------------------------------
 subroutine get_gnewton_vdependent_force(xyzi,veli,mass,fexti)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
- use physcon, only:c
- use units,   only:utime,udist
+ use units, only:get_c_code
  real, intent(in)  :: xyzi(3), veli(3)
  real, intent(in)  :: mass
  real, intent(out) :: fexti(3)
  real              :: r2,dr,dr3,dr5,dr_rel,A,B,ccode,rg
  real              :: xi,yi,zi,vxi,vyi,vzi
 
- ccode = c/(udist/utime)
+ ccode = get_c_code()
  rg = (mass)/(ccode)**2
 
  xi=xyzi(1)
@@ -96,12 +83,7 @@ subroutine get_gnewton_vdependent_force(xyzi,veli,mass,fexti)
  r2 = xi*xi + yi*yi + zi*zi
 
  if (r2 > epsilon(r2)) then
-#ifdef FINVSQRT
-    dr  = finvsqrt(r2)
-#else
     dr = 1./sqrt(r2)
-#endif
-
     dr_rel = 1./(1.-2.*rg*dr)
     dr3 = dr**3
     dr5 = dr**5
@@ -189,11 +171,7 @@ end subroutine update_gnewton_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine get_gnewton_energy(xyzi,veli,mass,energy,angmomx,angmomy,angmomz)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
- use physcon, only:c
- use units,   only:utime,udist
+ use units, only:get_c_code
  implicit none
  real, dimension(3), intent(in)    :: xyzi, veli
  real,               intent(in)    :: mass
@@ -210,16 +188,11 @@ subroutine get_gnewton_energy(xyzi,veli,mass,energy,angmomx,angmomy,angmomz)
  vyi=veli(2)
  vzi=veli(3)
 
- ccode = c/(udist/utime)
+ ccode = get_c_code()
  rg = (mass)/(ccode)**2
 
  r2 = xi*xi + yi*yi + zi*zi
-
-#ifdef FINVSQRT
- dr = finvsqrt(r2)
-#else
  dr = 1./sqrt(r2)
-#endif
 
  dr_rel = 1./(1.-2.*rg*dr)
  dr_rel2 = dr_rel**2

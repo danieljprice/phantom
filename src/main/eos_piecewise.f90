@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -29,10 +29,10 @@ module eos_piecewise
 
  !--Default initial parameters for piecewise polytrope Eos
  integer, parameter :: maxEOSopt =  4 ! maximum number of piecewise polytrope defaults
- real :: rhocrit0pwpcgs = 2.62780d12
- real :: rhocrit1pwpcgs = 5.01187d14
- real :: rhocrit2pwpcgs = 1.0d15
- real :: p1pwpcgs       = 2.46604d34
+ real(kind=8) :: rhocrit0pwpcgs = 2.62780d12
+ real(kind=8) :: rhocrit1pwpcgs = 5.01187d14
+ real(kind=8) :: rhocrit2pwpcgs = 1.0d15
+ real(kind=8) :: p1pwpcgs       = 2.46604d34
  real :: gamma0pwp      = 5./3.
  real :: gamma1pwp      = 3.166
  real :: gamma2pwp      = 3.573
@@ -92,10 +92,10 @@ subroutine init_eos_piecewise(ierr)
     ierr = 3
     return
  endif
- rhocrit0pwp = rhocrit0pwpcgs/unit_density
- rhocrit1pwp = rhocrit1pwpcgs/unit_density
- rhocrit2pwp = rhocrit2pwpcgs/unit_density
- p1pwp       = p1pwpcgs/unit_pressure
+ rhocrit0pwp = real(rhocrit0pwpcgs/unit_density)
+ rhocrit1pwp = real(rhocrit1pwpcgs/unit_density)
+ rhocrit2pwp = real(rhocrit2pwpcgs/unit_density)
+ p1pwp       = real(p1pwpcgs/unit_pressure)
  k1pwp       = p1pwp/rhocrit1pwp**gamma1pwp
  k2pwp       = p1pwp/rhocrit1pwp**gamma2pwp
  p2pwp       = k2pwp*rhocrit2pwp**gamma2pwp
@@ -164,10 +164,10 @@ real function get_dPdrho_piecewise(rho) result(get_dPdrho)
  real              :: polyk0,polyk1,polyk2,polyk3
  real              :: gamma,polyk
 
- rhocrit0pwp = rhocrit0pwpcgs/unit_density
- rhocrit1pwp = rhocrit1pwpcgs/unit_density
- rhocrit2pwp = rhocrit2pwpcgs/unit_density
- presscrit   = p1pwpcgs/unit_pressure
+ rhocrit0pwp = real(rhocrit0pwpcgs/unit_density)
+ rhocrit1pwp = real(rhocrit1pwpcgs/unit_density)
+ rhocrit2pwp = real(rhocrit2pwpcgs/unit_density)
+ presscrit   = real(p1pwpcgs/unit_pressure)
  polyk1      = presscrit/rhocrit1pwp**gamma1pwp
  polyk2      = presscrit/rhocrit1pwp**gamma2pwp
  polyk3      = polyk2*rhocrit2pwp**(gamma2pwp-gamma3pwp)

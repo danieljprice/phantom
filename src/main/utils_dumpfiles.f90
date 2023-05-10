@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -172,7 +172,6 @@ function get_dumpname(filename,id)
 
  write(get_dumpname,"(a,a5,i3.3)") trim(filename),'_part',id+1
 
- return
 end function get_dumpname
 
 !--------------------------------------------------------------------
@@ -191,7 +190,6 @@ subroutine skipblock(iunit,nums1,nums2,nums3,nums4,tagged,ierr)
  nskip = sum(nums1)+sum(nums2)+sum(nums3)+sum(nums4)
  call skip_arrays(iunit,nskip,tagged,ierr)
 
- return
 end subroutine skipblock
 
 !--------------------------------------------------------------------
@@ -313,6 +311,9 @@ subroutine extracthdr_int4(tag,val,hdr,ierr,default)
 
 end subroutine extracthdr_int4
 
+!-----------------------------------------------
+! extraction of single int*8 value from header
+!-----------------------------------------------
 subroutine extracthdr_int8(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  integer(kind=8),  intent(out) :: val
@@ -342,6 +343,9 @@ subroutine extracthdr_int8(tag,val,hdr,ierr,default)
 
 end subroutine extracthdr_int8
 
+!-----------------------------------------------
+! extraction of single real*4 value from header
+!-----------------------------------------------
 subroutine extracthdr_real4(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  real(kind=4),     intent(out) :: val
@@ -370,6 +374,9 @@ subroutine extracthdr_real4(tag,val,hdr,ierr,default)
  endif
 end subroutine extracthdr_real4
 
+!-----------------------------------------------
+! extraction of single real*8 value from header
+!-----------------------------------------------
 subroutine extracthdr_real8(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  real(kind=8),     intent(out) :: val
@@ -381,7 +388,7 @@ subroutine extracthdr_real8(tag,val,hdr,ierr,default)
 
  if (present(default)) then
     def = default
-    rdef = default
+    rdef = real(default)
  else
     def = 0.d0
     rdef = 0.
@@ -425,6 +432,9 @@ subroutine extracthdr_int4arr(tag,val,hdr,ierr)
 
 end subroutine extracthdr_int4arr
 
+!------------------------------------------
+! extraction of int*8 arrays from header
+!------------------------------------------
 subroutine extracthdr_int8arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  integer(kind=8),  intent(out) :: val(:)
@@ -445,6 +455,9 @@ subroutine extracthdr_int8arr(tag,val,hdr,ierr)
 
 end subroutine extracthdr_int8arr
 
+!------------------------------------------
+! extraction of real*4 arrays from header
+!------------------------------------------
 subroutine extracthdr_real4arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  real(kind=4),     intent(out) :: val(:)
@@ -464,6 +477,9 @@ subroutine extracthdr_real4arr(tag,val,hdr,ierr)
  endif
 end subroutine extracthdr_real4arr
 
+!------------------------------------------
+! extraction of real*8 arrays from header
+!------------------------------------------
 subroutine extracthdr_real8arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  real(kind=8),     intent(out) :: val(:)
@@ -1177,7 +1193,6 @@ subroutine open_dumpfile_r(iunit,filename,fileid,ierr,singleprec,requiretags)
     endif
  endif
 
- return
 end subroutine open_dumpfile_r
 
 !-------------------------------------------------------

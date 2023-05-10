@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -60,7 +60,7 @@ module analysis
  ! parameters to control the mu-evolution calculation; set the radii below
  integer, private, parameter :: nmu_global  = 5       ! number of gloabl mu-values to calculate (i.e. at which radii)
  integer, private, parameter :: nmu_sink    = 6       ! number of mu-values to calculate around first two sinks (i.e. at which radii)
- !--NOT TRUE FREE PARAMETERS
+ !--NOT TRUE FREE parameterS
  integer, private, parameter :: junit       = 47      ! unit number for *discRMnx.dat files
  integer, private, parameter :: kunit       = 62      ! unit number for *_vol*RM.dat files
  integer, private, parameter :: punit       = 23      ! unit number for rhosurf_*.dat files
@@ -344,6 +344,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        ! Reset the centre of mass to the origin
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
        h_acc2 = 0.0
+       msink  = 0.
     else
        ! Reset the centre of mass & velocity to be on sink particle isink
        xyz_tmp  = xyzmh_ptmass(1:3,isink)
@@ -596,6 +597,7 @@ subroutine get_mass_and_radius(npart,ndens,rad2,zdir,hdir,indx,pmass,mdisc,rdisc
  indisc  = .true.
  rmin2   = 0.0
  rmax2   = 0.0
+ rdisc   = 0.0
  mdisc   = 0.0
  notdisc = 0.0
  totmass = 0.0

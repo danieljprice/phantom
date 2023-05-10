@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -53,11 +53,7 @@ end subroutine test_gr
 !-----------------------------------------------------------------------
 subroutine test_precession(ntests,npass)
  use metric_tools, only:imetric,imet_kerr,imet_schwarzschild
-#ifdef KERR
  use metric,       only:a
-#else
- real :: a
-#endif
  integer, intent(inout) :: ntests,npass
  integer :: nerr(6),norbits,nstepsperorbit
  real    :: dt,period,x0,vy0,tmax,angtol,postol
@@ -103,11 +99,7 @@ end subroutine test_precession
 subroutine test_inccirc(ntests,npass)
  use physcon,      only:pi
  use metric_tools, only:imetric,imet_kerr
-#ifdef KERR
  use metric,       only:a
-#else
- real :: a
-#endif
  integer, intent(inout) :: ntests,npass
  integer :: nerr(6),norbits,nstepsperorbit
  real    :: dt,period,tmax

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -197,30 +197,26 @@ end subroutine update_ltforce_leapfrog
 !+
 !---------------------------------------------------------------
 subroutine check_lense_thirring_settings(ierr,accradius1)
- use units,   only:umass,utime,udist
- use physcon, only:c,gg
+ use units,   only:c_is_unity,G_is_unity,get_c_code,get_G_code
  use io,      only:error,warning
  integer, intent(out) :: ierr
  real,    intent(in)  :: accradius1
- real :: ccode,gcode
- real, parameter :: tol = 1.e-10
-
  !
  !--check that c=1 in code units
  !
  ierr = 0
- ccode = c/(udist/utime)
- if (abs(ccode-1.) > tol) then
+ if (.not.c_is_unity()) then
     ierr = ierr + 1
-    call error('Lense-Thirring','c /= 1 in code units, but assumed for Lense-Thirring force',var='c',val=ccode)
+    call error('Lense-Thirring','c /= 1 in code units, but assumed for Lense-Thirring force',&
+         var='c',val=real(get_c_code()))
  endif
  !
  !--check that G=1 in code units
  !
- gcode = gg*umass*utime**2/udist**3
- if (abs(gcode-1.) > tol) then
+ if (.not.G_is_unity()) then
     ierr = ierr + 1
-    call error('Lense-Thirring','G /= 1 in code units, but assumed for Lense-Thirring force',var='G',val=gcode)
+    call error('Lense-Thirring','G /= 1 in code units, but assumed for Lense-Thirring force',&
+         var='G',val=real(get_G_code()))
  endif
  !
  !--check that the inner disc edge is >= the Schwarzschild radius
@@ -301,5 +297,3 @@ subroutine read_options_ltforce(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_ltforce
 
 end module extern_lensethirring
-
-

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -39,11 +39,11 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath,
-!   growth, io, io_summary, kdtree, kernel, linklist, metric_tools,
-!   mpiderivs, mpiforce, mpimemory, mpiutils, nicil, options, part,
-!   physcon, ptmass, ptmass_heating, radiation_utils, timestep,
-!   timestep_ind, timestep_sts, timing, units, utils_gr, viscosity
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath, io,
+!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
+!   mpiforce, mpimemory, mpiutils, nicil, omputils, options, part, physcon,
+!   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
+!   timestep_sts, timing, units, utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -56,98 +56,98 @@ module forces
  character(len=80), parameter, public :: &  ! module version
     modid="$Id$"
 
- integer, parameter :: maxcellcache = 10000
+ integer, parameter :: maxcellcache = 1000
 
  public :: force, reconstruct_dv ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
- integer, parameter :: &
-       ixi  = 1, &
-       iyi  = 2, &
-       izi  = 3, &
-       ihi  = 4, &
-       ivxi = 5, &
-       ivyi = 6, &
-       ivzi = 7, &
-       ieni = 8, &
-       iBevolxi = 9, &
-       iBevolyi = 10, &
-       iBevolzi = 11, &
-       ipsi = 12, &
-       igradhi1    = 13, &
-       igradhi2    = 14, &
-       ialphai     = 15, &
-       ialphaBi    = 16, &
-       ivwavei     = 17, &
-       irhoi       = 18, &
-       irhogasi    = 19, &
-       ispsoundi   = 20, &
-       itempi      = 21, &
-       isxxi       = 22, &
-       isxyi       = 23, &
-       isxzi       = 24, &
-       isyyi       = 25, &
-       isyzi       = 26, &
-       iszzi       = 27, &
+ integer, parameter ::       &
+       ixi             = 1,  &
+       iyi             = 2,  &
+       izi             = 3,  &
+       ihi             = 4,  &
+       ivxi            = 5,  &
+       ivyi            = 6,  &
+       ivzi            = 7,  &
+       ieni            = 8,  &
+       iBevolxi        = 9,  &
+       iBevolyi        = 10, &
+       iBevolzi        = 11, &
+       ipsi            = 12, &
+       igradhi1        = 13, &
+       igradhi2        = 14, &
+       ialphai         = 15, &
+       ialphaBi        = 16, &
+       ivwavei         = 17, &
+       irhoi           = 18, &
+       irhogasi        = 19, &
+       ispsoundi       = 20, &
+       itempi          = 21, &
+       isxxi           = 22, &
+       isxyi           = 23, &
+       isxzi           = 24, &
+       isyyi           = 25, &
+       isyzi           = 26, &
+       iszzi           = 27, &
        ivisctermisoi   = 28, &
        ivisctermanisoi = 29, &
-       ipri        = 30, &
-       ipro2i      = 31, &
-       ietaohmi    = 32, &
-       ietahalli   = 33, &
-       ietaambii   = 34, &
-       ijcbcbxi    = 35, &
-       ijcbcbyi    = 36, &
-       ijcbcbzi    = 37, &
-       ijcbxi      = 38, &
-       ijcbyi      = 39, &
-       ijcbzi      = 40, &
-       idivBi      = 41, &
-       icurlBxi    = 42, &
-       icurlByi    = 43, &
-       icurlBzi    = 44, &
-       igrainsizei = 45, &
-       igraindensi = 46, &
-       idvxdxi     = 47, &
-       idvzdzi     = 55, &
+       ipri            = 30, &
+       ipro2i          = 31, &
+       ietaohmi        = 32, &
+       ietahalli       = 33, &
+       ietaambii       = 34, &
+       ijcbcbxi        = 35, &
+       ijcbcbyi        = 36, &
+       ijcbcbzi        = 37, &
+       ijcbxi          = 38, &
+       ijcbyi          = 39, &
+       ijcbzi          = 40, &
+       idivBi          = 41, &
+       icurlBxi        = 42, &
+       icurlByi        = 43, &
+       icurlBzi        = 44, &
+       igrainsizei     = 45, &
+       igraindensi     = 46, &
+       idvxdxi         = 47, &
+       idvzdzi         = 55, &
  !--dust arrays initial index
-       idustfraci    = 56, &
+       idustfraci      = 56, &
  !--dust arrays final index
-       idustfraciend = 56 + (maxdusttypes - 1), &
-       itstop        = 57 + (maxdusttypes - 1), &
-       itstopend     = 57 + 2*(maxdusttypes - 1), &
+       idustfraciend   = 56 + (maxdusttypes - 1), &
+       itstop          = 57 + (maxdusttypes - 1), &
+       itstopend       = 57 + 2*(maxdusttypes - 1), &
  !--final dust index
-       lastxpvdust   = 57 + 2*(maxdusttypes - 1), &
-       iradxii        = lastxpvdust + 1, &
-       iradfxi        = lastxpvdust + 2, &
-       iradfyi        = lastxpvdust + 3, &
-       iradfzi        = lastxpvdust + 4, &
-       iradkappai     = lastxpvdust + 5, &
-       iradlambdai    = lastxpvdust + 6, &
-       iradrbigi      = lastxpvdust + 7, &
+       lastxpvdust     = 57 + 2*(maxdusttypes - 1), &
+       iradxii         = lastxpvdust + 1, &
+       iradfxi         = lastxpvdust + 2, &
+       iradfyi         = lastxpvdust + 3, &
+       iradfzi         = lastxpvdust + 4, &
+       iradkappai      = lastxpvdust + 5, &
+       iradlambdai     = lastxpvdust + 6, &
+       iradrbigi       = lastxpvdust + 7, &
  !--final radiation index
-       lastxpvrad     = lastxpvdust + 7, &
+       lastxpvrad      = lastxpvdust + 7, &
  !--gr primitive density
-       idensGRi      = lastxpvrad + 1, &
+       idensGRi        = lastxpvrad + 1, &
  !--gr metrics
-       imetricstart  = idensGRi + 1, &
-       imetricend    = imetricstart + 31
+       imetricstart    = idensGRi + 1, &
+       imetricend      = imetricstart + 31
 
  !--indexing for fsum array
- integer, parameter :: &
-       ifxi        = 1, &
-       ifyi        = 2, &
-       ifzi        = 3, &
-       ipot        = 4, &
-       idrhodti    = 5, &
-       idudtdissi  = 6, &
-       idendtdissi = 7, &
-       idivBsymi   = 8, &
-       idBevolxi   = 9, &
-       idBevolyi   = 10, &
-       idBevolzi   = 11, &
-       idivBdiffi  = 12, &
-       ihdivBBmax  = 13, &
+ integer, parameter ::   &
+       ifxi           = 1,  &
+       ifyi           = 2,  &
+       ifzi           = 3,  &
+       ipot           = 4,  &
+       idrhodti       = 5,  &
+       idudtdissi     = 6,  &
+       idendtdissi    = 7,  &
+       idivBsymi      = 8,  &
+       idBevolxi      = 9,  &
+       idBevolyi      = 10, &
+       idBevolzi      = 11, &
+       idivBdiffi     = 12, &
+       ihdivBBmax     = 13, &
  !--dust array indexing
        iddustevoli    = 14, &
        iddustevoliend = 14 +   (maxdustsmall-1), &
@@ -188,7 +188,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
-                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB
+                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB,iosumdense
 #ifdef FINVSQRT
  use fastmath,     only:finvsqrt
 #endif
@@ -215,16 +215,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:wkern_drag,cnormk_drag
 #endif
  use nicil,        only:nimhd_get_jcbcb
-#ifdef LIGHTCURVE
- use part,         only:luminosity
-#endif
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
-                        finish_cell_exchange,recv_while_wait,reset_cell_counters
- use mpimemory,    only:reserve_stack,reset_stacks
+                        finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
+ use mpimemory,    only:reserve_stack,reset_stacks,get_cell,write_cell
  use mpimemory,    only:stack_remote  => force_stack_1
  use mpimemory,    only:stack_waiting => force_stack_2
  use io_summary,   only:iosumdtr
  use timing,       only:increment_timer,get_timings,itimer_force_local,itimer_force_remote
+ use omputils,     only:omp_thread_num,omp_num_threads
+
  integer,      intent(in)    :: icall,npart
  real,         intent(in)    :: xyzh(:,:)
  real,         intent(inout) :: vxyzu(:,:)
@@ -247,7 +246,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real, save :: xyzcache(maxcellcache,4)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
- integer :: nstokes,nsuper,ndrag,ndustres
+ integer :: nstokes,nsuper,ndrag,ndustres,ndense
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
 #ifdef GRAVITY
@@ -260,7 +259,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  integer :: iamtypei
 #endif
 #ifdef DUST
- real    :: frac_stokes, frac_super
+ real    :: frac_stokes,frac_super
 #endif
  logical :: realviscosity,useresistiveheat
 #ifndef IND_TIMESTEPS
@@ -276,9 +275,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real    :: dtviscfacmax ,dtohmfacmax   ,dthallfacmax ,dtambifacmax, dtdustfacmax  ,dtradfacmax
 #endif
  integer(kind=1)           :: ibinnow_m1
- logical                   :: remote_export(nprocs), do_export
- type(cellforce)           :: cell,xrecvbuf(nprocs),xsendbuf
+
+ type(cellforce)           :: cell,xsendbuf,xrecvbuf(nprocs)
+ integer                   :: mpitype
+ logical                   :: remote_export(nprocs),do_export,idone(nprocs),thread_complete(omp_num_threads)
  integer                   :: irequestsend(nprocs),irequestrecv(nprocs)
+ integer                   :: ncomplete_mpi
 
  real(kind=4)              :: t1,t2,tcpu1,tcpu2
 
@@ -351,6 +353,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndustres      = 0
 
  ! sink particle creation
+ ndense        = 0
  ipart_rhomax  = 0
 #ifdef GRAVITY
  rhomax        = 0.
@@ -358,12 +361,12 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  if (mpi) then
     call reset_stacks
-    call reset_cell_counters
-    call init_cell_exchange(xrecvbuf,irequestrecv)
+    call reset_cell_counters(cell_counters)
  endif
 
 !
 !-- verification for non-ideal MHD
+!
  if (mhd_nonideal .and. ndivcurlB < 4) call fatal('force','non-ideal MHD needs curl B stored, but ndivcurlB < 4')
 !
 !--check that compiled options are compatible with this routine
@@ -397,7 +400,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(icell,i) &
 !$omp private(cell) &
 !$omp private(remote_export) &
+!$omp private(idone) &
 !$omp private(nneigh) &
+!$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
 #ifdef GRAVITY
@@ -411,9 +416,15 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 !$omp shared(id) &
 !$omp private(do_export) &
-!$omp shared(irequestrecv,irequestsend) &
-!$omp shared(stack_remote,stack_waiting) &
-!$omp shared(xsendbuf,xrecvbuf) &
+!$omp private(irequestrecv) &
+!$omp private(irequestsend) &
+!$omp private(xrecvbuf) &
+!$omp private(xsendbuf) &
+!$omp shared(cell_counters) &
+!$omp shared(thread_complete) &
+!$omp shared(ncomplete_mpi) &
+!$omp shared(stack_remote) &
+!$omp shared(stack_waiting) &
 #ifdef IND_TIMESTEPS
 !$omp shared(nbinmax,nbinmaxsts) &
 !$omp private(dtitmp,dtrat) &
@@ -425,7 +436,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
 #endif
-!$omp reduction(+:ndustres,dustresfacmean) &
+!$omp reduction(+:ndustres,dustresfacmean,ndense) &
 !$omp reduction(min:dtrad) &
 !$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
@@ -440,9 +451,14 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp shared(tcpu1) &
 !$omp shared(tcpu2)
 
- !$omp single
+ call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
+
+ !$omp master
  call get_timings(t1,tcpu1)
- !$omp end single
+ !$omp end master
+
+ !--initialise send requests to 0
+ irequestsend = 0
 
  !$omp do schedule(runtime)
  over_cells: do icell=1,int(ncells)
@@ -459,26 +475,28 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
-    !
-    !--get the neighbour list and fill the cell cache
-    !
 
+    !--get the neighbour list and fill the cell cache
     call get_neighbour_list(icell,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                            getj=.true.,f=cell%fgrav,remote_export=remote_export)
 
-    cell%owner                   = id
-
+    cell%owner = id
     do_export = any(remote_export)
 
     if (mpi) then
-       !$omp critical (send_and_recv_remote)
-       call recv_cells(stack_remote,xrecvbuf,irequestrecv)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
        if (do_export) then
-          if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
+          if (stack_waiting%n > 0) then
+             !--wait for broadcast to complete, continue to receive whilst doing so
+             idone(:) = .false.
+             do while(.not.all(idone))
+                call check_send_finished(irequestsend,idone)
+                call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+             enddo
+          endif
           call reserve_stack(stack_waiting,cell%waiting_index)
-          call send_cell(cell,remote_export,irequestsend,xsendbuf)  ! send to remote
+          call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype)  ! send to remote
        endif
-       !$omp end critical (send_and_recv_remote)
     endif
 
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
@@ -487,7 +505,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                       rad,radprop,dens,metrics)
 
     if (do_export) then
-       stack_waiting%cells(cell%waiting_index) = cell
+       call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
                              divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -511,24 +529,28 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  enddo over_cells
  !$omp enddo
 
- !$omp barrier
+ if (stack_waiting%n > 0) then
+    idone(:) = .false.
+    do while(.not.all(idone))
+       call check_send_finished(irequestsend,idone)
+       call recv_cells(stack_remote,xrecvbuf,irequestrecv,cell_counters)
+    enddo
+ endif
 
- !$omp single
- if (stack_waiting%n > 0) call check_send_finished(stack_remote,irequestsend,irequestrecv,xrecvbuf)
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend)
- call reset_cell_counters
- !$omp end single
+ call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ call reset_cell_counters(cell_counters)
 
- !$omp single
+ !$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_local,t2-t1,tcpu2-tcpu1)
  call get_timings(t1,tcpu1)
- !$omp end single
+ !$omp end master
+ !$omp barrier
 
  igot_remote: if (stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
-       cell = stack_remote%cells(i)
+       cell = get_cell(stack_remote,i)
 
        call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,maxcellcache, &
                                getj=.true.,f=cell%fgrav,&
@@ -541,34 +563,36 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
-       !$omp critical (send_and_recv_waiting)
-       call recv_cells(stack_waiting,xrecvbuf,irequestrecv)
-       call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-       call send_cell(cell,remote_export,irequestsend,xsendbuf) ! send the cell back to owner
-       !$omp end critical (send_and_recv_waiting)
+
+       idone(:) = .false.
+       do while(.not.all(idone))
+          call check_send_finished(irequestsend,idone)
+          call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
+       enddo
+
+       call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell back to owner
 
     enddo over_remote
     !$omp enddo
 
-    !$omp barrier
-
-    !$omp single
+    !$omp master
     stack_remote%n = 0
-    call check_send_finished(stack_waiting,irequestsend,irequestrecv,xrecvbuf)
-    !$omp end single
+    !$omp end master
+
+    idone(:) = .false.
+    do while(.not.all(idone))
+       call check_send_finished(irequestsend,idone)
+       call recv_cells(stack_waiting,xrecvbuf,irequestrecv,cell_counters)
+    enddo
 
  endif igot_remote
 
- !$omp barrier
-
- !$omp single
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend)
- !$omp end single
+ call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
  iam_waiting: if (stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
-       cell = stack_waiting%cells(i)
+       cell = get_cell(stack_waiting,i)
 
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx, &
                                           divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop, &
@@ -591,21 +615,16 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo over_waiting
     !$omp enddo
 
-    !$omp barrier
-
-    !$omp single
     stack_waiting%n = 0
-    !$omp end single
+
  endif iam_waiting
 
-!$omp single
- call finish_cell_exchange(irequestrecv,xsendbuf)
-!$omp end single
+ call finish_cell_exchange(irequestrecv,xsendbuf,mpitype)
 
-!$omp single
+!$omp master
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_force_remote,t2-t1,tcpu2-tcpu1)
-!$omp end single
+!$omp end master
 
 #ifdef GRAVITY
  if (icreate_sinks > 0) then
@@ -639,6 +658,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                        (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
+                      ndense   = ndense + 1
                       use_part = .false.
                       exit over_ptmass
                    endif
@@ -684,6 +704,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
     print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
  endif
+ ndense = int(reduce_mpi('+',ndense))
+ if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
 
 #ifdef DUST
@@ -865,7 +887,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use kernel,      only:wkern_drag,cnormk_drag
  use part,        only:ndustsmall,grainsize,graindens
 #ifdef DUSTGROWTH
- use growth,      only:wbymass
  use kernel,      only:wkern,cnormk
 #endif
 #endif
@@ -873,7 +894,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ireconav
+ use options,     only:overcleanfac,use_dustfrac,ireconav,limit_radiation_flux
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -1435,6 +1456,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           !rhoj      = 0.
           rho1j     = 0.
           rho21j    = 0.
+          densj     = 0.
 
           mrhoj5    = 0.
           autermj   = 0.
@@ -1676,8 +1698,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radprop(ikappa,j)
                 radenj = rad(iradxi,j)
                 radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
-                !radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                radlambdaj = 1./3.
+
+                if (limit_radiation_flux) then
+                   radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                else
+                   radlambdaj = 1./3.
+                endif
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -1813,18 +1839,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    else
                       winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    endif
+                   !--following quantities are weighted by mass rather than mass/density
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                   if (wbymass) then
-                      fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
-                      fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
-                      fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
-                      fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
-                   else
-                      fsum(idvix)     = fsum(idvix)     + pmassj/rhoj*dvx*winter
-                      fsum(idviy)     = fsum(idviy)     + pmassj/rhoj*dvy*winter
-                      fsum(idviz)     = fsum(idviz)     + pmassj/rhoj*dvz*winter
-                      fsum(icsi)      = fsum(icsi)      + pmassj/rhoj*spsoundj*winter
-                   endif
+                   fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
+                   fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
+                   fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
+                   fsum(icsi)      = fsum(icsi)      + pmassj*spsoundj*winter
 #endif
                 else
                    !--the following works for large grains only (not hybrid large and small grains)
@@ -2006,7 +2026,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                      rad,radprop,dens,metrics)
 
  use io,        only:fatal
- use options,   only:alpha,use_dustfrac
+ use options,   only:alpha,use_dustfrac,limit_radiation_flux
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
@@ -2259,9 +2279,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          !cell%xpartvec(iradlambdai,cell%npcell)     = &
-          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          if (limit_radiation_flux) then
+             cell%xpartvec(iradlambdai,cell%npcell) = (2. + radRi)/(6. + 3.*radRi + radRi*radRi)
+          else
+             cell%xpartvec(iradlambdai,cell%npcell) = 1./3.
+          endif
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2437,10 +2459,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           store_dust_temperature,do_nucleation
  use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp,icooling
+                          use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
@@ -2453,13 +2475,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use linklist,       only:get_distance_from_centre_of_mass
  use kdtree,         only:expand_fgrav_in_taylor_series
  use nicil,          only:nicil_get_dudt_nimhd,nicil_get_dt_nimhd
- use timestep,       only:C_cour,C_cool,C_force,bignumber,dtmax
+ use timestep,       only:C_cour,C_cool,C_force,C_rad,C_ent,bignumber,dtmax
  use timestep_sts,   only:use_sts
- use units,          only:unit_ergg,unit_density,unit_velocity
+ use units,          only:unit_ergg,unit_density,get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
-#ifdef LIGHTCURVE
- use part,           only:luminosity
-#endif
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -2467,16 +2486,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use utils_gr,       only:get_u0
  use io,             only:error
 #ifdef DUSTGROWTH
- use growth,         only:wbymass
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
 #endif
  use io,             only:warning
  use physcon,        only:c,kboltz
- use timestep,       only:C_rad
 #ifdef GR
  use part,           only:pxyzu
- use timestep,       only:C_ent
 #endif
 
  integer,            intent(in)    :: icall
@@ -2524,9 +2540,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: etaambii,etahalli,etaohmi
  real    :: vsigmax,vwavei,fxyz4
  real    :: dTdui,dTdui_cgs,rho_cgs
-#ifdef LIGHTCURVE
  real    :: dudt_radi
-#endif
 #ifdef GRAVITY
  real    :: potensoft0,dum,dx,dy,dz,fxi,fyi,fzi,poti,epoti
 #endif
@@ -2668,6 +2682,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
     else
        rho1i = 0.
+       vwavei = 0.
     endif
 
 #ifdef GRAVITY
@@ -2748,7 +2763,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (ien_type == ien_etotal) then
              fxyz4 = fxyz4 + fsum(idudtdissi) + fsum(idendtdissi)
           elseif (ien_type == ien_entropy_s) then
-             fxyz4 = fxyz4 + u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz
+             fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
                 fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
@@ -2768,15 +2783,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef ISENTROPIC
              fxyz4 = 0.
 #endif
-#ifdef LIGHTCURVE
-             luminosity(i) = pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi))
-#endif
+             if (lightcurve) then
+                luminosity(i) = real(pmassi*u0i*(fsum(idendtdissi)+fsum(idudtdissi)),kind=kind(luminosity))
+             endif
 #endif
           elseif (ieos==16) then ! here eni is the temperature
              if (abs(damp) < tiny(damp)) then
                 rho_cgs = rhoi * unit_density
                 call eos_shen_get_dTdu(rho_cgs,eni,0.05,dTdui_cgs)
-                dTdui = dTdui_cgs / unit_ergg
+                dTdui = real(dTdui_cgs / unit_ergg)
                 !use cgs
                 fxyz4 = fxyz4 + dTdui*(pri*rho1i*rho1i*drhodti + fsum(idudtdissi))
              else
@@ -2793,7 +2808,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                    call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
                 fxyz4 = fxyz4 + fac*fsum(idudtdissi)
              endif
-#ifdef LIGHTCURVE
+             !
+             !--store pdV work and shock heating in separate array needed for some applications
+             !  this is a kind of luminosity if it were all radiated
+             !
              if (lightcurve) then
                 pdv_work = pri*rho1i*rho1i*drhodti
                 if (pdv_work > tiny(pdv_work)) then ! pdv_work < 0 is possible, and we want to ignore this case
@@ -2801,9 +2819,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 else
                    dudt_radi = fac*fsum(idudtdissi)
                 endif
-                luminosity(i) = pmassi*dudt_radi
+                luminosity(i) = real(pmassi*dudt_radi,kind=kind(luminosity))
              endif
-#endif
              if (mhd_nonideal) then
                 call nicil_get_dudt_nimhd(dudtnonideal,etaohmi,etaambii,rhoi,curlBi,Bxyzi)
                 fxyz4 = fxyz4 + fac*dudtnonideal
@@ -2838,7 +2855,12 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                 fxyz4 = fxyz4 + 0.5*fac*rho1i*sum(fsum(idudtdusti:idudtdustiend))
              endif
           endif
-          if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          if (do_radiation .and. implicit_radiation) then
+             luminosity(i) = real(pmassi*fxyz4,kind=kind(luminosity))
+             !fxyzu(4,i) = 0.
+          else
+             if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
+          endif
        endif
 
        if (mhd) then
@@ -2898,12 +2920,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
        endif
 
-#ifdef GR
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature
-       if (ien_type == ien_entropy_s .and. gr) then
+       if (gr .and. ien_type == ien_entropy_s) then
           dtent = C_ent*abs(pxyzu(4,i)/fxyzu(4,i))
        endif
-#endif
 
        ! timestep based on non-ideal MHD
        if (mhd_nonideal) then
@@ -2934,13 +2954,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        if (iamdusti) then
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
-          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2) !- dv
-          dustgasprop(1,i) = fsum(icsi)
-          !- if interpolations are mass weigthed, divide result by rhog,i
-          if (wbymass) then
-             dustgasprop(1,i) = dustgasprop(1,i)/dustgasprop(2,i) !- sound speed
-             dustgasprop(4,i) = dustgasprop(4,i)/dustgasprop(2,i) !- |dv|
-          endif
+          !- interpolations are mass weigthed, divide result by rhog,i
+          dustgasprop(4,i) = sqrt(fsum(idvix)**2 + fsum(idviy)**2 + fsum(idviz)**2)/dustgasprop(2,i) !- |dv|
+          dustgasprop(1,i) = fsum(icsi)/dustgasprop(2,i) !- sound speed
 
           !- get the Stokes number with get_ts using the interpolated quantities
           rhoi             = xpartveci(irhoi)
@@ -2975,8 +2991,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi) then
-       if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
-          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
+       if (minval(dustfraci(1:ndustsmall)) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
+          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(1:ndustsmall)*tstopi(1:ndustsmall))
           dtdustdenom = dustfracisum*tseff*spsoundi**2
           if (dtdustdenom > tiny(dtdustdenom)) then
              dtdusti = C_force*hi*hi/dtdustdenom
@@ -2992,16 +3008,16 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        dtdrag = 0.9*ts_min
     endif
 
-    if (do_radiation.and.iamgasi) then
+    if (do_radiation .and. iamgasi .and. .not.implicit_radiation) then
        if (radprop(ithick,i) < 0.5) then
           drad(iradxi,i) = 0.
        else
-          if (iopacity_type == 0) then
+          if (iopacity_type == 0) then ! infinite opacity equals no radiation diffusion
              drad(iradxi,i) = radprop(iradP,i)*drhodti*rho1i*rho1i
              dtradi = bignumber
           else
              drad(iradxi,i) = fsum(idradi) + radprop(iradP,i)*drhodti*rho1i*rho1i
-             c_code     = c/unit_velocity
+             c_code     = get_c_code()
              radkappai  = xpartveci(iradkappai)
              radlambdai = xpartveci(iradlambdai)
              ! eq30 Whitehouse & Bate 2004

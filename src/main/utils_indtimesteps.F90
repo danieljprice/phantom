@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -47,7 +47,6 @@ pure real function get_dt(dtmax,ibini)
 
 end function get_dt
 
-#ifdef IND_TIMESTEPS
 !----------------------------------------------------------------
 !+
 !  If dt is read in from a dump file, then initialise ibin & ibin_old.
@@ -158,7 +157,6 @@ subroutine set_active_particles(npart,nactive,nalive,iphase,ibin,xyzh)
  endif
 
 end subroutine set_active_particles
-#endif
 
 !----------------------------------------------------------------
 !+
@@ -221,7 +219,8 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  integer         :: ibin_newi
  logical         :: iallow_decrease,ilimit_maxbin
  real, parameter :: vsmall = epsilon(vsmall)
- real, parameter :: dlog2 = 1.4426950408889634d0 ! dlog2 = 1./log(2.)
+ real(kind=8), parameter :: dlog2 = 1.4426950408889634d0 ! dlog2 = 1./log(2.)
+ character(len=12) :: str
 
  if (present(allow_decrease)) then
     iallow_decrease = allow_decrease
@@ -246,12 +245,12 @@ subroutine get_newbin(dti,dtmax,ibini,allow_decrease,limit_maxbin,dtchar)
  endif
  if (ibin_newi > maxbins .and. ilimit_maxbin) then
     if (present(dtchar)) then
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(0)   = ', dtmax
-       write(*,'(a,Es16.7)') 'get_newbin: dt_ibin(max) = ', dtmax/2**(maxbins-1)
-       write(*,'(2a)'      ) 'get_newbin: dt = ', dtchar
+       str = dtchar
+    else
+       str = 'dt'
     endif
     dt_too_small = .true.
-    call warning('get_newbin','step too small: bin would exceed maximum',var='dt',val=dti)
+    call warning('get_newbin','step too small: bin would exceed maximum',var=str,val=dti)
  endif
 
  if (ibin_newi > ibin_oldi) then
@@ -514,7 +513,7 @@ subroutine print_dtind_efficiency(iverbose,nalive,nmoved,tall,tlast,icall)
     if (nmoved==nalive .and. icall==1) then
        tall = tlast
     elseif (tall > 0.) then
-       fracactive = nmoved/real(nalive)
+       fracactive = real(nmoved)/real(nalive)
        speedup = tlast/tall
        if (speedup > 0.) then
           efficiency = 100.*fracactive/speedup

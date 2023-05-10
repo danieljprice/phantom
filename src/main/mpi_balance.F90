@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -223,9 +223,7 @@ subroutine recv_part(replace,gotpart)
  if (present(gotpart)) gotpart = igotpart
 
  if (igotpart) then
-!$omp critical (nrecv_add)
     nrecv(status(MPI_SOURCE)+1) = nrecv(status(MPI_SOURCE)+1) + 1
-!$omp end critical (nrecv_add)
     if (present(replace)) then
        if (replace) then
           inew = ideadhead
@@ -247,17 +245,13 @@ subroutine recv_part(replace,gotpart)
        !--assume that this particle landed in the right place
        !
        ibelong(inew) = id
-!$omp critical (ideadhead_ll)
        ideadhead = ll(inew)
-!$omp end critical (ideadhead_ll)
     else
        if (inew /= 0) call fatal('balance','error in dead particle list',inew)
        !
        !--make a new particle
        !
-!$omp critical (npartnew_add)
        npartnew = npartnew + 1
-!$omp end critical (npartnew_add)
        if (npartnew > maxp) call fatal('recv_part','npartnew > maxp',npartnew)
        call unfill_buffer(npartnew,xbuffer)
        ibelong(npartnew) = id

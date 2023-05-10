@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module setcubiccore
 !
 ! :Dependencies: io, kernel, physcon, table_utils
 !
- use physcon, only:solarm,solarr
+ use physcon,     only:solarm,solarr
  use table_utils, only:interpolator,diff
 
  implicit none

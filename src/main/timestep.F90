@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -22,13 +22,16 @@ module timestep
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
- real    :: dtmax0 = -1.  ! save the original dtmax; require when modifying dtmax due to density or time constraints
+ integer :: idtmax_n
+ integer :: idtmax_n_next
+ integer :: idtmax_frac
+ integer :: idtmax_frac_next
+ real    :: dtmax_user
 
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
  real(kind=4) :: dtwallmax
- integer :: dtmax_ifactor
- logical :: allow_increase = .false.  ! to permit dtmax to increase based upon walltime
+ integer :: dtmax_ifactor,dtmax_ifactorWT
 
  public
 
@@ -53,12 +56,18 @@ subroutine set_defaults_timestep
  nmax    = -1
  nout    = -1
 
- dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
+ dtwallmax = 86400.          ! maximum wall time between dumps (seconds); will create 'restart' dumps as required
 
  ! Values to control dtmax changing with increasing densities
  dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
+
+ idtmax_n = 1
+ idtmax_n_next = 1
+ idtmax_frac = 0
+ idtmax_frac_next = 0
+ dtmax_user = -1.
 
 end subroutine set_defaults_timestep
 
@@ -109,58 +118,43 @@ end subroutine print_dtlog
 !  This will determine if dtmax needs to be decreased
 !  This subroutine is called at different times depending on
 !  whether individual or global timesteps are being used.
+!  The following two options are toggled in the .in file and are optional:
+!  1. there is a big change in gas density (dtmax itself will change)
+!  2. there is too long of walltime between dumps; dtmax will change
+!     internally to write restart dumps, but dumps will still be produced
+!     at the original frequency
+!  Note: when dtmax changes or subdumps are created, all dumps are
+!  promoted to full dumps
 !+
 !----------------------------------------------------------------
-subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
+subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
                                     rhomaxold,rhomaxnew,nfulldump,change_dtmax_now)
  use io, only: iverbose
  integer,      intent(in)    :: iprint
- integer,      intent(out)   :: dtmax_ifactor
  integer,      intent(inout) :: nfulldump
  real,         intent(inout) :: dtmax,rhomaxold
  real,         intent(in)    :: rhomaxnew,dtmax_log_dratio
  real(kind=4), intent(in)    :: twallperdump
  logical,      intent(in)    :: change_dtmax_now
  real                        :: ratio,dtmax_global,tempvar,diff
- integer                     :: ipower,ifactor,dtmax_ifactor_time
+ integer                     :: ipower,ifactor
  integer, parameter          :: ifactor_max_dn = 2**2 ! hardcode to allow at most a decrease of 2 bins per step
  integer, parameter          :: ifactor_max_up = 2**1 ! hardcode to allow at most an increase of 1 bin per step
 
  ! initialise variables
- dtmax_ifactor      = 0
- dtmax_ifactor_time = 0
+ dtmax_ifactor   = 0
+ dtmax_ifactorWT = 0
  if (dtmax_max > 0.) then
-    dtmax_global = min(dtmax_max,dtmax0)
+    dtmax_global = min(dtmax_max,dtmax_user)
  else
-    dtmax_global = dtmax0 ! dtmax never be the default negative value
+    dtmax_global = dtmax_user ! dtmax never be the default negative value
  endif
  dtmax_global = dtmax_global - epsilon(dtmax_global) ! just to be sure that we are not accidentally increasing dtmax
 
- ! modify dtmax based upon wall time constraint, if requested
- if ( dtwallmax > 0.0 ) then
-    if (twallperdump > dtwallmax) then
-       dtmax_ifactor_time = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
-       write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax/dtmax_ifactor_time," due to wall time constraint"
-       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
-       if (nfulldump > 1) then
-          nfulldump = 1
-          write(iprint,'(1x,a)')  &
-             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
-       endif
-    elseif (twallperdump < 0.5*dtwallmax .and. dtmax < dtmax_global .and. allow_increase) then
-       dtmax_ifactor_time = 2
-       do while(dtmax_ifactor_time*twallperdump < 0.5*dtwallmax .and. dtmax*dtmax_ifactor_time < dtmax_global)
-          dtmax_ifactor_time = dtmax_ifactor_time * 2
-       enddo
-       write(iprint,'(1x,a,2(es10.3,a))') &
-          "modifying dtmax: ",dtmax," -> ",dtmax*dtmax_ifactor_time," due to wall time constraint"
-       dtmax_ifactor_time = -dtmax_ifactor_time
-    endif
- endif
-
- ! modify dtmax based upon density change (algorithm copied from sphNG, with slight modifications)
- if (dtmax_log_dratio > 0.0) then
+ !--Modify dtmax_user based upon density evolution
+ !  (algorithm copied from sphNG, with slight modifications)
+ !  (this is not permitted if we are between dumps as defined by dtmax_user)
+ if (dtmax_log_dratio > 0.0 .and. idtmax_frac==0) then
     ratio   = log10(rhomaxnew/rhomaxold)
     ipower  = -(int(ratio/dtmax_log_dratio))
     if (abs(ratio/dtmax_log_dratio) < 0.5) ipower = 1
@@ -172,10 +166,10 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
 
     if (ipower > 5) ipower = 5 ! limit the largest increase in step size to 2**5 = 32
     if (ipower == 1) then
-       tempvar = time/(2.0*dtmax)
+       tempvar = time/(2.0*dtmax_user)
        diff    = tempvar - int(tempvar)
        if (0.25 < diff .and. diff < 0.75) then
-          write(iprint,'(1x,a,4es10.3)') 'modifying dtmax: Synct autochange attempt, but sync ',diff
+          if (iverbose > 0) write(iprint,'(1x,a,4es10.3)') 'modifying dtmax: Synct autochange attempt, but sync ',diff
           ipower = 0
        endif
     endif
@@ -183,42 +177,65 @@ subroutine check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtma
     if (ipower < 0) then
        ! decrease dtmax
        ifactor = min(ifactor,ifactor_max_dn)
-       if (dtmax/ifactor >= dtmax_min ) then
+       if (dtmax_user/ifactor >= dtmax_min ) then
           dtmax_ifactor = ifactor
           if (iverbose > 0) then
              write(iprint,'(1x,a,2(es10.3,a),2es10.3,2I6)') &
-             "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase. rho_old, rho_new, power, ifactor: ", &
-             rhomaxold,rhomaxnew,ipower,ifactor
+             "modifying dtmax: ",dtmax_user," -> ",dtmax_user/ifactor, &
+             " due to density increase. rho_old, rho_new, power, ifactor: ", rhomaxold,rhomaxnew,ipower,ifactor
           else
-             write(iprint,'(1x,a,2(es10.3,a))') "modifying dtmax: ",dtmax," -> ",dtmax/ifactor," due to density increase."
+             write(iprint,'(1x,a,2(es10.3,a))') "modifying dtmax: ",dtmax_user," -> ",dtmax_user/ifactor, &
+             " due to density increase."
           endif
 
        endif
     elseif (ipower > 0) then
        ! increase dtmax
        ifactor = min(ifactor,ifactor_max_up)
-       if (dtmax*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
+       if (dtmax_user*ifactor <= dtmax_max .and. ifactor*twallperdump < dtwallmax) then
           dtmax_ifactor = -ifactor
           if (iverbose > 0) then
              write(iprint,'(1x,a,2(es10.3,a),a,2es10.3,2I6)') &
-             "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation. ", &
+             "modifying dtmax: ",dtmax_user," -> ",dtmax_user*ifactor," due to density decrease/stabilisation. ", &
              "rho_old, rho_new, power, ifactor: ",rhomaxold,rhomaxnew,ipower,ifactor
           else
              write(iprint,'(1x,a,2(es10.3,a))') &
-             "modifying dtmax: ",dtmax," -> ",dtmax*ifactor," due to density decrease/stabilisation."
+             "modifying dtmax: ",dtmax_user," -> ",dtmax_user*ifactor," due to density decrease/stabilisation."
           endif
        endif
     endif
     rhomaxold = rhomaxnew
+    ! update dtmax_user; since this is only a diagnostic/in-out variable, we can safely
+    !                    update it here for both global & individual timestepping
+    if (dtmax_ifactor > 0) then
+       dtmax_user =  dtmax_user/dtmax_ifactor
+    elseif (dtmax_ifactor < 0) then
+       dtmax_user = -dtmax_user*dtmax_ifactor
+    endif
  endif
 
- ! Compare modifications based upon time & density; select largest decrease and/or smallest increase
- if (dtmax_ifactor == 0) then
-    dtmax_ifactor = dtmax_ifactor_time
- else
-    if (dtmax_ifactor_time /= 0) then
-       dtmax_ifactor = max(dtmax_ifactor,dtmax_ifactor_time)
+!--Modify dtmax based upon wall time constraint, if requested
+!  we will not try this is dtmax has just been modified due to density
+ if ( dtwallmax > 0.0 .and. dtmax_ifactor==0) then
+    if (twallperdump > dtwallmax) then
+       dtmax_ifactor = int(2**(int(log(real(twallperdump/dtwallmax))/log(2.0))+1))
+       write(iprint,'(1x,a,I4,a)') &
+          "modifying dtmax internally due to wall time constraint.  Increasing to ",idtmax_n*dtmax_ifactor," sub-dumps"
+       ! set nfulldump = 1 to ensure a full dump within a reasonable wall-time
+       if (nfulldump > 1) then
+          nfulldump = 1
+          write(iprint,'(1x,a)')  &
+             "modifying dtmax: nfulldump -> 1 to ensure data is not lost due to decreasing dtmax"
+       endif
+    elseif (twallperdump < 0.5*dtwallmax .and. idtmax_n > 1) then
+       ! let's increase dtmax only by a factor two, despite the possibility of increasing it by more
+       if (idtmax_frac==0 .or. idtmax_frac*2==idtmax_n) then
+          dtmax_ifactor = -2
+          write(iprint,'(1x,a,I4,a)') &
+             "modifying dtmax internally due to wall time constraint.  Decreasing to ",-idtmax_n/dtmax_ifactor," sub-dumps"
+       endif
     endif
+    dtmax_ifactorWT = dtmax_ifactor
  endif
 
  if (change_dtmax_now) then

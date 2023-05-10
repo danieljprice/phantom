@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -70,11 +70,11 @@ subroutine init_eos_barotropic(polyk,polyk2,ierr)
  endif
 
  ! Convert to code units, and calculate constants
- rhocrit0 = rhocrit0cgs/unit_density
- rhocrit1 = rhocrit1cgs/unit_density
- rhocrit2 = rhocrit2cgs/unit_density
- rhocrit3 = rhocrit3cgs/unit_density
- rhocrit4 = rhocrit4cgs/unit_density
+ rhocrit0 = real(rhocrit0cgs/unit_density)
+ rhocrit1 = real(rhocrit1cgs/unit_density)
+ rhocrit2 = real(rhocrit2cgs/unit_density)
+ rhocrit3 = real(rhocrit3cgs/unit_density)
+ rhocrit4 = real(rhocrit4cgs/unit_density)
  fac2     = polyk*(rhocrit2/rhocrit1)**(gamma1-1.)
  fac3     =  fac2*(rhocrit3/rhocrit2)**(gamma2-1.)
  fac4     =  fac3*(rhocrit4/rhocrit3)**(gamma3-1.)

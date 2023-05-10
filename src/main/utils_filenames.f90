@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -19,7 +19,7 @@ module fileutils
 !
 
  implicit none
- public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header
+ public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,get_column_labels,split
  public :: strip_extension,is_digit,files_are_sequential
  public :: ucase,lcase,make_tags_unique,get_nlines,string_delete
 
@@ -32,12 +32,13 @@ contains
 !  number at the end of the filename
 !+
 !----------------------------------------------------------------
-function getnextfilename(filename)
+function getnextfilename(filename,ifilename)
  character(len=*), intent(in) :: filename
  character(len=len(filename)) :: getnextfilename
  integer :: idot,istartnum,ilen,i,ierr,num
+ integer, optional, intent(out) :: ifilename
  character(len=10) :: fmtstring
-!
+ !
 !--extract current number from filename
 !
  idot = get_idot(filename)
@@ -69,6 +70,7 @@ function getnextfilename(filename)
  else
     getnextfilename = trim(filename)//'001'
  endif
+ if (present(ifilename)) ifilename = num
 
 end function getnextfilename
 
@@ -199,15 +201,32 @@ end function basename
 
 !---------------------------------------------------------------------------
 !
-! function to count number of lines in a file
+! function to count number of lines in a file. It has optinal arguments for
+! number of headerlines and number of columns that can be returned.
 !
 !---------------------------------------------------------------------------
-function get_nlines(string) result(n)
+function get_nlines(string,skip_comments,n_columns,n_headerlines) result(n)
  character(len=*), intent(in) :: string
  integer :: n,iunit,ierr
+ logical, optional, intent(in) :: skip_comments
+ logical :: do_skip
+ integer :: ncolumns,nheaderlines
+ integer, optional, intent(out) :: n_columns
+ integer, optional, intent(out) :: n_headerlines
 
  open(newunit=iunit, file=string,status='old',iostat=ierr)
- !--first reading
+ do_skip = .false.
+ if (present(skip_comments)) do_skip = skip_comments
+
+ if (do_skip .or. present(n_columns) .or. present(n_headerlines)) then
+    call get_ncolumns(iunit,ncolumns,nheaderlines)
+    if (present(n_columns)) n_columns = ncolumns
+    if (present(n_headerlines)) n_headerlines = nheaderlines
+ endif
+
+ if (do_skip) call skip_header(iunit,nheaderlines,ierr)
+
+ !--reading number of rows in file
  n = 0
  do while (ierr==0)
     n = n + 1
@@ -445,5 +464,206 @@ pure subroutine string_delete(string,skey)
     ipos = index(trim(string),skey)
  enddo
 end subroutine string_delete
+
+!---------------------------------------------------------------------------
+!
+! Split a string into substrings based on a delimiter
+!
+!---------------------------------------------------------------------------
+pure subroutine split(string,delim,stringarr,nsplit)
+ character(len=*), intent(in)  :: string
+ character(len=*), intent(in)  :: delim
+ character(len=*), intent(out), dimension(:) :: stringarr
+ integer,          intent(out) :: nsplit
+ integer :: i,j,imax,iend
+
+ i = 1
+ nsplit = 0
+ imax = len(string)
+ do while(nsplit < size(stringarr) .and. i <= imax)
+    ! find next non-blank character
+    if (string(i:i)==' ') then
+       do while (string(i:i)==' ')
+          i = i + 1
+          if (i > imax) exit
+       enddo
+       if (i > imax) exit
+    endif
+
+    ! look for next occurrence of delimiter
+    j = index(string(i:),delim) - 1
+    ! if no delimiter found, use whole rest of string
+    if (j < 0) j = imax
+    ! set end of substring
+    iend = min(i+j-1,imax)
+    ! extract the substring
+    nsplit = nsplit + 1
+    if (nsplit <= size(stringarr)) then
+       stringarr(nsplit) = string(i:iend)
+    endif
+    i = iend + len(delim) + 1
+ enddo
+
+end subroutine split
+
+!---------------------------------------------------------------------------
+!
+! extract a list of labels from the header line of a file
+!
+!---------------------------------------------------------------------------
+subroutine get_column_labels(line,nlabels,labels,method)
+ character(len=*), intent(in)  :: line
+ integer,          intent(out) :: nlabels
+ character(len=*), dimension(:), intent(out) :: labels
+ integer,          intent(out), optional :: method
+ integer :: i1,i2,i,nlabelstmp,istyle
+ character(len=1) :: leadingchar
+
+ nlabels = 0
+ i1 = 1
+ istyle = 0
+ !
+ ! strip leading comment character ('#')
+ !
+ leadingchar = trim(adjustl(line))
+ if (leadingchar=='#') then
+    i1 = index(line,'#') + 1
+ endif
+ ! strip anything preceding an equals sign
+ i1 = max(i1,index(line,'=')+1)
+ i2 = i1
+
+ if (index(nospaces(line),'][') > 0) then
+    !
+    ! format style 1: # [ mylabel1 ] [ mylabel2 ] [ mylabel3 ]
+    !
+    istyle = 1
+    call split(line(i1:),']',labels,nlabels)
+ elseif (index(line,',') > 1) then
+    !
+    ! format style 2: mylabel1,mylabel2,mylabel3
+    !
+    istyle = 2
+    call split(line(i1:),',',labels,nlabelstmp)
+    nlabels = count_sensible_labels(nlabelstmp,labels)
+ else
+    !
+    ! format style 3: #     mylabel1     mylabel2     mylabel3
+    !
+    istyle = 3
+    call split(line(i1:),'  ',labels,nlabelstmp)
+    !
+    ! this style is dangerous, so perform sanity checks
+    ! on the labels to ensure they are sensible
+    !
+    nlabels = count_sensible_labels(nlabelstmp,labels)
+    if (nlabels <= 1) then
+       !
+       ! format style 4: x y z vx vy vz
+       ! (this style is also dangerous)
+       !
+       istyle = 4
+       call split(line(i1:),' ',labels,nlabelstmp)
+       nlabels = count_sensible_labels(nlabelstmp,labels)
+    endif
+ endif
+ if (present(method)) method = istyle
+ !
+ ! clean up
+ !
+ do i=1,nlabels
+    ! delete brackets
+    if (nlabels <= size(labels)) then
+       call string_delete(labels(i),',')
+       if (istyle==1) then
+          call string_delete(labels(i),'[')
+          call string_delete(labels(i),']')
+       endif
+       if (istyle==1 .or. istyle==2) then
+          labels(i) = trim(adjustl(labels(i)))
+          ! delete leading numbers
+          i1 = 1
+          do while (isdigit(labels(i)(i1:i1)))
+             labels(i)(i1:i1) = ' '
+             i1 = i1 + 1
+          enddo
+       endif
+       labels(i) = trim(adjustl(labels(i)))
+    endif
+ enddo
+
+end subroutine get_column_labels
+
+!---------------------------------------------------------------------------
+!
+! indicate if a character is a digit (number) or not
+!
+!---------------------------------------------------------------------------
+pure elemental logical function isdigit(string)
+ character(len=1), intent(in) :: string
+ integer :: ia
+
+ isdigit = .false.
+ ia = iachar(string)
+ if (ia >= iachar('0').and.ia <= iachar('9')) isdigit = .true.
+
+end function isdigit
+
+!---------------------------------------------------------------------------
+!
+! count the number of sensible labels in a list of possible labels
+!
+!---------------------------------------------------------------------------
+integer function count_sensible_labels(n,labels) result(m)
+ integer, intent(in) :: n
+ character(len=*), dimension(n), intent(in) :: labels
+ integer :: i
+
+ m = 0
+ do i=1,n
+    if (is_sensible_label(labels(i))) m = m + 1
+ enddo
+
+end function count_sensible_labels
+
+!---------------------------------------------------------------------------
+!
+! determine if a particular string makes sense as a column label or not
+!
+!---------------------------------------------------------------------------
+logical function is_sensible_label(string)
+ character(len=*), intent(in) :: string
+ real    :: dum
+ integer :: ierr
+ real, parameter :: dum_prev =  -66666666.
+
+ is_sensible_label = .true.
+
+ ! should not start with a decimal point
+ if (string(1:1)=='.') is_sensible_label = .false.
+
+ ! should not contain equals sign
+ !if (index(string,'=') > 0) is_sensible_label = .false.
+
+ dum = dum_prev
+ ! should not be able to read it as a real number
+ read(string,*,iostat=ierr) dum
+ if (ierr==0 .and. abs(dum-dum_prev) > tiny(dum)) is_sensible_label = .false.
+
+end function is_sensible_label
+
+!---------------------------------------------------------------------------
+!
+! function to strip spaces out of a string
+!
+!---------------------------------------------------------------------------
+function nospaces(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: nospaces
+
+ nospaces = string
+ call string_delete(nospaces,' ')
+
+end function nospaces
 
 end module fileutils

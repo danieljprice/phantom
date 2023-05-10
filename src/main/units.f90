@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -11,7 +11,8 @@ module units
 !   the units are printed in the dump file header
 !   and log output is scaled in these units)
 !
-! :References: None
+! :References:
+!   Price & Monaghan (2004) MNRAS 348, 123 (section 7.1.1 on MHD units)
 !
 ! :Owner: Daniel Price
 !
@@ -28,10 +29,12 @@ module units
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
+ real(kind=8), public :: unit_angmom
 
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
+ public :: is_time_unit, is_length_unit
 
 contains
 
@@ -139,6 +142,7 @@ subroutine set_units_extra()
  unit_energ      = umass*unit_ergg
  unit_opacity    = udist**2/umass
  unit_luminosity = unit_energ/utime
+ unit_angmom     = udist*umass*unit_velocity
 
 end subroutine set_units_extra
 
@@ -158,18 +162,19 @@ subroutine print_units(unit)
     lu = 6
  endif
 
- write(lu,"(a)") ' --- code units --- '
+ write(lu,"(/,a)") ' --- code units --- '
  write(lu,"(/,3(a,es10.3,1x),a)") '     Mass: ',umass,    'g       Length: ',udist,  'cm    Time: ',utime,'s'
  write(lu,"(3(a,es10.3,1x),a)") '  Density: ',unit_density, 'g/cm^3  Energy: ',unit_energ,'erg   En/m: ',unit_ergg,'erg/g'
- write(lu,"(2(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G'
- write(lu,"(3(a,es10.3,1x),/)")   '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
-                                 '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(3(a,es10.3,1x),a)") ' Velocity: ',unit_velocity,'cm/s    Bfield: ',unit_Bfield,'G  opacity: ',unit_opacity,'cm^2/g'
+ write(lu,"(3(a,es10.3,1x))") '        G: ', gg*umass*utime**2/udist**3,'             c: ',c*utime/udist,&
+                                '      mu_0: ',cgsmu0*unit_charge**2/(umass*udist)
+ write(lu,"(2(a,es10.3,1x),/)") '        a: ',get_radconst_code(),      '         kB/mH: ',get_kbmh_code()
 
 end subroutine print_units
 
 !------------------------------------------------------------------------------------
 !+
-!  Subroutine to recognise mass and length units from a string
+!  Subroutine to recognise mass, length and time units from a string
 !+
 !------------------------------------------------------------------------------------
 subroutine select_unit(string,unit,ierr)
@@ -208,6 +213,18 @@ subroutine select_unit(string,unit,ierr)
     unit = jupiterm
  case('g','grams')
     unit = 1.d0
+ case('days','day')
+    unit = days
+ case('Myr')
+    unit = 1.d6*years
+ case('yr','year','yrs','years')
+    unit = years
+ case('hr','hour','hrs','hours')
+    unit = hours
+ case('min','minute','mins','minutes')
+    unit = minutes
+ case('s','sec','second','seconds')
+    unit = seconds
  case default
     ierr = 1
     unit = 1.d0
@@ -216,6 +233,78 @@ subroutine select_unit(string,unit,ierr)
  unit = unit*fac
 
 end subroutine select_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  check if string is a unit of time
+!+
+!------------------------------------------------------------------------------------
+logical function is_time_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case('days','day','Myr','yr','year','yrs','years',&
+      'hr','hour','hrs','hours','min','minute','mins','minutes',&
+      's','sec','second','seconds')
+    is_time_unit = .true.
+ case default
+    is_time_unit = .false.
+ end select
+
+end function is_time_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  check if string is a unit of length
+!+
+!------------------------------------------------------------------------------------
+logical function is_length_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case('solarr','rsun','au','ly','lightyear','pc','parsec',&
+      'kpc','kiloparsec','mpc','megaparsec','km','kilometres',&
+      'kilometers','cm','centimetres','centimeters')
+    is_length_unit = .true.
+ case default
+    is_length_unit = .false.
+ end select
+
+end function is_length_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  parse a string like "10.*days" or "10*au" and return the value in code units
+!  if there is no recognisable units, the value is returned unscaled
+!+
+!------------------------------------------------------------------------------------
+real function in_code_units(string,ierr) result(rval)
+ character(len=*), intent(in)  :: string
+ integer,          intent(out) :: ierr
+ real(kind=8) :: val
+
+ call select_unit(string,val,ierr)
+ if (is_time_unit(string) .and. ierr == 0) then
+    rval = real(val/utime)
+ elseif (is_length_unit(string) .and. ierr == 0) then
+    rval = real(val/udist)
+ else
+    rval = real(val)  ! no unit conversion
+ endif
+
+end function in_code_units
 
 !------------------------------------------------------------------------------------
 !+
@@ -275,10 +364,10 @@ end function is_digit
 !  Gravitational constant in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_G_code() result(G_code)
+real function get_G_code() result(G_code)
  use physcon, only:gg
 
- G_code = gg*umass*utime**2/udist**3
+ G_code = real(gg*umass*utime**2/udist**3)
 
 end function get_G_code
 
@@ -287,10 +376,10 @@ end function get_G_code
 !  speed of light in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_c_code() result(c_code)
+real function get_c_code() result(c_code)
  use physcon, only:c
 
- c_code = c*utime/udist
+ c_code = real(c*utime/udist)
 
 end function get_c_code
 
@@ -299,10 +388,11 @@ end function get_c_code
 !  radiation constant
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_radconst_code() result(radconst_code)
+real function get_radconst_code() result(radconst_code)
  use physcon, only:radconst
 
- radconst_code = radconst/unit_energ*udist**3
+ radconst_code = real(radconst/unit_energ*udist**3)
+
 end function get_radconst_code
 
 !---------------------------------------------------------------------------
@@ -310,10 +400,10 @@ end function get_radconst_code
 !  speed of light in code units
 !+
 !---------------------------------------------------------------------------
-real(kind=8) function get_kbmh_code() result(kbmh_code)
+real function get_kbmh_code() result(kbmh_code)
  use physcon, only:kb_on_mh
 
- kbmh_code = kb_on_mh/unit_velocity**2
+ kbmh_code = real(kb_on_mh/unit_velocity**2)
 
 end function get_kbmh_code
 
@@ -324,7 +414,7 @@ end function get_kbmh_code
 !---------------------------------------------------------------------------
 logical function G_is_unity()
 
- G_is_unity = abs(get_G_code() - 1.d0) < 1.d-12
+ G_is_unity = abs(get_G_code() - 1.) < 1.e-12
 
 end function G_is_unity
 
@@ -335,7 +425,7 @@ end function G_is_unity
 !---------------------------------------------------------------------------
 logical function c_is_unity()
 
- c_is_unity = abs(get_c_code() - 1.d0) < 1.d-12
+ c_is_unity = abs(get_c_code() - 1.) < 1.e-12
 
 end function c_is_unity
 !---------------------------------------------------------------------------

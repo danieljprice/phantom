@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,6 +17,7 @@ module cubic
 ! :Dependencies: None
 !
  implicit none
+ real, parameter :: pi = 4.*atan(1.)
 
 contains
 !-------------------------------------------------------------
@@ -44,7 +45,6 @@ subroutine cubicsolve(a,b,c,d,x,nreal,check)
  real :: p,q,det,sqrtdet
  real :: a2,b2,u,v,y1,y2,y3,term,phi
  real, parameter :: eps = 1000.*epsilon(0.)
- real, parameter :: pi = 3.14159265358979323846
  integer :: i
 
  x = 0.
@@ -162,9 +162,9 @@ subroutine cubicsolve_complex(a,b,c,x,nreal,check)
  integer, intent(out), optional :: nreal
  logical, intent(in),  optional :: check
  real :: p,q,det,sqrtdet,sqrtp
- real :: a2,p3,t,sinht,u,v,term,termr,termi,termc
+ real :: a2,p3,t,sinht,u,v,term,termr,termi
+ complex :: termc
  real, parameter :: eps = 1000.*epsilon(0.)
- real, parameter :: pi = 3.14159265358979323846
  integer :: i
 
  x = (0.,0.)

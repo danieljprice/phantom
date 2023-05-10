@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part, physcon, setbinary, units
+! :Dependencies: kernel, part, physcon, setbinary, units
 !
  implicit none
  public :: setpart
@@ -31,8 +31,9 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use setbinary, only:set_binary
- use units,     only:umass,utime,udist,set_units
+ use units,     only:umass,udist,set_units
  use physcon,   only:au,solarm,solarr
+ use kernel,    only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--general parameters
 !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  polyk = 0.
  gamma = 1.
 !

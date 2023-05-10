@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -109,7 +109,7 @@ subroutine test_wavedamp(ntests,npass)
  use eos,            only:ieos,polyk,gamma
  use options,        only:alphaB,alpha,alphamax
  use unifdis,        only:set_unifdis
- use dim,            only:periodic
+ use dim,            only:periodic,isothermal
  use timestep,       only:dtmax,tmax
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
@@ -131,9 +131,10 @@ subroutine test_wavedamp(ntests,npass)
  logical                :: valid_dt
  logical, parameter     :: print_output = .false.
 
-#ifndef ISOTHERMAL
- if (id==master) write(*,"(/,a)") '--> skipping wave damping test (need -DISOTHERMAL)'
-#endif
+ if (.not.isothermal) then
+    if (id==master) write(*,"(/,a)") '--> skipping wave damping test (need -DISOTHERMAL)'
+    return
+ endif
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing wave damping test (nimhddamp)'
  else
@@ -284,7 +285,7 @@ subroutine test_standingshock(ntests,npass)
  use eos,            only:ieos,polyk,gamma
  use options,        only:alpha,alphamax,alphaB
  use unifdis,        only:set_unifdis,get_ny_nz_closepacked
- use dim,            only:periodic
+ use dim,            only:periodic,isothermal
  use timestep,       only:dtmax,tmax
  use io,             only:iverbose
  use nicil,          only:nicil_initialise,eta_constant,eta_const_type,icnstsemi, &
@@ -302,9 +303,9 @@ subroutine test_standingshock(ntests,npass)
  logical, parameter     :: print_output = .false.
  logical                :: valid_bdy_rho,valid_bdy_v
 
-#ifndef ISOTHERMAL
- if (id==master) write(*,"(/,a)") '--> skipping standing shock test (need -DISOTHERMAL)'
-#endif
+ if (.not.isothermal) then
+    if (id==master) write(*,"(/,a)") '--> skipping standing shock test (need -DISOTHERMAL)'
+ endif
  if (periodic) then
     if (id==master) write(*,"(/,a)") '--> testing standing shock & boundary particles (nimhdshock)'
  else

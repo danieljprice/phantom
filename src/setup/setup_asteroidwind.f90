@@ -1,14 +1,16 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module setup
 !
-! None
+! Wind from an evaporating/disintegrating asteroid, as used
+! in Trevascus et al. (2021)
 !
-! :References: None
+! :References:
+!   Trevascus et al. (2021), MNRAS 505, L21-L25
 !
 ! :Owner: David Liptai
 !
@@ -31,7 +33,7 @@ module setup
  implicit none
  public :: setpart
 
- real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp,gastemp0
+ real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp
  integer :: npart_at_end,dumpsperorbit,ipot
 
  private
@@ -42,7 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,utime,unit_velocity
+ use units,     only:set_units,umass,udist,unit_velocity
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
                             mass1,accradius1
@@ -64,7 +66,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,hacc2,temperature_coef,dtinj
+ real    :: period,hacc2,temperature_coef
  real    :: rp
 !
 !--Default runtime parameters (values for SDSS J1228+1040)
@@ -173,7 +175,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
  endif
 
- ! both        of these are reset in the first        call to        inject_particles
+ ! both of these are reset in the first call to inject_particles
  !massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
  massoftype(igas) = 1.e-12
  hfact = 1.2
