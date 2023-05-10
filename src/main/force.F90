@@ -3119,7 +3119,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        tstop(:,i) = tstopi(:)
     elseif (use_dust .and. .not.use_dustfrac) then
        tstop(:,i) = ts_min
-       if (.not. drag_implicit) then
+       if (drag_implicit) then
+          dtdrag = 90*ts_min
+       else
           dtdrag = 0.9*ts_min
        endif
     endif

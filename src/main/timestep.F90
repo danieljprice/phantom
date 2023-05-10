@@ -22,11 +22,11 @@ module timestep
  integer :: nmax,nout
  integer :: nsteps
  real, parameter :: bignumber = 1.e29
- integer :: idtmax_n         = 1
- integer :: idtmax_n_next    = 1
- integer :: idtmax_frac      = 0
- integer :: idtmax_frac_next = 0
- real    :: dtmax_user       = -1.  ! require this initialisation for user-friendliness in phantomsetup
+  integer :: idtmax_n
+ integer :: idtmax_n_next
+ integer :: idtmax_frac
+ integer :: idtmax_frac_next
+ real    :: dtmax_user
 
  real    :: dt,dtcourant,dtforce,dtrad,dtextforce,dterr,dtdiff,time
  real    :: dtmax_dratio, dtmax_max, dtmax_min, rhomaxnow
@@ -63,6 +63,11 @@ subroutine set_defaults_timestep
  dtmax_max    = -1.0         ! maximum dtmax allowed (to be reset to dtmax if = -1)
  dtmax_min    =  0.          ! minimum dtmax allowed
 
+ idtmax_n = 1
+ idtmax_n_next = 1
+ idtmax_frac = 0
+ idtmax_frac_next = 0
+ dtmax_user = -1.
 end subroutine set_defaults_timestep
 
 !-----------------------------------------------------------------

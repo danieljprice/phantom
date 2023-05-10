@@ -23,7 +23,7 @@ module growth
 !   - flyby         : *use primary for keplerian freq. calculation*
 !   - force_smax    : *(mcfost) set manually maximum size for binning*
 !   - grainsizemin  : *minimum allowed grain size in cm*
-!   - stokesmin     : *minimum allowed Stokes number when porosity is on*
+!   - tsmin         : *minimum allowed stopping time when porosity is on*
 !   - ieros         : *erosion of dust (0=off,1=on)*
 !   - ifrag         : *fragmentation of dust (0=off,1=on,2=Kobayashi)*
 !   - ieros         : *erosion of dust (0=off,1=on)
@@ -48,7 +48,7 @@ module growth
  integer, public        :: ieros        = 0
 
  real, public           :: gsizemincgs  = 5.e-3
- real, public           :: stokesmin    = 5.e-5
+ real, public           :: tsmincgs     = 1.e5
  real, public           :: rsnow        = 100.
  real, public           :: Tsnow        = 150.
  real, public           :: vfragSI      = 15.
@@ -62,6 +62,7 @@ module growth
  real, public           :: vfragin
  real, public           :: vfragout
  real, public           :: grainsizemin
+ real, public           :: tsmin
  real, public           :: cohacc
  real, public           :: dsize
 
@@ -102,6 +103,7 @@ subroutine init_growth(ierr)
  grainsizemin   = gsizemincgs / udist
  cohacc         = cohacccgs * utime * utime / umass
  dsize          = dsizecgs / udist
+ tsmin          = tsmincgs / utime
 
  if (ifrag > 0) then
     if (grainsizemin < 0.) then
@@ -380,7 +382,7 @@ subroutine write_options_growth(iunit)
  call write_inopt(ieros,'ieros','erosion of dust (0=off,1=on)',iunit)
  if (ifrag /= 0) then
     if (use_porosity) then
-       call write_inopt(stokesmin,'stokesmin','minimum allowed stokes number',iunit)
+       call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
     else
        call write_inopt(gsizemincgs,'grainsizemin','minimum grain size in cm',iunit)
     endif
@@ -434,8 +436,8 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('grainsizemin')
     read(valstring,*,iostat=ierr) gsizemincgs
     ngot = ngot + 1
- case('stokesmin')
-    read(valstring,*,iostat=ierr) stokesmin
+ case('tsmincgs')
+    read(valstring,*,iostat=ierr) tsmincgs
     ngot = ngot + 1
  case('isnow')
     read(valstring,*,iostat=ierr) isnow
@@ -529,7 +531,7 @@ subroutine write_growth_setup_options(iunit)
  call write_inopt(vfraginSI,'vfragin','inward fragmentation threshold in m/s',iunit)
  call write_inopt(vfragoutSI,'vfragout','inward fragmentation threshold in m/s',iunit)
  if (use_porosity) then
-    call write_inopt(stokesmin,'stokesmin','minimum allowed stokes number',iunit)
+    call write_inopt(tsmincgs,'tsmincgs','minimum allowed stopping time',iunit)
  else
     call write_inopt(gsizemincgs,'grainsizemin','minimum allowed grain size in cm',iunit)
  endif
@@ -552,7 +554,7 @@ subroutine read_growth_setup_options(db,nerr)
  if (ifrag > 0) then
     call read_inopt(isnow,'isnow',db,min=0,max=2,errcount=nerr)
     if (use_porosity) then
-       call read_inopt(stokesmin,'stokesmin',db,min=1.e-5,errcount=nerr)
+       call read_inopt(tsmincgs,'tsmincgs',db,min=1.e-5,errcount=nerr)
     else
        call read_inopt(gsizemincgs,'grainsizemin',db,min=1.e-5,errcount=nerr)
     endif
@@ -578,28 +580,28 @@ end subroutine read_growth_setup_options
 !+
 !-----------------------------------------------------------------------
 subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
- use part,                 only:iamtype,iphase,idust,igas,dustgasprop
+ use part,                 only:iamtype,iphase,idust,igas,dustgasprop,Omega_k
  use options,              only:use_dustfrac,use_porosity
  real,intent(inout)        :: dustprop(:,:)
  integer,intent(in)        :: npart
  real, intent(in)          :: filfac(:),mprev(:),filfacprev(:)
  integer                   :: i,iam
- real                      :: stokesnew,sdustprev,sdustmin,sdust
+ real                      :: tsnew,sdustprev,sdustmin,sdust
 
  !$omp parallel do default(none) &
  !$omp shared(iphase,dustgasprop,use_dustfrac,use_porosity) &
  !$omp shared(npart,ifrag,dustprop,filfac,mprev,filfacprev) &
- !$omp shared(stokesmin,grainsizemin) &
- !$omp private(i,iam,stokesnew,sdustprev,sdustmin,sdust)
+ !$omp shared(tsmin,grainsizemin) &
+ !$omp private(i,iam,tsnew,sdustprev,sdustmin,sdust)
  do i=1,npart
     iam = iamtype(iphase(i))
     if ((iam == idust .or. (use_dustfrac .and. iam == igas))  .and. ifrag > 0 .and. dustprop(1,i) <= mprev(i)) then
        if (use_porosity) then
           sdustprev = get_size(mprev(i),dustprop(2,i),filfacprev(i))
           sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
-          stokesnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)
-          if (stokesnew < stokesmin) then
-            sdustmin = stokesmin*sdustprev*filfacprev(i)/filfac(i)/dustgasprop(3,i)
+          tsnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)/Omega_k(i)
+          if (tsnew < tsmin) then
+            sdustmin = tsmin*sdustprev*filfacprev(i)*Omega_k(i)/filfac(i)/dustgasprop(3,i)
             dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
@@ -639,6 +641,9 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
           r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
           h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
           dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)
+          if (dustprop(1,i) < 2.e-5/udist) then
+             dustprop(1,i) = 2.e-5/udist
+          endif
           dustprop(1,i) = fourpi/3. * dustprop(2,i) * (dustprop(1,i))**3
        else
           dustprop(1,i) = fourpi/3. * dustprop(2,i) * (grainsizecgs / udist)**3

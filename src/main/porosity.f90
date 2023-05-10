@@ -106,7 +106,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
    
 
  select case (iporosity)   ! add other case for other models here
- case (-1,1)
+ case (1)
      
      !--initialize filling factor (Garcia & Gonzalez 2020, Suyama et al. 2008, Okuzumi et al. 2012)
 
@@ -167,6 +167,22 @@ subroutine init_filfac(npart,xyzh,vxyzu)
 
                      !- Compute grain mass of the grain using grain size and filfac
                      dustprop(1,i) = filfac(i) * dustprop(1,i)
+                 else
+                     filfac(i) = 1.
+                     dustprop(1,i) = mmono
+                 endif
+             endif
+         enddo
+     endif
+ case (-1)
+     !--initialize filling factor for compact grains
+     if (all(filfac(:) == 0.)) then   ! check if filfac(i) was already initialize by init_filfac or not
+         do i=1,npart
+             iam = iamtype(iphase(i))
+             if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
+                 sfrac = (dustprop(1,i)/mmono)**(1./3.)
+                 if (sfrac > 1.) then      ! if grainsize > monomer size, compute filling factor
+                     filfac(i) = 1.
                  else
                      filfac(i) = 1.
                      dustprop(1,i) = mmono
