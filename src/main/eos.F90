@@ -47,7 +47,7 @@ module eos
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
  implicit none
- integer, parameter, public :: maxeos = 21
+ integer, parameter, public :: maxeos = 20
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -417,18 +417,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
-
-  case(21)
- !
- !--locally isothermal prescription from Farris et al. (2014) for triple system
- !
-     r1=sqrt((xi-xyzmh_ptmass(1,1))**2+(yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2)
-     r2=sqrt((xi-xyzmh_ptmass(1,2))**2+(yi-xyzmh_ptmass(2,2))**2 + (zi-xyzmh_ptmass(3,2))**2)
-     r3=sqrt((xi-xyzmh_ptmass(1,3))**2+(yi-xyzmh_ptmass(2,3))**2 + (zi-xyzmh_ptmass(3,3))**2)
-     ponrhoi=polyk*(xyzmh_ptmass(4,1)/r1+xyzmh_ptmass(4,2)/r2+xyzmh_ptmass(4,3)/r3)**(2*qfacdisc)/(xyzmh_ptmass(4,1)+xyzmh_ptmass(4,2) +xyzmh_ptmass(4,3))**(2*qfacdisc)
-     spsoundi=sqrt(ponrhoi)
-
-     tempi = temperature_coef*mui*ponrhoi
 
  case default
     spsoundi = 0. ! avoids compiler warnings
