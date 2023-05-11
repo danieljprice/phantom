@@ -18,11 +18,12 @@ module setup
 !   - ecc           : *eccentricity (1 for parabolic)*
 !   - mhole         : *mass of black hole (solar mass)*
 !   - norbits       : *number of orbits*
+!   - relax         : *relax star into hydrostatic equilibrium*
 !   - theta         : *inclination of orbit (degrees)*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, metric, mpidomain, part, physcon, setbinary, setstar,
-!   setup_params, timestep, units, vectorutils
+!   kernel, metric, mpidomain, part, physcon, relaxstar, setbinary,
+!   setstar, setup_params, timestep, units, vectorutils
 !
  use setstar, only:star_t
  implicit none

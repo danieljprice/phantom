@@ -18,8 +18,8 @@ module relaxstar
 !   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: checksetup, damping, deriv, dim, energies, eos,
-!   externalforces, fileutils, infile_utils, initial, io, io_summary,
+! :Dependencies: checksetup, damping, deriv, dim, dump_utils, energies,
+!   eos, externalforces, fileutils, infile_utils, initial, io, io_summary,
 !   memory, options, part, physcon, ptmass, readwrite_dumps, setstar_utils,
 !   sortutils, step_lf_global, table_utils, units
 !
