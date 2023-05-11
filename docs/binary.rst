@@ -1,17 +1,37 @@
 Binary stars and common envelope evolution
 ============================================
 
-Using SETUP=binary
-------------------
-The one-stop-shop to setup a binary star simulation is to use SETUP=binary::
+Setting up and relaxing binary stars (the easy way)
+---------------------------------------------------
+The one-stop-shop to setup a binary star simulation is as follows::
 
-   ~/phantom/scripts/writemake.sh binary > Makefile
-   make setup
+make a new directory and write a local Makefile
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   $ mkdir mybinarysim
+   $ cd mybinarysim
+   $ ~/phantom/scripts/writemake.sh binary > Makefile
+
+compile phantom and phantomsetup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+   $ make
+   $ make setup
+   $ ls
+   Makefile    phantom*    phantomsetup*
+
+run phantomsetup
+~~~~~~~~~~~~~~~~
+
+::
+
    ./phantomsetup sim
 
-giving::
-
-  -----------------------------------------------------------------
+   -----------------------------------------------------------------
    Welcome to the Ultimate Binary Setup
   -----------------------------------------------------------------
 
@@ -19,13 +39,17 @@ giving::
     Edit sim.setup and rerun phantomsetup
 
 
-This will create a file called sim.setup which contains setup options. Open this file in
-your favourite text editor to proceed...
+This will create a file called sim.setup which contains setup options.
+Open this file in your favourite text editor to proceed...
 
 
 Two sink particles in orbit
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The simplest is to setup two sink particles in a binary (iprofile=0), by amending the iprofile flags::
+----------------------------
+
+Set iprofile=0 for both stars in the .setup file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
    # options for star 1
               iprofile1 =           0    ! 0=Sink,1=Unif,2=Poly,3=Dens,4=KEPL,5=MESA,6=Pie
@@ -33,23 +57,30 @@ The simplest is to setup two sink particles in a binary (iprofile=0), by amendin
    # options for star 2
               iprofile2 =           0    ! 0=Sink,1=Unif,2=Poly,3=Dens,4=KEPL,5=MESA,6=Pie
 
-Then run phantomsetup again to rewrite the required options::
+run phantomsetup again to rewrite the required options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
  $ ./phantomsetup sim
-
-which will give::
-
+  ...
   ERROR: hacc1 not found
   ERROR: hacc2 not found
    2 error(s) during read of setup file: re-writing...
   writing setup options file sim.setup
    Edit sim.setup and rerun phantomsetup
 
-Run this again to finish the setup::
+run phantomsetup again to complete the setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+::
    ./phantomsetup sim
 
-This creates a sim.in file for the main code. You should edit the tmax and dtmax
+This creates a sim.in file for the main code.
+
+edit the .in file as desired
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+You should edit the tmax and dtmax
 to give the desired finishing time (tmax) and time between snapshots (dtmax)::
 
    cat sim.in
@@ -66,20 +97,30 @@ to give the desired finishing time (tmax) and time between snapshots (dtmax)::
                   f_acc =       0.500    ! particles < f_acc*h_acc accreted without checks
 
 
-After editing the .in file, proceed to run the simulation::
+run the simulation
+~~~~~~~~~~~~~~~~~~
+
+::
 
    make
    ./phantom sim
 
-and have a look at the outputs with splash::
+have a look at the outputs with splash
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
    splash sim_0*
 
 
 Two polytropes in orbit
-~~~~~~~~~~~~~~~~~~~~~~~~~
-The default is to setup-and-relax two polytropes and place them in orbit. For this edit
-your sim.setup file to give::
+------------------------
+The default is to setup two polytropes and place them in orbit.
+
+Edit .setup file to specify iprofile=2 for both stars
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
   # options for star 1
              iprofile1 =           2    ! 0=Sink,1=Unif,2=Poly,3=Dens,4=KEPL,5=MESA,6=Pie
@@ -92,9 +133,30 @@ your sim.setup file to give::
                 Mstar2 =       1.000    ! mass of star2
                 Rstar2 =       1.000    ! radius of star2
 
-Then run phantomsetup again to rewrite the required options::
+run phantomsetup again to rewrite the required options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- $ ./phantomsetup sim
+::
+
+  $ ./phantomsetup sim
+
+set the relaxation flag to true
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+   # relaxation options
+               relax =           T    ! relax stars into equilibrium
+            tol_ekin =   1.000E-07    ! tolerance on ekin/epot to stop relaxation
+            tol_dens =       1.000    ! % error in density to stop relaxation
+              maxits =        1000    ! maximum number of relaxation iterations
+
+run phantomsetup again
+~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
+  $ ./phantomsetup sim
+
 
 This time you should see the automated relax-a-star procedure kick in::
 
@@ -104,15 +166,27 @@ This time you should see the automated relax-a-star procedure kick in::
     Relaxing star: Iter   2/1000, dens error: 10.97%, R*:  0.915     Ekin/Epot:  4.673E-03
     ...
 
-As previously, you can then just proceed to run the simulation after editing the sim.in file
-::
+restart the relaxation if needed
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The relaxation process will continue where it left off if you simply
+run phantomsetup again, stopping when the criteria above are met::
+
+  $ ./phantomsetup sim
+
+
+run the simulation after editing the sim.in file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+After successfully completing the setup process, you can proceed
+to run your Very Happy Binary Star Simulation^TM::
 
    ./phantom sim.in
 
 Two stars from MESA profiles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-To use stellar profiles from the MESA code, select iprofile=5 in your .setup file
-and enter the name of the ascii data file containing the input profile
+-----------------------------
+
+select iprofile=5 in your .setup file and enter name of MESA file
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Enter the name of the ascii data file containing the input profile
 (most files produced by MESA just work...)::
 
   # options for star 1
@@ -131,8 +205,8 @@ and enter the name of the ascii data file containing the input profile
 Notice that you do not get to set the particle resolution for the second star,
 since the mass of the particles is fixed by the mass and particle number in star 1.
 
-Replacing dense stellar cores with sink particles
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Replace dense stellar cores with sink particles (as necessary)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 In the options above you have the option to remove the dense core of the star
 which causes small timesteps in the code, and replace it with a softened point
 mass. The default option for this is isoftcore1=2 and isinkcore1=1.
@@ -140,8 +214,8 @@ mass. The default option for this is isoftcore1=2 and isinkcore1=1.
 For more details, see :doc:`Setting up a softened star <softstar>`
 
 
-Using SETUP=star and moddump_binary
-------------------------------------
+Setting up and relaxing binary stars (the old fashioned way)
+-------------------------------------------------------------
 See :doc:`Setting up stars and tidal disruption events <star>` for the older two-step procedure. The options available are
 identical, but with a bit more flexibility and without
 having to re-run the relaxation procedure over and over again.
