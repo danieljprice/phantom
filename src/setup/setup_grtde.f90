@@ -245,10 +245,10 @@ subroutine write_setupfile(filename)
  use setstar,      only:write_options_star
  use relaxstar,    only:write_options_relax
  character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+ integer :: iunit
 
  print "(a)",' writing setup options file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
+ open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for tidal disruption setup'
 
  call write_options_star(star,iunit)
@@ -256,13 +256,12 @@ subroutine write_setupfile(filename)
  if (relax) call write_options_relax(iunit)
 
  write(iunit,"(/,a)") '# options for black hole and orbit'
-
- call write_inopt(mhole,          'mhole',          'mass of black hole (solar mass)',             iunit)
- call write_inopt(beta,           'beta',           'penetration factor',                          iunit)
- call write_inopt(ecc,            'ecc',            'eccentricity (1 for parabolic)',              iunit)
- call write_inopt(norbits,        'norbits',        'number of orbits',                            iunit)
- call write_inopt(dumpsperorbit,  'dumpsperorbit',  'number of dumps per orbit',                   iunit)
- call write_inopt(theta,          'theta',          'inclination of orbit (degrees)',              iunit)
+ call write_inopt(mhole,        'mhole',        'mass of black hole (solar mass)',iunit)
+ call write_inopt(beta,         'beta',         'penetration factor',             iunit)
+ call write_inopt(ecc,          'ecc',          'eccentricity (1 for parabolic)', iunit)
+ call write_inopt(norbits,      'norbits',      'number of orbits',               iunit)
+ call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',      iunit)
+ call write_inopt(theta,        'theta',        'inclination of orbit (degrees)', iunit)
  close(iunit)
 
 end subroutine write_setupfile
