@@ -537,8 +537,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo
  endif
 
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
- call reset_cell_counters(cell_counters)
+ if (mpi) then
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    call reset_cell_counters(cell_counters)
+ endif
 
  !$omp master
  call get_timings(t2,tcpu2)
@@ -547,7 +550,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp end master
  !$omp barrier
 
- igot_remote: if (stack_remote%n > 0) then
+ igot_remote: if (mpi .and. stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
@@ -587,9 +590,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif igot_remote
 
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
+          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
- iam_waiting: if (stack_waiting%n > 0) then
+ iam_waiting: if (mpi .and. stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
