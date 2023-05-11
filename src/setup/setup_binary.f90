@@ -51,7 +51,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
  use io,             only:master
- use setstar,        only:set_star,set_defaults_star,shift_star
+ use setstar,        only:set_star,shift_star
  use eos,            only:X_in,Z_in,ieos
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
@@ -92,9 +92,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  nstar = 2
  relax = .true.
  corotate = .false.
- do i=1,nstar
-    call set_defaults_star(star(i))
- enddo
  semi_major_axis = '10.'
  a    = 10.
  ecc  = 0.
