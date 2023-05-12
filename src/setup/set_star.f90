@@ -49,7 +49,7 @@ module setstar
  end type star_t
 
  public :: star_t
- public :: set_star,shift_star
+ public :: set_star,set_defaults_star,shift_star
  public :: write_options_star,read_options_star,set_star_interactive
  public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk

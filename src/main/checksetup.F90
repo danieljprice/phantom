@@ -95,11 +95,11 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if (hfact < 1. .or. hfact /= hfact) then
+ if (hfact < 1. .or. isnan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0. .or. polyk /= polyk) then
+ if (polyk < 0. .or. isnan(polyk)) then
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
