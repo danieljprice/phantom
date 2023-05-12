@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use units,          only:set_units
  use inject,         only:init_inject,inject_particles,dtsphere,rin,drdp,iboundspheres
  use timestep,       only:tmax
- use io,             only:iprint
+ use io,             only:iprint,fatal
  use eos,            only:gamma
  use prompting,      only:prompt
  use metric_tools,   only:imet_schwarzschild,imetric

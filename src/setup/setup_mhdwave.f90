@@ -92,6 +92,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     gamma = 5./3.
     gam1 = gamma - 1.
     uuzero = przero/(gam1*rhozero)
+    polyk = przero/rhozero**gamma
  else
     gamma = 1.
     polyk = przero/rhozero

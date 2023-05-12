@@ -54,6 +54,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,    only:dynamic_bdy,adjust_particles_dynamic_boundary
  use nicil,           only:n_nden
+ use metric_tools,    only:imetric,imet_minkowski
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -300,7 +301,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check for particles placed inside accretion boundaries
 !
- if (iexternalforce > 0 .and. .not.dorestart) then
+ if (iexternalforce > 0 .and. .not.dorestart .and. (.not.(gr .and. imetric==imet_minkowski))) then
     call update_externalforce(iexternalforce,time,0.)
     nbad = 0
     !$omp parallel do default(none) &
