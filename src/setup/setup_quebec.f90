@@ -32,8 +32,9 @@ contains
 !  setup for uniform particle distributions
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:maxvxyzu
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,&
+                   vxyzu,polyk,gamma,hfact,time,fileprefix)
+ use part,      only:maxvxyzu,igas
  use spherical, only:set_sphere,rho_func
  use io,        only:master
  use setup_params,   only:rhozero,npart_total
@@ -55,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: Rg_codeunits
  procedure(rho_func), pointer :: density_func
 
- call set_units(dist=solarr, mass=solarm, G=1.0)
+ call set_units(dist=solarr, mass=solarm, G=1.0d0)
 
 !
 !--parameters for this setup
@@ -82,9 +83,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
+ polyk = 0.
 
  np    = min(10000000,int(2.0/3.0*size(xyzh(1,:)))) ! approx max number allowed in sphere given size(xyzh(1,:))
  npmax = np
+ np = 100000
  call prompt('Enter the approximate number of particles in the sphere ',np,0,npmax)
 
  totvol = 4./3.*pi*rmax**3
@@ -100,22 +103,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart_total = 0
 
  density_func => rhofunc
- call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh,rhofunc=density_func,nptot=npart_total)
-
+ call set_sphere('closepacked',id,master,rmin,rmax,psep,&
+      hfact,npart,xyzh,rhofunc=density_func,nptot=npart_total)
 !
 !--set particle properties
 !
-
  npart_total = npart
  rhozero = total_mass / totvol
  print *, ' total mass = ',total_mass,' mean density = ',rhozero
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  print *, ' npart = ',npart_total
 
- massoftype(1) = total_mass / npart_total
- print *, ' particle mass = ',massoftype(1)
+ massoftype(igas) = total_mass / npart_total
+ print *, ' particle mass = ',massoftype(igas)
  print *, ''
 
  ! convert Rg to code units
@@ -150,7 +152,11 @@ real function rhofunc(r)
  a = a / udist
 
  ! cgs units
- rhofunc = rho_crit * a * sin(r/a) / r
+ if (r > 0.) then
+    rhofunc = rho_crit * a * sin(r/a) / r
+ else
+    rhofunc = huge(0.)
+ endif
 
  ! convert to code units
  rhofunc = rhofunc / (umass / udist**3)
