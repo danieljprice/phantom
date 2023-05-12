@@ -71,7 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpiutils,        only:reduceall_mpi
  use mpidomain,       only:i_belong
  use setup_params,    only:rhozero,npart_total
- use setstar,         only:set_star,set_defaults_star
+ use setstar,         only:set_star
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -105,9 +105,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  X_in        = 0.74
  Z_in        = 0.02
  use_var_comp = .false.
-
- call set_defaults_star(star)
-
  !
  ! defaults needed for error checking
  !

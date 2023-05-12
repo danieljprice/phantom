@@ -29,12 +29,14 @@ contains
 !  setup for uniform particle distributions
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
+                   polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxp,maxvxyzu,mhd
  use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
+                        dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:igas,Bxyz,periodic
  use prompting,    only:prompt
@@ -58,6 +60,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time = 0.
  gamma = 1.4
+ polyk = 0.
 !
 !--set particles
 !
@@ -103,7 +106,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   rcylmax=rdisk,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  print*,' npart = ',npart,npart_total
 
  totvol = (dxbound*dybound - pi*rdisk**2)*dzbound

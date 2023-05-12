@@ -138,7 +138,6 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
     endif
  endif
 
- return
 end subroutine cross_boundary
 
 !-----------------------------------------------------------------------

@@ -21,8 +21,8 @@ module setup
 !   - smoothfac : *IC smoothing factor (in terms of particle spacing)*
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, prompting, setup_params, timestep,
-!   unifdis, units
+!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
+!   units
 !
  implicit none
  public :: setpart
@@ -41,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxp,maxvxyzu,gr
+ use dim,          only:maxvxyzu,gr
  use setup_params, only:rhozero
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
@@ -49,10 +49,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump
- use prompting,    only:prompt
  use kernel,       only:hfact_default
  use part,         only:igas,periodic
- use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use mpiutils,     only:reduceall_mpi
  use units,        only:set_units
  use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
@@ -80,7 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! Must have G=c=1 in relativity
  !
- call set_units(G=1.,c=1.)
+ call set_units(G=1.d0,c=1.d0)
 
  !
  ! General parameters
@@ -89,6 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact       = hfact_default
  rhozero     = 1.0
  gamma       = 5./3.
+ polyk       = 0.
 
  !
  ! Default setup parameters
@@ -125,17 +125,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
  elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call prompt(' Enter pressure in blast ',Pblast,0.)
-    call prompt(' Enter pressure in medium ',Pmed,0.)
-    call prompt(' Enter size of box ',boxsize,0.)
-    call prompt(' Enter radius of blast ',Rblast,0.,boxsize/2.)
-    call prompt(' IC smoothing factor (in terms of particle spacing) ',smoothfac)
     call write_setupfile(filename)
+    stop 'edit .setup file and try again'
+ else
+    stop
  endif
- call bcast_mpi(npartx)
-
  !
  ! Set boundaries
  !
@@ -167,9 +161,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(4,i) = (ublast-umed)/(1. + exp((r-Rblast)/del)) + umed
  enddo
 
- write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
- write(*,'(2x,a, Es11.4)')'Initial blast radius: ',Rblast
- write(*,'(2x,a, Es11.4)')'Initial blast energy: ',toten
+ write(*,'(2x,a,2es11.4)') 'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a, es11.4)') 'Initial blast radius: ',Rblast
+ write(*,'(2x,a, es11.4)') 'Initial blast energy: ',toten
 
 end subroutine setpart
 
@@ -221,5 +215,5 @@ subroutine read_setupfile(filename,ierr)
  call close_db(db)
 
 end subroutine read_setupfile
-!----------------------------------------------------------------
+
 end module setup

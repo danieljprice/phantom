@@ -109,6 +109,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use_ohm  = .false.
  use_hall = .false.
  use_ambi = .false.
+ ierr = 0
  !
  !--Prompt the user for relevant input to create .setup if file does not already exist
  !
@@ -223,7 +224,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--Convert to real values
  !
  if (realvals) then
-    !--matches dimensions of spereinbox
+    !--matches dimensions of sphereinbox
     udist = 1.d16
     umass = solarm
     call set_units(dist=udist,mass=umass,G=1.d0)
