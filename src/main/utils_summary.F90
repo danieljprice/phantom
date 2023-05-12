@@ -33,6 +33,7 @@ module io_summary
  integer, parameter :: iosumdte   = 10              ! dtdust
  integer, parameter :: iosumdtr   = 11              ! dtradiation
  integer, parameter :: iosumdtB   = 12              ! dtclean
+ integer, parameter :: iosumdts   = 13              ! dtentropy
  !  Dust Parameters
  integer, parameter :: iosumdge   = iosumdtB +  1   ! Stokes drag regime
  integer, parameter :: iosumdgs   = iosumdtB +  2   ! supersonic Epstein regime
@@ -448,6 +449,8 @@ subroutine summary_printout(iprint,nptmass)
       ,iosum_nstep(iosumdtr  ),'|',iosum_rpart(iosumdtr  ),'|',iosum_ave(iosumdtr  ),'|',iosum_max(iosumdtr  ),'|'
     if (iosum_nstep(iosumdtB  )/=0) write(iprint,30) '| dtclean            |' &
       ,iosum_nstep(iosumdtB  ),'|',iosum_rpart(iosumdtB  ),'|',iosum_ave(iosumdtB  ),'|',iosum_max(iosumdtB  ),'|'
+    if (iosum_nstep(iosumdts  )/=0) write(iprint,30) '| dtclean            |' &
+      ,iosum_nstep(iosumdts  ),'|',iosum_rpart(iosumdts  ),'|',iosum_ave(iosumdts  ),'|',iosum_max(iosumdts  ),'|'
 30  format(a,i13,a,3(f13.2,a))
 #else
     write(iprint,'(a)') '| dt                    |       < dt_Courant      |     #times smallest      |'
@@ -465,6 +468,8 @@ subroutine summary_printout(iprint,nptmass)
      write(iprint,40)   '| dtradiation           | ',iosum_nstep(iosumdtr),' |',iosum_npart(iosumdtr),'   |'
     if (iosum_nstep(iosumdtB)/=0) &
      write(iprint,40)   '| dtclean               | ',iosum_nstep(iosumdtB),' |',iosum_npart(iosumdtB),'   |'
+    if (iosum_nstep(iosumdts)/=0) &
+     write(iprint,40)   '| dtentropy             | ',iosum_nstep(iosumdts),' |',iosum_npart(iosumdts),'   |'
 40  format(a,2(i23,a))
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
