@@ -41,7 +41,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic
+ use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master,fatal
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump
