@@ -431,11 +431,11 @@ subroutine find_ptmass_index(hier_label, index, prefix, ierr)
  character(len=20), intent(in), optional:: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int
+ integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
- read(hier_label,*,iostat=hier_int) hier_int
+ read(hier_label,*,iostat=io) hier_int
 
  index = int(data(findloc(int(data(:,2)), hier_int, 1),1))
 
@@ -462,11 +462,11 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  character(len=20), optional, intent(in) :: prefix
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer                :: i, lines, ierr, h_index
+ integer                :: i, lines, ierr, h_index, io
 
  character(len=10)      :: label = '         '
 
- read(level, *, iostat=h_index) h_index
+ read(level, *, iostat=io) h_index
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
@@ -489,11 +489,11 @@ subroutine find_data_index(hier_label, index, prefix, ierr)
  character(len=20), intent(in), optional:: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int
+ integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
- read(hier_label,*,iostat=hier_int) hier_int
+ read(hier_label,*,iostat=io) hier_int
 
  index = findloc(int(data(:,2)), hier_int, 1)
 

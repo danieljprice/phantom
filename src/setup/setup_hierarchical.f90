@@ -81,7 +81,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call print_chess_logo()
  endif
 
->>>>>>> upstream/master
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
