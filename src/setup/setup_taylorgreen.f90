@@ -39,7 +39,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use prompting,    only:prompt
  use mpidomain,    only:i_belong
- use part,         only:periodic
+ use part,         only:periodic,igas
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,deltax,vzero,dz
- integer :: ipart,i,maxp,maxvxyzu,nx
+ integer :: i,maxp,maxvxyzu,nx
 !
 !--general parameters
 !
@@ -88,12 +88,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
- print*,' npart = ',ipart,npart,npart_total
+ npartoftype(igas) = npart
+ print*,' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
- print*,' particle mass = ',massoftype(1)
+ print*,' particle mass = ',massoftype(igas)
 
  vzero = 0.1
 
