@@ -49,7 +49,7 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  integer, intent(out)   :: ierr
  character(len=20), intent(in) :: prefix
 
- integer :: i
+ integer :: i, io
  real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
  integer :: splits, sink_num_temp, subst
@@ -80,7 +80,7 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
     !                              binary_a, binary_e, binary_i, binary_O, &
     !                              binary_w, binary_f
 
-    read(hl_temp,*,iostat=subst) subst
+    read(hl_temp,*,iostat=io) subst
 
     !print*, 'passing subst = ', subst
     call set_hier_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
