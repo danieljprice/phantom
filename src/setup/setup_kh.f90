@@ -38,12 +38,14 @@ contains
 !  setup for uniform particle distributions
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
+                   polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:npart_total
  use io,           only:master
  use options,      only:nfulldump
  use unifdis,      only:set_unifdis,rho_func
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
+                        dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
  use part,         only:igas,periodic
  use prompting,    only:prompt
@@ -69,6 +71,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  time  = 0.
  gamma = 5./3
+ polyk = 0.
  filename= trim(fileprefix)//'.in'
  inquire(file=filename,exist=iexist)
  if (.not. iexist) then
@@ -100,12 +103,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   rhofunc=density_func,dir=2,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  print*,' npart = ',npart,npart_total
 
  totmass = dy2*dxbound*dzbound*rho2 + (dybound-dy2)*dxbound*dzbound*rho1
  massoftype(igas) = totmass/npart_total
- print*,' particle mass = ',massoftype(1)
+ print*,' particle mass = ',massoftype(igas)
 
  do i=1,npart
     vxyzu(1,i) = v1 + Rfunc(xyzh(2,i))*(v2 - v1)
