@@ -864,7 +864,8 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypej = igas
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,index,maxphase,maxp,iphase) &
- !$omp private(i,j,dx,dx2,itypei,itypej) &
+ !$omp firstprivate(itypei,itypej) &
+ !$omp private(i,j,dx,dx2) &
  !$omp reduction(+:nbad)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,index(i)))) then

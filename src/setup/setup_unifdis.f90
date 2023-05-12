@@ -62,7 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,           only:master
  use unifdis,      only:set_unifdis,latticetype
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:Bxyz,periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
  use setunits,     only:dist_unit,mass_unit
@@ -173,7 +173,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        stop
     endif
  elseif (id==master) then
-    call setup_interactive(id,polyk)
+    call setup_interactive
     call write_setupfile(filename)
     stop 'rerun phantomsetup after editing .setup file'
  else
@@ -249,65 +249,47 @@ end subroutine setpart
 ! interactive setup
 !
 !------------------------------------------------------------------------
-subroutine setup_interactive(id,polyk)
+subroutine setup_interactive()
  use io,        only:master
- use mpiutils,  only:bcast_mpi
  use dim,       only:maxp,maxvxyzu
  use prompting, only:prompt
  use setunits,  only:set_units_interactive
- integer, intent(in)  :: id
- real,    intent(out) :: polyk
 
- if (id==master) then
-    call set_units_interactive(gr)
+ call set_units_interactive(gr)
 
-    call prompt('enter xmin boundary',xmini)
-    call prompt('enter xmax boundary',xmaxi,xmini)
-    call prompt('enter ymin boundary',ymini)
-    call prompt('enter ymax boundary',ymaxi,ymini)
-    call prompt('enter zmin boundary',zmini)
-    call prompt('enter zmax boundary',zmaxi,zmini)
- endif
+ call prompt('enter xmin boundary',xmini)
+ call prompt('enter xmax boundary',xmaxi,xmini)
+ call prompt('enter ymin boundary',ymini)
+ call prompt('enter ymax boundary',ymaxi,ymini)
+ call prompt('enter zmin boundary',zmini)
+ call prompt('enter zmax boundary',zmaxi,zmini)
  !
  ! number of particles
  !
- if (id==master) then
-    print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
-    call prompt('enter number of particles in x direction ',npartx,1)
- endif
- call bcast_mpi(npartx)
+ print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
+ call prompt('enter number of particles in x direction ',npartx,1)
  !
  ! mean density
  !
- if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
+ call prompt(' enter density (gives particle mass)',rhozero,0.)
  !
  ! sound speed in code units
  !
- if (id==master) then
-    call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- endif
- call bcast_mpi(cs0)
+ call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  !
  ! dust to gas ratio
  !
- if (use_dustfrac) then
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
- endif
+ if (use_dustfrac) call prompt('Enter dust to gas ratio',dust_to_gas,0.)
  !
  ! magnetic field strength
  if (mhd .and. balsarakim) then
     call prompt('Enter magnetic field strength in code units ',Bzero,0.)
-    call bcast_mpi(Bzero)
  endif
  !
  ! type of lattice
  !
- if (id==master) then
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
- endif
- call bcast_mpi(ilattice)
+ call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
+
 end subroutine setup_interactive
 
 !------------------------------------------------------------------------
