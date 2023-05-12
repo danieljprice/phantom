@@ -15,10 +15,8 @@ module setup
 ! :Runtime parameters:
 !   - Bzero       : *magnetic field strength in code units*
 !   - cs0         : *initial sound speed in code units*
-!   - dist_unit   : *distance unit (e.g. au)*
 !   - dust_to_gas : *dust-to-gas ratio*
 !   - ilattice    : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit   : *mass unit (e.g. solarm)*
 !   - nx          : *number of particles in x direction*
 !   - rhozero     : *initial density in code units*
 !   - xmax        : *xmax boundary*
@@ -29,7 +27,7 @@ module setup
 !   - zmin        : *zmin boundary*
 !
 ! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
-!   io, mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
+!   io, mpidomain, options, part, physcon, prompting, set_dust, setunits,
 !   setup_params, timestep, unifdis, units
 !
  use dim,          only:use_dust,mhd,gr

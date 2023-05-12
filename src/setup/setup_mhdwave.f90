@@ -13,9 +13,7 @@ module setup
 !
 ! :Owner: James Wurster
 !
-! :Runtime parameters:
-!   - npartx  : *number of particles in x-direction*
-!   - plasmaB : *plasma beta in the initial blast*
+! :Runtime parameters: None
 !
 ! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, setup_params, timestep, unifdis,

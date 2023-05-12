@@ -10,16 +10,16 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - lattice       : *particle lattice (random,cubic,closepacked,hcp,hexagonal)*
+!   - lattice       : *particle lattice (1=cubic,2=closepacked,3=hcp,4=random)*
 !   - npartx        : *number of particles in x-direction*
 !   - shuffle_parts : *relax particles by shuffling*
 !
 ! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, prompting, setup_params, timestep, unifdis,
-!   units, utils_shuffleparticles
+!   options, part, physcon, setup_params, timestep, unifdis,
+!   utils_shuffleparticles
 !
  implicit none
  public :: setpart

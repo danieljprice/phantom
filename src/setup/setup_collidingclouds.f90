@@ -18,12 +18,10 @@ module setup
 !   - Ncloud             : *number of clouds*
 !   - Temperature_medium : *Temperature of the background*
 !   - density_contrast   : *density contrast*
-!   - dist_unit          : *distance unit (e.g. pc)*
 !   - dynamic_bdy        : *use dynamic boundary conditions*
 !   - h_acc              : *accretion radius (code units)*
 !   - h_soft_sinksink    : *sink-sink softening radius (code units)*
 !   - icreate_sinks      : *1: create sinks.  0: do not create sinks*
-!   - mass_unit          : *mass unit (e.g. solarm)*
 !   - np                 : *actual number of particles in cloud 1*
 !   - plasmaB            : *plasma beta*
 !   - r_crit             : *critical radius (code units)*
@@ -31,7 +29,8 @@ module setup
 !
 ! :Dependencies: boundary, boundary_dyn, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, spherical, timestep, unifdis, units, velfield
+!   ptmass, setunits, setup_params, spherical, timestep, unifdis, units,
+!   velfield
 !
  use part,         only:mhd
  use dim,          only:maxvxyzu,maxp_hard

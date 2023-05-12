@@ -20,7 +20,7 @@ module setup
 !   - rmin   : *inner edge*
 !
 ! :Dependencies: bondiexact, centreofmass, dim, externalforces,
-!   infile_utils, io, kernel, metric, metric_tools, options, part, physcon,
+!   infile_utils, io, kernel, metric_tools, options, part, physcon,
 !   prompting, setup_params, spherical, stretchmap, timestep, units
 !
  use physcon,        only:pi

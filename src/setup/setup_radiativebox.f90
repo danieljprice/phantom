@@ -13,22 +13,20 @@ module setup
 ! :Owner: Sergei Biriukov
 !
 ! :Runtime parameters:
-!   - cs0       : *initial sound speed in code units*
-!   - dist_unit : *distance unit (e.g. au)*
-!   - ilattice  : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit : *mass unit (e.g. solarm)*
-!   - nx        : *number of particles in x direction*
-!   - rhozero   : *initial density in code units*
-!   - xmax      : *xmax boundary*
-!   - xmin      : *xmin boundary*
-!   - ymax      : *ymax boundary*
-!   - ymin      : *ymin boundary*
-!   - zmax      : *zmax boundary*
-!   - zmin      : *zmin boundary*
+!   - cs0      : *initial sound speed in code units*
+!   - ilattice : *lattice type (1=cubic, 2=closepacked)*
+!   - nx       : *number of particles in x direction*
+!   - rhozero  : *initial density in code units*
+!   - xmax     : *xmax boundary*
+!   - xmin     : *xmin boundary*
+!   - ymax     : *ymax boundary*
+!   - ymin     : *ymin boundary*
+!   - zmax     : *zmax boundary*
+!   - zmin     : *zmin boundary*
 !
-! :Dependencies: boundary, eos, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, set_dust, setup_params, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, eos, infile_utils, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, set_dust, setunits, setup_params,
+!   timestep, unifdis, units
 !
  use setup_params, only:rhozero
  use dim,          only:gr

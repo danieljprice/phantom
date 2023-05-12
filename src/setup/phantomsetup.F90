@@ -17,7 +17,7 @@ program phantomsetup
 ! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
 !   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
-!   setup_params, systemutils, units
+!   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,mpi,&

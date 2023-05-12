@@ -17,7 +17,7 @@ module readwrite_infile
 !   - C_cour             : *Courant number*
 !   - C_force            : *dt_force number*
 !   - alpha              : *shock viscosity parameter*
-!   - alphaB             : *art. resistivity parameter*
+!   - alphaB             : *shock resistivity parameter*
 !   - alphamax           : *MAXIMUM shock viscosity parameter*
 !   - alphau             : *shock conductivity parameter*
 !   - avdecayconst       : *decay time constant for viscosity switches*
