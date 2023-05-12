@@ -14,7 +14,7 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, part, prompting
+! :Dependencies: centreofmass, part, prompting, ptmass_heating, units
 !
  implicit none
 

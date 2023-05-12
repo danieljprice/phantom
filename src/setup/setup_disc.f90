@@ -1174,7 +1174,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
           !print*,disclabel,' com_pos ', xorigini
-          
+
        endif
 
        if ((ndiscs > 1 .and. ibinary==0) .and. (R_out(i) > Rochelobe)) then
@@ -2226,11 +2226,11 @@ subroutine setup_interactive(id)
        if (ndiscs > 1) then
           if (nsinks<5) then
              print "(/,a)",' >>>  circum'//trim(disctype(i))//' disc  <<<'
-          else if (nsinks>4) then
+          elseif (nsinks>4) then
              call get_hier_disc_label(i, disclabel)
              print "(/,a)",' >>>  circum'//trim(disclabel)//' disc  <<<'
-          end if
-       end if
+          endif
+       endif
        call prompt('How do you want to set the gas disc mass?'//new_line('A')// &
                   ' 0=total disc mass'//new_line('A')// &
                   ' 1=mass within annulus'//new_line('A')// &

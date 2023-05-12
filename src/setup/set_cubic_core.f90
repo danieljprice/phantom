@@ -19,7 +19,7 @@ module setcubiccore
 !
 ! :Dependencies: io, kernel, physcon, table_utils
 !
- use physcon, only:solarm,solarr
+ use physcon,     only:solarm,solarr
  use table_utils, only:interpolator,diff
 
  implicit none

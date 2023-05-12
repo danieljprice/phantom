@@ -165,12 +165,8 @@ program phantommoddump
  endif
 
  if (mhd) then
-    if (ihavesetupB) then
-       ians = .false.
-       call prompt(' add/reset magnetic fields?',ians)
-    else
-       ians = .true.
-    endif
+    ians = .false.
+    if (.not.ihavesetupB) call prompt(' add/reset magnetic fields?',ians)
     if (ians) then
        call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
                        Bxyz,Bextx,Bexty,Bextz)

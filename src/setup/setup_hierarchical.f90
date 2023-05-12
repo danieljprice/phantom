@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, infile_utils, io, options, part, physcon,
+! :Dependencies: externalforces, infile_utils, io, part, physcon,
 !   setbinary, sethierarchical, units
 !
 
@@ -33,7 +33,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
  use setbinary, only:set_binary,get_a_from_period
- use sethierarchical, only:set_hierarchical_default_options,set_hierarchical
+ use sethierarchical, only:set_hierarchical_default_options,set_hierarchical,print_chess_logo
  use units,     only:set_units
  use physcon,   only:solarm,au,pi
  !use options,   only:iexternalforce
@@ -74,8 +74,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- call set_hierarchical_default_options(id)
- 
+ call set_hierarchical_default_options()
+
+
+ if (id==master) then
+    call print_chess_logo()
+ endif
+
+>>>>>>> upstream/master
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)

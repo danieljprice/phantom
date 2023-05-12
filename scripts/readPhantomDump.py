@@ -8,7 +8,7 @@ Author: Lionel Siess & Stéven Toupin
 Last tested: 07/07/2021
 """
 
-from numpy import fromfile, frombuffer, memmap, dtype, asscalar
+from numpy import fromfile, frombuffer, memmap, dtype, ndarray
 
 ### The following routines are used to extract data from the binary file
 
@@ -78,7 +78,7 @@ def read_fortran_record_with_names(f, type):
       name = names[i]
       c = count[name]
       l = numbers[i:i+c]
-      if c==1: l = asscalar(l)
+      if c==1: l = ndarray.item(l)
       out[name] = l
       i += c
   return out
