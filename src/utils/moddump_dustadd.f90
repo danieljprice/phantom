@@ -154,10 +154,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
 
        enddo
+    endif
 
-       if (use_dustgrowth) then
-          call set_dustprop(npart)
-       endif
+    if (use_dustgrowth) then
+       call set_dustprop(npart)
     endif
  endif
 
