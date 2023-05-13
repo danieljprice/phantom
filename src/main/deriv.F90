@@ -155,7 +155,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
        call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
                            stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
     endif
-    set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
+    set_boundaries_to_active = .true.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
  endif
 

@@ -419,6 +419,7 @@ module part
  integer, parameter :: idustbound  = idustlast + 1
  integer, parameter :: idustboundl = idustbound + maxdustlarge - 1
  integer, parameter :: iunknown    = 0
+!  logical            :: set_boundaries_to_active = .false.
  logical            :: set_boundaries_to_active = .true.
  integer :: i
  character(len=7), dimension(maxtypes), parameter :: &
@@ -960,7 +961,7 @@ pure subroutine get_partinfo(iphasei,isactive,isgas,isdust,itype)
  if (itype==iboundary) then
     if (set_boundaries_to_active) then
        isactive = .true.
-       itype = igas
+       itype = iboundary !igas
     else
        isactive = .false.
     endif

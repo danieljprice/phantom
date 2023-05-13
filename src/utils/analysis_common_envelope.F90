@@ -1320,15 +1320,15 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer, allocatable         :: iorder(:)
  real                         :: ekini,einti,epoti,ethi,phii,rhopart,ponrhoi,spsoundi,tempi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,&
-                                 dum1,dum2,dum3,dum4,dum5
+                                 dum1,dum2,dum3,dum4,dum5,xyz_com(3)
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: quant(:,:)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
 
  allocate(quant(4,npart))
- Nquantities = 12
+ Nquantities = 13
  if (dump_number == 0) then
-    print "(12(a,/))",&
+    print "(13(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
@@ -1340,7 +1340,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '9) Total energy (kin + pot)', &
            '10) Mass coordinate', &
            '11) Gas omega w.r.t. CoM', &
-           '12) Gas omega w.r.t. sink 1'
+           '12) Gas omega w.r.t. sink 1',&
+           '13) Centre of mass for selected particles'
 
     quantities_to_calculate = (/1,2,4,5/)
     call prompt('Choose first quantity to compute ',quantities_to_calculate(1),1,Nquantities)
@@ -1376,8 +1377,17 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        if (dump_number==0) allocate(init_entropy(npart))
     case(10)
        call set_r2func_origin(0.,0.,0.)
-       allocate(iorder(npart))
+       if (.not. allocated(iorder)) allocate(iorder(npart))
        call indexxfunc(npart,r2func_origin,xyzh,iorder)
+    case(13)
+       if (.not. allocated(iorder)) allocate(iorder(npart))
+       call indexxfunc(npart,density_func,xyzh,iorder)
+
+       xyz_com = 0.
+       do i=1,100
+          xyz_com = xyz_com + xyzh(1:3,iorder(i))
+       enddo
+       xyz_com = xyz_com / 100.
     case default
        print*,"Error: Requested quantity is invalid."
        stop
@@ -1454,6 +1464,10 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
 
        case(10) ! Mass coordinate
           quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
+      
+       case(13) ! CoM of selected number of particles
+          quant(1:3,i) = xyz_com(1:3)
+          quant(4,i) = 0.
 
        case default
           print*,"Error: Requested quantity is invalid."
@@ -1932,11 +1946,13 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  if (dump_number==0) then
     iquantity = 1
     use_mass_coord = .false.
-    print "(4(/,a))",'1. Energy',&
+    print "(6(/,a))",'1. Energy',&
                      '2. Entropy',&
                      '3. Bernoulli energy',&
-                     '4. Ion fractions'
-    call prompt("Select quantity to calculate",iquantity,1,4)
+                     '4. Ion fractions',&
+                     '5. Energy fluxes',&
+                     '6. Radial velocity'
+    call prompt("Select quantity to calculate",iquantity,1,6)
     call prompt("Bin in mass coordinates instead of radius?",use_mass_coord)
  endif
 
@@ -1955,11 +1971,12 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  call compute_energies(time)
 
  ! Allocate arrays for single variable outputs
- if ( (iquantity==1) .or. (iquantity==2) .or. (iquantity==3) ) then
+ select case (iquantity)
+ case(1,2,3,6)
     nvars = 1
- else
+ case(5)
     nvars = 5
- endif
+ end select
  allocate(filename(nvars),headerline(nvars),quant(npart,nvars),coord(npart))
 
  coord = 0.
@@ -1995,6 +2012,20 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
                     '            # HeI', &
                     '           # HeII', &
                     '          # HeIII' /)
+ case(5) ! Energy fluxes
+    filename = (/ '  grid_ke_flux.ev', &
+                  ' grid_rad_flux.ev', &
+                  ' grid_eth_flux.ev', &
+                  'grid_grav_flux.ev', &
+                  ' grid_tot_flux.ev' /)
+    headerline = (/ '        # KE flux', &
+                    ' # Radiative flux', &
+                    ' # Therm ene flux', &
+                    '  # Grav ene flux', &
+                    ' # Total ene flux' /)
+ case(6) ! Radial velocity
+    filename = '       grid_vr.ev'
+    headerline = '# Radial vel prof'
  end select
 
  allocate(iorder(npart))
@@ -2042,6 +2073,20 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
        quant(i,3) = xhe0
        quant(i,4) = xhe1
        quant(i,5) = xhe2
+    case(5) ! Energy fluxes
+       ccode = get_c_code()
+       call radiation_equation_of_state(radprop(iradP,i),rad(iradxi,i),rhopart)
+       r_uvec = xyzh(1:3,i)/norm2(xyzh(1:3,i))
+       vr = dot_product(r_uvec(1:3),vxyzu(1:3,i))  ! radial velocity
+       v2 = dot_product(vxyzu(1:3,i),vxyzu(1:3,i))
+       phi_tot = epoti/particlemass  ! Gravitational potential due to sink and other gas particles
+       quant(i,1) = 0.5*rhopart*v2*vr ! kinetic energy radial flux
+       quant(i,2) = -ccode*radprop(ilambda,i)/(radprop(ikappa,i)*rhopart)*dot_product(radprop(ifluxx:ifluxz,i),r_uvec) ! radial radiative flux
+       quant(i,3) = (rhopart*(vxyzu(4,i)+rad(iradxi,i) + ponrhoi) + radprop(iradP,i))*vr ! gas thermal energy and radiative energy flux
+       quant(i,4) = rhopart*phi_tot*vr ! advective flux in gravitational potential energy (Jiang et al., 2013)
+       quant(i,5) = sum( quant(i,1:nvars-1) )
+    case(6) ! Radial velocity
+       quant(i,1) = dot_product(xyzh(1:3,i),vxyzu(1:3,i))/norm2(xyzh(1:3,i))
     end select
  enddo
 
@@ -4352,6 +4397,16 @@ subroutine swap(a,b)
  b = c
 
 end subroutine swap
+
+real function density_func(xyzh)
+ use part, only:rhoh
+ real, intent(in) :: xyzh(4)
+ real :: pmass
+
+ pmass = 8.130422764227643e-008
+ density_func = rhoh(xyzh(4),pmass)
+
+end function density_func
 
 
 !----------------------------------------------------------------
