@@ -249,24 +249,8 @@ endif
     endif
  write(*,*), "The sphere has been succesfully initialised."
  elseif (in_shape == 1) then
-    if (lrhofunc) then
-      write(*,*), "Adding stretchmapped ellipse."
-      ! Need to make the ellipse point in the vertical direction for stretchmapping
-      rellipsoid2(1) = r_in
-      rellipsoid2(2) = r_in
-      rellipsoid2(3) = r_a
-      call set_ellipse('random',id,master,rellipsoid2,delta,hfact_default,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
-       np_requested=n_add,nptot=nptot,rhofunc=prhofunc,dir=1)
-
-       ! Now we rotate it back to the proper position
-       do i = 1,n_add
-          call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./), pi/2)
-       enddo
-
-    else
-      call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,np,xyzh_add,xyz_origin=(/0., 0., 0./),&
+      call set_ellipse('random',id,master,rellipsoid,delta,hfact_default,xyzh_add,np,&
        np_requested=n_add, nptot=nptot)
-    endif
      print*, "The origin is ", xp
      ! Need to correct the ellipse
      do i = 1,n_add
