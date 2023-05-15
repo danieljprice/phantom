@@ -191,7 +191,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
 ! enddo
 
- return
 end subroutine setpart
 
 
@@ -205,7 +204,7 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for gwdisc setup routines'
+ write(iunit,"(a)") '# input file for planetdisc setup routine'
 
  write(iunit,"(/,a)") '# resolution'
 

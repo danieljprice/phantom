@@ -20,6 +20,7 @@ module eos
 !    10 = MESA EoS
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
+!    13 = locally isothermal prescription from Farris et al. (2014) generalised for generic hierarchical systems
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
@@ -103,7 +104,7 @@ contains
 !----------------------------------------------------------------
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
- use part,          only:xyzmh_ptmass
+ use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use physcon,       only:kb_on_mh,radconst
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
@@ -122,8 +123,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
- integer :: ierr
+ integer :: ierr, i
  real    :: r1,r2
+ real    :: mass_r, mass ! defined for generalised Farris prescription
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart,gmwi
@@ -334,6 +336,27 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi  = presi / rhoi
     tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
+
+
+ case(13)
+!
+!--Locally isothermal eos for generic hierarchical system
+!
+!  Assuming all sink particles are stars.
+!  Generalisation of Farris et al. (2014; for binaries) to N stars.
+!  For two sink particles this is identical to ieos=14
+!
+    mass_r = 0
+    mass = 0
+
+    do i=1,nptmass
+       mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
+       mass = mass + xyzmh_ptmass(4,i)
+    enddo
+    ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
+    spsoundi = sqrt(ponrhoi)
+    tempi    = temperature_coef*mui*ponrhoi
+
 
  case(14)
 !
@@ -1027,8 +1050,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
- &considering reducing entropy factor C_ent')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinte temperature, &
+ &reducing entropy factor C_ent for one dump')
 
  ! change back to code unit
  P = cgsP / unit_pressure

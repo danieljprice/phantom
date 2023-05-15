@@ -188,7 +188,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use timestep,     only:dtcourant,dtforce,dtrad,bignumber,dtdiff
  use io_summary,   only:summary_variable, &
                         iosumdtf,iosumdtd,iosumdtv,iosumdtc,iosumdto,iosumdth,iosumdta, &
-                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB
+                        iosumdgs,iosumdge,iosumdgr,iosumdtfng,iosumdtdd,iosumdte,iosumdtB,iosumdense
 #ifdef FINVSQRT
  use fastmath,     only:finvsqrt
 #endif
@@ -246,7 +246,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real, save :: xyzcache(maxcellcache,4)
 !$omp threadprivate(xyzcache)
  integer :: i,icell,nneigh
- integer :: nstokes,nsuper,ndrag,ndustres
+ integer :: nstokes,nsuper,ndrag,ndustres,ndense
  real    :: dtmini,dtohm,dthall,dtambi,dtvisc
  real    :: dustresfacmean,dustresfacmax
 #ifdef GRAVITY
@@ -353,6 +353,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  ndustres      = 0
 
  ! sink particle creation
+ ndense        = 0
  ipart_rhomax  = 0
 #ifdef GRAVITY
  rhomax        = 0.
@@ -435,7 +436,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp reduction(max:dtfrcfacmax,dtfrcngfacmax,dtdragfacmax,dtdragdfacmax,dtcoolfacmax,dtviscfacmax) &
 !$omp reduction(max:nbinmaxnew,nbinmaxstsnew) &
 #endif
-!$omp reduction(+:ndustres,dustresfacmean) &
+!$omp reduction(+:ndustres,dustresfacmean,ndense) &
 !$omp reduction(min:dtrad) &
 !$omp reduction(min:dtohm,dthall,dtambi,dtdiff) &
 !$omp reduction(min:dtcourant,dtforce,dtvisc) &
@@ -536,8 +537,11 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     enddo
  endif
 
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
- call reset_cell_counters(cell_counters)
+ if (mpi) then
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    call reset_cell_counters(cell_counters)
+ endif
 
  !$omp master
  call get_timings(t2,tcpu2)
@@ -546,7 +550,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  !$omp end master
  !$omp barrier
 
- igot_remote: if (stack_remote%n > 0) then
+ igot_remote: if (mpi .and. stack_remote%n > 0) then
     !$omp do schedule(runtime)
     over_remote: do i = 1,stack_remote%n
        cell = get_cell(stack_remote,i)
@@ -586,9 +590,10 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
  endif igot_remote
 
- call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
+          irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
- iam_waiting: if (stack_waiting%n > 0) then
+ iam_waiting: if (mpi .and. stack_waiting%n > 0) then
     !$omp do schedule(runtime)
     over_waiting: do i = 1, stack_waiting%n
        cell = get_cell(stack_waiting,i)
@@ -657,6 +662,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                        (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &
                      + (xyzh(3,i) - xyzmh_ptmass(3,j))**2 < r_crit2) then
+                      ndense   = ndense + 1
                       use_part = .false.
                       exit over_ptmass
                    endif
@@ -702,6 +708,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (icreate_sinks > 0 .and. ipart_rhomax > 0 .and. iverbose>=1) then
     print*,' got rhomax = ',rhomax*unit_density,' on particle ',ipart_rhomax !,rhoh(xyzh(4,ipart_rhomax))
  endif
+ ndense = int(reduce_mpi('+',ndense))
+ if (ndense > 0) call summary_variable('dense',iosumdense,ndense,0.)
 #endif
 
 #ifdef DUST
@@ -891,7 +899,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ibin_old,iamboundary
 #endif
  use timestep,    only:bignumber
- use options,     only:overcleanfac,use_dustfrac,ireconav,icooling
+ use options,     only:overcleanfac,use_dustfrac,ireconav,icooling,limit_radiation_flux
  use units,       only:get_c_code
 #ifdef GR
  use metric_tools,only:imet_minkowski,imetric
@@ -1701,8 +1709,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 radkappaj = radprop(ikappa,j)
                 radenj = rad(iradxi,j)
                 radRj = get_rad_R(rhoj,radenj,radFj,radkappaj)
-                !radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
-                radlambdaj = 1./3.
+
+                if (limit_radiation_flux) then
+                   radlambdaj = (2. + radRj)/(6. + 3*radRj + radRj*radRj)
+                else
+                   radlambdaj = 1./3.
+                endif
 
                 radDj = c_code*radlambdaj/radkappaj/rhoj
 
@@ -2029,7 +2041,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
                      rad,radprop,dens,metrics)
 
  use io,        only:fatal
- use options,   only:alpha,use_dustfrac
+ use options,   only:alpha,use_dustfrac,limit_radiation_flux
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
@@ -2282,9 +2294,11 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
           cell%xpartvec(iradxii,cell%npcell)         = rad(iradxi,i)
           cell%xpartvec(iradfxi:iradfzi,cell%npcell) = radprop(ifluxx:ifluxz,i)
           cell%xpartvec(iradkappai,cell%npcell)      = radprop(ikappa,i)
-          !cell%xpartvec(iradlambdai,cell%npcell)     = &
-          !     (2. + radRi)/(6. + 3*radRi + radRi*radRi)
-          cell%xpartvec(iradlambdai,cell%npcell)     = 1./3.
+          if (limit_radiation_flux) then
+             cell%xpartvec(iradlambdai,cell%npcell) = (2. + radRi)/(6. + 3.*radRi + radRi*radRi)
+          else
+             cell%xpartvec(iradlambdai,cell%npcell) = 1./3.
+          endif
           cell%xpartvec(iradrbigi,cell%npcell)       = radRi
        endif
 
@@ -2463,7 +2477,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
@@ -2992,8 +3006,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     ! one fluid dust timestep
     if (use_dustfrac .and. iamgasi) then
-       if (minval(dustfraci) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
-          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(:)*tstopi(:))
+       if (minval(dustfraci(1:ndustsmall)) > 0. .and. spsoundi > 0. .and. dustfracisum > epsilon(0.)) then
+          tseff = (1.-dustfracisum)/dustfracisum*sum(dustfraci(1:ndustsmall)*tstopi(1:ndustsmall))
           dtdustdenom = dustfracisum*tseff*spsoundi**2
           if (dtdustdenom > tiny(dtdustdenom)) then
              dtdusti = C_force*hi*hi/dtdustdenom

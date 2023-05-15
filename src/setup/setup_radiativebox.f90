@@ -13,31 +13,28 @@ module setup
 ! :Owner: Sergei Biriukov
 !
 ! :Runtime parameters:
-!   - cs0       : *initial sound speed in code units*
-!   - dist_unit : *distance unit (e.g. au)*
-!   - ilattice  : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit : *mass unit (e.g. solarm)*
-!   - nx        : *number of particles in x direction*
-!   - rhozero   : *initial density in code units*
-!   - xmax      : *xmax boundary*
-!   - xmin      : *xmin boundary*
-!   - ymax      : *ymax boundary*
-!   - ymin      : *ymin boundary*
-!   - zmax      : *zmax boundary*
-!   - zmin      : *zmin boundary*
+!   - cs0      : *initial sound speed in code units*
+!   - ilattice : *lattice type (1=cubic, 2=closepacked)*
+!   - nx       : *number of particles in x direction*
+!   - rhozero  : *initial density in code units*
+!   - xmax     : *xmax boundary*
+!   - xmin     : *xmin boundary*
+!   - ymax     : *ymax boundary*
+!   - ymin     : *ymin boundary*
+!   - zmax     : *zmax boundary*
+!   - zmin     : *zmin boundary*
 !
-! :Dependencies: boundary, eos, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, set_dust, setup_params, timestep,
-!   unifdis, units
+! :Dependencies: boundary, dim, eos, infile_utils, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, set_dust, setunits, setup_params,
+!   timestep, unifdis, units
 !
  use setup_params, only:rhozero
+ use dim,          only:gr
  implicit none
  public :: setpart
 
  integer :: npartx,ilattice,iradtype
  real    :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi
- character(len=20) :: dist_unit,mass_unit
- real(kind=8) :: udist,umass
 
  private
 
@@ -53,7 +50,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,            only:master,fatal,warning
  use unifdis,       only:set_unifdis
  use boundary,      only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
-
  use physcon,       only:pi,mass_proton_cgs,kboltz,years,pc,solarm,c,Rg,steboltz
  use set_dust,      only:set_dustfrac
  use units,         only:set_units,unit_ergg,unit_velocity,unit_opacity,get_c_code,get_radconst_code
@@ -83,6 +79,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real :: a,c_code,cv1,kappa_code,pmassi,Tref,xi0
  real :: rhoi,h0,rho0
 
+ call setup_setdefaults(id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,npartx,cs0)
+
  filename=trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
@@ -93,18 +91,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        stop
     endif
  elseif (id==master) then
-    call setup_setdefaults(&
-       id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,mass_unit,dist_unit,&
-       npartx,cs0)
     call write_setupfile(filename,gamma)
     stop 'rerun phantomsetup after editing .setup file'
  else
     stop
  endif
  !
- ! set units and boundaries
+ ! set boundaries
  !
- call set_units(dist=udist,mass=umass,G=1.d0)
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
@@ -128,12 +122,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  print*,' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
- if (id==master) print*,' particle mass = ',massoftype(1)
+ if (id==master) print*,' particle mass = ',massoftype(igas)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
  vxyzu(1:3,:) = 0.
@@ -187,6 +181,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case default
     call fatal('setup_radiativebox', 'radiation setup is not available')
  end select
+
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -194,17 +189,16 @@ end subroutine setpart
 ! interactive setup
 !
 !------------------------------------------------------------------------
-subroutine setup_setdefaults(&
-   id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,mass_unit,dist_unit,&
-   npartx,cs0)
+subroutine setup_setdefaults(id,polyk,gamma,xmin,xmax,ymin,ymax,zmin,zmax,&
+                             npartx,cs0)
  use io,        only:master
  use mpiutils,  only:bcast_mpi
  use options,   only:exchange_radiation_energy,limit_radiation_flux
+ use setunits,  only:mass_unit,dist_unit
  integer, intent(in)  :: id
  integer, intent(out) :: npartx
  real,    intent(in)  :: xmin,xmax,ymin,ymax,zmin,zmax
  real,    intent(out) :: polyk,gamma,cs0
- character(len=*),intent(out) :: mass_unit,dist_unit
 
  mass_unit = 'solarm'
  dist_unit = 'au'
@@ -233,6 +227,7 @@ subroutine setup_setdefaults(&
     call bcast_mpi(ilattice)
     call bcast_mpi(iradtype)
  endif
+
 end subroutine setup_setdefaults
 
 !------------------------------------------------------------------------
@@ -243,6 +238,7 @@ end subroutine setup_setdefaults
 subroutine write_setupfile(filename,gamma)
  use infile_utils, only:write_inopt
  use options,      only:exchange_radiation_energy,limit_radiation_flux
+ use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
  real, intent(in) :: gamma
@@ -251,9 +247,7 @@ subroutine write_setupfile(filename,gamma)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for uniform setup routine'
 
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ call write_options_units(iunit)
  !
  ! boundaries
  !
@@ -290,7 +284,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,gamma,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use units,        only:select_unit
+ use setunits,     only:read_options_and_set_units
  use io,           only:error
  use options,      only:exchange_radiation_energy,limit_radiation_flux
  character(len=*), intent(in)  :: filename
@@ -307,8 +301,7 @@ subroutine read_setupfile(filename,gamma,ierr)
  !
  ! units
  !
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_options_and_set_units(db,nerr,gr)
  !
  ! boundaries
  !
@@ -331,19 +324,6 @@ subroutine read_setupfile(filename,gamma,ierr)
  call read_inopt(limit_radiation_flux,'flux_limiter',db,errcount=nerr)
 
  call close_db(db)
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','length unit not recognised')
-    ierr = ierr + 1
- endif
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

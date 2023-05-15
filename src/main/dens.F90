@@ -404,7 +404,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     enddo
  endif
 
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ if (mpi) then
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ endif
 
  !$omp master
  call get_timings(t2,tcpu2)
@@ -422,6 +425,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  n_remote_its = 0
  iterations_finished = .false.
+ if (.not.mpi) iterations_finished = .true.
  !$omp end master
  !$omp barrier
 
@@ -469,11 +473,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo
     endif igot_remote
 
-    call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
+             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
-    iam_waiting: if (stack_waiting%n > 0) then
+    iam_waiting: if (mpi .and. stack_waiting%n > 0) then
        !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
@@ -525,7 +530,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo
     endif iam_waiting
 
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
     !$omp master
     if (reduceall_mpi('max',stack_redo%n) > 0) then

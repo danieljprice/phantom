@@ -6,7 +6,7 @@
 ! and the coefficients for the non-ideal MHD terms: Ohmic resistivity, !
 ! Hall Effect and Ambipolar diffusion.                                 !
 !                                                                      !
-!                 Copyright (c) 2015-2021 James Wurster                !
+!                 Copyright (c) 2015-2023 James Wurster                !
 !        See LICENCE file for usage and distribution conditions        !
 !----------------------------------------------------------------------!
 !+
@@ -15,7 +15,7 @@
 !  DESCRIPTION:
 !  Contains routines to calculation the ionisation rate, and related
 !  useful quantities.
-!  Copyright (c) 2015-2021 James Wurster
+!  Copyright (c) 2015-2023 James Wurster
 !  References: Wurster (2016) PASA, 33:e041.
 !              Wurster (2021) MNRAS, 501:5873-5891.
 !  See LICENCE file for usage and distribution conditions
@@ -82,14 +82,14 @@ module nicil
  implicit none
  !--INPUT PAREMETERS
  !--Number of grain sizes
- integer, public, parameter :: na                = 1                ! Hardcoded for storage efficiency ( na >=0 )
+ integer, public, parameter :: na                =  1                ! Hardcoded for storage efficiency ( na >=0 )
  !--Turn on/off individual non-ideal MHD coefficients
  logical, public            :: use_ohm           = .true.           ! Calculate the coefficient for Ohmic resistivity
  logical, public            :: use_hall          = .true.           ! Calculate the coefficient for the Hall effect
  logical, public            :: use_ambi          = .true.           ! Calculate the coefficient for ambipolar diffusion
  !--Use a constant (false) or variable (true) cosmic ray ionisation rate
  logical, public            :: zeta_of_rho       = .false.
- !--Import the dust mass density from the parent code for each point
+ !--Import the dust to gas ratio from the parent code for each point
  logical, public            :: use_fdg_in        = .false.
  !--Use constant resistivity coefficients for all three resistivity terms
  logical, public            :: eta_constant      = .false.
@@ -133,11 +133,16 @@ module nicil
 
  !--Threshholds
  real,    public            :: Texp_thresh0      = 0.005            ! Will set exp(-chi/kT) = 0 if T is too low
+ real,    public            :: eta_thresh_cgs    = 1.0d25           ! threshold on eta above which a warning will be printed [cm^2/s]
 
  !--Additional parameters
  integer, public            :: NRctrmax          = 200              ! maximum number of Newton–Raphson iterations
  real,    public            :: NRtol             = 1.0d-8           ! default tolerance on Newton–Raphson iterations
- real,    public            :: NRtol4            = 1.0d-6           ! default tolerance on Newton–Raphson iterations if single precsision
+ real,    public            :: NRtol4            = 1.0d-6           ! default tolerance on Newton–Raphson iterations if single precision
+ real,    public            :: MPtol             = 1.0d-12          ! default tolerance to zero values due to machine precision
+ real,    public            :: MPtol4            = 1.0d-6           ! default tolerance to zero values due to machine precision if single precision
+ real,    public            :: MPval             = 1.0d-100         ! a value slightly larger than sqrt (min possible value)
+ real,    public            :: MPval4            = 1.0d-35          ! a value slightly larger than sqrt (min possible value)if single precision
  real,    public            :: Cdt_diff          = 0.12             ! Coefficient to control the AD & OR timesteps
  real,    public            :: Cdt_hall          = 0.0795774        ! Coefficient to control the HE timestep (==1/4pi)
  !--END OF INPUT PARAMETERS
@@ -164,19 +169,19 @@ module nicil
  integer,         parameter :: ierr_neTconv      =  1               ! fatal error code if n_electronT did not converge
  integer,         parameter :: ierr_neTle0       =  2               ! fatal error code if n_electronT < 0
  integer,         parameter :: ierr_fdg_in       =  3               ! fatal error code if use_fdg_in=.true. and fdg_in not passed in
- integer,         parameter :: ierr_nRconv       =  4               ! warning code if nion_R did not converge (setting n_ionR=n_eR=0)
- integer,         parameter :: ierr_negn         =  5               ! warning code if negative ion number densities from CR ionisation (setting n_ionR=n_eR=0)
- integer,         parameter :: ierr_negg         =  6               ! warning code if negative neutral grain number density from CR ionisation (setting n_ionR=n_eR=0)
- integer,         parameter :: ierr_nege         =  7               ! warning code if negative electron number densities from CR ionisation (setting n_ionR=n_eR=0)
- integer,         parameter :: ierr_highfdg      =  8               ! warning code if grain fraction is too high
- integer,         parameter :: ierr_alion        =  9               ! warning code if fully ionised
- integer,         parameter :: ierr_T            = 10               ! warning code if T==0 (from input)
- integer,         parameter :: ierr_B            = 11               ! warning code if B==0 (from input)
- integer,         parameter :: ierr_sigH         = 12               ! warning code if sigmaH == 0 to prevent errors from roundoff
- integer,         parameter :: ierr_scN          = 13               ! warning code if strong coupling approximation broke (rho_n ~ rho is false) [if warn_approx=true]
- integer,         parameter :: ierr_scI          = 14               ! warning code if strong coupling approximation broke (rho_i <<rho is false) [if warn_approx=true]
- integer,         parameter :: ierr_drift        = 15               ! warning code if drift velocity is large relative to absolute velocity [if warn_approx=true]
- integer,         parameter :: ierr_vrms         = 16               ! warning code if velocity is outside of the range valid for the rate coefficients [if warn_approx=true]
+ integer,         parameter :: ierr_nRconv       =  4               ! warning code if nion_R did not converge or yield valid values (setting n_ionR=n_eR=0)
+ integer,         parameter :: ierr_highfdg      =  5               ! warning code if grain fraction is too high
+ integer,         parameter :: ierr_alion        =  6               ! warning code if fully ionised
+ integer,         parameter :: ierr_T            =  7               ! warning code if T==0 (from input)
+ integer,         parameter :: ierr_B            =  8               ! warning code if B==0 (from input)
+ integer,         parameter :: ierr_sigH         =  9               ! warning code if sigmaH == 0 to prevent errors from roundoff
+ integer,         parameter :: ierr_scN          = 10               ! warning code if strong coupling approximation broke (rho_n ~ rho is false) [if warn_approx=true]
+ integer,         parameter :: ierr_scI          = 11               ! warning code if strong coupling approximation broke (rho_i <<rho is false) [if warn_approx=true]
+ integer,         parameter :: ierr_drift        = 12               ! warning code if drift velocity is large relative to absolute velocity [if warn_approx=true]
+ integer,         parameter :: ierr_vrms         = 13               ! warning code if velocity is outside of the range valid for the rate coefficients [if warn_approx=true]
+ integer,         parameter :: ierr_or           = 14               ! warning code if eta_ohm > eta_thresh (suggesting a bug in the calculation) [if warn_approx=true]
+ integer,         parameter :: ierr_he           = 15               ! warning code if |eta_hall| > eta_thresh (suggesting a bug in the calculation) [if warn_approx=true]
+ integer,         parameter :: ierr_ad           = 16               ! warning code if eta_ambi > eta_thresh (suggesting a bug in the calculation) [if warn_approx=true]
  integer,public,  parameter :: n_warn            = 16               ! number of types of errors including fatal & non-fatal warnings
  integer,public,  parameter :: n_fatal           =  3               ! the first n_fatal errors are fatal
  !--Indicies for ions (iterated & stored)
@@ -275,7 +280,7 @@ module nicil
  !--Local Variables to the NICIL module
  integer, private   :: iprint,iprintw
  real,    private   :: unit_ndensity,unit_ndensity1
- real,    private   :: csqbyfourpi,threehundred1,small,small2,small21,smallXten
+ real,    private   :: csqbyfourpi,threehundred1,small,small2,small21,smallXten,eta_thresh
  real,    private   :: warn_ratio2,warn_ratio_m1,warn_ratio_p1,warn_ratio_m12,warn_ratio_p12
  real,    private   :: mass_proton,mass_proton1,mass_neutral_cold1,one_minus_fdg,qe_c
  real,    private   :: eta_ohm_cnst,eta_hall_cnst,eta_ambi_cnst,alpha_AD_p1
@@ -401,6 +406,18 @@ pure subroutine nicil_version(version)
            ! 13 Nov  2020: Added chemical species Silicon and Sulfur
            !               Reduced loop-dependence on chemical species tags
  version = "Version 2.1: 13 November 2020" ! commit 201dc39.  Version used in Wurster (2021)
+           ! 10 Oct  2022: Added additional warnings if eta is too large
+           !               Will zero densities if they are likely noise
+           !               Updated initial guesses when solving chemical network
+           !  2 Dec  2022: Updated initial guesses when solving chemical network again (possibly unnecessary due to a bug in a parent code)
+           !               Added optional out to track which guess number for the chemical network lead to converging results
+           !               After convergence of chemical network, will accept results if negative values are clearly due to machine roundoff (values are zeroed)
+           !               Updated error message for non-convergence of chemical network
+           !               When passing in dust fractions, will zero fractions that are << 1 to prevent machine underflow
+           !               Corrected zeroing of densities in Saha solver
+ version = "Version 2.1.1: 2 December 2022" ! commit a90c270
+           ! 30 Mar  2023: data_out(5) is total number density rather than an incorrect neutral number density
+
 
 end subroutine nicil_version
 !======================================================================!
@@ -431,7 +448,15 @@ subroutine nicil_initialise_species
  symj(iK ) = "K"
  symj(iNa) = "Na"
 
- !--Abundances (as a fraction of n_H); assumes all hydrogen is molecular
+ !--Neutral abundances (as a fraction of n_H); assumes all hydrogen is molecular
+ !  NOTE: This means that, for any given species, there may be more ionised gas than neutral gas.
+ !        We might need to instead set these as neutral+ionised abundances, but that would add extra
+ !        cost with little benefit; although the Jacobian would remain the same size, there would be
+ !        additional elements since neutral gas = (total - ionised).  Preliminary tests (Fall 2022)
+ !        show that a partial implementation has a negligible effect at low ionisations and a small
+ !        effect at high ionisations; given the smaller values of eta at high ionisations, this
+ !        assumption that these are the neutral and not neutral+ion abundances will have minimal effect
+ !        on a simulation.
  abundance      = 0.0
  abundance(iH2) = 0.921 * 0.5
  abundance(iHe) = 0.0784
@@ -540,7 +565,7 @@ pure subroutine nicil_set_reaction_rates(T,zeta,nden_neu,r_kk,r_eG,r_kG,r_GG,zet
  r_kk(iCp_S,   ir) = 5.00d-11                                ! Cp   + S   -> Sp   + C        (T = 10-41000)
  r_kk(iCp_e,   ir) = 2.36d-12*Tby300**(-0.29)*exp(17.6*T1)   ! Cp   + e   -> C    + photon   (T = 10- 1000)
  r_kk(iOp_e,   ir) = 3.24d-12*Tby300**(-0.66)                ! Op   + e   -> O    + photon   (T = 10- 1000)
- r_kk(iO2p_Si, ir) = 1.60d-9                                 ! O2p  + Si  ->  Sip + O2       (T = 10-41000)
+ r_kk(iO2p_Si, ir) = 1.60d-9                                 ! O2p  + Si  -> Sip  + O2       (T = 10-41000)
  r_kk(iO2p_S , ir) = 5.4d-10                                 ! O2p  + S   -> Sp   + O2       (T = 10-41000)
  r_kk(iO2p_e,  ir) = 1.95d-7 *Tby300**(-0.70)                ! O2p  + e   -> O    + O        (T = 10-  300)
  r_kk(iSip_Mg, ir) = 2.90d-9                                 ! Sip  + Mg  -> Mgp  + Si       (T = 10-41000)
@@ -550,7 +575,7 @@ pure subroutine nicil_set_reaction_rates(T,zeta,nden_neu,r_kk,r_eG,r_kG,r_GG,zet
  r_kk(iSp_e,   ir) = 5.49d-12*Tby300**(-0.59)                ! Sp   + e   -> S    + photon   (T = 10- 1000)
  r_kk(iMgp_e,  ir) = 2.78d-12*Tby300**(-0.68)                ! Mgp  + e   -> Mg   + photon   (T = 10- 1000)
 
- !--Multiple the reactions by their neutral number densities
+ !--Multiply the reactions by their neutral number densities
  r_kk(iH3p_CO, i_n) = r_kk(iH3p_CO, ir)*nden_neu(iCO)
  r_kk(iH3p_Mg, i_n) = r_kk(iH3p_Mg, ir)*nden_neu(iMg)
  r_kk(iHCOp_Mg,i_n) = r_kk(iHCOp_Mg,ir)*nden_neu(iMg)
@@ -583,6 +608,7 @@ pure subroutine nicil_set_reaction_rates(T,zeta,nden_neu,r_kk,r_eG,r_kG,r_GG,zet
  zeta_n       = zeta_n * zeta
 
  !--Grain Reactions
+ r_kG = 0.0
  do j = 1,na
     jj   = 2*(j-1)
     iGpj = iGp+jj
@@ -681,7 +707,8 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  vrms2_min      = (vrms_min_kms*1.0d5*utime/udist)**2
  vrms2_max      = (vrms_max_kms*1.0d5*utime/udist)**2
  threehundred1  = 1.0/300.
- csqbyfourpi    = c**2/fourpi  / unit_eta
+ csqbyfourpi    = c**2/fourpi/unit_eta
+ eta_thresh     = eta_thresh_cgs/unit_eta
 
  !--Calculate the mean molar mass of cold gas; assume all hydrogen is molecular
  meanmolmass   = 0.0
@@ -863,9 +890,11 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
     iprintw = 6
  endif
 
- !--Reset tolerance if required
+ !--Reset tolerances if required
  if (kind(NRtol)==4) then
     NRtol = NRtol4
+    MPtol = MPtol4
+    MPval = MPval4
     write(iprint,'(a,Es10.3)')'Resetting NR tolerance to ',NRtol
  endif
 
@@ -875,6 +904,7 @@ subroutine nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint_in,iprintw
  if (present(nden_nimhd0)) then
     ierrlist    = 0
     nden_nimhd0 = 0.
+    rdummy      = 1.0d-5
     rdummy(5)   = 1.0d-12/unit_density
     rdummy(6)   = 100.
     call nicil_update_nimhd(1,rdummy(1),rdummy(2),rdummy(3),rdummy(4),rdummy(5),rdummy(6),nden_nimhd0,ierrlist)
@@ -900,7 +930,7 @@ subroutine nicil_print_summary(a_grain_cgs,rho_grain,meanmolmass,grain_sizes_in)
  call nicil_version(version)
  write(iprint,'(a)' ) "NICIL:"
  write(iprint,'(2a)') "NICIL: ",trim(version)
- write(iprint,'(a)' ) "NICIL: Copyright (c) 2015-2021 James Wurster"
+ write(iprint,'(a)' ) "NICIL: Copyright (c) 2015-2023 James Wurster"
  write(iprint,'(a)' ) "NICIL: See LICENCE file for usage and distribution conditions"
  write(iprint,'(a)' ) "NICIL: References: Wurster (2016) PASA, 33:e041."
  write(iprint,'(a)' ) "NICIL:             Wurster (2021) MNRAS, 501:5873-5891."
@@ -1033,14 +1063,16 @@ subroutine nicil_ic_error(num_errors,wherefrom,reason,var,val)
 end subroutine nicil_ic_error
 !----------------------------------------------------------------------!
 !--Runtime error messages
-subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
+subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T,eta_ohm,eta_hall,eta_ambi,nden_save,fdg_in)
  integer,        intent(in) :: ierrlist(:)
  logical,        intent(in) :: fatal_only
- real, optional, intent(in) :: rho,B,T
+ real, optional, intent(in) :: rho,B,T,eta_ohm,eta_hall,eta_ambi,nden_save(:),fdg_in(:)
  integer                    :: i
- character(len=16)          :: werr
- character(len=20)          :: ferr
- character(len=96)          :: errmsg(n_warn),parspace
+ logical                    :: print_n_fdg
+ character(len= 16)         :: werr
+ character(len= 20)         :: ferr
+ character(len= 96)         :: errmsg(n_warn)
+ character(len=512)         :: parspace
 
  !--The fatal error messages
  ferr       = 'NICIL: FATAL ERROR: '
@@ -1049,10 +1081,7 @@ subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
  errmsg(ierr_fdg_in ) = 'calling error: use_fdg_in=.true., but fdg_in not passed in'
  !--The warning error messages
  werr       = 'NICIL: WARNING: '
- errmsg(ierr_nRconv ) = 'nicil_ionR_get_n: n_{i,e,g} did not converge.  Resetting n_ionR = n_eR = 0'
- errmsg(ierr_negn   ) = 'nicil_ionR_get_n: n_i < 0.  Resetting n_ionR = n_eR = 0'
- errmsg(ierr_negg   ) = 'nicil_ionR_get_n: n_g0 < 0.  Resetting n_ionR = n_eR = 0'
- errmsg(ierr_nege   ) = 'nicil_ionR_get_n: n_e < 0.  Resetting n_ionR = n_eR = 0'
+ errmsg(ierr_nRconv ) = 'nicil_ionR_get_n: n_{i,e,g} did not converge or yield valid values.  Resetting n_ionR = n_eR = 0'
  errmsg(ierr_highfdg) = 'grain fraction is too high.  Setting eta = 0'
  errmsg(ierr_T      ) = 'input error: T == 0.  Verify your code can legitimately input this.'
  errmsg(ierr_B      ) = 'input error: B == 0.  Verify your code can legitimately input this.'
@@ -1062,12 +1091,18 @@ subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
  errmsg(ierr_drift  ) = 'drift velocity ~ 0 approximation invalid since v_d > 0.1v'
  errmsg(ierr_vrms   ) = 'vrms_min < v < vrms_max is not true'
  errmsg(ierr_alion  ) = 'gas is fully ionised'
+ errmsg(ierr_or     ) = 'eta_ohm is above the given threshold'
+ errmsg(ierr_he     ) = '|eta_hall| is above the given threshold'
+ errmsg(ierr_ad     ) = 'eta_ambi is above the given threshold'
 
  !--Append the message with parameter space, if passed in
  parspace = ""
  if (present(rho)) write (parspace,'(a, Es10.3)') '; rho = ',rho
  if (present(B  )) write (parspace,'(2a,Es10.3)') trim(parspace),'; B = ',B
  if (present(T  )) write (parspace,'(2a,Es10.3)') trim(parspace),'; T = ',T
+ if (present(eta_ohm )) write (parspace,'(2a,Es10.3)') trim(parspace),'; eta_ohm = ',eta_ohm
+ if (present(eta_hall)) write (parspace,'(2a,Es10.3)') trim(parspace),'; eta_hall = ',eta_hall
+ if (present(eta_ambi)) write (parspace,'(2a,Es10.3)') trim(parspace),'; eta_ambi = ',eta_ambi
 
  !--Print the error messages
  do i = 1,n_fatal
@@ -1077,8 +1112,10 @@ subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
     endif
  enddo
  if (.not. fatal_only) then
+    print_n_fdg = .false.
     do i = n_fatal + 1,n_warn
        if (ierrlist(i) < 0) then
+          print_n_fdg = .true.
           if (ierrlist(i)==-1 .or. parspace/="") then
              write(iprintw,'(3a)') werr,trim(errmsg(i)),trim(parspace)
           else
@@ -1086,6 +1123,16 @@ subroutine nicil_translate_error(ierrlist,fatal_only,rho,B,T)
           endif
        endif
     enddo
+    !print_n_fdg = .false.  ! Comment this line for additional verbose information for debugging
+    if (print_n_fdg) then
+       if (present(nden_save) .and. present(fdg_in)) then
+          write(iprintw,*) trim(parspace),' n = ',nden_save, ' fdg = ',fdg_in
+       elseif (present(nden_save)) then
+          write(iprintw,*) trim(parspace),' n = ',nden_save
+       elseif (present(fdg_in)) then
+          write(iprintw,*) trim(parspace),' fdg = ',fdg_in
+       endif
+    endif
  endif
 
 end subroutine nicil_translate_error
@@ -1106,7 +1153,7 @@ end subroutine nicil_translate_error
 ! icall = 2: calculate eta only
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,nden_save,ierrlist,data_out,fdg_in)
+pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,nden_save,ierrlist,data_out,itry,fdg_in)
  integer,          intent(in)    :: icall
  integer,          intent(inout) :: ierrlist(n_warn)
  real,             intent(out)   :: eta_ohm,eta_hall,eta_ambi
@@ -1114,21 +1161,31 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
  real,             intent(inout) :: nden_save(:)
  real,   optional, intent(in)    :: fdg_in(:)
  real,   optional, intent(out)   :: data_out(n_data_out)
- integer                         :: j,jj,id2
+ integer,optional, intent(out)   :: itry
+ integer                         :: j,jj,id2,itry_n0
  real                            :: mass_neutral_mp,nden_electronR,nden_electronT,nden_total,rho_gas,rho_n
  real                            :: zeta,fdg_local
- real                            :: sigmas(8),n_g_tot(na)
+ real                            :: sigmas(8),n_g_tot(na),fdg_inClean(na)
  real                            :: nden_neutral(nspecies)
  real                            :: nden_ion(nspecies),nden_ionT(nspecies)
 
+ itry_n0 = 0
  if (.not.eta_constant) then
+    eta_ohm  = 0.0
+    eta_hall = 0.0
+    eta_ambi = 0.0
+    fdg_inClean = 0.0
     if (T > small2 .and. (Bfield > small2 .or. icall==1)) then
        !--Determine actual gas density (i.e. remove the dust component)
        if (.not. use_fdg_in) then
           rho_gas = rho*one_minus_fdg          ! remove dust component using the global dust-to-gas ratio
        else
           if (present(fdg_in)) then
-             fdg_local = sum(fdg_in(:))
+             fdg_inClean = fdg_in
+             do j = 1,na
+                if (0.0 < fdg_inClean(j) .and. fdg_inClean(j) < MPval) fdg_inClean(j) = 0.  ! reset small, non-zero dust fractions for computational stability
+             enddo
+             fdg_local = sum(fdg_inClean(:))
              if (fdg_local < fdg_max) then
                 rho_gas = rho*(1.0-fdg_local)  ! remove the total dust component from the input ratios
              else
@@ -1136,9 +1193,6 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
                 if (present(data_out)) data_out = 0.
                 ierrlist(ierr_highfdg) = ierrlist(ierr_highfdg) - 1
                 nden_save = 0.0
-                eta_ohm   = 0.0
-                eta_hall  = 0.0
-                eta_ambi  = 0.0
                 return
              endif
           else
@@ -1177,14 +1231,14 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
                 n_g_tot = n_g_tot*fraction_unburned(T)
              endif
           else
-             n_g_tot = n_grain_coef*rho*fdg_in  ! dust burning should be accounted for in the parent code
+             n_g_tot = n_grain_coef*rho*fdg_inClean  ! dust burning should be accounted for in the parent code
           endif
+          !--inputs are CGS units; outputs are code units
           call nicil_ionR_get_n(nden_save(1:iire),nden_electronR,nden_neutral*unit_ndensity,n_g_tot*unit_ndensity, &
-                                T,zeta,ierrlist)
+                                T,zeta,itry_n0,ierrlist)
        else
           nden_electronR = nicil_ionR_get_ne(nden_save(1:iire))  ! in this case, need to calculate electron density from ions
           n_g_tot        = 0. ! to prevent compiler warnings
-          zeta           = 0.
        endif
 
        !--Sum the ion populations from thermal and cosmic ray ionisation
@@ -1210,8 +1264,8 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
              data_out(   1) = sigmas(1)                     ! Ohmic conductivities
              data_out(   2) = sigmas(5)                     ! Hall conductivities
              data_out(   3) = sigmas(2)                     ! Pedersen conductivities
-             data_out(   4) = rho_n                         ! neutral mass density
-             data_out(   5) = rho_n*mass_proton1            ! neutral number density
+             data_out(   4) = rho_n                         ! neutral mass density of the gas
+             data_out(   5) = nden_total                    ! number density of the gas
              data_out(   6) = nden_neutral(iH2)             ! neutral molecular hydrogen number density
              data_out(   7) = nden_neutral(iH)              ! neutral atomic hydrogen density
              data_out(   8) = nden_electronR+nden_electronT ! electron number density
@@ -1226,20 +1280,22 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
              data_out(22+3*na) = zeta                       ! cosmic ray ionisation rate (only useful for density dependent zeta)
           endif
        endif
+       !--warning messages of eta is too big (likely indicates a bug; will = 0 if icall=1 thus not trigger)
+       if (eta_ohm      > eta_thresh) ierrlist(ierr_or) = ierrlist(ierr_or) - 1
+       if (abs(eta_ohm) > eta_thresh) ierrlist(ierr_he) = ierrlist(ierr_he) - 1
+       if (eta_ambi     > eta_thresh) ierrlist(ierr_ad) = ierrlist(ierr_ad) - 1
     else
        !--Exit with error message if T = 0 or B = 0
        if ( T      <=small2 ) ierrlist(ierr_T) = ierrlist(ierr_T) - 1
        if ( Bfield <=small2 .and. icall/=1) ierrlist(ierr_B) = ierrlist(ierr_B) - 1
        if (present(data_out)) data_out = 0.
        nden_save = 0.0
-       eta_ohm   = 0.0
-       eta_hall  = 0.0
-       eta_ambi  = 0.0
     endif
  else
     !--Return constant coefficient version and exit
     call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
  endif
+ if (present(itry)) itry = itry_n0
 
 end subroutine nicil_update_nimhd
 !----------------------------------------------------------------------!
@@ -1405,16 +1461,20 @@ end function fraction_unburned
 ! dimensions.
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,ierrlist)
+pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,itry_n0,ierrlist)
  real,    intent(inout) :: nden_ionR(:)
  real,    intent(in)    :: nden_neutral(:),n_g_tot(:)
  real,    intent(in)    :: T,zeta
  real,    intent(out)   :: n_e
+ integer, intent(out)   :: itry_n0
  integer, intent(inout) :: ierrlist(:)
- integer                :: i,j,iter,i_try_new_n0
+ integer, parameter     :: i_try_max  = 16
+ integer, parameter     :: i_try_max2 = i_try_max*i_try_max
+ integer                :: i,j,jj,iter,i_try_new_n0
+ integer                :: i1_try_new_n0,i2_try_new_n0
  integer                :: feqni(neqn)
  real                   :: r_kk(iMgp_e,inn),r_eG(2,na,inn),r_kG(2,na,iire,inn),r_GG(3,na,na,inn),zeta_n(iire)
- real                   :: nH_nHe,nH_nHe_ten,nH_nHe_small
+ real                   :: nH_nHe,nH_nHe_ten,nH_nHe_small,max_n,fac
  real                   :: n_new(neqn),dn(neqn)
  real                   :: feqn(neqn),Jacob(neqn,neqn)
  logical                :: iterate,negative_n,negative_g,lerr,reset_loop
@@ -1426,18 +1486,22 @@ pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,ierrl
  call nicil_set_reaction_rates(T,zeta,nden_neutral,r_kk,r_eG,r_kG,r_GG,zeta_n)
 
  !--Set initial conditions
- iter         = 0
- iterate      = .true.
- negative_n   = .false.
- i_try_new_n0 = 0
- nH_nHe       = nden_neutral(iH2) + 2.*nden_neutral(iH) + nden_neutral(iHe)
- nH_nHe_ten   = nH_nHe*10.
- nH_nHe_small = nH_nHe*small2
+ iter          = 0
+ iterate       = .true.
+ negative_n    = .false.
+ i_try_new_n0  = 0
+ i1_try_new_n0 = 0
+ i2_try_new_n0 = 1
+ n_new         = 0. ! to avoid compiler warnings
+ max_n         = 0. ! to avoid compiler warnings
+ nH_nHe        = nden_neutral(iH2) + 2.*nden_neutral(iH) + nden_neutral(iHe)
+ nH_nHe_ten    = nH_nHe*10.
+ nH_nHe_small  = nH_nHe*small2
 
  do while (iterate)  ! to turn off cosmic ray ionisation, replace iterate with .false.
     !--Calculate electron & neutral grain densities;
     !  multiply the reaction rates with the charged number densities
-    call nicil_reaction_rates_X_ncharged(r_kk,r_eG,r_kG,r_GG,nden_ionR,n_g_tot,n_e,negative_g)
+    call nicil_reaction_rates_X_ncharged(r_kk,r_eG,r_kG,r_GG,nden_ionR,n_g_tot,n_e)
     !--Update the system of equations and the Jacobian
     call nicil_ionR_calc_Jf(feqni,feqn,Jacob,r_kk,r_eG,r_kG,r_GG,zeta_n)
     !--Calculate dn by solving Jacob*dn = feqn
@@ -1449,6 +1513,7 @@ pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,ierrl
        iter       = iter + 1
        iterate    = .false.
        negative_n = .false.
+       max_n      = 0.
        do i = 1,neqn
           if (abs(n_new(i)) > 0. .and. abs(n_new(i)) < nH_nHe_small) then
              n_new(i) = 0.0
@@ -1457,15 +1522,41 @@ pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,ierrl
           endif
           if (abs(n_new(i)) > nH_nHe_ten) lerr       = .true.  ! ion number densities are growing beyond their neutral number density
           if (n_new(i)      < 0.0       ) negative_n = .true.  ! a flag in case we converge to a negative density
+          max_n = max(max_n, n_new(i))
        enddo
        nden_ionR = n_new
-
        !--Failsafe to prevent an infinite loop
        if (iter > NRctrmax) iterate = .false.
     else
        !--Do not iterate if the Jacobian was not solved
        iterate = .false.
     endif
+
+    !--Not that values are converged, verify they are legitimate
+    !  Ensure neutral grain densities are positive
+    negative_g = .false.
+    do j = 1,na
+       jj = 2*(j-1)
+       if (n_g_tot(j) - nden_ionR(iGp+jj) - nden_ionR(iGn+jj) < 0.) negative_g = .true.
+    enddo
+
+    !--If n_e < 0., then see if this value is likely a result of round-off; if so, then reset them to 0 and continue
+    if (n_e < 0. .and. abs(n_e) < MPtol*max_n) n_e = small
+
+    !--If negative_n = true, then see if these values are likely a result of round-off; if so, then reset them to 0 and continue
+    if (n_e > 0. .and. .not. negative_g .and. negative_n) then
+       negative_n = .false.
+       do i = 1,neqn
+          if (nden_ionR(i) < 0.0 ) then
+             if (-nden_ionR(i) < MPtol*max_n) then
+                nden_ionR(i) = 0.
+             else
+                negative_n = .true.
+             endif
+          endif
+       enddo
+    endif
+
     !--Try again if we converged to invalid options
     if (.not. iterate .and. (negative_n .or. negative_g .or. n_e < 0.0)) lerr = .true.
 
@@ -1476,37 +1567,57 @@ pure subroutine nicil_ionR_get_n(nden_ionR,n_e,nden_neutral,n_g_tot,T,zeta,ierrl
           nden_ionR       = nH_nHe*1.d-12
           nden_ionR(iHp)  = nden_neutral(iHe)
           nden_ionR(iHep) = nden_neutral(iHe)
-       elseif (i_try_new_n0==1) then
-          nden_ionR       = nH_nHe*1.d-12
-       elseif (i_try_new_n0==2) then
-          nden_ionR       = nH_nHe
-       elseif (i_try_new_n0==3) then
-          nden_ionR       = nH_nHe*1.d-12
-          nden_ionR(iHp)  = nden_neutral(iHe)*1.0d-3
-          nden_ionR(iHep) = nden_neutral(iHe)*1.0d-3
+       elseif (i_try_new_n0  < i_try_max2+1) then
+          i1_try_new_n0 = i1_try_new_n0 + 1
+          if (i1_try_new_n0 > i_try_max) then
+             i1_try_new_n0 = 1
+             i2_try_new_n0 = i2_try_new_n0 + 1
+          endif
+          fac = 10.0**(-i1_try_new_n0)
+          nden_ionR = nden_neutral(1:iire)*fac
+          fac = 10.0**(-i2_try_new_n0)
           do j = 1,na
-             nden_ionR(iGp+2*(j-1)) = n_g_tot(j)*1.d-3
-             nden_ionR(iGn+2*(j-1)) = n_g_tot(j)*1.d-3
+             nden_ionR(iGp+2*(j-1)) = n_g_tot(j)*fac
+             nden_ionR(iGn+2*(j-1)) = n_g_tot(j)*fac
+          enddo
+       elseif (i_try_new_n0 == i_try_max2+1) then
+          nden_ionR       = nH_nHe
+       elseif (i_try_new_n0 == i_try_max2+2) then
+          nden_ionR       = nH_nHe*1.0d-12
+       elseif (i_try_new_n0 == i_try_max2+3) then
+          nden_ionR       = nH_nHe*1.0d-32
+       elseif (i_try_new_n0 == i_try_max2+4) then
+          nden_ionR       = nden_neutral(1:iire)
+          do j = 1,na
+             nden_ionR(iGp+2*(j-1)) = n_g_tot(j)
+             nden_ionR(iGn+2*(j-1)) = n_g_tot(j)
+          enddo
+       elseif (i_try_new_n0 == i_try_max2+5) then
+          nden_ionR       = nden_neutral(1:iire)*10.
+          do j = 1,na
+             nden_ionR(iGp+2*(j-1)) = n_g_tot(j)*10.
+             nden_ionR(iGn+2*(j-1)) = n_g_tot(j)*10.
           enddo
        else
           !--All initial conditions failed to converge or converged to a negative number
           reset_loop = .false.
           iterate    = .false.
        endif
+
+       i_try_new_n0 = i_try_new_n0 + 1
        if (reset_loop) then
-          i_try_new_n0 = i_try_new_n0 + 1
           iterate      = .true.
           iter         = 0
        else
-          if (iter > NRctrmax) ierrlist(ierr_nRconv) = ierrlist(ierr_nRconv) - 1
-          if (negative_n)      ierrlist(ierr_negn)   = ierrlist(ierr_negn)   - 1
-          if (negative_g)      ierrlist(ierr_negg)   = ierrlist(ierr_negg)   - 1
-          if (n_e < 0.)        ierrlist(ierr_nege)   = ierrlist(ierr_nege)   - 1
+          ! This may reasonably happen at very high temperatures; non-convergence will be acceptable
+          ! since the major contribution to eta will be from thermal ionisation
+          ierrlist(ierr_nRconv) = ierrlist(ierr_nRconv) - 1
           nden_ionR = 0.
           n_e       = 0.
        endif
     endif
  enddo
+ itry_n0 = i_try_new_n0 - 1
 
  !--Revert nden_ionR & electron number density to code units
  nden_ionR = nden_ionR*unit_ndensity1
@@ -1568,14 +1679,13 @@ pure subroutine nicil_ionR_calc_Jf(feqni,feqn,Jacob,r_kk,r_eG,r_kG,r_GG,zeta_n)
  Jacob(iO2p,iO2p )     =                       -r_kk(iO2p_Si,i_n) -r_kk(iO2p_S,i_n) -r_kk(iO2p_e,i_n)
  Jacob(iO2p,iirs:iire) = Jacob(iO2p,iirs:iire) -r_kk(iO2p_e,in_)
 
- feqn( iSip) =           r_kk(iHp_Si, inn) +r_kk(iHep_Si,inn) +r_kk(iCp_Si,inn) +r_kk(iO2p_Si,inn) &
-                        -r_kk(iSip_Mg,inn) +r_kk(iSp_Si, inn) -r_kk(iSip_e,inn)
- Jacob( iSip,iHp )    =  r_kk(iHp_Si, i_n)
- Jacob( iSip,iHep)    =                     r_kk(iHep_Si,i_n)
- Jacob( iSip,iCp )    =                                        r_kk(iCp_Si,i_n)
- Jacob( iSip,iO2p)    =                                                          r_kk(iO2p_Si,i_n)
- Jacob( iSip,iSip)    = -r_kk(iSip_Mg,i_n)                    -r_kk(iSip_e,i_n)
- Jacob( iSip,iSp)     =                     r_kk(iSp_Si, i_n)
+ feqn( iSip) =            r_kk(iHp_Si, inn) +r_kk(iHep_Si,inn) +r_kk(iCp_Si,inn) +r_kk(iO2p_Si,inn) &
+                         -r_kk(iSip_Mg,inn) +r_kk(iSp_Si, inn) -r_kk(iSip_e,inn)
+ Jacob(iSip,iHp )      =  r_kk(iHp_Si, i_n)
+ Jacob(iSip,iHep)      =                     r_kk(iHep_Si,i_n)
+ Jacob(iSip,iCp )      =                                        r_kk(iCp_Si,i_n)
+ Jacob(iSip,iO2p)      =                                                          r_kk(iO2p_Si,i_n)
+ Jacob(iSip,iSip)      = -r_kk(iSip_Mg,i_n)                    -r_kk(iSip_e,i_n)
  Jacob(iSip,iirs:iire) = Jacob(iSip,iirs:iire) -r_kk(iSip_e,in_)
 
  feqn( iSp) =           r_kk(iHp_S,inn)      +r_kk(iCp_S,inn) +r_kk(iO2p_S,inn) -r_kk(iSp_Mg,inn) -r_kk(iSp_Si,inn) &
@@ -1741,6 +1851,7 @@ pure subroutine nicil_ionR_calc_Jf(feqni,feqn,Jacob,r_kk,r_eG,r_kG,r_GG,zeta_n)
  endif
 
 end subroutine nicil_ionR_calc_Jf
+
 !----------------------------------------------------------------------!
 !+
 ! Use LU decomposition of the Jacobian to solve dn in Jacob*dn=feqn
@@ -1810,17 +1921,15 @@ end subroutine get_dn_viaLU
 ! number densities
 !+
 !----------------------------------------------------------------------!
-pure subroutine nicil_reaction_rates_X_ncharged(r_kk,r_eG,r_kG,r_GG,nden_ionR,n_g_tot,n_e,negative_g)
+pure subroutine nicil_reaction_rates_X_ncharged(r_kk,r_eG,r_kG,r_GG,nden_ionR,n_g_tot,n_e)
  real,    intent(inout) :: r_kk(:,:),r_eG(:,:,:),r_kG(:,:,:,:),r_GG(:,:,:,:)
  real,    intent(in)    :: nden_ionR(:),n_g_tot(:)
  real,    intent(out)   :: n_e
- logical, intent(out)   :: negative_g
  real                   :: n_G0(na)
  integer                :: j,jj,j1,jj1,k,iGpj,iGnj,iGpj1,iGnj1
 
  !--Calculate the electron and neutral grain densities
- negative_g = .false.
- n_e        = 0.
+ n_e = 0.
  do k = iirs,iire
     n_e = n_e + nden_ionR(k)
  enddo
@@ -1828,7 +1937,6 @@ pure subroutine nicil_reaction_rates_X_ncharged(r_kk,r_eG,r_kG,r_GG,nden_ionR,n_
     jj      = 2*(j-1)
     n_e     = n_e        + nden_ionR(iGp+jj) - nden_ionR(iGn+jj)
     n_G0(j) = n_g_tot(j) - nden_ionR(iGp+jj) - nden_ionR(iGn+jj)
-    if (n_G0(j) < 0.) negative_g = .true.
  enddo
 
  !--Multiply the k-k reactions by ion & electron number densities
@@ -1966,6 +2074,7 @@ pure subroutine nicil_ionT_get_ne(nden_neutral,nden_ionT,nden_electronT,T,ierrli
  Kjk         = 0.
  ne_rat      = NRtol*2.0
  ne_old      = nden_electronT
+ nden_ionT   = 0.
  iterate     = .true.
  try_new_ne0 = .true.
  will_thermalise  = .false.
@@ -1982,29 +2091,30 @@ pure subroutine nicil_ionT_get_ne(nden_neutral,nden_ionT,nden_electronT,T,ierrli
     do while ( iterate )
        call nicil_ionT_get_nion(nden_neutral,nden_ionT,ne_old,nden_electronT,dne,Kjk)
        fatn   = ne_old - nden_electronT
+       if ( abs(fatn) < smallXten*max(ne_old,nden_electronT)) fatn = 0.
        fatndn = 1.0    - dne
-       if ( iterate ) then
-          nden_electronT = ne_old - fatn/fatndn
-          if (nden_electronT > 0.0) then
-             ne_rat = abs( 1.0 - ne_old/nden_electronT )
+       nden_electronT = ne_old - fatn/fatndn
+       if (nden_electronT > 0.0) then
+          ne_rat = abs( 1.0 - ne_old/nden_electronT )
+       else
+          ne_rat = 0.0
+       endif
+       !--Actions if converged
+       if (ne_rat < NRtol) iterate = .false.
+
+       !--Actions if errors occurred
+       if (iterate .and. (iter > NRctrmax .or. nden_electronT < 0.0)) then
+          if (try_new_ne0) then
+             !--Try again with default guess rather than value from previous iteration
+             try_new_ne0    = .false.
+             nden_electronT = nden_neutral(iH) + nden_neutral(iH2) + nden_neutral(iHe)
+             iter           = 0
+             ne_rat         = NRtol*2.0
           else
-             ne_rat = 0.0
-          endif
-          !--Actions if converged
-          if (ne_rat < NRtol) iterate = .false.
-          !--Actions if errors occurred
-          if (iterate .and. (iter > NRctrmax .or. nden_electronT < 0.0)) then
-             if (try_new_ne0) then
-                !--Try again with default guess rather than value from previous iteration
-                try_new_ne0    = .false.
-                nden_electronT = nden_neutral(iH) + nden_neutral(iH2) + nden_neutral(iHe)
-                iter           = 0
-                ne_rat         = NRtol*2.0
-             else
-                !--New guess failed; trigger fatal warnings
-                if (iter >       NRctrmax) ierrlist(ierr_neTconv) = ierrlist(ierr_neTconv) + 1  ! n_electronT did not converge
-                if (nden_electronT < 0.0 ) ierrlist(ierr_neTle0 ) = ierrlist(ierr_neTle0 ) + 1  ! n_electronT < 0
-             endif
+             !--New guess failed; trigger fatal warnings
+             iterate = .false.
+             if (iter >       NRctrmax) ierrlist(ierr_neTconv) = ierrlist(ierr_neTconv) + 1  ! n_electronT did not converge
+             if (nden_electronT < 0.0 ) ierrlist(ierr_neTle0 ) = ierrlist(ierr_neTle0 ) + 1  ! n_electronT < 0
           endif
        endif
        iter   = iter + 1
