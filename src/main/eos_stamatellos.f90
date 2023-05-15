@@ -61,7 +61,11 @@ enddo
  print *, 'nx,ny=', nx, ny 
 end subroutine read_optab
 
+!
+! Main subroutine for interpolating tables to get EOS values
+!
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
+ use physcon, only: kboltz,atomic_mass_unit 
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi,gammai
 
@@ -166,7 +170,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  gmwi = m*rhoi_ + c
 
  cv = ui_/Ti
- gammai = 1.0d0 + 1.38d-16/1.67d-24/gmwi/cv
+ gammai = 1.0d0 + kboltz/atomic_mass_unit/gmwi/cv
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
