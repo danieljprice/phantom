@@ -58,7 +58,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,h2chemistry
  use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
- use unifdis,      only:set_unifdis,latticetype
+ use unifdis,      only:set_unifdis,latticetype,get_xyzmin_xyzmax_exact
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
@@ -199,6 +199,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_unifdis(latticetype(ilattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
+ call get_xyzmin_xyzmax_exact(latticetype(ilattice),xmin,xmax,ymin,ymax,zmin,zmax,ierr,deltax,npartx)
 
  npartoftype(:) = 0
  npartoftype(igas) = npart
