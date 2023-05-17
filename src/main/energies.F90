@@ -481,7 +481,7 @@ subroutine compute_energies(t)
                 do j = 9,21
                    n_ion = n_ion + data_out(j)
                 enddo
-                n_total = n_ion + data_out(4)
+                n_total = data_out(5)
                 if (n_total > 0.) then
                    n_total1 = 1.0/n_total
                 else
