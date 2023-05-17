@@ -49,7 +49,7 @@ module setstar
  end type star_t
 
  public :: star_t
- public :: set_defaults_star,set_star,shift_star
+ public :: set_star,set_defaults_star,shift_star
  public :: write_options_star,read_options_star,set_star_interactive
  public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
@@ -445,6 +445,9 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
  real,         intent(inout) :: polyk
  integer :: i
 
+ ! set defaults
+ call set_defaults_star(star)
+
  ! Select sphere & set default values
  do i = 1, nprofile_opts
     write(*,"(i2,')',1x,a)") i, profile_opt(i)
@@ -626,6 +629,9 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  integer,                   intent(inout) :: nerr
  character(len=*),          intent(in), optional :: label
  character(len=10) :: c
+
+ ! set defaults
+ call set_defaults_star(star)
 
  ! append optional label e.g. '1', '2'
  c = ''

@@ -15,10 +15,8 @@ module setup
 ! :Runtime parameters:
 !   - Bzero       : *magnetic field strength in code units*
 !   - cs0         : *initial sound speed in code units*
-!   - dist_unit   : *distance unit (e.g. au)*
 !   - dust_to_gas : *dust-to-gas ratio*
 !   - ilattice    : *lattice type (1=cubic, 2=closepacked)*
-!   - mass_unit   : *mass unit (e.g. solarm)*
 !   - nx          : *number of particles in x direction*
 !   - rhozero     : *initial density in code units*
 !   - xmax        : *xmax boundary*
@@ -29,10 +27,10 @@ module setup
 !   - zmin        : *zmin boundary*
 !
 ! :Dependencies: boundary, cooling, cooling_ism, dim, eos, infile_utils,
-!   io, mpidomain, mpiutils, options, part, physcon, prompting, set_dust,
+!   io, mpidomain, options, part, physcon, prompting, set_dust, setunits,
 !   setup_params, timestep, unifdis, units
 !
- use dim,          only:use_dust,mhd
+ use dim,          only:use_dust,mhd,gr
  use options,      only:use_dustfrac
  use setup_params, only:rhozero
  implicit none
@@ -40,8 +38,6 @@ module setup
 
  integer           :: npartx,ilattice
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero
- character(len=20) :: dist_unit,mass_unit
- real(kind=8)      :: udist,umass
 
  !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
  logical :: BalsaraKim = .false.
@@ -59,15 +55,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry,gr
+ use dim,          only:maxvxyzu,h2chemistry
  use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,latticetype
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:Bxyz,periodic,abundance,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
- use units,        only:set_units,unit_density
+ use setunits,     only:dist_unit,mass_unit
+ use units,        only:unit_density,udist
  use mpidomain,    only:i_belong
  use eos,          only:gmw
  use options,      only:icooling,alpha,alphau
@@ -122,10 +119,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (use_dust) then
     use_dustfrac = .true.
     dust_to_gas  = 0.01
-    ndustsmall   = 1
-    ndusttypes   = 1
-    grainsize(1) = 1.*micron/udist
-    graindens(1) = 3./unit_density
  endif
  if (BalsaraKim) then
     ! there is a typo in Price+ (2018) in stating the physical density;
@@ -178,20 +171,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        stop
     endif
  elseif (id==master) then
-    call setup_interactive(id,polyk)
+    call setup_interactive
     call write_setupfile(filename)
     stop 'rerun phantomsetup after editing .setup file'
  else
     stop
  endif
  !
- ! set units and boundaries
+ ! set dust grain sizes
  !
- if (gr) then
-    call set_units(mass=umass,c=1.d0,G=1.d0)
- else
-    call set_units(dist=udist,mass=umass,G=1.d0)
+ if (use_dust) then
+    ndustsmall   = 1
+    ndusttypes   = 1
+    grainsize(1) = 1.*micron/udist
+    graindens(1) = 3./unit_density
  endif
+ !
+ ! set boundaries
+ !
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
  !
  ! setup particles
@@ -200,23 +197,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
- select case(ilattice)
- case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
- case default
-    if (ilattice /= 1) print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,xyzh,&
-                     periodic,nptot=npart_total,mask=i_belong)
- end select
+ call set_unifdis(latticetype(ilattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
  print*,' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
- if (id==master) print*,' particle mass = ',massoftype(1)
+ if (id==master) print*,' particle mass = ',massoftype(igas)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
  if (maxvxyzu < 4 .or. gamma <= 1.) then
@@ -249,6 +239,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
     ihavesetupB = .true.
  endif
+
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -256,77 +247,47 @@ end subroutine setpart
 ! interactive setup
 !
 !------------------------------------------------------------------------
-subroutine setup_interactive(id,polyk)
+subroutine setup_interactive()
  use io,        only:master
- use mpiutils,  only:bcast_mpi
  use dim,       only:maxp,maxvxyzu
  use prompting, only:prompt
- use units,     only:select_unit
- integer, intent(in)  :: id
- real,    intent(out) :: polyk
- integer              :: ierr
+ use setunits,  only:set_units_interactive
 
- if (id==master) then
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
+ call set_units_interactive(gr)
 
-    call prompt('enter xmin boundary',xmini)
-    call prompt('enter xmax boundary',xmaxi,xmini)
-    call prompt('enter ymin boundary',ymini)
-    call prompt('enter ymax boundary',ymaxi,ymini)
-    call prompt('enter zmin boundary',zmini)
-    call prompt('enter zmax boundary',zmaxi,zmini)
- endif
+ call prompt('enter xmin boundary',xmini)
+ call prompt('enter xmax boundary',xmaxi,xmini)
+ call prompt('enter ymin boundary',ymini)
+ call prompt('enter ymax boundary',ymaxi,ymini)
+ call prompt('enter zmin boundary',zmini)
+ call prompt('enter zmax boundary',zmaxi,zmini)
  !
  ! number of particles
  !
- if (id==master) then
-    print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
-    call prompt('enter number of particles in x direction ',npartx,1)
- endif
- call bcast_mpi(npartx)
+ print*,' uniform setup... (max = ',nint((maxp)**(1/3.)),')'
+ call prompt('enter number of particles in x direction ',npartx,1)
  !
  ! mean density
  !
- if (id==master) call prompt(' enter density (gives particle mass)',rhozero,0.)
- call bcast_mpi(rhozero)
+ call prompt(' enter density (gives particle mass)',rhozero,0.)
  !
  ! sound speed in code units
  !
- if (id==master) then
-    call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
- endif
- call bcast_mpi(cs0)
+ call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  !
  ! dust to gas ratio
  !
- if (use_dustfrac) then
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
- endif
+ if (use_dustfrac) call prompt('Enter dust to gas ratio',dust_to_gas,0.)
  !
  ! magnetic field strength
  if (mhd .and. balsarakim) then
     call prompt('Enter magnetic field strength in code units ',Bzero,0.)
-    call bcast_mpi(Bzero)
  endif
  !
  ! type of lattice
  !
- if (id==master) then
-    call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
- endif
- call bcast_mpi(ilattice)
+ call prompt(' select lattice type (1=cubic, 2=closepacked)',ilattice,1)
+
 end subroutine setup_interactive
 
 !------------------------------------------------------------------------
@@ -336,6 +297,7 @@ end subroutine setup_interactive
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -343,9 +305,7 @@ subroutine write_setupfile(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for uniform setup routine'
 
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ call write_options_units(iunit)
  !
  ! boundaries
  !
@@ -381,8 +341,7 @@ end subroutine write_setupfile
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use units,        only:select_unit
- use io,           only:error
+ use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -396,8 +355,7 @@ subroutine read_setupfile(filename,ierr)
  !
  ! units
  !
- call read_inopt(mass_unit,'mass_unit',db,errcount=nerr)
- call read_inopt(dist_unit,'dist_unit',db,errcount=nerr)
+ call read_options_and_set_units(db,nerr,gr)
  !
  ! boundaries
  !
@@ -421,19 +379,6 @@ subroutine read_setupfile(filename,ierr)
  endif
  call read_inopt(ilattice,'ilattice',db,min=1,max=2,errcount=nerr)
  call close_db(db)
- !
- ! parse units
- !
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_unifdis','length unit not recognised')
-    ierr = ierr + 1
- endif
 
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'

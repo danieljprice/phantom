@@ -18,8 +18,8 @@ module relaxstar
 !   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: checksetup, damping, deriv, dim, energies, eos,
-!   externalforces, fileutils, infile_utils, initial, io, io_summary,
+! :Dependencies: checksetup, damping, deriv, dim, dump_utils, energies,
+!   eos, externalforces, fileutils, infile_utils, initial, io, io_summary,
 !   memory, options, part, physcon, ptmass, readwrite_dumps, setstar_utils,
 !   sortutils, step_lf_global, table_utils, units
 !
@@ -61,13 +61,13 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity
- use part,            only:vxyzu,rad,eos_vars
+ use part,            only:vxyzu,rad,eos_vars,massoftype,igas
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
  use memory,          only:allocate_memory
  use energies,        only:compute_energies,ekin,epot,etherm
  use checksetup,      only:check_setup
- use io,              only:error,warning
+ use io,              only:error,warning,fatal,id,master
  use fileutils,       only:getnextfilename
  use readwrite_dumps, only:write_fulldump,init_readwrite_dumps
  use eos,             only:gamma,eos_outputs_mu
@@ -87,7 +87,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
- logical :: converged,use_step
+ logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
  logical, parameter :: write_files = .true.
  character(len=20) :: filename,mylabel
@@ -107,7 +107,24 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  mr = get_mr(rho,r)
  mstar = mr(nt)
  tdyn  = 2.*pi*sqrt(rstar**3/(32.*mstar))
- print*,'rstar  = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
+ if (id==master) print*,'rstar = ',rstar,' mstar = ',mstar, ' tdyn = ',tdyn
+ !
+ ! see if we can restart or skip the relaxation process
+ ! based on a previous run
+ !
+ filename = 'relax'//trim(mylabel)//'_00000'
+ if (write_files) call init_readwrite_dumps()
+ call check_for_existing_file(filename,npart,massoftype(igas),&
+                              xyzh,vxyzu,restart,ierr)
+ !
+ ! quit with fatal error if non-matching file found, otherwise
+ ! this will be overwritten
+ !
+ if (write_files .and. ierr /= 0) then
+    if (id==master) print "(a)",' ERROR: pre-existing relaxed star dump(s) do not match'
+    call fatal('relax_star','please delete relax'//trim(mylabel)//'_* and restart...')
+ endif
+
  call set_options_for_relaxation(tdyn)
  call summary_initialise()
  !
@@ -154,20 +171,18 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  !
  if (etherm > abs(epot)) then
     call error('relax_star','cannot relax star because it is unbound (etherm > epot)')
-    print*,' Etherm = ',etherm,' Epot = ',Epot
+    if (id==master) print*,' Etherm = ',etherm,' Epot = ',Epot
     if (maxvxyzu < 4) print "(/,a,/)",' *** Try compiling with ISOTHERMAL=no instead... ***'
     call restore_original_options(i1,npart)
     ierr = ierr_unbound
     return
  endif
- print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a,i4)",&
+ if (id==master) print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a,i4)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
- filename = 'relax'//trim(mylabel)//'_00000'
  if (write_files) then
-    call init_readwrite_dumps()
-    if (len_trim(mylabel)==0) call write_fulldump(t,filename)
+    if (.not.restart) call write_fulldump(t,filename)
     open(newunit=iunit,file='relax'//trim(mylabel)//'.ev',status='replace')
     write(iunit,"(a)") '# nits,rmax,etherm,epot,ekin/epot,L2_{err}'
  endif
@@ -205,11 +220,13 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ! print information to screen
     !
     if (use_step) then
-       print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
+       if (id==master) print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",&
+        ' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     else
-       print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",' Relaxing star: Iter',nits,'/',maxits, &
-             ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
+       if (id==master) print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
+        ' Relaxing star: Iter',nits,'/',maxits, &
+        ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
     endif
     !
     ! additional diagnostic output, mainly for debugging/checking
@@ -222,20 +239,22 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
        !
        ! write dump files
        !
-       if (mod(nits,100)==0) then
+       if (mod(nits,100)==0 .or. ((nits==maxits .or. converged).and.nits > 1)) then
           filename = getnextfilename(filename)
           !
           ! before writing a file, set the real thermal energy profile
           ! so the file is useable as a starting file for the main calculation
           !
-          if (use_var_comp) call set_star_composition(use_var_comp,eos_outputs_mu(ieos_prev),&
-                                                      npart,xyzh,Xfrac,Yfrac,mu,mr,mstar,eos_vars,npin=i1)
+          if (use_var_comp) call set_star_composition(use_var_comp,&
+                                 eos_outputs_mu(ieos_prev),npart,xyzh,&
+                                 Xfrac,Yfrac,mu,mr,mstar,eos_vars,npin=i1)
 
-          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,r,nt,npart,&
-             xyzh,vxyzu,rad,eos_vars,.true.,use_var_comp=.false.,initialtemp=1.e3,npin=i1)
+          if (maxvxyzu==4) call set_star_thermalenergy(ieos_prev,rho,pr,&
+                                r,nt,npart,xyzh,vxyzu,rad,eos_vars,.true.,&
+                                use_var_comp=.false.,initialtemp=1.e3,npin=i1)
 
           ! write relaxation snapshots
-          if (len_trim(mylabel)==0) call write_fulldump(t,filename)
+          if (write_files) call write_fulldump(t,filename)
 
           ! flush the relax.ev file
           call flush(iunit)
@@ -253,6 +272,13 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  if (.not.converged) then
     call warning('relax_star','relaxation did not converge, just reached max iterations')
     ierr = ierr_notconverged
+ else
+    if (id==master) print "(5(a,/))",&
+    "                             _                    _ ",&
+    "                    _ __ ___| | __ ___  _____  __| |",&
+    "                   | '__/ _ \ |/ _` \ \/ / _ \/ _` |",&
+    "                   | | |  __/ | (_| |>  <  __/ (_| |",&
+    "          o  o  o  |_|  \___|_|\__,_/_/\_\___|\__,_|  o  o  o"
  endif
  !
  ! unfake some things
@@ -397,6 +423,76 @@ subroutine set_options_for_relaxation(tdyn)
  if (gr) mass1 = 0. ! use Minkowski metric during relaxation
 
 end subroutine set_options_for_relaxation
+!----------------------------------------------------------------
+!+
+!  check if a previous snapshot exists of the relaxed star
+!+
+!----------------------------------------------------------------
+subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
+ use dump_utils, only:open_dumpfile_r,read_header,dump_h,lenid,extract
+ use fileutils,  only:getnextfilename
+ use io,         only:idump,idisk1,id,nprocs,iprint
+ use readwrite_dumps, only:read_dump
+ character(len=*), intent(inout) :: filename
+ integer,          intent(in)    :: npart
+ real,             intent(in)    :: mgas
+ real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ logical,          intent(out)   :: restart
+ integer,          intent(out)   :: ierr
+ logical :: iexist,tagged
+ character(len=len(filename)) :: restart_file,filetmp
+ character(len=lenid) :: fileid
+ type(dump_h) :: hdr
+ integer :: npartfile
+ real :: hfactfile,tfile,mfile
+ !
+ ! check for the last file in the list relax_00000, relax_00001 etc
+ !
+ ierr = 0
+ iexist = .true.
+ filetmp = filename
+ restart_file = ''
+ restart = .false.
+ do while (iexist)
+    inquire(file=filetmp,exist=iexist)
+    if (iexist) then
+       restart_file = filetmp
+       filetmp = getnextfilename(filetmp)
+    endif
+ enddo
+ if (len_trim(restart_file) <= 0) return
+
+ print "(/,1x,a)",'>> RESTARTING relaxation from '//trim(restart_file)
+ call open_dumpfile_r(idump,restart_file,fileid,ierr)
+ call read_header(idump,hdr,tagged,ierr)
+ close(idump)
+ if (ierr /= 0) then
+    print "(a)",' ERROR: could not read file header'
+    return
+ else
+    call extract('nparttot',npartfile,hdr,ierr,default=0)
+    if (npartfile /= npart) then
+       print "(a,i0,a,i0)",' ERROR: np=',npartfile,' in '//&
+         trim(restart_file)//' differs from current np=',npart
+       ierr = 2
+       return
+    else
+       call extract('massoftype',mfile,hdr,ierr,default=0.)
+       if (abs(mfile-mgas) > epsilon(0.)) then
+          print "(a,es10.3,a,es10.3)",' ERROR: M=',npart*mfile,' in '//&
+            trim(restart_file)//' differs from current M=',npart*mgas
+          ierr = 3
+          return
+       else
+          restart = .true.
+          call read_dump(restart_file,tfile,hfactfile,&
+                         idisk1,iprint,id,nprocs,ierr)
+          filename = restart_file
+       endif
+    endif
+ endif
+
+end subroutine check_for_existing_file
 
 !--------------------------------------------------
 !+

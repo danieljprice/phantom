@@ -17,8 +17,8 @@ module setup
 !   - plasmaB : *plasma beta in the initial blast*
 !
 ! :Dependencies: boundary, dim, infile_utils, io, kernel, mpidomain,
-!   mpiutils, options, part, physcon, prompting, setup_params, timestep,
-!   unifdis, units
+!   mpiutils, options, part, physcon, setup_params, timestep, unifdis,
+!   units
 !
  implicit none
  public :: setpart
@@ -36,7 +36,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxp,maxvxyzu,mhd
+ use dim,          only:maxvxyzu,mhd
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use io,           only:master,fatal
@@ -44,10 +44,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,      only:pi
  use timestep,     only:tmax,dtmax
  use options,      only:nfulldump
- use prompting,    only:prompt
  use kernel,       only:wkern,cnormk,radkern2,hfact_default
  use part,         only:Bxyz,igas,periodic
- use mpiutils,     only:bcast_mpi,reduceall_mpi
+ use mpiutils,     only:reduceall_mpi
  use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -84,6 +83,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Rblast      = 0.125
  npartx      = 64
  gamma       = 1.4
+ polyk       = 0.
  plasmaB0    = 2.0*Pblast/(Bx*Bx + By*By + Bz*Bz)
  plasmaB     = plasmaB0
  ihavesetupB = .true.
@@ -106,12 +106,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
  elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmaB)
     call write_setupfile(filename)
+    stop 'edit .setup file and try again'
+ else
+    stop
  endif
- call bcast_mpi(npartx)
  deltax = dxbound/npartx
  !
  ! Put particles on grid
@@ -145,10 +144,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
- write(*,'(2x,a,3Es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
- write(*,'(2x,a,2Es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
- write(*,'(2x,a,2Es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
- write(*,'(2x,a, Es11.4)')'Initial blast radius: ',Rblast
+ write(*,'(2x,a,3es11.4)')'Magnetic field (Bx,By,Bz): ',Bx,By,Bz
+ write(*,'(2x,a,2es11.4)')'Pressure in blast, medium: ',Pblast,Pmed
+ write(*,'(2x,a,2es11.4)')'Plasma beta in blast, medium: ',plasmaB,2.0*Pmed/(Bx*Bx + By*By + Bz*Bz)
+ write(*,'(2x,a, es11.4)')'Initial blast radius: ',Rblast
 
 end subroutine setpart
 

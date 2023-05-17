@@ -26,8 +26,6 @@ module externalforces
  use extern_binary,   only:accradius1
  use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  private
  public :: externalforce,externalforce_vdependent

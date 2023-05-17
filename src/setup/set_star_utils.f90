@@ -272,7 +272,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  if (npart_old /= 0 .and. massoftype(igas) > tiny(0.)) then
     n = nint(Mstar/massoftype(igas))
     mass_is_set = .true.
-    print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
+    !print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
  endif
  !
  ! place particles in sphere

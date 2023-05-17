@@ -29,14 +29,13 @@ contains
 !  Sets up Bx = sin(2*pi*x), zero magnetic and velocity field otherwise
 !
 !  The amplitude should decay as exp(-eta * 4 * pi^2 * t)
-!
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic
+ use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
  use physcon,      only:pi
  use prompting,    only:prompt
@@ -77,6 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 5./3.
     gam1 = gamma - 1.
     uuzero = przero/(gam1*rhozero)
+    polyk = 0.
  else
     gamma = 1.
     polyk = przero/rhozero
@@ -94,11 +94,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   hfact,npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
+ print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  do i=1,npart
     vxyzu(1,i) = 0.

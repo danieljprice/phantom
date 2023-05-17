@@ -48,12 +48,13 @@ subroutine check_setup(nerror,nwarn,restart)
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
  use io,              only:id,master
- use externalforces,  only:accrete_particles,accradius1,iext_star,iext_corotate
+ use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star,iext_corotate
  use timestep,        only:time
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,    only:dynamic_bdy,adjust_particles_dynamic_boundary
  use nicil,           only:n_nden
+ use metric_tools,    only:imetric,imet_minkowski
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -95,11 +96,11 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if (hfact < 1. .or. hfact /= hfact) then
+ if (hfact < 1. .or. isnan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
  endif
- if (polyk < 0. .or. polyk /= polyk) then
+ if (polyk < 0. .or. isnan(polyk)) then
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
@@ -300,12 +301,18 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check for particles placed inside accretion boundaries
 !
- if (iexternalforce > 0 .and. .not.dorestart) then
+ if (iexternalforce > 0 .and. .not.dorestart .and. (.not.(gr .and. imetric==imet_minkowski))) then
+    call update_externalforce(iexternalforce,time,0.)
     nbad = 0
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,massoftype,time,iexternalforce) &
+    !$omp private(i,accreted) &
+    !$omp reduction(+:nbad)
     do i=1,npart
        call accrete_particles(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),massoftype(1),time,accreted)
        if (accreted) nbad = nbad + 1
     enddo
+    !$omp end parallel do
     if (nbad > 0) then
        print*,'WARNING: ',nbad,' of ',npart,' particles setup within the accretion boundary'
        nwarn = nwarn + 1
@@ -314,7 +321,7 @@ subroutine check_setup(nerror,nwarn,restart)
     hi = 0.
     call accrete_particles(iexternalforce,0.,0.,0.,hi,massoftype(1),time,accreted)
     !--if so, check for unresolved accretion radius
-    if (accreted .and. accradius1 < 0.5*hmin) then
+    if (accreted .and. accradius1 < 0.5*hmin .and. accradius1 > 0.) then
        print*,'WARNING: accretion radius is unresolved by a factor of hmin/racc = ',hmin/accradius1
        print*,'(this will cause the code to run needlessly slow)'
        nwarn = nwarn + 1
@@ -450,6 +457,10 @@ subroutine check_NaN(npart,array,label,nerror)
  integer :: nbad,i
 
  nbad = 0
+ !$omp parallel do default(none) schedule(static) &
+ !$omp shared(npart,array,label) &
+ !$omp private(i) &
+ !$omp reduction(+:nbad)
  do i=1,npart
     !--check for NaNs in xyzh
     if (any(isnan(array(:,i)))) then
@@ -457,6 +468,7 @@ subroutine check_NaN(npart,array,label,nerror)
        nbad = nbad + 1
     endif
  enddo
+ !$omp end parallel do
  if (nbad > 0) then
     print*,'ERROR: NaN in '//trim(label)//' on ',nbad,' of ',npart,' particles'
     nerror = nerror + 1
@@ -844,7 +856,6 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  !
  allocate(index(npart))
  call indexxfunc(npart,r2func,xyzh,index)
-
  !
  ! check for identical positions. Stop checking as soon as non-identical
  ! positions are found.
@@ -852,6 +863,11 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  nbad = 0
  itypei = igas
  itypej = igas
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,index,maxphase,maxp,iphase) &
+ !$omp firstprivate(itypei,itypej) &
+ !$omp private(i,j,dx,dx2) &
+ !$omp reduction(+:nbad)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,index(i)))) then
        j = i+1
@@ -864,7 +880,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           dx2 = dot_product(dx,dx)
           if (dx2 < epsilon(dx2) .and. itypei==itypej) then
              nbad = nbad + 1
-             if (nbad <= 100) then
+             if (nbad <= 10) then
                 print*,'WARNING: particles of same type at same position: '
                 print*,' ',index(i),':',xyzh(1:3,index(i))
                 print*,' ',index(j),':',xyzh(1:3,index(j))
@@ -874,6 +890,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
        enddo
     endif
  enddo
+ !$omp end parallel do
 
  deallocate(index)
 

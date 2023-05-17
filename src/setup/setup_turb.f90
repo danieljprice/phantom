@@ -41,10 +41,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,      only:use_dustfrac,nfulldump,beta
  use setup_params, only:rhozero,npart_total,ihavesetupB
  use io,           only:master
- use unifdis,      only:set_unifdis
+ use unifdis,      only:set_unifdis,latticetype
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall
+ use part,         only:Bxyz,mhd,dustfrac,grainsize,graindens,ndusttypes,ndustsmall,igas
  use physcon,      only:pi,solarm,pc,km
  use units,        only:set_units,udist,umass
  use prompting,    only:prompt
@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  character(len=26)                :: filename
- integer :: ipart,i
+ integer :: i
  logical :: iexist
  real :: totmass,deltax
  real :: Bz_0
@@ -185,24 +185,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
-
- select case(ilattice)
- case(2)
-    call set_unifdis('closepacked',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,&
-                     xyzh,periodic,nptot=npart_total,mask=i_belong)
- case default
-    if (ilattice==1) print*,' error: chosen lattice not available, using cubic'
-    call set_unifdis('cubic',id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,npart,&
-                     xyzh,periodic,nptot=npart_total,mask=i_belong)
- end select
+ call set_unifdis(latticetype(ilattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
+                  deltax,hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
- print *, ' npart = ',ipart,npart,npart_total
+ npartoftype(igas) = npart
+ print *, ' npart = ',npart,npart_total
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart_total
- print *, ' particle mass = ',massoftype(1)
+ print *, ' particle mass = ',massoftype(igas)
 
  do i=1,npart
     vxyzu(1:3,i) = 0.
