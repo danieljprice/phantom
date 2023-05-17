@@ -38,7 +38,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_out,time,fileprefix)
  use setup_params, only:rhozero
- use unifdis,      only:set_unifdis,latticetype,i_random,i_closepacked
+ use unifdis,      only:set_unifdis,latticetype,i_random,i_closepacked,get_xyzmin_xyzmax_exact
  use io,           only:iprint,master,fatal
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use physcon,      only:pi
@@ -48,6 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use part,         only:hfact,igas,periodic,set_particle_type
  use mpiutils,     only:bcast_mpi,reduceall_mpi
  use mpidomain,    only:i_belong
+ use prompting,    only:prompt
  use utils_shuffleparticles, only:shuffleparticles
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
@@ -88,6 +89,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
  elseif (id==master) then
+    print "(a,/)",trim(filename)//' not found: using interactive setup'
+    call prompt('Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+    call prompt('Enter the type of particle lattice (1=cubic,2=closepacked,3=hcp,4=random)',ilattice,0,4)
+    shuffle_parts = .false.
+    if (ilattice==i_random) shuffle_parts = .true.
+    call prompt('Relax particles by shuffling?',shuffle_parts)
+
     call write_setupfile(filename)
     stop 'rerun phantomsetup after editing .setup file'
  else
@@ -108,6 +116,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  gamma   = 5./3.
  gam1    = gamma - 1.
 
+ call get_xyzmin_xyzmax_exact(latticetype(ilattice),xmin,xmax,ymin,ymax,zmin,zmax,ierr,deltax)
+ dxbound = xmax-xmin
+ dybound = ymax-ymin
+ dzbound = zmax-zmin
  call set_unifdis(latticetype(ilattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,&
                   deltax,hfact,npart,xyzh,periodic,mask=i_belong)
 
