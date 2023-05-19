@@ -241,7 +241,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     endif
  endif
 
- if (star%isoftcore == 3) call set_star_boundary_particles(npart,xyzh,npartoftype,massoftype,rcore)
+ if (star%isoftcore == 3) call set_star_boundary_particles(npart,xyzh,npartoftype,massoftype,star%rcore)
 
  !
  ! shift star to requested position and velocity
@@ -525,7 +525,7 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
        call prompt('Enter output file name of cored stellar profile:',star%outputfilename)
 
     case(3)
-       call prompt('Enter core radius:',rcore,0.)
+       call prompt('Enter core radius:',star%rcore,0.)
 
     end select
 
@@ -596,7 +596,7 @@ subroutine write_options_star(star,iunit,label)
           call write_inopt(star%mcore,'mcore'//trim(c),&
                'Initial guess for mass of sink particle stellar core',iunit)
        elseif (star%isoftcore == 3) then
-          call write_inopt(rcore,'rcore','Radius of core boundary',iunit)
+          call write_inopt(star%rcore,'rcore','Radius of core boundary',iunit)
        endif
     else
        call write_inopt(star%isinkcore,'isinkcore'//trim(c),&
@@ -673,7 +673,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           call read_inopt(star%mcore,'mcore'//trim(c),db,errcount=nerr,min=0.)
           call read_inopt(star%hsoft,'hsoft'//trim(c),db,errcount=nerr,min=0.)
        endif
-    elseif (star%isoftcore == 1 .or. star%isoftcore == 2)
+    elseif (star%isoftcore == 1 .or. star%isoftcore == 2) then
        star%isinkcore = .true.
        call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
        call read_inopt(star%outputfilename,'outputfilename//trim(c)',db,errcount=nerr)
@@ -686,8 +686,8 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
            .or. (star%isoftcore==2)) then
           call read_inopt(star%mcore,'mcore'//trim(c),db,errcount=nerr,min=0.)
        endif
-    elseif (isoftcore == 3) then
-          call read_inopt(rcore,'rcore',db,errcount=nerr)
+    elseif (star%isoftcore == 3) then
+          call read_inopt(star%rcore,'rcore',db,errcount=nerr)
     endif
  case(ievrard)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr,min=0.)
