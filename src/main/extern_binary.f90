@@ -141,7 +141,6 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  phi2 = -(1.-binarymassri)*dr2
  phi  = phi1 + phi2
 
- return
 end subroutine binary_force
 
 !----------------------------------------------
@@ -175,7 +174,6 @@ subroutine binary_posvel(ti,posmh,vels)
  vels(5) = -binarymassri*cos(ti)
  vels(6) = 0.
 
- return
 end subroutine binary_posvel
 
 !----------------------------------------------

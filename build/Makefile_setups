@@ -264,7 +264,6 @@ endif
 
 ifeq ($(SETUP), prtest)
 #   simple test of prdrag
-    FPPFLAGS=
     SETUPFILE= setup_prtest.f90
     KNOWN_SETUP=yes
 endif
@@ -318,7 +317,6 @@ endif
 
 ifeq ($(SETUP), torus)
 #   MRI torus
-    FPPFLAGS=
     SETUPFILE= setup_torus.f90
     ANALYSIS= analysis_torus.f90
     KNOWN_SETUP=yes
@@ -326,7 +324,6 @@ endif
 
 ifeq ($(SETUP), galcen)
 #   galactic centre
-    FPPFLAGS=
     SETUPFILE= setup_galcen_stars.f90
     SRCINJECT= inject_galcen_winds.f90
     KNOWN_SETUP=yes
@@ -689,7 +686,6 @@ endif
 
 ifeq ($(SETUP), cluster)
 #   star cluster formation
-    FPPFLAGS=
     SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
     MODFILE= moddump_default.f90
     ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
@@ -702,18 +698,17 @@ ifeq ($(SETUP), cluster)
 endif
 
 ifeq ($(SETUP), binary)
-#   binary setup
-    FPPFLAGS= -DCONST_AV
+#   binary stars
     #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
+    GRAVITY=yes
 endif
 
 ifeq ($(SETUP), hierarchical)
 #   hierarchical system setup
-    FPPFLAGS= -DCONST_AV
-    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90 
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90
     SETUPFILE= setup_hierarchical.f90
     KNOWN_SETUP=yes
 endif
@@ -721,14 +716,12 @@ endif
 
 ifeq ($(SETUP), common)
 #   binary setup
-    FPPFLAGS=
     SETUPFILE= setup_common.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
-    FPPFLAGS=
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -738,10 +731,10 @@ ifeq ($(SETUP), star)
 endif
 
 ifeq ($(SETUP), grstar)
-#   import stellar model from 1D stellar evolution code in GR using Minkowski metric
+#   star in GR using Minkowski metric
     GR=yes
     METRIC=minkowski
-    FPPFLAGS=
+    IND_TIMESTEPS=yes
     SETUPFILE= setup_star.f90
     MODFILE= moddump_tidal.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -842,6 +835,7 @@ ifeq ($(SETUP), jetnimhd)
 endif
 
 ifeq ($(SETUP), jetdusty)
+#   dust in star formation
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     PERIODIC=yes
     GRAVITY=yes
@@ -849,6 +843,18 @@ ifeq ($(SETUP), jetdusty)
     MHD=no
     IND_TIMESTEPS=yes
     DUST=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), converging)
+#   Simulation from Wurster & Bonnell (2023)
+    SETUPFILE= velfield_fromcubes.f90 setup_collidingclouds.f90
+    PERIODIC=yes
+    GRAVITY=yes
+    ISOTHERMAL=no
+    MHD=no
+    IND_TIMESTEPS=yes
+    ANALYSIS= analysis_clumpfindWB23.F90
     KNOWN_SETUP=yes
 endif
 
@@ -988,7 +994,6 @@ endif
 ifeq ($(SETUP), testgr)
 #   unit tests of general relativistic code
     GR=yes
-    FPPFLAGS= -DGR
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90

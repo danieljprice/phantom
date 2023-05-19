@@ -126,7 +126,7 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
  character(len=10) :: longests(max_hier_levels), new_splits(max_hier_levels)
  character(len=10) :: new_sink_list(max_hier_levels), longest_cut, sink_list_temp(max_hier_levels)
 
- sink_list_temp = sink_list
+ sink_list_temp(:) = sink_list(:)
 
  !print *, 'sink to generate: ', sink_list_temp
 
@@ -172,7 +172,7 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     !print *, 'up to now splits are ', split_list
 
     ! Add new splits to split_list
-    do i=splits+1, splits+count
+    do i=splits+1, min(splits+count,size(split_list))
        split_list(i) = new_splits(i-splits)
     enddo
     splits = splits + count
@@ -197,7 +197,7 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     !print *, split_list(:splits)
     !print *, splits
 
-    call recursive_splitting(count, new_sink_list(:count), split_list(:splits), splits)
+    call recursive_splitting(count, new_sink_list(:), split_list(:), splits)
 
  endif
 end subroutine recursive_splitting

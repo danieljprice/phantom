@@ -1,5 +1,5 @@
 +-----------+----------------------------------------------------------------------------------+
-| ieos      | Description                                                                      |
+| ieos      | Description                                                                      | 
 +===========+==================================================================================+
 | 1         | **Isothermal eos**                                                               |
 |           |                                                                                  |
@@ -90,6 +90,13 @@
 |           | :math:`P = \frac{k_b T}{\mu m_H} + \frac13 a T^4`                                |
 |           |                                                                                  |
 |           | hence in this equation of state gamma (and temperature) are an output            |
+|           |                                                                                  |
++-----------+----------------------------------------------------------------------------------+
+| 13        | **Locally isothermal eos for generic hierarchical system**                       |
+|           |                                                                                  |
+|           | Assuming all sink particles are stars.                                           |
+|           | Generalisation of Farris et al. (2014; for binaries) to N stars.                 |
+|           | For two sink particles this is identical to ieos=14                              |
 |           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
 | 14        | **Locally isothermal eos from Farris et al. (2014) for binary system**           |
