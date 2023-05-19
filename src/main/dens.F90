@@ -731,7 +731,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
           iphasej   = iphase(j)
           iamtypej  = iamtype(iphasej)
           iamdustj  = iamdust(iphasej)
-          same_type = ((iamtypei == iamtypej) .or. (ibasetype(iamtypej)==iamtypei))
+          same_type = ((iamtypei == iamtypej) .or. (ibasetype(iamtypej)==ibasetype(iamtypei)))
           gas_gas   = (iamgasi .and. same_type)  ! this ensure that boundary particles are included in gas_gas calculations
        endif
 
