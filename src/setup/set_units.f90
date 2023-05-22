@@ -14,8 +14,8 @@ module setunits
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - dist_unit : *distance unit (e.g. au)*
-!   - mass_unit : *mass unit (e.g. solarm)*
+!   - dist_unit : *distance unit (e.g. au,pc,kpc,0.1pc)*
+!   - mass_unit : *mass unit (e.g. solarm,jupiterm,1e6*solarm)*
 !
 ! :Dependencies: infile_utils, io, prompting, units
 !
@@ -81,8 +81,8 @@ subroutine write_options_units(iunit,gr)
 
  ! units
  write(iunit,"(/,a)") '# units'
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
- if (nogr) call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au)',iunit)
+ call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm,jupiterm,1e6*solarm)',iunit)
+ if (nogr) call write_inopt(dist_unit,'dist_unit','distance unit (e.g. au,pc,kpc,0.1pc)',iunit)
 
 end subroutine write_options_units
 

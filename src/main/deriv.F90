@@ -69,7 +69,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use radiation_implicit, only:do_radiation_implicit
+ use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
@@ -170,7 +170,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
-    if (ierr /= 0) call fatal('radiation','Failed to converge')
+    if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
  endif
 
 !

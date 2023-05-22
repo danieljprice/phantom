@@ -532,7 +532,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_sort.f90 utils_supertimestep.F90 utils_tables.f90 utils_gravwave.f90 \
          utils_sphNG.f90 utils_vectors.f90 utils_datafiles.f90 datafiles.f90 \
          gitinfo.f90 ${SRCFASTMATH} random.f90 ${SRCEOS} cullendehnen.f90 ${SRCNIMHD} ${SRCGR} \
-	 checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
+         checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
@@ -652,7 +652,8 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= prompting.f90 set_dust_options.f90 set_units.f90 \
+SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
+          set_dust_options.f90 set_units.f90 \
           density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
           set_slab.f90 set_disc.F90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
@@ -793,7 +794,8 @@ interpolate3D_amr.o: adaptivemesh.o
 ifndef MODDUMPBIN
 MODDUMPBIN=phantommoddump
 endif
-OBJMOD1 = prompting.o set_Bfield.o density_profiles.o readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
+OBJMOD1 = prompting.o set_Bfield.o density_profiles.o utils_omp.o\
+          readwrite_mesa.o ${MODFILE:.f90=.o} phantom_moddump.o
 OBJMOD = ${OBJMOD1:.F90=.o}
 
 phantom_moddump: checksystem checkparams libphantom libsetup $(OBJMOD)
@@ -813,10 +815,13 @@ mess_up_SPH.o: checkmcfost $(MCFOST_DIR)/src/mess_up_SPH.f90
 
 #----------------------------------------------------
 # these are the sources for the phantomanalysis utility
+# 17/5/23: added setup_params and options to avoid
+#          weird build failure with ifort on Mac OS
 #
 OBJAN1= ${ANALYSIS:.f90=.o}
 OBJAN= ${OBJAN1:.F90=.o}
 OBJA= leastsquares.o solvelinearsystem.o prompting.o \
+      setup_params.o options.o \
       utils_disc.o set_dust.o utils_binary.o set_binary.o ${OBJAN} phantomanalysis.o
 
 ifndef ANALYSISBIN
@@ -832,23 +837,23 @@ phantomanalysis: checksystem checkparams libphantom $(OBJA)
 
 analysis: phantomanalysis
 
-
 cleananalysis:
 	rm -f $(BINDIR)/phantomanalysis
 
+#------------------------------------------------------
+# compile phantom as a library so the core routines
+# can be called by various utilities
+# (phantomsetup, phantomtest etc.)
+#
 .PHONY: libphantom
-# extra files used in libphantom that are not in OBJECTS
-SRCLIB= # libphantom.F90
-OBJLIB1=${SRCLIB:.f90=.o}
-OBJLIB=${OBJLIB1:.F90=.o}
 
 LIBPHANTOM=$(BINDIR)/libphantom.a
 
-libphantom.a: checksystem checkparams $(OBJECTS) $(OBJLIB)
-	$(LIBTOOL) $(LIBPHANTOM) $(OBJLIB) $(OBJECTS)
+libphantom.a: checksystem checkparams $(OBJECTS)
+	$(LIBTOOL) $(LIBPHANTOM) $(OBJECTS)
 
-libphantom.so: checksystem checkparams phantom ${OBJLIB}
-	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) ${OBJLIB} ${OBJECTS} $(LDFLAGS) -o $(BINDIR)/libphantom.so
+libphantom.so: checksystem checkparams phantom $(OBJECTS)
+	$(FC) -shared $(FFLAGS) $(FPPFLAGS) $(DBLFLAG) $(OBJECTS) $(LDFLAGS) -o $(BINDIR)/libphantom.so
 
 libphantom: libphantom.a
 
@@ -900,7 +905,7 @@ cleanstructutils: cleanstruct2struct cleanget_struct_slope
 #
 .PHONY: splitpart
 splitpart:
-	${MAKE} moddump MODFILE="utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
+	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_splitpart.f90"\
         MODDUMPBIN=$@
 
 cleansplitpart:
@@ -911,7 +916,7 @@ cleansplitpart:
 #
 .PHONY: mergepart
 mergepart:
-	${MAKE} moddump MODFILE="utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_mergepart.f90"\
+	${MAKE} moddump MODFILE="utils_indtimesteps.F90 utils_getneighbours.F90 utils_splitmerge.f90 splitpart.f90 moddump_mergepart.f90"\
         MODDUMPBIN=$@
 
 cleanmergepart:
@@ -1055,7 +1060,7 @@ cleanphantomsinks:
 #----------------------------------------------------
 # these are the sources for the multirun utility
 #
-SRCMULT = prompting.f90 ${MULTIRUNFILE}
+SRCMULT = prompting.f90 utils_omp.F90 ${MULTIRUNFILE}
 OBJM1 = ${SRCMULT:.f90=.o}
 OBJMULT = ${OBJM1:.F90=.o}
 
@@ -1228,13 +1233,6 @@ cleancombinedustdumps:
 
 
 include Makefile_qscripts
-
-
-#----------------------------------------------------
-# unit test for block limits
-#
-test1: checksystem checkparams $(OBJDUMP) test_blocklimits.o
-	$(FC) $(FFLAGS) -o $(BINDIR)/test1 $(OBJDUMP) test_blocklimits.o
 
 #----------------------------------------------------
 # run test suite

@@ -1009,6 +1009,7 @@ subroutine calculate_disc_mass()
  real :: Q_mintmp,disc_mtmp,annulus_mtmp
 
  totmass_gas  = 0.
+ disc_mdust = 0.
 
  do i=1,maxdiscs
     if (iuse_disc(i)) then
@@ -1346,7 +1347,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
 
              !--dust disc(s)
              do j=1,ndustlarge
-
                 npindustdisc = int(disc_mdust(i,j)/sum(disc_mdust(:,j))*np_dust(j))
                 itype = idust + j - 1
 

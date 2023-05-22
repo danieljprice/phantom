@@ -6,15 +6,14 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup for simple MHD wave propagation test as per section 5.1 of Iwasaki (2015)
+! Setup for simple MHD wave propagation test
+! as per section 5.1 of Iwasaki (2015)
 !
 ! :References: None
 !
 ! :Owner: James Wurster
 !
-! :Runtime parameters:
-!   - npartx  : *number of particles in x-direction*
-!   - plasmaB : *plasma beta in the initial blast*
+! :Runtime parameters: None
 !
 ! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
 !   options, part, physcon, prompting, setup_params, timestep, unifdis,
@@ -23,8 +22,8 @@ module setup
  implicit none
  public :: setpart
  !--private module variables
- integer                      :: npartx
- real                         :: plasmabzero
+ integer :: npartx
+ real    :: plasmabzero
 
  private
 
@@ -32,16 +31,15 @@ contains
 
 !----------------------------------------------------------------
 !+
-!
-!
-!
+!  setup particles in uniform box with velocity perturbation
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
+                   polyk,gamma,hfact,time,fileprefix)
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic
+ use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master,fatal
  use timestep,     only:dtmax,tmax
  use options,      only:nfulldump
@@ -92,6 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 5./3.
     gam1 = gamma - 1.
     uuzero = przero/(gam1*rhozero)
+    polyk = przero/rhozero**gamma
  else
     gamma = 1.
     polyk = przero/rhozero
@@ -111,11 +110,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call write_setupfile(filename)
        call fatal('setup','failed to read in all the data from .setup.  Aborting')
     endif
- elseif (id==master) then
-    print "(a,/)",trim(filename)//' not found: using interactive setup'
-    call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
-    call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmabzero)
-    call write_setupfile(filename)
+ else
+    if (id==master) then
+       print "(a,/)",trim(filename)//' not found: using interactive setup'
+       call prompt(' Enter number of particles in x ',npartx,8,nint((maxp)**(1/3.)))
+       call prompt(' Enter the plasma beta in the blast (this will adjust the magnetic field strength) ',plasmabzero)
+       call write_setupfile(filename)
+       print*,' Edit '//trim(filename)//' and rerun phantomsetup'
+    endif
+    stop
  endif
  call bcast_mpi(npartx)
  deltax = dxbound/npartx
@@ -126,14 +129,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                   hfact,npart,xyzh,periodic,mask=i_belong)
 
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
+ print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
  Bxyz = 0.0
- hzero = hfact*(massoftype(1)/rhozero)**(1./3.)
+ hzero = hfact*(massoftype(igas)/rhozero)**(1./3.)
  do i=1,npart
     vxyzu(1,i) = 0.01*exp(-(xyzh(1,i)/(3.0*hzero))**2)
     vxyzu(2,i) = 0.
@@ -161,9 +164,11 @@ subroutine write_setupfile(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for MHD Blast Wave setup routine'
  write(iunit,"(/,a)") '# dimensions'
- call write_inopt(npartx,'npartx','number of particles in x-direction',iunit)
+ call write_inopt(npartx,'npartx',&
+                 'number of particles in x-direction',iunit)
  write(iunit,"(/,a)") '# magnetic field strength'
- call write_inopt(plasmabzero,'plasmaB','plasma beta in the initial blast',iunit)
+ call write_inopt(plasmabzero,'plasmaB',&
+                  'plasma beta in the initial blast',iunit)
  close(iunit)
 
 end subroutine write_setupfile

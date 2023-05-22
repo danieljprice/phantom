@@ -18,12 +18,10 @@ module setup
 !   - Ncloud             : *number of clouds*
 !   - Temperature_medium : *Temperature of the background*
 !   - density_contrast   : *density contrast*
-!   - dist_unit          : *distance unit (e.g. pc)*
 !   - dynamic_bdy        : *use dynamic boundary conditions*
 !   - h_acc              : *accretion radius (code units)*
 !   - h_soft_sinksink    : *sink-sink softening radius (code units)*
 !   - icreate_sinks      : *1: create sinks.  0: do not create sinks*
-!   - mass_unit          : *mass unit (e.g. solarm)*
 !   - np                 : *actual number of particles in cloud 1*
 !   - plasmaB            : *plasma beta*
 !   - r_crit             : *critical radius (code units)*
@@ -31,7 +29,8 @@ module setup
 !
 ! :Dependencies: boundary, boundary_dyn, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
-!   ptmass, setup_params, spherical, timestep, unifdis, units, velfield
+!   ptmass, setunits, setup_params, spherical, timestep, unifdis, units,
+!   velfield
 !
  use part,         only:mhd
  use dim,          only:maxvxyzu,maxp_hard
@@ -53,7 +52,6 @@ module setup
  real               :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup,rho_crit_cgs_setup
  real(kind=8)       :: udist,umass
  logical            :: input_plasmaB
- character(len=20)  :: dist_unit,mass_unit
  character(len= 1), parameter :: labelx(4) = (/'x','y','z','r'/)
 
 contains
@@ -83,6 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink,rho_crit_cgs
  use cooling,      only:Tfloor
+ use setunits,     only:dist_unit,mass_unit
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -334,10 +333,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     stop ! MPI, stop on other threads, interactive on master
  endif
- !
- !--units
- !
- call set_units(dist=udist,mass=umass,G=1.d0)
  !
  !--general parameters
  !
@@ -818,6 +813,7 @@ end subroutine KIcoolingcurve
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only: write_inopt
+ use setunits,     only: write_options_units
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
  integer                      :: i,j
@@ -826,11 +822,11 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for converging flows-in-box setup routines'
- write(iunit,"(/,a)") '# units'
- call write_inopt(dist_unit,'dist_unit','distance unit (e.g. pc)',iunit)
- call write_inopt(mass_unit,'mass_unit','mass unit (e.g. solarm)',iunit)
+ call write_options_units(iunit)
+
  write(iunit,"(/,a)") '# resolution'
  call write_inopt(np,'np','actual number of particles in cloud 1',iunit)
+
  write(iunit,"(/,a)") '# options for box'
  call write_inopt(dynamic_bdy,'dynamic_bdy','use dynamic boundary conditions',iunit)
  if (.not. dynamic_bdy) then
@@ -839,6 +835,7 @@ subroutine write_setupfile(filename)
        call write_inopt(xmaxi(j),labelx(j)//'max',labelx(j)//' max',iunit)
     enddo
  endif
+
  write(iunit,"(/,a)") '# Number of clouds'
  call write_inopt(Ncloud,'Ncloud','number of clouds',iunit)
  do i = 1,Ncloud
@@ -866,6 +863,7 @@ subroutine write_setupfile(filename)
     write(label,'(a,I1)') 'rms_mach',i
     call write_inopt(rms_mach(i),trim(label),'RMS Mach number of cloud turbulence (<0 for a fraction of Epot)',iunit)
  enddo
+
  write(iunit,"(/,a)") '# additional properties'
  call write_inopt(density_contrast,'density_contrast','density contrast',iunit)
  call write_inopt(T_bkg,'Temperature_medium','Temperature of the background',iunit)
@@ -880,6 +878,7 @@ subroutine write_setupfile(filename)
        call write_inopt(angB(j),trim(label),labelx(j)//'-angle of the magnetic field',iunit)
     enddo
  endif
+
  write(iunit,"(/,a)") '# Sink properties (values in .in file, if present, will take precedence)'
  call write_inopt(icreate_sinks_setup,'icreate_sinks','1: create sinks.  0: do not create sinks',iunit)
  if (icreate_sinks_setup==1) then
@@ -900,7 +899,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only: open_db_from_file,inopts,read_inopt,close_db
  use io,           only: error
- use units,        only: select_unit
+ use setunits,     only: read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
@@ -910,8 +909,8 @@ subroutine read_setupfile(filename,ierr)
 
  print "(a)",' reading setup options from '//trim(filename)
  call open_db_from_file(db,filename,iunit,ierr)
- call read_inopt(mass_unit,'mass_unit',db,ierr)
- call read_inopt(dist_unit,'dist_unit',db,ierr)
+ call read_options_and_set_units(db,nerr)
+
  call read_inopt(np,'np',db,ierr)
  call read_inopt(dynamic_bdy,'dynamic_bdy',db,ierr)
  if (.not. dynamic_bdy) then
@@ -972,18 +971,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(h_soft_sinksink_setup,'h_soft_sinksink',db,ierr)
  endif
  call close_db(db)
-
- ! parse units
- call select_unit(mass_unit,umass,nerr)
- if (nerr /= 0) then
-    call error('setup_convergingflows','mass unit not recognised')
-    ierr = ierr + 1
- endif
- call select_unit(dist_unit,udist,nerr)
- if (nerr /= 0) then
-    call error('setup_convergingflows','length unit not recognised')
-    ierr = ierr + 1
- endif
 
  if (ierr > 0) then
     print "(1x,a,i2,a)",'Setup_convergingflows: ',nerr,' error(s) during read of setup file.  Re-writing.'

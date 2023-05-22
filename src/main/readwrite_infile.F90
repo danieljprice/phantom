@@ -17,7 +17,7 @@ module readwrite_infile
 !   - C_cour             : *Courant number*
 !   - C_force            : *dt_force number*
 !   - alpha              : *shock viscosity parameter*
-!   - alphaB             : *art. resistivity parameter*
+!   - alphaB             : *shock resistivity parameter*
 !   - alphamax           : *MAXIMUM shock viscosity parameter*
 !   - alphau             : *shock conductivity parameter*
 !   - avdecayconst       : *decay time constant for viscosity switches*
@@ -82,7 +82,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -103,12 +103,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
-#ifdef DUST
  use dust,            only:write_options_dust
-#ifdef DUSTGROWTH
  use growth,          only:write_options_growth
-#endif
-#endif
 #ifdef PHOTO
  use photoevap,       only:write_options_photoevap
 #endif
@@ -196,7 +192,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_inopts_link(iwritein)
 
- write(iwritein,"(/,a)") '# options controlling hydrodynamics, artificial dissipation'
+ write(iwritein,"(/,a)") '# options controlling hydrodynamics, shock capturing'
  if (maxalpha==maxp .and. nalpha > 0) then
     call write_inopt(alpha,'alpha','MINIMUM shock viscosity parameter',iwritein)
     call write_inopt(alphamax,'alphamax','MAXIMUM shock viscosity parameter',iwritein)
@@ -207,7 +203,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  endif
  if (mhd) then
-    call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
+    call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
     call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
@@ -270,12 +266,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_forcing(iwritein)
 #endif
 
-#ifdef DUST
- call write_options_dust(iwritein)
-#ifdef DUSTGROWTH
- call write_options_growth(iwritein)
-#endif
-#endif
+ if (use_dust) call write_options_dust(iwritein)
+ if (use_dustgrowth) call write_options_growth(iwritein)
 
 #ifdef PHOTO
  call write_options_photoevap(iwritein)
@@ -286,8 +278,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_inject(iwritein)
 #endif
  if (nucleation) call write_options_dust_formation(iwritein)
-
- write(iwritein,"(/,a)") '# options for injecting/removing particles'
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 
  if (sink_radiation) then
@@ -340,12 +330,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
-#ifdef DUST
  use dust,            only:read_options_dust
-#ifdef DUSTGROWTH
  use growth,          only:read_options_growth
-#endif
-#endif
 #ifdef GR
  use metric,          only:read_options_metric
 #endif
@@ -362,7 +348,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad,iget_tdust,iray_resolution
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,&
+                              alpha_rad,iget_tdust,iray_resolution
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
@@ -567,13 +554,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
 #endif
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
-#ifdef DUST
        !--Extract if one-fluid dust is used from the fileid
-       if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
-#ifdef DUSTGROWTH
-       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
-#endif
-#endif
+       if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
 #ifdef GR
        if (.not.imatch) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #endif

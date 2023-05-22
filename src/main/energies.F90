@@ -481,7 +481,7 @@ subroutine compute_energies(t)
                 do j = 9,21
                    n_ion = n_ion + data_out(j)
                 enddo
-                n_total = n_ion + data_out(4)
+                n_total = data_out(5)
                 if (n_total > 0.) then
                    n_total1 = 1.0/n_total
                 else
@@ -491,7 +491,7 @@ subroutine compute_energies(t)
                 call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
                 call ev_data_update(ev_data_thread,iev_n(2),data_out( 8)*n_total1)
                 call ev_data_update(ev_data_thread,iev_n(3),data_out( 8))
-                call ev_data_update(ev_data_thread,iev_n(4),data_out( 4))
+                call ev_data_update(ev_data_thread,iev_n(4),n_total-n_ion)
                 call ev_data_update(ev_data_thread,iev_n(5),data_out(24))
                 call ev_data_update(ev_data_thread,iev_n(6),data_out(23))
                 call ev_data_update(ev_data_thread,iev_n(7),data_out(22))
