@@ -55,7 +55,7 @@ end subroutine init_star
 !
    subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
      use io,       only:warning
-     use physcon,  only:steboltz,pi,solarl
+     use physcon,  only:steboltz,pi,solarl,Rg
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
           iunitst
@@ -68,7 +68,6 @@ end subroutine init_star
      real            :: tcool,ueqi,umini,tthermi,poti,presi
      
      poti = Gpot_cool(i)
-     presi = eos_vars(igasP,i)
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
      if (isink_star > 0 .and. Lstar > 0) then
@@ -85,6 +84,8 @@ end subroutine init_star
 ! get opacities & Ti for ui
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi,gammai)
+      presi = eos_vars(igasP,i)
+   !  presi = Rg*Ti*rhoi
      select case (od_method)
      case (1)
         coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)

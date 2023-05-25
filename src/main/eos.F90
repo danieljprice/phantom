@@ -24,7 +24,7 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
-  !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !    21 = read tabulated eos (for use with icooling == 8)
 !
 ! :References:
@@ -429,14 +429,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
-    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,gmwi,gammai)
-    
-    if (gammai > 1.0001) then
-       ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
-    else
-       ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1 
-    endif
-       
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
+    ! gammai is derived from the tables
+    ponrhoi = (gammai - 1.) * eni
     spsoundi = sqrt(gammai*ponrhoi)
     
  case default
@@ -1262,6 +1257,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
+ use eos_stamatellos, only:eos_file
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1303,6 +1299,8 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
+ case(21)
+ write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file
  end select
  write(iprint,*)
 
