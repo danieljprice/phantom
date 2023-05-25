@@ -35,10 +35,11 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,ndustlarge,set_particle_type
+ use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,ndustlarge,set_particle_type,&
+                     grainsize,graindens,ndusttypes
  use setbinary, only:set_binary
- use units,     only:set_units,umass,udist
- use physcon,   only:solarm,au,pi
+ use units,     only:set_units,umass,udist,unit_density
+ use physcon,   only:solarm,au,pi,km
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
  use mpc,       only:read_mpc,mpc_entry
@@ -84,9 +85,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! general parameters
 !
- time             = 0.
- polyk            = 0.
- gamma            = 1.
+ time  = 0.
+ polyk = 0.
+ gamma = 1.
 !
 !--space available for injected gas particles
 !
@@ -137,8 +138,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  npart = nbodies
  ndustlarge = 1
+ ndusttypes = 1
  npartoftype(idust) = nbodies
  massoftype(idust) = 1.e-20
+ grainsize(1:ndustlarge) = km/udist         ! assume km-sized bodies
+ graindens(1:ndustlarge) = 2./unit_density  ! 2 g/cm^3
+
  hfact = 1.2
 
  if (ierr /= 0) call fatal('setup','ERROR during setup')
