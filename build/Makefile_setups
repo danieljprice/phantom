@@ -294,7 +294,7 @@ ifeq ($(SETUP), planetdisc)
 endif
 
 ifeq ($(SETUP), exoALMA)
-#   exoALMA comparison project: planet disc interaction with fixed planet orbit
+#   exoALMA comparison of planet-disc interaction
     SETUPFILE=setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
