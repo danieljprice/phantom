@@ -76,12 +76,14 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  real Tpart1,Tpart2
  real gmw1,gmw2
  real cv
- real ui_, rhoi_
+ real ui_, rhoi_,rhomin,umin
 
+ rhomin = OPTABLE(1,1,1)
+ umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
 
- if (rhoi.lt.1.0e-24) then
-  rhoi_ = 1.0e-24
+ if (rhoi.lt. rhomin) then
+  rhoi_ = rhomin
  else
   rhoi_ = rhoi
  endif  
@@ -91,8 +93,8 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
   i = i + 1
  enddo
 
- if (ui.lt.0.5302E8) then
-  ui_ = 0.5302E8 
+ if (ui.lt.umin) then
+  ui_ = umin 
  else
   ui_ = ui
  endif

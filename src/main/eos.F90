@@ -431,6 +431,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     cgseni = eni * unit_ergg
     call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
     ! gammai is derived from the tables
+  !  print *, 'EOS gamma=', gammai
     ponrhoi = (gammai - 1.) * eni
     spsoundi = sqrt(gammai*ponrhoi)
     
@@ -1222,6 +1223,8 @@ logical function eos_outputs_mu(ieos)
  select case(ieos)
  case(20)
     eos_outputs_mu = .true.
+ case(21)
+ 	eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1300,7 +1303,7 @@ subroutine eosinfo(eos_type,iprint)
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
  case(21)
- write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file
+ write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1355,6 +1358,8 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
     if (maxvxyzu >= 4) then
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+       elseif (ieos==21) then
+       	 write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

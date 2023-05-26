@@ -175,7 +175,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,igamma
  use part,              only:nucleation,gamma_chem
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma,&
                              utherm
@@ -280,6 +280,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
+       if (ieos.eq.21) eos_vars(igamma,i) = gammai
        if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. (ieos.eq.21)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
