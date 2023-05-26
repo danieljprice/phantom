@@ -252,7 +252,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(*,"(/,65('-'),/,/,5x,a,/,/,65('-'))") 'Welcome to the New Disc Setup'
 
  !--set default options
- call set_default_options()
+ call set_default_options()!-1)
 
  !--set time
  time = tinitial
@@ -336,8 +336,9 @@ end subroutine setpart
 ! Set default options
 !
 !--------------------------------------------------------------------------
-subroutine set_default_options()
- use sethierarchical, only:set_hierarchical_default_options
+subroutine set_default_options()!id)
+  use sethierarchical, only:set_hierarchical_default_options
+!  integer, intent(in) :: id
 
  integer :: i
 
@@ -382,7 +383,7 @@ subroutine set_default_options()
  binary_f = 180.
 
  !--hierarchical
- call set_hierarchical_default_options()
+ call set_hierarchical_default_options()!id)
 
  !--flyby
  flyby_a  = 200.
@@ -524,7 +525,7 @@ subroutine get_setup_parameters(id,fileprefix)
 
     !--interactive setup
     print "(a,/)",' '//trim(filename)//' not found: using interactive setup'
-    call setup_interactive()
+    call setup_interactive(id)
 
     !--write setup file from interactive setup
     call write_setupfile(filename)
@@ -854,7 +855,7 @@ subroutine setup_central_objects(fileprefix)
        discpos = 0.
        discvel = 0.
 
-    case (5)
+    case (5:)
        call set_hierarchical(fileprefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
     case (3)
@@ -1862,12 +1863,13 @@ end subroutine set_tmax_dtmax
 !  Prompt user for desired setup options
 !
 !--------------------------------------------------------------------------
-subroutine setup_interactive()
+subroutine setup_interactive(id)
  use prompting,        only:prompt
  use set_dust_options, only:set_dust_interactively
  use sethierarchical, only:set_hierarchical_default_options, get_hier_level_mass
- use sethierarchical, only:hs, hierarchy!sink_num, hl_num, sink_labels, hl_labels
+ use sethierarchical, only:hs, hierarchy, print_chess_logo, generate_hierarchy_string!sink_num, hl_num, sink_labels, hl_labels
 
+ integer, intent(in) :: id
  integer :: i
  real    :: disc_mfac(maxdiscs)
 
@@ -1928,7 +1930,7 @@ subroutine setup_interactive()
     end select
  case (1)
     !--sink particle(s)
-    call prompt('How many sinks?',nsinks,1,5)
+    call prompt('How many sinks?',nsinks,1)
     select case (nsinks)
     case (1)
        !--single star
@@ -1964,12 +1966,16 @@ subroutine setup_interactive()
           flyby_i  = 0.
        end select
 
-    case (5)
-       print "(/,a)",'================================'
-       print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
-       print "(a)",  '================================'
+    case (5:)
+       !print "(/,a)",'================================'
+       !print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
+       !print "(a)",  '================================'
+
+       call print_chess_logo()!id)
 
        ibinary = 0
+
+       call generate_hierarchy_string(nsinks)
 
        call prompt('What is the hierarchy?',hierarchy)
        !call set_hierarchical_interactively()
@@ -2096,7 +2102,7 @@ subroutine setup_interactive()
        iuse_disc(3) = .false.
        iuse_disc(4) = .false.
        print "(/,a)",'Setting circumbinary disc around the first hierarchical level secondary.'
-    elseif (nsinks==5) then
+    elseif (nsinks>=5) then
        !--2 bound binaries: circumbinary
        iuse_disc(:) = .false.
 
@@ -2467,7 +2473,7 @@ subroutine write_setupfile(filename)
           call write_inopt(flyby_i,'flyby_i','inclination (deg)',iunit)
        end select
 
-    case (5)
+    case (5:)
 
        call write_hierarchical_setupfile(iunit)
 
@@ -2564,7 +2570,7 @@ subroutine write_setupfile(filename)
        write(iunit,"(/,a)") '# options for multiple discs'
        call write_inopt(iuse_disc(1),'use_'//trim(disctype(1))//'disc','setup circum' &
             //trim(disctype(1))//' disc',iunit)
-    elseif (nsinks == 5) then
+    elseif (nsinks >= 5) then
        write(iunit,"(/,a)") '# options for multiple discs'
 
        do i=1,hs%labels%sink_num
@@ -2809,7 +2815,7 @@ subroutine read_setupfile(filename,ierr)
  case (1)
     iexternalforce = 0
     !--sink particles
-    call read_inopt(nsinks,'nsinks',db,min=1,max=5,errcount=nerr)
+    call read_inopt(nsinks,'nsinks',db,min=1,errcount=nerr)
     select case (nsinks)
     case (1)
        !--single star
@@ -2844,7 +2850,7 @@ subroutine read_setupfile(filename,ierr)
           call read_inopt(flyby_O,'flyby_O',db,min=0.,errcount=nerr)
           call read_inopt(flyby_i,'flyby_i',db,min=0.,errcount=nerr)
        end select
-    case (5)
+    case (5:)
 
        call read_hierarchical_setupfile(db, nerr)
 
@@ -2978,7 +2984,7 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
     elseif (nsinks == 4) then
        call read_inopt(iuse_disc(1),'use_binarydisc',db,errcount=nerr)
-    elseif (nsinks == 5) then
+    elseif (nsinks >= 5) then
        do i=1,hs%labels%sink_num
           call read_inopt(iuse_disc(i),'use_'//trim(hs%labels%sink(i))//'disc',db,errcount=nerr)
        enddo

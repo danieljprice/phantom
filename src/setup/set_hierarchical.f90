@@ -31,6 +31,7 @@ module sethierarchical
  public :: set_hierarchical_default_options
  public :: get_hierarchical_level_com
  public :: get_hier_level_mass
+ public :: print_chess_logo, generate_hierarchy_string
 
  character(len=lenhierstring) :: hierarchy = '111,112,121,1221,1222'
 
@@ -48,13 +49,15 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  integer, intent(out)   :: ierr
  character(len=20), intent(in) :: prefix
 
- integer :: i
+ integer :: i, io
  real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
  integer :: splits, sink_num_temp, subst
  character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels)
  character(len=20) :: hl_temp
 
+ call print_chess_logo()
+ 
  splits = 0
  sink_list = hs%labels%sink
  sink_num_temp = hs%labels%sink_num
@@ -77,7 +80,7 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
     !                              binary_a, binary_e, binary_i, binary_O, &
     !                              binary_w, binary_f
 
-    read(hl_temp,*,iostat=subst) subst
+    read(hl_temp,*,iostat=io) subst
 
     !print*, 'passing subst = ', subst
     call set_hier_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
@@ -160,8 +163,12 @@ end subroutine read_hierarchical_setupfile
 
 
 subroutine set_hierarchical_default_options()!in_hierarchy)
-!  character(len=lenhierstring), intent(in) :: in_hierarchy
- integer :: i
+  !  character(len=lenhierstring), intent(in) :: in_hierarchy
+  !use io,               only:master
+  !integer, intent(in)  :: id
+  integer :: i
+
+  !call print_chess_logo(id)
 
 ! hierarchy = in_hierarchy
 
@@ -721,6 +728,73 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
+subroutine generate_hierarchy_string(nsinks)
+  integer, intent(in) :: nsinks
+
+  integer :: i, pos
+  character(len=10) :: label
+
+  hierarchy = '11,12'
+  
+  do i=1,nsinks-2
+     pos = scan(hierarchy, ',', .true.)
+
+     label = trim(hierarchy(pos+1:))
+
+     hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
+     
+     !print*,label
+  end do
+
+end subroutine generate_hierarchy_string
+
+
+subroutine print_chess_logo()!id)
+ !use io,               only:master
+ !integer,           intent(in) :: id
+ 
+! if (id==master) then
+    print*,"                                                                      " 
+    print*,"                                                       _:_            "
+    print*,"                                                      '-.-'           "
+    print*,"                                             ()      __.'.__          "
+    print*,"                                          .-:--:-.  |_______|         "
+    print*,"                                   ()      \____/    \=====/          "
+    print*,"                                   /\      {====}     )___(           "
+    print*,"                        (\=,      //\\      )__(     /_____\          "
+    print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
+    print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
+    print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
+    print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
+    print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
+    print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
+    print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
+    print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
+    print*,"     (______)(_______)(_______)(________)(________)(_________)        "
+    print*,"                                                                      "
+    print*,"          _             _       _    _           _           _        "
+    print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
+    print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
+    print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
+    print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
+    print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
+    print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
+    print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
+    print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
+    print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
+    print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
+    print*,"                                                                      "
+
+    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+
+    
+    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+    !         '        simulate the universe as a hierarchical system'
+    
+! endif
+end subroutine print_chess_logo
 
 
 end module sethierarchical
