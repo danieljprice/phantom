@@ -35,6 +35,7 @@ module units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
  public :: is_time_unit, is_length_unit
+ public :: in_solarr, in_solarm
 
 contains
 
@@ -438,5 +439,30 @@ logical function in_geometric_units()
  in_geometric_units = c_is_unity() .and. G_is_unity()
 
 end function in_geometric_units
+
+!---------------------------------------------------------------------------
+!+
+!  function to convert a mass value from code units to solar masses
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarm(val) result(rval)
+ use physcon, only:solarm
+ real, intent(in) :: val
+
+ rval = val*(umass/solarm)
+
+end function in_solarm
+!---------------------------------------------------------------------------
+!+
+!  function to convert a distance value from code units to solar radii
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarr(val) result(rval)
+ use physcon, only:solarr
+ real, intent(in) :: val
+
+ rval = val*(udist/solarr)
+
+end function in_solarr
 
 end module units
