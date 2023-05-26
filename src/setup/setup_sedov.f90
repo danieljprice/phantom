@@ -18,7 +18,7 @@ module setup
 !   - shuffle_parts : *relax particles by shuffling*
 !
 ! :Dependencies: boundary, infile_utils, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, setup_params, timestep, unifdis,
+!   options, part, physcon, prompting, setup_params, timestep, unifdis,
 !   utils_shuffleparticles
 !
  implicit none

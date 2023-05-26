@@ -55,19 +55,19 @@ contains
 subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,f,verbose)
- use binaryutils, only:get_E
+                      posang_ascnode,arg_peri,incl,f,mean_anomaly,verbose)
+ use binaryutils, only:get_E,get_E_from_mean_anomaly
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
  integer, intent(out)   :: ierr
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
+ real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f,mean_anomaly
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
+ real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period,bigM
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
  logical :: do_verbose
@@ -146,6 +146,10 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
        theta = f*pi/180.
        E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
+    elseif (present(mean_anomaly)) then
+       ! get eccentric anomaly from mean anomaly by solving Kepler equation
+       bigM = mean_anomaly*pi/180.
+       E = get_E_from_mean_anomaly(bigM,ecc)
     else
        ! set binary at apastron
        tperi = 0.5*period ! time since periastron: half period = apastron
@@ -173,8 +177,10 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
              'inclination     (i, deg):',incl, &
              'angle asc. node (O, deg):',posang_ascnode, &
              'arg. pericentre (w, deg):',arg_peri
-       if (present(f)) print "(2x,a,g12.4)", &
+       if (present(f)) print "(2x,a,1pg14.6)", &
              'true anomaly    (f, deg):',f
+       if (present(mean_anomaly)) print "(2x,a,1pg14.6)", &
+             'mean anomaly    (M, deg):',mean_anomaly
     endif
 
     ! Rotating everything
