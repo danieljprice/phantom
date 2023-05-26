@@ -78,6 +78,14 @@ ifeq ($(SETUP), asteroidwind)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), solarsystem)
+#   orbits of minor planets
+    ISOTHERMAL=yes
+    SETUPFILE=utils_mpc.f90 setup_solarsystem.f90
+    KNOWN_SETUP=yes
+    DUST=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes

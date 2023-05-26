@@ -7,6 +7,8 @@
 module binaryutils
 !
 ! Utility routines for binary setup, also used in asteroid injection
+! Main thing is routines to compute eccentric anomaly from mean anomaly
+! by solving Kepler's equation
 !
 ! :References: None
 !
@@ -19,24 +21,39 @@ module binaryutils
  implicit none
  real, parameter :: pi = 4.*atan(1.)
 
+ public :: get_E,get_E_from_mean_anomaly
+ public :: get_orbit_bits
+
 contains
 
 !---------------------------------------------------------------
 !+
-! Get eccentric anomaly (this function uses bisection
-! to guarantee convergence, which is not guaranteed for
-! small M or E)
+! Get eccentric anomaly given time since pericentre
 !+
 !---------------------------------------------------------------
 subroutine get_E(period,ecc,deltat,E)
  real, intent(in)  :: period,ecc,deltat
  real, intent(out) :: E
- real :: mu,M_ref,M_guess
- real :: E_left,E_right,E_guess
- real, parameter :: tol = 1.e-10
+ real :: mu,M_ref
 
  mu = 2.*pi/period
  M_ref = mu*deltat ! mean anomaly
+
+ E = get_E_from_mean_anomaly(M_ref,ecc)
+
+end subroutine get_E
+
+!---------------------------------------------------------------
+!+
+! Get eccentric anomaly from mean anomaly (this function uses
+! bisection to guarantee convergence, which is not guaranteed for
+! small M or E)
+!+
+!---------------------------------------------------------------
+real function get_E_from_mean_anomaly(M_ref,ecc) result(E)
+ real, intent(in) :: M_ref,ecc
+ real :: E_left,E_right,E_guess,M_guess
+ real, parameter :: tol = 1.e-10
 
  ! first guess
  E_left = 0.
@@ -56,7 +73,7 @@ subroutine get_E(period,ecc,deltat,E)
 
  E = E_guess
 
-end subroutine get_E
+end function get_E_from_mean_anomaly
 
 !-----------------------------------------------------------------------
 !+
