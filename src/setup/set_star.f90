@@ -174,6 +174,13 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
                        star%np,rhozero,npart_total,mask)
  !
+ ! die if stupid things done with GR
+ !
+ if (gr) then
+    if (star%rstar < 6.*star%mstar) call fatal('set_star','R < 6GM/c^2 for star in GR violates weak field assumption')
+ endif
+
+ !
  ! add sink particle stellar core
  !
  if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,&

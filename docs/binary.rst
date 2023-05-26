@@ -74,6 +74,7 @@ run phantomsetup again to complete the setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
+
    ./phantomsetup sim
 
 This creates a sim.in file for the main code.
@@ -138,12 +139,13 @@ run phantomsetup again to rewrite the required options
 
 ::
 
-  $ ./phantomsetup sim
+   $ ./phantomsetup sim
 
 set the relaxation flag to true
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
+
    # relaxation options
                relax =           T    ! relax stars into equilibrium
             tol_ekin =   1.000E-07    ! tolerance on ekin/epot to stop relaxation
@@ -217,5 +219,4 @@ For more details, see :doc:`Setting up a softened star <softstar>`
 Setting up and relaxing binary stars (the old fashioned way)
 -------------------------------------------------------------
 See :doc:`Setting up stars and tidal disruption events <star>` for the older two-step procedure. The options available are
-identical, but with a bit more flexibility and without
-having to re-run the relaxation procedure over and over again.
+identical, currently the only difference is a few more options related to the equation of state.
