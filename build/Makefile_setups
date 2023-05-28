@@ -81,7 +81,7 @@ endif
 ifeq ($(SETUP), solarsystem)
 #   orbits of minor planets
     ISOTHERMAL=yes
-    SETUPFILE=utils_mpc.f90 setup_solarsystem.f90
+    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 setup_solarsystem.f90
     KNOWN_SETUP=yes
     DUST=yes
 endif
