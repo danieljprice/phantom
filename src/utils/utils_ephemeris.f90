@@ -108,7 +108,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
 
  url = "'https://ssd.jpl.nasa.gov/api/horizons.api?format=text&COMMAND='"//trim(cmd)// &
        "'&OBJ_DATA='YES'&MAKE_EPHEM='YES'&EPHEM_TYPE='ELEMENTS'&CENTER='500@10'&START_TIME='"&
-        //trim(start_epoch)//"'&stop_TIME='"//trim(end_epoch)// &
+        //trim(start_epoch)//"'&STOP_TIME='"//trim(end_epoch)// &
        "'&STEP_SIZE='1DAYS'&REF_SYSTEM='ICRF'&REF_PLANE='ECLIPTIC''"
 
 end subroutine construct_horizons_api_url
