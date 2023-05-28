@@ -18,7 +18,7 @@ module moddump
 !
  implicit none
 
- contains
+contains
 
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim, only:do_radiation
