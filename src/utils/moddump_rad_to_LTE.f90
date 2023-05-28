@@ -5,26 +5,17 @@
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module moddump
- !
- ! Convert a radiative dump into a non-radiative dump, assuming LTE (i.e., ieos=12)
- ! INSTRUCTIONS: 1) Set gmw (mean molecular weight) in the code below to the
- !                  same value assumed in the radiative dump
- !               1) Make this moddump with a radiative setup (e.g. SETUP=radstar),
- !                  otherwise the rad array is not read.
- !               2) Run this moddump
- !               3) Write/modify the infile to remove radiation-related options,
- !                  make sure ieos=12 and mu is correct
- !               4) Recompile Phantom with the desired non-radiative setup (e.g.
- !                  SETUP=star).
- !
- ! :References: None
- !
- ! :Owner: Mike Lau
- !
- ! :Runtime parameters: None
- !
- ! :Dependencies: 
- !
+!
+! moddump
+!
+! :References: None
+!
+! :Owner: Mike Lau
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, io, part
+!
  implicit none
     
  contains

@@ -10,14 +10,14 @@ module setup
 !
 ! :References: https://minorplanetcenter.net/data
 !
-! :Owner: Not Committed Yet
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - dumpsperorbit : *number of dumps per orbit*
 !   - norbits       : *number of orbits*
 !
-! :Dependencies: infile_utils, io, mpc, part, physcon, setbinary, timestep,
-!   units
+! :Dependencies: centreofmass, datautils, ephemeris, infile_utils, io, mpc,
+!   part, physcon, setbinary, timestep, units
 !
  implicit none
  public :: setpart

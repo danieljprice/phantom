@@ -11,11 +11,11 @@ module ephemeris
 ! :References:
 ! https://ssd-api.jpl.nasa.gov/doc/horizons.html
 !
-! :Owner: Not Committed Yet
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: datautils, fileutils
 !
  implicit none
  integer, parameter :: nelem = 7
