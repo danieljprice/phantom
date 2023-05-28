@@ -17,9 +17,9 @@ module moddump
 ! :Dependencies: dim, eos, io, part
 !
  implicit none
-    
+
  contains
-    
+
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use dim, only:do_radiation
  use io,  only:fatal
@@ -30,7 +30,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
  integer                :: i
- 
+
  if (.not. do_radiation) call fatal("moddump_rad_to_LTE","Not compiled with radiation")
  do i=1,npart
     if (isnan(rad(iradxi,i))) call fatal("moddump_rad_to_LTE","rad array contains NaNs")
@@ -42,7 +42,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'mu has been changed to',gmw  ! mu should not change from what was assumed with radiation
 
 end subroutine modify_dump
-    
+
 end module moddump
-    
-    
+
