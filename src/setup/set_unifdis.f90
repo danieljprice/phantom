@@ -583,7 +583,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        endif
     endif
     call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
-         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)!,massfunc=massfunc)
     if (ierr > 0) then
        if (present(err)) err = ierr
        return

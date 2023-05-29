@@ -21,7 +21,7 @@ module tmunu2grid
 contains
 subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  use einsteintk_utils, only: dxgrid, gridorigin,boundsize,gridsize,gcovgrid,tmunugrid,rhostargrid
- use interpolations3D, only: interpolate3D
+ use interpolations3D, only: interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
  use part, only: massoftype,igas,rhoh,dens,hfact
  integer, intent(in) :: npart
@@ -34,11 +34,11 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  integer, save             :: iteration = 0
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
- real,allocatable          :: datsmooth(:,:,:), dat(:)
+ real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
  integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz,exact_rendering
  real                      :: totalmass, totalmassgrid
- integer                   :: itype(npart)
+ integer                   :: itype(npart),ilendat
 
 
  ! total mass of the particles
@@ -48,8 +48,8 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
 
  ! Density interpolated to the grid
  rhostargrid = 0.
- if (.not. allocated(datsmooth)) allocate (datsmooth(gridsize(1),gridsize(2),gridsize(3)))
- if (.not. allocated(dat)) allocate (dat(npart))
+ if (.not. allocated(datsmooth)) allocate (datsmooth(16,gridsize(1),gridsize(2),gridsize(3)))
+ if (.not. allocated(dat)) allocate (dat(npart,16))
  ! All particles have equal weighting in the interp
  ! Here we calculate the weight for the first particle
  ! Get the smoothing length
@@ -104,31 +104,78 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
 
  tmunugrid = 0.
  datsmooth = 0.
+
+ ! Vectorized tmunu calculation 
+ 
+ ! Put tmunu into an array of form
+ ! tmunu(npart,16) 
+ do k=1, 4
+   do j=1,4
+      do i=1,npart
+         ! Check that this is correct!!!
+         ! print*,"i j is: ", k, j
+         ! print*, "Index in array is: ", (k-1)*4 + j
+         ! print*,tmunus(k,j,1)
+         dat(i, (k-1)*4 + j) = tmunus(k,j,i)
+      enddo 
+   enddo 
+enddo
+!stop
+ilendat = 16
+
+call interpolate3D_vecexact(xyzh,weights,dat,ilendat,itype,npart,&
+                         xmininterp(1),xmininterp(2),xmininterp(3), &
+                         datsmooth(:,ilower:iupper,jlower:jupper,klower:kupper),&
+                         ngrid(1),ngrid(2),ngrid(3),dxgrid(1),dxgrid(2),dxgrid(3),&
+                         normalise,periodicx,periodicy,periodicz)
+
+! Put the smoothed array into tmunugrid
+do i=1,4
+   do j=1,4
+      ! Check this is correct too!
+      !print*,"i j is: ", i, j
+      !print*, "Index in array is: ", (i-1)*4 + j
+      tmunugrid(i-1,j-1,:,:,:) = datsmooth((i-1)*4 + j, :,:,:)
+      print*, "tmunugrid: ", tmunugrid(i-1,j-1,10,10,10)
+      print*, datsmooth((i-1)*4 + j, 10,10,10)
+   enddo
+enddo
+!stop 
+do k=1,4
+   do j=1,4
+      do i=1,4
+         print*, "Lock index is: ", (k-1)*16+ (j-1)*4 + i
+      enddo
+   enddo
+enddo 
+
+! tmunugrid(0,0,:,:,:) = datsmooth(1,:,:,:)
+                  
  ! TODO Unroll this loop for speed + using symmetries
  ! Possiblly cleanup the messy indexing
- do k=1,4
-    do j=1,4
-       do i=1, npart
-          dat(i) = tmunus(k,j,i)
-       enddo
+!  do k=1,4
+!     do j=1,4
+!        do i=1, npart
+!           dat(i) = tmunus(k,j,i)
+!        enddo
 
-       ! Get the position of the first grid cell x,y,z
-       ! Call to interpolate 3D
-       ! COMMENTED OUT AS NOT USED BY NEW INTERPOLATE ROUTINE
-       ! call interpolate3D(xyzh,weight,npart, &
-       !              xmininterp,tmunugrid(k-1,j-1,ilower:iupper,jlower:jupper,klower:kupper), &
-       !              nnodes,dxgrid,normalise,dat,ngrid,vertexcen)
+!        ! Get the position of the first grid cell x,y,z
+!        ! Call to interpolate 3D
+!        ! COMMENTED OUT AS NOT USED BY NEW INTERPOLATE ROUTINE
+!        ! call interpolate3D(xyzh,weight,npart, &
+!        !              xmininterp,tmunugrid(k-1,j-1,ilower:iupper,jlower:jupper,klower:kupper), &
+!        !              nnodes,dxgrid,normalise,dat,ngrid,vertexcen)
 
-       !print*, "Interpolated grid values are: ", datsmooth(4:38,4:38,4:38)
-       !stop
-       ! NEW INTERPOLATION ROUTINE
-       call interpolate3D(xyzh,weights,dat,itype,npart,&
-                        xmininterp(1),xmininterp(2),xmininterp(3), &
-                        tmunugrid(k-1,j-1,ilower:iupper,jlower:jupper,klower:kupper),&
-                        ngrid(1),ngrid(2),ngrid(3),dxgrid(1),dxgrid(2),dxgrid(3),&
-                        normalise,periodicx,periodicy,periodicz)
-    enddo
- enddo
+!        !print*, "Interpolated grid values are: ", datsmooth(4:38,4:38,4:38)
+!        !stop
+!        ! NEW INTERPOLATION ROUTINE
+!        call interpolate3D(xyzh,weights,dat,itype,npart,&
+!                         xmininterp(1),xmininterp(2),xmininterp(3), &
+!                         tmunugrid(k-1,j-1,ilower:iupper,jlower:jupper,klower:kupper),&
+!                         ngrid(1),ngrid(2),ngrid(3),dxgrid(1),dxgrid(2),dxgrid(3),&
+!                         normalise,periodicx,periodicy,periodicz)
+!     enddo
+!  enddo
 
  ! RHOSTARGRID CALCULATION IS NOW HANDLED BY AN EXTERNAL ROUTINE
  ! THIS IS COMMENTED OUT IN CASE I BREAK EVERYTHING AND NEED TO GO BACK

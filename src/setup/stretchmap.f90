@@ -32,7 +32,7 @@ module stretchmap
  public :: rho_func
  public :: mass_func
 
- integer, private :: ngrid =  2048 ! number of points used when integrating rho to get mass
+ integer, private :: ngrid =  8192 ! number of points used when integrating rho to get mass
  integer, parameter, private :: maxits = 100  ! max number of iterations
  integer, parameter, private :: maxits_nr = 30  ! max iterations with Newton-Raphson
  real,    parameter, private :: tol = 1.e-10  ! tolerance on iterations

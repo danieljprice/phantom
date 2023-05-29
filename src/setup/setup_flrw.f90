@@ -133,19 +133,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
- hub = 10.553495658357338
+ hub =  10.553495658357338/100.d0
+ !hub = 23.588901903912664
+ !hub = 0.06472086375185665
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
  phaseoffset = 0.
 
  ! Approx Temp of the CMB in Kelvins
  last_scattering_temp = 3000
- last_scattering_temp = (rhozero/radconst)**(1./4.)*0.99999
+ last_scattering_temp = (rhozero/radconst)**(1./4.)*0.999999999999999d0
 
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
  c1 = 1.d0/(4.d0*PI*rhozero)
  !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
- c3 = - sqrt(1.d0/(6.d0*PI*rhozero))
+ c3 =  - sqrt(1.d0/(6.d0*PI*rhozero)) 
+ !c3 = hub/(4.d0*PI*rhozero)
 
 
  if (gr) then
@@ -194,13 +197,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! general parameters
 !
 ! time should be read in from the par file
- time   = 0.18951066686763596 ! z~1000
+ !time   = 0.08478563386065302 
+ time = 1.8951066686763596 ! z~1000
  lambda = perturb_wavelength*length
  kwave  = (2.d0*pi)/lambda
  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
  ! Hardcode to ensure double precision, that is requried
  !rhozero = 13.294563008157013D0
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ print*, rhozero
 
  select case(radiation_dominated)
  case('"yes"')
@@ -209,7 +214,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  end select
 
  xval = density_func(0.75)
- xval = density_func(0.0)
+ xval = density_func(0.5)
+ !stop
 
  select case(ilattice)
  case(2)
@@ -225,7 +231,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !TODO Z AND Y LINEAR PERTURBATIONS
     case('"x"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)
+                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func,massfunc=mass_function)
     case('"y"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
          npart,xyzh,periodic,nptot=npart_total,mask=i_belong)
@@ -363,26 +369,33 @@ real function rhofunc(x)
  ! calculate u0
  ! TODO Should probably handle this error at some point
  call get_u0(gcov,v,u0,ierr)
+ !print*,"u0: ", u0
+ !print*, alpha
+ !print*,"gcov: ", gcov
+ !print*, "sqrtg: ", sqrtg
  ! Perform a prim2cons
- rhofunc = rhoprim*sqrtg*u0
+ rhofunc = rhoprim*u0*sqrtg
 
 end function rhofunc
 
 real function massfunc(x,xmin)
- use utils_gr, only:perturb_metric, get_u0, get_sqrtg
+ use utils_gr, only:perturb_metric, get_u0, get_sqrtg,dot_product_gr
  real, intent(in) :: x,xmin
  real :: const, expr, exprmin, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
  real :: massprimx,massprimmin,massprim
+ real :: lorrentz, bigv2
 
  ! The value inside the bracket
  const = -kwave*kwave*c1 - 2.d0
- expr = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*x)/lambda)
- exprmin = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*xmin)/lambda)
- massprimx = (x-const*expr)
- massprimmin = (xmin-const*exprmin)
+ phi = ampl*sin(kwave*x-phaseoffset)
+ !expr = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*x)/lambda)
+ !exprmin = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*xmin)/lambda)
+ massprimx = (x+deltaint(x))
+ massprimmin = (xmin+deltaint(xmin))
  ! Evalutation of the integral
  ! rho0[x-Acos(kx)]^x_0
  massprim = rhozero*(massprimx - massprimmin)
+ print*, massprim
 
  ! Get the perturbed 4-metric
  call perturb_metric(phi,gcov)
@@ -394,14 +407,29 @@ real function massfunc(x,xmin)
  Vup(1) = kwave*c3*ampl*cos((2.d0*pi*x)/lambda-phaseoffset)
  Vup(2:3) = 0.
  alpha = sqrt(-gcov(0,0))
+ !v(0) = 1
  v(1) = Vup(1)*alpha
  v(2:3) = 0.
-
+ bigv2 = dot_product_gr(Vup,Vup,gcov)
+ lorrentz =  1./sqrt(1.-bigv2)
  call get_u0(gcov,v,u0,ierr)
- massfunc = massprim*sqrtg*u0
+ massfunc = (massprim)!*lorrentz
+ massfunc = massprim!*sqrtg*u0
+!  print*,u0
+!  print*,sqrtg
+!  print*, massfunc
+!  print*, massprim
+ !stop 
 
 
 end function massfunc
+
+real function deltaint(x)
+   real, intent(in) :: x
+
+   deltaint = (1./kwave)*(kwave*kwave*c1 - 2)*ampl*cos(2*pi*x/lambda)
+
+end function deltaint
 
 end subroutine setpart
 
