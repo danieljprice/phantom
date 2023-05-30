@@ -163,6 +163,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(*,'(a,f7.2,a)')   '  The resolution of the ellipse-fitting routine to determine the clump size: ',dxgrid0_pc,' pc'
  endif
  write(*,'(a)')             '==============================================================='
+ write(*,'(a)')             ' WARNING! there is a bug fix on line labeled "Used in WB23"; the patch is untested'
+ write(*,'(a)')             '==============================================================='
  write(*,'(a)')             ' '
 
  !--calculate all densities

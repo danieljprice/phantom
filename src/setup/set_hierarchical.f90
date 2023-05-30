@@ -6,9 +6,16 @@
 !--------------------------------------------------------------------------!
 module sethierarchical
 !
-! sethierarchical
+! setup for general hierarchical systems (binaries, triples, quadruples, etc.)
+! this is specified in the form of a hierarchy string:
 !
-! :References: None
+!  e.g. hierarchy = '111,112,121,1221,1222'
+!
+! where each component of the multiple system is given a number
+!
+! :References:
+!  - Ceppi et al. (2022) MNRAS 514, 906
+!  - Ceppi et al. (2023) MNRAS 520, 5817
 !
 ! :Owner: Simone Ceppi
 !
@@ -16,7 +23,6 @@ module sethierarchical
 !
 ! :Dependencies: infile_utils, setbinary, sethier_utils
 !
-
  use sethier_utils, only:process_hierarchy,max_hier_levels,lenhierstring,hierarchical_system,&
       hier_db_size,hier_db_prop,recursive_splitting, gen_rotate, find_hier_level_orb_elem, &
       find_hierarchy_index, find_data_index, find_ptmass_index,&
@@ -25,12 +31,12 @@ module sethierarchical
  implicit none
 
  public :: set_hierarchical, set_multiple, set_hier_multiple
- !public :: set_hierarchical_interactively
  public :: write_hierarchical_setupfile
  public :: read_hierarchical_setupfile
  public :: set_hierarchical_default_options
  public :: get_hierarchical_level_com
  public :: get_hier_level_mass
+ public :: print_chess_logo, generate_hierarchy_string
 
  character(len=lenhierstring) :: hierarchy = '111,112,121,1221,1222'
 
@@ -42,18 +48,26 @@ module sethierarchical
 
 contains
 
+!--------------------------------------------------------------------------
+!+
+!  routine to actually place the particles based on configuration
+!  specified in the hierarchy file
+!+
+!--------------------------------------------------------------------------
 subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
  integer, intent(out)   :: ierr
  character(len=20), intent(in) :: prefix
 
- integer :: i
+ integer :: i, io
  real :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
  integer :: splits, sink_num_temp, subst
  character(len=10) :: sink_list(max_hier_levels), split_list(max_hier_levels)
  character(len=20) :: hl_temp
+
+ call print_chess_logo()
 
  splits = 0
  sink_list = hs%labels%sink
@@ -61,14 +75,9 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
 
  call recursive_splitting(sink_num_temp, sink_list, split_list, splits)
 
- !print*, splits
- !print*, split_list
-
  do i=splits,1,-1
 
     hl_temp = trim(split_list(i))
-    !print*,'splitting: ',trim(adjustl(hl_temp))
-
 
     call find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                   binary_a, binary_e, binary_i, binary_O, &
@@ -77,7 +86,7 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
     !                              binary_a, binary_e, binary_i, binary_O, &
     !                              binary_w, binary_f
 
-    read(hl_temp,*,iostat=subst) subst
+    read(hl_temp,*,iostat=io) subst
 
     !print*, 'passing subst = ', subst
     call set_hier_multiple(m1,m2,semimajoraxis=binary_a,eccentricity=binary_e, &
@@ -87,37 +96,31 @@ subroutine set_hierarchical(prefix, nptmass, xyzmh_ptmass, vxyz_ptmass, ierr)
             ierr=ierr, subst=subst, prefix=prefix)
 
  enddo
+
 end subroutine set_hierarchical
 
-
-
-!subroutine set_hierarchical_interactively()
-
-! hs%labels = process_hierarchy(hierarchy)
-
-!end subroutine set_hierarchical_interactively
-
-
-
+!--------------------------------------------------------------------------
+!+
+!  write options to .setup file
+!+
+!--------------------------------------------------------------------------
 subroutine write_hierarchical_setupfile(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
-
  call write_inopt(hierarchy, 'hierarchy','', iunit)
 
  hs%labels = process_hierarchy(hierarchy)
 
- write(iunit,"(/,a)") '### sink properties'
+ write(iunit,"(/,a)") '# sink properties'
  do i=1,hs%labels%sink_num
     call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass','', iunit)
     call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr','', iunit)
  enddo
 
- write(iunit,"(/,a)") '### orbit properties'
-
+ write(iunit,"(/,a)") '# orbit properties'
  do i=1,hs%labels%hl_num
     call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a','',iunit)
     call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e','',iunit)
@@ -127,16 +130,17 @@ subroutine write_hierarchical_setupfile(iunit)
     call write_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f','',iunit)
  enddo
 
-
 end subroutine write_hierarchical_setupfile
 
-
+!--------------------------------------------------------------------------
+!+
+!  read options from .setup file
+!+
+!--------------------------------------------------------------------------
 subroutine read_hierarchical_setupfile(db, nerr)
-
  use infile_utils, only:read_inopt, inopts
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout) :: nerr
-
  integer :: i
 
  call read_inopt(hierarchy,'hierarchy',db,errcount=nerr)
@@ -156,14 +160,16 @@ subroutine read_hierarchical_setupfile(db, nerr)
     call read_inopt(hs%levels(i)%w, trim(hs%labels%hl(i))//'_w',db,errcount=nerr)
     call read_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f',db,errcount=nerr)
  enddo
+
 end subroutine read_hierarchical_setupfile
 
-
-subroutine set_hierarchical_default_options()!in_hierarchy)
-!  character(len=lenhierstring), intent(in) :: in_hierarchy
+!--------------------------------------------------------------------------
+!+
+!  set default options for hierarchical setup
+!+
+!--------------------------------------------------------------------------
+subroutine set_hierarchical_default_options()
  integer :: i
-
-! hierarchy = in_hierarchy
 
  hs%labels = process_hierarchy(hierarchy)
 
@@ -183,19 +189,16 @@ subroutine set_hierarchical_default_options()!in_hierarchy)
 
 end subroutine set_hierarchical_default_options
 
-
-
-
- !--------------------------------------------------------------------------
- !
- ! Compute position and velocity of hierarchical level
- !
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  compute position and velocity of hierarchical level
+!+
+!--------------------------------------------------------------------------
 subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxyz_ptmass, prefix)
- character(len=10), intent(in) :: level
- real, intent(out) :: xorigin(:), vorigin(:)
- real, intent(in) :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- character(len=20), intent(in) :: prefix
+ character(len=10), intent(in)  :: level
+ real,              intent(out) :: xorigin(:), vorigin(:)
+ real,              intent(in)  :: xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
+ character(len=20), intent(in)  :: prefix
 
  integer :: int_sinks(max_hier_levels), inner_sinks_num, i
  real :: mass
@@ -218,15 +221,13 @@ subroutine get_hierarchical_level_com(level, xorigin, vorigin, xyzmh_ptmass, vxy
  xorigin = xorigin/mass
  vorigin = vorigin/mass
 
-
 end subroutine get_hierarchical_level_com
 
-
 !--------------------------------------------------------------------------
- !
- ! Compute the total mass of an hierarchical level
- !
- !--------------------------------------------------------------------------
+!+
+!  compute the total mass of an hierarchical level
+!+
+!--------------------------------------------------------------------------
 real function get_hier_level_mass(level)
  use sethier_utils, only:get_hierarchical_level_mass
  character(len=10), intent(in) :: level
@@ -272,7 +273,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  ierr = 0
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
- if (present(subst) .and. subst>10) then
+ if (present(subst) .and. subst > 10) then
     call load_hierarchy_file(prefix, data, lines, ierr)
  else
     mtot = m1 + m2
@@ -285,7 +286,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  endif
  subst_index = 0
  !--- Checks to avoid bad substitutions
- if (present(subst) .and. subst>10) then
+ if (present(subst) .and. subst > 10) then
     write(hier_prefix, *) subst
 
     call check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
@@ -310,6 +311,7 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
        v_subst(:)=vxyz_ptmass(:,subst_index)
     endif
 
+    mtot = m1 + m2
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  else
 
@@ -330,8 +332,6 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
 
- !print*, m1,m2
-
  if (present(subst) .and. subst>10) then
     !--- lower nptmass, copy one of the new sinks to the subst star
     nptmass = nptmass-1
@@ -344,11 +344,10 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
     ! velocities
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,nptmass+1)
 
-    !print*,xyzmh_ptmass(4,i1),xyzmh_ptmass(4,i2)
-
-    !---
+    !
     ! Rotate the substituting binary with orientational parameters
     ! referring to the substituted star's orbital plane
+    !
     if (subst>0) then
 
        omega     = rel_arg_peri*pi/180.
@@ -396,7 +395,6 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
           endif
        endif
 
-
        ! Rotate substituting sinks by argument of pericenter around the z axis
        call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
@@ -433,8 +431,6 @@ subroutine set_hier_multiple(m1,m2,semimajoraxis,eccentricity, &
  endif
 
 end subroutine set_hier_multiple
-
-
 
 !----------------------------------------------------------------
 !+
@@ -721,8 +717,73 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
+subroutine generate_hierarchy_string(nsinks)
+  integer, intent(in) :: nsinks
+
+  integer :: i, pos
+  character(len=10) :: label
+
+  hierarchy = '11,12'
+
+  do i=1,nsinks-2
+     pos = scan(hierarchy, ',', .true.)
+
+     label = trim(hierarchy(pos+1:))
+
+     hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
+
+     !print*,label
+  end do
+
+end subroutine generate_hierarchy_string
+
+
+subroutine print_chess_logo()!id)
+ !use io,               only:master
+ !integer,           intent(in) :: id
+
+! if (id==master) then
+    print*,"                                                                      "
+    print*,"                                                       _:_            "
+    print*,"                                                      '-.-'           "
+    print*,"                                             ()      __.'.__          "
+    print*,"                                          .-:--:-.  |_______|         "
+    print*,"                                   ()      \____/    \=====/          "
+    print*,"                                   /\      {====}     )___(           "
+    print*,"                        (\=,      //\\      )__(     /_____\          "
+    print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
+    print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
+    print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
+    print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
+    print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
+    print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
+    print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
+    print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
+    print*,"     (______)(_______)(_______)(________)(________)(_________)        "
+    print*,"                                                                      "
+    print*,"          _             _       _    _           _           _        "
+    print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
+    print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
+    print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
+    print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
+    print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
+    print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
+    print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
+    print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
+    print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
+    print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
+    print*,"                                                                      "
+
+    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
+
+
+    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+    !         '        simulate the universe as a hierarchical system'
+
+! endif
+end subroutine print_chess_logo
 
 
 end module sethierarchical
-
-

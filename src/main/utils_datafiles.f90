@@ -52,20 +52,25 @@ function find_datafile(filename,dir,env_var,url,verbose) result(filepath)
  inquire(file=trim(filename),exist=iexist)
  if (iexist) then
     filepath = trim(filename)
+    if (isverbose) print "(a)",' reading '//trim(filepath)
  else
     ierr = 0
     mydir  = ' '
     if (present(env_var)) then
        my_env_var = env_var
+       call get_environment_variable(my_env_var,env_dir)
+    elseif (present(dir)) then
+       env_dir = dir
     else
-       my_env_var = 'DATA_DIR'
+       env_dir = './'
     endif
-    call get_environment_variable(my_env_var,env_dir)
     if (len_trim(env_dir) > 0) then
        mydir = trim(env_dir)
        if (present(dir)) mydir = trim(mydir)//'/'//trim(dir)//'/'
-       if (isverbose) print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//&
+       if (isverbose .and. present(env_var)) then
+          print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//&
                                   ' (from '//trim(my_env_var)//' setting)'
+       endif
        filepath = trim(mydir)//trim(filename)
        inquire(file=trim(filepath),exist=iexist)
        if (.not.iexist) then

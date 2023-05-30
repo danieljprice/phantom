@@ -321,9 +321,11 @@ for setup in $listofsetups; do
       colour=$white; # white (default)
       ncheck=$((ncheck + 1));
 
+      mydebug=''
       printf "Checking $setup ($target)... ";
       if [[ "$component" == "setup" ]]; then
          rm -f $phantomdir/bin/phantomsetup;
+         mydebug='DEBUG=yes' # compile phantomsetup with DEBUG=yes for setup test
          #make clean >& /dev/null;
       fi
       if [[ "$setup" == "blob" ]]; then
@@ -332,7 +334,7 @@ for setup in $listofsetups; do
       else
          mynowarn=$nowarn;
       fi
-      make SETUP=$setup $nolibs $mynowarn $maxp $target 1> $makeout 2> $errorlog; err=$?;
+      make SETUP=$setup $nolibs $mynowarn $maxp $target $mydebug 1> $makeout 2> $errorlog; err=$?;
       #--remove line numbers from error log files
       sed -e 's/90(.*)/90/g' -e 's/90:.*:/90/g' $errorlog | grep -v '/tmp' > $errorlog.tmp && mv $errorlog.tmp $errorlog;
       if [ $err -eq 0 ]; then

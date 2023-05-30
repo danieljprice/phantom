@@ -17,7 +17,7 @@ program phantomsetup
 ! :Dependencies: boundary, checksetup, dim, eos, fileutils, gravwaveutils,
 !   io, krome_interface, memory, mpidomain, mpiutils, options, part,
 !   physcon, readwrite_dumps, readwrite_infile, setBfield, setup,
-!   setup_params, systemutils, units
+!   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
  use dim,             only:tagline,maxp,maxvxyzu,mpi,&
@@ -34,6 +34,7 @@ program phantomsetup
  use setup,           only:setpart
  use setup_params,    only:ihavesetupB,npart_total
  use checksetup,      only:check_setup
+ use timestep,        only:time
  use physcon,         only:pi
  use units,           only:set_units,print_units,c_is_unity
  use mpiutils,        only:init_mpi,finalise_mpi,reduceall_mpi
@@ -51,7 +52,7 @@ program phantomsetup
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
- real                        :: time,pmassi
+ real                        :: pmassi
  logical                     :: iexist
 
  nprocs = 1    ! for MPI, this is not initialised until init_mpi, but an initialised value is required for init_part
@@ -78,9 +79,6 @@ program phantomsetup
     print*,'Error: File prefix should not contain _0000'
     print*,'       (these are assigned automatically)'
     print "(/,a)",' e.g. "phantomsetup mysim"'
-    stop
- elseif (fileprefix=='test') then
-    print*,'Error: cannot use ''test'' as the job name, please rename your .setup file'
     stop
  endif
  infile = trim(fileprefix)//'.in'

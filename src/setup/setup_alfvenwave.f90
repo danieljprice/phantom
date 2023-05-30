@@ -53,17 +53,20 @@ contains
 !  setup for MHD wave tests
 !+
 !----------------------------------------------------------------
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
+                   polyk,gamma,hfact,time,fileprefix)
  use dim,          only:maxvxyzu
  use setup_params, only:rhozero,ihavesetupB
  use unifdis,      only:set_unifdis,rho_func
- use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
- use part,         only:Bxyz,mhd,periodic
+ use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,&
+                        dxbound,dybound,dzbound
+ use part,         only:Bxyz,mhd,periodic,igas
  use io,           only:master
  use prompting,    only:prompt
  use mpiutils,     only:bcast_mpi
  use physcon,      only:pi
- use geometry,     only:igeom_rotated,igeom_cartesian,set_rotation_angles,coord_transform
+ use geometry,     only:igeom_rotated,igeom_cartesian,&
+                        set_rotation_angles,coord_transform
  use timestep,     only:tmax,dtmax
  use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
@@ -75,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: polyk,gamma
  real,              intent(in)    :: hfact
  real,              intent(inout) :: time
- character(len=20), intent(in)    :: fileprefix
+ character(len=*),  intent(in)    :: fileprefix
  real :: deltax,totmass
  integer :: i,ierr,igeom
  real :: przero,uuzero,Bvec(3),vvec(3),Bnew(3),Bzero(3),vzero(3)
@@ -102,9 +105,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  setupfile = trim(fileprefix)//'.setup'
  call read_setupfile(setupfile,gamma,ierr)
- if (ierr /= 0 .and. id==master) then
-    call interactive_setup()
-    call write_setupfile(setupfile,gamma)
+ if (ierr /= 0) then
+    if (id==master) then
+       call interactive_setup()
+       call write_setupfile(setupfile,gamma)
+       print*,' Edit '//trim(setupfile)//' and rerun phantomsetup'
+    endif
+    stop
  endif
  gamma = 5./3.
 !
@@ -148,6 +155,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Bzero  = (/1.,0.,0./)
     vzero  = 0.
     uuzero = przero/(gam1*rhozero)
+    vwave  = sqrt(dot_product(Bzero,Bzero)/rhozero) ! Alfven speed
  end select
 
  call prim_to_cons(rhozero,vzero,Bzero,uuzero,q0)
@@ -159,8 +167,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
             '   vwave = ',f6.3,',         period = ',f6.3,/)
 
  call print_amplitudes(rhozero,drho,vzero,dv,Bzero,dB,uuzero,du)
- print*,' rhozero = ',rhozero,'dv = ',dv,' dB = ',dB
- print*,drho,rhozero*dv,dB,du,du + dot_product(vzero,dv) + dot_product(Bzero,dB)/rhozero
 
  if (maxvxyzu < 4) then
     polyk = przero/rhozero**gamma
@@ -188,11 +194,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                      deltax,hfact,npart,xyzh,periodic,mask=i_belong)
  endif
  npartoftype(:) = 0
- npartoftype(1) = npart
+ npartoftype(igas) = npart
 
  totmass = rhozero*dxbound*dybound*dzbound
  massoftype = totmass/npart
- print*,'npart = ',npart,' particle mass = ',massoftype(1)
+ print*,'npart = ',npart,' particle mass = ',massoftype(igas)
 
 
  do i=1,npart

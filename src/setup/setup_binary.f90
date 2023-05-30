@@ -90,11 +90,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  vxyzu(:,:) = 0.
  nptmass = 0
  nstar = 2
- relax = .true.
- corotate = .false.
  do i=1,nstar
     call set_defaults_star(star(i))
  enddo
+ relax = .true.
+ corotate = .false.
  semi_major_axis = '10.'
  a    = 10.
  ecc  = 0.
