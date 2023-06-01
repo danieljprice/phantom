@@ -135,8 +135,12 @@ end subroutine init_star
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
      case (2)
-     	tthermi = (umini - ui) / dudt_rad
-     	dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+     	if (dudt_rad > 0.d0) then
+    	 	tthermi = (umini - ui) / dudt_rad
+     		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+     	else  ! ie Tmini == Ti
+     		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
+     	end if
      end select
      
      
@@ -145,6 +149,7 @@ end subroutine init_star
         print *, "rhoi=",rhoi, "Ti=", Ti
         print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
         print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+        print *, "dudt_rad=", dudt_rad 
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
