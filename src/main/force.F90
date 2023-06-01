@@ -1167,8 +1167,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
- if (icooling == 8) gradP_cool(i) = 0d0
- 
+ if (icooling == 8) then 
+ 	gradP_cool(i) = 0d0
+ 	Gpot_cool(i) = 0d0
+ endif
+ 	
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1680,6 +1683,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
+          
+          if (ieos == 8) Gpot_cool(i) = Gpot_cool(i) + 0.5*pmassj*phii
 
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
@@ -1918,9 +1923,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
- if (icooling == 8) then
-    Gpot_cool(i) = fsum(ipot)
- endif
  
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
@@ -2509,6 +2511,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef GR
  use part,           only:pxyzu
 #endif
+ use eos_stamatellos, only:Gpot_cool
 
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
@@ -2713,6 +2716,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
+    if (icooling == 8 .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + 0.5*(dx*fxi + dy*fyi + dz*fzi) ! add contribution from distant nodes
     if (gr .and. ien_type == ien_etotal) then
        fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
     endif

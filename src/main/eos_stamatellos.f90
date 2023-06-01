@@ -17,9 +17,7 @@ contains
     
     print *, "Allocating S07 arrays"
     allocate(gradP_cool(npart))
-    allocate(Gpot_cool(npart))
-    open (unit=iunitst,file='EOSinfo.dat',status='replace')
-    
+    allocate(Gpot_cool(npart))    
     
  end subroutine init_S07cool
 
@@ -27,7 +25,6 @@ contains
   deallocate(optable)
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
-  close(iunitst)
 end subroutine finish_S07cool
  
 subroutine read_optab(eos_file,ierr)

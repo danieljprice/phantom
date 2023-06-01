@@ -67,7 +67,7 @@ end subroutine init_star
      real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi
      
-     poti = Gpot_cool(i)
+     poti = Gpot_cool(i) 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
      if (isink_star > 0 .and. Lstar > 0) then
@@ -88,7 +88,7 @@ end subroutine init_star
    !  presi = Rg*Ti*rhoi
      select case (od_method)
      case (1)
-        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
+        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
         coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
         coldensi = coldensi*umass/udist/udist ! physical units
      case (2)
@@ -96,7 +96,6 @@ end subroutine init_star
         coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
         coldensi = coldensi *umass/udist/udist ! physical units
      end select
-!     write(iunitst,'(5E12.5)') coldensi,presi,gradP_cool(i)
      
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
@@ -135,7 +134,7 @@ end subroutine init_star
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
      case (2)
-     	if (dudt_rad > 0.d0) then
+     	if (abs(dudt_rad) > 0.d0) then
     	 	tthermi = (umini - ui) / dudt_rad
      		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
      	else  ! ie Tmini == Ti
