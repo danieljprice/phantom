@@ -1684,7 +1684,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
           
-          if (ieos == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+          if (icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
@@ -1913,7 +1913,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ipot) = fsum(ipot) + pmassj*phii
        
        !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (iamtypej == igas .and. ieos == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
+       if (iamtypej == igas .and. icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
