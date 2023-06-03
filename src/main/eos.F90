@@ -140,7 +140,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
  real,    intent(inout), optional :: tempi
  real,    intent(in)   , optional :: gamma_local
  real,    intent(in)   , optional :: vxi,vyi,vzi
- real :: r,omega,bigH,polyk_new,r1,r2
+ real :: r,omega,bigH,polyk_new,r1,r2,Rout !Rout used in case 20, defined there.
  real :: gammai,temperaturei
  real :: ai,entoti
  real :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
@@ -402,7 +402,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,eni,tempi,gam
        r = sqrt(xi**2 + yi**2 + zi**2)
        entoti = 0.5*(vxi**2+vyi**2+vzi**2)  - xyzmh_ptmass(4,1)/r
        ai = -xyzmh_ptmass(4,1)/(2.*entoti)
-       ponrhoi = polyk*ai**(-2.*qfacdisc)
+       Rout=120. !to be defined in here
+       if(ai > 0.) then
+           ponrhoi = polyk*ai**(-2.*qfacdisc)
+       else 
+           ponrhoi = polyk*r**(-2.*qfacdisc)
+           call warning('eos','ai<0 in ponrhoi, using ri')
+       endif
        spsoundi = sqrt(ponrhoi)
        if (present(tempi)) tempi = temperature_coef*gmw*ponrhoi
     else 
