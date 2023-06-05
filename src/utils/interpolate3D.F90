@@ -107,16 +107,16 @@ x(:) = xyzh(1,:)
 y(:) = xyzh(2,:)
 z(:) = xyzh(3,:)
 hh(:) = xyzh(4,:)
-print*, "smoothing length: ", hh(1:10)
+!print*, "smoothing length: ", hh(1:10)
 ! cnormk3D set the value from the kernel routine
 cnormk3D = cnormk
 radkernel = radkern
 radkernel2 = radkern2
-print*, "radkern: ", radkern
-print*, "radkernel: ",radkernel
-print*, "radkern2: ", radkern2
+! print*, "radkern: ", radkern
+! print*, "radkernel: ",radkernel
+! print*, "radkern2: ", radkern2
 
-print*, "npix: ", npixx, npixy,npixz
+! print*, "npix: ", npixx, npixy,npixz
 
 if (exact_rendering) then
 print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
@@ -161,11 +161,11 @@ usedpart = 0
 xminpix = xmin !- 0.5*pixwidthx
 yminpix = ymin !- 0.5*pixwidthy
 zminpix = zmin !- 0.5*pixwidthz
-print*, "xminpix: ", xminpix
-print*, "yminpix: ", yminpix
-print*, "zminpix: ", zminpix
-print*, "dat: ", dat(1:10)
-print*, "weights: ", weight(1:10)
+! print*, "xminpix: ", xminpix
+! print*, "yminpix: ", yminpix
+! print*, "zminpix: ", zminpix
+! print*, "dat: ", dat(1:10)
+! print*, "weights: ", weight(1:10)
 pixwidthmax = max(pixwidthx,pixwidthy,pixwidthz)
 !
 !--use a minimum smoothing length on the grid to make
@@ -175,7 +175,7 @@ hmin = 0.5*pixwidthmax
 !dhmin3 = 1./(hmin*hmin*hmin)
 
 const = cnormk3D  ! normalisation constant (3D)
-print*, "const: ", const
+!print*, "const: ", const
 nwarn = 0
 j = 0_8
 threadid = 1
@@ -415,7 +415,7 @@ if (allocated(datnorm)) deallocate(datnorm)
 !call wall_time(t_end)
 call cpu_time(t_end)
 t_used = t_end - t_start
-print*, 'completed in ',t_end-t_start,'s'
+print*, 'Interpolate3D completed in ',t_end-t_start,'s'
 !if (t_used > 10.) call print_time(t_used)
 
 !print*, 'Number of particles in the volume: ', usedpart
@@ -469,16 +469,16 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  y(:) = xyzh(2,:)
  z(:) = xyzh(3,:)
  hh(:) = xyzh(4,:)
- print*, "smoothing length: ", hh(1:10)
+ !print*, "smoothing length: ", hh(1:10)
  ! cnormk3D set the value from the kernel routine
  cnormk3D = cnormk
  radkernel = radkern
  radkernel2 = radkern2
- print*, "radkern: ", radkern
- print*, "radkernel: ",radkernel
- print*, "radkern2: ", radkern2
+!  print*, "radkern: ", radkern
+!  print*, "radkernel: ",radkernel
+!  print*, "radkern2: ", radkern2
 
- print*, "npix: ", npixx, npixy,npixz
+ !print*, "npix: ", npixx, npixy,npixz
 
  if (exact_rendering) then
     print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
@@ -497,10 +497,10 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
 
  !call wall_time(t_start)
 
-!$ allocate(ilock(npixx*npixy*npixz))
-!$ do i=1,npixx*npixy*npixz
-!$  call omp_init_lock(ilock(i))
-!$ enddo
+!! $ allocate(ilock(npixx*npixy*npixz))
+!! $ do i=1,npixx*npixy*npixz
+!! $  call omp_init_lock(ilock(i))
+!! $ enddo
 
  datsmooth = 0.
  if (normalise) then
@@ -542,7 +542,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !dhmin3 = 1./(hmin*hmin*hmin)
 
  const = cnormk3D  ! normalisation constant (3D)
- print*, "const: ", const
+ !print*, "const: ", const
  nwarn = 0
  j = 0_8
  threadid = 1
@@ -735,15 +735,18 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !
                    ! Find out where this pixel sits in the lock array 
                    ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
-                   lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
+                   !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
                    !!$call omp_set_lock(ilock(lockindex))
-                   !$omp critical 
+                   !$omp critical (datsmooth)
                    datsmooth(:,ipixi,jpixi,kpixi) = datsmooth(:,ipixi,jpixi,kpixi) + term(:)*wab
+                   !$omp end critical (datsmooth)
                    if (normalise) then
                       !!$omp atomic
+                      !$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
+                      !$omp end critical (datnorm)
                    endif
-                   !$omp end critical 
+                   
                    !!$call omp_unset_lock(ilock(lockindex))
                 endif
              else
@@ -760,16 +763,19 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !!$omp set lock ! Does this work with an array?
                    ! Find out where this pixel sits in the lock array 
                    ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
-                   lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
+                   !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
                    !!$call omp_set_lock(ilock(lockindex)) 
-                   !$omp critical 
+                   !$omp critical (datsmooth)
                    datsmooth(:,ipixi,jpixi,kpixi) = datsmooth(:,ipixi,jpixi,kpixi) + term(:)*wab
+                   !$omp end critical (datsmooth)
                    if (normalise) then
                       !!$omp atomic
+                      !$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
+                      !$omp end critical (datnorm)
                    endif
                   !!$call omp_unset_lock(ilock(lockindex)) 
-                  !$omp end critical 
+                  
                 endif
              endif
           enddo
@@ -779,10 +785,10 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp enddo
  !$omp end parallel
 
-!$ do i=1,npixx*npixy*npixz
-!$  call omp_destroy_lock(ilock(i))
-!$ enddo
-!$ if (allocated(ilock)) deallocate(ilock)
+!!$ do i=1,npixx*npixy*npixz
+!!$  call omp_destroy_lock(ilock(i))
+!!$ enddo
+!!$ if (allocated(ilock)) deallocate(ilock)
 
  if (nwarn > 0) then
     print "(a,i11,a,/,a)",' interpolate3D: WARNING: contributions truncated from ',nwarn,' particles',&
@@ -804,7 +810,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !call wall_time(t_end)
  call cpu_time(t_end)
  t_used = t_end - t_start
- print*, 'completed in ',t_end-t_start,'s'
+ print*, 'Interpolate3DVec completed in ',t_end-t_start,'s'
  !if (t_used > 10.) call print_time(t_used)
 
  !print*, 'Number of particles in the volume: ', usedpart

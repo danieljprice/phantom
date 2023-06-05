@@ -326,16 +326,16 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
  call unpack_metric(metrici,gcov=gcov,gcon=gcon,gammaijdown=gammaijdown,alpha=alpha,betadown=betadown)
  !print*, "After unpack metric"
 
- if (present(verbose) .and. verbose) then
-    ! Do we get sensible values
-    print*, "Unpacked metric quantities..."
-    print*, "gcov: ", gcov
-    print*, "gcon: ", gcon
-    print*, "gammaijdown: ", gammaijdown
-    print* , "alpha: ", alpha
-    print*, "betadown: ", betadown
-    print*, "v4: ", v4
- endif
+!  if (present(verbose) .and. verbose) then
+!     ! Do we get sensible values
+!     print*, "Unpacked metric quantities..."
+!     print*, "gcov: ", gcov
+!     print*, "gcon: ", gcon
+!     print*, "gammaijdown: ", gammaijdown
+!     print* , "alpha: ", alpha
+!     print*, "betadown: ", betadown
+!     print*, "v4: ", v4
+!  endif
 
  ! ! Need to change Betadown to betaup
  ! ! Won't matter at this point as it is allways zero
@@ -385,24 +385,24 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
  enddo
 
 
- if (present(verbose) .and. verbose) then
-    ! Do we get sensible values
-    print*, "Unpacked metric quantities..."
-    print*, "gcov: ", gcov
-    print*, "gcon: ", gcon
-    print*, "gammaijdown: ", gammaijdown
-    print* , "alpha: ", alpha
-    print*, "betadown: ", betadown
-    print*, "v4: ", v4
- endif
+!  if (present(verbose) .and. verbose) then
+!     ! Do we get sensible values
+!     print*, "Unpacked metric quantities..."
+!     print*, "gcov: ", gcov
+!     print*, "gcon: ", gcon
+!     print*, "gammaijdown: ", gammaijdown
+!     print* , "alpha: ", alpha
+!     print*, "betadown: ", betadown
+!     print*, "v4: ", v4
+!  endif
 
- if (verbose) then
-    print*, "tmunu part: ", tmunu
-    print*, "dens: ", dens
-    print*, "w: ", w
-    print*, "p: ", p
-    print*, "gcov: ", gcov
- endif
+!  if (verbose) then
+!     print*, "tmunu part: ", tmunu
+!     print*, "dens: ", dens
+!     print*, "w: ", w
+!     print*, "p: ", p
+!     print*, "gcov: ", gcov
+!  endif
 
  ! print*, "tmunu part: ", tmunu
  ! print*, "dens: ", dens

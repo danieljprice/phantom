@@ -424,7 +424,7 @@ end subroutine phantom2et_momentum
 
 
  ! Subroutine for performing a phantom dump from einstein toolkit
-subroutine et2phantom_dumphydro(time,dt_et)
+subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use cons2prim, only:cons2primall
  use part, only:npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars
  use einsteintk_utils
@@ -432,22 +432,38 @@ subroutine et2phantom_dumphydro(time,dt_et)
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use fileutils,        only:getnextfilename
  real, intent(in)  :: time, dt_et
+ !logical, intent(in), optional :: checkpoint
+ !integer, intent(in) :: checkpointno 
+ character(*),optional, intent(in) :: checkpointfile
+ logical :: createcheckpoint 
+
+ if (present(checkpointfile)) then 
+       createcheckpoint = .true.
+ else 
+     createcheckpoint = .false.
+ endif   
  !character(len=20) :: logfile,evfile,dumpfile
 
  ! Call cons2prim since values are updated with MoL
  !call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  ! Write EV_file
- call write_evfile(time,dt_et)
+ if (.not. createcheckpoint) then 
+       call write_evfile(time,dt_et)
 
- evfilestor  = getnextfilename(evfilestor)
- logfilestor = getnextfilename(logfilestor)
- dumpfilestor = getnextfilename(dumpfilestor)
+       evfilestor  = getnextfilename(evfilestor)
+       logfilestor = getnextfilename(logfilestor)
+       dumpfilestor = getnextfilename(dumpfilestor)
+       call write_fulldump(time,dumpfilestor)
+ endif 
 
  !print*, "Evfile: ", evfilestor
  !print*, "logfile: ", logfilestor
  !print*, "dumpfle: ", dumpfilestor
  ! Write full dump
- call write_fulldump(time,dumpfilestor)
+ if (createcheckpoint) then 
+       call write_fulldump(time,checkpointfile) 
+ endif 
+ 
 
 end subroutine et2phantom_dumphydro
 

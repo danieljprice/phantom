@@ -133,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
- hub =  10.553495658357338/100.d0
+ hub =  10.553495658357338/10.d0
  !hub = 23.588901903912664
  !hub = 0.06472086375185665
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)

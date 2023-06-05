@@ -136,18 +136,18 @@ do i=1,4
       !print*,"i j is: ", i, j
       !print*, "Index in array is: ", (i-1)*4 + j
       tmunugrid(i-1,j-1,:,:,:) = datsmooth((i-1)*4 + j, :,:,:)
-      print*, "tmunugrid: ", tmunugrid(i-1,j-1,10,10,10)
-      print*, datsmooth((i-1)*4 + j, 10,10,10)
+      !print*, "tmunugrid: ", tmunugrid(i-1,j-1,10,10,10)
+      !print*, datsmooth((i-1)*4 + j, 10,10,10)
    enddo
 enddo
 !stop 
-do k=1,4
-   do j=1,4
-      do i=1,4
-         print*, "Lock index is: ", (k-1)*16+ (j-1)*4 + i
-      enddo
-   enddo
-enddo 
+! do k=1,4
+!    do j=1,4
+!       do i=1,4
+!          print*, "Lock index is: ", (k-1)*16+ (j-1)*4 + i
+!       enddo
+!    enddo
+! enddo 
 
 ! tmunugrid(0,0,:,:,:) = datsmooth(1,:,:,:)
                   
