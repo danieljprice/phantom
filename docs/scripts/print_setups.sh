@@ -53,7 +53,7 @@ print_setup()
   printf "+\n"
 }
 if [ "$1" == "best" ]; then
-   listofsetups='disc star jet turb cluster'
+   listofsetups='disc star binary wind jet turb cluster'
 else
    listofsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | sort`
 fi
