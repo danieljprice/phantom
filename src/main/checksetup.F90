@@ -204,22 +204,22 @@ subroutine check_setup(nerror,nwarn,restart)
  do i=1,npart
     !--check for NaNs in xyzh
     if (any(xyzh(:,i) /= xyzh(:,i))) then
-       print*,'NaN in position/smoothing length (xyzh array) : ', i
+       if (nerror < 10) print*,'NaN in position/smoothing length (xyzh array) : ', i
        nerror = nerror + 1
     endif
     !--check for NaNs in velocity
     if (any(vxyzu(:,i) /= vxyzu(:,i))) then
        if (maxvxyzu >= 4) then
-          print*,'NaN in velocity/utherm (vxyzu array) : ', i
+          if (nerror < 10) print*,'NaN in velocity/utherm (vxyzu array) : ', i
        else
-          print*,'NaN in velocity field (vxyzu array) : ', i
+          if (nerror < 10) print*,'NaN in velocity field (vxyzu array) : ', i
        endif
        nerror = nerror + 1
     endif
     !--check for NaNs in B field
     if (mhd) then
        if (any(Bxyz(:,i) /= Bxyz(:,i))) then
-          print*,'NaN in magnetic field (Bxyz array) : ', i
+          if (nbad < 10) print*,'NaN in magnetic field (Bxyz array) : ', i
           nerror = nerror + 1
        endif
     endif
