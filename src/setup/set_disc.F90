@@ -321,9 +321,9 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  !--dust mass
  !
+ sigma_normdust = 1.d0
  if (do_mixture) then
     !--sigma_normdust set from dust disc mass
-    sigma_normdust = 1.d0
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
                        sigma_normdust,star_m,p_indexdust,q_inddust, &
                        R_indust,R_outdust,R_ref,R_c_dust,H_Rdust)
@@ -1184,16 +1184,14 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
  enc_m = 0.
  toomre_min = huge(toomre_min)
  disc_m = 0.
- dR = rad(2)-rad(1) !(R_out-R_in)/real(maxbins-1)
+ dR = rad(2)-rad(1)
  do i=1,maxbins
-    !R = R_in + (i-1)*dR
     R = rad(i)
     sigma = sigma_norm * scaled_sigma(R,sigmaprofile,pindex,R_ref,R_in,R_out,R_c)
     !--disc mass
     dM = 2.*pi*R*sigma*dR
     disc_m = disc_m + dM
     enc_m(i) = disc_m
-    !rad(i) = R + 0.5*dR
     !--Toomre Q
     cs = cs_func(cs0,R,qindex)
     kappa = sqrt(G*star_m/R**3)
@@ -1201,10 +1199,6 @@ subroutine get_disc_mass(disc_m,enc_m,rad,toomre_min,sigmaprofile,sigma_norm, &
        toomre_min = min(toomre_min,real(cs*kappa/(pi*G*sigma)))
     endif
  enddo
- !enc_m = enc_m + star_m
- print*,'discmass = ',disc_m
- !print*,'enc_m = ',enc_m(1:20)
- !read*
 
 end subroutine get_disc_mass
 
