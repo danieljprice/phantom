@@ -7,7 +7,7 @@ module eos_stamatellos
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
- integer,public :: iunitst=19
+!integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
@@ -18,16 +18,15 @@ contains
     print *, "Allocating S07 arrays"
     allocate(gradP_cool(npart))
     allocate(Gpot_cool(npart))
-    open (unit=iunitst,file='EOSinfo.dat',status='replace')
-    
-    
+   ! open (unit=iunitst,file='EOSinfo.dat',status='replace')
+     
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
   deallocate(optable)
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
-  close(iunitst)
+  !close(iunitst)
 end subroutine finish_S07cool
  
 subroutine read_optab(eos_file,ierr)

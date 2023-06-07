@@ -57,8 +57,7 @@ end subroutine init_star
      use io,       only:warning
      use physcon,  only:steboltz,pi,solarl,Rg
      use units,    only:umass,udist,unit_density,unit_ergg,utime
-     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
-          iunitst
+     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool
      use part,       only:eos_vars,igasP,xyzmh_ptmass
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
@@ -125,7 +124,6 @@ end subroutine init_star
 	case (1)
      if ((dudti_sph + dudt_rad) == 0.d0) then
         tthermi = 0d0
-        write(iunitst,'(A)') "ttherm=0"
      else
         tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
      endif
