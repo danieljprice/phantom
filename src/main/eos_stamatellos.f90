@@ -73,7 +73,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  real kappa1,kappa2
  real Tpart1,Tpart2
  real gmw1,gmw2
- real cv
+ real cv,cv1,cv2
  real ui_, rhoi_,rhomin,umin
 
  rhomin = OPTABLE(1,1,1)
@@ -121,6 +121,9 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = OPTABLE(i-1,j,4) - m*OPTABLE(i-1,j,3)
 
  gmw1 = m*ui_ + c
+
+! cv=dU/dT
+ cv1 = (OPTABLE(i-1,j,3)-OPTABLE(i-1,j-1,3))/(OPTABLE(i-1,j,2)-OPTABLE(i-1,j-1,2))
  
  j = 1
  do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.ny))
@@ -168,8 +171,9 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = gmw2 - m*OPTABLE(i,1,1)
 
  gmwi = m*rhoi_ + c
-
- cv = ui_/Ti
+! cv=dU/dT
+ cv2 = (OPTABLE(i,j,3)-OPTABLE(i,j-1,3))/(OPTABLE(i,j,2)-OPTABLE(i,j-1,2))
+ cv = 0.5 *(cv1+cv2)
  gammai = 1.0d0 + kboltz/atomic_mass_unit/gmwi/cv
 end subroutine getopac_opdep
 
