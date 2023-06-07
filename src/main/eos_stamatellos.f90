@@ -19,7 +19,6 @@ contains
     allocate(gradP_cool(npart))
     allocate(Gpot_cool(npart))
    ! open (unit=iunitst,file='EOSinfo.dat',status='replace')
-     
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
