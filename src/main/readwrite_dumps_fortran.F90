@@ -244,7 +244,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use krome_user, only:krome_nmols
  use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
- use eos_stamatellos, only: Gpot_cool, gradP_cool, iunitst
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -308,15 +307,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !--open dumpfile
 !
  masterthread: if (id==master) then
- 	! write Gpot to file
-! 	open (unit=iunitst,file=trim(dumpfile)//'_info.dat',status='replace')
-! 	write(iunitst,'(4A15)') 'R', 'Gpot_cool', 'gradP_cool', 'P'
-! 	do i=1, nparttot
- !		r = sqrt(xyzh(1,i)*xyzh(1,i) +  xyzh(2,i)*xyzh(2,i) + xyzh(3,i)*xyzh(3,i) )
-  !  	write(iunitst,'(4E15.5)') r,Gpot_cool(i),gradP_cool(i),eos_vars(igasP,i)
-   ! enddo
-!	close(iunitst)
-
     if (idtmax_frac==0) then
        write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
     else
