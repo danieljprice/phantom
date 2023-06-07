@@ -172,7 +172,6 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  gmwi = m*rhoi_ + c
 ! cv=dU/dT
  cv2 = (OPTABLE(i,j,3)-OPTABLE(i,j-1,3))/(OPTABLE(i,j,2)-OPTABLE(i,j-1,2))
- ! cv = ui_/Ti
  cv = 0.5 *(cv1+cv2)
  gammai = 1.0d0 + kboltz/atomic_mass_unit/gmwi/cv
 end subroutine getopac_opdep
