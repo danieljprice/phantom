@@ -78,6 +78,14 @@ ifeq ($(SETUP), asteroidwind)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), solarsystem)
+#   orbits of minor planets
+    ISOTHERMAL=yes
+    SETUPFILE=utils_mpc.f90 setup_solarsystem.f90
+    KNOWN_SETUP=yes
+    DUST=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes
@@ -294,7 +302,7 @@ ifeq ($(SETUP), planetdisc)
 endif
 
 ifeq ($(SETUP), exoALMA)
-#   exoALMA comparison project: planet disc interaction with fixed planet orbit
+#   exoALMA comparison of planet-disc interaction
     SETUPFILE=setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes

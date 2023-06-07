@@ -22,12 +22,11 @@ module sethier_utils
  integer, parameter, public :: hier_db_size=10, hier_db_prop=10
  integer, parameter, public :: lenhierstring = 100
  real, parameter, public :: pi = 4.*atan(1.)
- integer, parameter, public :: &
- ierr_HIER2 = 6, &
- ierr_subststar = 7, &
- ierr_Omegasubst = 8, &
- ierr_missstar = 9
 
+ integer, parameter, public :: ierr_HIER2      = 6, &
+                               ierr_subststar  = 7, &
+                               ierr_Omegasubst = 8, &
+                               ierr_missstar   = 9
 
  type hs_labels
     integer :: sink_num, hl_num
@@ -57,13 +56,13 @@ module sethier_utils
 
  private
 
-
 contains
 
 !--------------------------------------------------------------------------
-!
-! Process the .setup hierarchy string to extract information for building the system
-!
+!+
+!  Process the .setup hierarchy string to extract information
+!  for building the system
+!+
 !--------------------------------------------------------------------------
 pure function process_hierarchy(string) result(mylabels)
  character(len=*), intent(in) :: string
@@ -109,18 +108,16 @@ pure function process_hierarchy(string) result(mylabels)
 
 end function process_hierarchy
 
-
- !--------------------------------------------------------------------------
- !
- ! Reverse the splitting process from sink_labels to build the system
- !
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  reverse the splitting process from sink_labels to build the system
+!+
+!--------------------------------------------------------------------------
 pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, splits)
- character(len=10), intent(in) :: sink_list(:)
- integer, intent(in) ::sink_num
+ character(len=10), intent(in)    :: sink_list(:)
+ integer,           intent(in)    :: sink_num
  character(len=10), intent(inout) :: split_list(:)
- integer, intent(inout)    :: splits
-
+ integer,           intent(inout) :: splits
 
  integer :: i, longest, longests_len, count
  character(len=10) :: longests(max_hier_levels), new_splits(max_hier_levels)
@@ -155,7 +152,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     !print*, 'found ', longests_len, ' sinks long ', longest
     !print*, '  they are ', longests
 
-
     ! Cut the longest and add to split list with no doubles
     count=0
     do i=1,longests_len
@@ -177,7 +173,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     enddo
     splits = splits + count
 
-
     !print *, 'adding new splits: ', split_list
 
     ! Clean sink_list_temp from doubles
@@ -191,7 +186,6 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
 
     !print *, 'sink to generate after new splits: ', sink_list_temp
 
-
     !print *, '_'
     !print *, new_sink_list(:count)
     !print *, split_list(:splits)
@@ -200,15 +194,14 @@ pure recursive subroutine recursive_splitting(sink_num, sink_list, split_list, s
     call recursive_splitting(count, new_sink_list(:), split_list(:), splits)
 
  endif
+
 end subroutine recursive_splitting
 
-
-
- !--------------------------------------------------------------------------
- !
- ! Compute the total mass of an hierarchical level
- !
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!+
+!  compute the total mass of an hierarchical level
+!+
+!--------------------------------------------------------------------------
 !pure
 real function get_hierarchical_level_mass(level, hs) result(part_mass)
  character(len=*), intent(in) :: level
@@ -231,10 +224,14 @@ real function get_hierarchical_level_mass(level, hs) result(part_mass)
 
 end function get_hierarchical_level_mass
 
-
+!--------------------------------------------------------------------------
+!+
+!  read information from the hierarchy file
+!+
+!--------------------------------------------------------------------------
 subroutine load_hierarchy_file(prefix, data, lines, ierr)
- character(len=20), intent(in), optional:: prefix
- integer,    intent(out)    :: ierr, lines
+ character(len=20), intent(in), optional :: prefix
+ integer,           intent(out) :: ierr, lines
  real, dimension(hier_db_size,hier_db_prop), intent(out) :: data
 
  character(len=20) :: filename
@@ -264,6 +261,11 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
  endif
 end subroutine load_hierarchy_file
 
+!--------------------------------------------------------------------------
+!+
+!  write information to the hierarchy file
+!+
+!--------------------------------------------------------------------------
 subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, ierr)
  integer, intent(in) :: i1, i2
  character(len=20), intent(in), optional:: prefix
@@ -273,7 +275,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
  integer,    intent(inout)    :: lines
  integer,    intent(out)    :: ierr
 
- integer :: i
+ integer :: i,iu
  real :: mprimary, msecondary, semimajoraxis, eccentricity, incl, arg_peri, posang_ascnode, binary_f
  real :: accr1, accr2
  real :: period
@@ -281,7 +283,6 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
  logical :: iexist
 
  !print*,'updating: ',trim(adjustl(hier_prefix))
-
 
  call find_hier_level_orb_elem(hier_prefix, hs, mprimary, msecondary, accr1, accr2, &
        semimajoraxis, eccentricity, incl, posang_ascnode, &
@@ -291,7 +292,6 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
  !     semimajoraxis, eccentricity, incl, posang_ascnode, &
  !     arg_peri, binary_f
 
-
  period = sqrt(4.*pi**2*semimajoraxis**3/(mprimary+msecondary))
 
  if (present(prefix)) then
@@ -300,32 +300,32 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
     filename = 'HIERARCHY'
  endif
 
- if (lines>0) then
-    open(2, file = trim(filename), status = 'old')
+ if (lines > 0) then
+    open(newunit=iu, file = trim(filename), status = 'old')
     do i=1,lines
-       write(2,*) int(data(i,1)), int(data(i,2)), data(i,3:)
+       write(iu,*) int(data(i,1)), int(data(i,2)), data(i,3:)
     enddo
  else
     inquire(file=trim(filename), exist=iexist)
-    if (iexist) then
-       print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
-       open(1, file=trim(filename), status='old')
-       close(1, status='delete')
-    endif
+    if (iexist) print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
 
-    open(2, file = trim(filename), status = 'new')
+    open(newunit=iu, file = trim(filename), status = 'replace')
  endif
- write(2,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
+ write(iu,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
        period, incl, arg_peri, posang_ascnode
- write(2,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
+ write(iu,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
        period, incl, arg_peri, posang_ascnode
- close(2)
+ close(iu)
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
 end subroutine update_hierarchy_file
 
-
+!--------------------------------------------------------------------------
+!+
+!  check that a substitution is valid
+!+
+!--------------------------------------------------------------------------
 subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
  character(len=20), intent(in) :: hier_prefix, prefix
  real, intent(in) :: semimajoraxis
@@ -380,14 +380,16 @@ subroutine check_substitution(hier_prefix, semimajoraxis, prefix, ierr)
 
 end subroutine check_substitution
 
-
-
-!pure
+!--------------------------------------------------------------------------
+!+
+!  find orbital elements for a particular binary
+!+
+!--------------------------------------------------------------------------
 subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
                                     binary_a, binary_e, binary_i, binary_O, &
                                     binary_w, binary_f)
 
- character(len=20), intent(in) :: hl_temp
+ character(len=20),         intent(in) :: hl_temp
  type(hierarchical_system), intent(in) :: hs
  real, intent(out) :: m1, m2, accr1, accr2, binary_a, binary_e, binary_i, binary_O, binary_w, binary_f
 
@@ -421,39 +423,33 @@ subroutine find_hier_level_orb_elem(hl_temp, hs, m1, m2, accr1, accr2, &
  binary_i = hs%levels(hl_index)%inc
  binary_f = hs%levels(hl_index)%f
 
-
-
 end subroutine find_hier_level_orb_elem
 
-! find label ptmass index
+!--------------------------------------------------------------------------
+!+
+!  find index of ptmass corresponding to a particular label
+!+
+!--------------------------------------------------------------------------
 subroutine find_ptmass_index(hier_label, index, prefix, ierr)
  integer,    intent(out)    :: index, ierr
  character(len=20), intent(in), optional:: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int
+ integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
- read(hier_label,*,iostat=hier_int) hier_int
+ read(hier_label,*,iostat=io) hier_int
 
  index = int(data(findloc(int(data(:,2)), hier_int, 1),1))
 
- !print*, 'idx ', index, int(data(index,2))
- !print*, int(data(:,2))
- !print*, 'idx '
-
- !print*, int(data(:,2))
- !print*, hier_label, index
-
-
 end subroutine find_ptmass_index
 
-
 !--------------------------------------------------------------------------
-!
-! Retrieve sink ptmass index or hierarchical level's sink ptmass indexes in HIERARCHY file
-!
+!+
+!  retrieve sink ptmass index or hierarchical level's sink ptmass
+!  indexes in HIERARCHY file
+!+
 !--------------------------------------------------------------------------
 subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  character(len=10), intent(in) :: level
@@ -462,14 +458,13 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
  character(len=20), optional, intent(in) :: prefix
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer                :: i, lines, ierr, h_index
+ integer                :: i, lines, ierr, h_index, io
 
  character(len=10)      :: label = '         '
 
- read(level, *, iostat=h_index) h_index
+ read(level, *, iostat=io) h_index
 
  call load_hierarchy_file(prefix, data, lines, ierr)
-
 
  inner_sinks_num = 0
  do i=1, lines
@@ -482,30 +477,32 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
 
 end subroutine find_hierarchy_index
 
-
-! return position of hier_label in hierarchy file
+!--------------------------------------------------------------------------
+!+
+!  return position of hier_label in hierarchy file
+!+
+!--------------------------------------------------------------------------
 subroutine find_data_index(hier_label, index, prefix, ierr)
  integer,    intent(out)    :: index, ierr
  character(len=20), intent(in), optional:: prefix, hier_label
 
  real, dimension(hier_db_size,hier_db_prop) :: data
- integer :: lines, hier_int
+ integer :: lines, hier_int, io
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 
- read(hier_label,*,iostat=hier_int) hier_int
+ read(hier_label,*,iostat=io) hier_int
 
  index = findloc(int(data(:,2)), hier_int, 1)
 
 end subroutine find_data_index
 
-
-
-!------------------------------------
-! Rotate an (x,y,z) point by theta
-! radiants around an axis with alpha,
-! beta and gamma eulerian angles
-!------------------------------------
+!------------------------------------------------------
+!+
+!  Rotate an (x,y,z) point by theta radians around an
+!  axis with alpha, beta and gamma eulerian angles
+!+
+!------------------------------------------------------
 pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
  real, intent(inout) :: xyz(3)
  real, intent(in)    :: alpha, beta, gamma,theta
@@ -533,9 +530,5 @@ pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
  xyz(3) = G*xi+H*yi+I*zi
 
 end subroutine gen_rotate
-
-
-
-
 
 end module sethier_utils
