@@ -442,7 +442,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !logical, intent(in), exact_rendering
  real(doub_prec), allocatable :: datnorm(:,:,:)
 
- integer :: i,ipix,jpix,kpix,lockindex
+ integer :: i,ipix,jpix,kpix,lockindex,smoothindex
  integer :: iprintinterval,iprintnext
  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
  integer :: ipixi,jpixi,kpixi,nxpix,nwarn,threadid
@@ -553,7 +553,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp shared(hh,z,x,y,weight,dat,itype,datsmooth,npart) &
  !$omp shared(xmin,ymin,zmin,radkernel,radkernel2) &
  !$omp shared(xminpix,yminpix,zminpix,pixwidthx,pixwidthy,pixwidthz) &
- !$omp shared(npixx,npixy,npixz,const) &
+ !$omp shared(npixx,npixy,npixz,const,ilendat) &
  !$omp shared(datnorm,normalise,periodicx,periodicy,periodicz,exact_rendering) &
  !$omp shared(hmin,pixwidthmax) &
  !$omp shared(iprintprogress,iprintinterval,j) &
@@ -562,7 +562,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax) &
  !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi) &
  !$omp private(dx2i,nxpix,zpix,dz,dz2,dyz2,dy,ypix,q2,wab) &
- !$omp private(pixint,wint,negflag,dfac,threadid,lockindex) &
+ !$omp private(pixint,wint,negflag,dfac,threadid,lockindex,smoothindex) &
  !$omp firstprivate(iprintnext) &
  !$omp reduction(+:nwarn,usedpart)
  !$omp master
@@ -737,14 +737,17 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
                    !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
                    !!$call omp_set_lock(ilock(lockindex))
-                   !$omp critical (datsmooth)
-                   datsmooth(:,ipixi,jpixi,kpixi) = datsmooth(:,ipixi,jpixi,kpixi) + term(:)*wab
-                   !$omp end critical (datsmooth)
+                   !!$omp critical (datsmooth)
+                   do smoothindex=1, ilendat
+                     !$omp atomic 
+                     datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
+                   enddo 
+                   !!$omp end critical (datsmooth)
                    if (normalise) then
-                      !!$omp atomic
-                      !$omp critical (datnorm)
+                      !$omp atomic
+                      !!$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                      !$omp end critical (datnorm)
+                      !!$omp end critical (datnorm)
                    endif
                    
                    !!$call omp_unset_lock(ilock(lockindex))
@@ -765,14 +768,17 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
                    !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
                    !!$call omp_set_lock(ilock(lockindex)) 
-                   !$omp critical (datsmooth)
-                   datsmooth(:,ipixi,jpixi,kpixi) = datsmooth(:,ipixi,jpixi,kpixi) + term(:)*wab
-                   !$omp end critical (datsmooth)
+                   !!$omp critical (datsmooth)
+                   do smoothindex=1,ilendat
+                     !$omp atomic 
+                     datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
+                   enddo 
+                   !!$omp end critical (datsmooth)
                    if (normalise) then
-                      !!$omp atomic
-                      !$omp critical (datnorm)
+                      !$omp atomic
+                      !!$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                      !$omp end critical (datnorm)
+                      !!$omp end critical (datnorm)
                    endif
                   !!$call omp_unset_lock(ilock(lockindex)) 
                   

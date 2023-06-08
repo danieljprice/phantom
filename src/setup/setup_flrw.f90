@@ -133,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
- hub =  10.553495658357338/10.d0
+ hub =  10.553495658357338!/10.d0
  !hub = 23.588901903912664
  !hub = 0.06472086375185665
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
@@ -198,7 +198,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! time should be read in from the par file
  !time   = 0.08478563386065302 
- time = 1.8951066686763596 ! z~1000
+ time = 0.18951066686763596 ! z~1000
  lambda = perturb_wavelength*length
  kwave  = (2.d0*pi)/lambda
  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
