@@ -58,7 +58,7 @@ end subroutine init_star
      use physcon,  only:steboltz,pi,solarl,Rg
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool
-     use part,       only:eos_vars,igasP,xyzmh_ptmass
+     use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
@@ -83,6 +83,7 @@ end subroutine init_star
 ! get opacities & Ti for ui
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi,gammai)
+      eos_vars(igamma,i) = gammai
       presi = eos_vars(igasP,i)
    !  presi = Rg*Ti*rhoi
      select case (od_method)

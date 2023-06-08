@@ -431,10 +431,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     cgseni = eni * unit_ergg
     call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
     ! gammai is derived from the tables
-  !  print *, 'EOS gamma=', gammai
     ponrhoi = (gammai - 1.) * eni
     spsoundi = sqrt(gammai*ponrhoi)
-    
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.

@@ -174,7 +174,8 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
 ! cv=dU/dT
  cv2 = (OPTABLE(i,j,3)-OPTABLE(i,j-1,3))/(OPTABLE(i,j,2)-OPTABLE(i,j-1,2))
  cv = 0.5 *(cv1+cv2)
- gammai = 1.0d0 + kboltz/atomic_mass_unit/gmwi/cv
+ gammai = 1.0d0 + (kboltz/atomic_mass_unit/gmwi/cv)
+! print *, 'gammai in eos_Stam:', gammai
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
