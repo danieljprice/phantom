@@ -111,7 +111,7 @@ module setup
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,years
- use setdisc,          only:scaled_sigma,get_disc_mass
+ use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
                             dustbinfrac,check_dust_method
@@ -197,6 +197,8 @@ module setup
  real    :: R_c_dust(maxdiscs,maxdusttypes)
  real    :: pindex_dust(maxdiscs,maxdusttypes),qindex_dust(maxdiscs,maxdusttypes)
  real    :: H_R_dust(maxdiscs,maxdusttypes)
+
+ real :: enc_mass(maxbins,maxdiscs)
 
  !--planets
  integer, parameter :: maxplanets = 9
@@ -1004,17 +1006,32 @@ end subroutine setup_dust_grain_distribution
 subroutine calculate_disc_mass()
 
  integer :: i,j
- integer, parameter :: maxbins = 4096
-
  real :: enc_m(maxbins),rad(maxbins)
  real :: Q_mintmp,disc_mtmp,annulus_mtmp
+ real :: rgrid_min,rgrid_max,fac
 
  totmass_gas  = 0.
  disc_mdust = 0.
 
  do i=1,maxdiscs
     if (iuse_disc(i)) then
-
+       !
+       !--set up a common radial grid for the enclosed mass including gas and dust
+       !  even if the gas/dust discs have different radial extents
+       !
+       rgrid_min = R_in(i)
+       rgrid_max = R_out(i)
+       if (isetgas(i)==1) then
+          rgrid_min = min(rgrid_min,R_inann(i))       
+          rgrid_max = max(rgrid_max,R_outann(i))
+       endif
+       if (use_dust) then
+          rgrid_min = min(rgrid_min,minval(R_indust_swap(i,1:ndusttypes)))
+          rgrid_max = min(rgrid_max,maxval(R_outdust_swap(i,1:ndusttypes)))
+       endif
+       do j=1,maxbins
+          rad(j) = rgrid_min + (j-1) * (rgrid_max-rgrid_min)/real(maxbins-1)
+       enddo
        !--gas discs
        select case(isetgas(i))
        case (0)
@@ -1023,7 +1040,10 @@ subroutine calculate_disc_mass()
           call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
-          sig_norm(i) = sig_norm(i) * disc_m(i) / disc_mtmp
+          fac = disc_m(i) / disc_mtmp
+          sig_norm(i) = sig_norm(i) * fac
+          enc_m = enc_m * fac
+
        case (1)
           !--set disc mass from annulus mass
           sig_norm(i) = 1.d0
@@ -1053,7 +1073,8 @@ subroutine calculate_disc_mass()
           call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
                              H_R(i))
-          sig_norm(i) = sig_norm(i) * Q_mintmp / Q_min(i)
+          fac = Q_mintmp / Q_min(i)
+          sig_norm(i) = sig_norm(i) * fac
           !--recompute actual disc mass and Toomre Q
           call get_disc_mass(disc_m(i),enc_m,rad,Q_min(i),sigmaprofilegas(i),sig_norm(i), &
                              star_m(i),pindex(i),qindex(i),R_in(i),R_out(i),R_ref(i),R_c(i), &
@@ -1061,8 +1082,10 @@ subroutine calculate_disc_mass()
        end select
 
        totmass_gas = totmass_gas + disc_m(i)
+       enc_mass(:,i) = enc_m + star_m(i) 
 
        !--dust discs
+       print*,'dust'
        if (use_dust) then
           disc_mdust(i,:) = 0.
           do j=1,ndusttypes
@@ -1071,7 +1094,9 @@ subroutine calculate_disc_mass()
              call get_disc_mass(disc_mtmp,enc_m,rad,Q_mintmp,sigmaprofiledust(i,j), &
                                 sig_normdust(i,j),star_m(i),pindex_dust(i,j),qindex_dust(i,j), &
                                 R_indust_swap(i,j),R_outdust_swap(i,j),R_ref(i),R_c_dust(i,j),H_R_dust(i,j))
-             sig_normdust(i,j) = sig_normdust(i,j) * disc_mdust(i,j) / disc_mtmp
+             fac = disc_mdust(i,j) / disc_mtmp
+             sig_normdust(i,j) = sig_normdust(i,j) * fac
+             enc_mass(:,i) = enc_mass(:,i) + enc_m(:)*fac 
           enddo
        endif
     endif
@@ -1174,7 +1199,6 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
           star_m(i) = m2
 
           call get_hierarchical_level_com(disclabel, xorigini, vorigini, xyzmh_ptmass, vxyz_ptmass, fileprefix)
-          !print*,disclabel,' com_pos ', xorigini
 
        endif
 
@@ -1237,6 +1261,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         rwarp            = R_warp(i),            &
                         warp_smoothl     = H_warp(i),            &
                         bh_spin          = bhspin,               &
+                        enc_mass         = enc_mass(:,i),        &
                         prefix           = prefix)
 
           !--set dustfrac
@@ -1291,6 +1316,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
                               bh_spin        = bhspin,             &
+                              enc_mass       = enc_mass(:,i),      &
                               prefix         = dustprefix(j))
 
                 npart = npart + npindustdisc
@@ -1332,6 +1358,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                         rwarp           = R_warp(i),          &
                         warp_smoothl    = H_warp(i),          &
                         bh_spin         = bhspin,             &
+                        enc_mass        = enc_mass(:,i),      &
                         prefix          = prefix)
 
           npart = npart + npingasdisc
@@ -1383,6 +1410,7 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
                               rwarp          = R_warp(i),          &
                               warp_smoothl   = H_warp(i),          &
                               bh_spin        = bhspin,             &
+                              enc_mass       = enc_mass(:,i),      &
                               prefix         = dustprefix(j))
 
                 npart = npart + npindustdisc
@@ -1967,10 +1995,7 @@ subroutine setup_interactive(id)
        end select
 
     case (5:)
-       !print "(/,a)",'================================'
-       !print "(a)",  '+++   HIERARCHICAL SYSTEM    +++'
-       !print "(a)",  '================================'
-
+    
        call print_chess_logo()!id)
 
        ibinary = 0
@@ -2183,19 +2208,14 @@ subroutine setup_interactive(id)
              call prompt('Enter H/R of circum-'//trim(disclabel)//' at R_ref',H_R(higher_disc_index))
 
              higher_mass = get_hier_level_mass(trim(disclabel))!, mass, sink_num, sink_labels)
-             !print*, disclabel, higher_mass
              !return
              do i=1,maxdiscs
                 if (iuse_disc(i) .and. i /= higher_disc_index) then
                    call get_hier_disc_label(i, disclabel)
                    current_mass = get_hier_level_mass(trim(disclabel))
-                   !print*, R_ref(i), R_ref(i), &
-                   !     higher_mass, current_mass, qindex(higher_disc_index),&
-                   !     H_R(higher_disc_index)
                    H_R(i) = (R_ref(i)/R_ref(higher_disc_index) * &
                         higher_mass/current_mass)**(0.5-qindex(higher_disc_index)) * &
                         H_R(higher_disc_index)
-                   !print*,'!!!!!!!!!!!!!!!!!!!!!!! ', H_R(i)
                 endif
              enddo
           endif
