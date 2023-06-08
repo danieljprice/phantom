@@ -2710,7 +2710,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !--add self-contribution
     call kernel_softening(0.,0.,potensoft0,dum)
     epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
-    if (icooling == 8 .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + 0.5*pmassi*potensoft0*hi1
+    if (icooling == 8 .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + pmassi*potensoft0*hi1
     !
     !--add contribution from distant nodes, expand these in Taylor series about node centre
     !  use xcen directly, -1 is placeholder
@@ -2720,7 +2720,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
-    if (icooling == 8 .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) - (dx*fxi + dy*fyi + dz*fzi) ! add contribution from distant nodes
+    if (icooling == 8 .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + poti
     if (gr .and. ien_type == ien_etotal) then
        fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
     endif
