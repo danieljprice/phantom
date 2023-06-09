@@ -179,11 +179,11 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  ! linear and cubic interpolators should be moved to their own subroutine
  ! away from eos_shen
  use eos_shen, only:linear_interpolator_one_d
- use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridsize,gridorigin
+ use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
- integer :: xlower,ylower,zlower,xupper,yupper,zupper
+ integer :: xlower,ylower,zlower!,xupper,yupper,zupper
  real    :: xlowerpos,ylowerpos,zlowerpos
  real :: xd,yd,zd
  real :: interptmp(7)
@@ -200,9 +200,9 @@ pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  !print*,"Neighbours: ", xlower,ylower,zlower
  ! This is not true as upper neighbours on the boundary will be on the side
  ! take a mod of grid size
- xupper = mod(xlower + 1, gridsize(1))
- yupper = mod(ylower + 1, gridsize(2))
- zupper = mod(zlower + 1, gridsize(3))
+!  xupper = mod(xlower + 1, gridsize(1))
+!  yupper = mod(ylower + 1, gridsize(2))
+!  zupper = mod(zlower + 1, gridsize(3))
  ! xupper - xlower should always just be dx provided we are using a uniform grid
  ! xd = (position(1) - xlower)/(xupper - xlower)
  ! yd = (position(2) - ylower)/(yupper - ylower)
@@ -291,16 +291,16 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  use einsteintk_utils, only:metricderivsgrid, dxgrid,gridorigin
  real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real, intent(in)  :: position(3)
- integer :: xlower,ylower,zlower,xupper,yupper,zupper
+ integer :: xlower,ylower,zlower!,xupper,yupper,zupper
  real :: xd,yd,zd,xlowerpos, ylowerpos,zlowerpos
  real :: interptmp(7)
  integer :: i,j
 
  call get_grid_neighbours(position, dxgrid, xlower, ylower, zlower)
  !print*,"Neighbours: ", xlower,ylower,zlower
- xupper = xlower + 1
- yupper = yupper + 1
- zupper = zupper + 1
+!  xupper = xlower + 1
+!  yupper = yupper + 1
+!  zupper = zupper + 1
  ! xd = (position(1) - xlower)/(xupper - xlower)
  ! yd = (position(2) - ylower)/(yupper - ylower)
  ! zd = (position(3) - zlower)/(zupper - zlower)

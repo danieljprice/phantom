@@ -20,24 +20,23 @@ module tmunu2grid
 
 contains
 subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
- use einsteintk_utils, only: dxgrid, gridorigin,boundsize,gridsize,gcovgrid,tmunugrid,rhostargrid
+ use einsteintk_utils, only: dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
  use interpolations3D, only: interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only: massoftype,igas,rhoh,dens,hfact
+ use part, only: massoftype,igas,rhoh
  integer, intent(in) :: npart
  real, intent(in)    ::  vxyzu(:,:), tmunus(:,:,:)
  real, intent(inout) ::  xyzh(:,:)
  logical, intent(in), optional :: calc_cfac
- real                      :: weight,h,rho,pmass,rhoexact
+ real                      :: weight,h,rho,pmass
  real                      :: weights(npart)
  real, save                :: cfac
- integer, save             :: iteration = 0
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
  real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
  integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
- logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz,exact_rendering
- real                      :: totalmass, totalmassgrid
+ logical                   :: normalise, vertexcen,periodicx,periodicy,periodicz
+ real                      :: totalmass
  integer                   :: itype(npart),ilendat
 
 
@@ -312,18 +311,17 @@ subroutine get_cfac(cfac,rho)
 end subroutine get_cfac
 
 subroutine interpolate_to_grid(gridarray,dat)
- use einsteintk_utils, only: dxgrid, gridorigin,boundsize,gridsize,gcovgrid,tmunugrid,rhostargrid
+ use einsteintk_utils, only: dxgrid, gridorigin
  use interpolations3D, only: interpolate3D
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
- use part, only:npart,xyzh,massoftype,igas,rhoh,dens,hfact
- real                      :: weight,h,rho,pmass,rhoexact
- real, save                :: cfac
- integer, save             :: iteration = 0
+ use part, only:npart,xyzh,massoftype,igas,rhoh
+ real                      :: weight,h,rho,pmass
+ !real, save                :: cfac
+ !integer, save             :: iteration = 0
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
- integer                   :: nnodes,i,k,j, ilower, iupper, jlower, jupper, klower, kupper
+ integer                   :: nnodes,i, ilower, iupper, jlower, jupper, klower, kupper
  logical                   :: normalise, vertexcen,periodicx, periodicy, periodicz
- real                      :: totalmass, totalmassgrid
  real, dimension(npart)    :: weights
  integer, dimension(npart) :: itype
  real, intent(out) :: gridarray(:,:,:) ! Grid array to interpolate a quantity to
@@ -421,7 +419,7 @@ subroutine check_conserved_dens(rhostargrid,cfac)
 end subroutine check_conserved_dens
 
 subroutine check_conserved_p(pgrid,cfac)
- use part, only:npart,massoftype,igas,pxyzu
+ use part, only:npart,massoftype,igas
  use einsteintk_utils, only: dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  real, intent(in) :: pgrid(:,:,:)

@@ -234,7 +234,7 @@ end subroutine derivs
 subroutine get_derivs_global(tused,dt_new,dt)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,tmunus,metricderivs
+                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused

@@ -136,7 +136,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use linklist,         only:set_linklist
  use boundary_dyn,     only:dynamic_bdy,init_dynamic_bdy
 #ifdef GR
- use part,             only:metricderivs,tmunus
+ use part,             only:metricderivs
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
  use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact

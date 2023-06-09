@@ -84,10 +84,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer :: i,ierr
  logical :: iexist
  real    :: kwave,denom,length, c1,c3,lambda
- real    :: perturb_rho0,xval
- real    :: Vup(0:3),v(0:3),const,phi,rhoprim,sqrtg,u0,x,gcov(0:3,0:3),alpha,hub
+ real    :: xval
+ real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
- real    :: u
  procedure(rho_func), pointer :: density_func
  procedure(mass_func), pointer :: mass_function
 
@@ -381,7 +380,7 @@ end function rhofunc
 real function massfunc(x,xmin)
  use utils_gr, only:perturb_metric, get_u0, get_sqrtg,dot_product_gr
  real, intent(in) :: x,xmin
- real :: const, expr, exprmin, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
+ real :: const, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
  real :: massprimx,massprimmin,massprim
  real :: lorrentz, bigv2
 

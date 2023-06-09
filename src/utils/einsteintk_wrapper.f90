@@ -34,7 +34,7 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  use einsteintk_utils
  use extern_gr
  use metric
- use part, only:xyzh,pxyzu,vxyzu,dens,metricderivs, metrics, npart, tmunus
+ use part, only:npart!, tmunus
 
 
  implicit none
@@ -43,10 +43,7 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  integer,       intent(inout) :: nophantompart
  real,          intent(out)   :: dtout
  !character(len=500) :: logfile,evfile,dumpfile,path
- integer :: i,j,k,pathstringlength
- integer :: xlower,ylower,zlower,xupper,yupper,zupper
- real :: pos(3), gcovpart(0:3,0:3)
- !real :: dtout
+ !integer :: i,j,k,pathstringlength
 
  ! For now we just hardcode the infile, to see if startrun actually works!
  ! I'm not sure what the best way to actually do this is?
@@ -97,8 +94,6 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  !call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac=.true.) ! commented out to try and fix cons2prim
 
  call get_phantom_dt(dtout)
-
- print*,"pxyzu: ", pxyzu(:,1)
 
 end subroutine init_et2phantom
 
@@ -161,12 +156,12 @@ subroutine phantom2et()
 end subroutine phantom2et
 
 subroutine step_et2phantom_MoL(infile,dt_et,dtout)
- use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars
+ use part, only:xyzh,vxyzu,pxyzu,dens,metrics, npart, eos_vars
  use cons2prim, only: cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,gcovgrid
+ use einsteintk_utils, only: get_phantom_dt
  character(len=*),  intent(in) :: infile
  real,          intent(inout) :: dt_et
  real,          intent(out)   :: dtout
@@ -200,15 +195,14 @@ end subroutine step_et2phantom_MoL
 
 subroutine et2phantom_tmunu()
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-        Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-        dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,tmunus,metricderivs,&
-        massoftype,igas,rhoh,alphaind,dvdx,gradh
+        Bevol,rad,radprop,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs,&
+        igas,rhoh,alphaind,dvdx,gradh
  !use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars
  use cons2prim, only: cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,gcovgrid,rhostargrid,tmunugrid
+ use einsteintk_utils, only: get_phantom_dt,rhostargrid,tmunugrid
  use metric_tools, only:init_metric
  use densityforce, only:densityiterate
  use linklist,     only:set_linklist
@@ -243,16 +237,15 @@ subroutine et2phantom_tmunu()
  call check_conserved_dens(rhostargrid,cfac)
 
  ! Correct Tmunu
- tmunugrid = cfac*tmunugrid
+ ! Convert to 8byte real to stop compiler warning
+ tmunugrid = real(cfac)*tmunugrid
 
 
 end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-        Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-        dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,tmunus,metricderivs,&
-        massoftype,igas,rhoh,alphaind,dvdx,gradh
+        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,gradh
  use densityforce, only:densityiterate
  use metric_tools, only:init_metric
  use linklist,     only:set_linklist
@@ -292,15 +285,17 @@ subroutine phantom2et_consvar()
  ! Momentum check vs particles
 
  ! Correct momentum and Density
- rhostargrid = cfac*rhostargrid
- pxgrid = cfac*pxgrid
- entropygrid = cfac*entropygrid
+ ! Conversion of cfac to 8byte real to avoid
+ ! compiler warning 
+ rhostargrid = real(cfac)*rhostargrid
+ pxgrid = real(cfac)*pxgrid
+ entropygrid = real(cfac)*entropygrid
 
 
 end subroutine phantom2et_consvar
 
 subroutine phantom2et_rhostar()
- use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars,&
+ use part, only:xyzh,npart,&
         igas, massoftype,rhoh
  use cons2prim, only: cons2primall
  use deriv
@@ -343,15 +338,14 @@ subroutine phantom2et_rhostar()
 end subroutine phantom2et_rhostar
 
 subroutine phantom2et_entropy()
- use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars,&
-        igas, massoftype,rhoh
+ use part, only:pxyzu,npart
  use cons2prim, only: cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
  use einsteintk_utils, only: get_phantom_dt,entropygrid
  use metric_tools, only:init_metric
- real :: dat(npart), h, pmass,rho
+ real :: dat(npart)
  integer :: i
 
 
@@ -381,13 +375,12 @@ subroutine phantom2et_entropy()
 end subroutine phantom2et_entropy
 
 subroutine phantom2et_momentum()
- use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars,&
-        igas,massoftype,alphaind,dvdx,gradh
+ use part, only:pxyzu, npart
  use cons2prim, only: cons2primall
  use deriv
  use extern_gr
  use tmunu2grid
- use einsteintk_utils, only: get_phantom_dt,gcovgrid,pxgrid
+ use einsteintk_utils, only: get_phantom_dt,pxgrid
  use metric_tools, only:init_metric
  real :: dat(3,npart)
  integer :: i
@@ -426,7 +419,7 @@ end subroutine phantom2et_momentum
  ! Subroutine for performing a phantom dump from einstein toolkit
 subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use cons2prim, only:cons2primall
- use part, only:npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars
+ !use part, only:npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars
  use einsteintk_utils
  use evwrite,          only:write_evfile,write_evlog
  use readwrite_dumps,  only:write_smalldump,write_fulldump
@@ -497,8 +490,8 @@ end subroutine et2phantom_setparticlevars
 
  ! I really HATE this routine being here but it needs to be to fix dependency issues.
 subroutine get_metricderivs_all(dtextforce_min,dt_et)
- use einsteintk_utils, only: metricderivsgrid
- use part, only:npart, xyzh,vxyzu,fxyzu,metrics,metricderivs,dens,fext
+ !use einsteintk_utils, only: metricderivsgrid
+ use part, only:npart,xyzh,vxyzu,dens,metrics,metricderivs,fext!,fxyzu
  use timestep, only:bignumber,C_force
  use extern_gr, only:get_grforce
  use metric_tools, only:pack_metricderivs

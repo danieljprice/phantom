@@ -85,7 +85,7 @@ subroutine print_etgrid()
 end subroutine print_etgrid
 
 subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
- use part,   only: vxyzu,fxyzu,fext
+ use part,   only: vxyzu,fext!,fxyzu
  integer, intent(in) :: i
  real, intent(out) :: vx,vy,vz,fx,fy,fz,e_rhs
 

@@ -299,11 +299,10 @@ subroutine get_tmunu(x,metrici,v,dens,u,p,tmunu,verbose)
  real,    intent(in)  :: x(3),metrici(:,:,:),v(3),dens,u,p
  real,    intent(out) :: tmunu(0:3,0:3)
  logical, optional, intent(in) :: verbose
- real                 :: w,v4(0:3),vcov(3),lorentz,bigV(3),uzero,u_upper(0:3),u_lower(0:3)
+ real                 :: w,v4(0:3),uzero,u_upper(0:3),u_lower(0:3)
  real                 :: gcov(0:3,0:3), gcon(0:3,0:3)
  real                 :: gammaijdown(1:3,1:3),betadown(3),alpha
- real                 :: velshiftterm
- integer              :: i,j,ierr,mu,nu
+ integer              :: ierr,mu,nu
 
  ! Reference for all the variables used in this routine:
  ! w - the enthalpy

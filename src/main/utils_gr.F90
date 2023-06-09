@@ -215,7 +215,7 @@ subroutine get_sqrt_gamma(gcov,sqrt_gamma)
  real :: a11,a12,a13
  real :: a21,a22,a23
  real :: a31,a32,a33
- real :: a41,a42,a43
+ !real :: a41,a42,a43
  real :: det
 
  if (metric_type == 'et') then
