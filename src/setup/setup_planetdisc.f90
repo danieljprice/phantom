@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,      only:dtmax,tmax
  use prompting,     only:prompt
  use extern_binary, only:accradius1,accradius2 !,binary_posvel
- use extern_binary,  only:binarymassr,eps_soft1,eps_soft2,ramp
+ use extern_binary,  only:mass2,eps_soft1,eps_soft2,ramp
  use externalforces, only:iext_binary
 
  integer,            intent(in)            :: id
@@ -90,7 +90,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = 1.2
  time  = 0.
  a0    = 1.
- binarymassr = 1.e-3
+ mass2 = 1.e-3
  HoverR = 0.05
  accradius1 = 0.0
  accradius2 = 0.3
@@ -119,13 +119,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--set default options
     !
     call prompt('Enter total number of gas particles ',np,0,size(xyzh(1,:)))
-    call prompt('Enter mplanet/mtot',binarymassr,0.,1.)
+    call prompt('Enter mplanet',mass2,0.,1.)
 
-    call prompt('Enter accretion radius of the PRIMARY (planet)',accradius1,accradius1,1.)
-    call prompt('Enter accretion radius of the SECONDARY (star)',accradius2,accradius2,1.)
+    call prompt('Enter accretion radius of the PRIMARY (star)',accradius1,accradius1,1.)
+    call prompt('Enter accretion radius of the SECONDARY (planet)',accradius2,accradius2,1.)
 
-    call prompt('Enter softening radius of the PRIMARY (planet)',eps_soft1,0.,1.)
-    call prompt('Enter softening radius of the SECONDARY (star)',eps_soft2,0.,1.)
+    call prompt('Enter softening radius of the PRIMARY (star)',eps_soft1,0.,1.)
+    call prompt('Enter softening radius of the SECONDARY (planet)',eps_soft2,0.,1.)
 
     call prompt('Enter inner disc edge R_in ',R_in,accradius1)
     call prompt('Enter outer disc edge R_out ',R_out,R_in)
@@ -197,7 +197,7 @@ end subroutine setpart
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use extern_binary, only:accradius1,accradius2,binary_posvel
- use extern_binary, only:binarymassr
+ use extern_binary, only:mass2
  implicit none
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
@@ -212,7 +212,7 @@ subroutine write_setupfile(filename)
 
  write(iunit,"(/,a)") '# options for binary'
 
- call write_inopt(binarymassr,'mplanet','m1/(m1+m2)',iunit)
+ call write_inopt(mass2,'mplanet','m2',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
  call write_inopt(norbits, 'norbits', 'number of orbits', iunit)
@@ -234,7 +234,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use extern_binary, only:accradius1,accradius2,binary_posvel
- use extern_binary, only:binarymassr
+ use extern_binary, only:mass2
  implicit none
  character(len=*), intent(in) :: filename
  integer, intent(out) :: ierr
@@ -248,7 +248,7 @@ subroutine read_setupfile(filename,ierr)
 
  nerr = 0
  call read_inopt(np,'np',db,errcount=nerr)
- call read_inopt(binarymassr,'mplanet',db,errcount=nerr)
+ call read_inopt(mass2,'mplanet',db,errcount=nerr)
  call read_inopt(accradius1,'accradius1',db,errcount=nerr)
  call read_inopt(accradius2,'accradius2',db,errcount=nerr)
  call read_inopt(R_in,'R_in',db,errcount=nerr)
@@ -265,6 +265,5 @@ subroutine read_setupfile(filename,ierr)
  close(iunit)
 
 end subroutine read_setupfile
-
 
 end module setup
