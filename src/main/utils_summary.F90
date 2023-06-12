@@ -64,9 +64,11 @@ module io_summary
  integer, parameter :: iosumtvv   = iosumhdn + 3    ! vmean
  !  particle waking
  integer, parameter :: iowake     = iosumtvv + 1    ! number of woken particles
+ !  dense particles near sinks
+ integer, parameter :: iosumdense  = iowake + 1     ! number of dense particles within r_crit of a sink
  !  Number of steps
- integer, parameter :: iosum_nreal = iowake + 1     ! number of 'real' steps taken
- integer, parameter :: iosum_nsts  = iowake + 2     ! number of 'actual' steps (including STS) taken
+ integer, parameter :: iosum_nreal = iosumdense + 1 ! number of 'real' steps taken
+ integer, parameter :: iosum_nsts  = iosumdense + 2 ! number of 'actual' steps (including STS) taken
  !  Number of steps
  integer, parameter :: iosumflrp   = iosum_nsts + 1 ! number of times vxyzu(4,i) is floored in step_leapfrog (predict loop)
  integer, parameter :: iosumflrps  = iosum_nsts + 2 ! number of times vpred(4,i) is floored in step_leapfrog (predict_sph loop)
@@ -98,7 +100,7 @@ module io_summary
  integer,           private :: iosum_rxi  (maxrhomx  ), iosum_rxp  (maxrhomx), iosum_rxf(inosink_max,maxrhomx)
  real,              private :: iosum_rxa  (maxrhomx  ), iosum_rxx  (maxrhomx)
  integer,           private :: accretefail(3)
- logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake,print_floor
+ logical,           private :: print_dt,print_sts,print_ext,print_dust,print_tolv,print_h,print_wake,print_dense,print_floor
  logical,           private :: print_afail,print_early
  real(kind=4),      private :: dtsum_wall
  character(len=19), private :: freason(9)
@@ -106,7 +108,7 @@ module io_summary
  !--Public values and arrays
  integer, public  :: iosum_ptmass(5,maxisink)
  logical, public  :: print_acc
- !
+
 contains
 !
 !----------------------------------------------------------------
@@ -119,9 +121,9 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine summary_initialise
- !
+
  call summary_reset
- !
+
  if (iosum_nprint < 0) then
     iosum_print = 2**(-iosum_nprint)
  else
@@ -136,7 +138,7 @@ subroutine summary_initialise
  freason(inosink_Etot)   = 'E_tot > 0:         '
  freason(inosink_poten)  = 'Not pot_min:       '
  freason(inosink_max+1)  = '                   '
- !
+
 end subroutine summary_initialise
 !----------------------------------------------------------------
 !+
@@ -144,7 +146,7 @@ end subroutine summary_initialise
 !+
 !----------------------------------------------------------------
 subroutine summary_reset
- !
+
  nrhomax      = 0
  iosum_nstep  = 0
  iosum_npart  = 0
@@ -168,8 +170,9 @@ subroutine summary_reset
  print_afail  = .false.
  print_early  = .false.
  print_wake   = .false.
+ print_dense  = .false.
  print_floor  = .false.
- !
+
 end subroutine summary_reset
 !----------------------------------------------------------------
 !+
@@ -179,10 +182,10 @@ end subroutine summary_reset
 subroutine summary_counter(ival,dtstep_wall)
  integer,                intent(in) :: ival
  real(kind=4), optional, intent(in) :: dtstep_wall
- !
+
  iosum_nstep(ival) = iosum_nstep(ival) + 1
  if (present(dtstep_wall)) dtsum_wall = dtsum_wall + dtstep_wall
- !
+
 end subroutine summary_counter
 !----------------------------------------------------------------
 !+
@@ -195,7 +198,7 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
  character(len=*),  intent(in) :: cval
  real,    optional, intent(in) :: maxvalue
  logical, optional, intent(in) :: addnval
- !
+
  iosum_nstep(ival) = iosum_nstep(ival) + 1
  iosum_npart(ival) = iosum_npart(ival) + nval
  iosum_ave  (ival) = iosum_ave  (ival) + meanvalue
@@ -213,16 +216,28 @@ subroutine summary_variable(cval,ival,nval,meanvalue,maxvalue,addnval)
        iosum_nstep(ival) = iosum_nstep(ival) - 1
     endif
  endif
- !
- if (trim(cval)=='dt'   ) print_dt   = .true.
- if (trim(cval)=='sts'  ) print_sts  = .true.
- if (trim(cval)=='ext'  ) print_ext  = .true.
- if (trim(cval)=='dust' ) print_dust = .true.
- if (trim(cval)=='tolv' ) print_tolv = .true.
- if (trim(cval)=='hupdn') print_h    = .true.
- if (trim(cval)=='wake' ) print_wake = .true.
- if (trim(cval)=='floor') print_floor= .true.
- !
+
+ select case(trim(cval))
+ case('dt'   )
+    print_dt    = .true.
+ case('sts'  )
+    print_sts   = .true.
+ case('ext'  )
+    print_ext   = .true.
+ case('dust' )
+    print_dust  = .true.
+ case('tolv' )
+    print_tolv  = .true.
+ case('hupdn')
+    print_h     = .true.
+ case('wake' )
+    print_wake  = .true.
+ case('dense')
+    print_dense = .true.
+ case('floor')
+    print_floor = .true.
+ end select
+
 end subroutine summary_variable
 !----------------------------------------------------------------
 !+
@@ -233,7 +248,7 @@ subroutine summary_variable_rhomax(ipart,inrho,iprint,nptmass)
  integer,         intent(in)    :: ipart,iprint,nptmass
  real,            intent(in)    :: inrho
  integer                        :: i,j
- !
+
  !--Determine the index where this particle belongs
  j = -1
  if (nrhomax==0) then
@@ -250,6 +265,7 @@ subroutine summary_variable_rhomax(ipart,inrho,iprint,nptmass)
        j       = nrhomax
     endif
  endif
+
  !--Reset summary if we have too many particle
  if (j > maxrhomx) then
     nrhomax     = maxrhomx
@@ -259,12 +275,13 @@ subroutine summary_variable_rhomax(ipart,inrho,iprint,nptmass)
     j       = 1
  endif
  iosum_isink = j
+
  !--Fill in the array
  iosum_rxi(j) = ipart
  iosum_rxp(j) = iosum_rxp(j) + 1
  iosum_rxa(j) = iosum_rxa(j) + inrho
  iosum_rxx(j) = max(iosum_rxx(j),inrho)
- !
+
 end subroutine summary_variable_rhomax
 !----------------------------------------------------------------
 !+
@@ -273,9 +290,9 @@ end subroutine summary_variable_rhomax
 !----------------------------------------------------------------
 subroutine summary_ptmass_fail(ifail)
  integer,           intent(in) :: ifail
- !
+
  iosum_rxf(ifail,iosum_isink) = iosum_rxf(ifail,iosum_isink) + 1
- !
+
 end subroutine summary_ptmass_fail
 !----------------------------------------------------------------
 !+
@@ -286,7 +303,7 @@ end subroutine summary_ptmass_fail
 subroutine summary_accrete(nptmass)
  integer,           intent(in) :: nptmass
  integer                       :: i, imax
- !
+
  if (nptmass > maxisink) then
     imax = 1
  else
@@ -300,7 +317,7 @@ subroutine summary_accrete(nptmass)
        iosum_ptmass(1,i) = 0
     endif
  enddo
- !
+
 end subroutine summary_accrete
 !----------------------------------------------------------------
 !+
@@ -309,14 +326,14 @@ end subroutine summary_accrete
 !----------------------------------------------------------------
 subroutine summary_accrete_fail(nfail)
  integer,           intent(in) :: nfail
- !
+
  if (nfail > 0) then
     accretefail(1) = accretefail(1) + 1
     accretefail(2) = accretefail(2) + nfail
     accretefail(3) = max(accretefail(3), nfail)
     print_afail    = .true.
  endif
- !
+
 end subroutine summary_accrete_fail
 !----------------------------------------------------------------
 !+
@@ -356,8 +373,8 @@ subroutine summary_printout(iprint,nptmass)
  !
  !--summarise logicals for cleanliness
  !
- if (print_dt .or. print_dust .or. print_sts .or. print_ext .or. print_tolv .or. &
-     print_h  .or. print_wake .or. print_floor ) then
+ if (print_dt .or. print_dust .or. print_sts   .or. print_ext .or. print_tolv .or. &
+     print_h  .or. print_wake .or. print_dense .or. print_floor ) then
     get_averages = .true.
  else
     get_averages = .false.
@@ -401,7 +418,7 @@ subroutine summary_printout(iprint,nptmass)
  endif
 10 format(a,i10,13x,a)
 20 format(a,18x,F10.3,a)
- !
+
  !-- Summary of Timesteps
  if ( print_dt ) then
     write(iprint,'(a)') '|* force: timesteps constraining dt compared to Courant by factor of:       *|'
@@ -452,7 +469,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
- !
+
  !--Summary of super-timestepping
  if ( print_sts ) then
     write(iprint,'(a)') '|* Super-timestepping                                                       *|'
@@ -501,7 +518,7 @@ subroutine summary_printout(iprint,nptmass)
 #endif
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
- !
+
  !--Summary of substepping since dtextf < dthydro
  if ( print_ext ) then
     write(iprint,'(a)') '|* Sub-Steps since dtextf < dthydro                                         *|'
@@ -514,7 +531,7 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 90 format(a,i6,a,f8.2,1x,a,f8.2,1x,a,f8.2,1x,a,Es13.3,1x,a,Es13.3,1x,a)
- !
+
  !--Summary of Dust terms
  if ( print_dust ) then
     write(iprint,'(a)') '|* force: Dust warnings                                                     *|'
@@ -531,7 +548,7 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 100 format(a,i9,a,3(f13.2,a))
- !
+
  !--Summary of velocity-dependent force interations (i.e. tolv in step)
  !  (Note: iterations includes the final, converged iteration)
  if (print_tolv) then
@@ -545,7 +562,7 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 110 format(a,i5,a,f7.2,a,i7,a,4(Es11.3,a))
- !
+
  !--Summary woken particles
  if ( print_wake ) then
     write(iprint,'(a)') '|* particles woken                                                          *|'
@@ -553,8 +570,17 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,115) '|',iosum_nstep(iowake),'|',iosum_ave(iowake),'|',int(iosum_max(iowake)),'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
+
+ !--Summary dense particles near sinks
+ if ( print_dense ) then
+    write(iprint,'(a)') '|* dense particles within r_crit of a sink (susceptible to race conditions) *|'
+    write(iprint,'(a)') '|* particles are only guaranteed to be tagged if rho > rho_max(r > r_crit)  *|'
+    write(iprint,'(a)') '| #steps  | mean # part/step |  max # part/step                              |'
+    write(iprint,115) '|',iosum_nstep(iosumdense),'|',iosum_ave(iosumdense),'|',int(iosum_max(iosumdense)),'|'
+    write(iprint,'(a)') '------------------------------------------------------------------------------'
+ endif
 115 format(a,i9,a,f18.2,a,i17,30x,a)
- !
+
  !--Summary flooring the energy
  if ( print_floor ) then
     write(iprint,'(a)') '|* particles whose internal energies are floored in the labelled loops      *|'
@@ -567,7 +593,7 @@ subroutine summary_printout(iprint,nptmass)
       ,iosum_nstep(iosumflrc ),'|',iosum_ave(iosumflrc ),'|',int(iosum_max(iosumflrc )),'|'
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
- !
+
  !--Summary of Restricted h jumps
  if ( print_h ) then
     write(iprint,'(a)') '|* dens: WARNING: restricted h jump                                         *|'
@@ -579,7 +605,7 @@ subroutine summary_printout(iprint,nptmass)
     write(iprint,'(a)') '------------------------------------------------------------------------------'
  endif
 120 format(a,i9,a,f13.2,a,i10,31x,a)
- !
+
  !--Summary of rhomax particles
  if (nrhomax > 0) then
     write(iprint,'(a)') '|* ptmass: rhomax values & reasons for not becoming a sink particle         *|'
@@ -616,7 +642,7 @@ subroutine summary_printout(iprint,nptmass)
 130 format(a,i9,a,i10,a,i12,a,Es13.6,a,28x,a)
 140 format(a,i9,a,i10,a,i12,a,Es13.6,2a,i9,a)
 150 format(a,9x,a,10x,a,12x,a,13x,2a,i9,a)
- !
+
  !--Summary of accretion events
  if ( print_acc ) then
     write(iprint,'(a)') '|* ptmass: number of accreted particles                                     *|'
@@ -643,10 +669,10 @@ subroutine summary_printout(iprint,nptmass)
 160 format(a,i4,a,i10,a,i12,a,i9,a,i9,23x,a)
 170 format(a,i9,a,i10,a,i12,a,i9,a,i9,23x,a)
 180 format(a,I9,a,I10,a,I12,a,i9,33x,a)
- !
+
  !--Reset all values
  call summary_reset
- !
+
 end subroutine summary_printout
 !----------------------------------------------------------------
 end module io_summary

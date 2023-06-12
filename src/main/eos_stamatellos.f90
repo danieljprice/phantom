@@ -4,12 +4,13 @@
 
 module eos_stamatellos
  implicit none
- real, public :: optable(260,1001,6)
+ real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:), du_FLD(:),gradP_cool(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
- character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  real, parameter,public      :: arad=7.5657d-15
+ character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,parameter,public :: FLD = .true.
- integer,public :: iunitst=19
+ !integer,public :: iunitst=19
+ integer,save :: nx,ny ! dimensions of optable read in
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
 
@@ -20,27 +21,27 @@ contains
     allocate(gradP_cool(npart))
     allocate(Gpot_cool(npart))
     allocate(du_FLD(npart))
-    allocate(radprop_FLD(maxradprop,npart))
-    
+    allocate(radprop_FLD(maxradprop,npart))    
     open (unit=iunitst,file='EOSinfo.dat',status='replace')
-    
     
  end subroutine init_S07cool
 
  subroutine finish_S07cool()
-  use part, only: radprop
+   use part, only: radprop
+   deallopcate(optable)
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
   if (allocated(du_FLD)) deallocate(du_FLD)
   if (allocated(radprop_FLD)) deallocate(radprop_FLD)
   close(iunitst)
+
 end subroutine finish_S07cool
  
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
  character(len=*),intent(in) :: eos_file
  integer, intent(out) :: ierr
- integer i,j,nx,ny,errread
+ integer i,j,errread
  character(len=120) :: filepath,junk
 
  ! read in data file for interpolation
@@ -55,50 +56,58 @@ subroutine read_optab(eos_file,ierr)
  		read(junk, *,iostat=errread) nx, ny
  		exit
  	endif
- enddo	
+enddo
+! allocate array for storing opacity tables
+ allocate(optable(nx,ny,6))
  do i = 1,nx
   do j = 1,ny
    read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
   enddo
  enddo
-
+ print *, 'nx,ny=', nx, ny 
 end subroutine read_optab
 
+!
+! Main subroutine for interpolating tables to get EOS values
+!
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
+ use physcon, only: kboltz,atomic_mass_unit 
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi,gammai
 
- integer i,j,nx,ny
+ integer i,j
  real m,c
  real kbar1,kbar2
  real kappa1,kappa2
  real Tpart1,Tpart2
  real gmw1,gmw2
- real cv
- real ui_, rhoi_
+ real cv,cv1,cv2
+ real ui_, rhoi_,rhomin,umin
 
+ rhomin = OPTABLE(1,1,1)
+ umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
 
- if (rhoi.lt.1.0e-24) then
-  rhoi_ = 1.0e-24
+ if (rhoi.lt. rhomin) then
+  rhoi_ = rhomin
  else
   rhoi_ = rhoi
  endif  
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
+ do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
   i = i + 1
  enddo
 
- if (ui.lt.0.5302E8) then
-  ui_ = 0.5302E8 
+ if (ui.lt.umin) then
+  ui_ = umin 
  else
   ui_ = ui
  endif
 
  j = 1
- do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.1000))
+ do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -121,9 +130,12 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = OPTABLE(i-1,j,4) - m*OPTABLE(i-1,j,3)
 
  gmw1 = m*ui_ + c
+
+! cv=dU/dT
+ cv1 = (OPTABLE(i-1,j,3)-OPTABLE(i-1,j-1,3))/(OPTABLE(i-1,j,2)-OPTABLE(i-1,j-1,2))
  
  j = 1
- do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.1000))
+ do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -168,9 +180,10 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = gmw2 - m*OPTABLE(i,1,1)
 
  gmwi = m*rhoi_ + c
-
- cv = ui_/Ti
- gammai = 1.0d0 + 1.38d-16/1.67d-24/gmwi/cv
+! cv=dU/dT
+ cv2 = (OPTABLE(i,j,3)-OPTABLE(i,j-1,3))/(OPTABLE(i,j,2)-OPTABLE(i,j-1,2))
+ cv = 0.5 *(cv1+cv2)
+ gammai = 1.0d0 + kboltz/atomic_mass_unit/gmwi/cv
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
@@ -191,12 +204,12 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  endif
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
+ do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
   i = i + 1
  enddo
 
  j = 1
- do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.1000))
+ do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.ny))
   j = j + 1
  enddo
 
@@ -206,7 +219,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  u1 = m*Teqi + c
 
  j = 1
- do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.1000))
+ do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.ny))
   j = j + 1
  enddo
 

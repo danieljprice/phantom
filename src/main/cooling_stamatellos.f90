@@ -55,7 +55,7 @@ end subroutine init_star
 !
    subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
      use io,       only:warning
-     use physcon,  only:steboltz,pi,solarl
+     use physcon,  only:steboltz,pi,solarl,Rg
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
           iunitst,du_FLD,FLD
@@ -69,8 +69,8 @@ end subroutine init_star
      real            :: tcool,ueqi,umini,tthermi,poti,presi,du_FLDi
      
      poti = Gpot_cool(i)
-     presi = eos_vars(igasP,i)
      du_FLDi = du_FLD(i)
+
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
      if (isink_star > 0 .and. Lstar > 0) then
@@ -87,9 +87,11 @@ end subroutine init_star
 ! get opacities & Ti for ui
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi,gammai)
+      presi = eos_vars(igasP,i)
+   !  presi = Rg*Ti*rhoi
      select case (od_method)
      case (1)
-        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi)
+        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
         coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
         coldensi = coldensi*umass/udist/udist ! physical units
      case (2)
@@ -97,7 +99,6 @@ end subroutine init_star
         coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
         coldensi = coldensi *umass/udist/udist ! physical units
      end select
-!     write(iunitst,'(5E12.5)') coldensi,presi,gradP_cool(i)
      
      tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
@@ -133,7 +134,6 @@ end subroutine init_star
 	case (1)
      if ((du_tot) == 0.d0) then
         tthermi = 0d0
-        write(iunitst,'(A)') "ttherm=0"
      else
         tthermi = abs((ueqi - ui)/(du_tot))
      endif
@@ -143,8 +143,12 @@ end subroutine init_star
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
      case (2)
-     	tthermi = (umini - ui) / dudt_rad
-     	dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+     	if (abs(dudt_rad) > 0.d0) then
+    	 	tthermi = (umini - ui) / dudt_rad
+     		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+     	else  ! ie Tmini == Ti
+     		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
+     	end if
      end select
      
      
@@ -153,6 +157,7 @@ end subroutine init_star
         print *, "rhoi=",rhoi, "Ti=", Ti
         print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
         print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+        print *, "dudt_rad=", dudt_rad 
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then

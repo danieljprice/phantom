@@ -46,7 +46,7 @@ module radiation_implicit
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
- public :: do_radiation_implicit,get_diffusion_term_only
+ public :: do_radiation_implicit,get_diffusion_term_only,ierr_failed_to_converge
 
 contains
 

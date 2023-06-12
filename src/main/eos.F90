@@ -20,10 +20,11 @@ module eos
 !    10 = MESA EoS
 !    11 = isothermal eos with zero pressure
 !    12 = ideal gas with radiation pressure
+!    13 = locally isothermal prescription from Farris et al. (2014) generalised for generic hierarchical systems
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
-  !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !    21 = read tabulated eos (for use with icooling == 8)
 !
 ! :References:
@@ -103,7 +104,7 @@ contains
 !----------------------------------------------------------------
 subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
  use io,            only:fatal,error,warning
- use part,          only:xyzmh_ptmass
+ use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
  use physcon,       only:kb_on_mh,radconst
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
@@ -122,8 +123,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(inout), optional :: eni
  real,    intent(inout), optional :: mu_local
  real,    intent(in)   , optional :: gamma_local,Xlocal,Zlocal
- integer :: ierr
+ integer :: ierr, i
  real    :: r1,r2
+ real    :: mass_r, mass ! defined for generalised Farris prescription
  real    :: gammai,temperaturei,mui,imui,X_i,Z_i
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst,kappaBar,kappaPart,gmwi
@@ -335,6 +337,27 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (ierr /= 0) call warning('eos_idealplusrad','temperature iteration did not converge')
 
+
+ case(13)
+!
+!--Locally isothermal eos for generic hierarchical system
+!
+!  Assuming all sink particles are stars.
+!  Generalisation of Farris et al. (2014; for binaries) to N stars.
+!  For two sink particles this is identical to ieos=14
+!
+    mass_r = 0
+    mass = 0
+
+    do i=1,nptmass
+       mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
+       mass = mass + xyzmh_ptmass(4,i)
+    enddo
+    ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
+    spsoundi = sqrt(ponrhoi)
+    tempi    = temperature_coef*mui*ponrhoi
+
+
  case(14)
 !
 !--Locally isothermal eos from Farris et al. (2014) for binary system
@@ -406,14 +429,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
-    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,gmwi,gammai)
-    
-    if (gammai > 1.0001) then
-       ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
-    else
-       ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1 
-    endif
-       
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
+    ! gammai is derived from the tables
+  !  print *, 'EOS gamma=', gammai
+    ponrhoi = (gammai - 1.) * eni
     spsoundi = sqrt(gammai*ponrhoi)
     
  case default
@@ -1027,8 +1046,8 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  end select
 
  ! check temp
- if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
- &considering reducing entropy factor C_ent')
+ if (temp > huge(0.)) call fatal('entropy','entropy too large gives infinte temperature, &
+ &reducing entropy factor C_ent for one dump')
 
  ! change back to code unit
  P = cgsP / unit_pressure
@@ -1204,6 +1223,8 @@ logical function eos_outputs_mu(ieos)
  select case(ieos)
  case(20)
     eos_outputs_mu = .true.
+ case(21)
+ 	eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1239,6 +1260,7 @@ subroutine eosinfo(eos_type,iprint)
  use eos_barotropic, only:eos_info_barotropic
  use eos_piecewise,  only:eos_info_piecewise
  use eos_gasradrec,  only:eos_info_gasradrec
+ use eos_stamatellos, only:eos_file
  integer, intent(in) :: eos_type,iprint
 
  if (id/=master) return
@@ -1280,6 +1302,8 @@ subroutine eosinfo(eos_type,iprint)
     else
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
+ case(21)
+ write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1334,6 +1358,8 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
     if (maxvxyzu >= 4) then
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
+       elseif (ieos==21) then
+       	 write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif
