@@ -221,8 +221,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #endif
 #ifdef DUST
  use kernel,       only:wkern_drag,cnormk_drag
- use dust,         only:drag_implicit
 #endif
+ use dust,         only:drag_implicit
  use nicil,        only:nimhd_get_jcbcb
  use mpiderivs,    only:send_cell,recv_cells,check_send_finished,init_cell_exchange,&
                         finish_cell_exchange,recv_while_wait,reset_cell_counters,cell_counters
