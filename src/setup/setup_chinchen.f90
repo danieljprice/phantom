@@ -34,7 +34,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,        only:solarm,au,pi
  use options,        only:iexternalforce
  use externalforces, only:iext_binary
- use extern_binary,  only:binarymassr
+ use extern_binary,  only:mass2
  use io,             only:master
  use timestep,       only:dtmax
  integer,           intent(in)    :: id
@@ -46,10 +46,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
- character(len=120) :: filename
- integer            :: ierr
- logical            :: iexist
- real               :: m1
+ real :: m1
 !
 !--units
 !
@@ -82,7 +79,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyz_ptmass(1,1) = 0.489765446
 
  iexternalforce = iext_binary
- binarymassr = 0.5
+ mass2 = m1
  dtmax = 0.1*(9.*pi)
 
 end subroutine setpart
