@@ -63,7 +63,7 @@ end subroutine init_star
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,ri2
-     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi
+     real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi
      
      poti = Gpot_cool(i) 
@@ -82,7 +82,7 @@ end subroutine init_star
 
 ! get opacities & Ti for ui
      call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-           Ti,gmwi,gammai)
+           Ti,gmwi)
       presi = eos_vars(igasP,i)
    !  presi = Rg*Ti*rhoi
      select case (od_method)

@@ -92,7 +92,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_out,time,fileprefix)
- use physcon,      only:pi,solarm,hours,years,au,kboltz,atomic_mass_unit
+ use physcon,      only:pi,solarm,hours,years,au,kboltz,kb_on_mh
  use dim,          only:maxdusttypes,use_dustgrowth,maxdustlarge
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
  use io,           only:master,fatal,iprint
@@ -358,9 +358,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  ierr = 0
  call read_optab(eos_file,ierr)
  call getintenerg_opdep(T_sphere, dens_sphere*unit_density, u_sphere)
- call getopac_opdep(u_sphere,dens_sphere*unit_density,kappaBar,kappaPart,T_sphere,gmwi,gammai)
+ call getopac_opdep(u_sphere,dens_sphere,kappaBar,kappaPart,T_sphere,gmwi)
  u_sphere = u_sphere/unit_ergg
- gamma = gammai
  time        = 0.
  if (use_dust) dust_method = 1
  hfact       = hfact_default
@@ -379,9 +378,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  totmass     = totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
 
- przero = dens_sphere * kboltz * T_sphere/gmwi/atomic_mass_unit ! code units
+ przero = dens_sphere * kb_on_mh * T_sphere/gmwi ! code units
+ gammai = 1.d0 + (przero/u_sphere/dens_sphere)
  cs_sphere = sqrt(gammai * przero/dens_sphere)
  cs_sphere_cgs = cs_sphere * unit_velocity
+ polyk  = cs_sphere**2
+ gamma = 5./3. ! not used but set to keep Phantom happy.
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !

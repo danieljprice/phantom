@@ -106,7 +106,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:kb_on_mh,radconst
+ use physcon,       only:kb_on_mh,radconst,Rg
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -429,10 +429,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     endif
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
-    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
-    ! gammai is derived from the tables
-  !  print *, 'EOS gamma=', gammai
-    ponrhoi = (gammai - 1.) * eni
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui)
+    cgspresi = Rg*cgsrhoi*tempi/mui
+    ponrhoi = (cgspresi/unit_pressure)/rhoi
+	
+    gammai = 1.d0 + presi/(eni*rhoi)
+  !  if (gammai < 1.d0 .or. gammai > 2.d0) then
+   !		print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
+   !	endif
     spsoundi = sqrt(gammai*ponrhoi)
     
  case default
