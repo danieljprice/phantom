@@ -58,7 +58,7 @@ module forces
 
  integer, parameter :: maxcellcache = 1000
 
- public :: force, reconstruct_dv ! latter to avoid compiler warning
+ public :: force, reconstruct_dv, get_drag_terms ! latter to avoid compiler warning
 
  !--indexing for xpartveci array
  integer, parameter ::       &
@@ -2104,7 +2104,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
                      iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp
  use viscosity, only:irealvisc,bulkvisc
- use dust,      only:get_ts,idrag,drag_implicit
+ use dust,      only:get_ts,idrag
  use part,      only:grainsize,graindens
  use part,        only:ibin_old
  use timestep_ind,    only:get_dt
@@ -2249,8 +2249,8 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        !
        ! get stopping time - for one fluid dust we don't know deltav, but as small by definition we assume=0
        !
+       tstopi = 0.
        if (use_dust .and. use_dustfrac .and. iamgasi) then
-          tstopi = 0.
           do j=1,ndustsmall
              if (use_dustgrowth) then
                 call get_ts(idrag,j,dustprop(1,i),dustprop(2,i),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
