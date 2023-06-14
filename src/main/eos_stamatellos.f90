@@ -9,7 +9,7 @@ module eos_stamatellos
  real, parameter,public      :: arad=7.5657d-15
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,parameter,public :: FLD = .true.
- !integer,public :: iunitst=19
+ integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
@@ -28,7 +28,7 @@ contains
 
  subroutine finish_S07cool()
    use part, only: radprop
-   deallopcate(optable)
+   deallocate(optable)
   if (allocated(gradP_cool)) deallocate(gradP_cool)
   if (allocated(Gpot_cool)) deallocate(Gpot_cool)
   if (allocated(du_FLD)) deallocate(du_FLD)
