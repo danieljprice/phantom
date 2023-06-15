@@ -374,7 +374,7 @@ subroutine write_dist(item_in,dist_in,udist)
     write(*,'(1x,2(a,es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in,' km'
  else
     write(*,'(1x,2(a,es12.5),a)') item_in, dist_in*udist,' cm     = ',dist_in*udist/solarr,' R_sun'
-  endif
+ endif
 
 end subroutine write_dist
 !-----------------------------------------------------------------------

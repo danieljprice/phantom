@@ -18,7 +18,7 @@ module datautils
 ! :Dependencies: None
 !
  implicit none
- public :: find_datafile
+ public :: find_datafile,download_datafile
 
  private
 
