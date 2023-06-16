@@ -81,21 +81,22 @@ end subroutine init_star
      endif
 
 ! get opacities & Ti for ui
-     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+    call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi)
-      presi = eos_vars(igasP,i)
-     select case (od_method)
-     case (1)
-        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
-        coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-        coldensi = coldensi*umass/udist/udist ! physical units
-     case (2)
+    presi = eos_vars(igasP,i)
+
+    select case (od_method)
+    case (1)
+       coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
+       coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
+       coldensi = coldensi*umass/udist/udist ! physical units
+    case (2)
 ! Lombardi+ method of estimating the mean column density
-        coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
-        coldensi = coldensi *umass/udist/udist ! physical units
-     end select
+       coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+       coldensi = coldensi *umass/udist/udist ! physical units
+    end select
      
-     tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
+     tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
      
      
