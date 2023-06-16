@@ -40,7 +40,7 @@ contains
 subroutine test_growth(ntests,npass)
 #ifdef DUST
 #ifdef DUSTGROWTH
- use growth,      only:init_growth,get_growth_rate,ifrag,isnow
+ use growth,      only:init_growth,ifrag,isnow
  use physcon,     only:solarm,au
  use units,       only:set_units
  use mpiutils,    only:barrier_mpi

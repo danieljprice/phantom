@@ -21,7 +21,7 @@ module fileutils
  implicit none
  public :: getnextfilename,numfromfile,basename,get_ncolumns,skip_header,get_column_labels,split
  public :: strip_extension,is_digit,files_are_sequential
- public :: ucase,lcase,make_tags_unique,get_nlines,string_delete
+ public :: ucase,lcase,make_tags_unique,get_nlines,string_delete,string_replace,nospaces
 
  private
 
@@ -464,6 +464,31 @@ pure subroutine string_delete(string,skey)
     ipos = index(trim(string),skey)
  enddo
 end subroutine string_delete
+
+!---------------------------------------------------------------------------
+!
+! subroutine to replace a matching section of a string with another
+! string, possibly of differing length
+!
+!---------------------------------------------------------------------------
+subroutine string_replace(string,skey,sreplacewith)
+ character(len=*), intent(inout) :: string
+ character(len=*), intent(in)    :: skey,sreplacewith
+ character(len=len(string)) :: remstring
+ integer :: ipos,imax,lensub,i
+
+ ipos = index(trim(string),skey)
+ lensub = len(skey)
+ imax   = len(string)
+ i = 0
+ do while (ipos > 0 .and. i <= imax)
+    i = i + 1  !  only allow as many replacements as characters
+    remstring = string(ipos+lensub:len_trim(string))
+    string = string(1:ipos-1)//sreplacewith//remstring
+    ipos = index(trim(string),skey)
+ enddo
+
+end subroutine string_replace
 
 !---------------------------------------------------------------------------
 !

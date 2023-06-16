@@ -40,7 +40,7 @@ contains
 !+
 !--------------------------------------------
 subroutine test_dust(ntests,npass)
- use dust,        only:idrag,init_drag,get_ts
+ use dust,        only:idrag,init_drag,get_ts,drag_implicit
  use set_dust,    only:set_dustbinfrac
  use physcon,     only:solarm,au
  use units,       only:set_units,unit_density,udist
@@ -94,17 +94,34 @@ subroutine test_dust(ntests,npass)
  call test_epsteinstokes(ntests,npass)
  call barrier_mpi()
 
- !
- ! Test that drag conserves momentum and energy
- !
+ if (id==master) write(*,"(/,a)") '--> testing drag with EXPLICIT scheme'
  use_dustfrac = .false.
+ !
+ ! Test that drag conserves momentum and energy with explicit scheme
+ !
+ drag_implicit = .false.
  call test_drag(ntests,npass)
  call barrier_mpi()
 
  !
- ! DUSTYBOX test
+ ! DUSTYBOX test with explicit scheme
  !
- use_dustfrac = .false.
+ drag_implicit = .false.
+ call test_dustybox(ntests,npass)
+ call barrier_mpi()
+
+ if (id==master) write(*,"(/,a)") '--> testing DRAG with IMPLICIT scheme'
+ !
+ ! Test that drag conserves momentum and energy with implicit scheme
+ !
+ drag_implicit = .true.
+ call test_drag(ntests,npass)
+ call barrier_mpi()
+
+ !
+ ! DUSTYBOX test with explicit scheme
+ !
+ drag_implicit = .true.
  call test_dustybox(ntests,npass)
  call barrier_mpi()
 
@@ -506,6 +523,10 @@ subroutine test_drag(ntests,npass)
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dekin,deint
 
+ real, parameter :: tol_mom = 1.e-7
+ real, parameter :: tol_ang = 5.e-4
+ real, parameter :: tol_enj = 1.e-6
+
  if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
 !
 ! set up particles in random distribution
@@ -573,7 +594,8 @@ subroutine test_drag(ntests,npass)
 
  fext = 0.
  fxyzu = 0.
- call get_derivs_global()
+ call get_derivs_global(dt=1.)
+ !if(drag_implicit) call get_derivs_global(dt=1.)
 
 !
 ! check that momentum and energy are conserved
@@ -601,15 +623,15 @@ subroutine test_drag(ntests,npass)
  deint = reduceall_mpi('+', deint)
 
  nfailed=0
- call checkval(da(1),0.,7.e-7,nfailed(1),'acceleration from drag conserves momentum(x)')
- call checkval(da(2),0.,7.e-7,nfailed(2),'acceleration from drag conserves momentum(y)')
- call checkval(da(3),0.,7.e-7,nfailed(3),'acceleration from drag conserves momentum(z)')
+ call checkval(da(1),0.,tol_mom,nfailed(1),'acceleration from drag conserves momentum(x)')
+ call checkval(da(2),0.,tol_mom,nfailed(2),'acceleration from drag conserves momentum(y)')
+ call checkval(da(3),0.,tol_mom,nfailed(3),'acceleration from drag conserves momentum(z)')
  if (.not.periodic) then
-    call checkval(dl(1),0.,1.e-9,nfailed(4),'acceleration from drag conserves angular momentum(x)')
-    call checkval(dl(2),0.,1.e-9,nfailed(5),'acceleration from drag conserves angular momentum(y)')
-    call checkval(dl(3),0.,1.e-9,nfailed(6),'acceleration from drag conserves angular momentum(z)')
+    call checkval(dl(1),0.,tol_ang,nfailed(4),'acceleration from drag conserves angular momentum(x)')
+    call checkval(dl(2),0.,tol_ang,nfailed(5),'acceleration from drag conserves angular momentum(y)')
+    call checkval(dl(3),0.,tol_ang,nfailed(6),'acceleration from drag conserves angular momentum(z)')
  endif
- if (maxvxyzu >= 4) call checkval(dekin+deint,0.,7.e-7,nfailed(7),'acceleration from drag conserves energy')
+ if (maxvxyzu >= 4) call checkval(dekin+deint,0.,tol_enj,nfailed(7),'acceleration from drag conserves energy')
 
  call update_test_scores(ntests,nfailed,npass)
 

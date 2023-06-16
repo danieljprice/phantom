@@ -28,7 +28,7 @@ module mpc
 ! :References:
 ! https://minorplanetcenter.net/Extended_Files/Extended_MPCORB_Data_Format_Manual.pdf
 !
-! :Owner: Not Committed Yet
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

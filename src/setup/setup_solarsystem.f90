@@ -10,14 +10,14 @@ module setup
 !
 ! :References: https://minorplanetcenter.net/data
 !
-! :Owner: Not Committed Yet
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - dumpsperorbit : *number of dumps per orbit*
 !   - norbits       : *number of orbits*
 !
-! :Dependencies: infile_utils, io, mpc, part, physcon, setbinary, timestep,
-!   units
+! :Dependencies: centreofmass, datautils, ephemeris, infile_utils, io, mpc,
+!   part, physcon, setbinary, timestep, units
 !
  implicit none
  public :: setpart
@@ -35,15 +35,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,ndustlarge,set_particle_type,&
-                     grainsize,graindens,ndusttypes
- use setbinary, only:set_binary
- use units,     only:set_units,umass,udist,unit_density
- use physcon,   only:solarm,au,pi,km
- use io,        only:master,fatal
- use timestep,  only:tmax,dtmax
- use mpc,       only:read_mpc,mpc_entry
- use datautils, only:find_datafile
+ use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
+                        grainsize,graindens,ndustlarge,ndusttypes
+ use setbinary,    only:set_binary
+ use units,        only:set_units,umass,udist,unit_density
+ use physcon,      only:solarm,au,pi,km
+ use io,           only:master,fatal
+ use timestep,     only:tmax,dtmax
+ use mpc,          only:read_mpc,mpc_entry
+ use datautils,    only:find_datafile
+ use centreofmass, only:reset_centreofmass
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -97,16 +98,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
  nptmass = 0
 
- semia  = 5.2  !  Jupiter
+ semia  = 1.  !  Earth
  mtot   = solarm/umass
  hpart  = 100.*au/udist
 
  period = 2.*pi*sqrt(semia**3/mtot)
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
-!
-! read the orbital data from the data file
-!
+
  filename = find_datafile('Distant.txt',url='https://www.minorplanetcenter.net/iau/MPCORB/')
  call read_mpc(filename,nbodies,dat=dat)
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
@@ -116,7 +115,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! for each solar system object get the xyz positions from the orbital parameters
     !
     !print*,i,'aeiOwM=',dat(i)%a,dat(i)%ecc,dat(i)%inc,dat(i)%O,dat(i)%w,dat(i)%M
-    call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,1.,1.e-15,&
+    call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,incl=dat(i)%inc,&
                     arg_peri=dat(i)%w,posang_ascnode=dat(i)%O,&
                     mean_anomaly=dat(i)%M,verbose=.false.)
@@ -144,11 +143,74 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  grainsize(1:ndustlarge) = km/udist         ! assume km-sized bodies
  graindens(1:ndustlarge) = 2./unit_density  ! 2 g/cm^3
 
+ !
+ ! add the planets
+ !
+ call set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  hfact = 1.2
 
  if (ierr /= 0) call fatal('setup','ERROR during setup')
 
 end subroutine setpart
+
+!----------------------------------------------------------------
+!+
+!  setup the solar system planets by querying their ephemeris
+!  from the JPL server
+!+
+!----------------------------------------------------------------
+subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
+ use ephemeris, only:get_ephemeris,nelem
+ use units,     only:umass,udist
+ use physcon,   only:gg,km,solarm,earthm,au
+ use setbinary, only:set_binary
+ integer, intent(inout) :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,          parameter :: nplanets = 9
+ character(len=*), parameter :: planet_name(nplanets) = &
+     (/'mercury', &
+       'venus  ', &
+       'earth  ', &
+       'mars   ', &
+       'jupiter', &
+       'saturn ', &
+       'uranus ', &
+       'neptune', &
+       'pluto  '/)  ! for nostalgia's sake
+ real    :: elems(nelem),xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
+ real    :: msun,mplanet,a,e,inc,O,w,f
+ integer :: i,ierr,ntmp
+
+ msun = solarm/umass
+ do i=1,nplanets
+    elems = get_ephemeris(planet_name(i),ierr)
+    if (ierr /= 0) then
+       print "(a)",' ERROR: could not read ephemeris data for '//planet_name(i)
+       cycle  ! skip if error reading ephemeris file
+    endif
+    gm_cgs  = elems(1)*km**3
+    mplanet = (gm_cgs/gg)/umass
+    a   = elems(2)*km/udist
+    e   = elems(3)
+    inc = elems(4)
+    O   = elems(5)
+    w   = elems(6)
+    f   = elems(7)
+    print*,' mplanet/mearth = ',mplanet*umass/earthm,' a = ',a*udist/au,' au'
+    ntmp = 0
+    call set_binary(msun,mplanet,a,e,0.01,0.01,&
+                    xyz_tmp,vxyz_tmp,ntmp,ierr,incl=inc,&
+                    arg_peri=w,posang_ascnode=O,f=f,verbose=.false.)
+    nptmass = nptmass + 1
+    xyzmh_ptmass(:,nptmass) = xyz_tmp(:,2)
+    vxyz_ptmass(:,nptmass)  = vxyz_tmp(:,2)
+ enddo
+
+ print*,' nptmass = ',nptmass
+
+end subroutine set_solarsystem_planets
 
 !----------------------------------------------------------------
 !+
