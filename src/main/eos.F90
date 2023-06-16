@@ -430,13 +430,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
     call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui)
-    cgspresi = Rg*cgsrhoi*tempi/mui
+    cgspresi = kb_on_mh*cgsrhoi*tempi/mui
     presi = cgspresi/unit_pressure
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
-  !  if (gammai < 1.d0 .or. gammai > 2.d0) then
+    !if (gammai < 1.d0 .or. gammai > 2.d0) then
    !		print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
-   !	endif
+    !endif
     spsoundi = sqrt(gammai*ponrhoi)
 
  case default

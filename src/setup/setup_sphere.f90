@@ -397,7 +397,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     if (trim(lattice)/='random') print "(a,es10.3)",' Particle separation in sphere = ',psep
  endif
  print "(a)",' Initialised sphere'
-
+ npartsphere = npart_total
  
  !
  ! set particle properties
@@ -708,7 +708,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr
+ integer                       :: i,nerr,kerr,jerr
  type(inopts), allocatable     :: db(:)
 
  !--Read values
