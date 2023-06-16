@@ -732,7 +732,7 @@ ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     MAXP=10000000
     GRAVITY=yes
@@ -745,7 +745,7 @@ ifeq ($(SETUP), grstar)
     IND_TIMESTEPS=yes
     SETUPFILE= setup_star.f90
     MODFILE= moddump_tidal.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     MAXP=100000000
     GRAVITY=yes
@@ -756,7 +756,7 @@ ifeq ($(SETUP), dustystar)
     FPPFLAGS= -DDUST_NUCLEATION -DSINK_RADIATION -DSTAR
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90 dust_formation.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.F90
     KNOWN_SETUP=yes
     MAXP=10000000
     GRAVITY=yes
@@ -766,7 +766,7 @@ ifeq ($(SETUP), radstar)
 #   setup a star as in the star setup but with radiation
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
     MAXP=10000000
     GRAVITY=yes
@@ -795,13 +795,13 @@ endif
 ifeq ($(SETUP), radwind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
-    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.F90 analysis_raytracer.f90
+    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.f90 analysis_raytracer.f90
     WIND=yes
 endif
 
 ifeq ($(WIND), yes)
 #   wind particle injection setup
-    SETUPFILE= setup_wind.F90
+    SETUPFILE= setup_wind.f90
     SRCINJECT= utils_binary.f90 set_binary.f90 wind_equations.F90 wind.F90 inject_wind.f90
     KNOWN_SETUP=yes
 endif

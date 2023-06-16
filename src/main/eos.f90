@@ -1374,6 +1374,7 @@ end subroutine read_headeropts_eos
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
+ use dim,            only:use_krome
  use infile_utils,   only:write_inopt
  use eos_helmholtz,  only:eos_helmholtz_write_inopt
  use eos_barotropic, only:write_options_eos_barotropic
@@ -1383,9 +1384,11 @@ subroutine write_options_eos(iunit)
 
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
-#ifndef KROME
- if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
-#endif
+
+ if (.not.use_krome .or. .not.eos_outputs_mu(ieos)) then
+    call write_inopt(gmw,'mu','mean molecular weight',iunit)
+ endif
+
  select case(ieos)
  case(8)
     call write_options_eos_barotropic(iunit)
