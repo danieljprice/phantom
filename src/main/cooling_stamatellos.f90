@@ -58,12 +58,12 @@ end subroutine init_star
      use physcon,  only:steboltz,pi,solarl,Rg
      use units,    only:umass,udist,unit_density,unit_ergg,utime
      use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool
-     use part,       only:eos_vars,igasP,xyzmh_ptmass
+     use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
      real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
      integer,intent(in) :: i
      real,intent(out) :: dudti_cool
      real            :: coldensi,kappaBari,kappaParti,ri2
-     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi
+     real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi
      
      poti = Gpot_cool(i) 
@@ -81,46 +81,46 @@ end subroutine init_star
      endif
 
 ! get opacities & Ti for ui
-     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-           Ti,gmwi,gammai)
-      presi = eos_vars(igasP,i)
-   !  presi = Rg*Ti*rhoi
-     select case (od_method)
-     case (1)
-        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
-        coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-        coldensi = coldensi*umass/udist/udist ! physical units
-     case (2)
+    call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+           Ti,gmwi)
+    presi = eos_vars(igasP,i)
+
+    select case (od_method)
+    case (1)
+       coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
+       coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
+       coldensi = coldensi*umass/udist/udist ! physical units
+    case (2)
 ! Lombardi+ method of estimating the mean column density
-        coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
-        coldensi = coldensi *umass/udist/udist ! physical units
-     end select
+       coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+       coldensi = coldensi *umass/udist/udist ! physical units
+    end select
      
-     tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
+     tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
      
      
 ! calculate Teqi
-	if (od_method == 1) then
-		Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+     if (od_method == 1) then
+        Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
      	Teqi = Teqi/4.d0/steboltz
-    	Teqi = Teqi + Tmini4
-    	if (Teqi < Tmini4) then
+        Teqi = Teqi + Tmini4
+       if (Teqi < Tmini4) then
      	   Teqi = Tmini4**(1.0/4.0)
-   		else
+      else
      	   Teqi = Teqi**(1.0/4.0)
-    	endif
-    	call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+      endif
+      call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
    		ueqi = ueqi/unit_ergg
-	endif
+     endif
     
      call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
      umini = umini/unit_ergg
      
 ! calculate thermalization timescale and
 ! internal energy update -> put in form where it'll work as dudtcool
-	select case (od_method)
-	case (1)
+     select case (od_method)
+     case (1)
      if ((dudti_sph + dudt_rad) == 0.d0) then
         tthermi = 0d0
      else
@@ -133,7 +133,7 @@ end subroutine init_star
      endif
      case (2)
      	if (abs(dudt_rad) > 0.d0) then
-    	 	tthermi = (umini - ui) / dudt_rad
+    	 	tthermi = (umini - ui) / (dudt_rad)! + tiny(dudt_rad))
      		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
      	else  ! ie Tmini == Ti
      		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
@@ -151,6 +151,7 @@ end subroutine init_star
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
         dudti_cool = (umini - ui)/dt
+       ! print *, "dudti_cool negative and big"
      endif
      
    end subroutine cooling_S07
