@@ -29,7 +29,8 @@ module extern_binary
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
- real, public :: binarymassr = 0.5
+ real, public :: mass1 = 1.0
+ real, public :: mass2 = 0.001
  real, public :: accradius1  = 0.5
  real, public :: accradius2  = 0.5
  real, public :: accretedmass1 = 0.
@@ -38,7 +39,7 @@ module extern_binary
  real, public :: eps_soft2 = 0.0
  logical, public :: ramp = .false.
  logical, public :: surface_force = .false.
- real,    private :: binarymassri
+ real,    private :: mass2_temp
 
  public :: binary_force, binary_posvel, binary_accreted, update_binary
  public :: write_options_externbinary, read_options_externbinary
@@ -61,15 +62,13 @@ contains
 !----------------------------------------------
 subroutine update_binary(ti)
  use physcon, only:pi
- real,    intent(in) :: ti
- real :: cost,sint
- real :: omega
+ real, intent(in) :: ti
+ real :: omega,mtot,a,x,y
 
  if (ramp .and. ti < 10.*pi) then
-    binarymassri = binarymassr*(sin(ti/20.)**2)
-    !print*,' Mplanet = ',binarymassri
+    mass2_temp = mass2*(sin(ti/20.)**2)
  else
-    binarymassri = binarymassr
+    mass2_temp = mass2
  endif
 
  if (surface_force) then
@@ -78,12 +77,17 @@ subroutine update_binary(ti)
     omega = 1.
  endif
 
- cost = cos(omega*ti)
- sint = sin(omega*ti)
- x1 = (1.-binarymassri)*cost
- y1 = (1.-binarymassri)*sint
- x2 = -binarymassri*cost
- y2 = -binarymassri*sint
+ a = 1.  ! semi-major axis
+ x = a*cos(omega*ti)
+ y = a*sin(omega*ti)
+
+ !--positions of primary and secondary (exact)
+ mtot = mass1 + mass2_temp
+ x1 = -mass2_temp/mtot*x
+ y1 = -mass2_temp/mtot*y
+
+ x2 = mass1/mtot*x
+ y2 = mass1/mtot*y
 
 end subroutine update_binary
 
@@ -96,8 +100,8 @@ end subroutine update_binary
 subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  real, intent(in)  :: xi,yi,zi,ti
  real, intent(out) :: fxi,fyi,fzi,phi
- real :: dx1,dy1,dz1,rr1,f1,r1
- real :: dx2,dy2,dz2,rr2,f2
+ real :: dx1,dy1,dz1,rr1,f1
+ real :: dx2,dy2,dz2,rr2,f2,r2
  real :: dr1,dr2,phi1,phi2
 
  !--compute gravitational force on gas particle i
@@ -117,19 +121,19 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  dr2 = 1./sqrt(rr2 + eps_soft2**2)
 
  if (surface_force) then
-    r1  = sqrt(rr1)
-    if (r1 < 2.*eps_soft1) then
+    r2 = sqrt(rr2)
+    if (r2 < 2.*eps_soft2) then
        !--add surface force to keep particles outside of r_planet
-       f1 =  binarymassri/(rr1*r1)*(1.-((2.*eps_soft1-r1)/eps_soft1)**4)
+       f2 = mass2_temp/(rr2*r2)*(1.-((2.*eps_soft2-r2)/eps_soft2)**4)
     else
        !--1/r potential
-       f1 = binarymassri/(rr1*r1)
+       f2 = mass2_temp/(rr2*r2)
     endif
  else
     !--normal softened potential
-    f1 = binarymassri*dr1*dr1*dr1
+    f2 = mass2_temp*dr2*dr2*dr2
  endif
- f2  = (1.-binarymassri)*dr2*dr2*dr2
+ f1 = mass1*dr1*dr1*dr1
 
  fxi = -dx1*f1 - dx2*f2
  fyi = -dy1*f1 - dy2*f2
@@ -137,8 +141,8 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
 
  ! Note: phi1 is the Newtonian potential and does not include then surface force above;
  !       however, this is not critical since phi is only used for timestep control
- phi1 = -binarymassri*dr1
- phi2 = -(1.-binarymassri)*dr2
+ phi1 = -mass1*dr1
+ phi2 = -mass2_temp*dr2
  phi  = phi1 + phi2
 
 end subroutine binary_force
@@ -153,25 +157,36 @@ subroutine binary_posvel(ti,posmh,vels)
  real, intent(in)  :: ti
  real, intent(out) :: posmh(10)
  real, intent(out) :: vels(6)
+ real :: mtot,omega,vx,vy
 
  !--positions of primary and secondary (exact)
  posmh(1) = x1
  posmh(2) = y1
  posmh(3) = 0.
- posmh(4) = binarymassri*1./(1.-binarymassri)
+ posmh(4) = mass1
  posmh(5) = accradius1
 
  posmh(6)  = x2
  posmh(7)  = y2
  posmh(8)  = 0.
- posmh(9)  = 1.
+ posmh(9)  = mass2_temp
  posmh(10) = accradius2
 
- vels(1) = -(1.-binarymassri)*sin(ti)
- vels(2) = (1.-binarymassri)*cos(ti)
+ if (surface_force) then
+    omega = 0. ! fixed position
+ else
+    omega = 1.
+ endif
+
+ vx = -omega*x2
+ vy = omega*y2
+
+ mtot = mass1 + mass2_temp
+ vels(1) = -mass2_temp/mtot*vx
+ vels(2) = -mass2_temp/mtot*vy
  vels(3) = 0.
- vels(4) = binarymassri*sin(ti)
- vels(5) = -binarymassri*cos(ti)
+ vels(4) = mass1/mtot*vx
+ vels(5) = mass1/mtot*vy
  vels(6) = 0.
 
 end subroutine binary_posvel
@@ -219,7 +234,7 @@ subroutine write_options_externbinary(iunit)
  use infile_utils,   only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(binarymassr,'binarymassr','m1/(m1+m2) of central binary system (if iexternalforce=binary)',iunit)
+ call write_inopt(mass2,'mass2','m2 of central binary system (if iexternalforce=binary)',iunit)
  call write_inopt(accradius1,'accradius1','accretion radius of primary',iunit)
  call write_inopt(accradius2,'accradius2','accretion radius of secondary (if iexternalforce=binary)',iunit)
  call write_inopt(eps_soft1,'eps_soft1','Plummer softening of primary',iunit)
@@ -244,12 +259,12 @@ subroutine read_options_externbinary(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- case('binarymassr')
-    read(valstring,*,iostat=ierr) binarymassr
+ case('mass2')
+    read(valstring,*,iostat=ierr) mass2
     ngot = ngot + 1
-    if (binarymassr < epsilon(binarymassr)) &
-       call fatal(where,'invalid setting for binary mass ratio (<0)')
-    if (binarymassr > 1.e10)  call error(where,'binary mass ratio is huge!!!')
+    if (mass2 < epsilon(mass2)) &
+       call fatal(where,'invalid setting for m2 (<0)')
+    if (mass2/mass1 > 1.e10)  call error(where,'binary mass ratio is huge!!!')
  case('accradius1') ! cannot be compulsory, because also handled in parent routine
     read(valstring,*,iostat=ierr) accradius1
     if (accradius1 < 0.)  call fatal(where,'negative accretion radius')

@@ -35,7 +35,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine test_growth(ntests,npass)
  use dim,      only:use_dust,use_dustgrowth
- use growth,   only:init_growth,get_growth_rate,ifrag,isnow
+ use growth,   only:init_growth,ifrag,isnow
  use physcon,  only:solarm,au
  use units,    only:set_units
  use mpiutils, only:barrier_mpi

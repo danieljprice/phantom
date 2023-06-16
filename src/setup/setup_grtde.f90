@@ -97,8 +97,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !-- Default runtime parameters
 !
  mhole           = 1.e6  ! (solar masses)
- star%mstar      = 1.    ! (solar masses)
- star%rstar      = 1.    ! (solar radii)
+ call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
+ star%mstar      = 1.*solarm/umass
+ star%rstar      = 1.*solarr/udist
  star%np         = 1e6
  star%iprofile   = 2
  beta            = 5.
@@ -123,14 +124,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
-
-!
-!-- Convert to code untis
-!
- mhole = mhole*solarm
- call set_units(mass=mhole,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
- star%mstar = star%mstar*solarm/umass
- star%rstar = star%rstar*solarr/udist
 
  !
  !--set up and relax a star
@@ -251,7 +244,6 @@ subroutine write_setupfile(filename)
  print "(a)",' writing setup options file '//trim(filename)
  open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for tidal disruption setup'
-
  call write_options_star(star,iunit)
  call write_inopt(relax,'relax','relax star into hydrostatic equilibrium',iunit)
  if (relax) call write_options_relax(iunit)
@@ -272,6 +264,8 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  use io,           only:error
  use setstar,      only:read_options_star
  use relaxstar,    only:read_options_relax
+ use physcon,      only:solarm,solarr
+ use units,        only:set_units
  character(len=*), intent(in)    :: filename
  integer,          intent(inout) :: ieos
  real,             intent(inout) :: polyk
@@ -284,11 +278,18 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ !
+ !--read black hole mass and use it to define code units
+ !
+ call read_inopt(mhole,'mhole',db,min=0.,errcount=nerr)
+ call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
+ !
+ !--read star options and convert to code units
+ !
  call read_options_star(star,need_iso,ieos,polyk,db,nerr)
  call read_inopt(relax,'relax',db,errcount=nerr)
  if (relax) call read_options_relax(db,nerr)
 
- call read_inopt(mhole,          'mhole',          db,min=0.,errcount=nerr)
  call read_inopt(beta,           'beta',           db,min=0.,errcount=nerr)
  call read_inopt(ecc,            'ecc',            db,min=0.,max=1.,errcount=nerr)
  call read_inopt(norbits,        'norbits',        db,min=0.,errcount=nerr)

@@ -23,7 +23,7 @@ module setup
 !   - alphaSS      : *desired alpha_SS*
 !   - discm        : *disc mass*
 !   - inc          : *inclination (tilt) in degrees*
-!   - massr        : *mass ratio*
+!   - mass2        : *mass of secondary*
 !   - np           : *number of particles*
 !   - p_indexinput : *surface density profile*
 !   - q_indexinput : *temperature profile*
@@ -31,7 +31,7 @@ module setup
 ! :Dependencies: extern_binary, externalforces, infile_utils, io, options,
 !   physcon, prompting, setdisc, units
 !
- use extern_binary, only:accradius1,accradius2,massr,a0 !,binary_posvel
+ use extern_binary, only:accradius1,accradius2,mass1,mass2,a0 !,binary_posvel
  implicit none
  public :: setpart
 
@@ -153,7 +153,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !   vxyzu(3,i) = vxyzu(3,i) + vbinary(3)
 ! enddo
 
- return
 end subroutine setpart
 
 subroutine setup_interactive()
@@ -166,9 +165,9 @@ subroutine setup_interactive()
 !    print "(a,f6.3,a,1pe8.2,a)",' Schwarzschild radius is ',2.0*udist/au,' AU for ',umass/solarm,' M_sun black hole'
 
  call prompt('Enter total number of gas particles ',np,0)
- call prompt('Enter mass ratio of binary',massr,0.,1.)
+ call prompt('Enter mass of secondary',mass2,0.,1.)
 
- accradius2 = massr*accradius1
+ accradius2 = mass2/mass1*accradius1
 
  call prompt('Enter initial binary separation',a0,0.)
  call prompt('Enter accretion radius of the PRIMARY black hole ',accradius1,accradius1,a0)
@@ -199,7 +198,7 @@ subroutine write_setupfile(filename)
  call write_inopt(np,'np','number of particles',iunit)
 
  write(iunit,"(/,a)") '# options for binary'
- call write_inopt(massr,'massr','mass ratio',iunit)
+ call write_inopt(mass2,'mass2','mass of secondary',iunit)
  call write_inopt(a0,'a0','initial binary separation',iunit)
  call write_inopt(accradius1,'accradius1','primary accretion radius',iunit)
  call write_inopt(accradius2,'accradius2','secondary accretion radius',iunit)
@@ -231,7 +230,7 @@ subroutine read_setupfile(filename,ierr)
  call open_db_from_file(db,filename,iunit,ierr)
  nerr = 0
  call read_inopt(np,'np',db,min=1,errcount=nerr)
- call read_inopt(massr,'massr',db,min=0.,errcount=nerr)
+ call read_inopt(mass2,'mass2',db,min=0.,errcount=nerr)
  call read_inopt(a0,'a0',db,min=0.,errcount=nerr)
  call read_inopt(accradius1,'accradius1',db,min=0.,errcount=nerr)
  call read_inopt(accradius2,'accradius2',db,min=0.,errcount=nerr)
