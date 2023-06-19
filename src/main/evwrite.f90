@@ -247,7 +247,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  endif
 
 end subroutine init_evfile
-!
+
 !----------------------------------------------------------------
 !+
 !  creates up to three lables per input value, and fills the required
@@ -300,7 +300,7 @@ subroutine fill_ev_tag(ev_fmt,itag,label,cmd,i,j)
        endif
     enddo
  enddo
- !
+
 end subroutine fill_ev_tag
 !----------------------------------------------------------------
 !+
@@ -350,11 +350,9 @@ end subroutine fill_ev_header
 subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
-#ifndef GR
  use timestep,      only:dtmax_user
  use options,       only:iexternalforce
- use extern_binary, only:accretedmass1,accretedmass2
-#endif
+ use externalforces,only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
  integer           :: i,j
  real              :: ev_data_out(ielements)
@@ -364,14 +362,12 @@ subroutine write_evfile(t,dt)
 
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
-#ifndef GR
     ev_data(iev_sum,iev_dt)  = dt
     ev_data(iev_sum,iev_dtx) = dtmax_user
     if (iexternalforce==iext_binary) then
        ev_data(iev_sum,iev_maccsink(1)) = accretedmass1
        ev_data(iev_sum,iev_maccsink(2)) = accretedmass2
     endif
-#endif
     ! Fill in the data_out array
     j = 1
     do i = 1,iquantities
@@ -405,7 +401,6 @@ subroutine write_evfile(t,dt)
     call flush(ievfile)
  endif
 
- return
 end subroutine write_evfile
 !----------------------------------------------------------------
 !+
@@ -499,7 +494,6 @@ subroutine write_evlog(iprint)
  endif
  write(iprint,"(/)")
 
- return
 end subroutine write_evlog
-!----------------------------------------------------------------
+
 end module evwrite

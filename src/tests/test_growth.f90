@@ -21,11 +21,7 @@ module testgrowth
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
-#ifdef DUST
-#ifdef DUSTGROWTH
  use testdust,  only:test_dustybox
-#endif
-#endif
  implicit none
  public :: test_growth
 
@@ -38,23 +34,22 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_growth(ntests,npass)
-#ifdef DUST
-#ifdef DUSTGROWTH
- use growth,      only:init_growth,ifrag,isnow
- use physcon,     only:solarm,au
- use units,       only:set_units
- use mpiutils,    only:barrier_mpi
-#endif
-#endif
+ use dim,      only:use_dust,use_dustgrowth
+ use growth,   only:init_growth,ifrag,isnow
+ use physcon,  only:solarm,au
+ use units,    only:set_units
+ use mpiutils, only:barrier_mpi
  integer, intent(inout) :: ntests,npass
-
-#ifdef DUST
-#ifdef DUSTGROWTH
  integer :: nfailed(5),ierr !don't forget the dimension of nfailed
  logical, dimension(2)  :: logic = (/.false., .true./)
  integer                :: i,j
 
- if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
+ if (use_dust .and. use_dustgrowth) then
+    if (id==master) write(*,"(/,a)") '--> TESTING DUSTGROWTH MODULE'
+ else
+    if (id==master) write(*,"(/,a)") '--> SKIPPING DUSTGROWTH TEST (REQUIRES -DDUST -DDUSTGROWTH)'
+    return
+ endif
 
  call set_units(mass=solarm,dist=au,G=1.d0)
 
@@ -86,15 +81,8 @@ subroutine test_growth(ntests,npass)
  enddo
 
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
-#else
- if (id==master) write(*,"(/,a)") '--> SKIPPING DUSTGROWTH TEST (REQUIRES -DDUST -DDUSTGROWTH)'
-#endif
-#endif
 
 end subroutine test_growth
-
-#ifdef DUST
-#ifdef DUSTGROWTH
 
 !-------------------
 !-------------------
@@ -103,7 +91,8 @@ end subroutine test_growth
 subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use boundary,       only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use kernel,         only:hfact_default
- use part,           only:init_part,igas,idust,npart,xyzh,vxyzu,npartoftype,massoftype,set_particle_type,&
+ use part,           only:init_part,igas,idust,npart,xyzh,vxyzu,npartoftype,&
+                          massoftype,set_particle_type,&
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
@@ -136,12 +125,13 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  integer :: ncheck(4),nerr(4)
  real    :: errmax(4)
  integer :: ierr,iam
+ integer, parameter :: ngrid = 20000
 
  logical :: do_output = .false.
  real    :: deltax,dz,hfact,totmass,rhozero
- real    :: Stcomp(20000),Stini(20000)
- real    :: cscomp(20000),tau(20000)
- real    :: s(20000),time,timelim(20000)
+ real    :: Stcomp(ngrid),Stini(ngrid)
+ real    :: cscomp(ngrid),tau(ngrid)
+ real    :: s(ngrid),time,timelim(ngrid)
  real    :: sinit,dens,t,tmax,dt,dtext,dtnew,guillaume,dtgratio,rhog,rhod
 
  real, parameter :: tolst = 5.e-4
@@ -180,9 +170,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  endif
  dens  = 1./unit_density
 
- write(*,*)'--> testing FARMINGBOX using: ',trim(stringfrag),' and ',trim(stringmethod), ' dust method'
- write(*,*)'------------------------------------------------------------------------'
-
+ write(*,"(/,a)") '--> testing FARMINGBOX using: '//trim(stringfrag)//&
+                ' and '//trim(stringmethod)//' dust method'
  !
  ! initialise
  !
@@ -191,7 +180,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  !
  ! setup for dustybox problem
  !
- nx      = 32
+ nx      = 16
  deltax  = 1./nx
  dz      = 2.*sqrt(6.)/nx
  call set_boundary(-0.5,0.5,-0.25,0.25,-dz,dz)
@@ -339,7 +328,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     call step(npart,npart,t,dt,dtext,dtnew)
     t = t + dt
     if (do_output .and. mod(i,modu)==0) then
-       call write_file_err(i,t,xyzh,dustprop(1,:)*udist,s*udist,dustgasprop(3,:),Stcomp,npart,"farmingbox_")
+       call write_file_err(i,t,xyzh,dustprop(1,:)*udist,s*udist,&
+                           dustgasprop(3,:),Stcomp,npart,"farmingbox_")
     endif
     do j=1,npart
        iam = iamtype(iphase(j))
@@ -378,11 +368,12 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
 
 end subroutine test_farmingbox
 
-subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
+subroutine write_file_err(step,t,xyzh,gsize,gsize_exact,St,St_exact,npart,prefix)
  use part,                     only:iamdust,iphase,iamgas
  real, intent(in)              :: t
  real, intent(in)              :: xyzh(:,:)
- real, intent(in)              :: St(:),St_exact(:),size(:),size_exact(:)
+ real, intent(in)              :: St(:),St_exact(:)
+ real(kind=8), intent(in)      :: gsize(:),gsize_exact(:)
  character(len=*), intent(in)  :: prefix
  integer, intent(in)           :: npart,step
  character(len=30)             :: filename,str
@@ -393,14 +384,11 @@ subroutine write_file_err(step,t,xyzh,size,size_exact,St,St_exact,npart,prefix)
  open(newunit=lu,file=filename,status='replace')
  write(lu,*) t
  do i=1,npart
-    if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),size(i),size_exact(i),&
+    if (iamdust(iphase(i))) write(lu,*) xyzh(1,i),xyzh(2,i),xyzh(3,i),gsize(i),gsize_exact(i),&
         St(i),St_exact(i)
  enddo
  close(lu)
 
 end subroutine write_file_err
-
-#endif
-#endif
 
 end module testgrowth

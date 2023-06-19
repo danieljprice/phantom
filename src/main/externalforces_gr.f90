@@ -39,6 +39,8 @@ module externalforces
  public :: mass1  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
+ real, public :: accretedmass1 = 0.
+ real, public :: accretedmass2 = 0.
 
  logical, public :: extract_iextern_from_hdr = .false.
 
