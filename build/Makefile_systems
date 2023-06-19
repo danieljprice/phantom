@@ -101,7 +101,7 @@ ifeq ($(SYSTEM), ozstar)
     WALLTIME='168:00:00'
 endif
 
-ifeq ($(SYSTEM), ozstar2)
+ifeq ($(SYSTEM), nt)
 #   ozstar milan cluster
     include Makefile_defaults_aocc
     OMPFLAGS=-fopenmp

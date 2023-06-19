@@ -299,6 +299,9 @@ else
 endif
 endif
 
+ifeq ($(AOCC), yes)
+    FPPFLAGS += -DAOCC
+endif
 #
 # kernel choice
 #
