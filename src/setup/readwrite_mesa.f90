@@ -31,23 +31,22 @@ contains
 !-----------------------------------------------------------------------
 subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits)
  use physcon,   only:solarm,solarr
- use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase
+ use fileutils, only:get_nlines,get_ncolumns,string_delete,lcase,read_column_labels
  use datafiles, only:find_phantom_datafile
  use units,     only:udist,umass,unit_density,unit_pressure,unit_ergg
- integer                                    :: lines,rows,i,ncols,nheaderlines,iu
  character(len=*), intent(in)               :: filepath
- logical, intent(in), optional              :: cgsunits
  integer, intent(out)                       :: ierr
- character(len=10000)                       :: dumc
+ real,    intent(in)                        :: X_in,Z_in
+ real, allocatable,dimension(:),intent(out) :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
+ real, intent(out)                          :: Mstar
+ logical, intent(in), optional              :: cgsunits
+ integer                                    :: lines,i,ncols,nheaderlines,nlabels
+ integer                                    :: idir,iu
  character(len=120)                         :: fullfilepath
- character(len=24),allocatable              :: header(:),dum(:)
+ character(len=24),allocatable              :: header(:)
  logical                                    :: iexist,usecgs,ismesafile,got_column
  real,allocatable,dimension(:,:)            :: dat
- real, intent(in)                           :: X_in,Z_in
- real,allocatable,dimension(:),intent(out)  :: rho,r,pres,m,ene,temp,Xfrac,Yfrac
- real, intent(out)                          :: Mstar
 
- rows = 0
  usecgs = .false.
  if (present(cgsunits)) usecgs = cgsunits
  !
@@ -63,93 +62,119 @@ subroutine read_mesa(filepath,rho,r,pres,m,ene,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,
  lines = get_nlines(fullfilepath) ! total number of lines in file
 
  print "(1x,a)",trim(fullfilepath)
- open(newunit=iu,file=fullfilepath,status='old')
+ open(newunit=iu,file=fullfilepath,status='old',iostat=ierr)
+ if (ierr /= 0) then
+    print "(a,/)",' ERROR opening file '//trim(fullfilepath)
+    return
+ endif
+
  call get_ncolumns(iu,ncols,nheaderlines)
  if (nheaderlines == 6) then ! Assume file is a MESA profile, and so it has 6 header lines, and (row=3, col=2) = number of zones
-    read(iu,'()')
-    read(iu,'()')
-    read(iu,*) lines,lines
-    read(iu,'()')
-    read(iu,'()')
+    read(iu,'()',iostat=ierr)
+    read(iu,'()',iostat=ierr)
+    read(iu,*,iostat=ierr) lines,lines
+    read(iu,'()',iostat=ierr)
+    read(iu,'()',iostat=ierr)
+    if (ierr /= 0) then
+       print "(a,/)",' ERROR reading MESA file header'
+       return
+    endif
     ismesafile = .true.
  else
     ismesafile = .false.
     lines = lines - nheaderlines
     do i = 1,nheaderlines-1
-       read(iu,'()')
+       read(iu,'()',iostat=ierr)
     enddo
+    if (ierr /= 0) then
+       print "(a,/)",' ERROR reading file header [not MESA format]'
+       return
+    endif
  endif
  if (lines <= 0) then ! file not found
     ierr = 1
     return
  endif
 
- read(iu,'(a)') dumc! counting rows
- call string_delete(dumc,'[')
- call string_delete(dumc,']')
- allocate(dum(500)) ; dum = 'aaa'
- read(dumc,*,end=101) dum
-101 continue
- do i = 1,500
-    if (dum(i)=='aaa') then
-       rows = i-1
-       exit
-    endif
- enddo
- allocate(header(rows),dat(lines,rows))
- header(1:rows) = dum(1:rows)
- deallocate(dum)
- do i = 1,lines
-    read(iu,*) dat(lines-i+1,1:rows)
- enddo
+ ! extract column labels from the file header
+ allocate(header(ncols),dat(lines,ncols))
+ call read_column_labels(iu,nheaderlines,ncols,nlabels,header)
+ if (nlabels /= ncols) print*,' WARNING: different number of labels compared to columns'
 
  allocate(m(lines),r(lines),pres(lines),rho(lines),ene(lines), &
-             temp(lines),Xfrac(lines),Yfrac(lines))
+          temp(lines),Xfrac(lines),Yfrac(lines))
 
- close(iu)
- ! Set mass fractions to fixed inputs if not in file
- Xfrac = X_in
- Yfrac = 1. - X_in - Z_in
- do i = 1,rows
-    if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
-       print '("Detected wrong header entry : ",A," in file ",A)',trim(lcase(header(i))),trim(fullfilepath)
-       ierr = 2
+ over_directions: do idir=1,2   ! try backwards, then forwards
+    if (idir==1) then
+       ! read MESA file backwards, from surface to centre
+       do i = 1,lines
+          read(iu,*,iostat=ierr) dat(lines-i+1,1:ncols)
+       enddo
+    else
+       ! read file forwards, from centre to surface
+       do i = 1,lines
+          read(iu,*,iostat=ierr) dat(i,1:ncols)
+       enddo
+    endif
+    if (ierr /= 0) then
+       print "(a,/)",' ERROR reading data from file: reached end of file?'
        return
     endif
-    got_column = .true.
-    select case(trim(lcase(header(i))))
-    case('mass_grams')
-       m = dat(1:lines,i)
-    case('mass','#mass')
-       m = dat(1:lines,i)
-       if (ismesafile) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
-    case('rho','density')
-       rho = dat(1:lines,i)
-    case('logrho')
-       rho = 10**(dat(1:lines,i))
-    case('energy','e_int','e_internal')
-       ene = dat(1:lines,i)
-    case('radius_cm')
-       r = dat(1:lines,i)
-    case('radius')
-       r = dat(1:lines,i)
-       if (ismesafile) r = r * solarr
-    case('logr')
-       r = (10**dat(1:lines,i)) * solarr
-    case('pressure')
-       pres = dat(1:lines,i)
-    case('temperature')
-       temp = dat(1:lines,i)
-    case('x_mass_fraction_h','xfrac')
-       Xfrac = dat(1:lines,i)
-    case('y_mass_fraction_he','yfrac')
-       Yfrac = dat(1:lines,i)
-    case default
-       got_column = .false.
-    end select
-    if (got_column) print "(1x,i0,': ',a)",i,trim(header(i))
- enddo
- print "(a)"
+
+   ! Set mass fractions to fixed inputs if not in file
+   Xfrac = X_in
+   Yfrac = 1. - X_in - Z_in
+   do i = 1,ncols
+      if (header(i)(1:1) == '#' .and. .not. trim(lcase(header(i)))=='#mass') then
+         print '("Detected wrong header entry : ",a," in file ",a)',trim(lcase(header(i))),trim(fullfilepath)
+         ierr = 2
+         return
+      endif
+      got_column = .true.
+      select case(trim(lcase(header(i))))
+      case('mass_grams')
+         m = dat(1:lines,i)
+      case('mass','#mass','m')
+         m = dat(1:lines,i)
+         if (ismesafile .or. maxval(m) < 1.e-10*solarm) m = m * solarm  ! If reading MESA profile, 'mass' is in units of Msun
+      case('rho','density')
+         rho = dat(1:lines,i)
+      case('logrho')
+         rho = 10**(dat(1:lines,i))
+      case('energy','e_int','e_internal')
+         ene = dat(1:lines,i)
+      case('radius_cm')
+         r = dat(1:lines,i)
+      case('radius','r')
+         r = dat(1:lines,i)
+         if (ismesafile .or. maxval(r) < 1e-10*solarr) r = r * solarr
+      case('logr')
+         r = (10**dat(1:lines,i)) * solarr
+      case('pressure','p')
+         pres = dat(1:lines,i)
+      case('temperature','t')
+         temp = dat(1:lines,i)
+      case('x_mass_fraction_h','xfrac')
+         Xfrac = dat(1:lines,i)
+      case('y_mass_fraction_he','yfrac')
+         Yfrac = dat(1:lines,i)
+      case default
+         got_column = .false.
+      end select
+      if (got_column .and. idir==1) print "(1x,i0,': ',a)",i,trim(header(i))
+    enddo
+    if (idir==1) print "(a)"
+
+    ! quit the loop over directions if the radius increases
+    if (idir==1 .and. r(2) > r(1)) exit over_directions
+
+    ! otherwise rewind and re-skip header
+    rewind(iu)
+    do i=1,nheaderlines
+       read(iu,*,iostat=ierr)
+    enddo
+ enddo over_directions
+ close(iu)
 
  if (.not. usecgs) then
     m = m / umass
