@@ -920,7 +920,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
           print*,"info3: ",chival,betaval,dti,rhoi
           print*,"info4: ",pres_denominator,origEU(1,i),pres_numerator
           print*,"info5: ",diffusion_numerator,stellarradiation,diffusion_denominator
-          print*,"info6: ",radpresdenom,EU0(1,i),gradvPi,rpdiag,radprop(iedd,i),radprop(ilambda,i)
+          print*,"info6: ",radpresdenom,EU0(1,i)
           print*,"Tgas: ",EU0(2,i)/radprop(icv,i)," Trad:",(rhoi*EU0(1,i)/a_code)**0.25,' ack*(Tgas^4 - Trad^4): ',tfour
 
           call fatal('solve_quartic','Fail to solve')
