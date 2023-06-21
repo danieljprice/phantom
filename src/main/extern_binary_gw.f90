@@ -26,11 +26,11 @@ module extern_binary
  !--code input parameters: these are the default values
  !  and can be changed in the input file
  !
- real, public, parameter :: massp = 1.
- real, public :: massr = 0.001
+ real, public :: mass1 = 1.0
+ real, public :: mass2 = 0.001
  real, public :: a0 = 30.
  real, public :: accradius1  = 2.0
- real, public :: accradius2  = 2. ! accradius1 x mass ratio
+ real, public :: accradius2  = 0.002 ! accradius1 x mass ratio
  real, public :: direction = 1.
  real, public :: accretedmass1 = 0.
  real, public :: accretedmass2 = 0.
@@ -40,7 +40,6 @@ module extern_binary
  public :: write_headeropts_externbinary, read_headeropts_externbinary
  private
 
- !real, private, save :: tset = -1.
  real, private :: xyzbin(3,2)
 
 contains
@@ -75,7 +74,6 @@ subroutine compute_binary_pos(ti)
  xyzbin(1,2) = posmh(6)
  xyzbin(2,2) = posmh(7)
  xyzbin(3,2) = posmh(8)
- !tset = ti
 
 end subroutine compute_binary_pos
 
@@ -92,9 +90,9 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
  real :: dx1,dy1,dz1,dx2,dy2,dz2
  real :: rr1,rr2,f1,f2,dr1,dr2,phi1,phi2
 
- if (abs(massr) < tiny(massr)) then
-    x1=0.
-    y1=0.
+ if (abs(mass2) < tiny(mass2)) then
+    x1 = 0.
+    y1 = 0.
 
     dx1 = xi - x1
     dy1 = yi - y1
@@ -103,8 +101,8 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
     rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
     dr1 = 1./sqrt(rr1)
 
-    f1   = massp*dr1*dr1*dr1
-    phi1 = massp*dr1
+    f1   = mass1*dr1*dr1*dr1
+    phi1 = mass1*dr1
 
     fxi  = -dx1*f1
     fyi  = -dy1*f1
@@ -128,20 +126,18 @@ subroutine binary_force(xi,yi,zi,ti,fxi,fyi,fzi,phi)
     dr1 = 1./sqrt(rr1)
     dr2 = 1./sqrt(rr2)
 
-    f1   = massp*dr1*dr1*dr1
-    f2   = massp*massr*dr2*dr2*dr2
+    f1   = mass1*dr1*dr1*dr1
+    f2   = mass2*dr2*dr2*dr2
 
     fxi  = -dx1*f1 - dx2*f2
     fyi  = -dy1*f1 - dy2*f2
     fzi  = -dz1*f1 - dz2*f2
 
-    phi1 = massp*dr1
-    phi2 = massp*massr*dr2
+    phi1 = mass1*dr1
+    phi2 = mass2*dr2
     phi  = phi1 + phi2
  endif
 
- !write (*,*) ti,0.,0.,0.,0.,x2,y2,0.,0.,0.,0.,a,theta
- return
 end subroutine binary_force
 
 !----------------------------------------------
@@ -154,14 +150,14 @@ subroutine binary_posvel(ti,posmh,vels)
  real, intent(in)  :: ti
  real, intent(out) :: posmh(10)
  real, intent(out) :: vels(6)
- real :: theta,a,mu,mtot,tau,x,y,omega,dadt,vx,vy
+ real :: theta,a,mu,mtot,tau,x,y,omega,dadt,vx,vy,term
 
- if (abs(massr) < tiny(massr)) then
+ if (abs(mass2) < tiny(mass2)) then  ! m2 = 0
     posmh(1:3) = 0.
-    posmh(4)   = massp
+    posmh(4)   = mass1
     posmh(5)   = accradius1
     posmh(6:8) = 0.
-    posmh(9)   = massp*massr
+    posmh(9)   = mass2
     posmh(10)  = accradius2
 
     vels(1) = 0.
@@ -173,8 +169,8 @@ subroutine binary_posvel(ti,posmh,vels)
 
  else
 
-    mtot=massp+massp*massr;
-    mu=(massp**2)*massr/mtot;
+    mtot = mass1 + mass2
+    mu = mass1*mass2/mtot
 
     !--time of coalescence
     tau=5./256.*a0**4/(mu * mtot**2)
@@ -182,46 +178,46 @@ subroutine binary_posvel(ti,posmh,vels)
     a=a0*((1.-ti/tau)**.25)
 
     !--relative angular position
-    theta=direction*(-1./32.)*1./(mu*mtot**(2./3.))*(5./256.*1./(mu*mtot**(2./3.))*1./(tau-ti))**(-5./8.)
+    term = 1./(mu*mtot**(2./3.))
+    theta=direction*(-1./32.)*term*(5./256.*term*1./(tau-ti))**(-5./8.)
 
     !--relative position
     x=a*cos(theta)
     y=a*sin(theta)
 
     !--positions of primary and secondary (exact)
-    posmh(1) = -massp*massr/mtot*x
-    posmh(2) = -massp*massr/mtot*y
+    posmh(1) = -mass2/mtot*x
+    posmh(2) = -mass2/mtot*y
     posmh(3) = 0.
-    posmh(4) = massp
+    posmh(4) = mass1
     posmh(5) = accradius1
 
-    posmh(6) = massp/mtot*x
-    posmh(7) = massp/mtot*y
+    posmh(6) = mass1/mtot*x
+    posmh(7) = mass1/mtot*y
     posmh(8) = 0.
-    posmh(9) = massp*massr
+    posmh(9) = mass2
     posmh(10) = accradius2
 
     !-- rate of shrinking
     dadt = -64./5. * mu*mtot**2/a**3
 
     !-- rate of rotating
-    omega = direction*(5./256. * 1./(mu*mtot**(2./3.)) *1./(tau-ti))**(3./8.)
+    omega = direction*(5./256.*term*1./(tau-ti))**(3./8.)
 
     !--relative velocity
     vx = 1./a*dadt*x - omega*y
     vy = 1./a*dadt*y + omega*x
 
     !--absolute velocity
-    vels(1) = -massp*massr/mtot*vx
-    vels(2) = -massp*massr/mtot*vy
+    vels(1) = -mass2/mtot*vx
+    vels(2) = -mass2/mtot*vy
     vels(3) = 0.
-    vels(4) = massp/mtot*vx
-    vels(5) = massp/mtot*vy
+    vels(4) = mass1/mtot*vx
+    vels(5) = mass1/mtot*vy
     vels(6) = 0.
 
  endif
 
- return
 end subroutine binary_posvel
 
 !----------------------------------------------
@@ -236,7 +232,7 @@ logical function binary_accreted(xi,yi,zi,mi,ti)
  real :: dx1,dy1,dz1,dx2,dy2,dz2
  real :: rr1,rr2
 
- if (abs(massr) < tiny(massr)) then
+ if (abs(mass2) < tiny(mass2)) then ! if m2=0
     x1=0.
     y1=0.
 
@@ -245,7 +241,7 @@ logical function binary_accreted(xi,yi,zi,mi,ti)
     dz1 = zi
 
     rr1 = dx1*dx1 + dy1*dy1 + dz1*dz1
-    rr2 = 1.e10
+    rr2 = huge(rr2)
  else
     !if (abs(ti-tset) > epsilon(0.)) call compute_binary_pos(ti)
     dx1 = xi - xyzbin(1,1)
@@ -356,17 +352,21 @@ subroutine read_headeropts_externbinary(hdr,ierr)
  use io,         only:error
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
- real    :: time,mtot,mu,tau,m1,m2,x1,y1,z1,x2,y2,z2
+ real    :: time,mtot,mu,tau,m1,m2,x1,y1,z1,x2,y2,z2,massr
  integer :: ierrs(7)
 
  ierr  = 0
  call extract('time',time,hdr,ierrs(1))
  call extract('m1',m1,hdr,ierrs(2))
- if (abs(m1 - massp) > epsilon(massp)) then
+ if (abs(m1 - mass1) > epsilon(mass1)) then
     call error('read_headeropts_externbinary','m1 in dump header not equal to mass of primary',var='m1',val=m1)
     ierr = 2
  endif
  call extract('m2',m2,hdr,ierrs(3))
+ if (abs(m2 - mass2) > epsilon(mass2)) then
+    call error('read_headeropts_externbinary','m2 in dump header not equal to mass of secondary',var='m2',val=m2)
+    ierr = 2
+ endif
  call extract('a0',a0,hdr,ierrs(4))
  call extract('direction',direction,hdr,ierrs(5))
  call extract('accretedmass1',accretedmass1,hdr,ierrs(6))
@@ -395,9 +395,9 @@ subroutine read_headeropts_externbinary(hdr,ierr)
  print*,' Accreted mass on prim : ',accretedmass1
  print*,' Accreted mass on sec. : ',accretedmass2
 
- mtot=massp+massp*massr;
- mu=massp**2 * massr/mtot;
- tau=5./256.*a0**4/(mu * mtot**2)
+ mtot = mass1 + mass2
+ mu = mass1*mass2/mtot
+ tau = 5./256.*a0**4/(mu * mtot**2)
  print*,' Time of coalescence   : ',tau
  print*,' Remaining time        : ',tau - time
  print "(2x,a,2pf6.2,'%')",'Fraction complete     : ',time/tau

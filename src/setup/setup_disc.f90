@@ -99,7 +99,7 @@ module setup
  use externalforces,   only:iext_star,iext_binary,iext_lensethirring,&
                             iext_einsteinprec,iext_corot_binary,iext_corotate,&
                             update_externalforce
- use extern_binary,    only:binarymassr,accradius1,accradius2,ramp,surface_force,eps_soft1
+ use extern_binary,    only:mass2,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
  use io,               only:master,warning,error,fatal
@@ -782,16 +782,16 @@ subroutine setup_central_objects(fileprefix)
        mcentral   = m1
     case (2)
        print "(/,a)",' Central binary represented by external force with accretion boundary'
-       print "(a,g10.3,a)",'   Primary mass:       ', m2,    trim(mass_unit)
-       print "(a,g10.3)",  '   Binary mass ratio:  ', m1/m2
+       print "(a,g10.3,a)",'   Primary mass:       ', m1,    trim(mass_unit)
+       print "(a,g10.3)",  '   Binary mass ratio:  ', m2/m1
        print "(a,g10.3,a)",'   Accretion Radius 1: ', accr1, trim(dist_unit)
        print "(a,g10.3,a)",'   Accretion Radius 2: ', accr2, trim(dist_unit)
        mass1       = m1
-       binarymassr = m2/(m1+m2)
+       mass2       = m2
        accradius1  = accr1
        accradius2  = accr2
        if (iexternalforce == iext_corot_binary) then
-          mcentral = m2
+          mcentral = m1
        else
           mcentral = m1 + m2
        endif
@@ -1536,7 +1536,7 @@ subroutine set_planet_atm(id,xyzh,vxyzu,npartoftype,maxvxyzu,itype,a0,R_in, &
  if (ramp) then
     xyz_orig(:) = (/a0,0.,0./)
  else
-    a_orbit = a0 - binarymassr
+    a_orbit = a0 - mass2/Mstar
     xyz_orig(:) = (/a_orbit,0.,0./)
  endif
 
