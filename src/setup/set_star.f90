@@ -697,7 +697,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
     else
        star%isinkcore = .true.
        call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
-       call read_inopt(star%outputfilename,'outputfilename//trim(c)',db,errcount=nerr)
+       call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
        if (star%isoftcore==1) call read_inopt(star%isofteningopt,'isofteningopt'//trim(c),&
                                               db,errcount=nerr,min=0)
        if ((star%isofteningopt==1) .or. (star%isofteningopt==3)) then
