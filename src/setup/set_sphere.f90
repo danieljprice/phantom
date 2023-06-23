@@ -276,7 +276,8 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     return
  endif
 
- print*, ' set_sphere: Iterating to form ',c_shape,' with approx ',nps_requested,' particles'
+ print "(1x,a,i0,a)",&
+   'set_sphere: Iterating to form '//trim(c_shape)//' with approx ',nps_requested,' particles'
  !
  !--Perform the iterations
  !
@@ -349,7 +350,7 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
           ierr = ierr_unknown
           return
        endif
-       if (npart==nps_hi) nps_hi_nx = nx
+       if ((npart-npin)==nps_hi) nps_hi_nx = nx
     endif
  enddo
  if (iter >= 100 .or. nps_lo > nps_requested .or. nps_requested > nps_hi) then
@@ -376,20 +377,20 @@ subroutine set_unifdis_sphereN(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,p
     endif
     npart0 = npart - npin
     if (npart0 == nps_requested) then
-       write(*,'(a,I8)') " set_sphere: Iterated to exactly the requested number of ",nps_requested
+       write(*,'(a,i0)') " set_sphere: Iterated to exactly the requested number of ",nps_requested
     else
        if (nps_requested - nps_lo < npart0 - nps_requested) then
-          write(*,'(a,I8,a,F5.2,a)') " set_sphere: The closest number of particles to the requested number is " &
+          write(*,'(a,i0,a,f5.2,a)') " set_sphere: Closest number to requested is " &
                        ,nps_lo,", which is ",float(nps_requested-nps_lo)/float(nps_requested)*100.0 &
-                       ,"% than less requested."
-          write(*,'(a)') " set_sphere: We will not use fewer than the requested number of particles."
+                       ,"% less"
+          write(*,'(a)') " set_sphere: We will not use fewer than requested number of particles"
        endif
-       write(*,'(a,I8,a,F5.2,a)') " set_sphere: Using " &
+       write(*,'(a,i0,a,f5.2,a)') " set_sphere: Using " &
                  , npart0," particles, which is ",float(npart0- nps_requested)/float(nps_requested)*100.0 &
-                 ,"% more than requested."
+                 ,"% more than requested"
     endif
  endif
- write(*,'(a,I10,2a)') ' set_sphere: Iterations complete: added ',npart0,' particles in the ',trim(c_shape)
+ write(*,'(a,i0,2a)') ' set_sphere: Iterations complete: added ',npart0,' particles in the ',trim(c_shape)
  psep = (xmax-xmin)/nint((xmax-xmin)/psep)
 
 end subroutine set_unifdis_sphereN

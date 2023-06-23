@@ -16,11 +16,11 @@ module test
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
-!   testcorotate, testderivs, testdust, testeos, testexternf, testgeometry,
-!   testgnewton, testgr, testgravity, testgrowth, testindtstep, testkdtree,
-!   testkernel, testlink, testmath, testmpi, testnimhd, testpart, testpoly,
-!   testptmass, testradiation, testrwdump, testsedov, testsetdisc,
-!   testsethier, testsmol, teststep, timing
+!   testcorotate, testdamping, testderivs, testdust, testeos, testexternf,
+!   testgeometry, testgnewton, testgr, testgravity, testgrowth,
+!   testindtstep, testkdtree, testkernel, testlink, testmath, testmpi,
+!   testnimhd, testpart, testpoly, testptmass, testradiation, testrwdump,
+!   testsedov, testsetdisc, testsethier, testsmol, teststep, timing
 !
  implicit none
  public :: testsuite
@@ -62,21 +62,22 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
  use testgeometry, only:test_geometry
+ use testpoly,     only:test_poly
+ use testdamping,  only:test_damping
+ use testradiation,only:test_radiation
 #ifdef MPI
  use testmpi,      only:test_mpi
 #endif
  use timing,       only:get_timings,print_time
- use mpiutils,      only:barrier_mpi
- use testradiation, only:test_radiation
- use dim,           only:do_radiation
- use testpoly,      only:test_poly
+ use mpiutils,     only:barrier_mpi
+ use dim,          only:do_radiation
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -127,6 +128,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dopoly     = .false.
  dompi      = .false.
  dohier     = .false.
+ dodamp     = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -146,10 +148,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'poly')      /= 0) dopoly    = .true.
  if (index(string,'mpi')       /= 0) dompi     = .true.
  if (index(string,'hier')      /= 0) dohier    = .true.
+ if (index(string,'damp')      /= 0) dodamp    = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier/))
+               dopart,dopoly,dohier,dodamp/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -367,10 +370,17 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
-!--test of geometry module
+!--test of polynomial solvers
 !
  if (dopoly.or.testall) then
     call test_poly(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of damping module
+!
+ if (dodamp.or.testall) then
+    call test_damping(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !

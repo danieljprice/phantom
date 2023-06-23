@@ -338,15 +338,17 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(13)
 !
-!--Locally isothermal eos for generic hierarchical system from a generalisation of Farris et al. (2014) for binary system
+!--Locally isothermal eos for generic hierarchical system
 !
-!  Assuming all sink particles are stars
+!  Assuming all sink particles are stars.
+!  Generalisation of Farris et al. (2014; for binaries) to N stars.
+!  For two sink particles this is identical to ieos=14
 !
     mass_r = 0
     mass = 0
 
     do i=1,nptmass
-       mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
+       mass_r = mass_r+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
        mass = mass + xyzmh_ptmass(4,i)
     enddo
     ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
@@ -1372,6 +1374,7 @@ end subroutine read_headeropts_eos
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
+ use dim,            only:use_krome
  use infile_utils,   only:write_inopt
  use eos_helmholtz,  only:eos_helmholtz_write_inopt
  use eos_barotropic, only:write_options_eos_barotropic
@@ -1381,9 +1384,11 @@ subroutine write_options_eos(iunit)
 
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
-#ifndef KROME
- if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
-#endif
+
+ if (.not.use_krome .or. .not.eos_outputs_mu(ieos)) then
+    call write_inopt(gmw,'mu','mean molecular weight',iunit)
+ endif
+
  select case(ieos)
  case(8)
     call write_options_eos_barotropic(iunit)

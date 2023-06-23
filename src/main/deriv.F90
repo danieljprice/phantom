@@ -47,7 +47,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
-                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf
+                          nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
 #ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
 #else
@@ -69,7 +69,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use radiation_implicit, only:do_radiation_implicit
+ use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
@@ -170,7 +170,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  !
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
-    if (ierr /= 0) call fatal('radiation','Failed to converge')
+    if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
  endif
 
 !
@@ -184,7 +184,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  stressmax = 0.
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
-            rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,&
+            rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
             ipart_rhomax,dt,stressmax,eos_vars,dens,metrics)
  call do_timing('force',tlast,tcpulast)
 

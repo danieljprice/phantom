@@ -23,29 +23,28 @@ module externalforces
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
 !   infile_utils, io, lumin_nsdisc, part, units
 !
- use extern_binary,   only:accradius1
+ use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
  use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  private
  public :: externalforce,externalforce_vdependent
  public :: accrete_particles,was_accreted
- public :: accradius1,omega_corotate
+ public :: accradius1,omega_corotate,accretedmass1,accretedmass2
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
  public :: update_vdependent_extforce_leapfrog
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
- real, public :: mass1 = 1.0
  real, public :: eps_soft = 0.d0
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
  real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
+
+ public :: mass1
 
  !
  ! enumerated list of external forces

@@ -10,7 +10,7 @@ Phantom is a 3D Smoothed Particle Hydrodynamics and Magnetohydrodynamics code fo
 
 Status
 ------
-![testkd](https://github.com/danieljprice/phantom/workflows/testkd/badge.svg) 
+![testkd](https://github.com/danieljprice/phantom/workflows/testkd/badge.svg)
 ![test2](https://github.com/danieljprice/phantom/workflows/test2/badge.svg)
 ![testcyl](https://github.com/danieljprice/phantom/workflows/testcyl/badge.svg)
 ![mpi](https://github.com/danieljprice/phantom/workflows/mpi/badge.svg)
@@ -19,6 +19,7 @@ Status
 ![dust growth](https://github.com/danieljprice/phantom/workflows/growth/badge.svg)
 ![non-ideal mhd](https://github.com/danieljprice/phantom/workflows/nimhd/badge.svg)
 ![utils](https://github.com/danieljprice/phantom/workflows/utils/badge.svg)
+[![Documentation](https://readthedocs.org/projects/phantomsph/badge/?version=latest)](https://phantomsph.readthedocs.io/en/latest/?badge=latest)
 
 Links
 -----

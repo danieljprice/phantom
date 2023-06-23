@@ -140,20 +140,20 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 
     call get_timings(t1,tcpu1)
     !$omp parallel do schedule(runtime) default(none) &
-    !$omp shared(npts,xyz,vel,list,npart) &
+    !$omp shared(npts,xyz,vel,list,npart,tcpu1) &
     !$omp firstprivate(distmin2,dxbox,dybox,dzbox,ddxbin,norder,minusdistminddxbin) &
     !$omp private(ipt,xpt,velpt,dx,dy,dz,rij2,rij1,rij,dvdotr) &
-    !$omp private(i,dvx,dvy,dvz) &
+    !$omp private(i,dvx,dvy,dvz,tcpu2) &
     !$omp private(dvterm,dvtrans,dvdotrterm,dvtransterm,ibin) &
     !$omp reduction(+:ncount) &
     !$omp reduction(+:sf)
     do ipt=1,npts
-#ifndef _OPENMP
+       !$ if (.false.) then
        if (mod(ipt,100)==0) then
           call cpu_time(tcpu2)
           print*,' ipt = ',ipt,tcpu2-tcpu1
        endif
-#endif
+       !$ endif
        i = list(ipt)
        xpt(1) = xyz(1,i)
        xpt(2) = xyz(2,i)

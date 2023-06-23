@@ -29,7 +29,7 @@ endif
 
 ifeq ($(FASTMATH), yes)
     SRCFASTMATH=fastmath.o
-    TEST_FASTMATH=test_fastmath.F90
+    TEST_FASTMATH=test_fastmath.f90
     FPPFLAGS+=-DFINVSQRT
 else
     SRCFASTMATH=
@@ -38,7 +38,7 @@ endif
 
 fastmath.o: fastmath.f90
 	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
-test_fastmath.o: test_fastmath.F90
+test_fastmath.o: test_fastmath.f90
 	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr
 getmathflags.o: getmathflags.f90
 	$(FC) $(FFLAGS) -o $@ -c $< || ${MAKE} fastmathlinkerr

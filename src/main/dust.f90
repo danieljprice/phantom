@@ -40,6 +40,7 @@ module dust
  integer, public  :: icut_backreaction    = 0
  integer, public  :: irecon               = 1
  logical, public  :: ilimitdustflux       = .false. ! to limit spurious dust generation in outer disc
+ logical, public  :: drag_implicit        = .false.  ! use implicit scheme for 2-fluids drag forces
 
  public :: get_ts
  public :: init_drag
@@ -321,6 +322,7 @@ subroutine write_options_dust(iunit)
     call write_inopt(ilimitdustflux,'ilimitdustflux','limit the dust flux using Ballabio et al. (2018)',iunit)
  else
     call write_inopt(irecon,'irecon','use reconstruction in gas/dust drag (-1=off,0=no slope limiter,1=van leer MC)',iunit)
+    !call write_inopt(drag_implicit,'drag_implicit','gas/dust drag implicit scheme (!!! Works only with IND_TIMESTEPS=no !!!)',iunit)
  endif
 
  call write_inopt(icut_backreaction,'icut_backreaction','cut the drag on the gas phase (0=no, 1=yes)',iunit)
@@ -375,6 +377,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     !--no longer a compulsory parameter
  case('irecon')
     read(valstring,*,iostat=ierr) irecon
+ !case('drag_implicit')
+ !   read(valstring,*,iostat=ierr) drag_implicit
  case default
     imatch = .false.
  end select
@@ -399,7 +403,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  case(0,1)
     ineed(iKcode) = 0
  case(2,3)
-    ineed(iKcode) = 1
+    ineed(iKcode) = 0 !1
  case default
     call fatal('read_dust_infile_options','Invalid option',var='idrag',ival=idrag)
  end select
