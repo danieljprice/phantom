@@ -1381,8 +1381,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer                      :: i,k,Nquantities,ierr,iu
  integer, save                :: quantities_to_calculate(4)
  integer, allocatable         :: iorder(:)
- real                         :: ekini,einti,epoti,ethi,phii,rhopart,ponrhoi,spsoundi,tempi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,&
+ real                         :: ekini,einti,epoti,ethi,phii,rhopart,rho_cgs,ponrhoi,spsoundi,tempi,&
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,&
                                  dum1,dum2,dum3,dum4,dum5
  real, allocatable, save      :: init_entropy(:)
  real, allocatable            :: quant(:,:)
@@ -1461,20 +1461,21 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        select case (quantities_to_calculate(k))
        case(13) !to calculate JstarS
           rhopart = rhoh(xyzh(4,i), particlemass)
+          rho_cgs = rhopart*unit_density
           !call equationofstate to obtain temperature and store it in tempi
           call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           JstarS = 0.
           !nH_tot is needed to normalize JstarS
-          nH_tot = rhopart/mass_per_H
+          nH_tot = rho_cgs/mass_per_H
           epsC   = eps(3) - nucleation(idK3,i)
           if (epsC < 0.) then
-             print *,'eps(C) =',eps(3),', K3=',nucleation(idK3,i),', epsC=',epsC,', T=',tempi,' rho=',rhopart
+             print *,'eps(C) =',eps(3),', K3=',nucleation(idK3,i),', epsC=',epsC,', T=',tempi,' rho=',rho_cgs
              print *,'JKmuS=',nucleation(:,i)
              stop '[S-dust_formation] epsC < 0!'
           endif
           if (tempi > 450.) then
              !call chemical_equilibrium_light to obtain pC, and pC2H2
-             call chemical_equilibrium_light(rhopart, tempi, epsC, pC, pC2, pC2H, pC2H2, nucleation(idmu,i), nucleation(idgamma,i))
+             call chemical_equilibrium_light(rho_cgs, tempi, epsC, pC, pC2, pC2H, pC2H2, nucleation(idmu,i), nucleation(idgamma,i))
              S = pC/psat_C(tempi)
              if (S > Scrit) then
                 !call nucleation_function to obtain JstarS
