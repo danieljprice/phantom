@@ -124,3 +124,12 @@ if you come from 2.10, then use as initial model (hereafter initial_nnnnn) one o
         softening length for the primary core = 1., softening length for companion = 0.1)
   2.16 vim binary.in (optional, tmax=200.00, dtmax=0.100)
   2.17 ./phantom binary.in
+
+
+**D. Setup sink properties (luminosity)**
+
+::
+
+  2.18 ./phantommoddump binary_00000.tmp dusty_binary_00000.tmp 0.0
+       option 9, 12 lum  
+  2.19 ./phantom dusty_binary.in
