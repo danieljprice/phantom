@@ -35,7 +35,7 @@ module units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
  public :: is_time_unit, is_length_unit
- public :: in_solarr, in_solarm
+ public :: in_solarr, in_solarm, in_solarl
 
 contains
 
@@ -464,5 +464,17 @@ real(kind=8) function in_solarr(val) result(rval)
  rval = val*(udist/solarr)
 
 end function in_solarr
+!---------------------------------------------------------------------------
+!+
+!  function to convert a luminosity value from code units to solar luminosity
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarl(val) result(rval)
+ use physcon, only:solarl
+ real, intent(in) :: val
+
+ rval = val*(unit_luminosity/solarl)
+
+end function in_solarl
 
 end module units
