@@ -1497,7 +1497,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'nucleation(idgamma,i) = ',nucleation(idgamma,i)
              print *,'taustar = ',taustar
              print *,'eps = ',eps
-	     print *,'JstarS = ',JstarS
+             print *,'JstarS = ',JstarS
           endif
           quant(k,i) = JstarS
 
