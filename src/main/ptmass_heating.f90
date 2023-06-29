@@ -48,15 +48,4 @@ subroutine energ_sinkheat(nptmass,xyzmh_ptmass,xi,yi,zi,dudtheati)
 end subroutine energ_sinkheat
 
 
-!-----------------------------------------------------------------------
-!+
-!  Heating from nuclear burning
-!+
-!-----------------------------------------------------------------------
-! subroutine nuc_heating()
-
-
-! end subroutine nuc_heating
-
-
 end module ptmass_heating
