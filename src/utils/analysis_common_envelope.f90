@@ -1381,7 +1381,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  integer                      :: i,k,Nquantities,ierr,iu
  integer, save                :: quantities_to_calculate(4)
  integer, allocatable         :: iorder(:)
- real                         :: ekini,einti,epoti,ethi,phii,rhopart,rho_cgs,ponrhoi,spsoundi,tempi,&
+ real                         :: ekini,einti,epoti,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
                                  omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,&
                                  dum1,dum2,dum3,dum4,dum5
  real, allocatable, save      :: init_entropy(:)
