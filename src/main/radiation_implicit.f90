@@ -461,8 +461,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        dvy = vxyzu(2,i) - vxyzu(2,j)
        dvz = vxyzu(3,i) - vxyzu(3,j)
 
-       rhomean = 0.5*(rhoi+rhoj)
-
        dvdotdr = dvx*dx + dvy*dy + dvz*dz
        dv = dvdotdr/dr
 
@@ -1005,7 +1003,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
     !
     EU0(1,i) = E1i
     EU0(2,i) = U1i
-    radprop(icv,i) = get_cv(rhoi,EU0(2,i),cv_type) ! should this be EU0(2,i)??
+    radprop(icv,i) = get_cv(rhoi,EU0(2,i),cv_type)
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
     if (implicit_radiation_store_drad) then  ! use this for testing
