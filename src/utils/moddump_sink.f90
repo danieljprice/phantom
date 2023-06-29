@@ -77,7 +77,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     xyzmh_ptmass(1,isinkpart) = newx
     print*,'x-coordinate changed to ',xyzmh_ptmass(1,isinkpart)
 
-    Lnuc = xyzmh_ptmass(1,ilum)
+    Lnuc = xyzmh_ptmass(ilum,isinkpart)
     Lnuc_cgs = Lnuc * unit_energ / utime
     call prompt('Enter new sink heating luminosity in erg/s:',Lnuc_cgs,0.)
     xyzmh_ptmass(ilum,isinkpart) = Lnuc_cgs / unit_energ * utime
