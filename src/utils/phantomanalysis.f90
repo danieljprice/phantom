@@ -58,7 +58,8 @@ program phantomanalysis
 !
     if (iarg==1) then
 
-       iloc = index(dumpfile,'_0')
+       !iloc = index(dumpfile,'_0')
+       iloc = index(dumpfile,'_',.true.) !to load dump > 9999
 
        if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))

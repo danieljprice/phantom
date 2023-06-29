@@ -125,7 +125,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
                 do_radiation,store_dust_temperature,do_nucleation
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
- use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
+ use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
@@ -322,13 +322,13 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     endif
     if (id==master .and. i1==1) then
        print "(2(a,i4),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
-       if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
-                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
+       if (nptmass > 0) print "(1x,58('-'),/,1x,a,'|',5(a9,1x,'|'),/,1x,58('-'))",&
+                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   ',' Lsink   '
        do i=1,min(nptmass,999)
-          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i), &
-                                            xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
+                                            xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i),xyzmh_ptmass(ilum,i)
        enddo
-       if (nptmass > 0) print "(1x,47('-'))"
+       if (nptmass > 0) print "(1x,58('-'))"
     endif
  endif
  !
