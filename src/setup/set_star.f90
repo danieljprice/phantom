@@ -174,6 +174,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     ierr = 2
     return
  endif
+ if (star%mstar < 0.) then
+    call fatal('set_star','cannot set up a star with negative mass!')
+    ierr = 2
+    return
+ endif
  call set_star_density(lattice,id,master,rmin,star%rstar,star%mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,&
                        star%np,rhozero,npart_total,mask)
