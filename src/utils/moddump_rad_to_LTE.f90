@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module moddump
 !
-! moddump
+! Convert radiation dump to LTE dump (ieos=12)
 !
 ! :References: None
 !

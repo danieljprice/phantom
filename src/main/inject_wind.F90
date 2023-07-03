@@ -28,7 +28,6 @@ module inject
 !   infile_utils, injectutils, io, options, part, partinject, physcon,
 !   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
 !
- use physcon,           only:solarl
  use dim,               only:isothermal
 
  implicit none

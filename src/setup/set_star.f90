@@ -41,6 +41,7 @@ module setstar
     real :: initialtemp
     real :: rcore
     real :: mcore
+    real :: lcore
     real :: hsoft
     real :: hacc   ! accretion radius if star is a sink particle
     character(len=120) :: input_profile,dens_profile
@@ -80,6 +81,7 @@ subroutine set_defaults_star(star)
  star%hacc           = 1.
  star%rcore          = 0.
  star%mcore          = 0.
+ star%lcore          = 0.
  star%isofteningopt  = 1 ! By default, specify rcore
  star%np             = 1000
  star%input_profile  = 'P12_Phantom_Profile.data'
@@ -108,7 +110,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               write_kepler_comp
  use radiation_utils,    only:set_radiation_and_gas_temperature_equal
  use relaxstar,          only:relax_star
- use part,               only:ihsoft,igas,imu,set_particle_type
+ use part,               only:ihsoft,igas,imu,set_particle_type,ilum
  use extern_densprofile, only:write_rhotab
  use unifdis,            only:mask_prototype
  use physcon,            only:pi
@@ -190,10 +192,11 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  ! add sink particle stellar core
  !
- if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                                           ihsoft,star%mcore,star%hsoft,ierr)
+ if (star%isinkcore) call set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,&
+                                           star%mcore,star%hsoft,ilum,star%lcore,ierr)
  if (ierr==1) call fatal('set_stellar_core','mcore <= 0')
  if (ierr==2) call fatal('set_stellar_core','hsoft <= 0')
+ if (ierr==3) call fatal('set_stellar_core','lcore < 0')
  !
  ! Write the desired profile to file (do this before relaxation)
  !
@@ -445,8 +448,8 @@ end subroutine set_defaults_given_profile
 subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
  use prompting,     only:prompt
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
- use units,         only:in_solarm,in_solarr,udist,umass
- use physcon,       only:solarr,solarm
+ use units,         only:in_solarm,in_solarr,in_solarl,udist,umass,unit_luminosity
+ use physcon,       only:solarr,solarm,solarl
  type(star_t), intent(out)   :: star
  integer,      intent(in)    :: id,master
  logical,      intent(out)   :: use_var_comp
@@ -454,13 +457,14 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
  integer,      intent(inout) :: ieos
  real,         intent(inout) :: polyk
  integer :: i
- real :: mstar_msun,rstar_rsun,rcore_rsun,mcore_msun,hsoft_rsun
+ real :: mstar_msun,rstar_rsun,rcore_rsun,mcore_msun,lcore_lsun,hsoft_rsun
 
  ! set defaults
  call set_defaults_star(star)
  mstar_msun = real(in_solarm(star%mstar))
  rstar_rsun = real(in_solarr(star%rstar))
  mcore_msun = real(in_solarm(star%mcore))
+ lcore_lsun = real(in_solarl(star%lcore))
  rcore_rsun = real(in_solarr(star%rcore))
  hsoft_rsun = real(in_solarr(star%hsoft))
 
@@ -511,8 +515,10 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
        if (star%isinkcore) then
           call prompt('Enter mass of the created sink particle core [Msun]',mcore_msun,0.)
           call prompt('Enter softening length of the sink particle core [Rsun]',hsoft_rsun,0.)
+          call prompt('Enter sink particle luminosity [Lsun]',lcore_lsun,0.)
           star%mcore = mcore_msun*real(solarm/umass)
           star%hsoft = hsoft_rsun*real(solarr/udist)
+          star%lcore = lcore_lsun*real(solarl/unit_luminosity)
        endif
     case(1)
        star%isinkcore = .true. ! Create sink particle core automatically
@@ -537,19 +543,20 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
           star%mcore = mcore_msun*real(solarm/umass)
           star%rcore = rcore_rsun*real(solarr/udist)
        end select
-
-       call prompt('Enter output file name of cored stellar profile:',star%outputfilename)
+       call prompt('Enter sink particle luminosity [Lsun]',lcore_lsun,0.)
+       star%lcore = lcore_lsun*real(solarl/unit_luminosity)
 
     case(2)
        star%isinkcore = .true. ! Create sink particle core automatically
        print*,'Specify core radius and initial guess for mass of sink particle core'
        call prompt('Enter core radius in Rsun : ',rcore_rsun,0.)
        call prompt('Enter guess for core mass in Msun : ',mcore_msun,0.)
+       call prompt('Enter sink particle luminosity [Lsun]',lcore_lsun,0.)
        call prompt('Enter output file name of cored stellar profile:',star%outputfilename)
        star%mcore = mcore_msun*real(solarm/umass)
        star%rcore = rcore_rsun*real(solarr/udist)
+       star%lcore = lcore_lsun*real(solarl/unit_luminosity)
     end select
-
  case(ievrard)
     call prompt('Enter the specific internal energy (units of GM/R) ',star%ui_coef,0.)
  case(:0)
@@ -566,7 +573,7 @@ end subroutine set_star_interactive
 subroutine write_options_star(star,iunit,label)
  use infile_utils,  only:write_inopt,get_optstring
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
- use units,         only:in_solarm,in_solarr
+ use units,         only:in_solarm,in_solarr,in_solarl
  type(star_t),     intent(in) :: star
  integer,          intent(in) :: iunit
  character(len=*), intent(in), optional :: label
@@ -619,6 +626,8 @@ subroutine write_options_star(star,iunit,label)
           call write_inopt(in_solarm(star%mcore),'mcore'//trim(c),&
                'Initial guess for mass of sink particle stellar core [Msun]',iunit)
        endif
+       call write_inopt(in_solarl(star%lcore),'lcore'//trim(c),&
+                              'Luminosity of point mass stellar core [Lsun]',iunit)
     else
        call write_inopt(star%isinkcore,'isinkcore'//trim(c),&
                'Add a sink particle stellar core',iunit)
@@ -628,6 +637,8 @@ subroutine write_options_star(star,iunit,label)
           call write_inopt(in_solarr(star%hsoft),'hsoft'//trim(c),&
                'Softening length of sink particle stellar core [Rsun]',iunit)
        endif
+       call write_inopt(in_solarl(star%lcore),'lcore'//trim(c),&
+               'Luminosity of sink core particle [Lsun]',iunit)
     endif
  case (ievrard)
     call write_inopt(star%ui_coef,'ui_coef'//trim(c),&
@@ -651,8 +662,8 @@ end subroutine write_options_star
 subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  use infile_utils,  only:inopts,read_inopt
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
- use units,         only:umass,udist
- use physcon,       only:solarm,solarr
+ use units,         only:umass,udist,unit_luminosity
+ use physcon,       only:solarm,solarr,solarl
  type(star_t),              intent(out)   :: star
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(out)   :: need_iso
@@ -661,7 +672,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  integer,                   intent(inout) :: nerr
  character(len=*),          intent(in), optional :: label
  character(len=10) :: c
- real :: mcore_msun,rcore_rsun,mstar_msun,rstar_rsun,hsoft_rsun
+ real :: mcore_msun,rcore_rsun,lcore_lsun,mstar_msun,rstar_rsun,hsoft_rsun
 
  ! set defaults
  call set_defaults_star(star)
@@ -702,7 +713,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
     else
        star%isinkcore = .true.
        call read_inopt(star%input_profile,'input_profile'//trim(c),db,errcount=nerr)
-       call read_inopt(star%outputfilename,'outputfilename//trim(c)',db,errcount=nerr)
+       call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
        if (star%isoftcore==1) call read_inopt(star%isofteningopt,'isofteningopt'//trim(c),&
                                               db,errcount=nerr,min=0)
        if ((star%isofteningopt==1) .or. (star%isofteningopt==3)) then
@@ -714,6 +725,8 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.)
           star%mcore = mcore_msun*real(solarm/umass)
        endif
+       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.)
+       star%lcore = lcore_lsun*real(solarl/unit_luminosity)
     endif
  case(ievrard)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr,min=0.)
