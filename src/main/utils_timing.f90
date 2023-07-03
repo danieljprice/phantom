@@ -293,11 +293,10 @@ subroutine print_timer(lu,itimer,time_total)
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: time_total
 
- ! Print label and tree structure
- write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
-
  ! Print timings
  if (timers(itimer)%wall > epsilon(0._4)) then
+    ! Print label and tree structure
+    write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
     if (time_total > 7200.0) then
        write(lu,"('  ',f7.2,'h   ',f8.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/3600.,&
@@ -320,8 +319,6 @@ subroutine print_timer(lu,itimer,time_total)
             timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     endif
- else
-    write(lu, "()")
  endif
 
 end subroutine print_timer
