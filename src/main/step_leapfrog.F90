@@ -753,7 +753,7 @@ end subroutine step_extern_sph_gr
 
 subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
  use dim,            only:maxptmass,maxp,maxvxyzu
- use io,             only:iverbose,id,master,iprint,warning
+ use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
@@ -769,7 +769,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
- integer :: i,itype,nsubsteps,naccreted,its,ierr
+ integer :: i,itype,nsubsteps,naccreted,its,ierr,nlive
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pri,spsoundi,pondensi,tempi,gammai
@@ -866,7 +866,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           tempi     = eos_vars(itemp,i)
           rhoi      = rhoh(hi,massoftype(igas))
 
-! Note: grforce needs derivatives of the metric, which do not change between pmom iterations
+          ! Note: grforce needs derivatives of the metric,
+          ! which do not change between pmom iterations
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyz
@@ -879,7 +880,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              if (pmom_err < ptol) converged = .true.
              fexti = fstar
           enddo pmom_iterations
-          if (its > itsmax ) call warning('step_extern_gr','Reached max number of pmom iterations. pmom_err ',val=pmom_err)
+          if (its > itsmax ) call warning('step_extern_gr',&
+                                 'max # of pmom iterations',var='pmom_err',val=pmom_err)
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
@@ -892,9 +894,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           its        = 0
           converged  = .false.
           vxyz_star = vxyz
-! Note: since particle positions change between iterations the metric and its derivatives need to be updated.
-!       cons2prim does not require derivatives of the metric, so those can updated once the iterations
-!       are complete, in order to reduce the number of computations.
+          ! Note: since particle positions change between iterations
+          !  the metric and its derivatives need to be updated.
+          !  cons2prim does not require derivatives of the metric,
+          !  so those can updated once the iterations are complete
+          !  in order to reduce the number of computations.
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyz
@@ -942,6 +946,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !
     accretedmass = 0.
     naccreted    = 0
+    nlive = 0
     dtextforce_min = bignumber
 
     !$omp parallel default(none) &
@@ -952,7 +957,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
-    !$omp reduction(+:accretedmass,naccreted) &
+    !$omp reduction(+:accretedmass,naccreted,nlive) &
     !$omp shared(idamp,damp_fac)
     !$omp do
     accreteloop: do i=1,npart
@@ -986,10 +991,15 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
                 naccreted = naccreted + 1
              endif
           endif
+          nlive = nlive + 1
        endif
     enddo accreteloop
     !$omp enddo
     !$omp end parallel
+
+    if (npart > 2 .and. nlive < 2) then
+       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+    endif
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted. Mass accreted = ',accretedmass
@@ -1096,7 +1106,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- integer         :: i,itype,nsubsteps,naccreted,nfail,nfaili,merge_n
+ integer         :: i,itype,nsubsteps,naccreted,nfail,nfaili,merge_n,nlive
  integer         :: merge_ij(nptmass)
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
@@ -1375,6 +1385,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     accretedmass = 0.
     nfail        = 0
     naccreted    = 0
+    nlive        = 0
     ibin_wakei   = 0
     dptmass(:,:) = 0.
 
@@ -1387,7 +1398,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp reduction(+:dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi,ibin_wakei) &
-    !$omp reduction(+:accretedmass,nfail,naccreted)
+    !$omp reduction(+:accretedmass,nfail,naccreted,nlive)
     !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -1430,11 +1441,15 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              endif
              if (nfaili > 1) nfail = nfail + 1
           endif
+          nlive = nlive + 1
        endif
-
     enddo accreteloop
     !$omp enddo
     !$omp end parallel
+
+    if (npart > 2 .and. nlive < 2) then
+       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+    endif
 
     !
     ! reduction of sink particle changes across MPI

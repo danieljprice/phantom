@@ -27,7 +27,7 @@ module setup
  implicit none
  public :: setpart
 
- real    :: a,ecc
+ real    :: a,ecc,inc,O,w,f
  logical :: relax,corotate
  type(star_t) :: star(2)
  character(len=20) :: semi_major_axis
@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use physcon,        only:solarm,au,pi,solarr,days
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
- use io,             only:master
+ use io,             only:master,fatal
  use setstar,        only:set_star,set_defaults_star,shift_star
  use eos,            only:X_in,Z_in,ieos
  use setup_params,   only:rhozero,npart_total
@@ -98,6 +98,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  semi_major_axis = '10.'
  a    = 10.
  ecc  = 0.
+ inc = 0.
+ O = 0.
+ w = 270.
+ f = 180.
  ieos = 2
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
@@ -146,13 +150,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  nptmass_in = 0
  if (iexternalforce==iext_corotate) then
     call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
-                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate)
+                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate,&
+                    posang_ascnode=O,arg_peri=w,incl=inc,f=f,verbose=(id==master))
     add_spin = .false.  ! already in corotating frame
  else
     call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
-                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr)
+                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,&
+                    posang_ascnode=O,arg_peri=w,incl=inc,f=f,verbose=(id==master))
     add_spin = corotate
  endif
+ if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
@@ -199,6 +206,10 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# orbit settings'
  call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au) or period (e.g. 10*days)',iunit)
  call write_inopt(ecc,'ecc','eccentricity',iunit)
+ call write_inopt(inc,'inc','inclination (deg)',iunit)
+ call write_inopt(O,'O','position angle of ascending node (deg)',iunit)
+ call write_inopt(w,'w','argument of periapsis (deg)',iunit)
+ call write_inopt(f,'f','initial true anomaly (180=apoastron)',iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
 
  if (any(star(:)%iprofile > 0)) then
@@ -239,6 +250,11 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
 
  call read_inopt(semi_major_axis,'a',db,errcount=nerr)
  call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
+ call read_inopt(inc,'inc',db,errcount=nerr)
+ call read_inopt(O,'O',db,errcount=nerr)
+ call read_inopt(w,'w',db,errcount=nerr)
+ call read_inopt(f,'f',db,errcount=nerr)
+
  call read_inopt(corotate,'corotate',db,errcount=nerr)
 
  if (any(star(:)%iprofile > 0)) then
