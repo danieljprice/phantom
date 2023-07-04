@@ -929,6 +929,8 @@ ifeq ($(SETUP), test)
     MHD=yes
     DUST=yes
     RADIATION=yes
+    SINK_RADIATION=yes
+    INJECT_PARTICLES=yes
     KERNEL=cubic
 endif
 

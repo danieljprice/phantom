@@ -53,14 +53,14 @@ module inject
  real::    wind_temperature
 #else
  integer:: sonic_type = 0
- real::    wind_velocity_km_s = 30.
- real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 1.1
- real::    wind_temperature = 3000.
+ real::    wind_velocity_km_s = 20.
+ real::    wind_mass_rate_Msun_yr = 1.d-5
+ real::    wind_injection_radius_au = 2.
+ real::    wind_temperature = 2500.
 #endif
  integer :: iboundary_spheres = 5
- integer :: iwind_resolution = 10
- integer :: nfill_domain = 10
+ integer :: iwind_resolution = 5
+ integer :: nfill_domain = 0
  real :: outer_boundary_au = 30.
  real :: wind_shell_spacing = 1.
  real :: pulsation_period

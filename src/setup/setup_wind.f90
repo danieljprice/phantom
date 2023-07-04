@@ -82,7 +82,7 @@ subroutine set_default_parameters_wind()
 
  wind_gamma    = 5./3.
  if (isothermal) then
-    T_wind        = 30000.
+    T_wind                = 30000.
     temp_exponent         = 0.5
     ! primary_racc_au       = 0.465
     ! primary_mass_msun     = 1.5
