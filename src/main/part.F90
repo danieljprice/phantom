@@ -347,7 +347,7 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +3                                   &  ! fxyz_drag
+ +3                                   &  ! fxyz_drag
    +3                                   &  ! fxyz_dragold
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
@@ -1510,8 +1510,8 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
-    call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
-    call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)

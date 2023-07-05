@@ -26,20 +26,20 @@ module eos_stamatellos
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
 contains
 
- subroutine init_S07cool()
-    use part, only:npart
+subroutine init_S07cool()
+ use part, only:npart
 
-    print *, "Allocating S07 arrays"
-    allocate(gradP_cool(npart))
-    allocate(Gpot_cool(npart))
-   ! open (unit=iunitst,file='EOSinfo.dat',status='replace')
- end subroutine init_S07cool
+ print *, "Allocating S07 arrays"
+ allocate(gradP_cool(npart))
+ allocate(Gpot_cool(npart))
+ ! open (unit=iunitst,file='EOSinfo.dat',status='replace')
+end subroutine init_S07cool
 
- subroutine finish_S07cool()
-  deallocate(optable)
-  if (allocated(gradP_cool)) deallocate(gradP_cool)
-  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
-  !close(iunitst)
+subroutine finish_S07cool()
+ deallocate(optable)
+ if (allocated(gradP_cool)) deallocate(gradP_cool)
+ if (allocated(Gpot_cool)) deallocate(Gpot_cool)
+ !close(iunitst)
 end subroutine finish_S07cool
 
 subroutine read_optab(eos_file,ierr)
@@ -55,20 +55,20 @@ subroutine read_optab(eos_file,ierr)
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
  do
-         read(10,'(A120)') junk
-         if (index(adjustl(junk),'::') == 0) then !ignore comment lines
-                 junk = adjustl(junk)
-                 read(junk, *,iostat=errread) nx, ny
-                 exit
-         endif
-enddo
+    read(10,'(A120)') junk
+    if (index(adjustl(junk),'::') == 0) then !ignore comment lines
+       junk = adjustl(junk)
+       read(junk, *,iostat=errread) nx, ny
+       exit
+    endif
+ enddo
 ! allocate array for storing opacity tables
  allocate(optable(nx,ny,6))
  do i = 1,nx
-  do j = 1,ny
-   read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
+    do j = 1,ny
+       read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
-  enddo
+    enddo
  enddo
  print *, 'nx,ny=', nx, ny
 end subroutine read_optab
@@ -93,25 +93,25 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
 
  if (rhoi <  rhomin) then
-  rhoi_ = rhomin
+    rhoi_ = rhomin
  else
-  rhoi_ = rhoi
+    rhoi_ = rhoi
  endif
 
  i = 1
  do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
-  i = i + 1
+    i = i + 1
  enddo
 
  if (ui < umin) then
-  ui_ = umin
+    ui_ = umin
  else
-  ui_ = ui
+    ui_ = ui
  endif
 
  j = 1
  do while ((OPTABLE(i-1,j,3) <= ui_).and.(j < ny))
-  j = j + 1
+    j = j + 1
  enddo
 
  m = (OPTABLE(i-1,j-1,5) - OPTABLE(i-1,j,5))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
@@ -136,7 +136,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  j = 1
  do while ((OPTABLE(i,j,3) <= ui).and.(j < ny))
-  j = j + 1
+    j = j + 1
  enddo
 
  m = (OPTABLE(i,j-1,5) - OPTABLE(i,j,5))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
@@ -195,19 +195,19 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 
  if (rhoi < 1.0e-24) then
-  rhoi_ = 1.0e-24
+    rhoi_ = 1.0e-24
  else
-  rhoi_ = rhoi
+    rhoi_ = rhoi
  endif
 
  i = 1
  do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
-  i = i + 1
+    i = i + 1
  enddo
 
  j = 1
  do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
-  j = j + 1
+    j = j + 1
  enddo
 
  m = (OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))/(OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))
@@ -217,7 +217,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  j = 1
  do while ((OPTABLE(i,j,2) <= Teqi).and.(j < ny))
-  j = j + 1
+    j = j + 1
  enddo
 
  m = (OPTABLE(i,j-1,3) - OPTABLE(i,j,3))/(OPTABLE(i,j-1,2) - OPTABLE(i,j,2))

@@ -62,7 +62,7 @@ module mpc
     !character(len=4) :: flags
     !character(len=27) :: designation
     !integer(kind=8) :: last_obs
- end type
+ end type mpc_entry
 
  type mpc_comet
     character(len=4)  :: comet_num         ! periodic coment number
@@ -87,7 +87,7 @@ module mpc
     integer           :: nperturbing  ! number of perturbing planets
     character(len=30) :: name
 
- end type
+ end type mpc_comet
 
  private
 

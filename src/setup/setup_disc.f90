@@ -339,7 +339,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()!id)
-  use sethierarchical, only:set_hierarchical_default_options
+ use sethierarchical, only:set_hierarchical_default_options
 !  integer, intent(in) :: id
 
  integer :: i

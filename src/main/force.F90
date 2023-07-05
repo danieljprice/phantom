@@ -367,9 +367,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (use_dust .and. drag_implicit) then
     !$omp parallel do default(none) shared(fext,npart,fxyz_drag,fxyz_dragold) private(i)
     do i=1,npart
-      fxyz_dragold(1,i) = fxyz_drag(1,i)
-      fxyz_dragold(2,i) = fxyz_drag(2,i)
-      fxyz_dragold(3,i) = fxyz_drag(3,i)
+       fxyz_dragold(1,i) = fxyz_drag(1,i)
+       fxyz_dragold(2,i) = fxyz_drag(2,i)
+       fxyz_dragold(3,i) = fxyz_drag(3,i)
     enddo
     !$omp end parallel do
  endif
@@ -1202,8 +1202,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 8) then
-         gradP_cool(i) = 0d0
-         Gpot_cool(i) = 0d0
+    gradP_cool(i) = 0d0
+    Gpot_cool(i) = 0d0
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1333,7 +1333,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
           if (drag_implicit) then
              dti = min(dti,get_dt(dt,ibin_old(j)))
-         endif
+          endif
 #endif
 #endif
        endif
@@ -1912,7 +1912,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
                    !--following quantities are weighted by mass rather than mass/density
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                      winter = wkern(q2j,qj)*hj21*hj1*cnormk
+                   winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
                    fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
                    fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter

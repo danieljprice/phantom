@@ -226,7 +226,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        totmass_sphere = 1.0
        call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
     else
-                 print *, 'deleted'
+       print *, 'deleted'
     endif
 
     call prompt('Enter temperature in sphere',T_sphere,1.,100.)
@@ -348,7 +348,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  ! general parameters
  !
 
-  vol_sphere  = 4./3.*pi*r_sphere**3
+ vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
 

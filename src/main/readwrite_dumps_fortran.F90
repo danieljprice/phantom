@@ -309,12 +309,12 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 !    open(unit=10,file=trim(dumpfile)//'info.dat')
- !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool', 'eos_vars(gasP)','eos_vars(gamma)'
-  !  do i=1,nparttot
-   !    write(10,'(6E16.5)') sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2),Gpot_cool(i),poten(i),&
+    !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool', 'eos_vars(gasP)','eos_vars(gamma)'
+    !  do i=1,nparttot
+    !    write(10,'(6E16.5)') sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2),Gpot_cool(i),poten(i),&
     !    gradP_cool(i),eos_vars(igasP,i),eos_vars(igamma,i)
-   ! enddo
-   ! close(10)
+    ! enddo
+    ! close(10)
     if (idtmax_frac==0) then
        write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
     else
