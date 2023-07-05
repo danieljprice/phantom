@@ -373,8 +373,8 @@ integer function  FindMinimum(x, Start, Fin)
     if (x(i) < minimum) then  !   if x(i) less than the min?
        minimum  = x(i)        !      yes, a new minimum found
        location = i                !      record its position
-    end if
- end do
+    endif
+ enddo
  findminimum = location            ! return the position
 end function  findminimum
 
@@ -394,7 +394,7 @@ subroutine  Sort(x, longitud)
  do i = 1, longitud-1             ! except for the last
     location = findminimum(x, i, longitud)  ! find min from this to last
     call swap(x(i), x(location))  ! swap this and the minimum
- end do
+ enddo
 end subroutine  Sort
 
 
