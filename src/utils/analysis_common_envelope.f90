@@ -201,7 +201,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  case(40) ! Keplerian velocity profile
     call vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
-  case(41) !Total dust mass
+ case(41) !Total dust mass
     call total_dust_mass(time,npart,particlemass,xyzh)
  case(12) !sink properties
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
@@ -328,21 +328,21 @@ subroutine total_dust_mass(time,npart,particlemass,xyzh)
  j=0
  mass_factor = 12.*atomic_mass_unit*particlemass/mass_per_H
  do i = 1,npart
-   if (.not. isdead_or_accreted(xyzh(4,i))) then
-     dust_mass(1) = dust_mass(1) + nucleation(idK3,i) *mass_factor
-     grain_size = a0*nucleation(idK1,i)/(nucleation(idK0,i)+1.0E-99) !in micron
-     if (grain_size > a0) then
-        j = j+1
-        temp(j) = grain_size
-     endif
-   endif
+    if (.not. isdead_or_accreted(xyzh(4,i))) then
+       dust_mass(1) = dust_mass(1) + nucleation(idK3,i) *mass_factor
+       grain_size = a0*nucleation(idK1,i)/(nucleation(idK0,i)+1.0E-99) !in micron
+       if (grain_size > a0) then
+          j = j+1
+          temp(j) = grain_size
+       endif
+    endif
  enddo
 
  call sort(temp,j)
  if (mod(j,2)==0) then !npart
-   median = (temp(j/2)+temp(j/2+1))/2.0 !(temp(npart/2)+temp(npart/2+1))/2.0
+    median = (temp(j/2)+temp(j/2+1))/2.0 !(temp(npart/2)+temp(npart/2+1))/2.0
  else
-   median = (temp(j/2)+temp(j/2+1))/2.0 !temp(npart/2+1)
+    median = (temp(j/2)+temp(j/2+1))/2.0 !temp(npart/2+1)
  endif
 
  dust_mass(2) = median
@@ -1427,9 +1427,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
     case(1,2,3,6,8,9,13) ! Nothing to do
     case(4,5,11,12) ! Fractional difference between gas and orbital omega
        if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
-       com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+          com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
                   / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+          com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
                   / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
        elseif (quantities_to_calculate(k) == 11 .or. quantities_to_calculate(k) == 12) then
           com_xyz = xyzmh_ptmass(1:3,1)

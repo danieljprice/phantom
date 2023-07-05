@@ -377,8 +377,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     !--no longer a compulsory parameter
  case('irecon')
     read(valstring,*,iostat=ierr) irecon
- !case('drag_implicit')
- !   read(valstring,*,iostat=ierr) drag_implicit
+    !case('drag_implicit')
+    !   read(valstring,*,iostat=ierr) drag_implicit
  case default
     imatch = .false.
  end select
