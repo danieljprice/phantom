@@ -230,9 +230,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     endif
 
     call prompt('Enter temperature in sphere',T_sphere,1.,100.)
-    
+
     call prompt('Enter EOS filename',eos_file)
-        
+
     if (binary) then
        angvel = 1.006d-12
     else
@@ -344,14 +344,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  endif
 
 
- 
+
  ! general parameters
  !
- 
+
   vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
- 
+
  ! call EOS
  ieos = 21
  ierr = 0
@@ -397,7 +397,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  endif
  print "(a)",' Initialised sphere'
  npartsphere = npart_total
- 
+
  !
  ! set particle properties
  !

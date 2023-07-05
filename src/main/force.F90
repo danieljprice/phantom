@@ -1201,11 +1201,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
- if (icooling == 8) then 
+ if (icooling == 8) then
          gradP_cool(i) = 0d0
          Gpot_cool(i) = 0d0
  endif
-         
+
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1723,7 +1723,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
-          
+
           if (icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
           !--calculate divv for use in du, h prediction, av switch etc.
@@ -1980,9 +1980,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifyi) = fsum(ifyi) - dy*fgravj
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
-       
+
        !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (iamtypej == igas .and. icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
+       if (iamtypej == igas .and. icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
@@ -1995,7 +1995,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
 
- 
+
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif
@@ -2471,7 +2471,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
- 
+
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then

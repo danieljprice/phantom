@@ -424,7 +424,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=8
 !
-    if (eni < 0.) then                                                                          
+    if (eni < 0.) then
        call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
     endif
     cgsrhoi = rhoi * unit_density
@@ -543,7 +543,7 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool
-    
+
  end select
  done_init_eos = .true.
 

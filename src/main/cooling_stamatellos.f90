@@ -18,21 +18,21 @@ module cooling_stamatellos
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
- 
+
  implicit none
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 1 ! default = Stamatellos+ 2007 method
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
- 
+
  contains
 
 subroutine init_star()
   use part,    only:nptmass,xyzmh_ptmass
   integer :: i,imin
   real :: rsink2,rsink2min
-  
+
   rsink2min = 0d0
   if (nptmass == 0 .or. Lstar == 0.0) then
      isink_star = 0 ! no stellar heating
@@ -51,7 +51,7 @@ subroutine init_star()
   endif
   if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
 end subroutine init_star
-  
+
 !
 ! Do cooling calculation
 !
@@ -67,8 +67,8 @@ end subroutine init_star
      real            :: coldensi,kappaBari,kappaParti,ri2
      real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi
      real            :: tcool,ueqi,umini,tthermi,poti,presi
-     
-     poti = Gpot_cool(i) 
+
+     poti = Gpot_cool(i)
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
      if (isink_star > 0 .and. Lstar > 0.d0) then
@@ -97,11 +97,11 @@ end subroutine init_star
        coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
        coldensi = coldensi *umass/udist/udist ! physical units
     end select
-     
+
      tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
      dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
-     
-     
+
+
 ! calculate Teqi
      if (od_method == 1) then
         Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
@@ -115,10 +115,10 @@ end subroutine init_star
        call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
               ueqi = ueqi/unit_ergg
      endif
-    
+
      call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
      umini = umini/unit_ergg
-     
+
 ! calculate thermalization timescale and
 ! internal energy update -> put in form where it'll work as dudtcool
      select case (od_method)
@@ -141,21 +141,21 @@ end subroutine init_star
                      dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
              end if
      end select
-     
-     
+
+
      if (isnan(dudti_cool)) then
         print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
         print *, "rhoi=",rhoi, "Ti=", Ti
         print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
         print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-        print *, "dudt_rad=", dudt_rad 
+        print *, "dudt_rad=", dudt_rad
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
         dudti_cool = (umini - ui)/dt
        ! print *, "dudti_cool negative and big"
      endif
-     
+
    end subroutine cooling_S07
 
 
