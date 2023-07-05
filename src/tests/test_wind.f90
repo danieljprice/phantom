@@ -49,20 +49,21 @@ subroutine test_wind(ntests,npass)
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
  use damping,        only:idamp
+ use checksetup,     only:check_setup
 
  integer, intent(inout) :: ntests,npass
 
- integer :: i,ierr,nerror,istepfrac,npart_old,nfailed(9)
+ integer :: i,ierr,nerror,istepfrac,npart_old,nfailed(9),nwarn
  real :: dtinject,dtlast,t,default_particle_mass,dtext,dtnew,dtprint,dtmaxold,tprint
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING WIND MODULE'
 
  call set_units(dist=au,mass=solarm,G=1.)
- call init_part()
-
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
 
- !set propertie of mass loosing sink particle
+ call init_part()
+
+ !set properties of mass loosing sink particle
  nptmass = 1
  xyzmh_ptmass(4,1)     = 1.2*solarm/umass
  xyzmh_ptmass(5,1)     = 0.6*au/udist
@@ -109,31 +110,33 @@ subroutine test_wind(ntests,npass)
  dt       = 0.
  dtinject = huge(dtinject)
  dtrad    = huge(dtrad)
- t = 0.
- dtnew = 0.
+ t        = 0.
+ dtnew    = 0.
 
 
- !nfailed(:) = 0
- !call check_setup(nerror,nwarn)
+ call check_setup(nerror,nwarn)
 
  istepfrac  = 0
  nfailed(:) = 0
  call init_inject(nerror)
+! check particle's mass
+ call checkval(massoftype(igas),6.820748526700016e-10,epsilon(0.),&
+      nfailed(1),'no errors in setting particle mass')
  npart_old = npart
  call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
- call checkval(massoftype(igas),6.820748526700016e-10,epsilon(0.),&
-      nfailed(1),'no errors in setting particle mass')
 
 ! check 1D wind profile
  i = size(trvurho_1D(1,:))
- call checkval(trvurho_1D(2,i),4.842415565250280e13,epsilon(0.),nfailed(2),'outer wind radius')
- call checkval(trvurho_1D(3,i),4.394906290427863e5,epsilon(0.),nfailed(3),'outer wind velocity')
- call checkval(trvurho_1D(4,i),1.722094044441452e11,epsilon(0.),nfailed(4),'outer wind temperature')
- call checkval(trvurho_1D(5,i),4.867190322165297e-14,epsilon(0.),nfailed(5),'outer wind density')
+ call checkval(trvurho_1D(2,i),4.847727063707113E+13,epsilon(0.),nfailed(2),'outer wind radius')
+ call checkval(trvurho_1D(3,i),4.201251511248741E+05,epsilon(0.),nfailed(3),'outer wind velocity')
+ call checkval(trvurho_1D(4,i),1.772793525117932E+11,epsilon(0.),nfailed(4),'outer wind temperature')
+ call checkval(trvurho_1D(5,i),5.080390084918874E-14,epsilon(0.),nfailed(5),'outer wind density')
 
  dt = dtinject
+ dtlast = 0.
+ time = 0.
 
  do while (t < tmax)
 
