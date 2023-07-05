@@ -12,9 +12,11 @@ module cooling_stamatellos
 !
 ! :Owner: Alison Young
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - EOS_file : *File containing tabulated EOS values*
+!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
 !
-! :Dependencies: eos_stamatellos, physcon,io,units,part
+! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
  
  implicit none

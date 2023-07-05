@@ -21,7 +21,7 @@ module setup
 !   - accradius1 : *primary accretion radius*
 !   - accradius2 : *secondary accretion radius*
 !   - alphaSS    : *desired alpha_SS*
-!   - mplanet    : *m1/(m1+m2)*
+!   - m2         : *m2*
 !   - norbits    : *number of orbits*
 !   - np         : *number of particles*
 !   - p_index    : *surface density profile*

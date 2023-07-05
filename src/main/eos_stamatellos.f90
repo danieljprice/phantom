@@ -1,8 +1,22 @@
-!--------------------------------------------------------------------------
-! Script to interpolate the opacity table eos_file
-!--------------------------------------------------------------------------
-
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module eos_stamatellos
+!
+! eos_stamatellos
+!
+! :References: None
+!
+! :Owner: Alison Young
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, part
+!
+
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho

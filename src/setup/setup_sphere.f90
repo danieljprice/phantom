@@ -12,7 +12,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Alison Young
 !
 ! :Runtime parameters:
 !   - BEfac             : *over-density factor of the BE sphere [code units]*
@@ -21,10 +21,10 @@ module setup
 !   - BErad_phys        : *physical radius of the BE sphere [code units]*
 !   - BErho_cen         : *central density of the BE sphere [code units]*
 !   - Bzero             : *Magnetic field strength in Gauss*
+!   - T_sphere          : *temperature in sphere*
 !   - ang_Bomega        : *Angle (degrees) between B and rotation axis*
 !   - angvel            : *angular velocity in rad/s*
 !   - beta_r            : *rotational-to-gravitational energy ratio*
-!   - cs_sphere_cgs     : *sound speed in sphere in cm/s*
 !   - density_contrast  : *density contrast in code units*
 !   - dist_unit         : *distance unit (e.g. au)*
 !   - dust_to_gas_ratio : *dust-to-gas ratio*
@@ -54,10 +54,9 @@ module setup
 !   - use_BE_sphere     : *centrally condense as a BE sphere*
 !
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust, set_dust_options,
-!   setup_params, spherical, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, prompting, ptmass, set_dust, set_dust_options, setup_params,
+!   spherical, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
  use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall
