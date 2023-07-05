@@ -69,7 +69,7 @@ end subroutine init_star
      poti = Gpot_cool(i) 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
-     if (isink_star > 0 .and. Lstar > 0) then
+     if (isink_star > 0 .and. Lstar > 0.d0) then
         ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
              + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
              + (zi-xyzmh_ptmass(3,isink_star))**2d0
@@ -103,15 +103,15 @@ end subroutine init_star
 ! calculate Teqi
      if (od_method == 1) then
         Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
-     	Teqi = Teqi/4.d0/steboltz
+             Teqi = Teqi/4.d0/steboltz
         Teqi = Teqi + Tmini4
        if (Teqi < Tmini4) then
-     	   Teqi = Tmini4**(1.0/4.0)
-      else
-     	   Teqi = Teqi**(1.0/4.0)
-      endif
-      call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
-   		ueqi = ueqi/unit_ergg
+                Teqi = Tmini4**(1.0/4.0)
+       else
+                Teqi = Teqi**(1.0/4.0)
+       endif
+       call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+              ueqi = ueqi/unit_ergg
      endif
     
      call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
@@ -132,12 +132,12 @@ end subroutine init_star
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
      case (2)
-     	if (abs(dudt_rad) > 0.d0) then
-    	 	tthermi = (umini - ui) / (dudt_rad)! + tiny(dudt_rad))
-     		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
-     	else  ! ie Tmini == Ti
-     		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
-     	end if
+             if (abs(dudt_rad) > 0.d0) then
+                     tthermi = (umini - ui) / (dudt_rad)! + tiny(dudt_rad))
+                     dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
+             else  ! ie Tmini == Ti
+                     dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
+             end if
      end select
      
      
@@ -191,8 +191,8 @@ use eos_stamatellos, only: eos_file
     endif
     ngot = ngot + 1
  case('EOS_file')
-	read(valstring,*,iostat=ierr) eos_file
-	ngot = ngot + 1
+        read(valstring,*,iostat=ierr) eos_file
+        ngot = ngot + 1
  case default
     imatch = .false.
  end select

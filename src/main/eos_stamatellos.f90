@@ -41,12 +41,12 @@ subroutine read_optab(eos_file,ierr)
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
  do
- 	read(10,'(A120)') junk
- 	if (index(adjustl(junk),'::') .eq. 0) then !ignore comment lines
- 		junk = adjustl(junk)
- 		read(junk, *,iostat=errread) nx, ny
- 		exit
- 	endif
+         read(10,'(A120)') junk
+         if (index(adjustl(junk),'::') .eq. 0) then !ignore comment lines
+                 junk = adjustl(junk)
+                 read(junk, *,iostat=errread) nx, ny
+                 exit
+         endif
 enddo
 ! allocate array for storing opacity tables
  allocate(optable(nx,ny,6))

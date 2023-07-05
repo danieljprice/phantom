@@ -435,7 +435,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     !if (gammai < 1.d0 .or. gammai > 2.d0) then
-   !		print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
+   !                print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
     !endif
     spsoundi = sqrt(gammai*ponrhoi)
 
@@ -1228,7 +1228,7 @@ logical function eos_outputs_mu(ieos)
  case(20)
     eos_outputs_mu = .true.
  case(21)
- 	eos_outputs_mu = .true.
+         eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1363,7 +1363,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        elseif (ieos==21) then
-       	 write(iprint,*) 'Tabulated eos with derived gamma'
+                write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

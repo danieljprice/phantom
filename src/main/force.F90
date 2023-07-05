@@ -1201,10 +1201,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravyi = 0.
  fgravzi = 0.
  if (icooling == 8) then 
- 	gradP_cool(i) = 0d0
- 	Gpot_cool(i) = 0d0
+         gradP_cool(i) = 0d0
+         Gpot_cool(i) = 0d0
  endif
- 	
+         
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))

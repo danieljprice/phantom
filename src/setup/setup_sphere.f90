@@ -227,13 +227,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        totmass_sphere = 1.0
        call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
     else
- 		print *, 'deleted'
+                 print *, 'deleted'
     endif
 
     call prompt('Enter temperature in sphere',T_sphere,1.,100.)
     
     call prompt('Enter EOS filename',eos_file)
-	
+        
     if (binary) then
        angvel = 1.006d-12
     else
