@@ -1484,7 +1484,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              endif
           endif
           !Check if the variables have meaningful values close to condensation temperatures
-          if (tempi.ge.1400. .and. tempi.le.1500. .and. verbose ) then
+          if (tempi >= 1400. .and. tempi <= 1500. .and. verbose ) then
              print *,'size(nucleation,1) = ',size(nucleation,1)
              print *,'size(nucleation,2) = ',size(nucleation,2)
              print *,'nucleation(idK3,i) = ',nucleation(idK3,i)
