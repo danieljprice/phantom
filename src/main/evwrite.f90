@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module evwrite
 !
@@ -37,7 +37,7 @@ module evwrite
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, dim, energies, eos, extern_binary,
+! :Dependencies: boundary, boundary_dyn, dim, energies, eos,
 !   externalforces, fileutils, gravwaveutils, io, mpiutils, nicil, options,
 !   part, ptmass, timestep, units, viscosity
 !

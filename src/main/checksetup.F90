@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module checksetup
 !
@@ -16,7 +16,7 @@ module checksetup
 !
 ! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
 !   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
