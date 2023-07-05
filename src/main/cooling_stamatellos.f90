@@ -139,7 +139,7 @@ end subroutine init_star
                      dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
              else  ! ie Tmini == Ti
                      dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
-             end if
+             endif
      end select
 
 
@@ -151,7 +151,7 @@ end subroutine init_star
         print *, "dudt_rad=", dudt_rad
         call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
         stop
-     else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+     elseif (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
         dudti_cool = (umini - ui)/dt
        ! print *, "dudti_cool negative and big"
      endif

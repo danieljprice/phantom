@@ -595,7 +595,7 @@ subroutine test_drag(ntests,npass)
  fext = 0.
  fxyzu = 0.
  call get_derivs_global(dt=1.)
- !if(drag_implicit) call get_derivs_global(dt=1.)
+ !if (drag_implicit) call get_derivs_global(dt=1.)
 
 !
 ! check that momentum and energy are conserved

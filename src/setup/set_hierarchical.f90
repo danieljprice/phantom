@@ -733,7 +733,7 @@ subroutine generate_hierarchy_string(nsinks)
      hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
 
      !print*,label
-  end do
+  enddo
 
 end subroutine generate_hierarchy_string
 
