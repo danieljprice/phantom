@@ -196,7 +196,7 @@ use eos_stamatellos, only: eos_file
  case default
     imatch = .false.
  end select
- if (od_method .ne. 1 .and. od_method .ne. 2) then
+ if (od_method  /=  1 .and. od_method  /=  2) then
     call warning('cooling_stamatellos','optical depth method unknown')
  endif
 

@@ -42,7 +42,7 @@ subroutine read_optab(eos_file,ierr)
  if (ierr > 0) return
  do
          read(10,'(A120)') junk
-         if (index(adjustl(junk),'::') .eq. 0) then !ignore comment lines
+         if (index(adjustl(junk),'::') == 0) then !ignore comment lines
                  junk = adjustl(junk)
                  read(junk, *,iostat=errread) nx, ny
                  exit
@@ -78,25 +78,25 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
 
- if (rhoi.lt. rhomin) then
+ if (rhoi <  rhomin) then
   rhoi_ = rhomin
  else
   rhoi_ = rhoi
  endif  
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
+ do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
   i = i + 1
  enddo
 
- if (ui.lt.umin) then
+ if (ui < umin) then
   ui_ = umin 
  else
   ui_ = ui
  endif
 
  j = 1
- do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.ny))
+ do while ((OPTABLE(i-1,j,3) <= ui_).and.(j < ny))
   j = j + 1
  enddo
 
@@ -121,7 +121,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  gmw1 = m*ui_ + c
  
  j = 1
- do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.ny))
+ do while ((OPTABLE(i,j,3) <= ui).and.(j < ny))
   j = j + 1
  enddo
 
@@ -180,19 +180,19 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 
- if (rhoi.lt.1.0e-24) then
+ if (rhoi < 1.0e-24) then
   rhoi_ = 1.0e-24 
  else
   rhoi_ = rhoi
  endif
 
  i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.nx))
+ do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
   i = i + 1
  enddo
 
  j = 1
- do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.ny))
+ do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
   j = j + 1
  enddo
 
@@ -202,7 +202,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  u1 = m*Teqi + c
 
  j = 1
- do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.ny))
+ do while ((OPTABLE(i,j,2) <= Teqi).and.(j < ny))
   j = j + 1
  enddo
 
