@@ -441,7 +441,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
      vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
      ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev                                 !number of collisions in dt
 
-     ekin = mprev*vrel*vrel/4. - (2.*mprev - dustprop(1))*0.23805*eroll/mmono       !0.23805 = 1.5 * 48/302.46
+     ekin = mprev*vrel*vrel/4. - (2.*mprev - dustprop(1))*0.85697283*eroll/mmono       !0.856973 = 3* 1.8 * 48/302.46
      pdyn = eroll /((1./filfac - 1./maxpacking)*smono)**3
      deltavol = ekin/pdyn                                                       !-ekin is kinetic energy - all energy needed to break monomers 
 
@@ -812,6 +812,5 @@ real function compute_vend(vstick)
  real, intent(in) ::vstick
      compute_vend = 24343220.*vstick
 end function
-
 
 end module porosity
