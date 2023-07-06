@@ -13,7 +13,7 @@ module cooling
 !     2 = cooling library                 [explicit]
 !     3 = Gammie cooling                  [explicit]
 !     5 = Koyama & Inutuska (2002)        [explicit]
-!     6 = Koyama & Inutuska (2002)        [implicit]  
+!     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
 !     8 = Stamatellos et al. (2007)       [implicit]
 !
@@ -28,14 +28,15 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=cooling library (step), 2=cooling library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,
-!   infile_utils, io, options, part, physcon, timestep, units
+!   cooling_koyamainutsuka, cooling_molecular, cooling_solver,
+!   cooling_stamatellos, dim, eos, eos_stamatellos, infile_utils, io,
+!   options, part, physcon, timestep, units, viscosity
 !
 
  use options,  only:icooling
  use timestep, only:C_cool
  use cooling_solver, only:T0_value ! expose to other routines
- 
+
  implicit none
  character(len=*), parameter :: label = 'cooling'
 
@@ -72,7 +73,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use eos_stamatellos,   only:read_optab,eos_file
  use cooling_stamatellos, only: init_star,od_method
  use viscosity,         only:irealvisc
- 
+
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
  logical :: ex
@@ -149,7 +150,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
  use cooling_stamatellos,    only:cooling_S07
- 
+
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(in), optional :: dudti_sph ! in code units

@@ -57,7 +57,7 @@ module part
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
- 
+
 !
 !--tracking particle IDs
 !
@@ -269,6 +269,8 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: fxyz_drag(:,:)
+ real, allocatable         :: fxyz_dragold(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
@@ -345,7 +347,9 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
- +maxdusttypes                        &  ! dustfrac
+ +3                                   &  ! fxyz_drag
+   +3                                   &  ! fxyz_dragold
+   +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -474,6 +478,8 @@ subroutine allocate_part
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('fxyz_drag', fxyz_drag, 3, maxdustan)
+ call allocate_array('fxyz_dragold', fxyz_dragold, 3, maxdustan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
@@ -549,6 +555,8 @@ subroutine deallocate_part
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
+ if (allocated(fxyz_drag))    deallocate(fxyz_drag)
+ if (allocated(fxyz_dragold)) deallocate(fxyz_dragold)
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
@@ -579,7 +587,7 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
- 
+
 end subroutine deallocate_part
 
 !----------------------------------------------------------------
@@ -1289,6 +1297,9 @@ subroutine copy_particle_all(src,dst,new_part)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
     endif
+    fxyz_drag(:,dst) = fxyz_drag(:,src)
+    fxyz_dragold(:,dst) = fxyz_dragold(:,src)
+
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
@@ -1499,6 +1510,8 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
+       call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
@@ -1584,6 +1597,8 @@ subroutine unfill_buffer(ipart,xbuf)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
     endif
+    fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
+    fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)

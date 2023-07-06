@@ -42,8 +42,8 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
-!   units, eos_stamatellos
+!   eos_stamatellos, eos_stratified, infile_utils, io, mesa_microphysics,
+!   part, physcon, units
 !
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
@@ -106,7 +106,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:kb_on_mh,radconst
+ use physcon,       only:kb_on_mh,radconst,Rg
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -350,7 +350,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     mass = 0
 
     do i=1,nptmass
-       mass_r = r1+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
+       mass_r = mass_r+xyzmh_ptmass(4,i)/sqrt((xi-xyzmh_ptmass(1,i))**2 + (yi-xyzmh_ptmass(2,i))**2 + (zi-xyzmh_ptmass(3,i))**2)
        mass = mass + xyzmh_ptmass(4,i)
     enddo
     ponrhoi=polyk*(mass_r)**(2*qfacdisc)/mass**(2*qfacdisc)
@@ -424,17 +424,21 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=8
 !
-    if (eni < 0.) then                                                                          
+    if (eni < 0.) then
        call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
     endif
     cgsrhoi = rhoi * unit_density
     cgseni = eni * unit_ergg
-    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui,gammai)
-    ! gammai is derived from the tables
-  !  print *, 'EOS gamma=', gammai
-    ponrhoi = (gammai - 1.) * eni
+    call getopac_opdep(cgseni,cgsrhoi,kappaBar,kappaPart,tempi,mui)
+    cgspresi = kb_on_mh*cgsrhoi*tempi/mui
+    presi = cgspresi/unit_pressure
+    ponrhoi = presi/rhoi
+    gammai = 1.d0 + presi/(eni*rhoi)
+    !if (gammai < 1.d0 .or. gammai > 2.d0) then
+    !                print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
+    !endif
     spsoundi = sqrt(gammai*ponrhoi)
-    
+
  case default
     spsoundi = 0. ! avoids compiler warnings
     ponrhoi  = 0.
@@ -539,7 +543,7 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool
-    
+
  end select
  done_init_eos = .true.
 
@@ -553,8 +557,8 @@ end subroutine init_eos
 !+
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
-  use eos_mesa, only: finish_eos_mesa
-  use eos_stamatellos, only: finish_S07cool
+ use eos_mesa, only: finish_eos_mesa
+ use eos_stamatellos, only: finish_S07cool
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -1224,7 +1228,7 @@ logical function eos_outputs_mu(ieos)
  case(20)
     eos_outputs_mu = .true.
  case(21)
- 	eos_outputs_mu = .true.
+    eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1303,7 +1307,7 @@ subroutine eosinfo(eos_type,iprint)
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
  case(21)
- write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
+    write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1359,7 +1363,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        elseif (ieos==21) then
-       	 write(iprint,*) 'Tabulated eos with derived gamma'
+          write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

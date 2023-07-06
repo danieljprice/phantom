@@ -12,7 +12,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Alison Young
 !
 ! :Runtime parameters:
 !   - BEfac             : *over-density factor of the BE sphere [code units]*
@@ -21,10 +21,10 @@ module setup
 !   - BErad_phys        : *physical radius of the BE sphere [code units]*
 !   - BErho_cen         : *central density of the BE sphere [code units]*
 !   - Bzero             : *Magnetic field strength in Gauss*
+!   - T_sphere          : *temperature in sphere*
 !   - ang_Bomega        : *Angle (degrees) between B and rotation axis*
 !   - angvel            : *angular velocity in rad/s*
 !   - beta_r            : *rotational-to-gravitational energy ratio*
-!   - cs_sphere_cgs     : *sound speed in sphere in cm/s*
 !   - density_contrast  : *density contrast in code units*
 !   - dist_unit         : *distance unit (e.g. au)*
 !   - dust_to_gas_ratio : *dust-to-gas ratio*
@@ -54,10 +54,9 @@ module setup
 !   - use_BE_sphere     : *centrally condense as a BE sphere*
 !
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust, set_dust_options,
-!   setup_params, spherical, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, prompting, ptmass, set_dust, set_dust_options, setup_params,
+!   spherical, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
  use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall
@@ -92,7 +91,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_out,time,fileprefix)
- use physcon,      only:pi,solarm,hours,years,au,kboltz,atomic_mass_unit
+ use physcon,      only:pi,solarm,hours,years,au,kboltz,kb_on_mh
  use dim,          only:maxdusttypes,use_dustgrowth,maxdustlarge
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
  use io,           only:master,fatal,iprint
@@ -227,13 +226,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        totmass_sphere = 1.0
        call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
     else
- 		print *, 'deleted'
+       print *, 'deleted'
     endif
 
     call prompt('Enter temperature in sphere',T_sphere,1.,100.)
-    
+
     call prompt('Enter EOS filename',eos_file)
-	
+
     if (binary) then
        angvel = 1.006d-12
     else
@@ -345,22 +344,21 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  endif
 
 
- 
+
  ! general parameters
  !
- 
-  vol_sphere  = 4./3.*pi*r_sphere**3
+
+ vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
- 
+
  ! call EOS
  ieos = 21
  ierr = 0
  call read_optab(eos_file,ierr)
  call getintenerg_opdep(T_sphere, dens_sphere*unit_density, u_sphere)
- call getopac_opdep(u_sphere,dens_sphere*unit_density,kappaBar,kappaPart,T_sphere,gmwi,gammai)
+ call getopac_opdep(u_sphere,dens_sphere,kappaBar,kappaPart,T_sphere,gmwi)
  u_sphere = u_sphere/unit_ergg
- gamma = gammai
  time        = 0.
  if (use_dust) dust_method = 1
  hfact       = hfact_default
@@ -379,9 +377,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  totmass     = totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
 
- przero = dens_sphere * kboltz * T_sphere/gmwi/atomic_mass_unit ! code units
+ przero = dens_sphere * kb_on_mh * T_sphere/gmwi ! code units
+ gammai = 1.d0 + (przero/u_sphere/dens_sphere)
  cs_sphere = sqrt(gammai * przero/dens_sphere)
  cs_sphere_cgs = cs_sphere * unit_velocity
+ polyk  = cs_sphere**2
+ gamma = 5./3. ! not used but set to keep Phantom happy.
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !
@@ -395,8 +396,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     if (trim(lattice)/='random') print "(a,es10.3)",' Particle separation in sphere = ',psep
  endif
  print "(a)",' Initialised sphere'
+ npartsphere = npart_total
 
- 
  !
  ! set particle properties
  !
@@ -706,7 +707,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr
+ integer                       :: i,nerr,kerr,jerr
  type(inopts), allocatable     :: db(:)
 
  !--Read values

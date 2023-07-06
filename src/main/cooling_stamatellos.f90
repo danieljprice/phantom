@@ -12,98 +12,99 @@ module cooling_stamatellos
 !
 ! :Owner: Alison Young
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - EOS_file : *File containing tabulated EOS values*
+!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
 !
-! :Dependencies: eos_stamatellos, physcon,io,units,part
+! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
- 
+
  implicit none
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 1 ! default = Stamatellos+ 2007 method
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
- 
- contains
+
+contains
 
 subroutine init_star()
-  use part,    only:nptmass,xyzmh_ptmass
-  integer :: i,imin
-  real :: rsink2,rsink2min
-  
-  rsink2min = 0d0
-  if (nptmass == 0 .or. Lstar == 0.0) then
-     isink_star = 0 ! no stellar heating
-     print *, "No stellar heating."
-  elseif (nptmass == 1) then
-     isink_star = 1
-  else
-     do i=1,nptmass
-        rsink2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
-        if (i==1 .or. (rsink2 < rsink2min) ) then
-           rsink2min = rsink2
-           imin = i
-        endif
-     enddo
-     isink_star = imin
-  endif
-  if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
+ use part,    only:nptmass,xyzmh_ptmass
+ integer :: i,imin
+ real :: rsink2,rsink2min
+
+ rsink2min = 0d0
+ if (nptmass == 0 .or. Lstar == 0.0) then
+    isink_star = 0 ! no stellar heating
+    print *, "No stellar heating."
+ elseif (nptmass == 1) then
+    isink_star = 1
+ else
+    do i=1,nptmass
+       rsink2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
+       if (i==1 .or. (rsink2 < rsink2min) ) then
+          rsink2min = rsink2
+          imin = i
+       endif
+    enddo
+    isink_star = imin
+ endif
+ if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
 end subroutine init_star
-  
+
 !
 ! Do cooling calculation
 !
-   subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
-     use io,       only:warning
-     use physcon,  only:steboltz,pi,solarl,Rg
-     use units,    only:umass,udist,unit_density,unit_ergg,utime
-     use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool, &
+subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
+ use io,       only:warning
+ use physcon,  only:steboltz,pi,solarl,Rg
+ use units,    only:umass,udist,unit_density,unit_ergg,utime
+ use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           iunitst,du_FLD,FLD
-     use dim,  only:do_radiation
-     use part,      only:eos_vars,igasP,xyzmh_ptmass
-     real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
-     integer,intent(in) :: i
-     real,intent(out) :: dudti_cool
-     real            :: coldensi,kappaBari,kappaParti,ri2
-     real            :: gammai,gmwi,Tmini4,Ti,dudt_rad,Teqi,du_tot
-     real            :: tcool,ueqi,umini,tthermi,poti,presi,du_FLDi
-     
-     poti = Gpot_cool(i)
-     du_FLDi = du_FLD(i)
+ use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
+ real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
+ integer,intent(in) :: i
+ real,intent(out) :: dudti_cool
+ real            :: coldensi,kappaBari,kappaParti,ri2
+ real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,du_tot
+ real            :: tcool,ueqi,umini,tthermi,poti,presi,du_FLDi
+
+ poti = Gpot_cool(i)
+ du_FLDi = du_FLD(i)
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
-     if (isink_star > 0 .and. Lstar > 0) then
-        ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+ if (isink_star > 0 .and. Lstar > 0.d0) then
+    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
              + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
              + (zi-xyzmh_ptmass(3,isink_star))**2d0
-        ri2 = ri2 *udist*udist
+    ri2 = ri2 *udist*udist
 ! Tfloor + stellar heating
-        Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2))
-     else
-        Tmini4 = Tfloor**4d0
-     endif
+    Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2))
+ else
+    Tmini4 = Tfloor**4d0
+ endif
 
 ! get opacities & Ti for ui
-     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-           Ti,gmwi,gammai)
-      presi = eos_vars(igasP,i)
-   !  presi = Rg*Ti*rhoi
-     select case (od_method)
-     case (1)
-        coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
-        coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-        coldensi = coldensi*umass/udist/udist ! physical units
-     case (2)
+ call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+           Ti,gmwi)
+ presi = eos_vars(igasP,i)
+
+ select case (od_method)
+ case (1)
+    coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
+    coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
+    coldensi = coldensi*umass/udist/udist ! physical units
+ case (2)
 ! Lombardi+ method of estimating the mean column density
-        coldensi = 1.014d0 * presi / abs(-gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
-        coldensi = coldensi *umass/udist/udist ! physical units
-     end select
-     
-     tcool = (coldensi**2d0)*kappaBari +(1.d0/kappaParti) ! physical units
-     dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
-     
-     
+    coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+    coldensi = coldensi *umass/udist/udist ! physical units
+ end select
+
+ tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
+ dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
+
+
 ! calculate Teqi
 	if (od_method == 1) then
 		if (FLD) then
@@ -124,7 +125,7 @@ end subroutine init_star
     	call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
    		ueqi = ueqi/unit_ergg
 	endif
-    
+       
     call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
     umini = umini/unit_ergg
      
@@ -144,7 +145,7 @@ end subroutine init_star
      endif
      case (2)
      	if (abs(dudt_rad) > 0.d0) then
-    	 	tthermi = (umini - ui) / dudt_rad
+    	 	tthermi = (umini - ui) / dudt_rad ! + tiny(dudt_rad))
      		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
      	else  ! ie Tmini == Ti
      		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
@@ -166,8 +167,23 @@ end subroutine init_star
      
    end subroutine cooling_S07
 
+ if (isnan(dudti_cool)) then
+    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
+    print *, "rhoi=",rhoi, "Ti=", Ti
+    print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
+    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+    print *, "dudt_rad=", dudt_rad
+    call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
+    stop
+ elseif (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+    dudti_cool = (umini - ui)/dt
+    ! print *, "dudti_cool negative and big"
+ endif
 
- subroutine write_options_cooling_stamatellos(iunit)
+end subroutine cooling_S07
+
+
+subroutine write_options_cooling_stamatellos(iunit)
  use infile_utils, only:write_inopt
  use eos_stamatellos, only: eos_file
  integer, intent(in) :: iunit
@@ -179,9 +195,9 @@ end subroutine init_star
 
 end subroutine write_options_cooling_stamatellos
 
- subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
+subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
  use io, only:warning,fatal
-use eos_stamatellos, only: eos_file
+ use eos_stamatellos, only: eos_file
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
@@ -201,12 +217,12 @@ use eos_stamatellos, only: eos_file
     endif
     ngot = ngot + 1
  case('EOS_file')
-	read(valstring,*,iostat=ierr) eos_file
-	ngot = ngot + 1
+    read(valstring,*,iostat=ierr) eos_file
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
- if (od_method .ne. 1 .and. od_method .ne. 2) then
+ if (od_method  /=  1 .and. od_method  /=  2) then
     call warning('cooling_stamatellos','optical depth method unknown')
  endif
 
@@ -214,5 +230,5 @@ use eos_stamatellos, only: eos_file
 
 end subroutine read_options_cooling_stamatellos
 
+end module cooling_stamatellos
 
- end module cooling_stamatellos
