@@ -164,21 +164,6 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
      else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
         dudti_cool = (umini - ui)/dt
      endif
-     
-   end subroutine cooling_S07
-
- if (isnan(dudti_cool)) then
-    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-    print *, "rhoi=",rhoi, "Ti=", Ti
-    print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
-    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-    print *, "dudt_rad=", dudt_rad
-    call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
-    stop
- elseif (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
-    dudti_cool = (umini - ui)/dt
-    ! print *, "dudti_cool negative and big"
- endif
 
 end subroutine cooling_S07
 

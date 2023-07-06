@@ -1593,7 +1593,7 @@ subroutine get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
     hi1 = 1./hi
     rhoi = rho_all(i)
     if (utherm(i) > 1e-4) print *, i, "utherm dodgy"
-    call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi,gammai)
+    call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi)
     if (kappaParti <= 0.) then
     	print *, "fail", rhoi*unit_density,kappaParti,Ti, utherm(i)
          call fatal('get_diffusion_term_only - i','Negative or zero opacity')
@@ -1622,7 +1622,7 @@ subroutine get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
        dx = xyzh(1,i) - xyzh(1,j)
        dy = xyzh(2,i) - xyzh(2,j)
        dz = xyzh(3,i) - xyzh(3,j)
-       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj,gammaj)
+       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj)
        if (kappaPartj <= 0.) then
          print *, "fail", rhoj*unit_density,kappaPartj,Tj, utherm(j)*unit_energ
          call fatal('get_diffusion_term_only - j','Negative or zero opacity')
@@ -1714,7 +1714,7 @@ subroutine get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
 	dradzi = 0.
     rhoi = rho_all(i)
     
- 	call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi,gammai)
+ 	call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi)
 
     do k = 1,ivar(1,n) !loop over n neighbours
        icompact = ivar(2,n) + k
@@ -1749,7 +1749,7 @@ subroutine get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
        runiy = dy/rij
        runiz = dz/rij
 
-       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj,gammaj)
+       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj)
        uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj*udist**3)
      !  print *, 'got opdep j'
        
