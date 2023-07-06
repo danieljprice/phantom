@@ -141,6 +141,8 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  use part,    only:hfact
  use physcon, only:pi
  use kernel,  only:radkern
+ use timing,  only:get_timings
+ use derivutils, only:do_timing
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
@@ -150,7 +152,10 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average,its
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
  real :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
+ real(kind=4)         :: tlast,tcpulast
  logical :: converged
+
+ call get_timings(tlast,tcpulast)
 
  failed = .false.
  errorE = 0.
@@ -169,6 +174,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
 
  !dtimax = dt/imaxstep
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ call do_timing('radneighlist',tlast,tcpulast,start=.true.)
  ! check for errors
  if (ncompact <= 0 .or. ncompactlocal <= 0) then
     call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
@@ -190,7 +196,11 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
     call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
                                      vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
 
-    if (iverbose >= 2) print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
+    if (iverbose >= 2) then
+      !$omp single
+      print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
+      !$omp end single
+    endif
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
     if (converged) exit iterations
 
@@ -207,6 +217,8 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  endif
  !$omp end single
  !$omp end parallel
+
+ call do_timing('radits',tlast,tcpulast)
 
  call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
 
@@ -600,7 +612,7 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,i
  real                :: rhoi,gradE1i,opacity,radRi
 
  ierr = 0
- !$omp do &
+ !$omp do schedule(runtime)&
  !!$omp shared(vari,ivar,radprop,ncompactlocal,EU0,dust_temp,nucleation,limit_radiation_flux) &
  !$omp private(i,n,rhoi,gradE1i,opacity,radRi) &
  !$omp reduction(max:ierr)
@@ -653,7 +665,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  real                 :: diffusion_numerator,diffusion_denominator,tempval1,tempval2
 
  ierr = 0
- !$omp do &
+ !$omp do schedule(runtime)&
  !!$omp shared(vari,varij,ivar,ijvar,radprop,ncompact,EU0,varinew,dust_temp,nucleation)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWiidrlightrhorhom,dWidrlightrhorhom,dWjdrlightrhorhom,tempval1,tempval2,icompact)&
@@ -769,7 +781,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
  maxerrE2 = 0.
  maxerrU2 = 0.
 
- !$omp do &
+ !$omp do schedule(runtime)&
  !!$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
  !!$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad,cv_type) &
  !!$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
