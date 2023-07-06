@@ -24,7 +24,7 @@ Status
 Links
 -----
 
-- Project homepage: http://phantomsph.bitbucket.io/
+- Project homepage: http://phantomsph.github.io/
 - Code repository: https://github.com/danieljprice/phantom/
 - Documentation: https://phantomsph.readthedocs.org/
 - Code paper: http://adsabs.harvard.edu/abs/2018PASA...35...31P

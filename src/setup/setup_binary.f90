@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -13,10 +13,14 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - O            : *position angle of ascending node (deg)*
 !   - a            : *semi-major axis (e.g. 1 au) or period (e.g. 10*days)*
 !   - corotate     : *set stars in corotation*
 !   - eccentricity : *eccentricity*
+!   - f            : *initial true anomaly (180=apoastron)*
+!   - inc          : *inclination (deg)*
 !   - relax        : *relax stars into equilibrium*
+!   - w            : *argument of periapsis (deg)*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
 !   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,

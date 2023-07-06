@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module forces
 !
@@ -366,9 +366,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  if (use_dust .and. drag_implicit) then
     !$omp parallel do default(none) shared(fext,npart,fxyz_drag,fxyz_dragold) private(i)
     do i=1,npart
-      fxyz_dragold(1,i) = fxyz_drag(1,i)
-      fxyz_dragold(2,i) = fxyz_drag(2,i)
-      fxyz_dragold(3,i) = fxyz_drag(3,i)
+       fxyz_dragold(1,i) = fxyz_drag(1,i)
+       fxyz_dragold(2,i) = fxyz_drag(2,i)
+       fxyz_dragold(3,i) = fxyz_drag(3,i)
     enddo
     !$omp end parallel do
  endif
@@ -1327,7 +1327,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef DUST
           if (drag_implicit) then
              dti = min(dti,get_dt(dt,ibin_old(j)))
-         endif
+          endif
 #endif
 #endif
        endif

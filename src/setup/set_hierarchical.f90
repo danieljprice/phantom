@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module sethierarchical
 !
@@ -718,22 +718,22 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 end subroutine set_multiple
 
 subroutine generate_hierarchy_string(nsinks)
-  integer, intent(in) :: nsinks
+ integer, intent(in) :: nsinks
 
-  integer :: i, pos
-  character(len=10) :: label
+ integer :: i, pos
+ character(len=10) :: label
 
-  hierarchy = '11,12'
+ hierarchy = '11,12'
 
-  do i=1,nsinks-2
-     pos = scan(hierarchy, ',', .true.)
+ do i=1,nsinks-2
+    pos = scan(hierarchy, ',', .true.)
 
-     label = trim(hierarchy(pos+1:))
+    label = trim(hierarchy(pos+1:))
 
-     hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
+    hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
 
-     !print*,label
-  end do
+    !print*,label
+ enddo
 
 end subroutine generate_hierarchy_string
 
@@ -743,44 +743,44 @@ subroutine print_chess_logo()!id)
  !integer,           intent(in) :: id
 
 ! if (id==master) then
-    print*,"                                                                      "
-    print*,"                                                       _:_            "
-    print*,"                                                      '-.-'           "
-    print*,"                                             ()      __.'.__          "
-    print*,"                                          .-:--:-.  |_______|         "
-    print*,"                                   ()      \____/    \=====/          "
-    print*,"                                   /\      {====}     )___(           "
-    print*,"                        (\=,      //\\      )__(     /_____\          "
-    print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
-    print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
-    print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
-    print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
-    print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
-    print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
-    print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
-    print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
-    print*,"     (______)(_______)(_______)(________)(________)(_________)        "
-    print*,"                                                                      "
-    print*,"          _             _       _    _           _           _        "
-    print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
-    print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
-    print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
-    print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
-    print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
-    print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
-    print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
-    print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
-    print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
-    print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
-    print*,"                                                                      "
+ print*,"                                                                      "
+ print*,"                                                       _:_            "
+ print*,"                                                      '-.-'           "
+ print*,"                                             ()      __.'.__          "
+ print*,"                                          .-:--:-.  |_______|         "
+ print*,"                                   ()      \____/    \=====/          "
+ print*,"                                   /\      {====}     )___(           "
+ print*,"                        (\=,      //\\      )__(     /_____\          "
+ print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
+ print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
+ print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
+ print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
+ print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
+ print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
+ print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
+ print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
+ print*,"     (______)(_______)(_______)(________)(________)(_________)        "
+ print*,"                                                                      "
+ print*,"          _             _       _    _           _           _        "
+ print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
+ print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
+ print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
+ print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
+ print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
+ print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
+ print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
+ print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
+ print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
+ print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
+ print*,"                                                                      "
 
-    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+ print "(/,65('-'),1(/,a),/,65('-'),/)",&
          '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
 
 
-    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
-    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
-    !         '        simulate the universe as a hierarchical system'
+ !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+ !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+ !         '        simulate the universe as a hierarchical system'
 
 ! endif
 end subroutine print_chess_logo

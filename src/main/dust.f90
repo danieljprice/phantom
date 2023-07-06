@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module dust
 !
@@ -377,8 +377,8 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
     !--no longer a compulsory parameter
  case('irecon')
     read(valstring,*,iostat=ierr) irecon
- !case('drag_implicit')
- !   read(valstring,*,iostat=ierr) drag_implicit
+    !case('drag_implicit')
+    !   read(valstring,*,iostat=ierr) drag_implicit
  case default
     imatch = .false.
  end select
