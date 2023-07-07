@@ -262,6 +262,7 @@ endif
 ifeq ($(SETUP), prtest)
 #   simple test of prdrag
     SETUPFILE= setup_prtest.f90
+    ISOTHERMAL=yes
     KNOWN_SETUP=yes
 endif
 
