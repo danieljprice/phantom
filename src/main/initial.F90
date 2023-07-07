@@ -111,13 +111,13 @@ end subroutine initialise
 subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
-                            nalpha,mhd,do_radiation,gravity,use_dust,mpi,do_nucleation,&
+                            nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
                             use_dustgrowth,ind_timesteps,idumpfile
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
  use io,               only:idisk1,iprint,ievfile,error,iwritein,flush_warnings,&
-                            die,fatal,id,master,nprocs,real4,warning
+                            die,fatal,id,master,nprocs,real4,warning,iverbose
  use externalforces,   only:externalforce,initialise_externalforces,update_externalforce,&
                             externalforce_vdependent
  use options,          only:iexternalforce,icooling,use_dustfrac,rhofinal1,rhofinal_cgs
@@ -141,12 +141,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
-#ifdef NONIDEALMHD
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
-#endif
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
                             r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
@@ -216,9 +214,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  real            :: dtsinkgas,dtsinksink,fonrmax,dtphi2,dtnew_first,dtinject
  real            :: stressmax,xmin,ymin,zmin,xmax,ymax,zmax,dx,dy,dz,tolu,toll
  real            :: dummy(3)
-#ifdef NONIDEALMHD
  real            :: gmw_nicil
-#endif
 #ifndef GR
  real            :: dtf,fextv(3)
 #endif
@@ -288,12 +284,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--initialise values for non-ideal MHD
 !
-#ifdef NONIDEALMHD
- call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint,iprint)
- if (ierr/=0) call fatal('initial','error initialising nicil (the non-ideal MHD library)')
- call use_consistent_gmw(ierr,gmw,gmw_nicil)
- if (ierr/=0) write(iprint,'(2(a,Es18.7))')' initial: Modifying mean molecular mass from ',gmw,' to ',gmw_nicil
-#endif
+ if (mhd_nonideal) then
+    call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint,iprint)
+    if (ierr/=0) call fatal('initial','error initialising nicil (the non-ideal MHD library)')
+
+    call use_consistent_gmw(ierr,gmw,gmw_nicil)
+    if (ierr/=0) write(iprint,'(2(a,Es18.7))') &
+       ' initial: Modifying mean molecular weight from ',gmw,' to ',gmw_nicil
+ endif
  nden_nimhd = 0.0
 !
 !--Initialise and verify parameters for super-timestepping
@@ -680,7 +678,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--Print box sizes and masses
 !
- if (id==master) then
+ if (id==master .and. iverbose >= 1) then
     if (get_conserv > 0.0) then
        write(iprint,'(1x,a)') 'Initial mass and extent of particle distribution (in code units):'
     else
@@ -701,16 +699,20 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    if (id==master) write(iprint,'(1x,a)') 'Setting initial values (in code units) to verify conservation laws:'
+    if (id==master .and. iverbose >= 1) then
+       write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
+    endif
  else
-    if (id==master) then
-       write(iprint,'(1x,a)') 'Reading initial values (in code units) to verify conservation laws from previous run:'
+    if (id==master .and. iverbose >= 1) then
+       write(iprint,'(1x,a)') 'Reading initial values to verify conservation laws from previous run:'
     endif
  endif
  if (id==master) then
-    write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
-    write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
-    write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+    if (iverbose >= 1) then
+       write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
+       write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+       write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+    endif
     if (use_dust) then
        dust_label = 'dust'
        call make_tags_unique(ndusttypes,dust_label)
