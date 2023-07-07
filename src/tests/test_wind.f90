@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module testwind
 !
-! Unit tests of the step module
+! Unit tests of the wind injection module
 !
 ! :References: None
 !
@@ -32,22 +32,21 @@ contains
 subroutine test_wind(ntests,npass)
  use io,        only:iprint,id,master,iverbose!,iwritein
  use boundary,  only:set_boundary
- use options,   only:icooling,ieos,tolh,alpha,alphau,alphaB,avdecayconst,beta
+ use options,   only:icooling,ieos
  use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
  use inject,    only:init_inject,inject_particles,set_default_options_inject
  use eos,       only:gmw,ieos,init_eos,gamma,polyk
  use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,nptmass,&
-      npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot,hfact
- use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog,&
-      tolv,C_cour,C_force
+      npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot
+ use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
  use step_lf_global, only:step,init_step
  use testutils,      only:checkval,update_test_scores
  use dim,            only:isothermal
  use partinject,     only:update_injected_particles
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
- use damping,        only:idamp
+! use damping,        only:idamp
  use checksetup,     only:check_setup
  !use readwrite_infile, only:read_infile,write_infile
 
@@ -91,19 +90,7 @@ subroutine test_wind(ntests,npass)
  call init_eos(ieos,ierr)
 
  iverbose = 0
- hfact    = 1.2
- tolv     = 1.e-2
- tolh     = 1.e-4
- C_cour   = 0.3
- C_force  = 0.25
- nsteps   = 0
- alpha    = 0.
- alphau   = 1.
- alphaB   = 0.
- beta     = 2.
- idamp    = 0
- avdecayconst = 0.1
- icooling = 0
+ !icooling = 0
  dtmax    = 1.
  tmax     = 8.
  tprint   = tmax
