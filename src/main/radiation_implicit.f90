@@ -56,7 +56,9 @@ contains
 !+
 !---------------------------------------------------------
 subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
- use io, only:fatal,warning
+ use io,         only:fatal,warning
+ use timing,     only:get_timings
+ use derivutils, only:do_timing
  integer, intent(in)  :: npart
  real, intent(in)     :: dt,xyzh(:,:)
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:),drad(:,:)
@@ -64,6 +66,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  integer              :: nsubsteps,i,nit
  logical              :: failed,moresweep
  real                 :: dtsub,errorE,errorU
+ real(kind=4)         :: tlast,tcpulast
  real, allocatable    :: origEU(:,:),EU0(:,:)
 
  ierr = 0
@@ -71,7 +74,9 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
  allocate(origEU(2,npart),EU0(2,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','could not allocate memory to origEU and EU0')
 
+ call get_timings(tlast,tcpulast)
  call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.false.)
+ call do_timing('radsave',tlast,tcpulast,start=.true.)
 
  nsubsteps = 1
  moresweep = .true.
@@ -86,7 +91,11 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
           moresweep = .false.
           !exit over_substeps
        endif
-       if (i /= nsubsteps) call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
+       if (i /= nsubsteps) then
+          call get_timings(tlast,tcpulast)
+          call save_radiation_energies(npart,rad,xyzh,vxyzu,radprop,drad,origEU,.true.)
+          call do_timing('radsave',tlast,tcpulast)
+       endif
     enddo over_substeps
 
     !if (moresweep) then
@@ -151,8 +160,8 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  integer, allocatable :: ivar(:,:),ijvar(:)
  integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average,its
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
- real :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
- real(kind=4)         :: tlast,tcpulast
+ real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
+ real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  logical :: converged
 
  call get_timings(tlast,tcpulast)
@@ -174,7 +183,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
 
  !dtimax = dt/imaxstep
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
- call do_timing('radneighlist',tlast,tcpulast,start=.true.)
+
  ! check for errors
  if (ncompact <= 0 .or. ncompactlocal <= 0) then
     call error('radiation_implicit','empty neighbour list - need to call set_linklist first?')
@@ -182,19 +191,39 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
     return
  endif
 
+ call do_timing('radneighlist',tlast,tcpulast,start=.true.)
+
  !$omp parallel
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
+ !$omp master
+ call do_timing('radarrays',tlast,tcpulast)
+ !$omp end master
 
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
 
  iterations: do its=1,itsmax_rad
+    !$omp master
+    call get_timings(t1,tcpu1)
+    !$omp end master
     call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,EU0,varinew,radprop)
+    !$omp master
+    call do_timing('radflux',t1,tcpu1)
+    !$omp end master
     call calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,ierr)
+    !$omp master
+    call do_timing('radlambda',t1,tcpu1)
+    !$omp end master
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,radprop,vari,EU0,varinew,ierr)
+    !$omp master
+    call do_timing('raddiff',t1,tcpu1)
+    !$omp end master
     call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
                                      vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
+    !$omp master
+    call do_timing('radupdate',t1,tcpu1)
+    !$omp end master
 
     if (iverbose >= 2) then
       !$omp single
@@ -219,8 +248,8 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  !$omp end parallel
 
  call do_timing('radits',tlast,tcpulast)
-
  call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
+ call do_timing('radstore',tlast,tcpulast)
 
 end subroutine do_radiation_onestep
 
