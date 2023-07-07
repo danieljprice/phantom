@@ -705,6 +705,8 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
     i = ivar(3,n)
     !  if (iphase(i) == 0) then
     rhoi = vari(2,n)
+    opacityi = radprop(ikappa,i)
+    bi = radprop(ilambda,i)/(opacityi*rhoi)
     !
     !--NOTE: Needs to do this loop even for boundaryparticles because active
     !     boundary particles will need to contribute to the varinew()
@@ -730,7 +732,6 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
        !
        !--Set c*lambda/kappa*rho term (radiative diffusion coefficient) for current quantities
        !
-       opacityi = radprop(ikappa,i)
        opacityj = radprop(ikappa,j)
        if (dustRT) then
           if (dust_temp(i) < Tdust_threshold) opacityi = nucleation(idkappa,i)
@@ -740,7 +741,6 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
           ierr = max(ierr,ierr_negative_opacity)
           call error(label,'Negative or zero opacity',val=min(opacityi,opacityj))
        endif
-       bi = radprop(ilambda,i)/(opacityi*rhoi)
        bj = radprop(ilambda,j)/(opacityj*rhoj)
        !
        !--Choose the 'average' diffusion value.  The (bi+bj) quantity biased in
