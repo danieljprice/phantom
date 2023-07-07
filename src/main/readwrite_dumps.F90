@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module readwrite_dumps
 !
@@ -29,7 +29,7 @@ module readwrite_dumps
 
 #ifdef AOCC
  logical, pointer, public    :: opened_full_dump
- logical, pointer, public    :: dt_read_in         
+ logical, pointer, public    :: dt_read_in
 #else
  logical, pointer, public    :: opened_full_dump => opened_full_dump_fortran      ! for use in analysis files if user wishes to skip small dumps
  logical, pointer, public    :: dt_read_in => dt_read_in_fortran           ! to determine if dt has been read in so that ibin & ibinold can be set on restarts

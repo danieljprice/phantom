@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -21,7 +21,7 @@ module setup
 !   - accradius1 : *primary accretion radius*
 !   - accradius2 : *secondary accretion radius*
 !   - alphaSS    : *desired alpha_SS*
-!   - mplanet    : *m1/(m1+m2)*
+!   - m2         : *m2*
 !   - norbits    : *number of orbits*
 !   - np         : *number of particles*
 !   - p_index    : *surface density profile*

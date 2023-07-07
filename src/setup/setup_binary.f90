@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -13,10 +13,14 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
+!   - O            : *position angle of ascending node (deg)*
 !   - a            : *semi-major axis (e.g. 1 au) or period (e.g. 10*days)*
 !   - corotate     : *set stars in corotation*
 !   - eccentricity : *eccentricity*
+!   - f            : *initial true anomaly (180=apoastron)*
+!   - inc          : *inclination (deg)*
 !   - relax        : *relax stars into equilibrium*
+!   - w            : *argument of periapsis (deg)*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
 !   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
@@ -193,10 +197,10 @@ subroutine write_setupfile(filename)
  use relaxstar,    only:write_options_relax
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
- integer, parameter :: iunit = 20
+ integer :: iunit
 
  print "(a)",' writing setup options file '//trim(filename)
- open(unit=iunit,file=filename,status='replace',form='formatted')
+ open(newunit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit,gr)
@@ -204,7 +208,7 @@ subroutine write_setupfile(filename)
  call write_options_star(star(2),iunit,label='2')
 
  write(iunit,"(/,a)") '# orbit settings'
- call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au) or period (e.g. 10*days)',iunit)
+ call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1',iunit)
  call write_inopt(ecc,'ecc','eccentricity',iunit)
  call write_inopt(inc,'inc','inclination (deg)',iunit)
  call write_inopt(O,'O','position angle of ascending node (deg)',iunit)

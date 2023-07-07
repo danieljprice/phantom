@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setbinary
 !
@@ -85,7 +85,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period,bigM,rperi,rapo
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
  real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi
- real    :: term1,term2,term3,term4,theta,theta_max
+ real    :: term1,term2,term3,term4,theta,theta_max,energy
  logical :: do_verbose
  character(len=12) :: orbit_type
 
@@ -99,49 +99,9 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! masses
  mtot = m1 + m2
-
- Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
- Rochelobe2 = Rochelobe_estimate(m1,m2,semimajoraxis)
- period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  reducedmass = m1*m2/mtot
 
- if (eccentricity < 1.) then
-    angmbin = reducedmass*sqrt(mtot*semimajoraxis*(1. - eccentricity**2))
-    rperi = semimajoraxis*(1. - eccentricity)
-    rapo  = semimajoraxis*(1. + eccentricity)
- elseif (eccentricity > 1.) then
-    angmbin = reducedmass*sqrt(mtot*semimajoraxis*(eccentricity**2 - 1.))
-    rperi = semimajoraxis*(1. - eccentricity)
-    rapo  = huge(rapo)
- else
-    angmbin = sqrt(2.*mtot*semimajoraxis)
-    rperi = abs(semimajoraxis)
-    rapo  = huge(rapo)
-    angmbin = reducedmass*sqrt(2.*mtot*rperi)
- endif
-
- if (do_verbose) then
-    print "(/,2x,a)",'---------- binary parameters ----------- '
-    print "(8(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
-        'primary mass     :',m1, &
-        'secondary mass   :',m2, &
-        'mass ratio m2/m1 :',m2/m1, &
-        'reduced mass     :',reducedmass, &
-        'semi-major axis  :',semimajoraxis, &
-        'period           :',period, &
-        'eccentricity     :',eccentricity, &
-        'pericentre       :',rperi, &
-        'apocentre        :',rapo
- endif
- if (accretion_radius1 > Rochelobe1) then
-    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
- endif
- if (accretion_radius2 > Rochelobe2) then
-    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe'
- endif
-!
-!--check for stupid parameter choices
-!
+ ! check for stupid parameter choices
  if (m1 <= 0.) then
     print "(1x,a)",'ERROR: set_binary: primary mass <= 0'
     ierr = ierr_m1
@@ -174,11 +134,57 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  ! exit routine if cannot continue
  if (ierr /= 0) return
 
+ ! set parameters that depend on the orbit type
+ if (eccentricity < 1.) then
+    a = abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = semimajoraxis*(1. + eccentricity)
+    period = sqrt(4.*pi**2*a**3/mtot)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ elseif (eccentricity > 1.) then
+    a = -abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ else
+    a = huge(a)
+    rperi = abs(semimajoraxis) ! for parabolic orbit we must give the pericentre distance
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(2.*mtot*rperi)
+    energy = 0.
+ endif
+
+ Rochelobe1 = Rochelobe_estimate(m2,m1,rperi)
+ Rochelobe2 = Rochelobe_estimate(m1,m2,rperi)
+
+ if (do_verbose) then
+    print "(/,2x,a)",'---------- binary parameters ----------- '
+    print "(8(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+        'primary mass     :',m1, &
+        'secondary mass   :',m2, &
+        'mass ratio m2/m1 :',m2/m1, &
+        'reduced mass     :',reducedmass, &
+        'semi-major axis  :',a, &
+        'period           :',period, &
+        'eccentricity     :',eccentricity, &
+        'pericentre       :',rperi, &
+        'apocentre        :',rapo
+ endif
+ if (accretion_radius1 > Rochelobe1) then
+    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe at periastron'
+ endif
+ if (accretion_radius2 > Rochelobe2) then
+    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe at periastron'
+ endif
+
  dx = 0.
  dv = 0.
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
-    a = abs(semimajoraxis)
     ecc = eccentricity
     omega     = arg_peri*pi/180.
     ! our conventions here are Omega is measured East of North
@@ -186,7 +192,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     inc       = incl*pi/180.
 
     if (present(f)) then
-       ! get eccentric anomaly from true anomaly
+       ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
        theta = f*pi/180.
        E = get_E_from_true_anomaly(theta,ecc)
@@ -219,18 +225,18 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
        term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
     elseif (eccentricity > 1.) then ! hyperbolic
        orbit_type = 'Hyperbolic'
-       term1 = -a*(cosh(E)-ecc) ! minus sign because a should be -ve for hyperbolic
-       term2 = a*(sqrt(ecc*ecc - 1.)*sinh(E))
-       E_dot = sqrt((m1 + m2)/(a**3))/(ecc*cosh(E)-1.)
-       term3 = -a*(sinh(E)*E_dot)
-       term4 = a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
+       term1 = a*(cosh(E)-ecc)
+       term2 = -a*(sqrt(ecc*ecc - 1.)*sinh(E))
+       E_dot = sqrt((m1 + m2)/(abs(a)**3))/(ecc*cosh(E)-1.)
+       term3 = a*(sinh(E)*E_dot)
+       term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
     else ! parabolic
        orbit_type = 'Parabolic'
-       term1 = a*(1. - E*E)
-       term2 = a*(2.*E)
-       E_dot = sqrt(2.*(m1 + m2)/(a**3))/(1. + E*E)
-       term3 = -E*(a*E_dot)
-       term4 = a*E_dot
+       term1 = rperi*(1. - E*E)
+       term2 = rperi*(2.*E)
+       E_dot = sqrt(2.*(m1 + m2)/(rperi**3))/(1. + E*E)
+       term3 = -E*(rperi*E_dot)
+       term4 = rperi*E_dot
     endif
 
     if (do_verbose) then
@@ -271,7 +277,9 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(7(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+    print "(9(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+        'energy (mtot/2a) :',energy,&
+        'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
         'Omega_0 (prim)   :',v1(2)/x1(1), &
