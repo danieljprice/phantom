@@ -136,6 +136,7 @@ program phantomsetup
 !--perform sanity checks on the output of setpart routine
 !
     call check_setup(nerr,nwarn)
+
     if (nwarn > 0) call warning('initial','warnings during particle setup',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle setup',var='errors',ival=nerr)
 !

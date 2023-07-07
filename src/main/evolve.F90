@@ -30,7 +30,7 @@ module evolve
 
 contains
 
-subroutine evol(infile,logfile,evfile,dumpfile)
+subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:iprint,iwritein,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
@@ -105,6 +105,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use mf_write,         only:binpos_write
 #endif
 
+ integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
@@ -217,9 +218,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! injection of new particles into simulation
     !
-    npart_old=npart
-    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    if (.not. present(flag)) then
+       npart_old=npart
+       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    endif
 #endif
 
     dtmaxold    = dtmax

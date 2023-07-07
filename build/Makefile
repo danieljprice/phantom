@@ -278,12 +278,12 @@ ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
 endif
 
-ifeq ($(DUST_NUCLEATION), yes)
-    FPPFLAGS += -DDUST_NUCLEATION
-endif
-
 ifeq ($(SINK_RADIATION), yes)
     FPPFLAGS += -DSINK_RADIATION
+endif
+
+ifeq ($(WIND), yes)
+    FPPFLAGS += -DWIND -DDUST_NUCLEATION
 endif
 
 ifdef SRCTURB
@@ -541,7 +541,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          radiation_implicit.f90 ${SRCTURB} \
-         ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
+         ${SRCPHOTO} ${SRCINJECT_DEPS} wind_equations.f90 wind.F90 ${SRCINJECT} \
          ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.f90 \
@@ -685,15 +685,13 @@ else
     SRCTESTMPI =
 endif
 
-SRCTESTWIND= wind_equations.F90 wind.F90 inject_wind.f90
-
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.F90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
-         test_hierarchical.f90 test_damping.f90 $(SRCTESTWIND) test_wind.f90 \
+         test_hierarchical.f90 test_damping.f90 test_wind.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \

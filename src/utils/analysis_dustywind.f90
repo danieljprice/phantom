@@ -24,8 +24,8 @@ module analysis
 
  private
  integer, parameter :: N = 1024 !32
- double precision, parameter :: theta = 0., phi = 0.
- double precision, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
+ real, parameter :: theta = 0., phi = 0.
+ real, parameter :: u(3) = (/ sin(theta)*cos(phi), sin(theta)*sin(phi), cos(theta) /)
 
 contains
 
