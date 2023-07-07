@@ -19,32 +19,33 @@ module eos_stamatellos
 
  implicit none
  real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: Gpot_cool(:), du_FLD(:),gradP_cool(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
+ real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_fld(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
  real, parameter,public      :: arad=7.5657d-15
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
- logical,parameter,public :: FLD = .true.
+ logical,parameter,public :: doFLD = .true.
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
- public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
+ public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep!,calc_FLD
 contains
 
 subroutine init_S07cool()
- use part, only:npart,maxradprop   
+ use part, only:npart,maxradprop 
  print *, "Allocating S07 arrays"
  allocate(gradP_cool(npart))
  allocate(Gpot_cool(npart))
- allocate(du_FLD(npart))
- allocate(radprop_FLD(maxradprop,npart))    
+ allocate(duFLD(npart))
+ allocate(lambda_fld(npart))
+! allocate(radprop_FLD(maxradprop,npart))    
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
 end subroutine init_S07cool
 
 subroutine finish_S07cool()
- use part, only: radprop
  deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
- if (allocated(du_FLD)) deallocate(du_FLD)
- if (allocated(radprop_FLD)) deallocate(radprop_FLD)
+ if (allocated(duFLD)) deallocate(duFLD)
+ if (allocated(lambda_fld)) deallocate(lambda_fld)
+! if (allocated(radprop_FLD)) deallocate(radprop_FLD)
  close(iunitst)
 end subroutine finish_S07cool
 
@@ -236,6 +237,15 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
+
+!subroutine calc_FLD(xyzhi,duFLDi,pmassj,tempi,tempj,rhoi,rhoj,j,grkerni)
+ !real,intent(inout) :: duFLDi
+! integer,intent(in) :: j
+! real,intent(in)    :: xyzh(4),pmassj,tempi,tempj,rhoi,rhoj,grkerni
+! duFLDi = pmassj*arad*tempj**4d0*wkernj/rhoj
+
+ !duFLDi = duFLDi
+!end subroutine calc_FLD
 
 end module eos_stamatellos
 

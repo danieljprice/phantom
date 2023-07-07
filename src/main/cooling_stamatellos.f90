@@ -60,7 +60,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use physcon,  only:steboltz,pi,solarl,Rg
  use units,    only:umass,udist,unit_density,unit_ergg,utime
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          iunitst,du_FLD,FLD
+          iunitst,duFLD,doFLD
  use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
  real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
  integer,intent(in) :: i
@@ -70,7 +70,8 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  real            :: tcool,ueqi,umini,tthermi,poti,presi,du_FLDi
 
  poti = Gpot_cool(i)
- du_FLDi = du_FLD(i)
+! du_FLDi = duFLD(i)
+ du_FLDi = 0d0
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
@@ -106,25 +107,25 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 
 
 ! calculate Teqi
-	if (od_method == 1) then
-		if (FLD) then
-		! include term from FLD
-			Teqi = du_FLDi*dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
-			du_tot = dudti_sph + dudt_rad + du_FLDi
-		else
-			Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
-			du_tot = dudti_sph + dudt_rad 
-		endif
-     	Teqi = Teqi/4.d0/steboltz
-    	Teqi = Teqi + Tmini4
-    	if (Teqi < Tmini4) then
-     	   Teqi = Tmini4**(1.0/4.0)
-   		else
-     	   Teqi = Teqi**(1.0/4.0)
-    	endif
-    	call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
-   		ueqi = ueqi/unit_ergg
-	endif
+ if (od_method == 1) then
+   if (doFLD) then
+   ! include term from FLD
+      Teqi = (du_FLDi+dudti_sph)*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+      du_tot = dudti_sph + dudt_rad + du_FLDi
+   else
+      Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+      du_tot = dudti_sph + dudt_rad 
+   endif
+   Teqi = Teqi/4.d0/steboltz
+   Teqi = Teqi + Tmini4
+   if (Teqi < Tmini4) then
+      Teqi = Tmini4**(1.0/4.0)
+   else
+      Teqi = Teqi**(1.0/4.0)
+   endif
+   call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+   ueqi = ueqi/unit_ergg
+  endif
        
     call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
     umini = umini/unit_ergg

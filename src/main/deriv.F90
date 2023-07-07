@@ -69,9 +69,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use radiation_implicit, only:do_radiation_implicit,get_diffusion_term_only,ierr_failed_to_converge
+ use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge,calc_lambda_hybrid
  use options,        only:implicit_radiation,implicit_radiation_store_drad,icooling
- use eos_stamatellos, only:FLD,du_FLD,radprop_FLD
+ use eos_stamatellos, only:doFLD
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -175,9 +175,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
  
  ! compute diffusion term for hybrid RT & polytropic cooling method
- if (icooling == 8 .and. dt > 0. .and. FLD) then
- 	!print *, "calling diff term from deriv"
- 	call get_diffusion_term_only(npart,xyzh,vxyzu,radprop_FLD,du_FLD)
+ if (icooling == 8 .and. dt > 0. .and. doFLD) then
+ 	!print *, "calling lambda_hybrud from deriv"
+   call calc_lambda_hybrid(xyzh,vxyzu(4,:),dens)
  endif
  
 !
