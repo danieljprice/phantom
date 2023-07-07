@@ -346,7 +346,7 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
-   +3                                   &  ! fxyz_drag
+ +3                                   &  ! fxyz_drag
    +3                                   &  ! fxyz_dragold
    +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
