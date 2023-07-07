@@ -178,7 +178,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
  allocate(ijvar(icompactmax),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
- allocate(vari(2,npart),varij(4,icompactmax),varij2(3,icompactmax),varinew(3,npart),stat=ierr)
+ allocate(vari(2,npart),varij(4,icompactmax),varij2(4,icompactmax),varinew(3,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew')
 
  !dtimax = dt/imaxstep
@@ -207,7 +207,7 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
     !$omp master
     call get_timings(t1,tcpu1)
     !$omp end master
-    call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,EU0,varinew,radprop)
+    call compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop)
     !$omp master
     call do_timing('radflux',t1,tcpu1)
     !$omp end master
@@ -401,7 +401,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  integer, intent(in) :: ivar(:,:),ijvar(:)
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
  real, intent(inout) :: radprop(:,:)
- real, intent(out)   :: vari(:,:),EU0(2,npart),varij(4,icompactmax),varij2(3,icompactmax)
+ real, intent(out)   :: vari(:,:),EU0(2,npart),varij(4,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: cv_effective,pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi,&
@@ -550,6 +550,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        varij2(1,icompact) = pmjdWrunix
        varij2(2,icompact) = pmjdWruniy
        varij2(3,icompact) = pmjdWruniz
+       varij2(4,icompact) = rhoj
     enddo
     dvdx(1,i) = real(dvxdxi,kind=kind(dvdx)) ! convert to real*4 explicitly to avoid warnings
     dvdx(2,i) = real(dvxdyi,kind=kind(dvdx))
@@ -575,13 +576,13 @@ end subroutine fill_arrays
 !  compute radiative flux
 !+
 !---------------------------------------------------------
-subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,EU0,varinew,radprop)
+subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop)
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)    :: varij(4,icompactmax),varij2(3,icompactmax),vari(2,npart),EU0(2,npart)
+ real, intent(in)    :: varij2(4,icompactmax),vari(2,npart),EU0(2,npart)
  real, intent(inout) :: radprop(:,:)
  real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
  integer             :: i,j,k,n,icompact
- real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij
+ real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij,rhoiEU0
 
  !$omp do schedule(runtime)&
  !!$omp shared(vari,ivar,EU0,varij2,ijvar,varij,ncompact,radprop,varinew)&
@@ -599,17 +600,18 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,
     dedzi = 0.
 
     rhoi = vari(2,n)
+    rhoiEU0 = rhoi*EU0(1,i)
 
     do k = 1,ivar(1,n)
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
-       rhoj = varij(1,icompact)
        pmjdWrunix = varij2(1,icompact)
        pmjdWruniy = varij2(2,icompact)
        pmjdWruniz = varij2(3,icompact)
+       rhoj = varij2(4,icompact)
 
        ! Calculates the gradient of E (where E=rho*e, and e is xi)
-       dradenij = rhoj*EU0(1,j) - rhoi*EU0(1,i)
+       dradenij = rhoj*EU0(1,j) - rhoiEU0
        dedxi = dedxi + dradenij*pmjdWrunix
        dedyi = dedyi + dradenij*pmjdWruniy
        dedzi = dedzi + dradenij*pmjdWruniz
