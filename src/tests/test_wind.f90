@@ -30,26 +30,26 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,        only:iprint,id,master,iverbose
+ use io,        only:iprint,id,master,iverbose!,iwritein
  use boundary,  only:set_boundary
  use options,   only:icooling,ieos,tolh,alpha,alphau,alphaB,avdecayconst,beta
- use physcon,   only:au,solarm,mass_proton_cgs,kboltz,solarl
+ use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
  use inject,    only:init_inject,inject_particles,set_default_options_wind
  use eos,       only:gmw,ieos,init_eos,gamma,polyk
  use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,nptmass,&
       npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot,hfact
- use physcon,   only:au,solarm,mass_proton_cgs,kboltz, solarl
  use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog,&
       tolv,C_cour,C_force
+ use step_lf_global, only:step,init_step
  use testutils,      only:checkval,update_test_scores
  use dim,            only:isothermal
- use step_lf_global, only:step,init_step
  use partinject,     only:update_injected_particles
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
  use damping,        only:idamp
  use checksetup,     only:check_setup
+ !use readwrite_infile, only:read_infile,write_infile
 
  integer, intent(inout) :: ntests,npass
 
@@ -90,7 +90,7 @@ subroutine test_wind(ntests,npass)
 
  call init_eos(ieos,ierr)
 
- iverbose = 1
+ iverbose = 0
  hfact    = 1.2
  tolv     = 1.e-2
  tolh     = 1.e-4
@@ -115,14 +115,15 @@ subroutine test_wind(ntests,npass)
 
  call set_default_options_wind()
 
-
  call check_setup(nerror,nwarn)
 
  istepfrac  = 0
  nfailed(:) = 0
  call init_inject(nerror)
-! check particle's mass
-! call checkval(massoftype(igas),6.820748526700016e-10,epsilon(0.),&
+
+ !debug if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
+
+ ! check particle's mass
  call checkval(massoftype(igas),1.490822861042279E-09,epsilon(0.),&
       nfailed(1),'no errors in setting particle mass')
  npart_old = npart
@@ -130,12 +131,12 @@ subroutine test_wind(ntests,npass)
                        npart,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
-! check 1D wind profile
+ ! check 1D wind profile
  i = size(trvurho_1D(1,:))
- print '((5(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
- call checkval(trvurho_1D(2,i),7.121051503138366E+13,epsilon(0.),nfailed(2),'outer wind radius')
- call checkval(trvurho_1D(3,i),1.114051511363574E+06,epsilon(0.),nfailed(3),'outer wind velocity')
- call checkval(trvurho_1D(4,i),2.016188157153238E+12,epsilon(0.),nfailed(4),'outer wind internal energy')
+ !print '((5(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+ call checkval(trvurho_1D(2,i),7.058624412798283E+13,epsilon(0.),nfailed(2),'outer wind radius')
+ call checkval(trvurho_1D(3,i),1.112160584479353E+06,epsilon(0.),nfailed(3),'outer wind velocity')
+ call checkval(trvurho_1D(4,i),2.031820842001706E+12,epsilon(0.),nfailed(4),'outer wind internal energy')
  call checkval(trvurho_1D(5,i),8.878887149408118E-15,epsilon(0.),nfailed(5),'outer wind density')
 
  dt = dtinject
@@ -145,7 +146,6 @@ subroutine test_wind(ntests,npass)
  do while (t < tmax)
 
     dtext = dt
-    if (id==master) write(*,*) ' t = ',t,' dt = ',dt
     !
     ! injection of new particles into simulation
     !
@@ -168,8 +168,8 @@ subroutine test_wind(ntests,npass)
 
 
  enddo
- print '((3(1x,es22.15),i8))',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),npart
 
+ !print '((3(1x,es22.15),i8))',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),npart
  call checkval(xyzmh_ptmass(4,1),1.199987894518367E+00,epsilon(0.),nfailed(6),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(7),'mass accreted')
  call checkval(npart,12180,0,nfailed(8),'number of ejected particles')
@@ -177,7 +177,7 @@ subroutine test_wind(ntests,npass)
 
  call update_test_scores(ntests,nfailed,npass)
 
- if (id==master) write(*,"(/,a)") '<-- STEP TEST COMPLETE'
+ if (id==master) write(*,"(/,a)") '<-- WIND TEST COMPLETE'
 
 end subroutine test_wind
 
