@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testwind
 !
@@ -14,9 +14,9 @@ module testwind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, eos, io, mpidomain,
-!   mpiutils, options, part, physcon, step_lf_global, testutils, timestep,
-!   timestep_ind, timing, unifdis, viscosity
+! :Dependencies: boundary, checksetup, damping, dim, eos, inject, io,
+!   options, part, partinject, physcon, step_lf_global, testutils,
+!   timestep, timestep_ind, units, wind
 !
  implicit none
  public :: test_wind

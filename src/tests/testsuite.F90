@@ -20,7 +20,8 @@ module test
 !   testgeometry, testgnewton, testgr, testgravity, testgrowth,
 !   testindtstep, testkdtree, testkernel, testlink, testmath, testmpi,
 !   testnimhd, testpart, testpoly, testptmass, testradiation, testrwdump,
-!   testsedov, testsetdisc, testsethier, testsmol, teststep, timing
+!   testsedov, testsetdisc, testsethier, testsmol, teststep, testwind,
+!   timing
 !
  implicit none
  public :: testsuite
