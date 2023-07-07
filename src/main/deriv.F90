@@ -20,8 +20,6 @@ module deriv
 !   timestep_ind, timing
 !
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: derivs, get_derivs_global
  real, private :: stressmax
@@ -56,10 +54,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use timestep,       only:dtmax
 #ifdef DRIVING
  use forcing,        only:forceit
-#endif
-#ifdef PHOTO
- use photoevap,      only:find_ionfront,photo_ionize
- use part,           only:massoftype
 #endif
  use growth,         only:get_growth_rate
  use ptmass_radiation, only:get_dust_temperature
@@ -131,16 +125,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
-#ifdef PHOTO
- !
- ! update location of particles on grid and calculate the location of the ionization front
- !
- call find_ionfront(time,npart,xyzh,massoftype(igas))
- !
- ! update the temperatures of the particles depending on whether ionized or not
- !
- call photo_ionize(vxyzu,npart)
-#endif
 !
 ! calculate density by direct summation
 !

@@ -69,7 +69,6 @@ CCFLAGS = -O5
 LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
-SRCPHOTO=
 LIBTOOL=ar rcs
 
 #----------------------------------------------------------------
@@ -86,7 +85,6 @@ LIBTOOL=ar rcs
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
-# -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
 
 include Makefile_setups
@@ -541,7 +539,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          radiation_implicit.f90 ${SRCTURB} \
-         ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
+         ${SRCINJECT_DEPS} ${SRCINJECT} \
          ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.f90 \
@@ -620,7 +618,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 bound
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
-         ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
+         ${SRCGR} ${SRCPOT} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \

@@ -141,9 +141,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use extern_gr,        only:get_grforce_all
  use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
-#ifdef PHOTO
- use photoevap,        only:set_photoevap_grid
-#endif
 #ifdef NONIDEALMHD
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw
@@ -402,12 +399,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call balancedomains(npart)
  endif
 
-!
-!--set up photoevaporation grid, define relevant constants, etc.
-!
-#ifdef PHOTO
- call set_photoevap_grid
-#endif
 !
 !--get timestep for external forces
 !

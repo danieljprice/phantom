@@ -148,17 +148,6 @@ ifeq ($(SETUP), wd)
     ANALYSIS      = analysis_gws.f90
 endif
 
-ifeq ($(SETUP), photoevap)
-#   Mark Hutchison photoevaporating disc
-    DISC_VISCOSITY=yes
-    FPPFLAGS= -DPHOTO
-    SETUPFILE= setup_photoevap.f90
-    ANALYSIS= analysis_disc.f90
-    KNOWN_SETUP=yes
-    IND_TIMESTEPS=yes
-    SRCPHOTO=photoevap.f90
-endif
-
 ifeq ($(SETUP), disc)
 #   locally isothermal gas disc
     DISC_VISCOSITY=yes
