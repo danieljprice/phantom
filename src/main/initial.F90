@@ -653,12 +653,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
 !
 !--Determine the maximum separation of particles
- xmax = -huge(xmax)
- ymax = -huge(ymax)
- zmax = -huge(zmax)
- xmin =  huge(xmin)
- ymin =  huge(ymin)
- zmin =  huge(zmin)
+ xmax = -0.5*huge(xmax)
+ ymax = -0.5*huge(ymax)
+ zmax = -0.5*huge(zmax)
+ xmin = -xmax
+ ymin = -ymax
+ zmin = -zmax
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh) &
  !$omp private(i) &

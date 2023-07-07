@@ -810,7 +810,6 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     npart = npart + npartread
 
     if (npartread <= 0 .and. nptmass <= 0) then
-       print*,' SKIPPING BLOCK npartread = ',npartread
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
        if (ierr /= 0) then
           print*,' error skipping block'
