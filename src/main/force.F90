@@ -1366,6 +1366,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
        else
           denij = 0.
+          enj = 0.
        endif
 
        if (gr) then
@@ -1532,7 +1533,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           qrho2j = 0.
           if (gr) then
              enthi  = 1.+eni+pri/densi
-             enthj  = 1.+enj+prj/densj
+             if (usej) enthj  = 1.+enj+prj/densj
           endif
 
 !------------------
@@ -1603,22 +1604,20 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
-#ifdef GR
-             denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
-             if (imetric==imet_minkowski) then  ! Eq 60 in LP19
-                rhoav1 = 2./(enthi*densi + enthj*densj)
-                vsigu = min(1.,sqrt(abs(pri-prj)*rhoav1))
-             else
-                vsigu = abs(vij)  ! Eq 61 in LP19
-             endif
-#else
-             if (gravity) then
+             if (gr) then
+                denij = alphagri*eni/lorentzi - alphagrj*enj/lorentzj
+                if (imetric==imet_minkowski) then  ! Eq 60 in LP19
+                   rhoav1 = 2./(enthi*densi + enthj*densj)
+                   vsigu = min(1.,sqrt(abs(pri-prj)*rhoav1))
+                else
+                   vsigu = abs(vij)  ! Eq 61 in LP19
+                endif
+             elseif (gravity) then
                 vsigu = abs(projv)
              else
                 rhoav1 = 2./(rhoi + rhoj)
                 vsigu = sqrt(abs(pri - prj)*rhoav1)
              endif
-#endif
              dendissterm = vsigu*denij*(auterm*grkerni + autermj*grkernj)
           endif
 
@@ -1983,7 +1982,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif
 
- return
 end subroutine compute_forces
 
 !----------------------------------------------------------------
@@ -2088,7 +2086,6 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
     vwavei = spsoundi
  endif
 
- return
 end subroutine get_stress
 
 !----------------------------------------------------------------
@@ -2529,9 +2526,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                                          rad,drad,radprop,dtrad)
 
  use io,             only:fatal,warning
-#ifdef FINVSQRT
- use fastmath,       only:finvsqrt
-#endif
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
                           store_dust_temperature,do_nucleation
  use eos,            only:gamma,ieos,iopacity_type
@@ -3073,11 +3067,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
     ! timestep based on force condition
     if (abs(f2i) > epsilon(f2i)) then
-#ifdef FINVSQRT
-       dtf = C_force*sqrt(hi*finvsqrt(f2i))
-#else
        dtf = C_force*sqrt(hi/sqrt(f2i))
-#endif
     endif
 
     ! one fluid dust timestep
