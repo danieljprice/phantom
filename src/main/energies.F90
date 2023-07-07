@@ -74,7 +74,7 @@ subroutine compute_energies(t)
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
- use eos,            only:polyk,utherm,gamma,eos_is_non_ideal,eos_outputs_gasP
+ use eos,            only:polyk,gamma,eos_is_non_ideal,eos_outputs_gasP
  use eos_piecewise,  only:gamma_pwp
  use io,             only:id,fatal,master
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
@@ -87,15 +87,10 @@ subroutine compute_energies(t)
  use boundary_dyn,   only:dynamic_bdy,find_dynamic_boundaries
  use kernel,         only:radkern
  use timestep,       only:dtmax
-#ifdef GR
  use part,           only:metrics
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:dot_product_gr,get_geodesic_accel
  use vectorutils,    only:cross_product3D
-#ifdef FINVSQRT
- use fastmath,       only:finvsqrt
-#endif
-#endif
  use part,           only:luminosity
  use dust,           only:get_ts,idrag
  real, intent(in) :: t
@@ -113,10 +108,8 @@ subroutine compute_energies(t)
  real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
  real    :: ethermi
-#ifdef GR
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
  real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
-#endif
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
@@ -181,7 +174,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
-!$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
+!$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i,vi1) &
 !$omp private(ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
@@ -190,10 +183,7 @@ subroutine compute_energies(t)
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
-#ifdef GR
-!$omp shared(metrics) &
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
-#endif
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
 !$omp shared(luminosity,track_lum) &
@@ -247,57 +237,53 @@ subroutine compute_energies(t)
        vyi  = vxyzu(2,i)
        vzi  = vxyzu(3,i)
 
-#ifdef GR
-       pxi  = pxyzu(1,i)
-       pyi  = pxyzu(2,i)
-       pzi  = pxyzu(3,i)
+       if (gr) then
+          pxi  = pxyzu(1,i)
+          pyi  = pxyzu(2,i)
+          pzi  = pxyzu(3,i)
 
-       !  linear momentum
-       xmom = xmom + pmassi*pxi
-       ymom = ymom + pmassi*pyi
-       zmom = zmom + pmassi*pzi
+          !  linear momentum
+          xmom = xmom + pmassi*pxi
+          ymom = ymom + pmassi*pyi
+          zmom = zmom + pmassi*pzi
 
-       call unpack_metric(metrics(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
-       bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
-       v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
-#ifdef FINVSQRT
-       lorentzi = finvsqrt(1.-v2i)
-#else
-       lorentzi = 1./sqrt(1.-v2i)
-#endif
-       pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
+          call unpack_metric(metrics(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
+          bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
+          v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
+          lorentzi = 1./sqrt(1.-v2i)
+          pdotv    = pxi*vxi + pyi*vyi + pzi*vzi
 
-       ! angular momentum
-       fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
-       call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
-       angx = angx + pmassi*angi(1)
-       angy = angy + pmassi*angi(2)
-       angz = angz + pmassi*angi(3)
+          ! angular momentum
+          fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
+          call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
+          angx = angx + pmassi*angi(1)
+          angy = angy + pmassi*angi(2)
+          angz = angz + pmassi*angi(3)
 
-       ! kinetic energy
-       ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
-       mtot = mtot + pmassi
-#else
-       ! centre of mass
-       xcom = xcom + pmassi*xi
-       ycom = ycom + pmassi*yi
-       zcom = zcom + pmassi*zi
-       mtot = mtot + pmassi
+          ! kinetic energy
+          ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
+          mtot = mtot + pmassi
+       else
+          ! centre of mass
+          xcom = xcom + pmassi*xi
+          ycom = ycom + pmassi*yi
+          zcom = zcom + pmassi*zi
+          mtot = mtot + pmassi
 
-       ! linear momentum
-       xmom = xmom + pmassi*vxi
-       ymom = ymom + pmassi*vyi
-       zmom = zmom + pmassi*vzi
+          ! linear momentum
+          xmom = xmom + pmassi*vxi
+          ymom = ymom + pmassi*vyi
+          zmom = zmom + pmassi*vzi
 
-       ! angular momentum
-       angx = angx + pmassi*(yi*vzi - zi*vyi)
-       angy = angy + pmassi*(zi*vxi - xi*vzi)
-       angz = angz + pmassi*(xi*vyi - yi*vxi)
+          ! angular momentum
+          angx = angx + pmassi*(yi*vzi - zi*vyi)
+          angy = angy + pmassi*(zi*vxi - xi*vzi)
+          angz = angz + pmassi*(xi*vyi - yi*vxi)
 
-       ! kinetic energy & rms velocity
-       v2i  = vxi*vxi + vyi*vyi + vzi*vzi
-       ekin = ekin + pmassi*v2i
-#endif
+          ! kinetic energy & rms velocity
+          v2i  = vxi*vxi + vyi*vyi + vzi*vzi
+          ekin = ekin + pmassi*v2i
+       endif
 
        vrms = vrms + v2i
 
@@ -368,10 +354,11 @@ subroutine compute_energies(t)
           ponrhoi  = eos_vars(igasP,i)/rhoi
           spsoundi = eos_vars(ics,i)
           if (maxvxyzu >= 4) then
-             ethermi = pmassi*utherm(vxyzu(:,i),rhoi,gamma)*gasfrac
-#ifdef GR
-             ethermi = (alpha_gr/lorentzi)*ethermi
-#endif
+             if (gr) then
+                ethermi = (alpha_gr/lorentzi)*ethermi
+             else
+                ethermi = pmassi*vxyzu(4,i)*gasfrac
+             endif
              etherm = etherm + ethermi
 
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
@@ -720,20 +707,20 @@ subroutine compute_energies(t)
  if (calc_gravitwaves) then
     pmassi = massoftype(igas)
     x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
-#ifdef GR
-    !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
-    !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
-    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
-           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
-#else
-    if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
-       x0 = (/xcom,ycom,zcom/)
-       v0 = (/xmom,ymom,zmom/)
-       call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+    if (gr) then
+       !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
+       !call calculate_strain(hx,hp,pmassi,x0,v0,a0,npart,xyzh,vxyzu,axyz)
+       call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+              fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+    else
+       if (iexternalforce==0) then  ! if no external forces, use centre of mass of particles
+          x0 = (/xcom,ycom,zcom/)
+          v0 = (/xmom,ymom,zmom/)
+          call get_centreofmass_accel(a0,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmass,fxyz_ptmass)
+       endif
+       call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
+              fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
     endif
-    call calculate_strain(hx,hp,pmassi,ddq_xy,x0,v0,a0,npart,xyzh,vxyzu(1:3,:),fxyzu,&
-           fext,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
-#endif
     ev_data(iev_sum,iev_gws(1)) = hx(1)
     ev_data(iev_sum,iev_gws(2)) = hp(1)
     ev_data(iev_sum,iev_gws(3)) = hx(2)
@@ -764,7 +751,6 @@ subroutine compute_energies(t)
     if (ierr==1) call fatal('energies','there is no high density gas for the dynamic boundaries')
  endif
 
- return
 end subroutine compute_energies
 !----------------------------------------------------------------
 !+
