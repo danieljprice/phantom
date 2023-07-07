@@ -619,12 +619,12 @@ subroutine check_setup_growth(npart,nerror)
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
     do j=1,2
-       if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
+       if (dustprop(j,i) <= 0.) nbad(j) = nbad(j) + 1
     enddo
  enddo
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: dustgrowth: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' <= 0'
        nerror = nerror + 1
     endif
  enddo
@@ -712,13 +712,13 @@ subroutine check_setup_dustgrid(nerror,nwarn)
           nerror = nerror + 1
        endif
     enddo
+    do i=1,ndusttypes
+       if (grainsize(i) > 10.*km/udist) then
+          print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
+          nwarn = nwarn + 1
+       endif
+    enddo
  endif
- do i=1,ndusttypes
-    if (grainsize(i) > 10.*km/udist) then
-       print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
-       nwarn = nwarn + 1
-    endif
- enddo
 
 end subroutine check_setup_dustgrid
 

@@ -55,12 +55,13 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry
+ use dim,          only:maxvxyzu,h2chemistry,use_dustgrowth
  use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis,latticetype,get_xyzmin_xyzmax_exact
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
- use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,ndusttypes,grainsize,graindens
+ use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,&
+                        ndusttypes,grainsize,graindens,dustprop
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
  use setunits,     only:dist_unit,mass_unit
@@ -223,6 +224,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (use_dustfrac) then
     do i=1,npart
        call set_dustfrac(dust_to_gas,dustfrac(:,i))
+    enddo
+ endif
+
+ if (use_dustgrowth) then
+    do i=1,npart
+       dustprop(1,i) = grainsize(1)
+       dustprop(2,i) = graindens(1)
     enddo
  endif
 
