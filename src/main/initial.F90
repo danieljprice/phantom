@@ -730,8 +730,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (get_conserv > 0.0) then
     get_conserv = -1.
     if (id==master) then
-       if (abs(etot_in) > tolu ) call warning('initial','consider changing code-units to reduce abs(total energy)')
-       if (mtot > tolu .or. mtot < toll) call warning('initial','consider changing code-units to have total mass closer to unity')
+       if (abs(etot_in) > tolu ) call warning('initial',&
+          'consider changing units to reduce abs(total energy)',var='etot',val=etot_in)
+       if (mtot > tolu .or. mtot < toll)  call warning('initial',&
+          'consider changing units so total mass is closer to unity',var='mtot',val=mtot)
        ! if (dx > tolu .or. dx < toll .or. dy > tolu .or. dy < toll .or. dz > tolu .or. dz < toll) &
        !call warning('initial','consider changing code-units to have box length closer to unity')
     endif
