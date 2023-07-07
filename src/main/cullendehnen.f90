@@ -6,9 +6,11 @@
 !--------------------------------------------------------------------------!
 module cullendehnen
 !
-! cullendehnen
+! Utility routines for the Cullen & Dehnen shock detection switch
 !
-! :References: None
+! :References:
+!   Cullen & Dehnen (2010), MNRAS 408, 669
+!   Price et al. (2018), PASA 35, e031
 !
 ! :Owner: Elisabeth Borchert
 !
@@ -26,7 +28,6 @@ contains
 !+
 !-------------------------------------------------------------------------------
 pure real function get_alphaloc(divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax)
- !use kernel, only:radkern
  real, intent(in) :: divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax
  real :: source
  real :: temp
