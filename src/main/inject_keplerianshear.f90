@@ -49,7 +49,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerianshear'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+           set_default_options_inject
  public :: set_injection_parameters
 
  type injectparams
@@ -273,6 +274,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject
+end subroutine set_default_options_inject
 
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)

@@ -35,7 +35,7 @@ subroutine test_wind(ntests,npass)
  use options,   only:icooling,ieos,tolh,alpha,alphau,alphaB,avdecayconst,beta
  use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
- use inject,    only:init_inject,inject_particles,set_default_options_wind
+ use inject,    only:init_inject,inject_particles,set_default_options_inject
  use eos,       only:gmw,ieos,init_eos,gamma,polyk
  use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,nptmass,&
       npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot,hfact
@@ -113,8 +113,7 @@ subroutine test_wind(ntests,npass)
  t        = 0.
  dtnew    = 0.
 
- call set_default_options_wind()
-
+ call set_default_options_inject()
  call check_setup(nerror,nwarn)
 
  istepfrac  = 0

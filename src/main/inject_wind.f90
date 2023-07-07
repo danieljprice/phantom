@@ -34,7 +34,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'wind'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      wind_injection_radius,set_default_options_wind
+      wind_injection_radius,set_default_options_inject
  private
 !
 !--runtime settings for this module
@@ -617,7 +617,7 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 end subroutine fit_spherical_wind
 
 
-subroutine set_default_options_wind()
+subroutine set_default_options_inject()
 
  if (isothermal) then
     sonic_type = 1
@@ -639,7 +639,7 @@ subroutine set_default_options_wind()
        wind_temperature = 2500.
     endif
  endif
-end subroutine set_default_options_wind
+end subroutine set_default_options_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -651,7 +651,7 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- if (sonic_type < 0) call set_default_options_wind
+ if (sonic_type < 0) call set_default_options_inject
 
  write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
