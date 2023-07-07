@@ -6,9 +6,13 @@
 !--------------------------------------------------------------------------!
 module cons2primsolver
 !
-! None
+! Internal routines containing the GR conservative to
+! primitive variable solver, as described in section 7
+! of Liptai & Price (2019)
 !
-! :References: None
+! :References:
+!   Liptai & Price (2019), MNRAS 485, 819
+!   Tejeda (2012), PhD thesis, IAS Trieste
 !
 ! :Owner: David Liptai
 !

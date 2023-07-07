@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! None
+! setup for test particles
 !
 ! :References: None
 !
@@ -70,7 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! general parameters
  !
  time  = 0.
- gamma = 1.
+ gamma = 5./3. ! GR cannot have gamma=1
  polyk = 0.
  npart = 10
  ieos  = 11
