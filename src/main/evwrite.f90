@@ -411,7 +411,7 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
-                         use_dust,maxdusttypes,do_radiation,particles_are_injected
+                         use_dust,maxdusttypes,do_radiation,inject_particles
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
  use part,          only:nptmass,ndusttypes
@@ -425,7 +425,7 @@ subroutine write_evlog(iprint)
  character(len=120)  :: string,Mdust_label(maxdusttypes)
  integer             :: i
 
- if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected .or. iverbose > 0) then
+ if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. inject_particles .or. iverbose > 0) then
     write(iprint,"(1x,4(a,I10))") 'npart=',npartall,', n_alive=',npartall-ndead, &
                                   ', n_dead_or_accreted=',ndead,', nptmass=',nptmass
  endif

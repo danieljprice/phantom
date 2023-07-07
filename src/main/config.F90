@@ -316,9 +316,9 @@ module dim
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
- logical, parameter :: particles_are_injected = .true.
+ logical, parameter :: inject_particles = .true.
 #else
- logical, parameter :: particles_are_injected = .false.
+ logical, parameter :: inject_particles = .false.
 #endif
 
 !--------------------

@@ -407,7 +407,7 @@ subroutine set_default_options()!id)
  !--gas disc
  R_in         = 1.
  R_out        = 150.
- R_ref        = 1.
+ R_ref        = 10.
  R_c          = 150.
  R_warp       = 0.
  H_warp       = 0.
@@ -2150,7 +2150,7 @@ subroutine setup_interactive(id)
 
  !--gas disc
  R_in  = accr1
- R_ref = R_in
+ R_ref = min(10.*R_in,R_out)
  R_c   = R_out
  disc_mfac = 1.
  if (ndiscs > 1) qindex = 0.
