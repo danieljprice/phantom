@@ -524,7 +524,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
     vari(2,n) = rhoi
     ! endif
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine fill_arrays
 
@@ -578,7 +578,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,
     radprop(ifluxy,i) = dedyi
     radprop(ifluxz,i) = dedzi
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine compute_flux
 
@@ -629,7 +629,7 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,i
     radprop(ilambda,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
     radprop(iedd,i) = radprop(ilambda,i) + radprop(ilambda,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine calc_lambda_and_eddington
 
@@ -731,7 +731,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
     !$omp atomic
     varinew(2,i) = varinew(2,i) + diffusion_denominator
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine calc_diffusion_term
 
@@ -1022,7 +1022,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
     endif
 
  enddo main_loop
-!$omp end do
+!$omp enddo
 
 end subroutine update_gas_radiation_energy
 
