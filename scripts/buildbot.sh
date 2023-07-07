@@ -215,7 +215,8 @@ check_phantomsetup ()
          #
          # set nmax=0 in the .in file
          #
-         sed -i .bak 's/nmax = .*/nmax = 0/g' "$prefix.in"
+         sed 's/nmax = .*/nmax = 0/g' ${infile} > ${infile}.bak
+         mv ${infile}.bak ${infile}
          #
          # run phantom on the .in file
          #
