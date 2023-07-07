@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  R_in     = 2.
  R_out    = 10.
 
- npart    = size(xyzh(1,:))
+ npart    = 1e5
 
  call set_units(dist=au,mass=solarm,G=1.)
 
@@ -91,7 +91,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  iexternalforce = iext_star
  accradius1 = R_in
 
- return
 end subroutine setpart
 
 end module setup

@@ -171,7 +171,7 @@ subroutine set_photoevap_grid
     enddo
 
     !--Calculate the ionization rate in each ray (symmetrical in phi so only need one dimensional array)
-    dN_ion(i) = (0.25/pi*sin(0.5*(theta_grid(j)+theta_grid(j+1)))*dtheta_grid*dphi_grid)*ionflux
+    dN_ion(i) = (0.25/pi*sin(0.5*(theta_grid(i)+theta_grid(i+1)))*dtheta_grid*dphi_grid)*ionflux
  enddo
 
  !--Because the reciprical of Cellvol is only ever used: rCellvol = 1/Cellvol
@@ -210,120 +210,116 @@ subroutine find_ionfront(timei,npart,xyzh,pmassi)
  !--Find how much time has elapsed since the last call
  dt = timei - prev_time
 
- if ( dt == 0. ) then
-    print*,'WARNING! find_ionfront was called needlessly!'
- else
-
-    !--Gives the number of hydrogen gas molecules per SPH particle
-    pmass_on_mH = pmassi/mH
+ !--Gives the number of hydrogen gas molecules per SPH particle
+ pmass_on_mH = pmassi/mH
 
 !$omp parallel do private(i,r_pos,theta_pos,phi_pos) schedule(static)
-    do i = 1,npart
-       r_pos     = sqrt(sum(xyzh(1:3,i)**2))
-       theta_pos = acos(xyzh(3,i)/r_pos)
-       phi_pos   = atan2(xyzh(2,i),xyzh(1,i))
+ do i = 1,npart
+    r_pos     = sqrt(sum(xyzh(1:3,i)**2))
+    theta_pos = acos(xyzh(3,i)/r_pos)
+    phi_pos   = atan2(xyzh(2,i),xyzh(1,i))
 
-       ! Find the (*INTEGER*) grid node just below the particle in each direction
-       Rnum(i)     = int((r_pos-Rgrid_min)/dr_grid)+1
-       Thetanum(i) = int((theta_pos-Thetagrid_min)/dtheta_grid)+1
-       Phinum(i)   = int((phi_pos-Phigrid_min)/dphi_grid)+1
-    enddo
+    ! Find the (*INTEGER*) grid node just below the particle in each direction
+    Rnum(i)     = int((r_pos-Rgrid_min)/dr_grid)+1
+    Thetanum(i) = int((theta_pos-Thetagrid_min)/dtheta_grid)+1
+    Phinum(i)   = int((phi_pos-Phigrid_min)/dphi_grid)+1
+ enddo
 !$omp end parallel do
 
-    !--Re-initialize/re-calculate Cellpartnum every time step
-    Cellpartnum = 0
+ !--Re-initialize/re-calculate Cellpartnum every time step
+ Cellpartnum = 0
 !$omp parallel do private(i) schedule(static)
-    do i = 1,npart
-       Cellpartnum(Rnum(i),Thetanum(i),Phinum(i)) = Cellpartnum(Rnum(i),Thetanum(i),Phinum(i)) + 1
-    enddo
+ do i = 1,npart
+    Cellpartnum(Rnum(i),Thetanum(i),Phinum(i)) = Cellpartnum(Rnum(i),Thetanum(i),Phinum(i)) + 1
+ enddo
 !$omp end parallel do
 
-    !--Find the total number of particles along each ray (used to speed up loop below if ray is empty)
-    Raypartnum(:,:) = sum(Cellpartnum,1)
-
-    !
-    !--Solve for ionization/recombination balance and update Nion, ionization
-    !  front, and fraction of ionized particles at the front
-    !
+ !--Find the total number of particles along each ray (used to speed up loop below if ray is empty)
+ Raypartnum(:,:) = sum(Cellpartnum,1)
+ Ionfront(:,:) = 1
+ Ionfrac(:,:) = 1.
+ !
+ !--Solve for ionization/recombination balance and update Nion, ionization
+ !  front, and fraction of ionized particles at the front
+ !
 !$omp parallel do default(none)   &
 !$omp private(i,j,k,dN_recomb,curr_ray_count) &
 !$omp shared(Ionfrac,Ionfront,Raypartnum,Cellpartnum,rCellvol,recombrate,dN_ion,Nion,dt,pmass_on_mH) &
 !$omp schedule(dynamic)
-    do i = 1,Nphi-1
-       do j = 1,Ntheta-1
-          !--Save radial location of ionfront for current ray in k
-          k = Ionfront(j,i)
+ do i = 1,Nphi-1
+    do j = 1,Ntheta-1
+       !--Save radial location of ionfront for current ray in k
+       k = Ionfront(j,i)
 
-          !--Find the change in Nion due to recombination
-          if ( k == 1 ) then
-             dN_recomb = Ionfrac(j,i)*Cellpartnum(k,j,i)**2*rCellvol(k,j)
-          else
-             dN_recomb = sum(Cellpartnum(1:k-1,j,i)**2*rCellvol(1:k-1,j)) + Ionfrac(j,i)*Cellpartnum(k,j,i)**2*rCellvol(k,j)
+       !--Find the change in Nion due to recombination
+       if ( k == 1 ) then
+          dN_recomb = Ionfrac(j,i)*Cellpartnum(k,j,i)**2*rCellvol(k,j)
+       else
+          dN_recomb = sum(Cellpartnum(1:k-1,j,i)**2*rCellvol(1:k-1,j)) + Ionfrac(j,i)*Cellpartnum(k,j,i)**2*rCellvol(k,j)
+       endif
+       dN_recomb = recombrate*dN_recomb*pmass_on_mH
+
+       !--Update the # of ionized particles in each radial column
+       if ( Raypartnum(j,i) > 0 ) then
+          Nion(j,i) = Nion(j,i) + nint(dt*(dN_ion(j)/pmass_on_mH-dN_recomb))
+
+          !--Make sure that flux doesn't "build-up" in the fully ionized columns
+          !  (i.e. the excess light escapes the system)
+          if ( Nion(j,i) > Raypartnum(j,i) ) then
+             Nion(j,i) = Raypartnum(j,i)
           endif
-          dN_recomb = recombrate*dN_recomb*pmass_on_mH
-
-          !--Update the # of ionized particles in each radial column
-          if ( Raypartnum(j,i) > 0 ) then
-             Nion(j,i) = Nion(j,i) + nint(dt*(dN_ion(j)/pmass_on_mH-dN_recomb))
-
-             !--Make sure that flux doesn't "build-up" in the fully ionized columns
-             !  (i.e. the excess light escapes the system)
-             if ( Nion(j,i) > Raypartnum(j,i) ) then
-                Nion(j,i) = Raypartnum(j,i)
-             endif
 
 !!!!!!
 !       print*,dN_ion(j)/pmass_on_mH,dN_recomb,Nion(j,i)
 !!!!!!
 
-             if ( Nion(j,i) < 0  ) then
-                print*,'Warning! Negative ion number!',Nion(j,i),j,i
-                Nion(j,i) = 0
-             endif
-          else
-             Nion(j,i) = 0 !--If no particles, then Nion must be reset
+          if ( Nion(j,i) < 0  ) then
+             print*,'Warning! Negative ion number!',Nion(j,i),j,i
+             Nion(j,i) = 0
           endif
+       else
+          Nion(j,i) = 0 !--If no particles, then Nion must be reset
+       endif
 
-          !--Now that we have the # of ions in each column, integrate from the star
-          !  out to Nion to find where the ionization front is located
-          k = 1
-          curr_ray_count = Cellpartnum(k,j,i)
-          do while ( curr_ray_count < Nion(j,i) )
-             if ( k < Nr-1 ) then
-                k = k+1
-             else
-                exit
-             endif
-             curr_ray_count = curr_ray_count + Cellpartnum(k,j,i)
-          enddo
+       !--Now that we have the # of ions in each column, integrate from the star
+       !  out to Nion to find where the ionization front is located
+       k = 1
+       curr_ray_count = Cellpartnum(k,j,i)
+       do while ( curr_ray_count < Nion(j,i) )
+          if ( k < Nr-1 ) then
+             k = k+1
+          else
+             exit
+          endif
+          curr_ray_count = curr_ray_count + Cellpartnum(k,j,i)
+       enddo
 
-          !--Save the new ionization front radial cell # for the next iteration
-          Ionfront(j,i) = k
+       !--Save the new ionization front radial cell # for the next iteration
+       Ionfront(j,i) = k
 
-          !--Find the fraction of ions to neutrals in the ionization front
-          !  This only needs to be done for cells with more particles than Nion
-          if ( Raypartnum(j,i) <= Nion(j,i) ) then
+       !--Find the fraction of ions to neutrals in the ionization front
+       !  This only needs to be done for cells with more particles than Nion
+       if ( Raypartnum(j,i) <= Nion(j,i) ) then
+          Ionfrac(j,i) = 1.
+       else
+          if ( Cellpartnum(k,j,i) == 0 ) then
              Ionfrac(j,i) = 1.
           else
-             if ( Cellpartnum(k,j,i) == 0 ) then
-                Ionfrac(j,i) = 1.
-             else
-                Ionfrac(j,i) = (Nion(j,i)-(curr_ray_count-Cellpartnum(k,j,i)))/real(Cellpartnum(k,j,i))
-             endif
+             Ionfrac(j,i) = (Nion(j,i)-(curr_ray_count-Cellpartnum(k,j,i)))/real(Cellpartnum(k,j,i))
           endif
+       endif
 
-          if ( Ionfrac(j,i) < 0 ) then
-             call fatal('find_ionfront','Ionfrac is less than zero!')
-          elseif ( Ionfrac(j,i) > 1 ) then
-             call fatal('find_ionfront','Ionfrac is greater than 1!')
-          endif
+       if ( Ionfrac(j,i) < 0 ) then
+          call fatal('find_ionfront','Ionfrac is less than zero!')
+       elseif ( Ionfrac(j,i) > 1 ) then
+          call fatal('find_ionfront','Ionfrac is greater than 1!')
+       endif
 
-       enddo
     enddo
+ enddo
 !$omp end parallel do
 
-    prev_time = timei
- endif
+ prev_time = timei
 
 end subroutine find_ionfront
 
@@ -405,7 +401,7 @@ subroutine read_options_photoevap(name,valstring,imatch,igotall,ierr)
  integer,          intent(out) :: ierr
  integer,          save        :: ngot = 0
 
- imatch = .false.
+ imatch = .true.
  igotall = .true.
  ierr = 0
 
