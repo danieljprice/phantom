@@ -89,7 +89,7 @@ subroutine test_wind(ntests,npass)
 
  call init_eos(ieos,ierr)
 
- iverbose = 0
+ !iverbose = 1
  !icooling = 0
  dtmax    = 1.
  tmax     = 8.
@@ -100,7 +100,7 @@ subroutine test_wind(ntests,npass)
  t        = 0.
  dtnew    = 0.
 
- call set_default_options_inject()
+ call set_default_options_inject(1)
  call check_setup(nerror,nwarn)
 
  istepfrac  = 0

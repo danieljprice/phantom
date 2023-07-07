@@ -617,7 +617,9 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 end subroutine fit_spherical_wind
 
 
-subroutine set_default_options_inject()
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
 
  if (isothermal) then
     sonic_type = 1
@@ -625,7 +627,7 @@ subroutine set_default_options_inject()
     wind_mass_rate_Msun_yr = 8.2d-8
     wind_injection_radius_au = 0.
  else
-    if (nucleation) then
+    if (nucleation .or. present(flag)) then
        sonic_type = 1
        wind_velocity_km_s = 0.
        wind_mass_rate_Msun_yr = 1.d-5

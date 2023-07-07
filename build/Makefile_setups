@@ -968,6 +968,9 @@ ifeq ($(SETUP), testkd)
     CURLV=yes
     MHD=yes
     RADIATION=yes
+    SINK_RADIATION=yes
+    INJECT_PARTICLES=yes
+    WIND=yes
 endif
 
 ifeq ($(SETUP), testgrav)
