@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -339,7 +339,7 @@ end subroutine setpart
 !
 !--------------------------------------------------------------------------
 subroutine set_default_options()!id)
-  use sethierarchical, only:set_hierarchical_default_options
+ use sethierarchical, only:set_hierarchical_default_options
 !  integer, intent(in) :: id
 
  integer :: i
@@ -1022,7 +1022,7 @@ subroutine calculate_disc_mass()
        rgrid_min = R_in(i)
        rgrid_max = R_out(i)
        if (isetgas(i)==1) then
-          rgrid_min = min(rgrid_min,R_inann(i))       
+          rgrid_min = min(rgrid_min,R_inann(i))
           rgrid_max = max(rgrid_max,R_outann(i))
        endif
        if (use_dust) then
@@ -1082,7 +1082,7 @@ subroutine calculate_disc_mass()
        end select
 
        totmass_gas = totmass_gas + disc_m(i)
-       enc_mass(:,i) = enc_m + star_m(i) 
+       enc_mass(:,i) = enc_m + star_m(i)
 
        !--dust discs
        print*,'dust'
@@ -1096,7 +1096,7 @@ subroutine calculate_disc_mass()
                                 R_indust_swap(i,j),R_outdust_swap(i,j),R_ref(i),R_c_dust(i,j),H_R_dust(i,j))
              fac = disc_mdust(i,j) / disc_mtmp
              sig_normdust(i,j) = sig_normdust(i,j) * fac
-             enc_mass(:,i) = enc_mass(:,i) + enc_m(:)*fac 
+             enc_mass(:,i) = enc_mass(:,i) + enc_m(:)*fac
           enddo
        endif
     endif
@@ -1995,7 +1995,7 @@ subroutine setup_interactive(id)
        end select
 
     case (5:)
-    
+
        call print_chess_logo()!id)
 
        ibinary = 0

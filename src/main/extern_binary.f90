@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module extern_binary
 !
@@ -15,12 +15,12 @@ module extern_binary
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - accradius1  : *accretion radius of primary*
-!   - accradius2  : *accretion radius of secondary (if iexternalforce=binary)*
-!   - binarymassr : *m1/(m1+m2) of central binary system (if iexternalforce=binary)*
-!   - eps_soft1   : *Plummer softening of primary*
-!   - eps_soft2   : *Plummer softening of secondary*
-!   - ramp        : *ramp up mass of secondary over first 5 orbits?*
+!   - accradius1 : *accretion radius of primary*
+!   - accradius2 : *accretion radius of secondary (if iexternalforce=binary)*
+!   - eps_soft1  : *Plummer softening of primary*
+!   - eps_soft2  : *Plummer softening of secondary*
+!   - mass2      : *m2 of central binary system (if iexternalforce=binary)*
+!   - ramp       : *ramp up mass of secondary over first 5 orbits?*
 !
 ! :Dependencies: dump_utils, infile_utils, io, physcon
 !

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module part
 !
@@ -1511,8 +1511,8 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
-    call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
-    call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)

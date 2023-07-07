@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module checksetup
 !
@@ -16,7 +16,7 @@ module checksetup
 !
 ! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
 !   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -512,7 +512,8 @@ end function in_range
 !------------------------------------------------------------------
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,ilum
+ use ptmass_radiation, only:isink_radiation
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
@@ -589,6 +590,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  !  check that radiation properties are sensible
  !
+ if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-10) then
+    nerror = nerror + 1
+    print*,'ERROR: isink_radiation > 1 and sink particle has no luminosity'
+    return
+ endif
  if (sinks_have_luminosity(nptmass,xyzmh_ptmass)) then
     if (any(xyzmh_ptmass(iTeff,1:nptmass) < 100.)) then
        print*,'WARNING: sink particle temperature less than 100K'
