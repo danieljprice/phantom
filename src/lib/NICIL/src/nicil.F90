@@ -1294,6 +1294,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
  else
     !--Return constant coefficient version and exit
     call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
+    if (present(data_out)) data_out = 0.
  endif
  if (present(itry)) itry = itry_n0
 

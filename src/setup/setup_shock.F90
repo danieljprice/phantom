@@ -40,15 +40,12 @@ module setup
 !   prompting, radiation_utils, set_dust, setshock, setup_params, timestep,
 !   unifdis, units
 !
- use dim,       only:maxvxyzu,use_dust,do_radiation
+ use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal
  use options,   only:use_dustfrac
  use timestep,  only:dtmax,tmax
  use dust,      only:K_code
  use eos,       only:ieos,gmw
-#ifdef NONIDEALMHD
  use nicil,     only:use_ohm,use_hall,use_ambi,C_OR,C_HE,C_AD,rho_i_cnst
-#endif
-
  implicit none
 
  integer :: nx, icase, dust_method
@@ -106,9 +103,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos,             only:temperature_coef,init_eos
  use cooling,         only:T0_value
-#ifdef NONIDEALMHD
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
-#endif
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
  integer,           intent(inout) :: npart
@@ -126,7 +121,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical                          :: iexist,jexist,use_closepacked
 
  if (gr) call set_units(G=1.,c=1.,mass=10.*solarm)
- if (do_radiation .or. icooling > 0) call set_units(dist=au,mass=solarm,G=1.d0)
+ if (do_radiation .or. icooling > 0 .or. mhd_nonideal) then
+    call set_units(dist=au,mass=solarm,G=1.d0)
+ endif
  !
  ! quit if not periodic
  !
@@ -326,11 +323,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set remaining .in file properties
  !
  if (.not. iexist) then
-#ifdef NONIDEALMHD
-    eta_constant   = .true.
-    eta_const_type = icnstsemi
-    rho_i_cnst     = rho_i_cnst * rhozero  ! Modify ion density from fraction to physical (for ambipolar diffusion)
-#endif
+    if (mhd_nonideal) then
+       eta_constant   = .true.
+       eta_const_type = icnstsemi
+       rho_i_cnst     = rho_i_cnst * rhozero  ! Modify ion density from fraction to physical (for ambipolar diffusion)
+    endif
  endif
  !
  ! set cooling function information from initial conditions
@@ -415,9 +412,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  integer, parameter     :: nshocks = 11
  character(len=30)      :: shocks(nshocks)
  integer                :: i,choice
-#ifdef NONIDEALMHD
  real                   :: gamma_AD
-#endif
  real                   :: const,uu,dens,pres,Tgas
  integer                :: relativistic_choice
  real                   :: uthermconst,densleft,densright,pondens,spsound,soundspeed
@@ -427,11 +422,11 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  if (.not. iexist) then
     tmax       = 0.20
     dtmax      = 0.01
-#ifdef NONIDEALMHD
-    use_ohm    = .false.
-    use_hall   = .false.
-    use_ambi   = .false.
-#endif
+    if (mhd_nonideal) then
+       use_ohm    = .false.
+       use_hall   = .false.
+       use_ambi   = .false.
+    endif
  endif
  nx     = 256
  xleft  = -0.500
@@ -529,12 +524,12 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     if (.not. iexist) then
        tmax       = 4.0e6
        dtmax      = 1.0e4
-#ifdef NONIDEALMHD
-       use_ambi   = .true.
-       gamma_AD   = 1.0
-       rho_i_cnst = 1.0d-5
-       C_AD       = 1.0/(gamma_AD*rho_i_cnst)
-#endif
+       if (mhd_nonideal) then
+          use_ambi   = .true.
+          gamma_AD   = 1.0
+          rho_i_cnst = 1.0d-5
+          C_AD       = 1.0/(gamma_AD*rho_i_cnst)
+       endif
     endif
     gamma      =  1.0
     polyk      =  0.01
@@ -544,8 +539,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     xleft      = -4.00d6
  case(8)
     !--Steady shock (Falle 2003)
-#ifdef NONIDEALMHD
-    if (.not. iexist) then
+    if (mhd_nonideal .and. .not. iexist) then
        use_ohm  = .true.
        use_hall = .true.
        use_ambi = .true.
@@ -553,7 +547,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
        C_HE     = -3.53d-2
        C_AD     =  7.83d-3
     endif
-#endif
     if (.not. iexist) then
        tmax    = 1.0
     endif
@@ -642,7 +635,6 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
     call prompt('Enter kappa (total radiation opacity)',kappa,0.,1e6)
  endif
 
- return
 end subroutine choose_shock
 
 !------------------------------------------
@@ -741,15 +733,15 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  call write_inopt(ieos,'ieos','equation of state option',lu,ierr1)
  call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
  !if (do_radiation) call write_inopt(gmw,'gmw','mean molecular weight',lu,ierr1)
-#ifdef NONIDEALMHD
- call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
- call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
- call write_inopt(use_ambi,'use_ambi','include ambipolar diffusion',lu,ierr1)
- call write_inopt(rho_i_cnst,'rho_i_cnst','constant ion density',lu,ierr1)
- call write_inopt(C_OR,'C_OR','Ohmic resistivity coefficient',lu,ierr1)
- call write_inopt(C_HE,'C_HE','Hall effect coefficient',lu,ierr1)
- call write_inopt(C_AD,'C_AD','Ambipolar diffusion coefficient',lu,ierr1)
-#endif
+ if (mhd_nonideal) then
+    call write_inopt(use_ohm,'use_ohm','include Ohmic resistivity',lu,ierr1)
+    call write_inopt(use_hall,'use_hall','include the Hall effect',lu,ierr1)
+    call write_inopt(use_ambi,'use_ambi','include ambipolar diffusion',lu,ierr1)
+    call write_inopt(rho_i_cnst,'rho_i_cnst','constant ion density',lu,ierr1)
+    call write_inopt(C_OR,'C_OR','Ohmic resistivity coefficient',lu,ierr1)
+    call write_inopt(C_HE,'C_HE','Hall effect coefficient',lu,ierr1)
+    call write_inopt(C_AD,'C_AD','Ambipolar diffusion coefficient',lu,ierr1)
+ endif
 
  close(unit=lu)
 
@@ -802,15 +794,15 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  call read_inopt(ieos,'ieos',db,errcount=nerr)
  call read_inopt(gmw,'gmw',db,errcount=nerr)
  !if (do_radiation) call read_inopt(gmw,'gmw',db,errcount=nerr)
-#ifdef NONIDEALMHD
- call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
- call read_inopt(use_hall,'use_hall',db,errcount=nerr)
- call read_inopt(use_ambi,'use_ambi',db,errcount=nerr)
- call read_inopt(rho_i_cnst,'rho_i_cnst',db,errcount=nerr)
- call read_inopt(C_OR,'C_OR',db,errcount=nerr)
- call read_inopt(C_HE,'C_HE',db,errcount=nerr)
- call read_inopt(C_AD,'C_AD',db,errcount=nerr)
-#endif
+ if (mhd_nonideal) then
+    call read_inopt(use_ohm,'use_ohm',db,errcount=nerr)
+    call read_inopt(use_hall,'use_hall',db,errcount=nerr)
+    call read_inopt(use_ambi,'use_ambi',db,errcount=nerr)
+    call read_inopt(rho_i_cnst,'rho_i_cnst',db,errcount=nerr)
+    call read_inopt(C_OR,'C_OR',db,errcount=nerr)
+    call read_inopt(C_HE,'C_HE',db,errcount=nerr)
+    call read_inopt(C_AD,'C_AD',db,errcount=nerr)
+ endif
 
  if (nerr > 0) then
     print "(1x,a,i2,a)",'Setup_shock: ',nerr,' error(s) during read of setup file'

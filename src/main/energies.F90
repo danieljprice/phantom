@@ -83,7 +83,7 @@ subroutine compute_energies(t)
  use ptmass,         only:get_accel_sink_gas
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
-                     use_ohm,use_hall,use_ambi,n_data_out,n_warn
+                     use_ohm,use_hall,use_ambi,n_data_out,n_warn,eta_constant
  use boundary_dyn,   only:dynamic_bdy,find_dynamic_boundaries
  use kernel,         only:radkern
  use timestep,       only:dtmax
@@ -167,7 +167,7 @@ subroutine compute_energies(t)
 !$omp shared(alphaind,massoftype,irealvisc,iu) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
-!$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd) &
+!$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd,eta_constant) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
 !$omp shared(calc_gravitwaves) &
 !$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
@@ -465,24 +465,26 @@ subroutine compute_energies(t)
                    call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)   )
                    call ev_data_update(ev_data_thread,iev_vion,   vion        )
                 endif
-                n_ion = 0
-                do j = 9,21
-                   n_ion = n_ion + data_out(j)
-                enddo
-                n_total = data_out(5)
-                if (n_total > 0.) then
-                   n_total1 = 1.0/n_total
-                else
-                   n_total1 = 0.0         ! only possible if eta_constant = .true.
+                if (.not.eta_constant) then
+                   n_ion = 0
+                   do j = 9,21
+                      n_ion = n_ion + data_out(j)
+                   enddo
+                   n_total = data_out(5)
+                   if (n_total > 0.) then
+                      n_total1 = 1.0/n_total
+                   else
+                      n_total1 = 0.0         ! only possible if eta_constant = .true.
+                   endif
+                   eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
+                   call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
+                   call ev_data_update(ev_data_thread,iev_n(2),data_out( 8)*n_total1)
+                   call ev_data_update(ev_data_thread,iev_n(3),data_out( 8))
+                   call ev_data_update(ev_data_thread,iev_n(4),n_total-n_ion)
+                   call ev_data_update(ev_data_thread,iev_n(5),data_out(24))
+                   call ev_data_update(ev_data_thread,iev_n(6),data_out(23))
+                   call ev_data_update(ev_data_thread,iev_n(7),data_out(22))
                 endif
-                eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
-                call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
-                call ev_data_update(ev_data_thread,iev_n(2),data_out( 8)*n_total1)
-                call ev_data_update(ev_data_thread,iev_n(3),data_out( 8))
-                call ev_data_update(ev_data_thread,iev_n(4),n_total-n_ion)
-                call ev_data_update(ev_data_thread,iev_n(5),data_out(24))
-                call ev_data_update(ev_data_thread,iev_n(6),data_out(23))
-                call ev_data_update(ev_data_thread,iev_n(7),data_out(22))
              endif
           endif
        endif isgas

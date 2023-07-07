@@ -322,6 +322,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !
           if (mhd_nonideal) then
              Bi = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+             ! sanity check the temperature
+             if (temperaturei < 1.) call warning('cons2prim',&
+                'T < 1K in non-ideal MHD library',i,'T',temperaturei)
+
              call nicil_update_nimhd(0,eta_nimhd(iohm,i),eta_nimhd(ihall,i),eta_nimhd(iambi,i), &
                                      Bi,rhoi,temperaturei,nden_nimhd(:,i),ierrlist)
           endif
