@@ -179,7 +179,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  endif
  if (id==master) print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a,i4)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
-   '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
+   '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
     if (.not.restart) call write_fulldump(t,filename)
@@ -215,16 +215,16 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ! compute energies and check for convergence
     !
     call compute_energies(t)
-    converged = (ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. rmserr < 0.01*tol_dens)
+    converged = (ekin > 0. .and. ekin/abs(epot) < tol_ekin) !.and. rmserr < 0.01*tol_dens)
     !
     ! print information to screen
     !
     if (use_step) then
-       if (id==master) print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",&
+       if (id==master .and. mod(nits,10)==0) print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",&
         ' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
         ' Ekin/Epot:',ekin/abs(epot)
     else
-       if (id==master) print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
+       if (id==master .and. mod(nits,10)==0) print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
         ' Relaxing star: Iter',nits,'/',maxits, &
         ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
     endif
