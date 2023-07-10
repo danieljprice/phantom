@@ -318,9 +318,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
-#ifdef GR
  use metric,          only:read_options_metric
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
