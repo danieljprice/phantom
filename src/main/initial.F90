@@ -285,7 +285,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !--initialise values for non-ideal MHD
 !
  if (mhd_nonideal) then
-    call nicil_initialise(utime,udist,umass,unit_Bfield,ierr,iprint,iprint)
+    call nicil_initialise(real(utime),real(udist),real(umass),real(unit_Bfield),ierr,iprint,iprint)
     if (ierr/=0) call fatal('initial','error initialising nicil (the non-ideal MHD library)')
 
     call use_consistent_gmw(ierr,gmw,gmw_nicil)
