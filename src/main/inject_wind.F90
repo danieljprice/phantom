@@ -639,7 +639,6 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
