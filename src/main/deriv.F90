@@ -191,7 +191,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 ! set new timestep from Courant/forces condition
 !
  if (ind_timesteps) then
-    print*,'dtnew = ',dtmax,nbinmax,2**nbinmax !,dtmax/2**nbinmax
     dtnew = dtmax/2.**nbinmax  ! minimum timestep over all particles
  else
     dtnew = min(dtforce,dtcourant,dtrad,dtmax)

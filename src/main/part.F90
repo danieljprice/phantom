@@ -57,6 +57,8 @@ module part
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
+ character(len=*), parameter :: alphaind_label(3) = (/'alpha   ','alphaloc','div_a   '/)
+
 !
 !--tracking particle IDs
 !
@@ -120,6 +122,13 @@ module part
  character(len=*), parameter :: abundance_label(5) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 #endif
+!
+!--make a public krome_nmols variable to avoid ifdefs elsewhere
+!
+#ifndef KROME
+ integer, parameter :: krome_nmols = 0
+#endif
+
 !
 !--eos_variables
 !
@@ -438,6 +447,7 @@ module part
 
  private :: hrho4,hrho8,hrho4_pmass,hrho8_pmass,hrhomixed_pmass
  private :: get_ntypes_i4,get_ntypes_i8
+
 contains
 
 subroutine allocate_part
@@ -506,11 +516,11 @@ subroutine allocate_part
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
  call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
-#ifdef KROME
- call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
-#else
- call allocate_array('abundance', abundance, nabundances, maxp_h2)
-#endif
+ if (use_krome) then
+    call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
+ else
+    call allocate_array('abundance', abundance, nabundances, maxp_h2)
+ endif
  call allocate_array('gamma_chem', gamma_chem, maxp_krome)
  call allocate_array('mu_chem', mu_chem, maxp_krome)
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)

@@ -1252,64 +1252,64 @@ subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
        allocate(hdr%inttags(n),hdr%intvals(n),stat=ierr)
        hdr%inttags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%inttags(1:n)
-          read(iunit, iostat=ierr) hdr%intvals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%inttags
+          read(iunit, iostat=ierr) hdr%intvals
        endif
     case(i_int1)
        allocate(hdr%int1tags(n),hdr%int1vals(n),stat=ierr)
        hdr%int1tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int1tags(1:n)
-          read(iunit, iostat=ierr) hdr%int1vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%int1tags
+          read(iunit, iostat=ierr) hdr%int1vals
        endif
     case(i_int2)
        allocate(hdr%int2tags(n),hdr%int2vals(n),stat=ierr)
        hdr%int2tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int2tags(1:n)
-          read(iunit, iostat=ierr) hdr%int2vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%int2tags
+          read(iunit, iostat=ierr) hdr%int2vals
        endif
     case(i_int4)
        allocate(hdr%int4tags(n),hdr%int4vals(n),stat=ierr)
        hdr%int4tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int4tags(1:n)
-          read(iunit, iostat=ierr) hdr%int4vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%int4tags
+          read(iunit, iostat=ierr) hdr%int4vals
        endif
     case(i_int8)
        allocate(hdr%int8tags(n),hdr%int8vals(n),stat=ierr)
        hdr%int8tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int8tags(1:n)
-          read(iunit, iostat=ierr) hdr%int8vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%int8tags
+          read(iunit, iostat=ierr) hdr%int8vals
        endif
     case(i_real)
        allocate(hdr%realtags(n),hdr%realvals(n),stat=ierr)
        hdr%realtags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%realtags(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%realtags
           if (convert_prec .and. kind(0.) /= 4) then
              allocate(dumr4(n),stat=ierr)
-             read(iunit, iostat=ierr) dumr4(1:n)
+             read(iunit, iostat=ierr) dumr4
              hdr%realvals(1:n) = real(dumr4(1:n))
              deallocate(dumr4)
           else
-             read(iunit, iostat=ierr) hdr%realvals(1:n)
+             read(iunit, iostat=ierr) hdr%realvals
           endif
        endif
     case(i_real4)
        allocate(hdr%real4tags(n),hdr%real4vals(n),stat=ierr)
        hdr%real4tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%real4tags(1:n)
-          read(iunit, iostat=ierr) hdr%real4vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%real4tags
+          read(iunit, iostat=ierr) hdr%real4vals
        endif
     case(i_real8)
        allocate(hdr%real8tags(n),hdr%real8vals(n),stat=ierr)
        hdr%real8tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%real8tags(1:n)
-          read(iunit, iostat=ierr) hdr%real8vals(1:n)
+          if (tagged) read(iunit, iostat=ierr) hdr%real8tags
+          read(iunit, iostat=ierr) hdr%real8vals
        endif
     end select
  enddo
@@ -2054,6 +2054,10 @@ subroutine read_array_real4(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
     matched    = .true.
     if (match_datatype) then
        got_arr = .true.
+       if (i2 > size(arr)) then
+          print*,'ERROR: array size too small reading array: need ',i2,' got ',size(arr)
+          read(iunit,iostat=ierr)
+       endif
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     else
        print*,'ERROR: wrong datatype for '//trim(tag)//' (is not real4)'
@@ -2079,18 +2083,14 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
  integer      :: i,j,nread
  real(kind=4) :: dum
  real(kind=8) :: dumr8
+ real(kind=4), allocatable :: dummy(:)
  real(kind=8), allocatable :: dummyr8(:)
  logical      :: match_datatype
 
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real4 .or. (kind(0.)==4 .and. ikind==i_real))
 
- if (size(arr_tag) < size(arr(:,1))) then
-    print*,'ERROR: tag array too small reading '//trim(tag),' size = ',size(arr_tag)
-    return
- endif
-
- do j=1,size(arr(:,1))
+ do j=1,min(size(arr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
        matched    = .true.
        if (match_datatype) then
@@ -2100,7 +2100,12 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
              ierr = ierr_arraysize
              return
           endif
-          read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
+          nread = i2-i1+1
+          allocate(dummy(nread))
+          read(iunit,iostat=ierr) (dum,i=1,noffset),dummy(1:nread)
+          arr(j,i1:i2) = dummy
+          deallocate(dummy)
+          !read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
           !print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
@@ -2193,12 +2198,7 @@ subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real8 .or. (kind(0.)==8 .and. ikind==i_real))
 
- if (size(arr_tag) < size(arr(:,1))) then
-    print*,'ERROR: tag array too small reading '//trim(tag),' size = ',size(arr_tag)
-    return
- endif
-
- do j=1,size(arr(:,1))
+ do j=1,min(size(arr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
        matched    = .true.
        if (match_datatype) then
