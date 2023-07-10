@@ -55,13 +55,13 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,          only:maxvxyzu,h2chemistry,use_dustgrowth
+ use dim,          only:maxvxyzu,h2chemistry,use_dustgrowth,do_radiation
  use setup_params, only:npart_total,ihavesetupB
  use io,           only:master
  use unifdis,      only:set_unifdis,latticetype,get_xyzmin_xyzmax_exact
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:Bxyz,periodic,abundance,igas,iHI,dustfrac,ndustsmall,&
-                        ndusttypes,grainsize,graindens,dustprop
+                        ndusttypes,grainsize,graindens,dustprop,rad
  use physcon,      only:pi,mass_proton_cgs,kboltz,years,pc,solarm,micron
  use set_dust,     only:set_dustfrac
  use setunits,     only:dist_unit,mass_unit
@@ -72,6 +72,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:dtmax,tmax,C_cour,C_force,C_cool,tolv
  use cooling,      only:Tfloor
  use cooling_ism,  only:abundc,abundo,abundsi,abunde,dust_to_gas_ratio,iphoto
+ use radiation_utils, only:set_radiation_and_gas_temperature_equal
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -249,6 +250,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ihavesetupB = .true.
  endif
 
+ if (do_radiation) then
+    call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
+ endif
+
 end subroutine setpart
 
 !------------------------------------------------------------------------
@@ -300,9 +305,9 @@ subroutine setup_interactive()
 end subroutine setup_interactive
 
 !------------------------------------------------------------------------
-!
-! write setup file
-!
+!+
+!  write setup file
+!+
 !------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
@@ -344,9 +349,9 @@ subroutine write_setupfile(filename)
 end subroutine write_setupfile
 
 !------------------------------------------------------------------------
-!
-! read setup file
-!
+!+
+!  read setup file
+!+
 !------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db

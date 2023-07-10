@@ -2516,16 +2516,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
-#ifdef DUSTGROWTH
  use dust,           only:idrag,get_ts
  use part,           only:Omega_k
-#endif
  use io,             only:warning
  use physcon,        only:c,kboltz
-#ifdef GR
- use part,           only:pxyzu
-#endif
-
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -2586,10 +2580,8 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
 #endif
-#ifdef DUSTGROWTH
  real    :: tstopint,gsizei,gdensi
  integer :: ireg
-#endif
  integer               :: ip,i
  real                  :: densi, vxi,vyi,vzi,u0i,dudtcool,dudtheat
  real                  :: posi(3),veli(3),gcov(0:3,0:3),metrici(0:3,0:3,2)
@@ -2994,8 +2986,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        endif
 
     else ! not gas
-#ifdef DUSTGROWTH
-       if (iamdusti) then
+       if (use_dustgrowth .and. iamdusti) then
           !- return interpolations to their respective arrays
           dustgasprop(2,i) = fsum(idensgasi) !- rhogas
           !- interpolations are mass weigthed, divide result by rhog,i
@@ -3010,7 +3001,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                dustgasprop(4,i)**2,tstopint,ireg)
           dustgasprop(3,i) = tstopint * Omega_k(i) !- Stokes number
        endif
-#endif
 
        if (maxvxyzu > 4) fxyzu(4,i) = 0.
        ! timestep based on Courant condition for non-gas particles

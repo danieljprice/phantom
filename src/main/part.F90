@@ -200,9 +200,7 @@ module part
  integer, parameter :: ihall = 2 ! eta_hall
  integer, parameter :: iambi = 3 ! eta_ambi
  integer, parameter :: iion  = 4 ! ionisation fraction
-#ifdef NONIDEALMHD
  character(len=*), parameter :: eta_nimhd_label(4) = (/'eta_{OR}','eta_{HE}','eta_{AD}','ne/n    '/)
-#endif
 !
 !-- Ray tracing : optical depth
 !

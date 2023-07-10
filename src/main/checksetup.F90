@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -90,12 +90,6 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
-#ifndef KROME
- if (gamma <= 0.) then
-    print*,'WARNING! gamma not set (should be set > 0 even if not used)'
-    nwarn = nwarn + 1
- endif
-#endif
  if (hfact < 1. .or. isnan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -104,17 +98,21 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
-#ifdef KROME
- if (ieos /= 19) then
-    print*, 'KROME setup. Only eos=19 makes sense.'
-    nerror = nerror + 1
+ if (use_krome) then
+    if (ieos /= 19) then
+       print*, 'KROME setup. Only eos=19 makes sense.'
+       nerror = nerror + 1
+    endif
+ else
+    if (polyk < tiny(0.) .and. ieos /= 2) then
+       print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
+       nwarn = nwarn + 1
+    endif
+    if (gamma <= 0.) then
+       print*,'WARNING! gamma not set (should be set > 0 even if not used)'
+       nwarn = nwarn + 1
+    endif
  endif
-#else
- if (polyk < tiny(0.) .and. ieos /= 2) then
-    print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
-    nwarn = nwarn + 1
- endif
-#endif
  if (npart < 0) then
     print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -405,7 +403,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check radiation setup
 !
- if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
+ if (do_radiation) call check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 !
 !--check dust growth arrays
 !
@@ -904,45 +902,56 @@ end subroutine check_for_identical_positions
 
 !------------------------------------------------------------------
 !+
-! 1) check for optically thin particles when mcfost is disabled,
-! as the particles will then be overlooked if they are flagged as thin
-! 2) check that radiation energy is never negative to begin with
-! 3) check for NaNs
+!  1) check for optically thin particles when mcfost is disabled,
+!     as the particles will then be overlooked if they are flagged as thin
+!  2) check that radiation energy is never negative to begin with
+!  3) check for NaNs
 !+
 !------------------------------------------------------------------
-subroutine check_setup_radiation(npart, nerror, radprop, rad)
+subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
- integer, intent(inout) :: nerror
+ integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: rad(:,:), radprop(:,:)
- integer :: i, nthin, nradEn, nkappa
+ integer :: i,nthin,nradEn,nkappa,nwarn_en
 
  nthin = 0
  nradEn = 0
  nkappa = 0
- do i=1, npart
-    if (radprop(ithick, i) < 0.5) nthin=nthin + 1
-    if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
-    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa=nkappa + 1
+ nwarn_en = 0
+ do i=1,npart
+    if (radprop(ithick, i) < 0.5) nthin = nthin + 1
+    if (rad(iradxi, i) < 0.) nradEn = nradEn + 1
+    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa = nkappa + 1
+    if (rad(iradxi, i) <= 0.) nwarn_en = nwarn_en + 1
  enddo
 
  if (nthin > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nthin,' of ',npart,&
     ' particles are being treated as optically thin without MCFOST being compiled'
     nerror = nerror + 1
  endif
 
  if (nradEn > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nradEn,' of ',npart,&
-    ' particles have negative radiation Energy'
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nradEn,' of ',npart,&
+    ' particles have negative radiation energy'
     nerror = nerror + 1
  endif
 
+ if (nwarn_en > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nwarn_en,' of ',npart,&
+    ' particles have radiation energy equal to zero'
+    nwarn = nwarn + 1
+ endif
+
  if (nkappa > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nkappa,' of ',npart,&
     ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
+
+ call check_NaN(npart,rad,'radiation_energy',nerror)
+ call check_NaN(npart,radprop,'radiation properties',nerror)
 
 end subroutine check_setup_radiation
 

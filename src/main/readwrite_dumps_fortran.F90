@@ -208,7 +208,8 @@ end subroutine get_dump_size
 !-------------------------------------------------------------------
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
-                 lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation
+                 lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
+                 ind_timesteps,mhd_nonideal
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -220,25 +221,16 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
-                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc
+                 iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
+                 luminosity,eta_nimhd,eta_nimhd_label
  use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
- use timestep,   only:idtmax_n,idtmax_frac
-#ifdef IND_TIMESTEPS
- use timestep,   only:dtmax
+ use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin
-#endif
 #ifdef PRDRAG
  use lumin_nsdisc, only:beta
-#endif
-#ifdef LIGHTCURVE
- use part,       only:luminosity
-#endif
-#ifdef NONIDEALMHD
- use dim,        only:mhd_nonideal
- use part,       only:eta_nimhd,eta_nimhd_label
 #endif
 #ifdef KROME
  use krome_user, only:krome_nmols
@@ -412,11 +404,11 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        if (gravity .and. maxgrav==maxp) then
           call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
        endif
-#ifdef IND_TIMESTEPS
-       if (.not.allocated(temparr)) allocate(temparr(npart))
-       temparr(1:npart) = dtmax/2**ibin(1:npart)
-       call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
-#endif
+       if (ind_timesteps) then
+          if (.not.allocated(temparr)) allocate(temparr(npart))
+          temparr(1:npart) = dtmax/2.**ibin(1:npart)
+          call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
+       endif
        call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,ierrs(29))
 
 #ifdef PRDRAG
@@ -428,11 +420,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
        endif
 #endif
-#ifdef LIGHTCURVE
        if (lightcurve) then
           call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
        endif
-#endif
 #ifdef KROME
        call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
        call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
@@ -484,12 +474,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
              call write_array(4,divBsymm,'divBsymm',npart,k,ipass,idump,nums,ierrs(2))
           endif
           if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing MHD arrays')
-#ifdef NONIDEALMHD
           if (mhd_nonideal) then
              call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,ierrs(1))
              if (ierrs(1) /= 0) call error('write_dump','error writing non-ideal MHD arrays')
           endif
-#endif
        endif
     enddo
     if (ipass==1) call write_block_header(narraylengths,ilen,nums,idump,ierr)
