@@ -46,7 +46,6 @@ subroutine test_wind(ntests,npass)
  use partinject,     only:update_injected_particles
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
-! use damping,        only:idamp
  use checksetup,     only:check_setup
  !use readwrite_infile, only:read_infile,write_infile
 
@@ -129,6 +128,8 @@ subroutine test_wind(ntests,npass)
  dtlast = 0.
  time = 0.
 
+ call init_step(npart_old,time,dtmax)
+
  do while (t < tmax)
 
     dtext = dt
@@ -151,7 +152,6 @@ subroutine test_wind(ntests,npass)
     if (dtprint <= epsilon(dtmax) .or. dtprint >= (1.0-1e-8)*dtmax ) dtprint = dtmax + epsilon(dtmax)
     dt = min(dtforce,dtcourant,dterr,dtmax+epsilon(dtmax),dtprint,dtinject,dtrad)
     if (id==master) call print_dtlog(iprint,time,dt,dtforce,dtcourant,dterr,dtmax,dtrad,dtprint,dtinject,ntot)
-
 
  enddo
 
