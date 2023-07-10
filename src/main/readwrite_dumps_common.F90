@@ -226,28 +226,28 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     ierr = 9
     return
  endif
-#ifdef KROME
- if (.not.all(got_krome_mols).and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
-!     ierr = 9
-    return
+ if (use_krome) then
+    if (.not.all(got_krome_mols).and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_gamma .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_mu .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
+   !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_T .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
+   !     ierr = 9
+       return
+    endif
  endif
- if (.not.got_krome_gamma .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
-!     ierr = 9
-    return
- endif
- if (.not.got_krome_mu .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
-!     ierr = 9
-    return
- endif
- if (.not.got_krome_T .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
-!     ierr = 9
-    return
- endif
-#endif
  if (eos_is_non_ideal(ieos) .and. .not.got_eosvars(itemp)) then
     if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing temperature information from file'
  endif
@@ -280,27 +280,25 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
+    if (id==master .and. i1==1) write(*,*) 'WARNING! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
-    !ierr = 13
-    return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    ierr = ierr + 1
  endif
- if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-    return
+ if (use_dustgrowth .and. .not.got_dustprop(2)) then
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_VrelVf) then
-    write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_dustgasprop(3)) then
-    write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
+    ierr = ierr + 1
  endif
  !
  ! sink particle arrays
