@@ -62,7 +62,7 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
-                          lightcurve,use_dust,maxdusttypes,do_radiation,gr
+                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -70,7 +70,7 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,rad,iradxi
+                          iamdust,ndusttypes,rad,iradxi,gamma_chem
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
@@ -169,7 +169,7 @@ subroutine compute_energies(t)
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd,eta_constant) &
 !$omp shared(ev_data,np_rho,erot_com,calc_erot,gas_only,track_mass) &
-!$omp shared(calc_gravitwaves) &
+!$omp shared(calc_gravitwaves,gamma_chem) &
 !$omp shared(iev_erad,iev_rho,iev_dt,iev_entrop,iev_rhop,iev_alpha) &
 !$omp shared(iev_B,iev_divB,iev_hdivB,iev_beta,iev_temp,iev_etao,iev_etah) &
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
@@ -354,11 +354,9 @@ subroutine compute_energies(t)
           ponrhoi  = eos_vars(igasP,i)/rhoi
           spsoundi = eos_vars(ics,i)
           if (maxvxyzu >= 4) then
-             if (gr) then
-                ethermi = (alpha_gr/lorentzi)*ethermi
-             else
-                ethermi = pmassi*vxyzu(4,i)*gasfrac
-             endif
+             ethermi = pmassi*vxyzu(4,i)*gasfrac
+             if (gr) ethermi = (alpha_gr/lorentzi)*ethermi
+
              etherm = etherm + ethermi
 
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
@@ -376,11 +374,11 @@ subroutine compute_energies(t)
           vsigi = spsoundi
 
           ! entropy
-#ifdef KROME
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
-#else
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
-#endif
+          if (use_krome) then
+             call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
+          else
+             call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
+          endif
 
           ! gas temperature
           if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
