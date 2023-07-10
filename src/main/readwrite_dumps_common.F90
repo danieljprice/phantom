@@ -239,12 +239,12 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     endif
     if (.not.got_krome_mu .and. npartread > 0) then
        if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
-   !     ierr = 9
+       !     ierr = 9
        return
     endif
     if (.not.got_krome_T .and. npartread > 0) then
        if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
-   !     ierr = 9
+       !     ierr = 9
        return
     endif
  endif
