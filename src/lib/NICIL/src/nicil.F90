@@ -2289,9 +2289,14 @@ end subroutine nicil_get_dt_nimhd
 pure subroutine nicil_get_halldrift(eta_hall,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_hall,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
- real                   :: B1
+ real                   :: B1,B2
 
- B1     = 1.0/sqrt(Bx*Bx + By*By + Bz*Bz)
+ B2 = Bx*Bx + By*By + Bz*Bz
+ if (B2 > 0.) then
+    B1 = 1.0/sqrt(B2)
+ else
+    B1 = 0.
+ endif
  vdrift = -eta_hall*jcurrent*B1
 
 end subroutine nicil_get_halldrift
@@ -2303,9 +2308,14 @@ end subroutine nicil_get_halldrift
 pure subroutine nicil_get_ambidrift(eta_ambi,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_ambi,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
- real                   :: B21
+ real                   :: B2,B21
 
- B21       = 1.0/(Bx*Bx + By*By + Bz*Bz)
+ B2 = Bx*Bx + By*By + Bz*Bz
+ if (B2 > 0.) then
+    B21 = 1.0/B2
+ else
+    B21 = 0.
+ endif
  vdrift(1) = eta_ambi*( jcurrent(2)*Bz - jcurrent(3)*By )*B21
  vdrift(2) = eta_ambi*( jcurrent(3)*Bx - jcurrent(1)*Bz )*B21
  vdrift(3) = eta_ambi*( jcurrent(1)*By - jcurrent(2)*Bx )*B21
