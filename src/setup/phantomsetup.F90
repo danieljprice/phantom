@@ -147,7 +147,7 @@ program phantomsetup
     ! if code is run in relativistic units (c=1)
     if (c_is_unity()) calc_gravitwaves = .true.
 
-    if (id==master) call print_units()
+    if (id==master .and. nerr==0 .and. nwarn==0) call print_units()
 !
 !--dumpfile name should end in .tmp unless density has been calculated
 !  (never true using phantomsetup)
