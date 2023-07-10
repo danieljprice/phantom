@@ -194,7 +194,6 @@ subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# options controlling particle injection'
  call write_inopt(injp%R_in,'R_in','inner total disc radius',iunit)
  call write_inopt(injp%R_out,'R_out','outer total disc radius',iunit)
  call write_inopt(injp%Rsect_in,'Rsect_in','inner sector radius (inner injection radius)',iunit)
