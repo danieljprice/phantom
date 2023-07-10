@@ -1566,7 +1566,10 @@ end subroutine solve_quartic
     dradi = 0.
     rhoi = rho(i)
     added_self = .false.
-    
+    hi = xyzh(4,i)
+    hi21 = 1./(hi*hi)
+    hi1 = 1./hi
+
    call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi)
 
    loop_over_neighbours: do k = 1,ivar(1,n) 
@@ -1587,9 +1590,6 @@ end subroutine solve_quartic
        rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
        rij = sqrt(rij2)
        rij1 = 1./rij
-       hi = xyzh(4,i)
-       hi21 = 1./(hi*hi)
-       hi1 = 1./hi
        q = rij/hi
        q2 = rij2*hi21
        
@@ -1616,7 +1616,7 @@ end subroutine solve_quartic
    ! print *, 'done neighbour loop for ', i,n
     if (.not. added_self) then
 !       print *, "Has not added self in lambda hybrid"
-       uradi = uradi + pmassj*arad*Ti**4d0/rhoi ! add self contribution
+       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
     endif
 
     dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! magnitude
