@@ -304,7 +304,9 @@ subroutine read_wind_data(filename,nstars)
 
 end subroutine read_wind_data
 
-subroutine set_default_options_inject
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
 end subroutine set_default_options_inject
 
 end module inject

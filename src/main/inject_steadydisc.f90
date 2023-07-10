@@ -255,7 +255,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
 end subroutine read_options_inject
 
-subroutine set_default_options_inject
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
 end subroutine set_default_options_inject
 
 end module inject
