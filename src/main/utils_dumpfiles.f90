@@ -2071,8 +2071,8 @@ end subroutine read_array_real4
 !--------------------------------------------------------------------
 subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,matched,ierr)
  real(kind=4),     intent(inout) :: arr(:,:)
- character(len=*), intent(in)    :: arr_tag(size(arr(1,:))),tag
- logical,          intent(inout) :: got_arr(size(arr(1,:)))
+ character(len=*), intent(in)    :: arr_tag(:),tag
+ logical,          intent(inout) :: got_arr(:)
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
@@ -2084,6 +2084,11 @@ subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
 
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real4 .or. (kind(0.)==4 .and. ikind==i_real))
+
+ if (size(arr_tag) < size(arr(:,1))) then
+    print*,'ERROR: tag array too small reading '//trim(tag),' size = ',size(arr_tag)
+    return
+ endif
 
  do j=1,size(arr(:,1))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
@@ -2173,8 +2178,8 @@ end subroutine read_array_real8
 !--------------------------------------------------------------------
 subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,matched,ierr)
  real(kind=8),     intent(inout) :: arr(:,:)
- character(len=*), intent(in)    :: arr_tag(size(arr(1,:))),tag
- logical,          intent(inout) :: got_arr(size(arr(1,:)))
+ character(len=*), intent(in)    :: arr_tag(:),tag
+ logical,          intent(inout) :: got_arr(:)
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
@@ -2187,6 +2192,11 @@ subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
 
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real8 .or. (kind(0.)==8 .and. ikind==i_real))
+
+ if (size(arr_tag) < size(arr(:,1))) then
+    print*,'ERROR: tag array too small reading '//trim(tag),' size = ',size(arr_tag)
+    return
+ endif
 
  do j=1,size(arr(:,1))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
