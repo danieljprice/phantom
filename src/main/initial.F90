@@ -709,17 +709,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (id==master) then
     if (iverbose >= 1) then
-       write(iprint,'(2x,a,es18.6)') 'Initial total energy:     ', etot_in
-       write(iprint,'(2x,a,es18.6)') 'Initial angular momentum: ', angtot_in
-       write(iprint,'(2x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
+       write(iprint,'(1x,a,es18.6)') 'Initial total energy:     ', etot_in
+       write(iprint,'(1x,a,es18.6)') 'Initial angular momentum: ', angtot_in
+       write(iprint,'(1x,a,es18.6)') 'Initial linear momentum:  ', totmom_in
     endif
     if (use_dust) then
        dust_label = 'dust'
        call make_tags_unique(ndusttypes,dust_label)
        do i=1,ndusttypes
-          if (mdust_in(i) > 0.) write(iprint,'(2x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
+          if (mdust_in(i) > 0.) write(iprint,'(1x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
        enddo
-       write(iprint,'(2x,a,es18.6)') 'Initial total dust mass:  ', sum(mdust_in(:))
+       write(iprint,'(1x,a,es18.6)') 'Initial total dust mass:', sum(mdust_in(:))
     endif
  endif
 !

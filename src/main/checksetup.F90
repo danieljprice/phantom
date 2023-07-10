@@ -608,7 +608,7 @@ end subroutine check_setup_ptmass
 !+
 !------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
- use part, only:dustprop,dustprop_label
+ use part, only:dustprop,dustprop_label,iamdust,iphase,maxphase,maxp
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  integer :: i,j,nbad(4)
@@ -617,7 +617,11 @@ subroutine check_setup_growth(npart,nerror)
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
     do j=1,2
-       if (dustprop(j,i) <= 0.) nbad(j) = nbad(j) + 1
+       if (maxphase==maxp) then
+          if (iamdust(iphase(i)) .and. dustprop(j,i) <= 0.) nbad(j) = nbad(j) + 1
+       elseif (dustprop(j,i) < 0.) then
+          nbad(j) = nbad(j) + 1
+       endif
     enddo
  enddo
  do j=1,2
