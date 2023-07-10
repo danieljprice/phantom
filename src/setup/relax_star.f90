@@ -27,7 +27,6 @@ module relaxstar
  public :: relax_star,write_options_relax,read_options_relax
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
- !real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
  integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev,mass1prev
@@ -177,7 +176,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ierr = ierr_unbound
     return
  endif
- if (id==master) print "(/,3(a,1pg11.3),/,a,0pf6.2,a,i4)",&
+ if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
