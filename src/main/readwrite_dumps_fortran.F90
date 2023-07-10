@@ -645,7 +645,7 @@ end subroutine write_smalldump_fortran
 
 subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_particles
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -788,14 +788,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !
 !--Allocate main arrays
 !
-       if (dynamic_bdy) then
-          call allocate_memory(int(maxp_hard,kind=8))
-       else
-#ifdef INJECT_PARTICLES
+       if (dynamic_bdy .or. inject_particles) then
           call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
-#else
+       else
           call allocate_memory(nparttot)
-#endif
        endif
     endif
 !
