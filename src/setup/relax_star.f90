@@ -27,7 +27,7 @@ module relaxstar
  public :: relax_star,write_options_relax,read_options_relax
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
- real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
+ !real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
  integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev,mass1prev
@@ -545,7 +545,6 @@ subroutine write_options_relax(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(tol_ekin,'tol_ekin','tolerance on ekin/epot to stop relaxation',iunit)
- call write_inopt(tol_dens,'tol_dens','% error in density to stop relaxation',iunit)
  call write_inopt(maxits,'maxits','maximum number of relaxation iterations',iunit)
 
 end subroutine write_options_relax
@@ -561,7 +560,6 @@ subroutine read_options_relax(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)
- call read_inopt(tol_dens,'tol_dens',db,errcount=nerr)
  call read_inopt(maxits,'maxits',db,errcount=nerr)
 
 end subroutine read_options_relax
