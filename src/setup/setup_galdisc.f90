@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, dim, extern_spiral, externalforces, io,
+! :Dependencies: datafiles, dim, extern_spiral, externalforces, io, kernel,
 !   mpiutils, options, part, physcon, prompting, random, set_dust,
 !   setup_params, units
 !

@@ -27,7 +27,7 @@ module setup
 !   - nx        : *Particles in the x-direction*
 !   - ohmtest   : *Testing Ohmic resistivity*
 !   - polyk     : *Initial polyk*
-!   - realvals  : *Using physical values (F: arbitrary values)*
+!   - realvals  : *Using physical units (F: arbitrary units)*
 !   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
 !   - rhoin     : *Initial density*
 !   - viscoff   : *Using no viscosity (F: using viscosity*

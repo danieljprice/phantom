@@ -17,7 +17,7 @@ module lumin_nsdisc
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, infile_utils, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
 
  use physcon, only: pi

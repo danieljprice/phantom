@@ -23,7 +23,7 @@ module nicil_sup
 !   - alpha_AD       : *power law exponent for ambipolar diffusion*
 !   - an_grain       : *minimum grain radius (cm)*
 !   - ax_grain       : *maximum grain radius (cm)*
-!   - eta_const_type : *Coefficient type: phys.cnst+B+rho (1), C_NI+B+rho (2), C_NI (3)*
+!   - eta_const_type : *Coefficient type: (1) phys.cnst+B+rho (2) C_NI+B+rho (3) constant*
 !   - eta_constant   : *Use constant coefficients for all non-ideal MHD terms*
 !   - fdg            : *dust-to-gas mass ratio*
 !   - gamma_AD       : *ion-neutral coupling coefficient for ambipolar diffusion*

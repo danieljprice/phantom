@@ -21,8 +21,8 @@ module initial
 !   growth, inject, io, io_summary, krome_interface, linklist,
 !   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
 !   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
-!   photoevap, ptmass, radiation_utils, readwrite_dumps, readwrite_infile,
-!   timestep, timestep_ind, timestep_sts, timing, units, writeheader
+!   ptmass, radiation_utils, readwrite_dumps, readwrite_infile, timestep,
+!   timestep_ind, timestep_sts, timing, units, writeheader
 !
 
  implicit none

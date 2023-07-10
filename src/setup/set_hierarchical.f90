@@ -19,7 +19,8 @@ module sethierarchical
 !
 ! :Owner: Simone Ceppi
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - hierarchy : *string definining the hierarchy (e.g. 111,112,121,1221,1222)*
 !
 ! :Dependencies: infile_utils, setbinary, sethier_utils
 !

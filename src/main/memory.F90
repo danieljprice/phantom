@@ -15,7 +15,7 @@ module memory
 ! :Runtime parameters: None
 !
 ! :Dependencies: allocutils, dim, io, linklist, mpibalance, mpiderivs,
-!   mpimemory, mpitree, part, photoevap
+!   mpimemory, mpitree, part
 !
  implicit none
 

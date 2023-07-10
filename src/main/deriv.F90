@@ -16,8 +16,8 @@ module deriv
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
 !   forces, forcing, growth, io, linklist, metric_tools, options, part,
-!   photoevap, ptmass, ptmass_radiation, radiation_implicit, timestep,
-!   timestep_ind, timing
+!   ptmass, ptmass_radiation, radiation_implicit, timestep, timestep_ind,
+!   timing
 !
  implicit none
 

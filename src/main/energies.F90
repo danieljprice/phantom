@@ -17,9 +17,9 @@ module energies
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
-!   externalforces, fastmath, gravwaveutils, io, kernel, metric_tools,
-!   mpiutils, nicil, options, part, ptmass, timestep, units, utils_gr,
-!   vectorutils, viscosity
+!   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
+!   nicil, options, part, ptmass, timestep, units, utils_gr, vectorutils,
+!   viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime

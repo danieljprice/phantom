@@ -15,7 +15,6 @@ module relaxstar
 !
 ! :Runtime parameters:
 !   - maxits   : *maximum number of relaxation iterations*
-!   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
 ! :Dependencies: checksetup, damping, deriv, dim, dump_utils, energies,

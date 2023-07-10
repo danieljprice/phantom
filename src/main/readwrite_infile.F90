@@ -66,9 +66,9 @@ module readwrite_infile
 !
 ! :Dependencies: boundary_dyn, cooling, damping, dim, dust, dust_formation,
 !   eos, externalforces, forcing, gravwaveutils, growth, infile_utils,
-!   inject, io, linklist, metric, nicil_sup, options, part,
-!   ptmass, ptmass_radiation, radiation_implicit, radiation_utils,
-!   timestep, viscosity
+!   inject, io, linklist, metric, nicil_sup, options, part, ptmass,
+!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
+!   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
