@@ -100,7 +100,11 @@ subroutine init_inject(ierr)
     size_y = ceiling(3.*wind_cylinder_radius/psep)
     size_z = ceiling(3.*wind_cylinder_radius/(sqrt(3.)*psep/2.))
     do pass=1,2
-       if (pass == 2) allocate(layer_even(2,neven), layer_odd(2,nodd))
+       if (pass == 2) then
+          if (allocated(layer_even)) deallocate(layer_even)
+          if (allocated(layer_odd)) deallocate(layer_odd)
+          allocate(layer_even(2,neven), layer_odd(2,nodd))
+       endif
        neven = 0
        nodd = 0
        do i=1,size_y
@@ -253,6 +257,7 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
     call add_or_update_particle(itype,position_u,velocity_u,h(i)/udist,u(i)/(udist**2/utime**2),&
      ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
  enddo
+
 end subroutine inject_or_update_particles
 
 !-----------------------------------------------------------------------
