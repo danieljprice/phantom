@@ -11,6 +11,7 @@ Here is the Phantom developer guide.
    styleguide
    setup
    testing
+   bots
    datafiles
    staging
    fork
