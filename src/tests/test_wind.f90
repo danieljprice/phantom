@@ -35,14 +35,14 @@ subroutine test_wind(ntests,npass)
  use options,   only:ieos!,icooling
  use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
- use inject,    only:init_inject,inject_particles,set_default_options_inject
+ use inject,    only:init_inject,inject_particles,set_default_options_inject,inject_type
  use eos,       only:gmw,ieos,init_eos,gamma,polyk
  use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,&
                      nptmass,npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot
  use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
  use step_lf_global, only:step,init_step
  use testutils,      only:checkval,update_test_scores
- use dim,            only:isothermal
+ use dim,            only:isothermal,inject_parts
  use partinject,     only:update_injected_particles
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
@@ -54,7 +54,12 @@ subroutine test_wind(ntests,npass)
  integer :: i,ierr,nerror,istepfrac,npart_old,nfailed(9),nwarn
  real :: dtinject,dtlast,t,default_particle_mass,dtext,dtnew,dtprint,dtmaxold,tprint
 
- if (id==master) write(*,"(/,a,/)") '--> TESTING WIND MODULE'
+ if (inject_type /= 'wind') then
+    if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (need to compile with wind injection module)'
+    return
+ else
+    if (id==master) write(*,"(/,a,/)") '--> TESTING WIND MODULE'
+ endif
 
  call set_units(dist=au,mass=solarm,G=1.d0)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)

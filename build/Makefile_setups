@@ -768,7 +768,6 @@ ifeq ($(SETUP), isowind)
 #   isothermal spherical wind
     #FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ISOTHERMAL=yes
-    INJECT_PARTICLES=yes
     SINK_RADIATION=yes
     WIND=yes
 endif
@@ -776,7 +775,6 @@ ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     #FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_cooling.F90
-    INJECT_PARTICLES=yes
     SINK_RADIATION=yes
     WIND=yes
 endif
@@ -785,7 +783,6 @@ ifeq ($(SETUP), ismwind)
     #FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_cooling.F90
     H2CHEM=yes
-    INJECT_PARTICLES=yes
     SINK_RADIATION=yes
     WIND=yes
 endif
@@ -793,7 +790,6 @@ ifeq ($(SETUP), radwind)
 #   wind setup with dust nucleation
     #FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.f90 analysis_raytracer.f90
-    INJECT_PARTICLES=yes
     SINK_RADIATION=yes
     WIND=yes
 endif
@@ -808,7 +804,6 @@ ifeq ($(SETUP), test)
     DUST=yes
     RADIATION=yes
     SINK_RADIATION=yes
-    INJECT_PARTICLES=yes
     WIND=yes
     KERNEL=cubic
 endif
@@ -959,7 +954,6 @@ ifeq ($(SETUP), testkd)
     MHD=yes
     RADIATION=yes
     SINK_RADIATION=yes
-    INJECT_PARTICLES=yes
     WIND=yes
 endif
 
