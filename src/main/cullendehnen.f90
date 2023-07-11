@@ -63,7 +63,7 @@ pure real function xi_limiter(dvdx)
 
  fac    = max(-divv,0.)**2
  traceS = curlvx**2 + curlvy**2 + curlvz**2
- if (fac + traceS > tiny(0.)) then
+ if (fac + traceS > epsilon(0.)) then
     xi_limiter = fac/(fac + traceS)
  else
     xi_limiter = 1.
