@@ -82,7 +82,7 @@ subroutine set_default_parameters_wind()
 
  wind_gamma    = 5./3.
  if (isothermal) then
-    T_wind        = 30000.
+    T_wind                = 30000.
     temp_exponent         = 0.5
     ! primary_racc_au       = 0.465
     ! primary_mass_msun     = 1.5
@@ -283,6 +283,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ieos = 1
     endif
  else
+    T_wind = 0.
     gamma = wind_gamma
  endif
  polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
@@ -498,11 +499,18 @@ subroutine setup_interactive()
        print "(a)",'Stellar parameters'
     endif
     ichoice = 2
-    print "(a)",' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
-        ' 1: Mass = 1.0 Msun, accretion radius = 1.2568 au', &
+    print "(a)",' 3: Mass = 1.2 Msun, accretion radius = 1. au (trans-sonic)',&
+         ' 2: Mass = 1.2 Msun, accretion radius = 0.2568 au',&
+         ' 1: Mass = 1.0 Msun, accretion radius = 1.2568 au', &
         ' 0: custom'
-    call prompt('select mass and radius of primary',ichoice,0,2)
+    call prompt('select mass and radius of primary',ichoice,0,3)
     select case(ichoice)
+    case(3)
+       primary_lum_lsun  = 2.d4
+       primary_Teff      = 5.d4
+       primary_mass_msun = 1.2
+       primary_racc_au   = 1.
+       wind_gamma = 1.4
     case(2)
        primary_mass_msun = 1.2
        primary_racc_au   = 0.2568

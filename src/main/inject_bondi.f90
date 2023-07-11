@@ -30,7 +30,8 @@ module inject
  public :: init_inject,          &
            inject_particles,     &
            write_options_inject, &
-           read_options_inject
+           read_options_inject,  &
+           set_default_options_inject
 
  !-- Runtime variables read from input file
  real,    public :: rin           = 18.1
@@ -314,5 +315,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall  = (ngot >= noptions)
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject

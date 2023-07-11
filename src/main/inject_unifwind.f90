@@ -22,7 +22,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'unifwind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject
 
  real, public :: wind_density = 7.2d-16
  real, public :: wind_velocity = 29.
@@ -179,5 +180,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  igotall = (ngot >= 4)
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject

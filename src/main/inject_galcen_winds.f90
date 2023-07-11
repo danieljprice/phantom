@@ -25,7 +25,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'galcen_winds'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject
 
  real :: outer_boundary = 20.
  character(len=120) :: datafile = 'winddata.txt'
@@ -302,5 +303,10 @@ subroutine read_wind_data(filename,nstars)
  if (nstars > 0) print "(1x,37('-'))"
 
 end subroutine read_wind_data
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject
