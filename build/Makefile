@@ -105,6 +105,10 @@ ifdef SMOL
     SRCDUST+= growth_smol.f90
 endif
 
+ifndef SRCINJECT
+    SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
+endif
+
 #ifndef SRCGROWTH
 #    SRCGROWTH = growth.F90
 #endif
