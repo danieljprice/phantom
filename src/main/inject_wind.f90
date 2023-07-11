@@ -324,7 +324,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,                only:fatal,iverbose
  use wind,              only:interp_wind_profile !,wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
-      delete_dead_particles_inside_radius,dust_temp,n_nucleation
+                             delete_dead_particles_inside_radius,dust_temp,n_nucleation
  use partinject,        only:add_or_update_particle
  use injectutils,       only:inject_geodesic_sphere
  use units,             only:udist, utime
@@ -650,6 +650,7 @@ subroutine set_default_options_inject(flag)
        wind_temperature = 2500.
     endif
  endif
+
 end subroutine set_default_options_inject
 
 !-----------------------------------------------------------------------

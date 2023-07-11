@@ -425,6 +425,7 @@ subroutine test_radiation_diffusion(ntests,npass)
  ! reset various things
  call init_part()
  limit_radiation_flux = .true.
+ drad = 0.
 
 end subroutine test_radiation_diffusion
 

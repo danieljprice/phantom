@@ -30,7 +30,7 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,        only:iprint,id,master!,iverbose,iwritein
+ use io,        only:iprint,id,master,iverbose!,iwritein
  use boundary,  only:set_boundary
  use options,   only:ieos!,icooling
  use physcon,   only:au,solarm,solarl
@@ -61,7 +61,7 @@ subroutine test_wind(ntests,npass)
 
  call init_part()
 
- !set properties of mass loosing sink particle
+ ! set properties of mass-losing sink particle
  nptmass = 1
  xyzmh_ptmass(4,1)     = 1.2*solarm/umass
  xyzmh_ptmass(5,1)     = au/udist
@@ -88,7 +88,7 @@ subroutine test_wind(ntests,npass)
 
  call init_eos(ieos,ierr)
 
- !iverbose = 1
+ iverbose = 0
  !icooling = 0
  dtmax    = 1.
  tmax     = 8.
@@ -99,7 +99,7 @@ subroutine test_wind(ntests,npass)
  t        = 0.
  dtnew    = 0.
 
- !trans-sonic wind
+ ! trans-sonic wind
  call set_default_options_inject(1)
  call check_setup(nerror,nwarn)
 
