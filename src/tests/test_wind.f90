@@ -30,15 +30,15 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,        only:iprint,id,master,iverbose!,iwritein
+ use io,        only:iprint,id,master!,iverbose,iwritein
  use boundary,  only:set_boundary
- use options,   only:icooling,ieos
+ use options,   only:ieos!,icooling
  use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
  use inject,    only:init_inject,inject_particles,set_default_options_inject
  use eos,       only:gmw,ieos,init_eos,gamma,polyk
- use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,nptmass,&
-      npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot
+ use part,      only:npart,init_part,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu,&
+                     nptmass,npartoftype,igas,iTeff,iLum,iReff,massoftype,ntot
  use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
  use step_lf_global, only:step,init_step
  use testutils,      only:checkval,update_test_scores
