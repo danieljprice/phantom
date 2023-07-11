@@ -99,6 +99,7 @@ subroutine test_wind(ntests,npass)
  t        = 0.
  dtnew    = 0.
 
+ !trans-sonic wind
  call set_default_options_inject(1)
  call check_setup(nerror,nwarn)
 

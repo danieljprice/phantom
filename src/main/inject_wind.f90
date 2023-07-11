@@ -620,6 +620,13 @@ end subroutine fit_spherical_wind
 subroutine set_default_options_inject(flag)
 
  integer, optional, intent(in) :: flag
+ integer :: icase
+
+ if (present(flag)) then
+    icase = flag
+ else
+    icase = 0
+ endif
 
  if (isothermal) then
     sonic_type = 1
@@ -627,12 +634,14 @@ subroutine set_default_options_inject(flag)
     wind_mass_rate_Msun_yr = 8.2d-8
     wind_injection_radius_au = 0.
  else
-    if (nucleation .or. present(flag)) then
+    !trans-sonic wind
+    if (icase == 1) then
        sonic_type = 1
        wind_velocity_km_s = 0.
        wind_mass_rate_Msun_yr = 1.d-5
        wind_injection_radius_au = 2.
        wind_temperature = 50000.
+    !super sonic-wind
     else
        sonic_type = 0
        wind_velocity_km_s = 20.
