@@ -30,9 +30,9 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,        only:iprint,id,master,iverbose!,iwritein
+ use io,        only:iprint,id,master!,iverbose,iwritein
  use boundary,  only:set_boundary
- use options,   only:icooling,ieos
+ use options,   only:ieos!,icooling
  use physcon,   only:au,solarm,solarl
  use units,     only:umass,set_units,utime,unit_energ,udist
  use inject,    only:init_inject,inject_particles,set_default_options_inject
@@ -99,6 +99,7 @@ subroutine test_wind(ntests,npass)
  t        = 0.
  dtnew    = 0.
 
+ !trans-sonic wind
  call set_default_options_inject(1)
  call check_setup(nerror,nwarn)
 
