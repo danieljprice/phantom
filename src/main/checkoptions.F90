@@ -30,9 +30,10 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth,maxtypes,mpi,inject_parts
- use io,    only:error,id,master,fatal,warning
+ use part,     only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts
+ use io,       only:error,id,master,fatal,warning
+ use mpiutils, only:barrier_mpi
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
  use dim,          only:maxsts
@@ -149,6 +150,8 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
  if (mpi .and. inject_parts) call error(string,'MPI currently not compatible with particle injection')
+
+ call barrier_mpi
 
 end subroutine check_compile_time_settings
 
