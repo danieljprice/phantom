@@ -40,8 +40,7 @@ module ptmass
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,iskfile,id,master
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
+
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink

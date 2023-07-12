@@ -39,8 +39,6 @@ module part
  use krome_user, only: krome_nmols
 #endif
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 !
 !--basic storage needed for read/write of particle data
 !

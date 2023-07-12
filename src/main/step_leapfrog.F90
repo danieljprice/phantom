@@ -33,9 +33,7 @@ module step_lf_global
  use part, only:radpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
- real               :: ibin_dts(4,0:maxbins)
+ real :: ibin_dts(4,0:maxbins)
 
 contains
 

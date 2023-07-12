@@ -27,9 +27,7 @@ module readwrite_dumps_fortran
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
  use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  implicit none
- character(len=80), parameter, public :: &    ! module version
-    modid="$Id$"
-
+ 
  public :: write_smalldump_fortran,write_fulldump_fortran,read_smalldump_fortran,read_dump_fortran
 
  logical, target, public    :: opened_full_dump_fortran       ! for use in analysis files if user wishes to skip small dumps

@@ -22,8 +22,6 @@ module dim
  integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
  integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
  character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
- character(len=80), parameter :: &  ! module version
-    modid="$Id$"
 
  public
 

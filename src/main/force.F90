@@ -53,8 +53,6 @@ module forces
  use part,     only:iradxi,ifluxx,ifluxy,ifluxz,ikappa,ien_type,ien_entropy,ien_etotal,ien_entropy_s
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  integer, parameter :: maxcellcache = 1000
 

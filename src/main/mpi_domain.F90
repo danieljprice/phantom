@@ -22,8 +22,6 @@ module mpidomain
  use io,  only:nprocs
  use part, only:ibelong
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  integer, parameter :: ndim = 3
 
