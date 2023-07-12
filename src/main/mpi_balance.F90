@@ -164,14 +164,18 @@ end subroutine balancedomains
 !+
 !----------------------------------------------------------------
 subroutine balance_init(npart)
+ use part, only:fill_sendbuf
  integer, intent(in) :: npart
- integer :: i
+ integer :: i,nbuf
+
+ ! use a dummy call to fill_sendbuf to find out the buffer size
+ call fill_sendbuf(1,xbuffer,nbuf) ! just fill for particle #1
 
 !--use persistent communication type for receives
 !  cannot do same for sends as there are different destination,
 !  unless we make a request for each processor
 !
- call MPI_RECV_INIT(xbuffer,size(xbuffer),MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
+ call MPI_RECV_INIT(xbuffer,nbuf,MPI_DEFAULT_REAL,MPI_ANY_SOURCE, &
                     MPI_ANY_TAG,comm_balance,irequestrecv(1),mpierr)
 !
 !--post a non-blocking receive so that we can receive particles
@@ -198,7 +202,6 @@ subroutine balance_init(npart)
  !
  ncomplete = 0
 
- return
 end subroutine balance_init
 
 !-----------------------------------------------------------------------
@@ -276,6 +279,7 @@ subroutine send_part(i,newproc,replace)
  integer, intent(in) :: i,newproc
  logical, intent(in), optional :: replace
  logical :: idone,doreplace
+ integer :: nbuf
 
  if (present(replace)) then
     doreplace = replace
@@ -287,9 +291,9 @@ subroutine send_part(i,newproc,replace)
  if (newproc < 0 .or. newproc > nprocs-1) then
     call fatal('balance','error in ibelong',ival=newproc,var='ibelong')
  else
-    call fill_sendbuf(i,xsendbuf)
+    call fill_sendbuf(i,xsendbuf,nbuf)
     ! tag cannot be i, because some MPI implementations do not support large values for the tag
-    call MPI_ISEND(xsendbuf,size(xsendbuf),MPI_DEFAULT_REAL,newproc,0,comm_balance,irequestsend(1),mpierr)
+    call MPI_ISEND(xsendbuf,nbuf,MPI_DEFAULT_REAL,newproc,0,comm_balance,irequestsend(1),mpierr)
 
     !--wait for send to complete, receive whilst doing so
     idone = .false.
@@ -302,7 +306,7 @@ subroutine send_part(i,newproc,replace)
  call kill_particle(i)
 
  nsent(newproc+1) = nsent(newproc+1) + 1
- return
+
 end subroutine send_part
 
 !----------------------------------------------------------------

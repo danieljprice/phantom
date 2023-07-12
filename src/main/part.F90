@@ -325,81 +325,7 @@ module part
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
- integer, parameter :: ipartbufsize = 4 &  ! xyzh
-   +maxvxyzu                            &  ! vxyzu
-   +maxvxyzu                            &  ! vpred
-#ifdef GR
-   +maxvxyzu                            &  ! pxyzu
-   +maxvxyzu                            &  ! ppred
-   +1                                   &  ! dens
-#endif
-   +maxvxyzu                            &  ! fxyzu
-   +3                                   &  ! fext
-   +usedivcurlv                         &  ! divcurlv
-#if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
- +nalpha                              &  ! alphaind
-#endif
-#ifndef ANALYSIS
- +ngradh                              &  ! gradh
-#endif
-#ifdef MHD
- +maxBevol                            &  ! Bevol
-   +maxBevol                            &  ! Bpred
-#endif
-#ifdef RADIATION
- +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
-#endif
-#ifndef ANALYSIS
- +1                                   &  ! iphase
-#endif
-#ifdef DUST
- +3                                   &  ! fxyz_drag
-   +3                                   &  ! fxyz_dragold
-   +maxdusttypes                        &  ! dustfrac
-   +maxdustsmall                        &  ! dustevol
-   +maxdustsmall                        &  ! dustpred
-#ifdef DUSTGROWTH
-   +2                                   &  ! dustprop
-   +2                                   &  ! dustproppred
-   +4                                   &  ! dustgasprop
-#endif
-#endif
-#ifdef H2CHEM
- +nabundances                         &  ! abundance
-#endif
-#ifdef DUST_NUCLEATION
- +1                                   &  ! nucleation rate
- +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
- +1                                   &  ! mean molecular weight
- +1                                   &  ! gamma
- +1                                   &  ! super saturation ratio
- +1                                   &  ! kappa dust
- +1                                   &  ! alpha
-#endif
-#ifdef KROME
- +krome_nmols                         &  ! abundance
-   +1                                   &  ! variable gamma
-   +1                                   &  ! variable mu
-   +1                                   &  ! temperature
-   +1                                   &  ! cooling rate
-#endif
-   +maxeosvars                          &  ! eos_vars
-#ifdef SINK_RADIATION
-   +1                                   &  ! dust temperature
-   +1                                   &  ! optical depth
-#endif
-#ifdef GRAVITY
- +1                                   &  ! poten
-#endif
-#ifdef IND_TIMESTEPS
- +1                                   &  ! ibin
-   +1                                   &  ! ibin_old
-   +1                                   &  ! ibin_wake
-   +1                                   &  ! dt_in
-   +1                                   &  ! twas
-#endif
- +1                                   &  ! iorig
- +0
+ integer, parameter :: ipartbufsize = 128
 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
@@ -654,11 +580,11 @@ subroutine init_part
  endif
  if (store_dust_temperature) dust_temp = -1.
  !-- Initialise dust properties to zero
-#ifdef DUSTGROWTH
- dustprop(:,:)    = 0.
- dustgasprop(:,:) = 0.
- VrelVf(:)        = 0.
-#endif
+ if (use_dustgrowth) then
+    dustprop(:,:)    = 0.
+    dustgasprop(:,:) = 0.
+    VrelVf(:)        = 0.
+ endif
  if (ind_timesteps) then
     ibin(:)       = 0
     ibin_old(:)   = 0
@@ -1348,7 +1274,7 @@ subroutine reorder_particles(iorder,np)
  integer, intent(in) :: iorder(:)
  integer, intent(in) :: np
 
- integer :: isrc
+ integer :: isrc,nbuf
  real    :: xtemp(ipartbufsize)
 
  do i=1,np
@@ -1360,7 +1286,7 @@ subroutine reorder_particles(iorder,np)
     enddo
 
     ! Swap particles around
-    call fill_sendbuf(i,xtemp)
+    call fill_sendbuf(i,xtemp,nbuf)
     call copy_particle_all(isrc,i,.false.)
     call unfill_buffer(isrc,xtemp)
 
@@ -1466,12 +1392,12 @@ end subroutine change_status_pos
 !  to send to another processor
 !+
 !----------------------------------------------------------------
-subroutine fill_sendbuf(i,xtemp)
+subroutine fill_sendbuf(i,xtemp,nbuf)
  use io,       only:fatal
  use mpiutils, only:fill_buffer
  integer, intent(in)  :: i
  real,    intent(out) :: xtemp(ipartbufsize)
- integer :: nbuf
+ integer, intent(out) :: nbuf
 !
 !--package particle information into one simple wrapper
 !
@@ -1547,9 +1473,8 @@ subroutine fill_sendbuf(i,xtemp)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
  endif
- if (nbuf /= ipartbufsize) call fatal('fill_sendbuf','error in send buffer size')
+ if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
- return
 end subroutine fill_sendbuf
 
 !----------------------------------------------------------------
@@ -1638,7 +1563,6 @@ subroutine unfill_buffer(ipart,xbuf)
     divBsymm(ipart) = 0.
  endif
 
- return
 end subroutine unfill_buffer
 
 !----------------------------------------------------------------
