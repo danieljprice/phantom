@@ -31,7 +31,7 @@ contains
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
  use part,  only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth,maxtypes
+ use dim,   only:use_dustgrowth,maxtypes,mpi,inject_parts
  use io,    only:error,id,master,fatal,warning
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
@@ -142,10 +142,14 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef DUSTGROWTH
- if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+ if (.not. use_dustgrowth) then
+    call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+    ierr = 16
+ endif
 #endif
 
- return
+ if (mpi .and. inject_parts) call error(string,'MPI currently not compatible with particle injection')
+
 end subroutine check_compile_time_settings
 
 end module checkoptions

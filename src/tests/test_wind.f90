@@ -42,7 +42,7 @@ subroutine test_wind(ntests,npass)
  use timestep,  only:time,tmax,dt,dtmax,nsteps,dtrad,dtforce,dtcourant,dterr,print_dtlog
  use step_lf_global, only:step,init_step
  use testutils,      only:checkval,update_test_scores
- use dim,            only:isothermal,inject_parts
+ use dim,            only:isothermal,inject_parts,mpi
  use partinject,     only:update_injected_particles
  use timestep_ind,   only:nbinmax
  use wind,           only:trvurho_1D
@@ -54,7 +54,10 @@ subroutine test_wind(ntests,npass)
  integer :: i,ierr,nerror,istepfrac,npart_old,nfailed(9),nwarn
  real :: dtinject,dtlast,t,default_particle_mass,dtext,dtnew,dtprint,dtmaxold,tprint
 
- if (inject_type /= 'wind') then
+ if (mpi) then
+    if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (currently not working with MPI)'
+    return
+ elseif (inject_type /= 'wind') then
     if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (need to compile with wind injection module)'
     return
  else
@@ -166,7 +169,6 @@ subroutine test_wind(ntests,npass)
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(7),'mass accreted')
  call checkval(npart,12180,0,nfailed(8),'number of ejected particles')
  call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(9),'wind mass loss rate')
-
  call update_test_scores(ntests,nfailed,npass)
 
  if (id==master) write(*,"(/,a)") '<-- WIND TEST COMPLETE'

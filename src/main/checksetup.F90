@@ -293,7 +293,8 @@ subroutine check_setup(nerror,nwarn,restart)
 !  warn about external force settings
 !
  if (iexternalforce==iext_star .and. nptmass==0) then
-    print*,'WARNING: iexternalforce=1 does not conserve momentum - use a sink particle at r=0 if you care about this'
+    if (id==master) print "(a,/,a)",'WARNING: iexternalforce=1 does not conserve momentum:',&
+                                    '         use a sink particle at r=0 if you care about this'
     nwarn = nwarn + 1
  endif
 !
@@ -331,15 +332,15 @@ subroutine check_setup(nerror,nwarn,restart)
  if (gravity .or. nptmass > 0) then
     if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
     endif
  endif
  if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then
-    print*,'Cannot use total energy with self gravity or mhd'
+    if (id==master) print*,'Cannot use total energy with self gravity or mhd'
     nerror = nerror + 1
  endif
 !
@@ -347,12 +348,12 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (mhd) then
     if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
-       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       if (id==master) print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
        nwarn = nwarn + 1
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
+          if (id==master) print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif

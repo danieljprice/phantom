@@ -44,19 +44,33 @@ module mpibalance
 
 contains
 
-subroutine allocate_balance_arrays
+!----------------------------------------------------------------
+!+
+!  allocate memory
+!+
+!----------------------------------------------------------------
+subroutine allocate_balance_arrays()
  use allocutils, only:allocate_array
+
  call allocate_array('nsent',       nsent,       nprocs)
  call allocate_array('nexpect',     nexpect,     nprocs)
  call allocate_array('nrecv',       nrecv,       nprocs)
  call allocate_array('countrequest',countrequest,nprocs)
+
 end subroutine allocate_balance_arrays
 
-subroutine deallocate_balance_arrays
+!----------------------------------------------------------------
+!+
+!  deallocate memory
+!+
+!----------------------------------------------------------------
+subroutine deallocate_balance_arrays()
+
  if (allocated(nsent       )) deallocate(nsent       )
  if (allocated(nexpect     )) deallocate(nexpect     )
  if (allocated(nrecv       )) deallocate(nrecv       )
  if (allocated(countrequest)) deallocate(countrequest)
+
 end subroutine deallocate_balance_arrays
 
 !----------------------------------------------------------------
