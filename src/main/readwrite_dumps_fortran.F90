@@ -27,7 +27,7 @@ module readwrite_dumps_fortran
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
  use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid
  implicit none
- 
+
  public :: write_smalldump_fortran,write_fulldump_fortran,read_smalldump_fortran,read_dump_fortran
 
  logical, target, public    :: opened_full_dump_fortran       ! for use in analysis files if user wishes to skip small dumps
@@ -620,7 +620,7 @@ end subroutine write_smalldump_fortran
 
 subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
- use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_parts
+ use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_parts,mpi
  use io,       only:real4,master,iverbose,error,warning ! do not allow calls to fatal in this routine
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
@@ -763,7 +763,11 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !
     if (iblock==1) then
        if (dynamic_bdy .or. inject_parts) then
-          call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
+          if (mpi) then
+             call allocate_memory(max(nparttot,int(maxp_hard/nprocs,kind=8)))
+          else
+             call allocate_memory(max(nparttot,int(maxp_hard,kind=8)))
+          endif
        else
           call allocate_memory(nparttot)
        endif
