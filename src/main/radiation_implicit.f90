@@ -178,7 +178,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
  allocate(ijvar(icompactmax),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
- allocate(vari(2,npart),varij(4,icompactmax),varij2(4,icompactmax),varinew(3,npart),stat=ierr)
+ allocate(vari(2,npart),varij(2,icompactmax),varij2(4,icompactmax),varinew(3,npart),stat=ierr)
  if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew')
 
  !dtimax = dt/imaxstep
@@ -404,13 +404,13 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  integer, intent(in) :: ivar(:,:),ijvar(:)
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
  real, intent(inout) :: radprop(:,:)
- real, intent(out)   :: vari(:,:),EU0(2,npart),varij(4,icompactmax),varij2(4,icompactmax)
+ real, intent(out)   :: vari(:,:),EU0(2,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: cv_effective,pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
          dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi,&
          pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,&
          dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj,c_code,&
-         dWidrlightrhorhom,dWiidrlightrhorhom,dWjdrlightrhorhom,&
+         dWidrlightrhorhom,dWjdrlightrhorhom,&
          pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
@@ -421,7 +421,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dti) &
  !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj) &
- !$omp private(dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom,dWiidrlightrhorhom,cv_effective) &
+ !$omp private(dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom,cv_effective) &
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
 
  do n = 1,ncompact
@@ -525,7 +525,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
        ! Coefficients for p(div(v))/rho term in gas energy equation (e.g. eq 26, Whitehouse & Bate 2004)
        dWidrlightrhorhom = c_code*dWi/dr*pmj/(rhoi*rhoj)
-       dWiidrlightrhorhom = c_code*dWi/dr*pmi/(rhoi*rhoj)
        dWjdrlightrhorhom = c_code*dWj/dr*pmj/(rhoi*rhoj)
 
        pmjdWrijrhoi = pmj*dWi*rij1/rhoi
@@ -546,9 +545,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
        dvzdzi = dvzdzi - dvz*pmjdWruniz
 
        varij(1,icompact) = rhoj
-       varij(2,icompact) = dWiidrlightrhorhom
-       varij(3,icompact) = dWidrlightrhorhom
-       varij(4,icompact) = dWjdrlightrhorhom
+       varij(2,icompact) = 0.5*(dWidrlightrhorhom+dWjdrlightrhorhom)
 
        varij2(1,icompact) = pmjdWrunix
        varij2(2,icompact) = pmjdWruniy
@@ -690,19 +687,18 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  use io,   only:error
  use part, only:dust_temp,nucleation
  integer, intent(in)  :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)     :: vari(:,:),varij(4,icompactmax),EU0(2,npart),radprop(:,:)
+ real, intent(in)     :: vari(:,:),varij(2,icompactmax),EU0(2,npart),radprop(:,:)
  integer, intent(out) :: ierr
  real, intent(inout)  :: varinew(3,npart)
  integer              :: n,i,j,k,icompact
- real                 :: rhoi,rhoj,opacityi,opacityj,bi,bj,b1
- real                 :: dWiidrlightrhorhom,dWidrlightrhorhom,dWjdrlightrhorhom
+ real                 :: rhoi,rhoj,opacityi,opacityj,bi,bj,b1,dWdrlightrhorhom
  real                 :: diffusion_numerator,diffusion_denominator,tempval1,tempval2
 
  ierr = 0
  !$omp do schedule(runtime)&
  !!$omp shared(vari,varij,ivar,ijvar,radprop,ncompact,EU0,varinew,dust_temp,nucleation)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
- !$omp private(dWiidrlightrhorhom,dWidrlightrhorhom,dWjdrlightrhorhom,tempval1,tempval2,icompact)&
+ !$omp private(dWdrlightrhorhom,tempval1,tempval2,icompact)&
  !$omp reduction(max:ierr)
  do n = 1,ncompact
     i = ivar(3,n)
@@ -729,9 +725,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
        icompact = ivar(2,n) + k
        j = ijvar(icompact)
        rhoj = varij(1,icompact)
-       dWiidrlightrhorhom = varij(2,icompact)
-       dWidrlightrhorhom = varij(3,icompact)
-       dWjdrlightrhorhom = varij(4,icompact)
+       dWdrlightrhorhom = varij(2,icompact)
        !
        !--Set c*lambda/kappa*rho term (radiative diffusion coefficient) for current quantities
        !
@@ -753,28 +747,10 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
        !
        !--Diffusion numerator and denominator
        !
-       diffusion_numerator = diffusion_numerator - 0.5*dWidrlightrhorhom*b1*EU0(1,j)*rhoj
-       diffusion_denominator = diffusion_denominator + 0.5*dWidrlightrhorhom*b1*rhoi
-       !
-       !--If particle j is active, need to add contribution due to i for hj
-       !
-       !  if (iactive(iphase(j))) then  !
-       tempval1 = 0.5*dWiidrlightrhorhom*b1
-       tempval2 = tempval1*rhoj
-       tempval1 = tempval1*EU0(1,i)*rhoi
-       !$omp atomic
-       varinew(1,j) = varinew(1,j) - tempval1
-       !$omp atomic
-       varinew(2,j) = varinew(2,j) + tempval2
-       !  else
-       !     diffusion_numerator = diffusion_numerator - 0.5*dWjdrlightrhorhom*b1*EU0(1,J)*rhoj
-       !     diffusion_denominator = diffusion_denominator + 0.5*dWjdrlightrhorhom*b1*rhoi
-       !  endif
-       ! ENDIF         !--iphase(j)==0
+       diffusion_numerator = diffusion_numerator - dWdrlightrhorhom*b1*EU0(1,j)*rhoj
+       diffusion_denominator = diffusion_denominator + dWdrlightrhorhom*b1*rhoi
     enddo
-    !$omp atomic
     varinew(1,i) = varinew(1,i) + diffusion_numerator
-    !$omp atomic
     varinew(2,i) = varinew(2,i) + diffusion_denominator
  enddo
  !$omp end do
