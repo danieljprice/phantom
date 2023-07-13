@@ -247,6 +247,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp end single
  !$omp end parallel
 
+ nit = its
  call do_timing('radits',tlast,tcpulast)
  call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
  call do_timing('radstore',tlast,tcpulast)
