@@ -219,8 +219,8 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     !$omp master
     call do_timing('raddiff',t1,tcpu1)
     !$omp end master
-    call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
-                                     vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
+    call update_gas_radiation_energy(ivar,vari,ncompact,npart,ncompactlocal,&
+                                     radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
     !$omp master
     call do_timing('radupdate',t1,tcpu1)
     !$omp end master
@@ -783,16 +783,16 @@ end subroutine calc_diffusion_term
 !  update gas and radiation energy
 !+
 !---------------------------------------------------------
-subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
-                                       vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
+subroutine update_gas_radiation_energy(ivar,vari,ncompact,npart,ncompactlocal,&
+                                       radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
  use io,      only:fatal,error
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
  use options, only:implicit_radiation_store_drad
- integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,ncompactlocal
- real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:),vxyzu(:,:)
+ integer, intent(in) :: ivar(:,:),ncompact,npart,ncompactlocal
+ real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
  real, intent(inout) :: radprop(:,:),EU0(2,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
  logical, intent(out):: moresweep
@@ -813,9 +813,9 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
  maxerrU2 = 0.
 
  !$omp do schedule(runtime)&
- !!$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
+ !!$omp shared(vari,ivar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
  !!$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad,cv_type) &
- !!$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
+ !!$omp shared(moresweep,pdvvisc,metallicity,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
