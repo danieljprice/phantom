@@ -138,6 +138,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
  use spherical, only: set_sphere
+ use timestep,  only: tmax,dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -288,6 +289,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = wind_gamma
  endif
  polyk = kboltz*T_wind/(mass_proton_cgs * gmw * unit_velocity**2)
+
+ !
+ ! avoid failures in the setup by ensuring that tmax and dtmax are large enough
+ !
+ tmax = max(tmax,100.)
+ dtmax = max(tmax/10.,dtmax)
 
 end subroutine setpart
 
@@ -567,38 +574,48 @@ end subroutine setup_interactive
 
 !----------------------------------------------------------------
 !+
+!  get luminosity and effective radius in code units
+!  from various combinations of L, Teff and Reff in physical inuts
+!+
+!----------------------------------------------------------------
+subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
+ use physcon, only:au,steboltz,solarl,pi
+ use units,   only:udist,unit_luminosity
+ real, intent(inout) :: lum_lsun,reff_au,Teff
+ real, intent(out)   :: lum,Reff
+
+ if (Teff <= tiny(0.) .and. lum_lsun > 0. .and. Reff_au > 0.) then
+     primary_Teff = (lum_lsun*solarl/(4.*pi*steboltz*(Reff_au*au)**2))**0.25
+ elseif (Reff_au <= 0. .and. lum_lsun > 0. .and. Teff > 0.) then
+     Reff_au = sqrt(lum_lsun*solarl/(4.*pi*steboltz*Teff**4))/au
+ elseif (Reff_au > 0. .and. lum_lsun <= 0. .and. Teff > 0.) then
+     lum_lsun = 4.*pi*steboltz*Teff**4*(primary_Reff_au*au)**2/solarl
+ endif
+
+ lum  = lum_lsun*(solarl/unit_luminosity)
+ Reff = Reff_au*(au/udist)
+
+end subroutine get_lum_and_Reff
+
+!----------------------------------------------------------------
+!+
 !  write parameters to setup file
 !+
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use physcon,      only:au,steboltz,solarl,solarm,pi
- use units,        only:utime,unit_energ,udist
  character(len=*), intent(in) :: filename
  integer, parameter           :: iunit = 20
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for wind setup routine'
- if (primary_Teff == 0. .and. primary_lum_lsun > 0. .and. primary_Reff_au > 0.) &
-      primary_Teff = (primary_lum_lsun*solarl/(4.*pi*steboltz*(primary_Reff_au*au)**2))**0.25
- if (primary_Reff_au == 0. .and. primary_lum_lsun > 0. .and. primary_Teff > 0.) &
-      primary_Reff_au = sqrt(primary_lum_lsun*solarl/(4.*pi*steboltz*primary_Teff**4))/au
- if (primary_Reff_au > 0. .and. primary_lum_lsun == 0. .and. primary_Teff > 0.) &
-      primary_lum_lsun = 4.*pi*steboltz*primary_Teff**4*(primary_Reff_au*au)**2/solarl
- primary_lum  = primary_lum_lsun * (solarl * utime / unit_energ)
- primary_Reff = primary_Reff_au*(au / udist)
+
+ call get_lum_and_Reff(primary_lum_lsun,primary_Reff_au,primary_Teff,primary_lum,primary_Reff)
 
  if (icompanion_star == 2) then
-    if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
-         secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
-    if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
-        secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
-    if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
-        secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
+    call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff)
 
-    secondary_Reff = secondary_Reff_au*(au / udist)
-    secondary_lum  = secondary_lum_lsun * (solarl * utime / unit_energ)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     !-- hierarchical triple
     write(iunit,"(/,a)") '# options for hierarchical triple'
@@ -662,13 +679,8 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     if (icompanion_star == 1) then
-       if (secondary_Teff == 0. .and. secondary_lum_lsun > 0. .and. secondary_Reff_au > 0.) &
-            secondary_Teff = (secondary_lum_lsun*solarl/(4.*pi*steboltz*(secondary_Reff_au*au)**2))**0.25
-       if (secondary_Reff_au == 0. .and. secondary_lum_lsun > 0. .and. secondary_Teff > 0.) &
-            secondary_Reff_au = sqrt(secondary_lum_lsun*solarl/(4.*pi*steboltz*secondary_Teff**4))/au
-       if (secondary_Reff_au > 0. .and. secondary_lum_lsun == 0. .and. secondary_Teff > 0.) &
-            secondary_lum_lsun = 4.*pi*steboltz*secondary_Teff**4*(secondary_Reff_au*au)**2/solarl
-       secondary_lum = secondary_lum_lsun * (solarl * utime / unit_energ)
+       call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff)
+
        call write_inopt(secondary_mass_msun,'secondary_mass','secondary star mass (Msun)',iunit)
        call write_inopt(secondary_racc_au,'secondary_racc','secondary star accretion radius (au)',iunit)
        call write_inopt(secondary_lum_lsun,'secondary_lum','secondary star luminosity (Lsun)',iunit)
