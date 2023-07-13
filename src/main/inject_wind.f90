@@ -478,6 +478,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !dr = neighbour_distance*wind_injection_radius
  !dtinject = 0.25*dr/sqrt(cs2max)
  dtinject = min(0.2*time_between_spheres,dtpulsation)
+ if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
 
