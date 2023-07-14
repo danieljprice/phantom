@@ -260,7 +260,7 @@ ifeq ($(SETUP), nshwdisc)
 endif
 
 ifeq ($(SETUP), prtest)
-#   simple test of prdrag
+#   simple test of Poynting-Robertson drag
     SETUPFILE= setup_prtest.f90
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
