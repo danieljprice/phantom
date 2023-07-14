@@ -465,7 +465,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  if (len_trim(restart_file) <= 0) return
 
  print "(/,1x,a)",'>> RESTARTING relaxation from '//trim(restart_file)
- call open_dumpfile_r(idump,restart_file,fileid,ierr)
+ call open_dumpfile_r(idump,restart_file,fileid,ierr,tagged=tagged)
  call read_header(idump,hdr,tagged,ierr)
  close(idump)
  if (ierr /= 0) then
