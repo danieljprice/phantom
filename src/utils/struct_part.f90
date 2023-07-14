@@ -149,10 +149,10 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
     !$omp reduction(+:sf)
     do ipt=1,npts
 !$     if (.false.) then
-          if (mod(ipt,100)==0) then
-             call cpu_time(tcpu2)
-             print*,' ipt = ',ipt,tcpu2-tcpu1
-          endif
+       if (mod(ipt,100)==0) then
+          call cpu_time(tcpu2)
+          print*,' ipt = ',ipt,tcpu2-tcpu1
+       endif
 !$     endif
        i = list(ipt)
        xpt(1) = xyz(1,i)

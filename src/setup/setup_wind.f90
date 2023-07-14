@@ -585,11 +585,11 @@ subroutine get_lum_and_Reff(lum_lsun,reff_au,Teff,lum,Reff)
  real, intent(out)   :: lum,Reff
 
  if (Teff <= tiny(0.) .and. lum_lsun > 0. .and. Reff_au > 0.) then
-     primary_Teff = (lum_lsun*solarl/(4.*pi*steboltz*(Reff_au*au)**2))**0.25
+    primary_Teff = (lum_lsun*solarl/(4.*pi*steboltz*(Reff_au*au)**2))**0.25
  elseif (Reff_au <= 0. .and. lum_lsun > 0. .and. Teff > 0.) then
-     Reff_au = sqrt(lum_lsun*solarl/(4.*pi*steboltz*Teff**4))/au
+    Reff_au = sqrt(lum_lsun*solarl/(4.*pi*steboltz*Teff**4))/au
  elseif (Reff_au > 0. .and. lum_lsun <= 0. .and. Teff > 0.) then
-     lum_lsun = 4.*pi*steboltz*Teff**4*(primary_Reff_au*au)**2/solarl
+    lum_lsun = 4.*pi*steboltz*Teff**4*(primary_Reff_au*au)**2/solarl
  endif
 
  lum  = lum_lsun*(solarl/unit_luminosity)

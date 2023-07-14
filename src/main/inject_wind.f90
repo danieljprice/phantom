@@ -642,7 +642,7 @@ subroutine set_default_options_inject(flag)
        wind_mass_rate_Msun_yr = 1.d-5
        wind_injection_radius_au = 2.
        wind_temperature = 50000.
-    !super sonic-wind
+       !super sonic-wind
     else
        sonic_type = 0
        wind_velocity_km_s = 20.
