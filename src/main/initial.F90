@@ -577,7 +577,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (do_radiation) nderivinit = 1
 
  !$omp parallel do default(none) &
- !$omp shared(eos_vars,fxyzu) &
+ !$omp shared(npart,eos_vars,fxyzu) &
  !$omp private(i)
  do i=1,npart
     eos_vars(3,i) = -1.0 ! initial guess for temperature overridden in eos
