@@ -108,8 +108,9 @@ endif
 ifdef SRCINJECT
     INJECT_PARTICLES=yes
 else
+    # compile with default wind injection modules but INJECT_PARTICLES=yes or no
+    # is still optional in the setup block
     SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
-    INJECT_PARTICLES=no
 endif
 
 #ifndef SRCGROWTH
@@ -283,8 +284,8 @@ ifeq ($(SINK_RADIATION), yes)
     FPPFLAGS += -DSINK_RADIATION
 endif
 
-ifeq ($(WIND), yes)
-    FPPFLAGS += -DWIND -DDUST_NUCLEATION
+ifeq ($(DUST_NUCLEATION), yes)
+    FPPFLAGS += -DDUST_NUCLEATION
 endif
 
 ifdef SRCTURB
