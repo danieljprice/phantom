@@ -691,7 +691,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  !
  ! read header from the dump file
  !
- call read_header(idisk1,hdr,tagged,ierr)
+ call read_header(idisk1,hdr,ierr,tagged=tagged)
  if (ierr /= 0) then
     call error('read_dump','error reading header from file')
     return
@@ -945,7 +945,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
 !
 !--single values
 !
- call read_header(idisk1,hdr,tagged,ierr,singleprec=.true.)
+ call read_header(idisk1,hdr,ierr,singleprec=.true.,tagged=tagged)
  if (ierr /= 0) then
     call error('read_smalldump','error reading header from file')
     return

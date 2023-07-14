@@ -1236,18 +1236,21 @@ end function get_error_text
 !  read the file header into the dump_header structure
 !+
 !-------------------------------------------------------
-subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
+subroutine read_header(iunit,hdr,ierr,singleprec,tagged)
  integer,      intent(in) :: iunit
  type(dump_h), intent(out) :: hdr
- logical,      intent(in)  :: tagged
  integer,      intent(out) :: ierr
  logical,      intent(in), optional :: singleprec
- logical :: convert_prec
+ logical,      intent(in), optional :: tagged
+ logical :: convert_prec,tags
  integer :: i,n
  real(kind=4), allocatable :: dumr4(:)
 
  convert_prec = .false.
  if (present(singleprec)) convert_prec = singleprec
+
+ tags = .true.
+ if (present(tagged)) tags = tagged
 
  do i=1,ndatatypes
     read (iunit, iostat=ierr) n
@@ -1258,42 +1261,42 @@ subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
        allocate(hdr%inttags(n),hdr%intvals(n),stat=ierr)
        if (n > 0) then
           hdr%inttags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%inttags
+          if (tags) read(iunit, iostat=ierr) hdr%inttags
           read(iunit, iostat=ierr) hdr%intvals
        endif
     case(i_int1)
        allocate(hdr%int1tags(n),hdr%int1vals(n),stat=ierr)
        if (n > 0) then
           hdr%int1tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%int1tags
+          if (tags) read(iunit, iostat=ierr) hdr%int1tags
           read(iunit, iostat=ierr) hdr%int1vals
        endif
     case(i_int2)
        allocate(hdr%int2tags(n),hdr%int2vals(n),stat=ierr)
        if (n > 0) then
           hdr%int2tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%int2tags
+          if (tags) read(iunit, iostat=ierr) hdr%int2tags
           read(iunit, iostat=ierr) hdr%int2vals
        endif
     case(i_int4)
        allocate(hdr%int4tags(n),hdr%int4vals(n),stat=ierr)
        if (n > 0) then
           hdr%int4tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%int4tags
+          if (tags) read(iunit, iostat=ierr) hdr%int4tags
           read(iunit, iostat=ierr) hdr%int4vals
        endif
     case(i_int8)
        allocate(hdr%int8tags(n),hdr%int8vals(n),stat=ierr)
        if (n > 0) then
           hdr%int8tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%int8tags
+          if (tags) read(iunit, iostat=ierr) hdr%int8tags
           read(iunit, iostat=ierr) hdr%int8vals
        endif
     case(i_real)
        allocate(hdr%realtags(n),hdr%realvals(n),stat=ierr)
        if (n > 0) then
           hdr%realtags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%realtags
+          if (tags) read(iunit, iostat=ierr) hdr%realtags
           if (convert_prec .and. kind(0.) /= 4) then
              allocate(dumr4(n),stat=ierr)
              read(iunit, iostat=ierr) dumr4
@@ -1307,14 +1310,14 @@ subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
        allocate(hdr%real4tags(n),hdr%real4vals(n),stat=ierr)
        if (n > 0) then
           hdr%real4tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%real4tags
+          if (tags) read(iunit, iostat=ierr) hdr%real4tags
           read(iunit, iostat=ierr) hdr%real4vals
        endif
     case(i_real8)
        allocate(hdr%real8tags(n),hdr%real8vals(n),stat=ierr)
        if (n > 0) then
           hdr%real8tags(:) = ''
-          if (tagged) read(iunit, iostat=ierr) hdr%real8tags
+          if (tags) read(iunit, iostat=ierr) hdr%real8tags
           read(iunit, iostat=ierr) hdr%real8vals
        endif
     end select
