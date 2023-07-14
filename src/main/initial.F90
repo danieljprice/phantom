@@ -576,7 +576,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  if (maxalpha==maxp .and. nalpha >= 0) nderivinit = 2
  if (do_radiation) nderivinit = 1
 
- eos_vars(3,:) = -1.0 ! initial guess for temperature overridden in eos
+ !$omp parallel do default(none) &
+ !$omp shared(eos_vars,fxyzu) &
+ !$omp private(i)
+ do i=1,npart
+    eos_vars(3,i) = -1.0 ! initial guess for temperature overridden in eos
+    fxyzu(:,i) = 0.      ! so that div_a is 0 in first call to viscosity switch
+ enddo
+ !$omp end parallel do
+
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
