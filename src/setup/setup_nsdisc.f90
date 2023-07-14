@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  udist_km = 1.e5/udist   ! code units are cm
  gamma = 1.0
- npart = size(xyzh(1,:))
+ npart = 1e5
  npartoftype(1) = npart
  hfact = 1.2
  time  = 0.

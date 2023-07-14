@@ -27,8 +27,6 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: densityiterate,get_neighbour_stats
 
@@ -891,7 +889,6 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
- return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -926,7 +923,7 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  !--time derivative of div v, needed for Cullen-Dehnen switch
  if (nalpha >= 2) then
     !--Divvdt For switch
-    if (use_exact_linear) then
+    if (use_exact_linear .and. abs(denom) > tiny(denom)) then
        ddenom = 1./denom
        call exactlinear(gradaxdx,gradaxdy,gradaxdz,rhosum(idaxdxi),rhosum(idaxdyi),rhosum(idaxdzi),rmatrix,ddenom)
        call exactlinear(gradaydx,gradaydy,gradaydz,rhosum(idaydxi),rhosum(idaydyi),rhosum(idaydzi),rmatrix,ddenom)

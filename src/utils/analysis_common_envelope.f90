@@ -376,7 +376,7 @@ integer function  FindMinimum(x, Start, Fin)
     endif
  enddo
  findminimum = location            ! return the position
-end function  findminimum
+end function FindMinimum
 
 ! --------------------------------------------------------------------
 ! subroutine  Sort():
@@ -395,7 +395,7 @@ subroutine  Sort(x, longitud)
     location = findminimum(x, i, longitud)  ! find min from this to last
     call swap(x(i), x(location))  ! swap this and the minimum
  enddo
-end subroutine  Sort
+end subroutine Sort
 
 
 !----------------------------------------------------------------

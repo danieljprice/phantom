@@ -25,7 +25,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'steadydisc'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject
 
  real, private :: R_ref,sig_ref
  real, private :: p_index,q_index,HoverR,M_star
@@ -56,8 +57,9 @@ subroutine init_inject(ierr)
  allocate(listinner(maxinj),listouter(maxinj))
 
  if (idamp /= 3) then
-    call error('init_inject','these boundary conditions require idamp=3')
-    ierr = 1
+    call error('init_inject','these boundary conditions require idamp=3: switching it on')
+    idamp = 3
+    ierr = 0
  endif
 
 end subroutine init_inject
@@ -69,7 +71,7 @@ end subroutine init_inject
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                             npart,npartoftype,dtinject)
- use io,      only:id,master
+ use io,      only:id,master,fatal
  use damping, only:r1in,r2in,r1out,r2out
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
@@ -89,9 +91,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  injected = 0
  if (ninner > inject_threshold) then
+    if (ninner > size(listinner)) then
+       call fatal('inject','too many particles outside inner boundary ',var='r',val=r1in)
+    endif
     call inject_particles_in_annulus(r1in,r2in,ninner,injected,listinner)
  endif
  if (nouter > inject_threshold) then
+    if (nouter > size(listouter)) then
+       call fatal('inject','too many particles outside outer boundary ',var='r',val=r2out)
+    endif
     call inject_particles_in_annulus(r1out,r2out,nouter,injected,listouter)
  endif
 
@@ -215,7 +223,8 @@ end subroutine write_options_inject
 !-----------------------------------------------------------------------
 subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use io,           only:error,iunit=>imflow,lenprefix,fileprefix
+ use io,           only:error,fatal,iunit=>imflow,lenprefix,fileprefix
+ use damping,      only:r1in,r2out,r2in,r1out
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -240,18 +249,30 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  if (.not.read_discparams) then
     filename = trim(fileprefix)//'.discparams'
     call open_db_from_file(db,filename,iunit,ierr)
-    if (ierr /= 0) call error('inject','could not open .discparams file')
+    if (ierr /= 0) then
+       call error('inject','could not open .discparams file')
+       return
+    endif
+    call read_inopt(r1in,'R_in',db,errcount=nerr)
+    r2in = 1.19*r1in
+    call read_inopt(r2out,'R_out',db,errcount=nerr)
+    r1out = 0.84*r2out
     call read_inopt(R_ref,'R_ref',db,errcount=nerr)
     call read_inopt(HoverR,'H/R_ref',db,errcount=nerr)
-    call read_inopt(sig_ref,'sig_ref',db,errcount=nerr)
+    call read_inopt(sig_ref,'sig_ref',db,errcount=nerr,min=tiny(0.))
     call read_inopt(M_star,'M_star',db,errcount=nerr)
     call read_inopt(p_index,'p_index',db,errcount=nerr)
     call read_inopt(q_index,'q_index',db,errcount=nerr)
-    if (nerr /= 0) call error('inject','missing parameters in .discparams file',var='errors',ival=nerr)
+    if (nerr /= 0) call fatal('inject','error with parameters in .discparams file',var='errors',ival=nerr)
     call close_db(db)
     if (ierr==0 .and. nerr==0) read_discparams = .true.
  endif
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject

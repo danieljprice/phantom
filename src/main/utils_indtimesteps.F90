@@ -43,7 +43,7 @@ pure real function get_dt(dtmax,ibini)
  real,            intent(in) :: dtmax
  integer(kind=1), intent(in) :: ibini
 
- get_dt = dtmax/2**ibini
+ get_dt = dtmax/2.**ibini
 
 end function get_dt
 

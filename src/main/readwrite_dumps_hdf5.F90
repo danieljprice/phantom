@@ -35,8 +35,6 @@ module readwrite_dumps_hdf5
                                   externalforce_hdf5
 
  implicit none
- character(len=80), parameter, public :: &    ! module version
-   modid="$Id$"
 
  public :: read_dump_hdf5,read_smalldump_hdf5
  public :: write_smalldump_hdf5,write_fulldump_hdf5,write_dump_hdf5

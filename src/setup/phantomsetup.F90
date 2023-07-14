@@ -20,13 +20,13 @@ program phantomsetup
 !   setup_params, systemutils, timestep, units
 !
  use memory,          only:allocate_memory,deallocate_memory
- use dim,             only:tagline,maxp,maxvxyzu,mpi,&
+ use dim,             only:tagline,maxvxyzu,mpi,&
                            ndivcurlv,ndivcurlB,maxp_hard
  use part,            only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype, &
-                           Bxyz,Bextx,Bexty,Bextz,rhoh,iphase,maxphase,&
+                           Bxyz,Bextx,Bexty,Bextz,rhoh,&
                            isetphase,igas,iamtype,labeltype,mhd,init_part
  use setBfield,       only:set_Bfield
- use eos,             only:polyk,gamma,en_from_utherm
+ use eos,             only:polyk,gamma
  use io,              only:set_io_unit_numbers,id,master,nprocs,iwritein,fatal,warning
  use readwrite_dumps, only:init_readwrite_dumps,write_fulldump
  use readwrite_infile,only:write_infile,read_infile
@@ -47,12 +47,11 @@ program phantomsetup
  use krome_interface, only:write_KromeSetupFile
 #endif
  implicit none
- integer                     :: nargs,i,nprocsfake,nerr,nwarn,myid,myid1
+ integer                     :: nargs,nprocsfake,nerr,nwarn,myid,myid1
  integer(kind=8)             :: ntotal,n_alloc
  integer, parameter          :: lenprefix = 120
  character(len=lenprefix)    :: fileprefix
  character(len=lenprefix+10) :: dumpfile,infile,evfile,logfile
- real                        :: pmassi
  logical                     :: iexist
 
  nprocs = 1    ! for MPI, this is not initialised until init_mpi, but an initialised value is required for init_part
@@ -136,20 +135,9 @@ program phantomsetup
 !--perform sanity checks on the output of setpart routine
 !
     call check_setup(nerr,nwarn)
+
     if (nwarn > 0) call warning('initial','warnings during particle setup',var='warnings',ival=nwarn)
     if (nerr > 0)  call fatal('initial','errors in particle setup',var='errors',ival=nerr)
-!
-!--setup defines thermal energy: if we are using the entropy then
-!  we need to convert this into the entropy variable before writing the dump file
-!  (the dump file write converts back to utherm)
-!
-    if (maxvxyzu==4) then
-       pmassi = massoftype(igas)
-       do i=1,npart
-          if (maxphase==maxp) pmassi = massoftype(iamtype(iphase(i)))
-          vxyzu(maxvxyzu,i) = en_from_utherm(vxyzu(:,i),rhoh(xyzh(4,i),pmassi),gamma)
-       enddo
-    endif
 
     if (nprocsfake > 1) then
        ntotal = npart_total
@@ -160,7 +148,7 @@ program phantomsetup
     ! if code is run in relativistic units (c=1)
     if (c_is_unity()) calc_gravitwaves = .true.
 
-    if (id==master) call print_units()
+    if (id==master .and. nerr==0 .and. nwarn==0) call print_units()
 !
 !--dumpfile name should end in .tmp unless density has been calculated
 !  (never true using phantomsetup)

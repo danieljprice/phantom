@@ -43,7 +43,7 @@ program showheader
           ! try to open it as a small dump
           close(iu)
           call open_dumpfile_r(iu,dumpfile,fileid,ierr,singleprec=.true.)
-          if (ierr == 0) call read_header(iu,hdr,.true.,ierr,singleprec=.true.)
+          if (ierr == 0) call read_header(iu,hdr,ierr,singleprec=.true.)
        else
           print "(a)",' ERROR opening '//trim(dumpfile)
        endif
@@ -51,7 +51,7 @@ program showheader
        !
        ! read and print the file header
        !
-       call read_header(iu,hdr,.true.,ierr)
+       call read_header(iu,hdr,ierr)
     endif
     if (ierr == 0) then
        if (nargs > 1) print "(/,':: ',a,' ::',/)",trim(dumpfile)

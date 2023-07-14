@@ -29,7 +29,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'BHL'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject
 !
 !--runtime settings for this module
 !
@@ -100,7 +101,11 @@ subroutine init_inject(ierr)
     size_y = ceiling(3.*wind_cylinder_radius/psep)
     size_z = ceiling(3.*wind_cylinder_radius/(sqrt(3.)*psep/2.))
     do pass=1,2
-       if (pass == 2) allocate(layer_even(2,neven), layer_odd(2,nodd))
+       if (pass == 2) then
+          if (allocated(layer_even)) deallocate(layer_even)
+          if (allocated(layer_odd)) deallocate(layer_odd)
+          allocate(layer_even(2,neven), layer_odd(2,nodd))
+       endif
        neven = 0
        nodd = 0
        do i=1,size_y
@@ -253,6 +258,7 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
     call add_or_update_particle(itype,position_u,velocity_u,h(i)/udist,u(i)/(udist**2/utime**2),&
      ifirst+i-1,npart,npartoftype,xyzh,vxyzu)
  enddo
+
 end subroutine inject_or_update_particles
 
 !-----------------------------------------------------------------------
@@ -328,5 +334,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  igotall = (ngot >= 8)
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject

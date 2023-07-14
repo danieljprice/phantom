@@ -17,18 +17,20 @@ module partinject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, extern_gr, io, metric_tools, options, part,
-!   timestep_ind
+! :Dependencies: cons2prim, dim, extern_gr, io, metric_tools, options,
+!   part, timestep_ind
 !
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: add_or_update_particle, add_or_update_sink
  public :: update_injected_particles
+
+ !
  ! Use this flag if particles are updated rather than injected (e.g. inject_sne)
  ! see inject_sne for use; currently only valid for gas particles
+ !
  logical, public :: updated_particle = .false.
+
  private
 
 contains
@@ -42,12 +44,10 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
- use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot
+ use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin
  use io,   only:fatal
-#ifdef IND_TIMESTEPS
- use part,         only:ibin
+ use dim,  only:ind_timesteps
  use timestep_ind, only:nbinmax
-#endif
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
  real,    intent(in), optional :: JKmuS(:)
@@ -75,32 +75,37 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     npartoftype(itype_old) = npartoftype(itype_old) - 1
     npartoftype(itype) = npartoftype(itype)+1
  endif
+
  call set_particle_type(particle_number,itype)
+
  ! Update particle type, position, size, velocity and energy
  xyzh(1,particle_number) = position(1)
  xyzh(2,particle_number) = position(2)
  xyzh(3,particle_number) = position(3)
  if (itype /= iboundary .or. new_particle) xyzh(4,particle_number) = h
+
  vxyzu(1,particle_number) = velocity(1)
  vxyzu(2,particle_number) = velocity(2)
  vxyzu(3,particle_number) = velocity(3)
  if (maxvxyzu>=4) vxyzu(4,particle_number) = u
+
  fxyzu(:,particle_number) = 0.
  fext(:,particle_number) = 0.
+
  if (mhd) then
     Bevol(:,particle_number) = 0.
     dBevol(:,particle_number) = 0.
     Bxyz(:,particle_number) = 0.
     divBsymm(particle_number) = 0.
  endif
+
  if (ndivcurlv > 0) divcurlv(:,particle_number) = 0.
  if (ndivcurlB > 0) divcurlB(:,particle_number) = 0.
  if (maxalpha==maxp) alphaind(:,particle_number) = 0.
  if (maxgradh==maxp) gradh(:,particle_number) = 0.
  !if (store_dust_temperature) dust_temp(:,particle_number) = 0.
-#ifdef IND_TIMESTEPS
- ibin(particle_number) = nbinmax
-#endif
+
+ if (ind_timesteps) ibin(particle_number) = nbinmax
  if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
 
 end subroutine add_or_update_particle
@@ -125,6 +130,7 @@ subroutine add_or_update_sink(position,velocity,radius,mass,sink_number)
  elseif (sink_number  >  nptmass+1) then
     call fatal('Add sink', 'Incorrect sink number (> maxptmass + 1).')
  endif
+
  ! Update sink position, size, velocity and mass
  xyzmh_ptmass(1,sink_number) = position(1)
  xyzmh_ptmass(2,sink_number) = position(2)
@@ -134,6 +140,7 @@ subroutine add_or_update_sink(position,velocity,radius,mass,sink_number)
  vxyz_ptmass(1,sink_number) = velocity(1)
  vxyz_ptmass(2,sink_number) = velocity(2)
  vxyz_ptmass(3,sink_number) = velocity(3)
+
 end subroutine add_or_update_sink
 
 !-----------------------------------------------------------------------
@@ -144,11 +151,9 @@ end subroutine add_or_update_sink
 !+
 !-----------------------------------------------------------------------
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
-#ifdef IND_TIMESTEPS
+ use dim,          only:ind_timesteps
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin,ibin_old
-#endif
- use part,         only:norig,iorig,iphase,igas,iunknown
+ use part,         only:twas,ibin,ibin_old,norig,iorig,iphase,igas,iunknown
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -162,9 +167,7 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  real,            intent(inout) :: dt
  real,            intent(in)    :: time,dtmax,dtinject
  integer                        :: i
-#ifdef IND_TIMESTEPS
  integer(kind=1)                :: nbinmaxprev
-#endif
 #ifdef GR
  real                           :: dtext_dum
 #endif
@@ -184,24 +187,24 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
  endif
 #endif
 
-#ifdef IND_TIMESTEPS
- ! find timestep bin associated with dtinject
- nbinmaxprev = nbinmax
- call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
- if (nbinmax > nbinmaxprev) then ! update number of bins if needed
-    call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+ if (ind_timesteps) then
+    ! find timestep bin associated with dtinject
+    nbinmaxprev = nbinmax
+    call get_newbin(dtinject,dtmax,nbinmax,allow_decrease=.false.)
+    if (nbinmax > nbinmaxprev) then ! update number of bins if needed
+       call change_nbinmax(nbinmax,nbinmaxprev,istepfrac,dtmax,dt)
+    endif
+    ! put all injected particles on shortest bin
+    do i=npartold+1,npart
+       ibin(i)     = nbinmax
+       ibin_old(i) = nbinmax ! for particle waking to ensure that neighbouring particles are promptly woken
+       twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
+    enddo
+ else
+    ! For global timestepping, reset the timestep, since this is otherwise
+    ! not updated until after the call to step.
+    dt = min(dt,dtinject)
  endif
- ! put all injected particles on shortest bin
- do i=npartold+1,npart
-    ibin(i)     = nbinmax
-    ibin_old(i) = nbinmax ! for particle waking to ensure that neighbouring particles are promptly woken
-    twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
- enddo
-#else
- ! For global timestepping, reset the timestep, since this is otherwise
- ! not updated until after the call to step.
- dt = min(dt,dtinject)
-#endif
 
  ! add particle ID
  do i=npartold+1,npart
@@ -214,11 +217,11 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     do i=1,npart
        if (iphase(i) == iunknown) then
           iphase(i) = igas
-#ifdef IND_TIMESTEPS
-          ibin(i)     = nbinmax
-          ibin_old(i) = nbinmax
-          twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
-#endif
+          if (ind_timesteps) then
+             ibin(i)     = nbinmax
+             ibin_old(i) = nbinmax
+             twas(i)     = time + 0.5*get_dt(dtmax,ibin(i))
+          endif
        endif
     enddo
  endif

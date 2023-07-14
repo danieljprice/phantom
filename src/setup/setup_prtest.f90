@@ -6,16 +6,16 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! this module does setup
+! test of Poynting-Robertson drag, as per Figure 18 of Price et al. (2018)
 !
-! :References: None
+! :References: Price et al. (2018), PASA 35, e031
 !
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: externalforces, io, options, physcon, setup_params,
-!   spherical, units
+! :Dependencies: externalforces, io, kernel, options, physcon,
+!   setup_params, spherical, units
 !
  implicit none
  public :: setpart
@@ -36,8 +36,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use externalforces,only:mass1,iext_prdrag
  use spherical,    only:set_sphere
  use units,        only:set_units
- use physcon,      only:km
- real, parameter :: pi = 3.1415926536
+ use physcon,      only:km,pi
+ use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -48,23 +48,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  real    :: totmass,totvol,psep,rmax,rmin,xyz_orig(3)
- real    :: r, vphi, phi
+ real    :: r,vphi,phi
  integer :: i,np,nx,maxvxyzu
 
- call set_units(dist=10.*km,c=1.)
+ call set_units(dist=10.*km,c=1.d0)
 !
 !--general parameters
 !
  time = 0.
- hfact = 1.2
+ hfact = hfact_default
  gamma = 1.
  rmin  = 0.
  rmax  = 0.05
-
 !
 !--setup particles
 !
- np = 100 !size(xyzh(1,:))
+ np = 100
  maxvxyzu = size(vxyzu(:,1))
  totvol = 4./3.*pi*rmax**3
  nx = int(np**(1./3.))
@@ -76,7 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  npart = 0
  npart_total = 0
 
- xyz_orig(:) = (/0.,100.,0./)
+ xyz_orig(:) = (/0.,200.,0./)
 
  call set_sphere('closepacked',id,master,rmin,rmax,psep,hfact,npart,xyzh, &
                   nptot=npart_total,xyz_origin=xyz_orig)
@@ -108,7 +107,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call warning('setup_prtest','maxvxyzu should not be 4, so set temp=0 for you')
     endif
  enddo
-
 !
 ! --- set input defaults for nonviscous particles in prdrag
 !
@@ -117,8 +115,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  alpha=0.
  beta=0.
 
-
 end subroutine setpart
 
 end module setup
-

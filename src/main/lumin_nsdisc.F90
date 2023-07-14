@@ -17,7 +17,7 @@ module lumin_nsdisc
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, infile_utils, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
 
  use physcon, only: pi
@@ -120,17 +120,11 @@ end subroutine make_grid_points
 subroutine get_grid_bins( r, zt, rbin, ztbin, phi, phibin )
  use physcon, only:pi, twopi
  use io, only : fatal
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  real,    intent(in)  :: r, phi, zt
  integer, intent(out) :: rbin, ztbin, phibin
  real :: B, C, ztnew
-#ifdef FINVSQRT
- rbin  = int( nr*finvsqrt( (rmax-rmin)/((r-rmin))))    !optimized for speed not readability
-#else
+
  rbin  = int( nr*sqrt( (r-rmin)/(rmax-rmin)))
-#endif
 
  B = 2.*(thetamin-thetamax)/(nth)
  C = 2.*(zmin-zmax)/nz

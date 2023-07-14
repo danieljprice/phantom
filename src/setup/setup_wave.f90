@@ -35,7 +35,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,rho_func
  use boundary,     only:set_boundary,xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound
  use mpiutils,     only:bcast_mpi
- use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic
+ use part,         only:labeltype,set_particle_type,igas,idust,dustfrac,periodic,ndustsmall,ndustlarge,ndusttypes
  use physcon,      only:pi
  use kernel,       only:radkern
  use dim,          only:maxvxyzu,use_dust,maxp
@@ -73,6 +73,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  cs      = 1.
  ampl    = 1.d-4
  use_dustfrac = .false.
+ ndustsmall = 0
+ ndustlarge = 0
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
@@ -92,11 +94,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        call prompt('Enter constant drag coefficient',K_code(1),0.)
        if (use_dustfrac) then
           massfac = 1. + dtg
+          ndustsmall = 1
        else
           ntypes  = 2
+          ndustlarge = 1
        endif
     endif
  endif
+ call bcast_mpi(ndustsmall)
+ call bcast_mpi(ndustlarge)
+ ndusttypes = ndustsmall + ndustlarge
  call bcast_mpi(npartx)
 !
 ! boundaries

@@ -118,27 +118,28 @@ end subroutine get_options_from_fileid
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
+                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                        got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_nucleation,got_iorig,iphase,&
+                        got_dustgasprop,got_rad,got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
-                do_radiation,store_dust_temperature,do_nucleation
+                do_radiation,store_dust_temperature,do_nucleation,use_krome
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
- use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
+ use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
+                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
+                itemp,iX,iZ,imu
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
  use dust_formation, only:init_nucleation
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
- logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
+ logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
- logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_nucleation(:),got_pxyzu(:),got_raden(:)
- logical,         intent(in)    :: got_kappa,got_iorig
+ logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
+ logical,         intent(in)    :: got_radprop(:),got_iorig
  integer(kind=1), intent(inout) :: iphase(:)
  integer(kind=8), intent(inout) :: iorig(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
@@ -225,37 +226,37 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     ierr = 9
     return
  endif
-#ifdef KROME
- if (.not.all(got_krome_mols).and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
-!     ierr = 9
-    return
+ if (use_krome) then
+    if (.not.all(got_krome_mols).and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_gamma .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_mu .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_T .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
+       !     ierr = 9
+       return
+    endif
  endif
- if (.not.got_krome_gamma .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
-!     ierr = 9
-    return
- endif
- if (.not.got_krome_mu .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
-!     ierr = 9
-    return
- endif
- if (.not.got_krome_T .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
-!     ierr = 9
-    return
- endif
-#endif
- if (eos_is_non_ideal(ieos) .and. .not.got_temp) then
+ if (eos_is_non_ideal(ieos) .and. .not.got_eosvars(itemp)) then
     if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing temperature information from file'
  endif
- use_var_comp = (got_x .and. got_z .and. got_mu)
+ use_var_comp = (got_eosvars(iX) .and. got_eosvars(iZ) .and. got_eosvars(imu))
  if (store_dust_temperature .and. .not.got_Tdust) then
     if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing dust temperature information from file'
  endif
  if (maxalpha==maxp) then
-    if (got_alpha) then
+    if (got_alpha(1)) then
        if (alphafile < 0.99 .and. tfile > 0.) then
           if (any(alphaind(1,i1:i2) > 1.0 .or. alphaind(1,i1:i2) < 0.)) then
              if (id==master) write(iprint,*) 'ERROR! AV alpha < 0 or alpha > 1 in dump file: using alpha'
@@ -279,27 +280,25 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
+    if (id==master .and. i1==1) write(*,*) 'WARNING! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
-    !ierr = 13
-    return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    ierr = ierr + 1
  endif
- if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-    return
+ if (use_dustgrowth .and. .not.got_dustprop(2)) then
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_VrelVf) then
-    write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_dustgasprop(3)) then
-    write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
+    ierr = ierr + 1
  endif
  !
  ! sink particle arrays
@@ -335,11 +334,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  ! radiation arrays
  !
  if (do_radiation) then
-    if (.not.all(got_raden)) then
+    if (.not.all(got_rad)) then
        if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
        ierr = ierr + 1
     endif
-    if (.not.got_kappa) then
+    if (.not.got_radprop(ikappa)) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif

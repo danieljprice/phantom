@@ -40,8 +40,7 @@ module ptmass
  use part, only:nsinkproperties,gravity,is_accretable
  use io,   only:iscfile,iskfile,id,master
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
+
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
@@ -851,18 +850,16 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
-#ifdef IND_TIMESTEPS
  use part,     only:ibin,ibin_wake
-#endif
  use linklist, only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use eos,           only:gamma,utherm
+ use eos,           only:gamma
  use eos_barotropic,only:gamma_barotropic
  use eos_piecewise, only:gamma_pwp
  use options,  only:ieos
@@ -879,13 +876,10 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(inout) :: xyzmh_ptmass(:,:)
  real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,            intent(in)    :: time
- integer(kind=1)    :: iphasei,ibin_wakei
+ integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
-#ifdef IND_TIMESTEPS
- integer(kind=1)    :: ibin_itest
-#endif
  real, save :: xyzcache(maxcache,3)
  real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
@@ -937,9 +931,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     vzi = vxyzu(3,itest)
     iphasei = iphase(itest)
     divvi = divcurlv(1,itest)
-#ifdef IND_TIMESTEPS
-    ibin_itest = ibin(itest)
-#endif
+    if (ind_timesteps) ibin_itest = ibin(itest)
     if (gravity) poteni = poten(itest)
  endif
 !
@@ -954,10 +946,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  call bcast_mpi(vzi,id_rhomax)
  call bcast_mpi(iphasei,id_rhomax)
  call bcast_mpi(divvi,id_rhomax)
-#ifdef IND_TIMESTEPS
- call bcast_mpi(ibin_itest,id_rhomax)
-#endif
- call bcast_mpi(poteni,id_rhomax)
+ if (ind_timesteps) call bcast_mpi(ibin_itest,id_rhomax)
+ if (gravity) call bcast_mpi(poteni,id_rhomax)
  !
  ! determine radius in which to check the criteria
  !
@@ -1037,9 +1027,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
-#ifdef IND_TIMESTEPS
 !$omp shared(ibin_wake,ibin_itest) &
-#endif
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
@@ -1077,13 +1065,13 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     rij2 = dx*dx + dy*dy + dz*dz
     if (rij2 < hcheck2) then
 
-#ifdef IND_TIMESTEPS
-       ibin_wake(j) = max(ibin_wake(j),ibin_itest)
-       if (.not.iactivej .or. ifail==inosink_active) then
-          ifail = inosink_active
-          cycle over_neigh
+       if (ind_timesteps) then
+          ibin_wake(j) = max(ibin_wake(j),ibin_itest)
+          if (.not.iactivej .or. ifail==inosink_active) then
+             ifail = inosink_active
+             cycle over_neigh
+          endif
        endif
-#endif
 
        nneigh_act = nneigh_act + 1
 
@@ -1115,7 +1103,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        if (itypej==igas) then
           rhoj = rhoh(xyzh(4,j),pmassj)
           if (maxvxyzu >= 4) then
-             etherm = etherm + pmassj*utherm(vxyzu(:,j),rhoj,gamma)
+             etherm = etherm + pmassj*vxyzu(4,j)
           else
              if (ieos==2 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)

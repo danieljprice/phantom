@@ -49,7 +49,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerianshear'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+           set_default_options_inject
  public :: set_injection_parameters
 
  type injectparams
@@ -206,6 +207,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(injp%HoverR, 'HoverR', 'disc aspect ratio at inner sector radius', iunit)
  call write_inopt(injp%disc_mass,'disc_mass', 'total disc mass', iunit)
  call write_inopt(injp%object_mass,'object_mass', 'mass of the central object', iunit)
+
 end subroutine write_options_inject
 
 !-----------------------------------------------------------------------
@@ -273,6 +275,11 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 subroutine set_injection_parameters(R_in, R_out, Rsect_in,Rsect_out,dr_bound,&
  phimax,phi_inject,p_index,q_index,HoverR,disc_mass,object_mass)
@@ -375,14 +382,11 @@ subroutine determine_particle_status(nqueue, nkill, nboundary, ndomain, nexit)
 
  enddo
 
- return
 end subroutine determine_particle_status
-
 
 !----
 ! Subroutine fills the injection zones with boundary particles
 !---
-
 subroutine replenish_injection_zone(ninject,time,dtlast,injected)
  use eos,        only:polyk,gamma
  use io,         only:id,master
@@ -501,15 +505,12 @@ subroutine replenish_injection_zone(ninject,time,dtlast,injected)
 
  enddo
 
- return
 end subroutine replenish_injection_zone
 
 !----------------------------------
 ! Rotates a particle in the z axis
 !----------------------------------
-
 subroutine rotate_particle_z(xyz,vxyz,phi)
-
  real, intent(inout) :: phi, xyz(3), vxyz(3)
  real :: x,y,vx,vy
 
@@ -525,12 +526,11 @@ subroutine rotate_particle_z(xyz,vxyz,phi)
  vxyz(1) = vx*cos(phi) - vy*sin(phi)
  vxyz(2) = vx*sin(phi) + vy*cos(phi)
 
- return
 end subroutine rotate_particle_z
 
 !----------------------------------
 !+
-! Rotates a single vector in the z axis
+!  Rotates a single vector in the z axis
 !+
 !-----------------------------------
 
@@ -541,15 +541,13 @@ subroutine rotate_vector_z(oldvec,newvec,phi)
  newvec(1) = oldvec(1)*cos(phi) - oldvec(2)*sin(phi)
  newvec(2) = oldvec(1)*sin(phi) + oldvec(2)*cos(phi)
 
- return
 end subroutine rotate_vector_z
 
-!
+!-----------------------------------------------------------------------
 !+
 ! Helper function to calculate polar co-ordinates from x,y
 !+
-!
-
+!-----------------------------------------------------------------------
 subroutine calc_polar_coordinates(r,phi,x,y)
 
  real, intent(in) :: x,y
@@ -558,9 +556,7 @@ subroutine calc_polar_coordinates(r,phi,x,y)
  r = sqrt(x*x + y*y)
  phi = atan2(y,x)
 
- return
 end subroutine calc_polar_coordinates
-
 
 !-----------------------------------------------------------------------
 !+
@@ -568,7 +564,6 @@ end subroutine calc_polar_coordinates
 !  for a disc mass, inner and outer radii and the powerlaw index
 !+
 !-----------------------------------------------------------------------
-
 real function sigma0(Mdisc, Rinner, Router, p_index)
  real, intent(in) :: Mdisc,Rinner, Router, p_index
 

@@ -411,7 +411,7 @@ end subroutine write_evfile
 !----------------------------------------------------------------
 subroutine write_evlog(iprint)
  use dim,           only:maxp,maxalpha,mhd,maxvxyzu,periodic,mhd_nonideal,&
-                         use_dust,maxdusttypes,do_radiation,particles_are_injected
+                         use_dust,maxdusttypes,do_radiation,inject_parts
  use energies,      only:ekin,etherm,emag,epot,etot,rmsmach,vrms,accretedmass,mdust,mgas,xyzcom
  use energies,      only:erad
  use part,          only:nptmass,ndusttypes
@@ -425,7 +425,7 @@ subroutine write_evlog(iprint)
  character(len=120)  :: string,Mdust_label(maxdusttypes)
  integer             :: i
 
- if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. particles_are_injected .or. iverbose > 0) then
+ if (ndead > 0 .or. nptmass > 0 .or. icreate_sinks > 0 .or. inject_parts .or. iverbose > 0) then
     write(iprint,"(1x,4(a,I10))") 'npart=',npartall,', n_alive=',npartall-ndead, &
                                   ', n_dead_or_accreted=',ndead,', nptmass=',nptmass
  endif
@@ -445,8 +445,10 @@ subroutine write_evlog(iprint)
  endif
  write(iprint,"(1x,3(a,es10.3))") "Centre of Mass = ",xyzcom(1),", ",xyzcom(2),", ",xyzcom(3)
 
- write(iprint,"(1x,a,'(max)=',es10.3,' (mean)=',es10.3,' (max)=',es10.3,a)") &
+ if (ev_data(iev_max,iev_rho) > 0.) then ! avoid floating point exception if no gas particles
+    write(iprint,"(1x,a,'(max)=',es10.3,' (mean)=',es10.3,' (max)=',es10.3,a)") &
       'density  ',ev_data(iev_max,iev_rho),ev_data(iev_ave,iev_rho),ev_data(iev_max,iev_rho)*unit_density,' g/cm^3'
+ endif
 
  if (use_dustfrac) then
     write(iprint,"(1x,a,'(max)=',es10.3,1x,'(mean)=',es10.3,1x,'(min)=',es10.3)") &
@@ -466,11 +468,11 @@ subroutine write_evlog(iprint)
 
  string = ''
  if (maxalpha==maxp) then
-    write(string,"(a,'(max)=',es10.3)") ' alpha',ev_data(iev_max,iev_alpha)
+    if (ev_data(iev_max,iev_alpha) > 0.) write(string,"(a,'(max)=',es10.3)") ' alpha',ev_data(iev_max,iev_alpha)
  endif
  if (len_trim(string) > 0) write(iprint,"(a)") trim(string)
 
- if (irealvisc /= 0) then
+ if (irealvisc /= 0 .and. npartall > 0) then
     if (periodic) then
        if (irealvisc==1) then
           write(iprint,"(1x,1(a,'=',es10.3,', '),(a,'=',es10.3))") &
@@ -479,9 +481,8 @@ subroutine write_evlog(iprint)
     endif
     write(iprint,"(1x,1(a,'(max)=',es10.3,', '),('(mean)=',es10.3),(' (min)=',es10.3))") &
          'Ratio of physical-to-art. visc',ev_data(iev_max,iev_viscrat),ev_data(iev_min,iev_viscrat)
- else
-    write(iprint,"(1x,1(a,'=',es10.3))") &
-        'RMS Mach #',rmsmach
+ elseif (npartall > 0) then
+    write(iprint,"(1x,1(a,'=',es10.3))") 'RMS Mach #',rmsmach
  endif
 
  if (mhd) then
