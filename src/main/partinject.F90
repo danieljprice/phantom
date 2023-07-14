@@ -17,8 +17,8 @@ module partinject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, extern_gr, io, metric_tools, options, part,
-!   timestep_ind
+! :Dependencies: cons2prim, dim, extern_gr, io, metric_tools, options,
+!   part, timestep_ind
 !
  implicit none
 

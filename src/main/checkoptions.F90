@@ -14,7 +14,7 @@ module checkoptions
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, metric_tools, part
+! :Dependencies: dim, io, metric_tools, mpiutils, part
 !
  implicit none
  public :: check_compile_time_settings

@@ -14,9 +14,9 @@ module testwind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, damping, dim, eos, inject, io,
-!   options, part, partinject, physcon, step_lf_global, testutils,
-!   timestep, timestep_ind, units, wind
+! :Dependencies: boundary, checksetup, dim, eos, inject, io, options, part,
+!   partinject, physcon, step_lf_global, testutils, timestep, timestep_ind,
+!   units, wind
 !
  implicit none
  public :: test_wind
