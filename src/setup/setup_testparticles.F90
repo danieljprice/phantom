@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! None
+! setup for test particles
 !
 ! :References: None
 !
@@ -41,12 +41,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,        only:iexternalforce,alpha,alphamax,alphau,beta,nfulldump
  use units,          only:set_units
  use physcon,        only:solarm
-#ifdef GR
- use externalforces, only:iext_gr
- use metric,         only:a
-#else
  use externalforces, only:iext_star
-#endif
+ use metric,         only:a
  use eos,            only:ieos
  use physcon,        only:pi
  use prompting,      only:prompt
@@ -70,7 +66,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! general parameters
  !
  time  = 0.
- gamma = 1.
+ if (gr) then
+    gamma = 5./3. ! GR cannot have gamma=1
+ else
+    gamma = 1.
+ endif
  polyk = 0.
  npart = 10
  ieos  = 11
@@ -192,12 +192,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i) = rtan*vcirc
  enddo
 
-#ifdef GR
- iexternalforce = iext_gr
- a              = spin
-#else
- iexternalforce = iext_star
-#endif
+ a = spin
+ if (.not.gr) iexternalforce = iext_star
 
 end subroutine setpart
 

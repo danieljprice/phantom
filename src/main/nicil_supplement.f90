@@ -23,7 +23,7 @@ module nicil_sup
 !   - alpha_AD       : *power law exponent for ambipolar diffusion*
 !   - an_grain       : *minimum grain radius (cm)*
 !   - ax_grain       : *maximum grain radius (cm)*
-!   - eta_const_type : *Coefficient type: phys.cnst+B+rho (1), C_NI+B+rho (2), C_NI (3)*
+!   - eta_const_type : *Coefficient type: (1) phys.cnst+B+rho (2) C_NI+B+rho (3) constant*
 !   - eta_constant   : *Use constant coefficients for all non-ideal MHD terms*
 !   - fdg            : *dust-to-gas mass ratio*
 !   - gamma_AD       : *ion-neutral coupling coefficient for ambipolar diffusion*
@@ -85,7 +85,7 @@ subroutine write_options_nicil(iunit)
  call write_inopt(use_ambi,    'use_ambi'    ,'Calculate the coefficient for ambipolar diffusion',iunit)
  call write_inopt(eta_constant,'eta_constant','Use constant coefficients for all non-ideal MHD terms',iunit)
  if ( eta_constant ) then
-    call write_inopt(eta_const_type,'eta_const_type','Coefficient type: phys.cnst+B+rho (1), C_NI+B+rho (2), C_NI (3)',iunit)
+    call write_inopt(eta_const_type,'eta_const_type','Coefficient type: (1) phys.cnst+B+rho (2) C_NI+B+rho (3) constant',iunit)
     if ( eta_const_type==1 ) then
        if ( use_ohm .or. use_hall  ) then
           call write_inopt(n_e_cnst,'n_e_cnst' ,'constant electron number density',iunit)

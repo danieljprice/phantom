@@ -25,8 +25,6 @@ module linklist
  use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  integer,               allocatable :: cellatid(:)
  integer,     public,   allocatable :: ifirstincell(:)

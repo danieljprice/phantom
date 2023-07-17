@@ -409,7 +409,7 @@ subroutine read_options_dust(name,valstring,imatch,igotall,ierr)
  end select
 
  !--Check that we have just the *necessary* parameters
- if (all(ineed == igot)) igotall = .true.
+ if (all(igot >= ineed)) igotall = .true.
 
 end subroutine read_options_dust
 

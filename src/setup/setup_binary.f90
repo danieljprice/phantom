@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters:
 !   - O            : *position angle of ascending node (deg)*
-!   - a            : *semi-major axis (e.g. 1 au) or period (e.g. 10*days)*
+!   - a            : *semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1*
 !   - corotate     : *set stars in corotation*
 !   - eccentricity : *eccentricity*
 !   - f            : *initial true anomaly (180=apoastron)*

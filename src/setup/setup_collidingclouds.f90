@@ -50,7 +50,6 @@ module setup
  real               :: cs_cloud(Ncloud_max)
  real               :: rms_mach(Ncloud_max),density_contrast,T_bkg,plasmaB,Bzero,angB(3)
  real               :: r_crit_setup,h_acc_setup,h_soft_sinksink_setup,rho_crit_cgs_setup
- real(kind=8)       :: udist,umass
  logical            :: input_plasmaB
  character(len= 1), parameter :: labelx(4) = (/'x','y','z','r'/)
 
@@ -70,7 +69,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use boundary_dyn, only:width_bkg,rho_thresh_bdy,rho_bkg_ini,dxyz,vbdyx,vbdyy,vbdyz,in_domain,irho_bkg_ini
  use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
+ use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity,umass,udist
  use eos,          only:polyk2,gmw
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,periodic
  use timestep,     only:dtmax,tmax
@@ -81,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink,rho_crit_cgs
  use cooling,      only:Tfloor
- use setunits,     only:dist_unit,mass_unit
+ use setunits,     only:dist_unit,mass_unit,set_units_interactive
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -109,7 +108,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical            :: iexist,in_cloud,make_sinks
  logical            :: moving_bkg   = .true.   ! For each component, will set the background velocity to that of the clouds, if the clouds are the same
  character(len=120) :: filex,filey,filez
- character(len=100) :: filename,cwd
+ character(len=100) :: filename
  character(len= 40) :: fmt,lattice
  character(len= 10) :: h_acc_char
 !
@@ -129,19 +128,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  input_plasmaB = .false.
  make_sinks    = .true.
  dynamic_bdy   = .true.
+ dist_unit = 'pc'
+ mass_unit = 'solarm'
 
- call getcwd(cwd)
- print*, index(cwd,'gpfs1/scratch/astro/jhw5')
- if (index(cwd,'gpfs1/scratch/astro/jhw5') > 0 .or. index(cwd,'data/dp187/dc-wurs1') > 0 ) then
-    ! Kennedy or Dial
-    filex  = find_phantom_datafile(filevx,'velfield_sphng')
-    filey  = find_phantom_datafile(filevy,'velfield_sphng')
-    filez  = find_phantom_datafile(filevz,'velfield_sphng')
- else
-    filex  = find_phantom_datafile(filevx,'velfield')
-    filey  = find_phantom_datafile(filevy,'velfield')
-    filez  = find_phantom_datafile(filevz,'velfield')
- endif
+ filex  = find_phantom_datafile(filevx,'velfield')
+ filey  = find_phantom_datafile(filevy,'velfield')
+ filez  = find_phantom_datafile(filevz,'velfield')
 !
 !--Read setup file, else prep prompt user for inputs
 !
@@ -156,36 +148,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (id==master) call write_setupfile(filename)
        stop
     endif
-    do i = 1,Ncloud
-       v2max = max(v2max,v_cloud(1,i)**2 + v_cloud(2,i)**2 +v_cloud(3,i)**2)
-    enddo
  elseif (id==master) then
     print "(a,/)",trim(filename)//' not found: using interactive setup'
-    dist_unit = 'pc'
-    mass_unit = 'solarm'
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter mass unit (e.g. solarm,jupiterm,earthm)',mass_unit)
-       call select_unit(mass_unit,umass,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: mass unit not recognised'
-    enddo
-    ierr = 1
-    do while (ierr /= 0)
-       call prompt('Enter distance unit (e.g. au,pc,kpc,0.1pc)',dist_unit)
-       call select_unit(dist_unit,udist,ierr)
-       if (ierr /= 0) print "(a)",' ERROR: length unit not recognised'
-    enddo
     !
     ! units
     !
-    call set_units(dist=udist,mass=umass,G=1.d0)
+    call set_units_interactive()
     !
     ! prompt user for settings
     !
     Ncloud = 2
     npmax        = int(2.0/3.0*size(xyzh(1,:)))/(2*Ncloud) ! approx max number allowed in sphere given size(xyzh(1,:))
     np           = npmax
-    np           = 30000
+    np           = 10000
     v_cloud      =   0.0       ! velocity in km/s
     r_cloud(1,:) =  50.0       ! semi-major-axis (x) in pc
     r_cloud(2,:) =  12.5       ! semi-minor-axis (y) in pc
@@ -343,6 +318,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--general parameters of the cloud
  !
+ do i = 1,Ncloud
+    v2max = max(v2max,v_cloud(1,i)**2 + v_cloud(2,i)**2 +v_cloud(3,i)**2)
+ enddo
  v_cloud    = v_cloud/(unit_velocity*1.d-5)        ! from km/s -> code units
  v2max      = v2max  /(unit_velocity*1.d-5)**2     ! from km/s -> code units
  vol_cloud  = 4./3.*pi*r_cloud(1,:)*r_cloud(2,:)*r_cloud(3,:)

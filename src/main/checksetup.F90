@@ -38,7 +38,7 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
@@ -90,12 +90,6 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
-#ifndef KROME
- if (gamma <= 0.) then
-    print*,'WARNING! gamma not set (should be set > 0 even if not used)'
-    nwarn = nwarn + 1
- endif
-#endif
  if (hfact < 1. .or. isnan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -104,17 +98,21 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
-#ifdef KROME
- if (ieos /= 19) then
-    print*, 'KROME setup. Only eos=19 makes sense.'
-    nerror = nerror + 1
+ if (use_krome) then
+    if (ieos /= 19) then
+       print*, 'KROME setup. Only eos=19 makes sense.'
+       nerror = nerror + 1
+    endif
+ else
+    if (polyk < tiny(0.) .and. ieos /= 2) then
+       print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
+       nwarn = nwarn + 1
+    endif
+    if (gamma <= 0.) then
+       print*,'WARNING! gamma not set (should be set > 0 even if not used)'
+       nwarn = nwarn + 1
+    endif
  endif
-#else
- if (polyk < tiny(0.) .and. ieos /= 2) then
-    print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
-    nwarn = nwarn + 1
- endif
-#endif
  if (npart < 0) then
     print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -295,7 +293,8 @@ subroutine check_setup(nerror,nwarn,restart)
 !  warn about external force settings
 !
  if (iexternalforce==iext_star .and. nptmass==0) then
-    print*,'WARNING: iexternalforce=1 does not conserve momentum - use a sink particle at r=0 if you care about this'
+    if (id==master) print "(a,/,a)",'WARNING: iexternalforce=1 does not conserve momentum:',&
+                                    '         use a sink particle at r=0 if you care about this'
     nwarn = nwarn + 1
  endif
 !
@@ -333,15 +332,15 @@ subroutine check_setup(nerror,nwarn,restart)
  if (gravity .or. nptmass > 0) then
     if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
        nerror = nerror + 1
     endif
  endif
  if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then
-    print*,'Cannot use total energy with self gravity or mhd'
+    if (id==master) print*,'Cannot use total energy with self gravity or mhd'
     nerror = nerror + 1
  endif
 !
@@ -349,12 +348,12 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (mhd) then
     if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
-       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       if (id==master) print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
        nwarn = nwarn + 1
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
+          if (id==master) print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
@@ -405,7 +404,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check radiation setup
 !
- if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
+ if (do_radiation) call check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 !
 !--check dust growth arrays
 !
@@ -610,7 +609,7 @@ end subroutine check_setup_ptmass
 !+
 !------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
- use part, only:dustprop,dustprop_label
+ use part, only:dustprop,dustprop_label,iamdust,iphase,maxphase,maxp
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  integer :: i,j,nbad(4)
@@ -619,12 +618,16 @@ subroutine check_setup_growth(npart,nerror)
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
     do j=1,2
-       if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
+       if (maxphase==maxp) then
+          if (iamdust(iphase(i)) .and. dustprop(j,i) <= 0.) nbad(j) = nbad(j) + 1
+       elseif (dustprop(j,i) < 0.) then
+          nbad(j) = nbad(j) + 1
+       endif
     enddo
  enddo
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: dustgrowth: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' <= 0'
        nerror = nerror + 1
     endif
  enddo
@@ -712,13 +715,13 @@ subroutine check_setup_dustgrid(nerror,nwarn)
           nerror = nerror + 1
        endif
     enddo
+    do i=1,ndusttypes
+       if (grainsize(i) > 10.*km/udist) then
+          print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
+          nwarn = nwarn + 1
+       endif
+    enddo
  endif
- do i=1,ndusttypes
-    if (grainsize(i) > 10.*km/udist) then
-       print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
-       nwarn = nwarn + 1
-    endif
- enddo
 
 end subroutine check_setup_dustgrid
 
@@ -904,45 +907,56 @@ end subroutine check_for_identical_positions
 
 !------------------------------------------------------------------
 !+
-! 1) check for optically thin particles when mcfost is disabled,
-! as the particles will then be overlooked if they are flagged as thin
-! 2) check that radiation energy is never negative to begin with
-! 3) check for NaNs
+!  1) check for optically thin particles when mcfost is disabled,
+!     as the particles will then be overlooked if they are flagged as thin
+!  2) check that radiation energy is never negative to begin with
+!  3) check for NaNs
 !+
 !------------------------------------------------------------------
-subroutine check_setup_radiation(npart, nerror, radprop, rad)
+subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
- integer, intent(inout) :: nerror
+ integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: rad(:,:), radprop(:,:)
- integer :: i, nthin, nradEn, nkappa
+ integer :: i,nthin,nradEn,nkappa,nwarn_en
 
  nthin = 0
  nradEn = 0
  nkappa = 0
- do i=1, npart
-    if (radprop(ithick, i) < 0.5) nthin=nthin + 1
-    if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
-    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa=nkappa + 1
+ nwarn_en = 0
+ do i=1,npart
+    if (radprop(ithick, i) < 0.5) nthin = nthin + 1
+    if (rad(iradxi, i) < 0.) nradEn = nradEn + 1
+    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa = nkappa + 1
+    if (rad(iradxi, i) <= 0.) nwarn_en = nwarn_en + 1
  enddo
 
  if (nthin > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nthin,' of ',npart,&
     ' particles are being treated as optically thin without MCFOST being compiled'
     nerror = nerror + 1
  endif
 
  if (nradEn > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nradEn,' of ',npart,&
-    ' particles have negative radiation Energy'
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nradEn,' of ',npart,&
+    ' particles have negative radiation energy'
     nerror = nerror + 1
  endif
 
+ if (nwarn_en > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nwarn_en,' of ',npart,&
+    ' particles have radiation energy equal to zero'
+    nwarn = nwarn + 1
+ endif
+
  if (nkappa > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nkappa,' of ',npart,&
     ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
+
+ call check_NaN(npart,rad,'radiation_energy',nerror)
+ call check_NaN(npart,radprop,'radiation properties',nerror)
 
 end subroutine check_setup_radiation
 

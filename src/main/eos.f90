@@ -53,7 +53,7 @@ module eos
  logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0.
 
- public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
+ public  :: equationofstate,setpolyk,eosinfo,get_mean_molecular_weight
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  public  :: get_local_u_internal
@@ -720,63 +720,6 @@ real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
  end select
 
 end function get_u_from_rhoT
-
-
-!-----------------------------------------------------------------------
-!+
-!  the following two functions transparently handle evolution
-!  of the entropy instead of the thermal energy
-!+
-!-----------------------------------------------------------------------
-real function utherm(vxyzui,rho,gammai)
- real, intent(in) :: vxyzui(4),rho,gammai
- real             :: gamm1,en
-
- en = vxyzui(4)
- if (gr) then
-    utherm = en
- elseif (ien_type == ien_entropy) then
-    gamm1 = (gammai - 1.)
-    if (gamm1 > tiny(gamm1)) then
-       utherm = (en/gamm1)*rho**gamm1
-    else
-       stop 'gamma=1 using entropy evolution'
-    endif
- elseif (ien_type == ien_etotal) then
-    utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
- else
-    utherm = en
- endif
-
-end function utherm
-
-!-----------------------------------------------------------------------
-!+
-!  function to transparently handle evolution of the entropy
-!  instead of the thermal energy
-!+
-!-----------------------------------------------------------------------
-real function en_from_utherm(vxyzui,rho,gammai)
- real, intent(in) :: vxyzui(4),rho,gammai
- real             :: gamm1,utherm
-
- utherm = vxyzui(4)
- if (gr) then
-    en_from_utherm = utherm
- elseif (ien_type == ien_entropy) then
-    gamm1 = gammai - 1.
-    if (gamm1 > tiny(gamm1)) then
-       en_from_utherm = gamm1*utherm*rho**(1.-gamma)
-    else
-       stop 'gamma=1 using entropy evolution'
-    endif
- elseif (ien_type == ien_etotal) then
-    en_from_utherm = utherm + 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
- else
-    en_from_utherm = utherm
- endif
-
-end function en_from_utherm
 
 !-----------------------------------------------------------------------
 !+

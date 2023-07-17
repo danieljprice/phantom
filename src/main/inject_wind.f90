@@ -28,45 +28,32 @@ module inject
 !   infile_utils, injectutils, io, options, part, partinject, physcon,
 !   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
 !
- use dim,               only:isothermal
+ use dim, only:isothermal,nucleation
 
  implicit none
  character(len=*), parameter, public :: inject_type = 'wind'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject,wind_injection_radius
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      wind_injection_radius,set_default_options_inject
  private
 !
 !--runtime settings for this module
 !
 ! Read from input file
-#ifdef DUST_NUCLEATION
- integer:: sonic_type = 1
- real::    wind_velocity_km_s = 0.
- real::    wind_mass_rate_Msun_yr = 1.d-5
- real::    wind_injection_radius_au = 2.37686663
- real::    wind_temperature = 2500.
-#elif ISOTHERMAL
- integer:: sonic_type = 1
- real::    wind_velocity_km_s = 0.
- real::    wind_mass_rate_Msun_yr = 8.2d-8
- real::    wind_injection_radius_au = 0.
- real::    wind_temperature
-#else
- integer:: sonic_type = 0
- real::    wind_velocity_km_s = 30.
- real::    wind_mass_rate_Msun_yr = 1.d-8
- real::    wind_injection_radius_au = 1.1
- real::    wind_temperature = 3000.
-#endif
- integer :: iboundary_spheres = 5
- integer :: iwind_resolution = 10
- integer :: nfill_domain = 10
+ integer:: sonic_type = -1
+ integer:: iboundary_spheres = 5
+ integer:: iwind_resolution = 5
+ integer:: nfill_domain = 0
+ real :: wind_velocity_km_s
+ real :: wind_mass_rate_Msun_yr
+ real :: wind_injection_radius_au
+ real :: wind_temperature
  real :: outer_boundary_au = 30.
  real :: wind_shell_spacing = 1.
  real :: pulsation_period
  real :: pulsation_period_days = 0.
  real :: piston_velocity_km_s = 0.
- real :: dtpulsation = 1.d99
+ real :: dtpulsation = huge(0.)
 
 ! global variables
  integer, parameter :: wind_emitting_sink = 1
@@ -255,8 +242,8 @@ subroutine init_inject(ierr)
  if ( .not. pulsating_wind .or. nfill_domain > 0) then
     tboundary = (iboundary_spheres+nfill_domain)*time_between_spheres
     tend      = max(tmax,tboundary)*utime
-    call save_windprofile(Rinject*udist,wind_injection_speed*unit_velocity,&
-         wind_temperature, outer_boundary_au*au, tend, tcross, 'wind_profile1D.dat')
+    call save_windprofile(real(Rinject*udist),real(wind_injection_speed*unit_velocity),&
+         wind_temperature,real(outer_boundary_au*au), tend, tcross, 'wind_profile1D.dat')
     if (tboundary > tmax) then
        print *,'simulation time < time to reach the last boundary shell'
     endif
@@ -337,7 +324,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use io,                only:fatal,iverbose
  use wind,              only:interp_wind_profile !,wind_profile
  use part,              only:igas,iTeff,iReff,iboundary,nptmass,delete_particles_outside_sphere,&
-      delete_dead_particles_inside_radius,dust_temp,n_nucleation
+                             delete_dead_particles_inside_radius,dust_temp,n_nucleation
  use partinject,        only:add_or_update_particle
  use injectutils,       only:inject_geodesic_sphere
  use units,             only:udist, utime
@@ -379,7 +366,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !
     i = npart
     inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
-    if (outer_boundary_au > Rinject) call delete_particles_outside_sphere(x0,outer_boundary_au*au/udist,npart)
+    if (outer_boundary_au > Rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
     if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
 
@@ -387,7 +374,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        time_period = 0.
        if (do_molecular_cooling) then
           r_compOrb   = sqrt(sum((xyzmh_ptmass(1:3,2)-xyzmh_ptmass(1:3,1))**2))
-          call fit_spherical_wind(xyzh,vxyzu,r_compOrb,outer_boundary_au*au/udist,npart,fit_rho_inner_new,&
+          call fit_spherical_wind(xyzh,vxyzu,r_compOrb,real(outer_boundary_au*au/udist),npart,fit_rho_inner_new,&
                fit_rho_power_new,fit_vel_new)
           ! catch poor fit values and revert to previous value
           if (fit_rho_inner_new > 0. .and. fit_rho_inner_new < 1) fit_rho_inner    = fit_rho_inner_new
@@ -491,6 +478,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !dr = neighbour_distance*wind_injection_radius
  !dtinject = 0.25*dr/sqrt(cs2max)
  dtinject = min(0.2*time_between_spheres,dtpulsation)
+ if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
 
@@ -559,19 +547,19 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
  use part,   only: rhoh
 
  ! Data dictionary: Arguments
- real,intent(in)                        :: xyzh(:,:), vxyzu(:,:)
- integer, intent(in)                    :: n_part
- double precision, intent(out)          :: n0, m, v_inf
- double precision, intent(in)           :: r_sep, r_outer
+ real,intent(in)     :: xyzh(:,:), vxyzu(:,:)
+ integer, intent(in) :: n_part
+ real, intent(out)   :: n0, m, v_inf
+ real, intent(in)    :: r_sep, r_outer
 
  ! Data dictionary: Additional parameters for calculations
- double precision, dimension(:), allocatable :: allR, allRho, allV
- double precision, dimension(:), allocatable :: density_fit_compZone, velocity_cutoff
- double precision, dimension(:), allocatable :: density_log_noCompZone, density_fit_noCompZone
- double precision, dimension(:), allocatable :: radius_log_noCompZone, radius_fit_noCompZone
- double precision, parameter                 :: radius_cutoffFactor2 = 9d-1
- integer                                     :: n_velocity, n_density_noCompZone, n_density_compZone,i
- double precision                            :: radius_cutoff1, radius_cutoff2
+ real, dimension(:), allocatable :: allR, allRho, allV
+ real, dimension(:), allocatable :: density_fit_compZone, velocity_cutoff
+ real, dimension(:), allocatable :: density_log_noCompZone, density_fit_noCompZone
+ real, dimension(:), allocatable :: radius_log_noCompZone, radius_fit_noCompZone
+ real, parameter                 :: radius_cutoffFactor2 = 9d-1
+ integer                         :: n_velocity, n_density_noCompZone, n_density_compZone,i
+ real                            :: radius_cutoff1, radius_cutoff2
 
  allocate(allR(n_part))
  allocate(allRho(n_part))
@@ -629,6 +617,43 @@ subroutine fit_spherical_wind(xyzh,vxyzu,r_sep, r_outer, n_part, n0, m, v_inf)
 
 end subroutine fit_spherical_wind
 
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+ integer :: icase
+
+ if (present(flag)) then
+    icase = flag
+ else
+    icase = 0
+ endif
+
+ if (isothermal) then
+    sonic_type = 1
+    wind_velocity_km_s = 0.
+    wind_mass_rate_Msun_yr = 8.2d-8
+    wind_injection_radius_au = 0.
+ else
+    !trans-sonic wind
+    if (icase == 1) then
+       sonic_type = 1
+       wind_velocity_km_s = 0.
+       wind_mass_rate_Msun_yr = 1.d-5
+       wind_injection_radius_au = 2.
+       wind_temperature = 50000.
+       !super sonic-wind
+    else
+       sonic_type = 0
+       wind_velocity_km_s = 20.
+       wind_mass_rate_Msun_yr = 1.d-5
+       wind_injection_radius_au = 2.
+       wind_temperature = 2500.
+    endif
+ endif
+
+end subroutine set_default_options_inject
+
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -639,7 +664,7 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# options controlling particle injection'
+ if (sonic_type < 0) call set_default_options_inject
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)

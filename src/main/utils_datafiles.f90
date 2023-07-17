@@ -209,10 +209,10 @@ logical function has_write_permission(dir)
 
  has_write_permission = .true.
  open(newunit=iunit,file=trim(dir)//'data.tmp.abcd',action='write',iostat=ierr)
- if (ierr /= 0) then
-    has_write_permission = .false.
- endif
- close(iunit,status='delete')
+ if (ierr /= 0) has_write_permission = .false.
+
+ close(iunit,status='delete',iostat=ierr)
+ if (ierr /= 0) has_write_permission = .false.
 
 end function has_write_permission
 

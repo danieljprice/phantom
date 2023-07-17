@@ -14,7 +14,7 @@ module checkoptions
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, metric_tools, part
+! :Dependencies: dim, io, metric_tools, mpiutils, part
 !
  implicit none
  public :: check_compile_time_settings
@@ -30,9 +30,10 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,  only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,   only:use_dustgrowth,maxtypes
- use io,    only:error,id,master,fatal,warning
+ use part,     only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts
+ use io,       only:error,id,master,fatal,warning
+ use mpiutils, only:barrier_mpi
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
  use dim,          only:maxsts
@@ -142,10 +143,16 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef DUSTGROWTH
- if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+ if (.not. use_dustgrowth) then
+    call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+    ierr = 16
+ endif
 #endif
 
- return
+ if (mpi .and. inject_parts) call error(string,'MPI currently not compatible with particle injection')
+
+ call barrier_mpi
+
 end subroutine check_compile_time_settings
 
 end module checkoptions

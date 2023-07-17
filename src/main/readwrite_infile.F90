@@ -66,9 +66,9 @@ module readwrite_infile
 !
 ! :Dependencies: boundary_dyn, cooling, damping, dim, dust, dust_formation,
 !   eos, externalforces, forcing, gravwaveutils, growth, infile_utils,
-!   inject, io, linklist, metric, nicil_sup, options, part, photoevap,
-!   ptmass, ptmass_radiation, radiation_implicit, radiation_utils,
-!   timestep, viscosity
+!   inject, io, linklist, metric, nicil_sup, options, part, ptmass,
+!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
+!   viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
@@ -82,7 +82,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -105,19 +105,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use linklist,        only:write_inopts_link
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
-#ifdef PHOTO
- use photoevap,       only:write_options_photoevap
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
 #endif
  use dust_formation,  only:write_options_dust_formation
-#ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
-#endif
-#ifdef GR
  use metric,          only:write_options_metric
-#endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
  use ptmass_radiation,only:write_options_ptmass_radiation
@@ -269,24 +262,20 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (use_dust) call write_options_dust(iwritein)
  if (use_dustgrowth) call write_options_growth(iwritein)
 
-#ifdef PHOTO
- call write_options_photoevap(iwritein)
-#endif
-
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
- if (nucleation) call write_options_dust_formation(iwritein)
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
+
+ if (nucleation) call write_options_dust_formation(iwritein)
 
  if (sink_radiation) then
     write(iwritein,"(/,a)") '# options controling radiation pressure from sink particles'
     call write_options_ptmass_radiation(iwritein)
  endif
-#ifdef NONIDEALMHD
- call write_options_nicil(iwritein)
-#endif
+
+ if (mhd_nonideal) call write_options_nicil(iwritein)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
@@ -301,16 +290,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
     endif
  endif
-#ifdef GR
- call write_options_metric(iwritein)
-#endif
+ if (gr) call write_options_metric(iwritein)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
- return
 end subroutine write_infile
 
 !-----------------------------------------------------------------
@@ -332,19 +318,12 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
-#ifdef GR
  use metric,          only:read_options_metric
-#endif
-#ifdef PHOTO
- use photoevap,       only:read_options_photoevap
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
  use dust_formation,  only:read_options_dust_formation,idust_opacity
-#ifdef NONIDEALMHD
  use nicil_sup,       only:read_options_nicil
-#endif
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
@@ -366,7 +345,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
+ logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
  integer, parameter :: nrequired = 1
 
@@ -382,7 +361,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallturb     = .true.
  igotalldust     = .true.
  igotallgrowth   = .true.
- igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
  igotallinject   = .true.
@@ -557,12 +535,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
-#ifdef GR
-       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-#endif
-#ifdef PHOTO
-       if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
-#endif
+       if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
@@ -570,9 +543,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
-#ifdef NONIDEALMHD
-       if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
-#endif
+       if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
@@ -599,7 +570,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallphoto  .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
+                    .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
@@ -619,7 +590,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalldust) write(*,*) 'missing dust options'
           if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
-          if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
           if (.not.igotallextern) then
              if (gr) then
                 write(*,*) 'missing GR quantities (eg: accretion radius)'

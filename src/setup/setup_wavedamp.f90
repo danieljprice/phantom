@@ -9,7 +9,9 @@ module setup
 ! This module initialises the wave damping test, as per
 !   Choi et al. 2009 (has been generalised for additional studies)
 !
-! :References: None
+! :References:
+!   Wurster, Price & Ayliffe (2014), MNRAS 444, 1104 (Section 4.1)
+!   Wurster, Price & Bate (2016), MNRAS 457, 1037
 !
 ! :Owner: Daniel Price
 !
@@ -25,7 +27,7 @@ module setup
 !   - nx        : *Particles in the x-direction*
 !   - ohmtest   : *Testing Ohmic resistivity*
 !   - polyk     : *Initial polyk*
-!   - realvals  : *Using physical values (F: arbitrary values)*
+!   - realvals  : *Using physical units (F: arbitrary units)*
 !   - rect      : *Using rectangular cp grid (F: cubic cp grid)*
 !   - rhoin     : *Initial density*
 !   - viscoff   : *Using no viscosity (F: using viscosity*
@@ -35,21 +37,20 @@ module setup
 !   nicil, options, part, physcon, prompting, setup_params, timestep,
 !   unifdis, units
 !
- use part,    only:mhd
- use nicil,   only:use_ohm,use_hall,use_ambi
- use nicil,   only:eta_constant,eta_const_type,C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst
- use nicil,   only:n_e_cnst,rho_i_cnst,rho_n_cnst,gamma_AD,alpha_AD,hall_lt_zero
- !
+ use part,  only:mhd
+ use nicil, only:use_ohm,use_hall,use_ambi
+ use nicil, only:eta_constant,eta_const_type,C_OR,C_HE,C_AD,icnstphys,icnstsemi,icnst
+ use nicil, only:n_e_cnst,rho_i_cnst,rho_n_cnst,gamma_AD,alpha_AD,hall_lt_zero
  implicit none
  integer, private :: nx
  real,    private :: kwave,amplitude,polykin,rhoin0,Bxin0
  logical, private :: realvals,geo_cp,rect
  logical, private :: isowave,kx_kxy,vx_vz,viscoff,ambitest,halltest,ohmtest
- !
+
  public :: setpart
- !
+
  private
- !
+
 contains
 !----------------------------------------------------------------
 !+
@@ -114,9 +115,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--Prompt the user for relevant input to create .setup if file does not already exist
  !
  setupname=trim(fileprefix)//'.setup'
- print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)", '  Wave-damping test.'
+ print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)", '  Wave damping test.'
  inquire(file=setupname,exist=jexist)
  if (jexist) call read_setupfile(setupname,ierr)
+
  if ( (ierr /= 0 .or. .not.iexist .or. .not.jexist) .and. id==master) then
     ! Set defaults
     realvals  = .false.
@@ -360,7 +362,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  write(*,*) "setup: total volume  = ",dxbound*dybound*dzbound
 
 end subroutine setpart
-!-----------------------------------------------------------------------
+
+!------------------------------------------------------------------------
+!+
+!  write options to .setup file
+!+
+!------------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils,        only:  write_inopt
  character(len=*), intent(in) :: filename
@@ -368,13 +375,15 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for wave-dampening setup routines'
+ write(iunit,"(a)") '# input file for wave damping setup routines'
+
  write(iunit,"(/,a)") '# units and orientation'
- call write_inopt(realvals,'realvals','Using physical values (F: arbitrary values)',iunit)
+ call write_inopt(realvals,'realvals','Using physical units (F: arbitrary units)',iunit)
  if (mhd) call write_inopt(isowave,'isowave','Modelling a sound wave (F: Alfven wave)',iunit)
  call write_inopt(kx_kxy,'kx_kxy','Using wavenumber in x only (F: initialise in x,y)',iunit)
  call write_inopt(vx_vz,'vx_vz','Using velocity in x (F: initialise in z)',iunit)
  call write_inopt(viscoff,'viscoff','Using no viscosity (F: using viscosity',iunit)
+
  write(iunit,"(/,a)") '# Grid setup'
  call write_inopt(geo_cp,'geo_cp','Using close-packed grid (F: cubic).',iunit)
  if (geo_cp) call write_inopt(rect,'rect','Using rectangular cp grid (F: cubic cp grid)',iunit)
@@ -384,6 +393,7 @@ subroutine write_setupfile(filename)
  if (mhd  .and. .not. isowave) call write_inopt(Bxin0,'Bxin','Initial x-magnetic field',iunit)
  call write_inopt(amplitude,'amplitude','Initial wave amplitude',iunit)
  call write_inopt(kwave,'kwave','Wavenumber (k/pi)',iunit)
+
  write(iunit,"(/,a)") '# Test problem and values'
  if (mhd) then
     call write_inopt(ambitest,'ambitest','Testing ambipolar diffusion',iunit)
@@ -393,7 +403,12 @@ subroutine write_setupfile(filename)
  close(iunit)
 
 end subroutine write_setupfile
-!-----------------------------------------------------------------------
+
+!------------------------------------------------------------------------
+!+
+!  read options from .setup file
+!+
+!------------------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  character(len=*), intent(in)  :: filename
@@ -424,7 +439,6 @@ subroutine read_setupfile(filename,ierr)
     call read_inopt(ohmtest, 'ohmtest', db,ierr)
     if (ohmtest)  use_ohm  = .true.
  endif
-
  call close_db(db)
 
 end subroutine read_setupfile
