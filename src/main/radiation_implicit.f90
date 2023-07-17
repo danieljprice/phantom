@@ -193,15 +193,21 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
 
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
- !$omp parallel
+ !$omp parallel default(none) &
+ !$omp shared(tlast,tcpulast,ncompact,ncompactlocal,npart,icompactmax,dt) &
+ !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0) &
+ !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
+ !$omp private(t1,tcpu1)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
  !$omp master
  call do_timing('radarrays',tlast,tcpulast)
  !$omp end master
 
+ !$omp single
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
+ !$omp end single
 
  iterations: do its=1,itsmax_rad
     !$omp master
@@ -230,10 +236,13 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
       !$omp end single
     endif
+    !$omp single
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
-    if (converged) exit iterations
 
     maxerrU2last = maxerrU2
+    !$omp end single
+    !$omp flush(converged)
+    if (converged) exit iterations
  enddo iterations
 
  !$omp single
@@ -413,8 +422,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
 
  c_code = get_c_code()
  !$omp do &
- !!$omp shared(EU0,radprop,rad,xyzh,vxyzu,c_code,vari,ivar,ijvar,varij,varij2,dvdx,dxbound,dybound,dzbound) &
- !!$omp shared(dust_temp,ncompactlocal,ncompact,massoftype,iopacity_type,nucleation,dt,gradh,cv_type) &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dti) &
  !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
  !$omp private(v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj) &
@@ -584,7 +591,6 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij
 
  !$omp do schedule(runtime)&
- !!$omp shared(vari,ivar,EU0,varij2,ijvar,varij,ncompact,radprop,varinew)&
  !$omp private(i,j,k,n,dedxi,dedyi,dedzi,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)
 
@@ -637,12 +643,12 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,i
  integer, intent(in) :: ivar(:,:),ncompactlocal,npart
  real, intent(in)    :: vari(:,:),EU0(2,npart)
  real, intent(inout) :: radprop(:,:)
- integer             :: n,i,ierr
+ integer, intent(out) :: ierr
+ integer             :: n,i
  real                :: rhoi,gradE1i,opacity,radRi
 
  ierr = 0
  !$omp do schedule(runtime)&
- !!$omp shared(vari,ivar,radprop,ncompactlocal,EU0,dust_temp,nucleation,limit_radiation_flux) &
  !$omp private(i,n,rhoi,gradE1i,opacity,radRi) &
  !$omp reduction(max:ierr)
  do n = 1,ncompactlocal
@@ -695,7 +701,6 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
 
  ierr = 0
  !$omp do schedule(runtime)&
- !!$omp shared(vari,varij,ivar,ijvar,radprop,ncompact,EU0,varinew,dust_temp,nucleation)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
  !$omp private(dWiidrlightrhorhom,dWidrlightrhorhom,dWjdrlightrhorhom,tempval1,tempval2,icompact)&
  !$omp reduction(max:ierr)
@@ -811,9 +816,6 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
  maxerrU2 = 0.
 
  !$omp do schedule(runtime)&
- !!$omp shared(vari,ivar,ijvar,radprop,rad,ncompact,ncompactlocal,EU0,varinew) &
- !!$omp shared(dvdx,origEU,nucleation,dust_temp,eos_vars,implicit_radiation_store_drad,cv_type) &
- !!$omp shared(moresweep,pdvvisc,metallicity,vxyzu,iopacity_type,a_code,c_code,massoftype,drad,fxyzu) &
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
