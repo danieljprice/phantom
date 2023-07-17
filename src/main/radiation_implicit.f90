@@ -148,10 +148,12 @@ end subroutine save_radiation_energies
 subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
+ use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
  use physcon, only:pi
  use kernel,  only:radkern
  use timing,  only:get_timings
  use derivutils, only:do_timing
+ use options,    only:implicit_radiation_store_drad
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
@@ -159,7 +161,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: errorE,errorU,EU0(2,npart)
  integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average,its
+ integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average,its_global,its
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
  real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -194,22 +196,25 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radneighlist',tlast,tcpulast,start=.true.)
 
  !$omp parallel default(none) &
- !$omp shared(tlast,tcpulast,ncompact,ncompactlocal,npart,icompactmax,dt) &
+ !$omp shared(tlast,tcpulast,ncompact,ncompactlocal,npart,icompactmax,dt,its_global) &
  !$omp shared(xyzh,vxyzu,ivar,ijvar,varinew,radprop,rad,vari,varij,varij2,origEU,EU0) &
+ !$omp shared(pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,implicit_radiation_store_drad) &
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
- !$omp private(t1,tcpu1)
+ !$omp private(t1,tcpu1,its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
                   xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0)
+
  !$omp master
  call do_timing('radarrays',tlast,tcpulast)
  !$omp end master
 
- !$omp single
+ !$omp critical(maxerrE2last)
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
- !$omp end single
+ !$omp end critical(maxerrE2last)
 
  iterations: do its=1,itsmax_rad
+
     !$omp master
     call get_timings(t1,tcpu1)
     !$omp end master
@@ -225,36 +230,41 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     !$omp master
     call do_timing('raddiff',t1,tcpu1)
     !$omp end master
+
     call update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
-                                     vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
+                                     vxyzu,radprop,rad,origEU,varinew,EU0,&
+                                     pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
+                                     implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2)
+
     !$omp master
     call do_timing('radupdate',t1,tcpu1)
     !$omp end master
 
+    !$omp critical
     if (iverbose >= 2) then
-      !$omp single
-      print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
-      !$omp end single
+       print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
     endif
-    !$omp single
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
-
     maxerrU2last = maxerrU2
-    !$omp end single
-    !$omp flush(converged)
+    !$omp end critical
+
     if (converged) exit iterations
+
  enddo iterations
 
- !$omp single
+ !$omp critical(its)
+ its_global = its    ! save the iteration count, should be same on all threads
+ !$omp end critical(its)
+
+ !$omp end parallel
+
  if (converged) then
     if (iverbose >= 0) print "(1x,a,i4,a,es10.3,a,es10.3)", &
-          trim(label)//': succeeded with ',its,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
+          trim(label)//': succeeded with ',its_global,' iterations: xi err:',maxerrE2,' u err:',maxerrU2
  else
     call warning('radiation_implicit','maximum iterations reached')
     moresweep = .true.
  endif
- !$omp end single
- !$omp end parallel
 
  call do_timing('radits',tlast,tcpulast)
  call store_radiation_results(ncompactlocal,npart,ivar,EU0,rad,vxyzu)
@@ -787,17 +797,21 @@ end subroutine calc_diffusion_term
 !+
 !---------------------------------------------------------
 subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlocal,&
-                                       vxyzu,radprop,rad,origEU,varinew,EU0,moresweep,maxerrE2,maxerrU2)
+                                       vxyzu,radprop,rad,origEU,varinew,EU0,&
+                                       pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu, &
+                                       store_drad,moresweep,maxerrE2,maxerrU2)
  use io,      only:fatal,error
- use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
- use options, only:implicit_radiation_store_drad
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,ncompactlocal
  real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:),vxyzu(:,:)
+ real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
+ real, intent(in)    :: eos_vars(:,:)
+ real, intent(inout) :: drad(:,:),fxyzu(:,:),nucleation(:,:),dust_temp(:)
  real, intent(inout) :: radprop(:,:),EU0(2,npart)
  real, intent(out)   :: maxerrE2,maxerrU2
+ logical, intent(in) :: store_drad
  logical, intent(out):: moresweep
  integer             :: i,j,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
@@ -812,8 +826,11 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
  a_code = get_radconst_code()
  c_code = get_c_code()
  moresweep = .false.
+ !$omp single
  maxerrE2 = 0.
  maxerrU2 = 0.
+ !$omp end single
+ !$omp barrier
 
  !$omp do schedule(runtime)&
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
@@ -1053,7 +1070,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
     radprop(icv,i) = get_cv(rhoi,EU0(2,i),cv_type)
     radprop(ikappa,i) = get_kappa(iopacity_type,EU0(2,i),radprop(icv,i),rhoi)
 
-    if (implicit_radiation_store_drad) then  ! use this for testing
+    if (store_drad) then  ! use this for testing
        drad(iradxi,i) = (E1i - origEU(1,i))/dti  ! dxi/dt
        fxyzu(4,i) = (U1i - origEU(2,i))/dti      ! du/dt
     endif
