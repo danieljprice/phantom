@@ -42,6 +42,8 @@ module dust_formation
 
  real, public :: kappa_gas   = 2.d-4
  real, public, parameter :: Scrit = 2. ! Critical saturation ratio
+ real, public :: mass_per_H, eps(nElements)
+ real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
  private
 
@@ -85,9 +87,6 @@ module dust_formation
        2.26786d+05, -1.43775d+05, 2.92429d+01, 1.69434d-04, -1.79867d-08], shape(coefs)) !C2
  real, parameter :: vfactor = sqrt(kboltz/(2.*pi*atomic_mass_unit*12.01))
  !real, parameter :: vfactor = sqrt(kboltz/(8.*pi*atomic_mass_unit*12.01))
-
- real, public :: mass_per_H, eps(nElements)
- real, public :: Aw(nElements) = [1.0079, 4.0026, 12.011, 15.9994, 14.0067, 20.17, 28.0855, 32.06, 55.847, 47.867]
 
 contains
 
@@ -673,8 +672,8 @@ subroutine write_headeropts_dust_formation(hdr,ierr)
 ! initial gas composition for dust formation
  call set_abundances
  call add_to_rheader(eps,'epsilon',hdr,ierr) ! array
- call add_to_rheader(Aw,'Amean',hdr,ierr) ! array
- call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! array
+ call add_to_rheader(Aw,'Amean',hdr,ierr)    ! array
+ call add_to_rheader(mass_per_H,'mass_per_H',hdr,ierr) ! real
 
 end subroutine write_headeropts_dust_formation
 
@@ -687,11 +686,23 @@ subroutine read_headeropts_dust_formation(hdr,ierr)
  use dump_utils, only:dump_h,extract
  type(dump_h), intent(in)  :: hdr
  integer,      intent(out) :: ierr
+ real :: dum(nElements)
+
 
  ierr = 0
- call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
- call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
- call extract('mass_per_H',mass_per_H,hdr,ierr) ! array
+ call extract('mass_per_H',mass_per_H,hdr,ierr) ! real
+ ! it is likely that your dump was generated with an old version of phantom
+ ! and the chemical properties not stored. restore and save the default values
+ if (mass_per_H < tiny(0.)) then
+    print *,'reset dust chemical network properties'
+    call set_abundances
+    call extract('epsilon',dum(1:nElements),hdr,ierr) ! array
+    call extract('Amean',dum(1:nElements),hdr,ierr) ! array
+ else
+    call extract('epsilon',eps(1:nElements),hdr,ierr) ! array
+    call extract('Amean',Aw(1:nElements),hdr,ierr) ! array
+ endif
+
 
 end subroutine read_headeropts_dust_formation
 
