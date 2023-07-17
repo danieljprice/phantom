@@ -1,7 +1,7 @@
 Getting your code to pass the github actions
 ============================================
 
-On every pull request a sequence of continuous integration tests 
+On every pull request a sequence of continuous integration tests
 are performed to check that code is safe to merge into master.
 The scripts in the .github/workflows directory are as follows:
 
@@ -101,28 +101,22 @@ A non-exhaustive list of possible arguments are as follows:
 The buildbot
 ~~~~~~~~~~~~
 
-The buildbot runs nightly and checks that the code compiles in all of
+The buildbot also runs in an action and checks that the code compiles in all of
 the possible SETUP configurations in the Makefile. You can run this
-yourself as follows:
-
-::
+offline as follows::
 
    cd phantom/scripts
    ./buildbot.sh
 
-Because some of the setups are compiled with large static arrays which
-may exceed the memory limits of your local machine, you can optionally
-check only those setups that have idim less than some value, e.g.:
+If you want to check only those SETUPS that were failing in the actions,
+edit the buildbot.sh script and override the allsetups= line, e.g::
 
-::
+```
+allsetups='disc empty'
+```
 
-   cd phantom/scripts
-   ./buildbot.sh 1000000
-
-which checks only SETUPs with maxp set to 1 million particles or fewer.
-
-FAQ on common reasons for failure
-=================================
+Common reasons for failure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 We enforce the following policies in merging to the master branch:
 
 1. Code must compile and run with and without DEBUG=yes
@@ -130,4 +124,49 @@ We enforce the following policies in merging to the master branch:
 3. Code must compile with no warnings when compiled with gfortran (enforced with NOWARN=yes which adds the -Werror flag)
 4. Testsuite must work with and without MPI, i.e. compile with MPI=yes
 
+How to reproduce the github build environment offline
+======================================================
+Just occasionally it is hard to reproduce a failure in the actions. It *is*
+possible to recreate the github actions environment offline, using a Docker container.
+I suggest to do this *only* as a last resort. The recommended steps are::
 
+Running the actions locally
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Install [Docker](https://docs.docker.com/desktop/install/mac-install/)
+2. Install [act](https://github.com/nektos/act)
+3. run the pull_request workflow::
+```
+act pull_request
+```
+
+Checking the phantom build that is failing manually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you just want to check things manually but in the same environment
+as used in the actions, try the following::
+
+1. Install [Docker](https://docs.docker.com/desktop/install/mac-install/)
+2. Install Docker command line tools::
+```
+brew install docker
+```
+3. Install the ubuntu-latest image in Docker, e.g. by typing in a terminal [around 6.5Gb download]::
+```
+docker pull nektos/act-environments-ubuntu:18.04
+```
+3. Run the image, and proceed to run phantom build checks manually::
+```
+git clone https://github.com/danieljprice/phantom
+mkdir -p runs/mydisc
+cd runs/mydisc
+~/phantom/scripts/writemake.sh disc > Makefile
+export DEBUG=yes
+export PHANTOM_DIR=~/phantom
+make
+make setup
+make analysis
+make moddump
+./phantomsetup disc
+./phantomsetup disc
+./phantomsetup disc
+./phantom disc
+```

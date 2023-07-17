@@ -50,11 +50,21 @@ module timing
                                  itimer_force         = 9,  &
                                  itimer_force_local   = 10, &
                                  itimer_force_remote  = 11, &
-                                 itimer_cons2prim     = 12, &
-                                 itimer_extf          = 13, &
-                                 itimer_ev            = 14, &
-                                 itimer_io            = 15
- integer, public, parameter :: ntimers = 15 ! should be equal to the largest itimer index
+                                 itimer_radiation     = 12, &
+                                 itimer_rad_save      = 13, &
+                                 itimer_rad_neighlist = 14, &
+                                 itimer_rad_arrays    = 15, &
+                                 itimer_rad_its       = 16, &
+                                 itimer_rad_flux      = 17, &
+                                 itimer_rad_lambda    = 18, &
+                                 itimer_rad_diff      = 19, &
+                                 itimer_rad_update    = 20, &
+                                 itimer_rad_store     = 21, &
+                                 itimer_cons2prim     = 22, &
+                                 itimer_extf          = 23, &
+                                 itimer_ev            = 24, &
+                                 itimer_io            = 25
+ integer, public, parameter :: ntimers = 25 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -81,6 +91,16 @@ subroutine setup_timers
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_radiation   , 'radiation',   itimer_step  )
+ call init_timer(itimer_rad_save    , 'save',        itimer_radiation  )
+ call init_timer(itimer_rad_neighlist,'neighlist',   itimer_radiation  )
+ call init_timer(itimer_rad_arrays  , 'arrays',      itimer_radiation  )
+ call init_timer(itimer_rad_its     , 'its',         itimer_radiation  )
+ call init_timer(itimer_rad_flux    , 'flux',        itimer_rad_its    )
+ call init_timer(itimer_rad_lambda  , 'lambda',      itimer_rad_its    )
+ call init_timer(itimer_rad_diff    , 'diff',        itimer_rad_its    )
+ call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
+ call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_extf        , 'extf',        itimer_step  )
  call init_timer(itimer_ev          , 'write_ev',    0            )

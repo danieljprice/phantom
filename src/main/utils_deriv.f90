@@ -16,7 +16,9 @@ module derivutils
 !
 ! :Dependencies: io, mpiutils, timing
 !
- use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_extf,itimer_balance,itimer_cons2prim
+ use timing, only: timers,itimer_dens,itimer_force,itimer_link,itimer_extf,itimer_balance,itimer_cons2prim,&
+                   itimer_radiation,itimer_rad_save,itimer_rad_neighlist,itimer_rad_arrays,itimer_rad_its,&
+                   itimer_rad_flux,itimer_rad_lambda,itimer_rad_diff,itimer_rad_update,itimer_rad_store
 
  implicit none
 
@@ -39,21 +41,47 @@ subroutine do_timing(label,tlast,tcpulast,start,lunit)
  real(kind=4),     intent(inout) :: tlast,tcpulast
  logical,          intent(in), optional :: start
  integer,          intent(in), optional :: lunit
+ integer                                :: itimer
  real(kind=4) :: t2,tcpu2,tcpu,twall
 
  call get_timings(t2,tcpu2)
  twall = reduce_mpi('+',t2-tlast)
  tcpu  = reduce_mpi('+',tcpu2-tcpulast)
 
- if (label=='dens') then
-    call increment_timer(itimer_dens,t2-tlast,tcpu2-tcpulast)
- elseif (label=='force') then
-    call increment_timer(itimer_force,t2-tlast,tcpu2-tcpulast)
- elseif (label=='link') then
-    call increment_timer(itimer_link,t2-tlast,tcpu2-tcpulast)
- elseif (label=='cons2prim') then
-    call increment_timer(itimer_cons2prim,t2-tlast,tcpu2-tcpulast)
- endif
+ select case (label)
+ case ('dens')
+    itimer = itimer_dens
+ case ('force')
+    itimer = itimer_force
+ case ('link')
+    itimer = itimer_link
+ case ('cons2prim')
+    itimer = itimer_cons2prim
+ case ('radiation')
+    itimer = itimer_radiation
+ case ('radsave')
+    itimer = itimer_rad_save
+ case ('radneighlist')
+    itimer = itimer_rad_neighlist
+ case ('radarrays')
+    itimer = itimer_rad_arrays
+ case ('radits')
+    itimer = itimer_rad_its
+ case ('radflux')
+    itimer = itimer_rad_flux
+ case ('radlambda')
+    itimer = itimer_rad_lambda
+ case ('raddiff')
+    itimer = itimer_rad_diff
+ case ('radupdate')
+    itimer = itimer_rad_update
+ case ('radstore')
+    itimer = itimer_rad_store
+ case default
+    itimer = 1
+ end select
+
+ call increment_timer(itimer,t2-tlast,tcpu2-tcpulast)
 
  if (iverbose >= 2 .and. id==master) then
     if (present(start)) then
