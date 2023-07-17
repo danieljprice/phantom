@@ -208,10 +208,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radarrays',tlast,tcpulast)
  !$omp end master
 
- !$omp critical(maxerrE2last)
+ !$omp critical(maxerrE2lastset)
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
- !$omp end critical(maxerrE2last)
+ !$omp end critical(maxerrE2lastset)
 
  iterations: do its=1,itsmax_rad
 
@@ -240,21 +240,21 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     call do_timing('radupdate',t1,tcpu1)
     !$omp end master
 
-    !$omp critical
+    !$omp critical(convergedset)
     if (iverbose >= 2) then
        print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
     endif
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
     maxerrU2last = maxerrU2
-    !$omp end critical
+    !$omp end critical(convergedset)
 
     if (converged) exit iterations
 
  enddo iterations
 
- !$omp critical(its)
+ !$omp critical(itsset)
  its_global = its    ! save the iteration count, should be same on all threads
- !$omp end critical(its)
+ !$omp end critical(itsset)
 
  !$omp end parallel
 
