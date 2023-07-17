@@ -296,7 +296,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  integer, save, allocatable        :: neighlist(:)
  real                              :: dx,dy,dz,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable           :: xyzcache(:,:)
- !$omp threadprivate(xyzcache,neighlist,maxphase,maxp)
+ !$omp threadprivate(xyzcache,neighlist)
  logical                           :: iactivei,iamdusti,iamgasi
 
  if (.not. allocated(neighlist)) then
@@ -311,7 +311,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  icompactmax = size(ijvar)
  !$omp parallel do default(none) schedule(runtime)&
  !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
- !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax)&
+ !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
  !$omp private(hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
