@@ -19,6 +19,12 @@ ifeq ($(SETUP), mcfost) # [buildbot skip]
     override SETUP=disc
     MCFOST=yes
 endif
+ifeq ($(SETUP), dustymcfost) # [buildbot skip]
+    OBSOLETE_SETUP=yes
+    OLDSETUP=dustymcfost
+    override SETUP=dustydisc
+    MCFOST=yes
+endif
 ifeq ($(SETUP), planets) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= planets
