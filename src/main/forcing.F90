@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module forcing
 !
@@ -963,9 +963,7 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
   real,    intent(out)   :: fxyzu(:,:)
 
   logical   :: update_accel = .true.
-#ifdef STIR_FROM_FILE
-  real :: tinfile
-#endif
+!  real :: tinfile
 
   logical, parameter :: Debug = .false.
 !!===================================================================
@@ -977,25 +975,25 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
   if (t > (tprev + st_dtfreq)) then
      tprev = st_dtfreq*int(t/st_dtfreq)  ! round to last full dtfreq
      update_accel = .true.
-#ifdef STIR_FROM_FILE
-     call read_stirring_data_from_file(forcingfile,t,tinfile)
-     !if (id==master .and. iverbose >= 2) print*,' got new accel, tinfile = ',tinfile
-#endif
+     if (stir_from_file) then
+        call read_stirring_data_from_file(forcingfile,t,tinfile)
+        !if (id==master .and. iverbose >= 2) print*,' got new accel, tinfile = ',tinfile
+     endif
   endif
 
   if (Debug) print *, 'stir:  stirring start'
 
   call st_calcAccel(npart,xyzh,fxyzu)
 
-#ifndef STIR_FROM_FILE
-  if (update_accel) then
-     if (Debug) print*,'updating accelerations...'
-     call st_ounoiseupdate(6*st_nmodes, st_OUphases, st_OUvar, st_dtfreq, st_decay)
-     call st_calcPhases()
-     !! Store random seed in memory for later checkpoint.
-     call random_seed (get = st_randseed)
+  if (.not. stir_from_file) then
+     if (update_accel) then
+        if (Debug) print*,'updating accelerations...'
+        call st_ounoiseupdate(6*st_nmodes, st_OUphases, st_OUvar, st_dtfreq, st_decay)
+        call st_calcPhases()
+        !! Store random seed in memory for later checkpoint.
+        call random_seed (get = st_randseed)
+     endif
   endif
-#endif
 
   if (Debug) print *, 'stir:  stirring end'
 

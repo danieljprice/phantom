@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module radiation_implicit
 !
@@ -84,7 +84,7 @@ subroutine do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     moresweep = .false.
     dtsub = dt/nsubsteps
     over_substeps: do i = 1,nsubsteps
-       call do_radiation_onestep(dtsub,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+       call do_radiation_onestep(dtsub,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
        if (failed .or. moresweep) then
           ierr = ierr_failed_to_converge
           call warning('radiation_implicit','integration failed - using U and E values anyway')
@@ -145,7 +145,7 @@ end subroutine save_radiation_energies
 !  perform single iteration
 !+
 !---------------------------------------------------------
-subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
+subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,errorE,errorU,moresweep,ierr)
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use physcon, only:pi
@@ -153,12 +153,13 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  use timing,  only:get_timings
  use derivutils, only:do_timing
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
+ integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
- real, intent(out)    :: errorE,errorU,EU0(:,:)
+ real, intent(out)    :: errorE,errorU,EU0(2,npart)
  integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal,npart,icompactmax,nneigh_average,its
+ integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average,its
  real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
  real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
@@ -171,7 +172,6 @@ subroutine do_radiation_onestep(dt,rad,xyzh,vxyzu,radprop,origEU,EU0,failed,nit,
  errorU = 0.
  ierr = 0
 
- npart = size(xyzh(1,:))
  nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
  icompactmax = int(1.2*nneigh_average*npart)
  allocate(ivar(3,npart),stat=ierr)
@@ -565,7 +565,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
     vari(2,n) = rhoi
     ! endif
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine fill_arrays
 
@@ -619,7 +619,7 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij,varij2,vari,
     radprop(ifluxy,i) = dedyi
     radprop(ifluxz,i) = dedzi
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine compute_flux
 
@@ -670,7 +670,7 @@ subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,i
     radprop(ilambda,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
     radprop(iedd,i) = radprop(ilambda,i) + radprop(ilambda,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine calc_lambda_and_eddington
 
@@ -772,7 +772,7 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
     !$omp atomic
     varinew(2,i) = varinew(2,i) + diffusion_denominator
  enddo
- !$omp end do
+ !$omp enddo
 
 end subroutine calc_diffusion_term
 
@@ -1063,7 +1063,7 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
     endif
 
  enddo main_loop
-!$omp end do
+!$omp enddo
 
 end subroutine update_gas_radiation_energy
 

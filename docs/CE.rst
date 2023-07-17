@@ -73,7 +73,7 @@ Use SETUP=star or SETUP=dustystar and if not specified, the default options.
   2.2 make setup
   2.3 ./phantomsetup star (option 5 MESA star, input profile = Jan_Star_Phantom_Profile.data, desired EOS = 10,
       use constant entropy profile, Relax star automatically = yes). The core radius is the softening radius (2-3Ro)
-      the core mass is the same as the one you have measured from MESA (0.46Mo in Jan_Star_Phantom_Profile).
+      the core mass is the same as the one you have measured from MESA (0.46Mo in Jan_Star_Phantom_Profile.data).
       This produces a file called star.setup - this file has all the options so you can edit it.
   2.4 vim  star.setup, (write_rho_to_file = T)
 Relaxation
@@ -124,3 +124,13 @@ if you come from 2.10, then use as initial model (hereafter initial_nnnnn) one o
         softening length for the primary core = 1., softening length for companion = 0.1)
   2.16 vim binary.in (optional, tmax=200.00, dtmax=0.100)
   2.17 ./phantom binary.in
+
+
+**D. Setup sink properties (luminosity)**
+
+::
+
+  2.18 ./phantommoddump binary_00000.tmp dusty_binary_00000.tmp 0.0
+       option 9, 12 lum  
+  2.19 vim dusty_binary.in (adapt isink_radiation, idust_opacity)
+  2.20 ./phantom dusty_binary.in

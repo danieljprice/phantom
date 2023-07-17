@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testsedov
 !
@@ -171,7 +171,7 @@ subroutine test_sedov(ntests,npass)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
-    call evol('test.in',logfile,evfile,dumpfile)
+    call evol('test.in',logfile,evfile,dumpfile,1)
     call write_evfile(time,dt)
     etotend   = etot
     momtotend = totmom

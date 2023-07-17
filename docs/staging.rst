@@ -3,13 +3,14 @@ Creating a stable release of the code
 
 Procedure is:
 
--  set the version number in phantom/build/Makefile
--  update the :doc:`release notes <releasenotes>`
--  select a gitsha that passes the nightly tests
--  merge this to the ‘staging’ branch
--  create pull request for merge to ‘stable’
-
-The merge to stable can be approved only by developers with special
-permission. Nobody has direct write permission to the stable branch, you
-*must* issue a pull request from staging. The merge will only be allowed
-if the pipeline test is passing
+- set the version number in phantom/build/Makefile
+- set the version number in phantom/docs/conf.py
+- update the :doc:`release notes <releasenotes>`
+- use git to tag the code version for the release::
+```
+git tag 'v2055.0.1'
+```
+-  push the tag and let the github actions do the rest::
+```
+git push -v tags
+```

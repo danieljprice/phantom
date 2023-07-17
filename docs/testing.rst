@@ -1,15 +1,19 @@
-Making sure your changes are safe to commit
-===========================================
+Getting your code to pass the github actions
+============================================
 
-There are two automated checking procedures that you can use to make
-sure that changes you are about to commit do not break the code. These
-are both run nightly anyway (and will email you the results), but here
-is how to make sure that your changes do not break the code for others.
+On every pull request a sequence of continuous integration tests 
+are performed to check that code is safe to merge into master.
+The scripts in the .github/workflows directory are as follows:
 
-Running the test suite
-~~~~~~~~~~~~~~~~~~~~~~
+- build: checks that phantom, phantomsetup, phantomanalysis and phantommoddump compile with every possible SETUP= flag
+- test: runs the test suite [see below]
+- mpi: runs the test suite with MPI [see below]
+- mcfost: compiles and links phantom+mcfost
 
-You can run the whole test suite using:
+Running the test suite on your own machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can run the test suite using:
 
 ::
 
@@ -22,8 +26,7 @@ This is just a shortcut for the following sequence of commands:
    make SETUP=test phantomtest
    ./bin/phantomtest
 
-The test suite is also run nightly to check for regressions. You can run
-the complete nightly test yourself using the testbot wrapper script:
+You can run the complete testsuite yourself using the testbot wrapper script:
 
 ::
 
@@ -116,5 +119,15 @@ check only those setups that have idim less than some value, e.g.:
    cd phantom/scripts
    ./buildbot.sh 1000000
 
-which checks only SETUPs with idim set to 1 million particles or less in
-the dim file.
+which checks only SETUPs with maxp set to 1 million particles or fewer.
+
+FAQ on common reasons for failure
+=================================
+We enforce the following policies in merging to the master branch:
+
+1. Code must compile and run with and without DEBUG=yes
+2. Code must compile with ability to change the precision of reals to real*4 (this is enforced in SETUP=blob)
+3. Code must compile with no warnings when compiled with gfortran (enforced with NOWARN=yes which adds the -Werror flag)
+4. Testsuite must work with and without MPI, i.e. compile with MPI=yes
+
+

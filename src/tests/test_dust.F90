@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testdust
 !
@@ -595,7 +595,7 @@ subroutine test_drag(ntests,npass)
  fext = 0.
  fxyzu = 0.
  call get_derivs_global(dt=1.)
- !if(drag_implicit) call get_derivs_global(dt=1.)
+ !if (drag_implicit) call get_derivs_global(dt=1.)
 
 !
 ! check that momentum and energy are conserved
