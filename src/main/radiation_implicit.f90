@@ -208,10 +208,10 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  call do_timing('radarrays',tlast,tcpulast)
  !$omp end master
 
- !$omp critical(maxerrE2lastset)
+ !$omp single
  maxerrE2last = huge(0.)
  maxerrU2last = huge(0.)
- !$omp end critical(maxerrE2lastset)
+ !$omp end single
 
  iterations: do its=1,itsmax_rad
 
@@ -240,21 +240,21 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     call do_timing('radupdate',t1,tcpu1)
     !$omp end master
 
-    !$omp critical(convergedset)
+    !$omp single
     if (iverbose >= 2) then
        print*,'iteration: ',its,' error = ',maxerrE2,maxerrU2
     endif
     converged = (maxerrE2 <= tol_rad .and. maxerrU2 <= tol_rad)
     maxerrU2last = maxerrU2
-    !$omp end critical(convergedset)
+    !$omp end single
 
     if (converged) exit iterations
 
  enddo iterations
 
- !$omp critical(itsset)
+ !$omp single
  its_global = its    ! save the iteration count, should be same on all threads
- !$omp end critical(itsset)
+ !$omp end single
 
  !$omp end parallel
 
@@ -830,7 +830,6 @@ subroutine update_gas_radiation_energy(ivar,ijvar,vari,ncompact,npart,ncompactlo
  maxerrE2 = 0.
  maxerrU2 = 0.
  !$omp end single
- !$omp barrier
 
  !$omp do schedule(runtime)&
  !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
