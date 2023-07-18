@@ -482,7 +482,7 @@ end subroutine read_dotin
 !-----------------------------------------------------------------------
 subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
 !-----------------------------------------------------------------------
- use io, only:fatal
+ use io, only:fatal,warning
 
  implicit none
 
@@ -516,7 +516,7 @@ subroutine get_binary_params(ipri,isec,xyzmh_ptmass,vxyz_ptmass,time,a,ecc,G)
  Lmag = sqrt(dot_product(L,L))
  E = 0.5*dot_product(dv,dv) - G*(mpri+msec)/rbin
 
- if (abs(E) < tiny(E)) stop 'binary energy problem'
+ if (abs(E) < tiny(E)) call warning(analysistype, 'E=0 for binary')
  call get_ae(Lmag,E,mpri,msec,a,ecc)
 
  if (time <= tiny(time)) then
@@ -548,7 +548,6 @@ subroutine get_ae(Lmag,E,m1,m2,a,ecc)
  real,intent(in) :: Lmag,E,m1,m2
 
  if (Lmag < tiny(Lmag)) stop 'Lmag is zero in get_ae'
- if (abs(E) < tiny(E)) stop 'E is zero in get_ae'
 
 ! Hence obtain the binary eccentricity
  ecc = sqrt(1.0 + (2.0*E*Lmag**2)/((m1+m2)**2))
