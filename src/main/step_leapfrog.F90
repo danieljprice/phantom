@@ -492,11 +492,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
-             elseif (icooling .ne. 8) then
-                vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
              else
-                vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-
+                if (icooling .ne. 8) then
+                   vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+                else
+                   vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+                endif
              endif
 
              !--floor the thermal energy if requested and required
