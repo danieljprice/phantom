@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module sethierarchical
 !
@@ -19,7 +19,8 @@ module sethierarchical
 !
 ! :Owner: Simone Ceppi
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - hierarchy : *string definining the hierarchy (e.g. 111,112,121,1221,1222)*
 !
 ! :Dependencies: infile_utils, setbinary, sethier_utils
 !
@@ -110,24 +111,35 @@ subroutine write_hierarchical_setupfile(iunit)
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
- call write_inopt(hierarchy, 'hierarchy','', iunit)
+ call write_inopt(hierarchy, 'hierarchy','string definining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
 
  hs%labels = process_hierarchy(hierarchy)
 
  write(iunit,"(/,a)") '# sink properties'
  do i=1,hs%labels%sink_num
-    call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass','', iunit)
-    call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr','', iunit)
+    call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',&
+                     'mass of object '//trim(hs%labels%sink(i)), iunit)
+ enddo
+ do i=1,hs%labels%sink_num
+    call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',&
+                     'accretion radius for object '//trim(hs%labels%sink(i)), iunit)
  enddo
 
  write(iunit,"(/,a)") '# orbit properties'
  do i=1,hs%labels%hl_num
-    call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a','',iunit)
-    call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e','',iunit)
-    call write_inopt(hs%levels(i)%inc, trim(hs%labels%hl(i))//'_i','',iunit)
-    call write_inopt(hs%levels(i)%O, trim(hs%labels%hl(i))//'_O','',iunit)
-    call write_inopt(hs%levels(i)%w, trim(hs%labels%hl(i))//'_w','',iunit)
-    call write_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f','',iunit)
+    write(iunit,"(a)") '# binary '//trim(hs%labels%hl(i))
+    call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a',&
+         'semi-major axis for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e',&
+         'eccentricity for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%inc, trim(hs%labels%hl(i))//'_i',&
+         'i [deg] inclination for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%O, trim(hs%labels%hl(i))//'_O',&
+         'Omega [deg] PA of ascending node for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%w, trim(hs%labels%hl(i))//'_w',&
+         'w [deg] argument of periapsis for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f',&
+         'f [deg] true anomaly for binary '//trim(hs%labels%hl(i)),iunit)
  enddo
 
 end subroutine write_hierarchical_setupfile
@@ -718,22 +730,22 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 end subroutine set_multiple
 
 subroutine generate_hierarchy_string(nsinks)
-  integer, intent(in) :: nsinks
+ integer, intent(in) :: nsinks
 
-  integer :: i, pos
-  character(len=10) :: label
+ integer :: i, pos
+ character(len=10) :: label
 
-  hierarchy = '11,12'
+ hierarchy = '11,12'
 
-  do i=1,nsinks-2
-     pos = scan(hierarchy, ',', .true.)
+ do i=1,nsinks-2
+    pos = scan(hierarchy, ',', .true.)
 
-     label = trim(hierarchy(pos+1:))
+    label = trim(hierarchy(pos+1:))
 
-     hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
+    hierarchy = trim(hierarchy(:pos-1))//','//trim(label)//'1,'//trim(label)//'2'
 
-     !print*,label
-  end do
+    !print*,label
+ enddo
 
 end subroutine generate_hierarchy_string
 
@@ -743,44 +755,44 @@ subroutine print_chess_logo()!id)
  !integer,           intent(in) :: id
 
 ! if (id==master) then
-    print*,"                                                                      "
-    print*,"                                                       _:_            "
-    print*,"                                                      '-.-'           "
-    print*,"                                             ()      __.'.__          "
-    print*,"                                          .-:--:-.  |_______|         "
-    print*,"                                   ()      \____/    \=====/          "
-    print*,"                                   /\      {====}     )___(           "
-    print*,"                        (\=,      //\\      )__(     /_____\          "
-    print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
-    print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
-    print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
-    print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
-    print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
-    print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
-    print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
-    print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
-    print*,"     (______)(_______)(_______)(________)(________)(_________)        "
-    print*,"                                                                      "
-    print*,"          _             _       _    _           _           _        "
-    print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
-    print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
-    print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
-    print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
-    print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
-    print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
-    print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
-    print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
-    print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
-    print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
-    print*,"                                                                      "
+ print*,"                                                                      "
+ print*,"                                                       _:_            "
+ print*,"                                                      '-.-'           "
+ print*,"                                             ()      __.'.__          "
+ print*,"                                          .-:--:-.  |_______|         "
+ print*,"                                   ()      \____/    \=====/          "
+ print*,"                                   /\      {====}     )___(           "
+ print*,"                        (\=,      //\\      )__(     /_____\          "
+ print*,"        __    |'-'-'|  //  .\    (    )    /____\     |   |           "
+ print*,"       /  \   |_____| (( \_  \    )__(      |  |      |   |           "
+ print*,"       \__/    |===|   ))  `\_)  /____\     |  |      |   |           "
+ print*,"      /____\   |   |  (/     \    |  |      |  |      |   |           "
+ print*,"       |  |    |   |   | _.-'|    |  |      |  |      |   |           "
+ print*,"       |__|    )___(    )___(    /____\    /____\    /_____\          "
+ print*,"      (====)  (=====)  (=====)  (======)  (======)  (=======)         "
+ print*,"      }===={  }====={  }====={  }======{  }======{  }======={         "
+ print*,"     (______)(_______)(_______)(________)(________)(_________)        "
+ print*,"                                                                      "
+ print*,"          _             _       _    _           _           _        "
+ print*,"        /\ \           / /\    / /\ /\ \        / /\        / /\      "
+ print*,"       /  \ \         / / /   / / //  \ \      / /  \      / /  \     "
+ print*,"      / /\ \ \       / /_/   / / // /\ \ \    / / /\ \__  / / /\ \__  "
+ print*,"     / / /\ \ \     / /\ \__/ / // / /\ \_\  / / /\ \___\/ / /\ \___\ "
+ print*,"    / / /  \ \_\   / /\ \___\/ // /_/_ \/_/  \ \ \ \/___/\ \ \ \/___/ "
+ print*,"   / / /    \/_/  / / /\/___/ // /____/\      \ \ \       \ \ \       "
+ print*,"  / / /          / / /   / / // /\____\/  _    \ \ \  _    \ \ \      "
+ print*," / / /________  / / /   / / // / /______ /_/\__/ / / /_/\__/ / /      "
+ print*,"/ / /_________\/ / /   / / // / /_______\\ \/___/ /  \ \/___/ /       "
+ print*,"\/____________/\/_/    \/_/ \/__________/ \_____\/    \_____\/        "
+ print*,"                                                                      "
 
-    print "(/,65('-'),1(/,a),/,65('-'),/)",&
+ print "(/,65('-'),1(/,a),/,65('-'),/)",&
          '  Welcome to CHESS (Complete Hierarchical Endless System Setup)'
 
 
-    !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
-    !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
-    !         '        simulate the universe as a hierarchical system'
+ !    print "(/,65('-'),1(/,a),/,1(a),/,65('-'),/)",&
+ !         '  Welcome to CHESS (Complete Hierarchical Endless System Setup)', &
+ !         '        simulate the universe as a hierarchical system'
 
 ! endif
 end subroutine print_chess_logo

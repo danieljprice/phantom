@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module externalforces
 !
@@ -39,6 +39,8 @@ module externalforces
  public :: mass1  ! exported from metric module
  real, public :: accradius1 = 0.
  real, public :: accradius1_hard = 0.
+ real, public :: accretedmass1 = 0.
+ real, public :: accretedmass2 = 0.
 
  logical, public :: extract_iextern_from_hdr = .false.
 

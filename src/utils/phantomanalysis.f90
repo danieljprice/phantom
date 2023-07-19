@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 program phantomanalysis
 !
@@ -58,7 +58,8 @@ program phantomanalysis
 !
     if (iarg==1) then
 
-       iloc = index(dumpfile,'_0')
+       !iloc = index(dumpfile,'_0')
+       iloc = index(dumpfile,'_',.true.) !to load dump > 9999
 
        if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))
