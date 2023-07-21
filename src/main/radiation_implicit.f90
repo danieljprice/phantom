@@ -224,10 +224,6 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     !$omp master
     call do_timing('radflux',t1,tcpu1)
     !$omp end master
-    call calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,mask,ierr)
-    !$omp master
-    call do_timing('radlambda',t1,tcpu1)
-    !$omp end master
     call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
     !$omp master
     call do_timing('raddiff',t1,tcpu1)
@@ -554,30 +550,37 @@ end subroutine fill_arrays
 !+
 !---------------------------------------------------------
 subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,varinew,radprop,mask)
+ use io,              only:error
+ use part,            only:dust_temp,nucleation
+ use radiation_utils, only:get_rad_R
+ use options,         only:limit_radiation_flux
  integer, intent(in) :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)    :: varij2(4,icompactmax),vari(2,npart),EU0(6,npart)
+ real, intent(in)    :: varij2(4,icompactmax),vari(2,npart)
  logical, intent(in) :: mask(npart)
- real, intent(inout) :: radprop(:,:)
+ real, intent(inout) :: radprop(:,:),EU0(6,npart)
  real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
- integer             :: i,j,k,n,icompact
- real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedxi,dedyi,dedzi,dradenij,rhoiEU0
+ integer             :: i,j,k,n,icompact,ierr
+ real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
+ real                :: gradE1i,opacity,radRi,EU01i
 
  !$omp do schedule(runtime)&
- !$omp private(i,j,k,n,dedxi,dedyi,dedzi,rhoi,rhoj,icompact)&
- !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)
+ !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
+ !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
+ !$omp private(gradE1i,opacity,radRi,EU01i)&
+ !$omp reduction(max:ierr)
 
  do n = 1,ncompact
     i = ivar(3,n)
     varinew(1,i) = 0.
     varinew(2,i) = 0.
-    !varinew(3,i) = 0.
     if (mask(i)) then
-       dedxi = 0.
-       dedyi = 0.
-       dedzi = 0.
+       dedx(1) = 0.
+       dedx(2) = 0.
+       dedx(3) = 0.
 
        rhoi = vari(2,n)
-       rhoiEU0 = rhoi*EU0(1,i)
+       EU01i = EU0(1,i)
+       rhoiEU0 = rhoi*EU01i
 
        do k = 1,ivar(1,n)
           icompact = ivar(2,n) + k
@@ -589,73 +592,37 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
 
           ! Calculates the gradient of E (where E=rho*e, and e is xi)
           dradenij = rhoj*EU0(1,j) - rhoiEU0
-          dedxi = dedxi + dradenij*pmjdWrunix
-          dedyi = dedyi + dradenij*pmjdWruniy
-          dedzi = dedzi + dradenij*pmjdWruniz
+          dedx(1) = dedx(1) + dradenij*pmjdWrunix
+          dedx(2) = dedx(2) + dradenij*pmjdWruniy
+          dedx(3) = dedx(3) + dradenij*pmjdWruniz
        enddo
 
-       radprop(ifluxx,i) = dedxi
-       radprop(ifluxy,i) = dedyi
-       radprop(ifluxz,i) = dedzi
+       radprop(ifluxx,i) = dedx(1)
+       radprop(ifluxy,i) = dedx(2)
+       radprop(ifluxz,i) = dedx(3)
+
+       ! Calculate lambda and eddington
+       opacity = EU0(4,i)
+       if (dustRT) then
+          if (dust_temp(i) < Tdust_threshold) opacity = nucleation(idkappa,i)
+       endif
+       if (opacity < 0.) then
+          ierr = max(ierr,ierr_negative_opacity)
+          call error(label,'Negative opacity',val=opacity)
+       endif
+
+       if (limit_radiation_flux) then
+          radRi = get_rad_R(rhoi,EU01i,dedx,opacity)
+       else
+          radRi = 0.
+       endif
+       EU0(5,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
+       EU0(6,i) = EU0(5,i) + EU0(5,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
     endif
  enddo
  !$omp enddo
 
 end subroutine compute_flux
-
-
-!---------------------------------------------------------
-!+
-!  calculate flux limiter (lambda) and eddington factor
-!+
-!---------------------------------------------------------
-subroutine calc_lambda_and_eddington(ivar,ncompactlocal,npart,vari,EU0,radprop,mask,ierr)
- use io,              only:error
- use part,            only:dust_temp,nucleation
- use radiation_utils, only:get_rad_R
- use options,         only:limit_radiation_flux
- integer, intent(in) :: ivar(:,:),ncompactlocal,npart
- real, intent(in)    :: vari(:,:)
- real, intent(inout) :: radprop(:,:),EU0(6,npart)
- logical, intent(in) :: mask(npart)
- integer, intent(out) :: ierr
- integer             :: n,i
- real                :: rhoi,gradE1i,opacity,radRi
-
- ierr = 0
- !$omp do schedule(runtime)&
- !$omp private(i,n,rhoi,gradE1i,opacity,radRi) &
- !$omp reduction(max:ierr)
- do n = 1,ncompactlocal
-     i = ivar(3,n)
-     if (.true.) then
-        rhoi = vari(2,n)
-        !
-        ! If using diffuse ISM, use Rosseland mean opacity from the frequency
-        ! dependent opacity when dust temperatures are cold (T_d<100 K).
-        ! Otherwise use the tabulated grey dust opacities.
-        !
-        opacity = EU0(4,i)
-        if (dustRT) then
-           if (dust_temp(i) < Tdust_threshold) opacity = nucleation(idkappa,i)
-        endif
-        if (opacity < 0.) then
-           ierr = max(ierr,ierr_negative_opacity)
-           call error(label,'Negative opacity',val=opacity)
-        endif
-
-        if (limit_radiation_flux) then
-           radRi = get_rad_R(rhoi,EU0(1,i),radprop(ifluxx:ifluxz,i),opacity)
-        else
-           radRi = 0.
-        endif
-        EU0(5,i) = (2. + radRi ) / (6. + 3.*radRi + radRi**2)  ! Levermore & Pomraning's flux limiter (e.g. eq 12, Whitehouse & Bate 2004)
-        EU0(6,i) = EU0(5,i) + EU0(5,i)**2 * radRi**2  ! e.g., eq 11, Whitehouse & Bate (2004)
-     endif
- enddo
- !$omp enddo
-
-end subroutine calc_lambda_and_eddington
 
 
 !---------------------------------------------------------
