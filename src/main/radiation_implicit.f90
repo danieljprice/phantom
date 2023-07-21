@@ -286,7 +286,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  use linklist, only:ncells,get_neighbour_list,listneigh,ifirstincell
  use kdtree,   only:inodeparts,inoderange
  use boundary, only:dxbound,dybound,dzbound
- use part,     only:iphase,igas,get_partinfo
+ use part,     only:iphase,igas,get_partinfo,isdead_or_accreted
  use kernel,   only:radkern2
  use io,       only:fatal
  real, intent(in)                  :: xyzh(:,:)
@@ -296,7 +296,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  integer                           :: icompact_private,icompact,icompactmax,iamtypei,nneigh_trial
  integer, parameter                :: maxcellcache = 10000
  integer, save, allocatable        :: neighlist(:)
- real                              :: dx,dy,dz,hi21,hj1,rij2,q2i,q2j
+ real                              :: dx,dy,dz,xi,yi,zi,hi,hi21,hj1,rij2,q2i,q2j
  real, save, allocatable           :: xyzcache(:,:)
  !$omp threadprivate(xyzcache,neighlist)
  logical                           :: iactivei,iamdusti,iamgasi
@@ -315,7 +315,7 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
  !$omp shared(ncells,xyzh,inodeparts,inoderange,iphase,dxbound,dybound,dzbound,ifirstincell)&
  !$omp shared(ivar,ijvar,ncompact,icompact,icompactmax,maxphase,maxp)&
  !$omp private(icell,i,j,k,n,ip,iactivei,iamgasi,iamdusti,iamtypei,dx,dy,dz,rij2,q2i,q2j)&
- !$omp private(hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
+ !$omp private(hi,xi,yi,zi,hi21,hj1,ncompact_private,icompact_private,nneigh_trial,nneigh)
 
  over_cells: do icell=1,int(ncells)
     i = ifirstincell(icell)
@@ -343,8 +343,16 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
        if (.not.iactivei .or. .not.iamgasi) then ! skip if particle is inactive or not gas
           cycle over_parts
        endif
+
+       xi = xyzh(1,i)
+       yi = xyzh(2,i)
+       zi = xyzh(3,i)
+       hi = xyzh(4,i)
+       if (isdead_or_accreted(hi)) then
+          cycle over_parts
+       endif
        nneigh = 0
-       hi21 = 1./xyzh(4,i)**2
+       hi21 = 1./hi**2
 
        loop_over_neigh: do n = 1,nneigh_trial
 
@@ -354,14 +362,14 @@ subroutine get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
 
           if (n <= maxcellcache) then
              ! positions from cache are already mod boundary
-             dx = xyzh(1,i) - xyzcache(n,1)
-             dy = xyzh(2,i) - xyzcache(n,2)
-             dz = xyzh(3,i) - xyzcache(n,3)
+             dx = xi - xyzcache(n,1)
+             dy = yi - xyzcache(n,2)
+             dz = zi - xyzcache(n,3)
              hj1 = xyzcache(n,4)
           else
-             dx = xyzh(1,i) - xyzh(1,j)
-             dy = xyzh(2,i) - xyzh(2,j)
-             dz = xyzh(3,i) - xyzh(3,j)
+             dx = xi - xyzh(1,j)
+             dy = yi - xyzh(2,j)
+             dz = zi - xyzh(3,j)
              hj1 = 1./xyzh(4,j)
           endif
           if (periodic) then
