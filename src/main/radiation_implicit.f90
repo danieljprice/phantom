@@ -424,9 +424,9 @@ end subroutine get_compacted_neighbour_list
 !+
 !---------------------------------------------------------
 subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
- use dim,             only:periodic
+ use dim,             only:periodic,ind_timesteps
  use boundary,        only:dxbound,dybound,dzbound
- use part,            only:dust_temp,nucleation,gradh,dvdx
+ use part,            only:dust_temp,nucleation,gradh
  use units,           only:get_c_code
  use kernel,          only:grkern,cnormk
  integer, intent(in) :: ncompact,ncompactlocal,icompactmax,npart
@@ -434,20 +434,18 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
  real, intent(out)   :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
- real :: cv_effective,pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
-         dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dvzdxi,dvzdyi,dvzdzi,&
-         pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,&
-         dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj,c_code,&
-         dWidrlightrhorhom,dWjdrlightrhorhom,&
-         pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
+ real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
+         pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,rhomean,&
+         c_code,dWidrlightrhorhom,dWjdrlightrhorhom,&
+         xi,yi,zi,gradhi,pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
          dust_kappai,dust_cooling,heatingISRi,dust_gas
 
  c_code = get_c_code()
  !$omp do &
- !$omp private(n,i,j,k,rhoi,icompact,pmi,dvxdxi,dvxdyi,dvxdzi,dvydxi,dvydyi,dvydzi,dti) &
- !$omp private(dvzdxi,dvzdyi,dvzdzi,dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
- !$omp private(v2i,vi,v2j,vj,dWi,dWj,dvx,dvy,dvz,rhomean,dvdotdr,dv,vmu,dvdWimj,dvdWimi,dvdWjmj) &
- !$omp private(dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom,cv_effective) &
+ !$omp private(n,i,j,k,rhoi,icompact,pmi,dti) &
+ !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
+ !$omp private(v2i,vi,v2j,vj,dWi,dWj,rhomean) &
+ !$omp private(xi,yi,zi,gradhi,dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom) &
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
 
  do n = 1,ncompact
@@ -455,7 +453,16 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
     i = ivar(3,n)
 
     if (.true.) then
-       rhoi = rhoh(xyzh(4,i), massoftype(igas))
+       pmi = massoftype(igas)
+       xi = xyzh(1,i)
+       yi = xyzh(2,i)
+       zi = xyzh(3,i)
+       hi = xyzh(4,i)
+       hi21 = 1./(hi*hi)
+       hi41 = hi21*hi21
+       rhoi = rhoh(hi, massoftype(igas))
+       gradhi = gradh(1,i)
+
        EU0(1,i) = rad(iradxi,i)
        EU0(2,i) = vxyzu(4,i)
        EU0(3,i) = get_cv(rhoi,vxyzu(4,i),cv_type)
@@ -467,25 +474,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           dust_temp(i) = dust_temperature(rad(iradxi,i),vxyzu(4,i),rhoi,dust_kappai,dust_cooling,heatingISRi,dust_gas)
           nucleation(idkappa,i) = dust_kappai
        endif
-       !
-       !--Note that CV and Kappa have already been done in ASS
-       !
-       cv_effective = EU0(3,i)/get_1overmu(rhoi,vxyzu(4,i),cv_type)
-       dvxdxi = 0.
-       dvxdyi = 0.
-       dvxdzi = 0.
-       dvydxi = 0.
-       dvydyi = 0.
-       dvydzi = 0.
-       dvzdxi = 0.
-       dvzdyi = 0.
-       dvzdzi = 0.
-
-       pmi = massoftype(igas)
-       hi = xyzh(4,i)
-       hi21 = 1./(hi*hi)
-       hi41 = hi21*hi21
-       rhoi = rhoh(xyzh(4,i), massoftype(igas))
 
        do k = 1,ivar(1,n) ! Looping from 1 to nneigh
           icompact = ivar(2,n) + k
@@ -493,22 +481,21 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           !
           !--Need to make sure that E and U values are loaded for non-active neighbours
           !
-          rhoj = rhoh(xyzh(4,j), massoftype(igas))
-          EU0(1,j) = rad(iradxi,j)
-          EU0(2,j) = vxyzu(4,j)
-          EU0(3,j) = get_cv(rhoj,vxyzu(4,j),cv_type)
-          EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
-          !
-          !--Note that CV and Kappa have already been done in ASS
-          !
-          cv_effective = EU0(3,j)/get_1overmu(rhoj,vxyzu(4,j),cv_type)
+          if (ind_timesteps) then
+             EU0(1,j) = rad(iradxi,j)
+             EU0(2,j) = vxyzu(4,j)
+             EU0(3,j) = get_cv(rhoj,vxyzu(4,j),cv_type)
+             EU0(4,j) = get_kappa(iopacity_type,vxyzu(4,j),EU0(3,j),rhoj)
+          endif
           !dti = dt
           !
           !--Calculate other quantities
           !
-          dx = xyzh(1,i) - xyzh(1,j)
-          dy = xyzh(2,i) - xyzh(2,j)
-          dz = xyzh(3,i) - xyzh(3,j)
+          dx = xi - xyzh(1,j)
+          dy = yi - xyzh(2,j)
+          dz = zi - xyzh(3,j)
+          hj = xyzh(4,j)
+
           if (periodic) then
              if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
              if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
@@ -520,8 +507,8 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           dr = rij
 
           pmj = massoftype(igas)
+          rhoj = rhoh(hj, pmj)
 
-          hj = xyzh(4,j)
           hj21 = 1./(hj*hj)
           hj41 = hj21*hj21
 
@@ -531,26 +518,8 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           v2j = rij2*hj21
           vj = rij/hj
 
-          dWi = grkern(v2i,vi)*hi41*cnormk*gradh(1,i)
+          dWi = grkern(v2i,vi)*hi41*cnormk*gradhi
           dWj = grkern(v2j,vj)*hj41*cnormk*gradh(1,j)
-
-          dvx = vxyzu(1,i) - vxyzu(1,j)
-          dvy = vxyzu(2,i) - vxyzu(2,j)
-          dvz = vxyzu(3,i) - vxyzu(3,j)
-
-          dvdotdr = dvx*dx + dvy*dy + dvz*dz
-          dv = dvdotdr/dr
-
-          if (dvdotdr > 0.) then
-             vmu = 0.
-          else
-             vmu = dv
-          endif
-
-          ! Coefficients in radiative flux term in radiation energy density equation (e.g. eq 22 & 25, Whitehouse & Bate 2004)
-          dvdWimj = pmj*dv*dWi
-          dvdWimi = pmi*dv*dWi
-          dvdWjmj = pmj*dv*dWj
 
           ! Coefficients for p(div(v))/rho term in gas energy equation (e.g. eq 26, Whitehouse & Bate 2004)
           dWidrlightrhorhom = c_code*dWi/dr*pmj/(rhoi*rhoj)
@@ -560,18 +529,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           pmjdWrunix = pmjdWrijrhoi*dx
           pmjdWruniy = pmjdWrijrhoi*dy
           pmjdWruniz = pmjdWrijrhoi*dz
-          !
-          !--Calculates density(i) times the gradient of velocity
-          !
-          dvxdxi = dvxdxi - dvx*pmjdWrunix
-          dvxdyi = dvxdyi - dvx*pmjdWruniy
-          dvxdzi = dvxdzi - dvx*pmjdWruniz
-          dvydxi = dvydxi - dvy*pmjdWrunix
-          dvydyi = dvydyi - dvy*pmjdWruniy
-          dvydzi = dvydzi - dvy*pmjdWruniz
-          dvzdxi = dvzdxi - dvz*pmjdWrunix
-          dvzdyi = dvzdyi - dvz*pmjdWruniy
-          dvzdzi = dvzdzi - dvz*pmjdWruniz
 
           varij(1,icompact) = rhoj
           varij(2,icompact) = 0.5*(dWidrlightrhorhom+dWjdrlightrhorhom)
@@ -581,15 +538,6 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
           varij2(3,icompact) = pmjdWruniz
           varij2(4,icompact) = rhoj
        enddo
-       dvdx(1,i) = real(dvxdxi,kind=kind(dvdx)) ! convert to real*4 explicitly to avoid warnings
-       dvdx(2,i) = real(dvxdyi,kind=kind(dvdx))
-       dvdx(3,i) = real(dvxdzi,kind=kind(dvdx))
-       dvdx(4,i) = real(dvydxi,kind=kind(dvdx))
-       dvdx(5,i) = real(dvydyi,kind=kind(dvdx))
-       dvdx(6,i) = real(dvydzi,kind=kind(dvdx))
-       dvdx(7,i) = real(dvzdxi,kind=kind(dvdx))
-       dvdx(8,i) = real(dvzdyi,kind=kind(dvdx))
-       dvdx(9,i) = real(dvzdzi,kind=kind(dvdx))
 
        vari(1,n) = dti
        vari(2,n) = rhoi
