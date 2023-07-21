@@ -203,7 +203,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  !$omp shared(converged,maxerrE2,maxerrU2,maxerrE2last,maxerrU2last,itsmax_rad,moresweep,tol_rad,iverbose,ierr) &
  !$omp private(t1,tcpu1,its)
  call fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,&
-                  xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0,mask)
+                  xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
 
  !$omp master
  call do_timing('radarrays',tlast,tcpulast)
@@ -228,12 +228,12 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
     !$omp master
     call do_timing('radlambda',t1,tcpu1)
     !$omp end master
-    call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,radprop,vari,EU0,varinew,mask,ierr)
+    call calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax,vari,EU0,varinew,mask,ierr)
     !$omp master
     call do_timing('raddiff',t1,tcpu1)
     !$omp end master
 
-    call update_gas_radiation_energy(ivar,vari,ncompact,npart,ncompactlocal,&
+    call update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                      radprop,rad,origEU,varinew,EU0,&
                                      pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu,&
                                      mask,implicit_radiation_store_drad,moresweep,maxerrE2,maxerrU2)
@@ -415,7 +415,7 @@ end subroutine get_compacted_neighbour_list
 !  fill arrays
 !+
 !---------------------------------------------------------
-subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,radprop,rad,vari,varij,varij2,EU0,mask)
+subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,ivar,ijvar,rad,vari,varij,varij2,EU0)
  use dim,             only:periodic
  use boundary,        only:dxbound,dybound,dzbound
  use part,            only:dust_temp,nucleation,gradh,dvdx
@@ -423,9 +423,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  use kernel,          only:grkern,cnormk
  integer, intent(in) :: ncompact,ncompactlocal,icompactmax,npart
  integer, intent(in) :: ivar(:,:),ijvar(:)
- logical, intent(in) :: mask(npart)
  real, intent(in)    :: dt,xyzh(:,:),vxyzu(:,:),rad(:,:)
- real, intent(inout) :: radprop(:,:)
  real, intent(out)   :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: cv_effective,pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
@@ -710,11 +708,11 @@ end subroutine calc_lambda_and_eddington
 !+
 !---------------------------------------------------------
 subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
-                               radprop,vari,EU0,varinew,mask,ierr)
+                               vari,EU0,varinew,mask,ierr)
  use io,   only:error
  use part, only:dust_temp,nucleation
  integer, intent(in)  :: ivar(:,:),ijvar(:),ncompact,npart,icompactmax
- real, intent(in)     :: vari(:,:),varij(2,icompactmax),EU0(6,npart),radprop(:,:)
+ real, intent(in)     :: vari(:,:),varij(2,icompactmax),EU0(6,npart)
  logical, intent(in)  :: mask(npart)
  integer, intent(out) :: ierr
  real, intent(inout)  :: varinew(3,npart)
@@ -791,7 +789,7 @@ end subroutine calc_diffusion_term
 !  update gas and radiation energy
 !+
 !---------------------------------------------------------
-subroutine update_gas_radiation_energy(ivar,vari,ncompact,npart,ncompactlocal,&
+subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
                                        radprop,rad,origEU,varinew,EU0,&
                                        pdvvisc,dvdx,nucleation,dust_temp,eos_vars,drad,fxyzu, &
                                        mask,store_drad,moresweep,maxerrE2,maxerrU2)
@@ -799,7 +797,7 @@ subroutine update_gas_radiation_energy(ivar,vari,ncompact,npart,ncompactlocal,&
  use units,   only:get_radconst_code,get_c_code,unit_density
  use physcon, only:mass_proton_cgs
  use eos,     only:metallicity=>Z_in
- integer, intent(in) :: ivar(:,:),ncompact,npart,ncompactlocal
+ integer, intent(in) :: ivar(:,:),npart,ncompactlocal
  real, intent(in)    :: vari(:,:),varinew(3,npart),rad(:,:),origEU(:,:)
  real(kind=4), intent(in) :: pdvvisc(:),dvdx(:,:)
  real, intent(in)    :: eos_vars(:,:)
