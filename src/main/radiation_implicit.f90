@@ -550,15 +550,14 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  logical, intent(in) :: mask(npart)
  real, intent(inout) :: radprop(:,:),EU0(6,npart)
  real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
- integer             :: i,j,k,n,icompact,ierr
+ integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
  real                :: gradE1i,opacity,radRi,EU01i
 
  !$omp do schedule(runtime)&
  !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
- !$omp private(gradE1i,opacity,radRi,EU01i)&
- !$omp reduction(max:ierr)
+ !$omp private(gradE1i,opacity,radRi,EU01i)
 
  do n = 1,ncompact
     i = ivar(3,n)
@@ -597,10 +596,10 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
        if (dustRT) then
           if (dust_temp(i) < Tdust_threshold) opacity = nucleation(idkappa,i)
        endif
-       if (opacity < 0.) then
-          ierr = max(ierr,ierr_negative_opacity)
-          call error(label,'Negative opacity',val=opacity)
-       endif
+      !  if (opacity < 0.) then
+      !     ierr = max(ierr,ierr_negative_opacity)
+      !     call error(label,'Negative opacity',val=opacity)
+      !  endif
 
        if (limit_radiation_flux) then
           radRi = get_rad_R(rhoi,EU01i,dedx,opacity)
