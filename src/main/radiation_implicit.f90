@@ -820,11 +820,11 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
           !     (<1 K), then we abandon the gas-dust coupling term.
           !
           call set_heating_cooling_low_rhoT(i,EU0(1,i),EU0(2,i),origEU(1,i),origEU(2,i),&
-                                            EU0(3,i),dti,diffusion_denominator,&
-                                            pres_numerator,radpresdenom,rhoi,xnH2,heatingISRi,e_planetesimali,&
-                                            metallicity,gas_temp,ieqtype,betaval,betaval_d,gammaval,&
-                                            chival,tfour,dust_tempi,gas_dust_val,dustgammaval,gas_dust_cooling,&
-                                            cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
+                                            EU0(3,i),dti,diffusion_denominator,pres_numerator,radpresdenom,&
+                                            rhoi,xnH2,heatingISRi,e_planetesimali,metallicity,gas_temp,ieqtype,&
+                                            betaval,betaval_d,gammaval,chival,tfour,dust_tempi,gas_dust_val,&
+                                            dustgammaval,gas_dust_cooling,cosmic_ray,cooling_line,photoelectric,&
+                                            h2form,dust_heating,dust_term,skip_quartic,U1i,ierr)
           if (ierr > 0) then
              !$omp critical (moresweepset)
              moresweep = .true.
