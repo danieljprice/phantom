@@ -149,21 +149,19 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  use io,      only:fatal,error,iverbose,warning
  use part,    only:hfact
  use part,    only:pdvvisc=>luminosity,dvdx,nucleation,dust_temp,eos_vars,drad,iradxi,fxyzu
- use physcon, only:pi
  use kernel,  only:radkern
  use timing,  only:get_timings
  use derivutils, only:do_timing
  use options,    only:implicit_radiation_store_drad
+ use implicit,   only:allocate_memory_implicit,icompactmax,ivar,ijvar,ncompact,ncompactlocal,&
+                      varij,varij2,varinew,vari,mask
  real, intent(in)     :: dt,xyzh(:,:),origEU(:,:)
  integer, intent(in)  :: npart
  real, intent(inout)  :: radprop(:,:),rad(:,:),vxyzu(:,:)
  logical, intent(out) :: failed,moresweep
  integer, intent(out) :: nit,ierr
  real, intent(out)    :: errorE,errorU,EU0(6,npart)
- integer, allocatable :: ivar(:,:),ijvar(:)
- integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average,its_global,its
- real, allocatable    :: vari(:,:),varij(:,:),varij2(:,:),varinew(:,:)
- logical, allocatable :: mask(:)
+ integer              :: its_global,its
  real                 :: maxerrE2,maxerrU2,maxerrE2last,maxerrU2last
  real(kind=4)         :: tlast,tcpulast,t1,tcpu1
  logical :: converged
@@ -175,14 +173,7 @@ subroutine do_radiation_onestep(dt,npart,rad,xyzh,vxyzu,radprop,origEU,EU0,faile
  errorU = 0.
  ierr = 0
 
- nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
- icompactmax = int(1.2*10.*nneigh_average*npart)
- allocate(ivar(3,npart),stat=ierr)
- if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ivar')
- allocate(ijvar(icompactmax),stat=ierr)
- if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for ijvar')
- allocate(vari(2,npart),varij(2,icompactmax),varij2(4,icompactmax),varinew(3,npart),mask(npart),stat=ierr)
- if (ierr/=0) call fatal('radiation_implicit','cannot allocate memory for vari, varij, varij2, varinew, mask')
+ call allocate_memory_implicit(npart,radkern,hfact,ierr)
 
  !dtimax = dt/imaxstep
  call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
