@@ -66,7 +66,7 @@ subroutine test_radiation(ntests,npass)
 
     if (.not.mpi) then
        implicit_radiation = .true.
-       tol_rad = 1.e-5
+       tol_rad = 1.e-6
        call test_radiation_diffusion(ntests,npass)
     endif
  endif
