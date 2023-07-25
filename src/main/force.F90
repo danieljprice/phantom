@@ -1032,7 +1032,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi
+ real    :: radPj,fgravxi,fgravyi,fgravzi,gradpx,gradpy,gradpz
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1204,6 +1204,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  if (icooling == 8) then
     gradP_cool(i) = 0d0
     Gpot_cool(i) = 0d0
+    gradpx = 0d0
+    gradpy = 0d0
+    gradpz = 0d0
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1608,8 +1611,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
           !-- calculate grad P from gas pressure alone for cooling
           if (icooling == 8) then
-             gradP_cool(i) = gradP_cool(i) + pmassj*pri*rho1i*rho1i*grkerni
-             if (usej) gradP_cool(i) = gradP_cool(i) + pmassj*prj*rho1j*rho1j*grkernj
+             gradpx = gradpx + runix*pmassj*pri*rho1i*rho1i*grkerni
+             gradpy = gradpy + runiy*pmassj*pri*rho1i*rho1i*grkerni
+             gradpz = gradpz + runiz*pmassj*pri*rho1i*rho1i*grkerni
+             if (usej) then
+             	gradpx = gradpx + runix*pmassj*prj*rho1j*rho1j*grkernj
+             	gradpy = gradpy + runiy*pmassj*prj*rho1j*rho1j*grkernj
+             	gradpz = gradpz + runiz*pmassj*prj*rho1j*rho1j*grkernj
+             endif
           endif
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
@@ -1994,6 +2003,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
+ 
+ if (icooling == 8) gradP_cool(i) =  cnormk*sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
