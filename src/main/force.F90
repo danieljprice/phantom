@@ -1032,7 +1032,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,gradpx,gradpy,gradpz
+ real    :: radPj,fgravxi,fgravyi,fgravzi,gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1611,13 +1611,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
           !-- calculate grad P from gas pressure alone for cooling
           if (icooling == 8) then
-             gradpx = gradpx + runix*pmassj*pri*rho1i*rho1i*grkerni
-             gradpy = gradpy + runiy*pmassj*pri*rho1i*rho1i*grkerni
-             gradpz = gradpz + runiz*pmassj*pri*rho1i*rho1i*grkerni
+             gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
+             gradP_coolj = 0d0
              if (usej) then
-             	gradpx = gradpx + runix*pmassj*prj*rho1j*rho1j*grkernj
-             	gradpy = gradpy + runiy*pmassj*prj*rho1j*rho1j*grkernj
-             	gradpz = gradpz + runiz*pmassj*prj*rho1j*rho1j*grkernj
+             	gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
              endif
           endif
           !--artificial thermal conductivity (need j term)
@@ -1733,7 +1730,12 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
 
-          if (icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+          if (icooling == 8) then
+             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
+             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
+             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+          endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
@@ -2004,7 +2006,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
  enddo loop_over_neighbours2
  
- if (icooling == 8) gradP_cool(i) =  cnormk*sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
+ if (icooling == 8) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
 
 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
