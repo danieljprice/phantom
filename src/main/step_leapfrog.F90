@@ -577,7 +577,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 endif
              endif
           endif
-       endif
     enddo corrector
 !$omp enddo
 !$omp end parallel
