@@ -39,11 +39,12 @@ module forces
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen, fastmath, io,
-!   io_summary, kdtree, kernel, linklist, metric_tools, mpiderivs,
-!   mpiforce, mpimemory, mpiutils, nicil, omputils, options, part, physcon,
-!   ptmass, ptmass_heating, radiation_utils, timestep, timestep_ind,
-!   timestep_sts, timing, units, utils_gr, viscosity
+! :Dependencies: boundary, cooling, dim, dust, eos, eos_shen,
+!   eos_stamatellos, fastmath, io, io_summary, kdtree, kernel, linklist,
+!   metric_tools, mpiderivs, mpiforce, mpimemory, mpiutils, nicil,
+!   omputils, options, part, physcon, ptmass, ptmass_heating,
+!   radiation_utils, timestep, timestep_ind, timestep_sts, timing, units,
+!   utils_gr, viscosity
 !
  use dim, only:maxfsum,maxxpartveciforce,maxp,ndivcurlB,ndivcurlv,&
                maxdusttypes,maxdustsmall,do_radiation
@@ -1018,7 +1019,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi
+ real    :: radPj,fgravxi,fgravyi,fgravzi,gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1177,11 +1178,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravxi = 0.
  fgravyi = 0.
  fgravzi = 0.
- if (icooling == 8) then 
- 	gradP_cool(i) = 0d0
- 	Gpot_cool(i) = 0d0
+ if (icooling == 8) then
+    gradP_cool(i) = 0d0
+    Gpot_cool(i) = 0d0
+    gradpx = 0d0
+    gradpy = 0d0
+    gradpz = 0d0
  endif
- 	
+
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1574,8 +1578,11 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           if (usej) gradpj = pmassj*(pro2j + qrho2j)*grkernj
           !-- calculate grad P from gas pressure alone for cooling
           if (icooling == 8) then
-             gradP_cool(i) = gradP_cool(i) + pmassj*pri*rho1i*rho1i*grkerni
-             if (usej) gradP_cool(i) = gradP_cool(i) + pmassj*prj*rho1j*rho1j*grkernj
+             gradP_cooli =  pmassj*pri*rho1i*rho1i*grkerni
+             gradP_coolj = 0d0
+             if (usej) then
+             	gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
+             endif
           endif
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
@@ -1687,8 +1694,13 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifyi) = fsum(ifyi) - runiy*(gradp + fgrav) - projsy
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
-          
-          if (icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+
+          if (icooling == 8) then
+             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
+             gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
+             gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
+             gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
+          endif
 
           !--calculate divv for use in du, h prediction, av switch etc.
           fsum(idrhodti) = fsum(idrhodti) + projv*grkerni
@@ -1871,7 +1883,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
                    !--following quantities are weighted by mass rather than mass/density
                    fsum(idensgasi) = fsum(idensgasi) + pmassj*winter
-                      winter = wkern(q2j,qj)*hj21*hj1*cnormk
+                   winter = wkern(q2j,qj)*hj21*hj1*cnormk
                    fsum(idvix)     = fsum(idvix)     + pmassj*dvx*winter
                    fsum(idviy)     = fsum(idviy)     + pmassj*dvy*winter
                    fsum(idviz)     = fsum(idviz)     + pmassj*dvz*winter
@@ -1937,9 +1949,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifyi) = fsum(ifyi) - dy*fgravj
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
-       
+
        !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (iamtypej == igas .and. icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
+       if (iamtypej == igas .and. icooling == 8) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
@@ -1951,8 +1963,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     endif is_sph_neighbour
 
  enddo loop_over_neighbours2
-
  
+ if (icooling == 8) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
+
+
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif
@@ -2424,7 +2438,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
 
  realviscosity    = (irealvisc > 0)
  useresistiveheat = (iresistive_heating > 0)
- 
+
  over_parts: do ip = 1,cell%npcell
 
     if (maxphase==maxp) then

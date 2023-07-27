@@ -280,7 +280,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
 
-       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. (ieos.eq.21)) eos_vars(imu,i) = mui
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. (ieos==21)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           if (temperaturei > tiny(0.)) then

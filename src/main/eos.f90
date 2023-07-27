@@ -42,8 +42,8 @@ module eos
 !
 ! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
-!   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
-!   units, eos_stamatellos
+!   eos_stamatellos, eos_stratified, infile_utils, io, mesa_microphysics,
+!   part, physcon, units
 !
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
@@ -424,7 +424,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=8
 !
-    if (eni < 0.) then                                                                          
+    if (eni < 0.) then
        call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
     endif
     cgsrhoi = rhoi * unit_density
@@ -435,7 +435,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
     !if (gammai < 1.d0 .or. gammai > 2.d0) then
-   !		print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
+    !                print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
     !endif
     spsoundi = sqrt(gammai*ponrhoi)
 
@@ -543,7 +543,7 @@ subroutine init_eos(eos_type,ierr)
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool
-    
+
  end select
  done_init_eos = .true.
 
@@ -557,8 +557,8 @@ end subroutine init_eos
 !+
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
-  use eos_mesa, only: finish_eos_mesa
-  use eos_stamatellos, only: finish_S07cool
+ use eos_mesa, only: finish_eos_mesa
+ use eos_stamatellos, only: finish_S07cool
 
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -1171,7 +1171,7 @@ logical function eos_outputs_mu(ieos)
  case(20)
     eos_outputs_mu = .true.
  case(21)
- 	eos_outputs_mu = .true.
+    eos_outputs_mu = .true.
  case default
     eos_outputs_mu = .false.
  end select
@@ -1250,7 +1250,7 @@ subroutine eosinfo(eos_type,iprint)
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
  case(21)
- write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
+    write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
 
@@ -1306,7 +1306,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
        elseif (ieos==21) then
-       	 write(iprint,*) 'Tabulated eos with derived gamma'
+          write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
        endif

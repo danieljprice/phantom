@@ -19,9 +19,9 @@ module readwrite_dumps_fortran
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
-!   dust, dust_formation, eos, externalforces, fileutils, io, lumin_nsdisc,
-!   memory, mpi, mpiutils, options, part, readwrite_dumps_common,
-!   setup_params, sphNGutils, timestep, units
+!   dust, dust_formation, eos, eos_stamatellos, externalforces, fileutils,
+!   io, lumin_nsdisc, memory, mpi, mpiutils, options, part,
+!   readwrite_dumps_common, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -292,12 +292,12 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 !    open(unit=10,file=trim(dumpfile)//'info.dat')
- !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool', 'eos_vars(gasP)','eos_vars(gamma)'
-  !  do i=1,nparttot
-   !    write(10,'(6E16.5)') sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2),Gpot_cool(i),poten(i),&
+    !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool', 'eos_vars(gasP)','eos_vars(gamma)'
+    !  do i=1,nparttot
+    !    write(10,'(6E16.5)') sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2),Gpot_cool(i),poten(i),&
     !    gradP_cool(i),eos_vars(igasP,i),eos_vars(igamma,i)
-   ! enddo
-   ! close(10)
+    ! enddo
+    ! close(10)
     if (idtmax_frac==0) then
        write(iprint,"(/,/,'-------->   TIME = ',g12.4,': full dump written to file ',a,'   <--------',/)")  t,trim(dumpfile)
     else

@@ -56,6 +56,7 @@ module part
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
  character(len=*), parameter :: alphaind_label(3) = (/'alpha   ','alphaloc','div_a   '/)
+
 !
 !--tracking particle IDs
 !
@@ -323,7 +324,6 @@ module part
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
  integer, parameter :: ipartbufsize = 128
-
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
  integer(kind=8) :: ntot
@@ -517,7 +517,7 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
- 
+
 end subroutine deallocate_part
 
 !----------------------------------------------------------------

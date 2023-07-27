@@ -12,7 +12,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Alison Young
 !
 ! :Runtime parameters:
 !   - BEfac             : *over-density factor of the BE sphere [code units]*
@@ -21,10 +21,10 @@ module setup
 !   - BErad_phys        : *physical radius of the BE sphere [code units]*
 !   - BErho_cen         : *central density of the BE sphere [code units]*
 !   - Bzero             : *Magnetic field strength in Gauss*
+!   - T_sphere          : *temperature in sphere*
 !   - ang_Bomega        : *Angle (degrees) between B and rotation axis*
 !   - angvel            : *angular velocity in rad/s*
 !   - beta_r            : *rotational-to-gravitational energy ratio*
-!   - cs_sphere_cgs     : *sound speed in sphere in cm/s*
 !   - density_contrast  : *density contrast in code units*
 !   - dist_unit         : *distance unit (e.g. au)*
 !   - dust_to_gas_ratio : *dust-to-gas ratio*
@@ -54,10 +54,9 @@ module setup
 !   - use_BE_sphere     : *centrally condense as a BE sphere*
 !
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust, set_dust_options,
-!   setup_params, spherical, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, prompting, ptmass, set_dust, set_dust_options, setup_params,
+!   spherical, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
  use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall
@@ -227,13 +226,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        totmass_sphere = 1.0
        call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
     else
- 		print *, 'deleted'
+       print *, 'deleted'
     endif
 
     call prompt('Enter temperature in sphere',T_sphere,1.,100.)
-    
+
     call prompt('Enter EOS filename',eos_file)
-	
+
     if (binary) then
        angvel = 1.006d-12
     else
@@ -345,14 +344,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  endif
 
 
- 
+
  ! general parameters
  !
- 
-  vol_sphere  = 4./3.*pi*r_sphere**3
+
+ vol_sphere  = 4./3.*pi*r_sphere**3
  rhozero     = totmass_sphere / vol_sphere
  dens_sphere = rhozero
- 
+
  ! call EOS
  ieos = 21
  ierr = 0
@@ -398,7 +397,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  endif
  print "(a)",' Initialised sphere'
  npartsphere = npart_total
- 
+
  !
  ! set particle properties
  !

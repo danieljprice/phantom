@@ -198,13 +198,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) then
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
        else
-          if (icooling .ne. 8) then
+          if (icooling  /=  8) then
              vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
           else
              vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
           endif
        endif
-          
+
        !--floor the thermal energy if requested and required
        if (ufloor > 0.) then
           if (vxyzu(4,i) < ufloor) then
@@ -465,7 +465,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (gr) then
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
                 else
-                   if (icooling .ne. 8) then
+                   if (icooling  /=  8) then
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                    else
                       vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
@@ -631,10 +631,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
              else
-                if (icooling .ne. 8) then
+                if (icooling  /=  8) then
                    vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
                 else
-                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)             
+                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
                 endif
              endif
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
