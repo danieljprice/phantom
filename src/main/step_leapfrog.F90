@@ -527,53 +527,54 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              endif
           endif
 
-          if (gr) then
-             pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
-             pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
-             pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
-             eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
-             
-             erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
-             errmax = max(errmax,erri)
-             
-             p2i = pxi*pxi + pyi*pyi + pzi*pzi
-             p2mean = p2mean + p2i
-             np = np + 1
-             
-             pxyzu(1,i) = pxi
-             pxyzu(2,i) = pyi
-             pxyzu(3,i) = pzi
-             pxyzu(4,i) = eni
-          else
-             vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
-             vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
-             vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
-             if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
-             
-             erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
-             errmax = max(errmax,erri)
-             
-             v2i    = vxi*vxi + vyi*vyi + vzi*vzi
-             v2mean = v2mean + v2i
-             np     = np + 1
-             
-             vxyzu(1,i) = vxi
-             vxyzu(2,i) = vyi
-             vxyzu(3,i) = vzi
-             !--this is the energy equation if non-isothermal
-             if (maxvxyzu >= 4) vxyzu(4,i) = eni
-          endif
-          
-          if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
-          if (itype==igas) then
-             !
-             ! corrector step for magnetic field and dust
-             !
-             if (mhd)          Bevol(:,i) = Bevol(:,i)  + hdtsph*dBevol(:,i)
-             if (do_radiation) rad(:,i)   = rad(:,i) + hdtsph*drad(:,i)
-             if (use_dustfrac) then
-                dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
-                if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
+             if (gr) then
+                pxi = pxyzu(1,i) + hdtsph*fxyzu(1,i)
+                pyi = pxyzu(2,i) + hdtsph*fxyzu(2,i)
+                pzi = pxyzu(3,i) + hdtsph*fxyzu(3,i)
+                eni = pxyzu(4,i) + hdtsph*fxyzu(4,i)
+
+                erri = (pxi - ppred(1,i))**2 + (pyi - ppred(2,i))**2 + (pzi - ppred(3,i))**2
+                errmax = max(errmax,erri)
+
+                p2i = pxi*pxi + pyi*pyi + pzi*pzi
+                p2mean = p2mean + p2i
+                np = np + 1
+
+                pxyzu(1,i) = pxi
+                pxyzu(2,i) = pyi
+                pxyzu(3,i) = pzi
+                pxyzu(4,i) = eni
+             else
+                vxi = vxyzu(1,i) + hdtsph*fxyzu(1,i)
+                vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
+                vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
+                if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
+
+                erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
+                errmax = max(errmax,erri)
+
+                v2i    = vxi*vxi + vyi*vyi + vzi*vzi
+                v2mean = v2mean + v2i
+                np     = np + 1
+
+                vxyzu(1,i) = vxi
+                vxyzu(2,i) = vyi
+                vxyzu(3,i) = vzi
+                !--this is the energy equation if non-isothermal
+                if (maxvxyzu >= 4) vxyzu(4,i) = eni
+             endif
+
+             if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
+             if (itype==igas) then
+                !
+                ! corrector step for magnetic field and dust
+                !
+                if (mhd)          Bevol(:,i) = Bevol(:,i)  + hdtsph*dBevol(:,i)
+                if (do_radiation) rad(:,i)   = rad(:,i) + hdtsph*drad(:,i)
+                if (use_dustfrac) then
+                   dustevol(:,i) = dustevol(:,i) + hdtsph*ddustevol(:,i)
+                   if (use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
+                endif
              endif
           endif
        endif

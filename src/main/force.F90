@@ -900,7 +900,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
- use eos,         only:ieos,eos_is_non_ideal,gamma
+ use eos,         only:ieos,eos_is_non_ideal,gamma,utherm
  use eos_stamatellos, only:gradP_cool,Gpot_cool
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
