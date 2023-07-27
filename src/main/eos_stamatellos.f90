@@ -25,7 +25,9 @@ module eos_stamatellos
  logical,parameter,public :: doFLD = .true.
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
- public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep!,calc_FLD
+
+ public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
+
 contains
 
 subroutine init_S07cool()

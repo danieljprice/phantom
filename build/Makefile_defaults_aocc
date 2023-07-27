@@ -12,3 +12,4 @@ KNOWN_SYSTEM=yes
 
 OMPFLAGS= -fopenmp
 
+AOCC = yes

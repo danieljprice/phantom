@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting, only:prompt
  use physcon,  only:au,gg
  use readwrite_dumps_fortran, only:dt_read_in_fortran
- use timestep, only:time,dt,dtmax_max,dtmax_min,dtmax0
+ use timestep, only:time,dt,dtmax_max,dtmax_min
  use centreofmass, only: reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -97,7 +97,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  close(iunit)
 
- print *, 'dtmax0, dtmax_max,dtmax_min',dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min',dtmax_max,dtmax_min
  newutime = sqrt(au**3/(gg*umass))
  print *, "newutime/old", newutime/utime
  time = time * utime / newutime
@@ -171,13 +171,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     endif
  enddo
 
- print *,'Found GAS:', gascount, 'sinks:', sinkcount, &
+ print *,'Found GAS:', gascount, 'sinks:', sinkcount+nptmass, &
       'Other:', othercount, 'Total=', gascount+sinkcount+othercount
  print *, 'maxtypes:', maxtypes, 'npartoftype:', npartoftype,&
       'nptmass:', nptmass
  print *, 'gamma=', gamma
  print *, 'Timestep info:'
- print *, 'dtmax0, dtmax_max,dtmax_min', dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min',dtmax_max,dtmax_min
  print *, 'utime=', utime
 
  return

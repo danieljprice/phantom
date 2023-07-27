@@ -167,7 +167,7 @@ check_phantomsetup ()
    myfail=0;
    setup=$1;
    if [ -e ./bin/phantomsetup ]; then
-      print_result "exists" $pass;
+      print_result "phantomsetup exists" $pass;
    else
       print_result "FAIL: phantomsetup does not exist" $fail;
       myfail=$(( myfail + 1 ));
@@ -178,6 +178,9 @@ check_phantomsetup ()
    mkdir $dirname;
    cd /tmp/$dirname;
    cp $phantomdir/bin/phantomsetup .;
+   #
+   # run ./phantomsetup prefix, answering any questions with "Enter"
+   #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
    echo -e "$myinput" > myinput.txt;
@@ -189,6 +192,9 @@ check_phantomsetup ()
       print_result "FAIL: requires input other than 'Enter'" $fail;
       myfail=$(( myfail + 1 ));
    fi
+   #
+   # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
+   #
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
@@ -196,8 +202,42 @@ check_phantomsetup ()
    else
       print_result "no .setup file" $warn;
    fi
-   if [ -e "$prefix.in" ]; then
+   infile="${prefix}.in"
+   if [ -e "$infile" ]; then
       print_result "creates .in file" $pass;
+      #
+      # if creating the .in file succeeds, try to run phantom
+      # on the .in file with nmax=0
+      #
+      if [ -e $phantomdir/bin/phantom ]; then
+         print_result "phantom exists" $pass;
+         cp $phantomdir/bin/phantom .;
+         #
+         # set nmax=0 in the .in file
+         #
+         sed 's/nmax = .*/nmax = 0/g' ${infile} > ${infile}.bak
+         mv ${infile}.bak ${infile}
+         #
+         # run phantom on the .in file
+         #
+         ./phantom $infile > /dev/null; err=$?;
+         if [ $err -eq 0 ]; then
+            print_result "./phantom $infile runs ok" $pass;
+            dumpfile="${prefix}_00000"
+            if [ -s $dumpfile ]; then
+               print_result "${dumpfile} successfully created" $pass;
+            else
+               print_result "FAIL: did not create ${dumpfile}" $fail;
+               myfail=$(( myfail + 1 ));
+            fi
+         else
+            print_result "FAIL: ./phantom $infile fails with error" $fail;
+            myfail=$(( myfail + 1 ));
+         fi
+      else
+         print_result "FAIL: phantom does not exist" $fail;
+         myfail=$(( myfail + 1 ));
+      fi
    else
       print_result "FAILED to create .in file after 3 attempts" $fail;
       myfail=$(( myfail + 1 ));
@@ -400,6 +440,9 @@ for setup in $listofsetups; do
          echo "<td>$htext</td>" >> $htmlfile;
       fi
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
+         # also build phantom main binary
+         echo "compiling phantom with SETUP=$setup"
+         make SETUP=$setup $nolibs $mynowarn $maxp $mydebug 1>> $makeout 2>> $errorlog; err=$?;
          check_phantomsetup $setup;
       elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
          check_phantomanalysis $setup;
