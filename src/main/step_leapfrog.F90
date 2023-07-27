@@ -94,7 +94,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
                           use_dustgrowth,use_krome,gr,do_radiation
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:iexternalforce,use_dustfrac,implicit_radiation
+ use options,        only:iexternalforce,use_dustfrac,implicit_radiation,icooling
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -172,7 +172,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(rad,drad,pxyzu)&
+ !$omp shared(rad,drad,pxyzu,icooling) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
  !$omp shared(ibin,ibin_old,twas,timei) &
@@ -197,6 +197,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !
        if (gr) then
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+       elseif (icooling == 8) then
+          vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
        else
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
@@ -308,6 +310,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        if (gr) then
           ppred(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+       elseif (icooling == 8) then
+          vpred(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
@@ -420,7 +424,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,npart,hdtsph,store_itype) &
 !$omp shared(pxyzu,ppred) &
-!$omp shared(Bevol,dBevol,iphase,its) &
+!$omp shared(Bevol,dBevol,iphase,its,icooling) &
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
@@ -460,6 +464,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
                 if (gr) then
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
+                elseif (icooling == 8) then
+                   vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
                 else
                    vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                 endif
@@ -483,7 +489,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
              else
+<<<<<<< Updated upstream
                 vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+=======
+                vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+>>>>>>> Stashed changes
              endif
 
              !--floor the thermal energy if requested and required
@@ -552,7 +562,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (.not.converged .and. npart > 0) then
 !$omp parallel do default(none)&
 !$omp private(i) &
-!$omp shared(npart,hdtsph)&
+!$omp shared(npart,hdtsph,icooling)&
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
