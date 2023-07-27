@@ -505,7 +505,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    nvfloorc   = nvfloorc + 1
                 endif
              endif
-
+             
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i) = Bevol(:,i) + hdti*dBevol(:,i)
@@ -577,8 +577,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 endif
              endif
           endif
-       endif
-    enddo corrector
+       enddo corrector
 !$omp enddo
 !$omp end parallel
     if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
