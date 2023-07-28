@@ -8,7 +8,7 @@ module raytracer_all
 !
 ! raytracer_all
 !
-! :References: Esseldeurs M., Siess L. et al, 2023, A&A, in press
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122
 !
 ! :Owner: Lionel Siess
 !

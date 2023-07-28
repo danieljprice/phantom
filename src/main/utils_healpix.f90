@@ -19,7 +19,7 @@ module healpix
 !            Mars 2008: i8b same as i4b on machines not supporting 64 bits (NO64BITS flag set)
 !            Feb  2009: introduce healpix_version
 !
-! :References: None
+! :References: K. M. Górski et al, 2005, ApJ, 622, 759
 !
 ! :Owner: Lionel Siess
 !

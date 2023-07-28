@@ -8,7 +8,7 @@ module analysis
 !
 ! Analysis routine which computes optical depths throughout the simulation
 !
-! :References: Esseldeurs M., Siess L. et al, 2023, A&A, in press
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122 
 !
 ! :Owner: Lionel Siess
 !
