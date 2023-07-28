@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -38,7 +38,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  use units,          only:set_units
  use inject,         only:init_inject,inject_particles,dtsphere,rin,drdp,iboundspheres
  use timestep,       only:tmax
- use io,             only:iprint
+ use io,             only:iprint,fatal
  use eos,            only:gamma
  use prompting,      only:prompt
  use metric_tools,   only:imet_schwarzschild,imetric

@@ -135,7 +135,7 @@ To compile phantom with mcfost on ozstar using this pre-compiled version, you wi
    make MCFOST_LIBS=/fred/oz015/cpinte/mcfost/src/libtmp
    ./phantomsetup disc
    
-To run the code with MCFOST you will need:
+To run the code with MCFOST you will need::
 
    export MCFOST_UTILS=/fred/oz015/mcfost/utils
    ./phantom disc
@@ -154,10 +154,18 @@ and mcfost2phantom.mod into /usr/local/include. You can then compile phantom
 linked against MCFOST by overriding the linker flags as follows::
 
    ~/phantom/scripts/writemake.sh disc > Makefile
+   make MCFOST=yes PREFIX=/opt/homebrew LIBCXX=-lc++
+   make setup MCFOST=yes PREFIX=/opt/homebrew LIBCXX=-lc++
+   ./phantomsetup disc
+
+Or, if you have an intel Mac::
+
+   ~/phantom/scripts/writemake.sh disc > Makefile
    make MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
    make setup MCFOST=yes PREFIX=/usr/local LIBCXX=-lc++
    ./phantomsetup disc
-   
+
+
 To run the code with MCFOST you will need to create a directory where MCFOST utilities can be installed::
 
    mkdir -p ~/mcfost-utils/

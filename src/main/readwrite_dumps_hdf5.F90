@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module readwrite_dumps_hdf5
 !
@@ -35,8 +35,6 @@ module readwrite_dumps_hdf5
                                   externalforce_hdf5
 
  implicit none
- character(len=80), parameter, public :: &    ! module version
-   modid="$Id$"
 
  public :: read_dump_hdf5,read_smalldump_hdf5
  public :: write_smalldump_hdf5,write_fulldump_hdf5,write_dump_hdf5

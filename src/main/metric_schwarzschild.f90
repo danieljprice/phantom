@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module metric
 !
@@ -22,6 +22,7 @@ module metric
  integer,          parameter :: imetric     = 2
 
  real, public :: mass1 = 1.       ! mass of central object
+ real, public :: a     = 0.       ! spin of central object
 
 contains
 

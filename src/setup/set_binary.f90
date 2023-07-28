@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setbinary
 !
@@ -47,30 +47,47 @@ module setbinary
 
 contains
 
-!----------------------------------------------------------------
+!------------------------------------------------------------------------------
 !+
-!  setup for a binary
+!  setup for a binary orbit
+!
+!  INPUT:
+!    m1 - mass of object 1
+!    m2 - mass of object 2
+!    semimajoraxis - semimajor axis (e/=1) or pericentre distance (e=1)
+!    eccentricity - eccentricity
+!    accretion_radius1 - accretion radius for point mass 1
+!    accretion_radius2 - accretion radius for point mass 2
+!    [optional] posang_ascnode - position angle of the ascending node (Omega, deg)
+!    [optional] arg_peri - argument of periapsis (w, deg)
+!    [optional] incl - orbital inclination (i, deg)
+!    [optional] f - true anomaly (nu, deg)
+!    [optional] mean_anomaly - mean anomaly (M, deg; replaces true anomaly)
+!
+!  OUTPUT: cartesian positions and velocities for both objects
 !+
-!----------------------------------------------------------------
+!------------------------------------------------------------------------------
 subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
                       accretion_radius1,accretion_radius2, &
                       xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
-                      posang_ascnode,arg_peri,incl,f,verbose)
- use binaryutils, only:get_E
+                      posang_ascnode,arg_peri,incl,f,mean_anomaly,verbose)
+ use binaryutils, only:get_E,get_E_from_mean_anomaly,get_E_from_true_anomaly
  real,    intent(in)    :: m1,m2
  real,    intent(in)    :: semimajoraxis,eccentricity
  real,    intent(in)    :: accretion_radius1,accretion_radius2
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: nptmass
  integer, intent(out)   :: ierr
- real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f
+ real,    intent(in),  optional :: posang_ascnode,arg_peri,incl,f,mean_anomaly
  real,    intent(out), optional :: omega_corotate
  logical, intent(in),  optional :: verbose
  integer :: i1,i2,i
- real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period
+ real    :: mtot,dx(3),dv(3),Rochelobe1,Rochelobe2,period,bigM,rperi,rapo
  real    :: x1(3),x2(3),v1(3),v2(3),omega0,cosi,sini,xangle,reducedmass,angmbin
- real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi,term1,term2,theta
+ real    :: a,E,E_dot,P(3),Q(3),omega,big_omega,inc,ecc,tperi
+ real    :: term1,term2,term3,term4,theta,theta_max,energy
  logical :: do_verbose
+ character(len=12) :: orbit_type
 
  ierr = 0
  do_verbose = .true.
@@ -82,59 +99,92 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 
  ! masses
  mtot = m1 + m2
-
- Rochelobe1 = Rochelobe_estimate(m2,m1,semimajoraxis)
- Rochelobe2 = Rochelobe_estimate(m1,m2,semimajoraxis)
- period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
  reducedmass = m1*m2/mtot
- angmbin = reducedmass*sqrt(mtot*semimajoraxis*(1. - eccentricity**2))
 
- if (do_verbose) then
-    print "(/,2x,a)",'---------- binary parameters ----------- '
-    print "(8(2x,a,g12.3,/),2x,a,g12.3)", &
-        'primary mass     :',m1, &
-        'secondary mass   :',m2, &
-        'mass ratio m2/m1 :',m2/m1, &
-        'reduced mass     :',reducedmass, &
-        'semi-major axis  :',semimajoraxis, &
-        'period           :',period, &
-        'eccentricity     :',eccentricity, &
-        'pericentre       :',semimajoraxis*(1. - eccentricity), &
-        'apocentre        :',semimajoraxis*(1. + eccentricity)
- endif
- if (accretion_radius1 > Rochelobe1) then
-    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
- endif
- if (accretion_radius2 > Rochelobe2) then
-    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe'
- endif
-!
-!--check for stupid parameter choices
-!
+ ! check for stupid parameter choices
  if (m1 <= 0.) then
     print "(1x,a)",'ERROR: set_binary: primary mass <= 0'
     ierr = ierr_m1
  endif
  if (m2 < 0.) then
-    print "(1x,a)",'ERROR: set_binary: secondary mass <= 0'
+    print "(1x,a)",'ERROR: set_binary: secondary mass < 0'
     ierr = ierr_m2
  endif
- if (semimajoraxis <= 0.) then
-    print "(1x,a)",'ERROR: set_binary: semi-major axis <= 0'
+ if (abs(semimajoraxis) <= tiny(0.)) then
+    print "(1x,a)",'ERROR: set_binary: semi-major axis = 0'
     ierr = ierr_semi
  endif
- if (eccentricity > 1. .or. eccentricity < 0.) then
-    print "(1x,a)",'ERROR: set_binary: eccentricity must be between 0 and 1'
+ if (semimajoraxis < 0. .and. eccentricity <= 1.) then
+    print "(1x,a)",'ERROR: set_binary: using a < 0 requires e > 1'
+    ierr = ierr_semi
+ endif
+ if (eccentricity < 0.) then
+    print "(1x,a)",'ERROR: set_binary: eccentricity must be positive'
     ierr = ierr_ecc
+ endif
+ if (eccentricity > 1. .and. present(f)) then
+    theta = f*pi/180.
+    theta_max = acos(-1./eccentricity)
+    if (abs(theta) > theta_max) then
+       print "(1x,2(a,f8.2))",'ERROR: max true anomaly for e = ',eccentricity, &
+                              ' is |nu| < ',theta_max*180./pi
+       ierr = ierr_ecc
+    endif
  endif
  ! exit routine if cannot continue
  if (ierr /= 0) return
+
+ ! set parameters that depend on the orbit type
+ if (eccentricity < 1.) then
+    a = abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = semimajoraxis*(1. + eccentricity)
+    period = sqrt(4.*pi**2*a**3/mtot)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ elseif (eccentricity > 1.) then
+    a = -abs(semimajoraxis)
+    rperi = a*(1. - eccentricity)
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(mtot*a*(1. - eccentricity**2))
+    energy = -mtot/(2.*a)
+ else
+    a = huge(a)
+    rperi = abs(semimajoraxis) ! for parabolic orbit we must give the pericentre distance
+    rapo  = huge(rapo)
+    period = huge(period)
+    angmbin = reducedmass*sqrt(2.*mtot*rperi)
+    energy = 0.
+ endif
+
+ Rochelobe1 = Rochelobe_estimate(m2,m1,rperi)
+ Rochelobe2 = Rochelobe_estimate(m1,m2,rperi)
+
+ if (do_verbose) then
+    print "(/,2x,a)",'---------- binary parameters ----------- '
+    print "(8(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+        'primary mass     :',m1, &
+        'secondary mass   :',m2, &
+        'mass ratio m2/m1 :',m2/m1, &
+        'reduced mass     :',reducedmass, &
+        'semi-major axis  :',a, &
+        'period           :',period, &
+        'eccentricity     :',eccentricity, &
+        'pericentre       :',rperi, &
+        'apocentre        :',rapo
+ endif
+ if (accretion_radius1 > Rochelobe1) then
+    print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe at periastron'
+ endif
+ if (accretion_radius2 > Rochelobe2) then
+    print "(1x,a)",'WARNING: set_binary: accretion radius of secondary > Roche lobe at periastron'
+ endif
 
  dx = 0.
  dv = 0.
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
-    a = semimajoraxis
     ecc = eccentricity
     omega     = arg_peri*pi/180.
     ! our conventions here are Omega is measured East of North
@@ -142,10 +192,14 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     inc       = incl*pi/180.
 
     if (present(f)) then
-       ! get eccentric anomaly from true anomaly
+       ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
        theta = f*pi/180.
-       E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
+       E = get_E_from_true_anomaly(theta,ecc)
+    elseif (present(mean_anomaly)) then
+       ! get eccentric anomaly from mean anomaly by solving Kepler equation
+       bigM = mean_anomaly*pi/180.
+       E = get_E_from_mean_anomaly(bigM,ecc)
     else
        ! set binary at apastron
        tperi = 0.5*period ! time since periastron: half period = apastron
@@ -162,27 +216,48 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     Q(2) = -sin(omega)*sin(big_omega) + cos(omega)*cos(inc)*cos(big_omega)
     Q(3) = sin(inc)*cos(omega)
 
-    term1 = cos(E)-eccentricity
-    term2 = sqrt(1.-(eccentricity*eccentricity))*sin(E)
-    E_dot = sqrt((m1 + m2)/(a**3))/(1.-eccentricity*cos(E))
+    if (eccentricity < 1.) then ! eccentric
+       orbit_type = 'Eccentric'
+       term1 = a*(cos(E)-ecc)
+       term2 = a*(sqrt(1. - ecc*ecc)*sin(E))
+       E_dot = sqrt((m1 + m2)/(a**3))/(1.-ecc*cos(E))
+       term3 = a*(-sin(E)*E_dot)
+       term4 = a*(sqrt(1.- ecc*ecc)*cos(E)*E_dot)
+    elseif (eccentricity > 1.) then ! hyperbolic
+       orbit_type = 'Hyperbolic'
+       term1 = a*(cosh(E)-ecc)
+       term2 = -a*(sqrt(ecc*ecc - 1.)*sinh(E))
+       E_dot = sqrt((m1 + m2)/(abs(a)**3))/(ecc*cosh(E)-1.)
+       term3 = a*(sinh(E)*E_dot)
+       term4 = -a*(sqrt(ecc*ecc - 1.)*cosh(E)*E_dot)
+    else ! parabolic
+       orbit_type = 'Parabolic'
+       term1 = rperi*(1. - E*E)
+       term2 = rperi*(2.*E)
+       E_dot = sqrt(2.*(m1 + m2)/(rperi**3))/(1. + E*E)
+       term3 = -E*(rperi*E_dot)
+       term4 = rperi*E_dot
+    endif
 
     if (do_verbose) then
-       print "(4(2x,a,g12.4,/),2x,a,g12.4)", &
-             'Eccentric anomaly:',E, &
+       print "(4(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+             trim(orbit_type)//' anomaly:',E, &
              'E_dot            :',E_dot, &
              'inclination     (i, deg):',incl, &
              'angle asc. node (O, deg):',posang_ascnode, &
-             'arg. pericentre (w, deg):',arg_peri
-       if (present(f)) print "(2x,a,g12.4)", &
+             'arg. periapsis  (w, deg):',arg_peri
+       if (present(f)) print "(2x,a,1pg14.6)", &
              'true anomaly    (f, deg):',f
+       if (present(mean_anomaly)) print "(2x,a,1pg14.6)", &
+             'mean anomaly    (M, deg):',mean_anomaly
     endif
 
     ! Rotating everything
     ! Set the positions for the primary and the central secondary
-    dx(:) = a*(term1*P(:) + term2*Q(:)) ! + xyzmh_ptmass(1,1)
+    dx(:) = term1*P(:) + term2*Q(:)
 
     ! Set the velocities
-    dv(:) = -a*sin(E)*E_dot*P(:) + a*sqrt(1.-(ecc*ecc))*cos(E)*E_dot*Q(:)
+    dv(:) = term3*P(:) + term4*Q(:)
 
  else
     ! set binary at apastron
@@ -195,14 +270,16 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  x2 =  dx*m1/mtot
 
  ! velocities
- v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
- v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
+ v1 = -dv*m2/mtot
+ v2 =  dv*m1/mtot
 
- omega0 = dv(2)/semimajoraxis
+ omega0 = v1(2)/x1(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
-    print "(7(2x,a,g12.4,/),2x,a,g12.4)", &
+    print "(9(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
+        'energy (mtot/2a) :',energy,&
+        'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
         'Omega_0 (prim)   :',v1(2)/x1(1), &
@@ -218,7 +295,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
     omega_corotate = omega0
     v1(2) = v1(2) - omega0*x1(1)
     v2(2) = v2(2) - omega0*x2(1)
-    if (do_verbose) print "(2(2x,a,g12.4,/))", &
+    if (do_verbose) print "(2(2x,a,1pg14.6,/))", &
      'Omega_0 (primary)     :',v1(2)/x1(1), &
      'Omega_0 (secondary)   :',v2(2)/x2(1)
  endif

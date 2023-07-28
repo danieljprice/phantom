@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module infile_utils
 !
@@ -1248,13 +1248,11 @@ subroutine get_optstring(nopts,optstring,string,maxlen)
 
  string = ''
  do i=1,nopts
-    temp = optstring(i)
+    temp = adjustl(optstring(i))
     if (i==nopts) then
-       write(string(len_trim(string)+1:),"(i2,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
-    elseif (i < 10) then
-       write(string(len_trim(string)+1:),"(i1,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
     else
-       write(string(len_trim(string)+1:),"(i2,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
     endif
  enddo
 

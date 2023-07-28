@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module step_lf_global
 !
@@ -22,20 +22,18 @@ module step_lf_global
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cons2prim, cons2primsolver, cooling, cooling_ism,
-!   damping, deriv, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, io, io_summary, krome_interface, metric_tools, mpiutils,
-!   options, part, ptmass, ptmass_radiation, timestep, timestep_ind,
-!   timestep_sts, timing
+! :Dependencies: boundary_dyn, chem, cons2prim, cons2primsolver, cooling,
+!   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
+!   externalforces, growth, io, io_summary, krome_interface, metric_tools,
+!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!   timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
  use part, only:radpred
  use timestep_ind, only:maxbins,itdt,ithdt,itdt1,ittwas
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
- real               :: ibin_dts(4,0:maxbins)
+ real :: ibin_dts(4,0:maxbins)
 
 contains
 
@@ -100,7 +98,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
-                          dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
+                          dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -109,11 +107,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use cooling,        only:ufloor
+ use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
- use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,ibinnow,dt_too_small
+ use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
 #ifdef GR
@@ -137,8 +136,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  real,    intent(out)   :: dtnew
  integer            :: i,its,np,ntypes,itype,nwake,nvfloorp,nvfloorps,nvfloorc,ialphaloc
  real               :: timei,erri,errmax,v2i,errmaxmean
- real               :: vxi,vyi,vzi,eni,vxoldi,vyoldi,vzoldi,hdtsph,pmassi
- real               :: alphaloci,divvdti,source,tdecay1,hi,rhoi,ddenom,spsoundi
+ real               :: vxi,vyi,vzi,eni,hdtsph,pmassi
+ real               :: alphaloci,source,tdecay1,hi,rhoi,ddenom,spsoundi
  real               :: v2mean,hdti
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
  real               :: pxi,pyi,pzi,p2i,p2mean
@@ -173,7 +172,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(rad,drad,pxyzu)&
+ !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
  !$omp shared(ibin,ibin_old,twas,timei) &
@@ -264,12 +263,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
-!$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
+!$omp shared(alphaind,ieos,alphamax,ialphaloc) &
 !$omp shared(eos_vars,ufloor) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
-!$omp private(i,spsoundi,alphaloci,divvdti) &
+!$omp private(i,spsoundi,alphaloci) &
 !$omp firstprivate(pmassi,itype,avdecayconst,alpha) &
 !$omp reduction(+:nvfloorps)
  predict_sph: do i=1,npart
@@ -427,10 +426,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
 !$omp shared(dtsph,ieos,ufloor) &
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
-!$omp shared(ibin_dts,nbinmax,ibinnow) &
+!$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
 !$omp shared(rad,radpred,drad)&
-!$omp private(i,vxi,vyi,vzi,vxoldi,vyoldi,vzoldi) &
+!$omp private(i,vxi,vyi,vzi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
 !$omp reduction(max:errmax) &
@@ -545,7 +544,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
 
                 erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
-                !if (erri > errmax) print*,id,' errmax = ',erri,' part ',i,vxi,vxoldi,vyi,vyoldi,vzi,vzoldi
                 errmax = max(errmax,erri)
 
                 v2i    = vxi*vxi + vyi*vyi + vzi*vzi
@@ -665,6 +663,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  nvfloorps = int(reduceall_mpi('+', nvfloorps))
  nvfloorc  = int(reduceall_mpi('+', nvfloorc))
 
+ if (dynamic_bdy) call update_xyzminmax(dtsph)
+
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )
  if (nvfloorp > 0) call summary_variable('floor',iosumflrp, 0,real(nvfloorp) )
@@ -751,7 +751,7 @@ end subroutine step_extern_sph_gr
 
 subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
  use dim,            only:maxptmass,maxp,maxvxyzu
- use io,             only:iverbose,id,master,iprint,warning
+ use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
@@ -767,7 +767,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  real,    intent(in)    :: dtsph,time
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),pxyzu(:,:),dens(:),metrics(:,:,:,:),metricderivs(:,:,:,:)
- integer :: i,itype,nsubsteps,naccreted,its,ierr
+ integer :: i,itype,nsubsteps,naccreted,its,ierr,nlive
  real    :: timei,t_end_step,hdt,pmassi
  real    :: dt,dtf,dtextforcenew,dtextforce_min
  real    :: pri,spsoundi,pondensi,tempi,gammai
@@ -864,7 +864,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           tempi     = eos_vars(itemp,i)
           rhoi      = rhoh(hi,massoftype(igas))
 
-! Note: grforce needs derivatives of the metric, which do not change between pmom iterations
+          ! Note: grforce needs derivatives of the metric,
+          ! which do not change between pmom iterations
           pmom_iterations: do while (its <= itsmax .and. .not. converged)
              its   = its + 1
              pprev = pxyz
@@ -877,7 +878,8 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              if (pmom_err < ptol) converged = .true.
              fexti = fstar
           enddo pmom_iterations
-          if (its > itsmax ) call warning('step_extern_gr','Reached max number of pmom iterations. pmom_err ',val=pmom_err)
+          if (its > itsmax ) call warning('step_extern_gr',&
+                                 'max # of pmom iterations',var='pmom_err',val=pmom_err)
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
@@ -890,9 +892,11 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
           its        = 0
           converged  = .false.
           vxyz_star = vxyz
-! Note: since particle positions change between iterations the metric and its derivatives need to be updated.
-!       cons2prim does not require derivatives of the metric, so those can updated once the iterations
-!       are complete, in order to reduce the number of computations.
+          ! Note: since particle positions change between iterations
+          !  the metric and its derivatives need to be updated.
+          !  cons2prim does not require derivatives of the metric,
+          !  so those can updated once the iterations are complete
+          !  in order to reduce the number of computations.
           xyz_iterations: do while (its <= itsmax .and. .not. converged)
              its         = its+1
              xyz_prev    = xyz
@@ -940,6 +944,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !
     accretedmass = 0.
     naccreted    = 0
+    nlive = 0
     dtextforce_min = bignumber
 
     !$omp parallel default(none) &
@@ -950,7 +955,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
     !$omp firstprivate(itype,pmassi) &
     !$omp reduction(min:dtextforce_min) &
-    !$omp reduction(+:accretedmass,naccreted) &
+    !$omp reduction(+:accretedmass,naccreted,nlive) &
     !$omp shared(idamp,damp_fac)
     !$omp do
     accreteloop: do i=1,npart
@@ -984,10 +989,15 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
                 naccreted = naccreted + 1
              endif
           endif
+          nlive = nlive + 1
        endif
     enddo accreteloop
     !$omp enddo
     !$omp end parallel
+
+    if (npart > 2 .and. nlive < 2) then
+       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+    endif
 
     if (iverbose >= 2 .and. id==master .and. naccreted /= 0) write(iprint,"(a,es10.3,a,i4,a)") &
        'Step: at time ',timei,', ',naccreted,' particles were accreted. Mass accreted = ',accretedmass
@@ -1026,7 +1036,7 @@ end subroutine step_extern_gr
 !+
 !----------------------------------------------------------------
 subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
- use part, only:isdead_or_accreted,iboundary,iphase,iamtype
+ use part, only:isdead_or_accreted
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
  real,    intent(inout) :: xyzh(:,:)
@@ -1034,7 +1044,7 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  integer :: i
 
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,vxyzu,dt,iphase) &
+ !$omp shared(npart,xyzh,vxyzu,dt) &
  !$omp private(i)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -1094,11 +1104,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- integer         :: i,itype,nsubsteps,ichem,naccreted,nfail,nfaili,merge_n
+ integer         :: i,itype,nsubsteps,naccreted,nfail,nfaili,merge_n,nlive
  integer         :: merge_ij(nptmass)
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
- real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,deni
+ real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi
  real            :: dudtcool,fextv(3),poti,ui,rhoi
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
@@ -1201,8 +1211,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
 #endif
     !$omp private(dphot,abundi,gmwvar) &
     !$omp private(ui,rhoi) &
-    !$omp private(i,ichem,dudtcool,fxi,fyi,fzi,phii) &
-    !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,deni,fextv,accreted) &
+    !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
+    !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
     !$omp private(vxhalfi,vyhalfi,vzhalfi) &
     !$omp firstprivate(pmassi,itype) &
@@ -1373,6 +1383,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     accretedmass = 0.
     nfail        = 0
     naccreted    = 0
+    nlive        = 0
     ibin_wakei   = 0
     dptmass(:,:) = 0.
 
@@ -1385,7 +1396,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp reduction(+:dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi,ibin_wakei) &
-    !$omp reduction(+:accretedmass,nfail,naccreted)
+    !$omp reduction(+:accretedmass,nfail,naccreted,nlive)
     !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -1428,11 +1439,15 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              endif
              if (nfaili > 1) nfail = nfail + 1
           endif
+          nlive = nlive + 1
        endif
-
     enddo accreteloop
     !$omp enddo
     !$omp end parallel
+
+    if (npart > 2 .and. nlive < 2) then
+       call fatal('step','all particles accreted',var='nlive',ival=nlive)
+    endif
 
     !
     ! reduction of sink particle changes across MPI
