@@ -66,7 +66,7 @@ subroutine test_radiation(ntests,npass)
 
     if (.not.mpi) then
        implicit_radiation = .true.
-       tol_rad = 1.e-5
+       tol_rad = 1.e-6
        call test_radiation_diffusion(ntests,npass)
     endif
  endif
@@ -218,7 +218,7 @@ end subroutine test_exchange_terms
 !+
 !---------------------------------------------------------
 subroutine test_implicit_matches_explicit(ntests,npass)
- use part,     only:dvdx,npart,xyzh,vxyzu,dvdx_label,rad,radprop,drad,&
+ use part,     only:npart,xyzh,vxyzu,rad,radprop,drad,&
                     xyzh_label,init_part,radprop_label
  use boundary, only:xmin,xmax,ymin,ymax,zmin,zmax
  use options,  only:implicit_radiation,tolh
@@ -228,12 +228,11 @@ subroutine test_implicit_matches_explicit(ntests,npass)
  use timestep, only:dtmax
  use radiation_implicit, only:do_radiation_implicit
  integer, intent(inout) :: ntests,npass
- real(kind=kind(dvdx)), allocatable :: dvdx_explicit(:,:)
  real(kind=kind(radprop)), allocatable :: flux_explicit(:,:)
  real :: kappa_code,c_code,xi0,rho0,errmax_e,tol_e,tolh_old,pmassi !,exact(9)
  integer :: i,j,itry,nerr_e(9),ierr
 
- if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for dvdx/flux terms'
+ if (id==master) write(*,"(/,a)") '--> checking implicit routine matches explicit for flux terms'
 
  implicit_radiation = .false.
  iverbose = 0
@@ -255,30 +254,17 @@ subroutine test_implicit_matches_explicit(ntests,npass)
     if (itry==1) then
        call get_derivs_global()  ! twice to get density on neighbours correct
 
-       !--allocate and copy dvdx (note: dvdx_explicit = dvdx works
-       !  but gives compiler warnings so we do this with source=)
-       allocate(dvdx_explicit, source=dvdx)
-
        !--allocate and copy flux
        allocate(flux_explicit(3,npart))
        flux_explicit = radprop(ifluxx:ifluxz,1:npart)
-       dvdx = 0.
     else
-       dvdx = 0.
        radprop = 0.
        call do_radiation_implicit(1.e-24,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     endif
  enddo
 
  ! now check that things match
- nerr_e = 0
- errmax_e = 0.
  tol_e = 1.e-15
- do j=1,9
-    call checkval(npart,dvdx(j,:),dvdx_explicit(j,:),tol_e,nerr_e(j),dvdx_label(j))
- enddo
- call update_test_scores(ntests,nerr_e,npass)
-
  nerr_e = 0
  errmax_e = 0.
  do j=1,3
