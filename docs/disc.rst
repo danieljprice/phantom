@@ -89,7 +89,7 @@ the .setup file correct. Answer 2 for the number of stars::
 
      >>> please edit disc.setup to set parameters for your problem then rerun  phantomsetup <<<
 
-After answering the questions, this will create a file called sim.setup which    contains setup options. Open this file in your favourite text editor to proceed...
+After answering the questions, this will create a file called sim.setup which contains setup options. Open this file in your favourite text editor to proceed...
 
 edit the .setup file and rerun phantomsetup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -138,7 +138,7 @@ The above procedure prints a .discparams file (in the above example would be
 called disc.discparams) that contains some of the parameters used to
 initialise the disc setup.
 
-For a circumbinary disc the equation of state is set to a vertically isothermal equation of state (ieos=3) where the radius is taken with respect to *the coordinate origin*. See :doc:`Equations of state available in Phantom <Equations of state available in Phantom>`
+For a circumbinary disc the equation of state is set to a vertically isothermal equation of state (ieos=3) where the radius is taken with respect to *the coordinate origin*. See :doc:`Equations of state available in Phantom <eos>`
 
 check the .in file and proceed to run phantom
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -181,9 +181,9 @@ which produces::
   secondary mass          :    1.00
   mass ratio              :    1.00
 
-For a circumprimary disc the equation of state is set to ieos=6, such that the radius is taken with respect to the first sink particle in the simulation. See :doc:`Equations of state available in Phantom <Equations of state available in Phantom>`
+For a circumprimary disc the equation of state is set to ieos=6, such that the radius is taken with respect to the first sink particle in the simulation. See :doc:`Equations of state available in Phantom <eos>`
 
-The Farris et al. (2014) equation of state (ieos=14 for a binary or ieos=13 if there are more than two stars) is also useful for a flyby simulation if one does not want to have excessively cold material around the secondary
+The Farris et al. (2014) :doc:`equation of state <eos>` (ieos=14 for a binary or ieos=13 if there are more than two stars) is also useful for a flyby simulation if one does not want to have excessively cold material around the secondary
 
 
 Protoplanetary disc with embedded planets
