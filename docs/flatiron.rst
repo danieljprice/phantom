@@ -17,21 +17,23 @@ show available software::
 
    module avail
 
-load intel compilers and splash::
+load intel compilers and splash
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
    module load intel-oneapi-compilers/2023.0.0
    module use ~yjiang/modulefiles
    module load splash/3.8.3
 
-Get phantom
-~~~~~~~~~~~
-
+get phantom
+~~~~~~~~~~~~
 Clone a copy of phantom into your home directory::
 
    git clone https://github.com/danieljprice/phantom.git
 
-Set your username and email address
------------------------------------
+set your username and email address
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Ensure that your name and email address are set, as follows:
 
@@ -45,7 +47,7 @@ Please use your full name in the format above, as this is what appears
 in the commit logs (and in the AUTHORS file).
 
 edit your .bashrc file
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 I put the “module load” commands in a file called ~/.modules which
 contains the modules I want every time I log in. For example::
@@ -141,7 +143,7 @@ Once the job is running, follow the output log using the tail -f command::
    tail -f shock01.log
 
 splash on rusty
-~~~~~~~~~~~~~~~~
+----------------
 
 There is a version of splash you can get by loading the relevant module::
 
@@ -162,7 +164,7 @@ in your ~/.bashrc file::
    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$HOME/splash/giza/lib
 
 visualising the shock problem
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------
 Simple plots with splash can be launched from the command line, e.g.::
 
   splash shock_0* -y density -x x
@@ -201,7 +203,7 @@ To make an offline version of the same plot from the command line, use::
 read the `splash userguide <https://splash-viz.readthedocs.org>`__ for more
 
 more interesting examples
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 To proceed to a more interesting calculation, just change the name of the :doc:`SETUP
 parameter <setups>`_ when you created the Makefile in the run directory, as per
 the :doc:`examples <examples>`_::
@@ -210,8 +212,10 @@ the :doc:`examples <examples>`_::
   mkdir disc
   cd disc
   ~/phantom/scripts/writemake.sh disc > Makefile
-  make setup
-  make
+  make setup; make
+
+followed by::
+
   ./phantomsetup disc
 
 after editing the .setup file as desired, then finish the setup and run the calculation::
@@ -223,9 +227,9 @@ after editing the .setup file as desired, then finish the setup and run the calc
 ...and you're off and rolling.
 
 more examples of test problems, e.g. Orszag-Tang vortex
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+----------------------------------------------------------
 To run your own version of standardised test problems shown in the `code paper <http://adsabs.harvard.edu/abs/2018PASA...35...31P>`_,
-you can clone the `phantom-examples <https://github.com/phantomSPH/phantom-examples`_ repository::
+you can clone the `phantom-examples <https://github.com/phantomSPH/phantom-examples>`_ repository::
 
   cd ~/ceph
   git clone https://github.com/phantomSPH/phantom-examples
@@ -239,7 +243,7 @@ followed by::
   sbatch -p temp run.q
 
 more info
-~~~~~~~~~
+---------
 
 For more information on the actual machine `read the
 userguide <https://wiki.flatironinstitute.org/SCC/Hardware/Rusty>`__
