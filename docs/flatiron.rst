@@ -86,7 +86,7 @@ Then make a subdirectory for the name of the calculation you want to run
    mkdir shock
    cd shock
    ~/phantom/scripts/writemake.sh shock > Makefile
-   make shock
+   make setup
    make
    ./phantomsetup shock
 
