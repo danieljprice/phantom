@@ -72,12 +72,12 @@ echo "url = $url";
 pwd=$PWD;
 phantomdir="$pwd/../";
 listofcomponents='main setup analysis utils';
-listofcomponents='setup'
+#listofcomponents='setup'
 #
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
-allsetups='star'
+#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))
