@@ -67,6 +67,9 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
+    - name: Update package list
+      run: sudo apt-get update
+
     - name: Setup Intel repo
       if: matrix.system == 'ifort'
       id: intel-repo
@@ -75,7 +78,6 @@ jobs:
         sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
         rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
         sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
         INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
         echo "::set-output name=intelversion::$INTELVERSION"
 
