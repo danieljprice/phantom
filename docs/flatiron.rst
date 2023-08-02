@@ -1,7 +1,7 @@
 Getting started on Rusty (Flatiron cluster)
 ===========================================
 
-See also general instructions for :doc:`running phantom on a remote cluster <clusters>`.
+See also :doc:`general instructions for running phantom on a remote cluster <clusters>`.
 
 We assume you already have a Flatiron username and account
 
@@ -32,9 +32,7 @@ Clone a copy of phantom into your home directory::
 Set your username and email address
 -----------------------------------
 
-Ensure that your name and email address are set, as follows:
-
-::
+Ensure that your name and email address are set, as follows::
 
    cd phantom
    git config --global user.name "Joe Bloggs"
