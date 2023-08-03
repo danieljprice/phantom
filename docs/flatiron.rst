@@ -86,7 +86,7 @@ Then make a subdirectory for the name of the calculation you want to run
    mkdir shock
    cd shock
    ~/phantom/scripts/writemake.sh shock > Makefile
-   make shock
+   make setup
    make
    ./phantomsetup shock
 
@@ -204,8 +204,8 @@ read the `splash userguide <https://splash-viz.readthedocs.org>`__ for more
 more interesting examples
 -------------------------
 To proceed to a more interesting calculation, just change the name of the :doc:`SETUP
-parameter <setups>`_ when you created the Makefile in the run directory, as per
-the :doc:`examples <examples>`_::
+parameter <setups>` when you created the Makefile in the run directory, as per
+the :doc:`examples <examples>`::
 
   cd ~/ceph
   mkdir disc
