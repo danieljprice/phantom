@@ -158,8 +158,9 @@ Alternatively, you can also install a local copy of splash in your home space::
 You can add this directory in your path by putting the following lines
 in your ~/.bashrc file::
 
-   export PATH=$HOME/splash/bin:${PATH}
-   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$HOME/splash/giza/lib
+   export SPLASH_DIR=/mnt/home/dprice/splash
+   export PATH=${SPLASH_DIR}/bin:${PATH}
+   export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${SPLASH_DIR}/giza/lib
 
 visualising the shock problem
 ------------------------------
