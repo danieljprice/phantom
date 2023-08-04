@@ -105,8 +105,8 @@ A non-exhaustive list of possible arguments are as follows:
 The buildbot
 ~~~~~~~~~~~~
 
-The buildbot also runs in an action and checks that the code compiles in all of
-the possible SETUP configurations in the Makefile. You can run this
+The buildbot also runs in `an action <https://github.com/danieljprice/phantom/actions>`_ and checks that the code compiles in :doc:`all of
+the possible SETUP configurations in the Makefile <setups>`. You can run this
 offline as follows::
 
    cd phantom/scripts
