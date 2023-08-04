@@ -3,7 +3,7 @@ Getting your code to pass the github actions
 
 On every pull request a sequence of continuous integration tests
 are performed to check that code is safe to merge into master.
-The scripts in the .github/workflows directory are as follows:
+The scripts in the `.github/workflows <https://github.com/danieljprice/phantom/tree/master/.github/workflows>`_ directory are as follows:
 
 - |build|_: checks that phantom, phantomsetup, phantomanalysis and phantommoddump compile with every possible SETUP= flag
 - |test|_: runs the test suite [see below]
