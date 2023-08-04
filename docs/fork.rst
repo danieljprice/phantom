@@ -18,7 +18,7 @@ How to work on your fork
 
 Clone a copy of your fork onto a local machine::
 
-   git clone https://github.com/USERNAME/phantom
+   git clone git@github.com:USERNAME/phantom
 
 push and pull from your fork as you would with the regular phantom
 repository
@@ -54,7 +54,7 @@ How should you contribute these back so everyone can benefit? First, you should
 *create your fork* as described above. Then you can simply add your new
 fork as a remote branch of the current repository::
 
-   git remote add myfork git@github.com/USERNAME/phantom
+   git remote add myfork git@github.com:USERNAME/phantom
 
 Notice that in the above we used the ssh address for github, because you need WRITE
 permission which is only possible over ssh. If you haven't already done it, you
