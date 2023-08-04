@@ -17,7 +17,7 @@ module cooling_gammie
 ! :Runtime parameters:
 !   - beta_cool : *beta factor in Gammie (2001) cooling*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils, io, part
 !
  implicit none
  real, private :: beta_cool  = 3.

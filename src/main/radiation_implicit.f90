@@ -18,8 +18,9 @@ module radiation_implicit
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, dim, eos, io, kdtree, kernel, linklist, options,
-!   part, physcon, quartic, radiation_utils, units
+! :Dependencies: boundary, derivutils, dim, eos, implicit, io, kdtree,
+!   kernel, linklist, options, part, physcon, quartic, radiation_utils,
+!   timing, units
 !
  use part,            only:ikappa,ilambda,iedd,idkappa,iradxi,icv,ifluxx,ifluxy,ifluxz,igas,rhoh,massoftype,imu
  use eos,             only:iopacity_type
