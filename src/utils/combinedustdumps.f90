@@ -38,7 +38,8 @@ program combinedustdumps
  real, allocatable :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
  real, allocatable :: grainsize_tmp(:),graindens_tmp(:)
  integer, allocatable :: npartofdust_tmp(:)
- integer :: i,j,counter,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
+ integer :: i,j,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
+ integer(kind=8) :: counter
  integer :: nwarn,nerror,ndust
  real    :: time
  real(kind=8) :: utime_tmp,udist_tmp,umass_tmp
