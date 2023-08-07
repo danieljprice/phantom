@@ -17,7 +17,7 @@ module cooling_gammie
 ! :Runtime parameters:
 !   - beta_cool : *beta factor in Gammie (2001) cooling*
 !
-! :Dependencies: infile_utils, io
+! :Dependencies: infile_utils, io, part
 !
  implicit none
  real, private :: beta_cool  = 3.
@@ -29,13 +29,18 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine cooling_Gammie_explicit(xi,yi,zi,ui,dudti)
-
+ use part, only:xyzmh_ptmass, nptmass
  real, intent(in)    :: ui,xi,yi,zi
  real, intent(inout) :: dudti
 
  real :: omegai,r2,tcool1
 
- r2     = xi*xi + yi*yi + zi*zi
+ if (nptmass > 0) then
+    r2     = (xi-xyzmh_ptmass(1,1))**2 + (yi-xyzmh_ptmass(2,1))**2 + (zi-xyzmh_ptmass(3,1))**2
+ else
+    r2     = xi*xi + yi*yi + zi*zi
+ endif
+
  Omegai = r2**(-0.75)
  tcool1 = Omegai/beta_cool
  dudti  = dudti - ui*tcool1
