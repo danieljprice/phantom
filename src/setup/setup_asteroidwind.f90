@@ -26,6 +26,7 @@ module setup
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
+!   - mdot          : *rate of mass to be injected (g/s)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
 !   io, options, part, physcon, setbinary, spherical, timestep, units
@@ -33,7 +34,7 @@ module setup
  implicit none
  public :: setpart
 
- real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp
+ real :: m1,m2,ecc,semia,hacc1,rasteroid,norbits,gastemp,mdot
  integer :: npart_at_end,dumpsperorbit,ipot
 
  private
@@ -44,13 +45,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,unit_velocity
+ use units,     only:set_units,umass,udist,unit_velocity,utime
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
                             mass1,accradius1
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
- !use inject,    only:inject_particles
  use eos,       only:gmw
  use options,   only:iexternalforce
  use extern_lensethirring, only:blackhole_spin
@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rasteroid     = 2338.3      ! (km)
  gastemp       = 5000.     ! (K)
  norbits       = 1000.
- !mdot          = 5.e8      ! Mass injection rate (g/s)
+ mdot          = 5.e8      ! Mass injection rate (g/s)
  npart_at_end  = 1.0e6       ! Number of particles after norbits
  dumpsperorbit = 1
 
@@ -173,11 +173,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(4,1)      = m2
     xyzmh_ptmass(ihacc,1)  = hacc2        ! asteroid should not accrete
     xyzmh_ptmass(ihsoft,1) = rasteroid    ! asteroid radius softening
+
  endif
 
  ! both of these are reset in the first call to inject_particles
- !massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
- massoftype(igas) = 1.e-12
+ massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
  hfact = 1.2
  !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
 
@@ -215,7 +215,7 @@ subroutine write_setupfile(filename)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
  call write_inopt(npart_at_end,'npart_at_end','number of particles injected after norbits',iunit)
- !call write_inopt(mdot,'mdot','mass injection rate (g/s)',iunit)
+ call write_inopt(mdot,'mdot','mass injection rate (g/s)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -244,7 +244,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call read_inopt(npart_at_end, 'npart_at_end', db,min=0 ,errcount=nerr)
- !call read_inopt(mdot,         'mdot',         db,min=0.,errcount=nerr)
+ call read_inopt(mdot,         'mdot',         db,min=0.,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
