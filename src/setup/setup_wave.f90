@@ -66,19 +66,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! default options
 !
- npartx  = 64
+ npartx  = 16
  ntypes  = 1
  rhozero = 1.
  massfac = 1.
  cs      = 1.
- ampl    = 1.d-4
+ ampl    = 1.d-2
  use_dustfrac = .false.
  ndustsmall = 0
  ndustlarge = 0
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
-    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
+  !  call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
     if (use_dust) then
        dust_method = 2
        dtg = 1.
@@ -141,10 +141,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (itypes)
     case(1)
        itype = igas
-       if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-                            ' density (gives particle mass)',rhozero,0.)
+  !     if (id==master) call prompt('enter '//trim(labeltype(itype))//&
+  !                          ' density (gives particle mass)',rhozero,0.)
 
-       if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
+  !     if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
        if (maxvxyzu < 4) then
           call bcast_mpi(cs)
           polyk = cs**2
@@ -152,7 +152,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        else
           polyk = 0.
        endif
-       if (id==master) call prompt('enter perturbation amplitude',ampl)
+  !     if (id==master) call prompt('enter perturbation amplitude',ampl)
        call bcast_mpi(ampl)
        if (use_dustfrac) then
           call bcast_mpi(dtg)
