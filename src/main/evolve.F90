@@ -87,6 +87,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
+#ifdef APR
+  use apr,             only:update_apr
+  use part,            only:apr_level
+#endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
@@ -223,6 +227,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
     endif
+#endif
+
+#ifdef APR
+ ! split or merge as required
+ call update_apr(npart,xyzh,vxyzu,apr_level)
 #endif
 
     dtmaxold    = dtmax

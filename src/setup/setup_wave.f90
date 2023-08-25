@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use_dustfrac = .false.
  ndustsmall = 0
  ndustlarge = 0
+
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'

@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc
+               inucleation,itau_alloc,itauL_alloc,use_apr
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -270,6 +270,11 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
+!--APR
+!
+ integer, allocatable :: apr_level(:)
+!
+
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
@@ -385,6 +390,7 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+ call allocate_array('apr_level',apr_level,maxp)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -520,6 +526,7 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(apr_level))    deallocate(apr_level)
 
 end subroutine deallocate_part
 
@@ -562,6 +569,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
+ if (use_apr) apr_level = 3 ! so we can both refine and de-refine from here
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.
@@ -1133,6 +1141,7 @@ subroutine copy_particle(src,dst,new_part)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
+ if (use_apr) apr_level(dst) = apr_level(src)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
@@ -1252,6 +1261,7 @@ subroutine copy_particle_all(src,dst,new_part)
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
  endif
+ if (use_apr) apr_level(dst) = apr_level(src)
 
  if (new_part) then
     norig      = norig + 1

@@ -182,6 +182,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use partinject,       only:update_injected_particles
  use timestep_ind,     only:nbinmax
 #endif
+#ifdef APR
+  use apr,             only:init_apr
+  use part,            only:apr_level
+#endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
 #endif
@@ -559,6 +563,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+#endif
+#ifdef APR
+ call init_apr(apr_level,ierr)
 #endif
 !
 !--set initial chemical abundance values

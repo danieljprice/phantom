@@ -320,6 +320,15 @@ module dim
 #endif
 
 !--------------------
+! Adaptive Particle Refinement (APR)
+!--------------------
+#ifdef APR
+ logical, parameter :: use_apr = .true.
+#else
+ logical, parameter :: use_apr = .false.
+#endif
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
