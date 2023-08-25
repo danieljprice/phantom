@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr
+               inucleation,itau_alloc,itauL_alloc,use_apr,maxp_apr
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -381,6 +381,14 @@ contains
 
 subroutine allocate_part
  use allocutils, only:allocate_array
+ ! there must be some clever one line way to do this
+ if (use_apr) then
+   maxp = maxp_apr
+   maxgradh = maxp_apr
+   maxan = maxp_apr
+   maxphase = maxp_apr
+   maxalpha = maxp_apr
+ endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)
  call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)

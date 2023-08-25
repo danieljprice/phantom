@@ -86,6 +86,7 @@ LIBTOOL=ar rcs
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DLIGHTCURVE          ! lightcurve estimation
+# -DAPR									! live adaptive particle refinement
 
 include Makefile_setups
 
@@ -113,9 +114,7 @@ else
     SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
 endif
 
-ifdef SRCAPR
-    APR=yes
-else
+ifndef SRCAPR
     SRCAPR=apr.f90
 endif
 
@@ -336,7 +335,7 @@ ifdef LIGHTCURVE
     FPPFLAGS += -DLIGHTCURVE
 endif
 
-ifdef APR
+ifeq ($(APR), yes)
     FPPFLAGS += -DAPR
 endif
 
