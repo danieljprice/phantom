@@ -96,7 +96,7 @@ contains
     npart = npartnew
     print*,npart,'!'
 
-  !  call quit
+    call quit
 
     ! Do any particles need to be merged?
 
@@ -136,6 +136,7 @@ contains
   subroutine splitpart(i,npartnew)
     use part,    only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
     use part,    only:set_particle_type
+    use physcon, only:pi
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,aprnew
@@ -145,9 +146,9 @@ contains
     ! we will split and then rotate the particle positions through this angle
     dx = xyzh(1,i) - x_centre
     dy = xyzh(2,i) - y_centre
-    theta = atan2(dy,dx)
+    theta = atan2(dy,dx) + 0.5*pi
     x_add = sep_factor*cos(theta)*xyzh(4,i)
-    y_add =  sep_factor*sin(theta)*xyzh(4,i)
+    y_add = sep_factor*sin(theta)*xyzh(4,i)
 
     npartold = npartnew
     npartnew = npartold + 1
@@ -158,7 +159,7 @@ contains
     do j=npartold+1,npartnew
       call copy_particle_all(i,j,new_part=.true.)
       xyzh(1,j) = xyzh(1,i) + x_add
-      xyzh(2,j) = xyzh(2,j) + y_add
+      xyzh(2,j) = xyzh(2,i) + y_add
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(2)**(1./3.)
