@@ -29,6 +29,7 @@ Contents
    DiAL
    ozstar
    monarch
+   flatiron
    pawsey
    kennedy
    running-mac

@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,gr
  use setup_params, only:npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis,rho_func,mass_func
+ use unifdis,      only:set_unifdis,rho_func!,mass_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
  use physcon,      only:years,pc,solarm
@@ -88,10 +88,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
  procedure(rho_func), pointer :: density_func
- procedure(mass_func), pointer :: mass_function
+ !procedure(mass_func), pointer :: mass_function
 
  density_func => rhofunc  ! desired density function
- mass_function => massfunc ! desired mass funciton
+ !mass_function => massfunc ! desired mass funciton
 
  !
  !--general parameters
@@ -230,7 +230,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        !TODO Z AND Y LINEAR PERTURBATIONS
     case('"x"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
-                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func,massfunc=mass_function)
+                     npart,xyzh,periodic,nptot=npart_total,mask=i_belong,rhofunc=density_func)!,massfunc=mass_function)
     case('"y"')
        call set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax,zmin,zmax,deltax,hfact,&
          npart,xyzh,periodic,nptot=npart_total,mask=i_belong)

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -77,7 +77,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     xyzmh_ptmass(1,isinkpart) = newx
     print*,'x-coordinate changed to ',xyzmh_ptmass(1,isinkpart)
 
-    Lnuc = xyzmh_ptmass(1,ilum)
+    Lnuc = xyzmh_ptmass(ilum,isinkpart)
     Lnuc_cgs = Lnuc * unit_energ / utime
     call prompt('Enter new sink heating luminosity in erg/s:',Lnuc_cgs,0.)
     xyzmh_ptmass(ilum,isinkpart) = Lnuc_cgs / unit_energ * utime

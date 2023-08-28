@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
@@ -162,6 +162,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  else
     write(*,'(a,f7.2,a)')   '  The resolution of the ellipse-fitting routine to determine the clump size: ',dxgrid0_pc,' pc'
  endif
+ write(*,'(a)')             '==============================================================='
+ write(*,'(a)')             ' WARNING! there is a bug fix on line labeled "Used in WB23"; the patch is untested'
  write(*,'(a)')             '==============================================================='
  write(*,'(a)')             ' '
 

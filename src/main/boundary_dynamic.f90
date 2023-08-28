@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module boundary_dyn
 !
@@ -360,7 +360,7 @@ subroutine find_dynamic_boundaries(npart,nptmass,dtmax,xyz_n_all,xyz_x_all,ierr)
           ! add uninteresting particles to the averages
           if (.not.bdy_is_interesting) then
              n_bkg = n_bkg + 1
-             v_bkg = v_bkg + vxyzu(:,i)
+             v_bkg = v_bkg + vxyzu(1:3,i)
              if (mhd) B_bkg = B_bkg + Bevol(:,i)*rhoi
           endif
        endif

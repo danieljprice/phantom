@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -658,7 +658,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  if (.not. iexist) then
     ! default values
     tmax          = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
-    ieos          = 8
+    if (maxvxyzu < 4) ieos = 8
     nfulldump     = 1
     calc_erot     = .true.
     icreate_sinks = icreate_sinks_setup

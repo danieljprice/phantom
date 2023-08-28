@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module dim
 !
@@ -22,8 +22,6 @@ module dim
  integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
  integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
  character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
- character(len=80), parameter :: &  ! module version
-    modid="$Id$"
 
  public
 
@@ -130,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -139,7 +137,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -316,9 +314,9 @@ module dim
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
- logical, parameter :: particles_are_injected = .true.
+ logical, parameter :: inject_parts = .true.
 #else
- logical, parameter :: particles_are_injected = .false.
+ logical, parameter :: inject_parts = .false.
 #endif
 
 !--------------------
