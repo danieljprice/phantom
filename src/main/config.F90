@@ -379,8 +379,17 @@ subroutine update_max_sizes(n,ntot)
  if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
+#ifdef APR
+ ncellsmax       = 2*maxp_apr
+ ncellsmaxglobal = 2*maxp_apr
+#else
  ncellsmax       = NCELLSMAX
  ncellsmaxglobal = NCELLSMAX
+#endif
+#else
+#ifdef APR
+ ncellsmax = 2*maxp_apr
+ ncellsmaxglobal = ncellsmax
 #else
  ncellsmax = 2*maxp
  if (present(ntot)) then
@@ -388,6 +397,7 @@ subroutine update_max_sizes(n,ntot)
  else
     ncellsmaxglobal = ncellsmax
  endif
+#endif
 #endif
 
 #ifdef DUST
