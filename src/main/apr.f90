@@ -31,6 +31,7 @@ module apr
   real    :: apr_rad = 0.2
   real, allocatable    :: apr_regions(:)
   real    :: sep_factor = 0.35
+  integer, save :: looped_through = 0
 
 contains
 
@@ -66,7 +67,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,apr_level)
-    use part, only:ntot
+    use part, only:ntot,npartoftype
     use quitdump,         only:quit
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
@@ -76,27 +77,25 @@ contains
     npartnew = npart
     npartold = npart
     nsplit_total = 0
-    print*,npart
-    print*,size(xyzh)
+
     do jj = 1,apr_max
       do ii = 1,npartold
         ! this is the refinement level it *should* have based
         ! on it's current position
         call get_apr(xyzh(1:2,ii),apri)
-        ! if it's moved into a more highly resolved region,
-        ! increment by 1 apr each time
-        if ((apri > jj) .and. (apr_level(ii) > 0)) then
-          npartnew = npartnew + 1
-          ntot = npartnew
+        ! if the level it should have is greater than the
+        ! level it does have, increment it up one
+        if (apri > apr_level(ii)) then
           call splitpart(ii,npartnew)
+          ntot = npartnew
         endif
       enddo
     enddo
     ! Take into account all the added particles
+    print*,'split: ',(npartnew-npartold)
     npart = npartnew
-    print*,npart,'!'
 
-    call quit
+    looped_through = looped_through + 1
 
     ! Do any particles need to be merged?
 
@@ -125,6 +124,8 @@ contains
         return
       endif
     enddo
+
+    print*,'function get_apr did not find a level'
 
   end subroutine get_apr
 
