@@ -237,7 +237,7 @@ subroutine get_sqrt_gamma(gcov,sqrt_gamma)
     sqrt_gamma = sqrt(det)
 
  else
-    sqrt_gamma = -1.
+    sqrt_gamma = 1.
 
  endif
 

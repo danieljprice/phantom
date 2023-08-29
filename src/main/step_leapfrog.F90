@@ -577,7 +577,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
-    print*, "after corrector"
     if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
 
     if (gr) then
@@ -660,7 +659,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo iterations
- print*, "after iterations"
+ 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))

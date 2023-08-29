@@ -163,7 +163,6 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  ! Retrieve sqrt(g)
  call get_sqrtg(gcov,sqrtg)
  sqrtg_inv = 1./sqrtg
-
  pmom2 = 0.
  do i=1,3
     pmom2 = pmom2 + pmom(i)*dot_product(gammaijUP(:,i),pmom(:))

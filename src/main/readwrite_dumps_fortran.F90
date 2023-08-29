@@ -217,7 +217,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                 luminosity,eta_nimhd,eta_nimhd_label,metrics,metricderivs,tmunus
+                 luminosity,eta_nimhd,eta_nimhd_label
+#ifdef GR
+ use part,  only:metrics,metricderivs,tmunus
+#endif 
  use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
