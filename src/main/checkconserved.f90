@@ -39,7 +39,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
                                     should_conserve_angmom,should_conserve_dustmass)
  use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
                        iresistive_heating,use_dustfrac,iexternalforce
- use dim,         only:mhd,maxvxyzu,periodic,inject_parts
+ use dim,         only:mhd,maxvxyzu,periodic,inject_parts,use_apr
  use part,        only:iboundary,npartoftype
  use boundary_dyn,only:dynamic_bdy
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
@@ -73,7 +73,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  !
  ! Each injection routine will need to bookeep conserved quantities, but until then...
  !
- if (inject_parts .or. dynamic_bdy) then
+ if (inject_parts .or. dynamic_bdy .or. use_apr) then
     should_conserve_energy   = .false.
     should_conserve_momentum = .false.
     should_conserve_angmom   = .false.
