@@ -322,12 +322,11 @@ module dim
 !--------------------
 ! Adaptive Particle Refinement (APR)
 !--------------------
+ integer            :: maxp_apr = maxp_hard
 #ifdef APR
  logical, parameter :: use_apr = .true.
- integer            :: maxp_apr = maxp_hard
 #else
  logical, parameter :: use_apr = .false.
- integer            :: maxp_apr = 0
 #endif
 
 !--------------------

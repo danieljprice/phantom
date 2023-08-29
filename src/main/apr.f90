@@ -42,7 +42,6 @@ contains
   !-----------------------------------------------------------------------
   subroutine init_apr(apr_level,ierr)
     use dim, only:maxp_hard
-    use memory,          only:allocate_memory
     integer, intent(inout) :: ierr,apr_level(:)
 
     ! initialise the base resolution level
@@ -96,6 +95,7 @@ contains
     npart = npartnew
 
     looped_through = looped_through + 1
+    call nasty_write(looped_through,npart,xyzh(:,:),apr_level(:))
 
     ! Do any particles need to be merged?
 
@@ -233,5 +233,42 @@ contains
     call write_inopt(apr_rad,'apr_rad','radius of region',iunit)
 
   end subroutine write_options_apr
+
+  !-----------------------------------------------------------------------
+  !+
+  !  Hacky routine that just writes out the raw position, mass, density and h
+  !+
+  !-----------------------------------------------------------------------
+  subroutine nasty_write(ifile,npart,xyzh,apr_level)
+    use part, only:massoftype,igas,rhoh
+    real, intent(in) :: xyzh(:,:)
+    integer, intent(in) :: apr_level(:),ifile,npart
+    integer :: ii,iunit=24
+    character(len=120) :: mydumpfile,rootname
+    real :: rhoi,hfact,pmass,apri
+
+    hfact = 1.2 ! straight from the *.in file
+
+    rootname = 'rawinfo'
+    write(mydumpfile,"(a,'_',i5.5,'.dat')") trim(rootname),ifile
+
+    open(iunit,file=mydumpfile,status='replace')
+    write(iunit,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
+    1,'x', &
+    2,'y', &
+    3,'h', &
+    4,'rho', &
+    5,'mass'
+
+    do ii = 1,npart
+      apri = apr_level(ii)
+      pmass = massoftype(igas)/(2.**(apri-1))
+      rhoi = rhoh(xyzh(4,ii),pmass)
+      write(iunit,'(5(es18.10,1X))') xyzh(1:2,ii),xyzh(4,ii),rhoi,pmass
+    enddo
+
+    close(iunit)
+
+  end subroutine nasty_write
 
 end module apr

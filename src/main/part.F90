@@ -398,7 +398,7 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
- call allocate_array('apr_level',apr_level,maxp)
+ call allocate_array('apr_level',apr_level,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -577,7 +577,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
- if (use_apr) apr_level = 3 ! so we can both refine and de-refine from here
+ apr_level = 1 ! this is reset if the simulation is to derefine
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.

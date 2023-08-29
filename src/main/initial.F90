@@ -56,6 +56,7 @@ subroutine initialise()
  use checkoptions,     only:check_compile_time_settings
  use readwrite_dumps,  only:init_readwrite_dumps
  integer :: ierr
+
 !
 !--write 'PHANTOM' and code version
 !
@@ -91,9 +92,11 @@ subroutine initialise()
 !
 !--initialise openMP things if required
 !
- if (id==master) call print_cpuinfo()
+! if (id==master) call print_cpuinfo() ! I have no idea why this doesn't work on my laptop
+ print*,'cpu info'
  if (id==master) call info_omp
  call init_omp
+ print*,'init_omp'
 !
 !--initialise MPI domains
 !
@@ -112,7 +115,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile
+                            use_dustgrowth,ind_timesteps,idumpfile,use_apr
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -128,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            nden_nimhd,dustevol,rhoh,gradh, &
+                            nden_nimhd,dustevol,rhoh,gradh,apr_level,&
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -184,7 +187,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
 #ifdef APR
   use apr,             only:init_apr
-  use part,            only:apr_level
 #endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
@@ -355,7 +357,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
 
     ! now convert to B/rho
@@ -423,7 +425,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  endif
 #ifndef PRIM2CONS_FIRST
 ! COMPUTE METRIC HERE
@@ -564,9 +566,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                        npart,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
+
 #ifdef APR
  call init_apr(apr_level,ierr)
+#else
+ apr_level = 1
 #endif
+
 !
 !--set initial chemical abundance values
 !

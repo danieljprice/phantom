@@ -44,7 +44,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use densityforce,   only:densityiterate
  use ptmass,         only:ipart_rhomax,ptmass_calc_enclosed_mass,ptmass_boundary_crossing
  use externalforces, only:externalforce
- use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
+ use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,apr_level,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
  use timestep_ind,   only:nbinmax
  use timestep,       only:dtmax,dtcourant,dtforce,dtrad
@@ -124,15 +124,16 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! calculate density by direct summation
 !
+
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     if (.not. fast_divcurlB) then
        ! Repeat the call to calculate all the non-density-related quantities in densityiterate.
        ! This needs to be separate for an accurate calculation of divcurlB which requires an up-to-date rho.
        ! if fast_divcurlB = .false., then all additional quantities are calculated during the previous call
        call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                           stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                           stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
