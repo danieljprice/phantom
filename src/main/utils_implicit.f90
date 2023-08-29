@@ -7,14 +7,14 @@
 module implicit
 !
 ! Utility routines for implicit radiative diffusion
-!   
+!
 ! :References:
 !
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters: None
 !
-! :Dependencies:
+! :Dependencies: io, physcon
 !
  implicit none
  integer              :: ncompact,ncompactlocal,icompactmax,nneigh_average

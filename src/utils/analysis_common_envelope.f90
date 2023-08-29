@@ -1411,10 +1411,10 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '13) JstarS' !option to calculate JstarS
 
     quantities_to_calculate = (/1,2,4,5/)
-    call prompt('Choose first quantity to compute ',quantities_to_calculate(1),1,Nquantities)
-    call prompt('Choose second quantity to compute ',quantities_to_calculate(2),1,Nquantities)
-    call prompt('Choose third quantity to compute ',quantities_to_calculate(3),1,Nquantities)
-    call prompt('Choose fourth quantity to compute ',quantities_to_calculate(4),1,Nquantities)
+    call prompt('Choose first quantity to compute ',quantities_to_calculate(1),0,Nquantities)
+    call prompt('Choose second quantity to compute ',quantities_to_calculate(2),0,Nquantities)
+    call prompt('Choose third quantity to compute ',quantities_to_calculate(3),0,Nquantities)
+    call prompt('Choose fourth quantity to compute ',quantities_to_calculate(4),0,Nquantities)
  endif
 
  ! Calculations performed outside loop over particles
@@ -1424,7 +1424,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  com_vxyz = 0.
  do k=1,4
     select case (quantities_to_calculate(k))
-    case(1,2,3,6,8,9,13) ! Nothing to do
+    case(0,1,2,3,6,8,9,13) ! Nothing to do
     case(4,5,11,12) ! Fractional difference between gas and orbital omega
        if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
           com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
@@ -1500,6 +1500,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'JstarS = ',JstarS
           endif
           quant(k,i) = JstarS
+
+       case(0) ! Skip
+          quant(k,i) = 0.
 
        case(1,9) ! Total energy (kin + pot + therm)
           rhopart = rhoh(xyzh(4,i), particlemass)
@@ -2508,7 +2511,7 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
  real, dimension(3)         :: planet_com,planet_vcom,vnorm,ri,Rvec
  real, allocatable          :: R(:),z(:),rho(:)
 
- call get_planetIDs(nplanet,planetIDs)
+ if (dump_number ==0 ) call get_planetIDs(nplanet,planetIDs)
  allocate(R(nplanet),z(nplanet),rho(nplanet))
 
  ! Find highest density in planet
@@ -2526,7 +2529,7 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
  vnorm = planet_vcom / sqrt(dot_product(planet_vcom,planet_vcom))
 
  ! Write to file
- file_name = trim(dumpfile)//".dist"
+ file_name = trim(dumpfile)//".planetpart"
  open(newunit=iu, file=file_name, status='replace')
 
  ! Record R and z cylindrical coordinates w.r.t. planet_com
@@ -2535,7 +2538,8 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
     z(i) = dot_product(ri, vnorm)
     Rvec = ri - z(i)*vnorm
     R(i) = sqrt(dot_product(Rvec,Rvec))
-    write(iu,"(es13.6,2x,es13.6,2x,es13.6)") R(i),z(i),rho(i)
+   !  write(iu,"(es13.6,2x,es13.6,2x,es13.6)") R(i),z(i),rho(i)
+    write(iu,"(es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)") xyzh(1,i),xyzh(2,i),xyzh(3,i),rho(i),vxyzu(4,i)
  enddo
 
  close(unit=iu)
