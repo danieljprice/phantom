@@ -59,7 +59,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dim,          only:maxvxyzu,gr
  use setup_params, only:npart_total
  use io,           only:master
- use unifdis,      only:set_unifdis,rho_func,mass_func
+ use unifdis,      only:set_unifdis,rho_func!,mass_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary,cross_boundary
  use part,         only:periodic
  use physcon,      only:years,pc,solarm

@@ -74,10 +74,10 @@ real, intent(in)    :: xyzh(4,npart)
 real, intent(in), dimension(npart) :: weight,dat
 integer, intent(in), dimension(npart) :: itype
 real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
-real(doub_prec), intent(out), dimension(npixx,npixy,npixz) :: datsmooth
+real, intent(out), dimension(npixx,npixy,npixz) :: datsmooth
 logical, intent(in) :: normalise,periodicx,periodicy,periodicz
 !logical, intent(in), exact_rendering
-real(doub_prec), allocatable :: datnorm(:,:,:)
+real, allocatable :: datnorm(:,:,:)
 
 integer :: i,ipix,jpix,kpix
 integer :: iprintinterval,iprintnext
@@ -436,10 +436,10 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  real, intent(in),dimension(npart,ilendat) :: dat
  integer, intent(in), dimension(npart) :: itype
  real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
- real(doub_prec), intent(out), dimension(ilendat,npixx,npixy,npixz) :: datsmooth
+ real, intent(out), dimension(ilendat,npixx,npixy,npixz) :: datsmooth
  logical, intent(in) :: normalise,periodicx,periodicy,periodicz
  !logical, intent(in), exact_rendering
- real(doub_prec), allocatable :: datnorm(:,:,:)
+ real, allocatable :: datnorm(:,:,:)
 
  integer :: i,ipix,jpix,kpix,lockindex,smoothindex
  integer :: iprintinterval,iprintnext
