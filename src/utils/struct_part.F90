@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module structurefn_part
 !
@@ -140,20 +140,20 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
 
     call get_timings(t1,tcpu1)
     !$omp parallel do schedule(runtime) default(none) &
-    !$omp shared(npts,xyz,vel,list,npart,tcpu1) &
+    !$omp shared(npts,xyz,vel,list,npart) &
     !$omp firstprivate(distmin2,dxbox,dybox,dzbox,ddxbin,norder,minusdistminddxbin) &
     !$omp private(ipt,xpt,velpt,dx,dy,dz,rij2,rij1,rij,dvdotr) &
-    !$omp private(i,dvx,dvy,dvz,tcpu2) &
+    !$omp private(i,dvx,dvy,dvz) &
     !$omp private(dvterm,dvtrans,dvdotrterm,dvtransterm,ibin) &
     !$omp reduction(+:ncount) &
     !$omp reduction(+:sf)
     do ipt=1,npts
-!$     if (.false.) then
+#ifndef _OPENMP
        if (mod(ipt,100)==0) then
           call cpu_time(tcpu2)
           print*,' ipt = ',ipt,tcpu2-tcpu1
        endif
-!$     endif
+#endif
        i = list(ipt)
        xpt(1) = xyz(1,i)
        xpt(2) = xyz(2,i)
