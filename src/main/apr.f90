@@ -68,13 +68,16 @@ contains
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     use dim, only:maxp_hard
-    use part,             only:ntot,isdead_or_accreted,igas,apr_massoftype
+    use part,             only:ntot,isdead_or_accreted,igas,apr_massoftype,&
+                               shuffle_part
     use quitdump,         only:quit
     use relaxem,          only:relax_particles
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
-    integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,n_ref,n_relax,nmerge
+    integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
+    integer :: n_ref,nrelax,nmerge,nkilled
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
+    real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
 
     ! Before adjusting the particles, if we're going to
@@ -102,7 +105,7 @@ contains
     npartnew = npart
     npartold = npart
     nsplit_total = 0
-    n_relax = 0
+    nrelax = 0
 
     do jj = 1,apr_max
       do ii = 1,npartold
@@ -115,9 +118,9 @@ contains
           call splitpart(ii,npartnew)
           ntot = npartnew
           if (do_relax) then
-            n_relax = n_relax + 2
-            relaxlist(n_relax-1) = ii
-            relaxlist(n_relax)   = npartnew
+            nrelax = nrelax + 2
+            relaxlist(nrelax-1) = ii
+            relaxlist(nrelax)   = npartnew
           endif
         endif
       enddo
@@ -128,28 +131,40 @@ contains
     npart = npartnew
 
     ! Do any particles need to be merged?
-    allocate(mergelist(npart))
+    allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(4,npart))
     do jj = 1,apr_max-1
       kk = apr_max - jj + 1             ! to go from apr_max -> 2
       mergelist = -1 ! initialise
       nmerge = 0
+      nkilled = 0
+      xyzh_merge = 0.
+      vxyzu_merge = 0.
       do ii = 1,npart
         ! note that here we only do this process for particles that are not already counted in the blending region
         if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
           nmerge = nmerge + 1
           mergelist(nmerge) = ii
+          xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
+          vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
         endif
       enddo
       ! Now send them to be merged
-      if (nmerge > 0) print*,'I want to merge some',mergelist(1:10)
-      read*
+      if (nmerge > 0) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
+                                              vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
+                                              nrelax,relaxlist,npartnew)
+      print*,'particles at apr_level',kk,':',nmerge
+      print*,'merged: ',nkilled
     enddo
-
+    ! update npart as required
+    npart = npartnew
 
     ! If we need to relax, do it here
-    if (n_relax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,n_relax,relaxlist)
+    if (nrelax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     ! Turn it off now because we only want to do this on first splits
     do_relax = .false.
+
+    ! As we may have killed particles, time to do an array shuffle
+    call shuffle_part(npart)
 
     ! Do my hacky write
     looped_through = looped_through + 1
@@ -236,6 +251,82 @@ contains
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
 
   end subroutine splitpart
+
+  !-----------------------------------------------------------------------
+  !+
+  !  Take in all particles that *might* be merged at this apr_level
+  !  and use our special tree to merge what has left the region
+  !+
+  !-----------------------------------------------------------------------
+  subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,current_apr,&
+                                     xyzh,apr_level,nkilled,nrelax,relaxlist,npartnew)
+    use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
+    use mpiforce, only:cellforce
+    use kdtree,   only:inodeparts,inoderange
+    use part,     only:kill_particle,npartoftype,get_partinfo,iphase
+    integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
+    integer, intent(in)    :: current_apr,mergelist(:)
+    real, intent(inout)    :: xyzh(:,:)
+    real, intent(inout)    :: xyzh_merge(:,:),vxyzu_merge(:,:)
+    integer :: remainder,icell,i,n_cell,apri,m
+    integer :: eldest,tuther,iamtypei
+    logical :: iactive,isgas,isdust
+    real    :: com(3)
+    type(cellforce)        :: cell
+
+    ! First ensure that we're only sending in a multiple of 2 to the tree
+    remainder = modulo(nmerge,2)
+    nmerge = nmerge - remainder
+
+    call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
+                      for_apr=.true.)
+
+    ! Now use the centre of mass of each cell to check whether it should
+    ! be merged or not
+    com = 0.
+    over_cells: do icell=1,int(ncells)
+      i = ifirstincell(icell)
+      if (i <= 0) cycle over_cells !--skip empty cells AND inactive cells
+      n_cell = inoderange(2,icell)-inoderange(1,icell)+1
+
+      call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
+      com(1) = cell%xpos(1)
+      com(2) = cell%xpos(2)
+      call get_apr(com(1:2),apri)
+      ! If the apr level based on the com is lower than the current level,
+      ! we merge!
+      if (apri < current_apr) then
+        eldest = mergelist(inodeparts(inoderange(1,icell)))
+        tuther = mergelist(inodeparts(inoderange(2,icell)))
+        call get_partinfo(iphase(tuther),iactive,isgas,isdust,iamtypei)
+
+        ! keep eldest, reassign it
+        xyzh(1,eldest) = cell%xpos(1)
+        xyzh(2,eldest) = cell%xpos(2)
+        xyzh(3,eldest) = cell%xpos(3)
+        xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
+        apr_level(eldest) = apr_level(eldest) - 1
+        ! add it to the shuffling list if needed
+        if (do_relax) then
+          nrelax = nrelax + 1
+          relaxlist(nrelax) = eldest
+        endif
+        ! update list
+        npartoftype(iamtypei) = npartoftype(iamtypei) - 1
+        npartnew = npartnew - 1
+
+        ! discard tuther
+        call kill_particle(tuther,npartoftype)
+        nkilled = nkilled + 1
+        ! If this particle was on the shuffle list previously, take it off
+        do m = 1,nrelax
+          if (relaxlist(m) == tuther) relaxlist(m) = 0
+        enddo
+      endif
+
+    enddo over_cells
+
+  end subroutine merge_with_special_tree
 
   !-----------------------------------------------------------------------
   !+
