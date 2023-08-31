@@ -114,10 +114,6 @@ else
     SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
 endif
 
-ifndef SRCAPR
-    SRCAPR=apr.f90
-endif
-
 #ifndef SRCGROWTH
 #    SRCGROWTH = growth.F90
 #endif
@@ -309,6 +305,13 @@ endif
 ifeq ($(AOCC), yes)
     FPPFLAGS += -DAOCC
 endif
+
+ifeq ($(APR), yes)
+    FPPFLAGS += -DAPR
+		SRCAPR=relaxem.f90 apr.f90
+		SRCKERNEL= kernel_WendlandC2.f90
+endif
+
 #
 # kernel choice
 #
@@ -333,10 +336,6 @@ endif
 
 ifdef LIGHTCURVE
     FPPFLAGS += -DLIGHTCURVE
-endif
-
-ifeq ($(APR), yes)
-    FPPFLAGS += -DAPR
 endif
 
 # do double precision flag last (append only to FFLAGS)

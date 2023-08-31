@@ -30,8 +30,9 @@ module apr
   real    :: x_centre = 0.0, y_centre = 0.0, z_centre = 0.0
   real    :: apr_rad = 0.2
   real, allocatable    :: apr_regions(:)
-  real    :: sep_factor = 0.35
+  real    :: sep_factor = 0.2
   integer, save :: looped_through = 0
+  logical :: do_relax = .false.
 
 contains
 
@@ -66,16 +67,42 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
-    use part,             only:ntot
+    use dim, only:maxp_hard
+    use part,             only:ntot,isdead_or_accreted,igas,apr_massoftype
     use quitdump,         only:quit
+    use relaxem,          only:relax_particles
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
-    integer :: ii,jj,npartnew,nsplit_total,apri,npartold
+    integer :: ii,jj,npartnew,nsplit_total,apri,npartold,n_ref,n_relax
+    real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
+    integer, allocatable :: relaxlist(:)
+
+    ! Before adjusting the particles, if we're going to
+    ! relax them then let's save the reference particles
+    if (do_relax) then
+      allocate(xyzh_ref(4,maxp_hard),force_ref(3,maxp_hard),pmass_ref(maxp_hard),relaxlist(maxp_hard))
+      relaxlist = -1
+
+      n_ref = 0
+      xyzh_ref = 0.
+      force_ref = 0.
+      pmass_ref = 0.
+
+      do ii = 1,npart
+        if (.not.isdead_or_accreted(xyzh(4,ii))) then ! ignore dead particles
+          n_ref = n_ref + 1
+          xyzh_ref(1:4,n_ref) = xyzh(1:4,ii)
+          pmass_ref(n_ref) = apr_massoftype(igas,apr_level(ii))
+          force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
+        endif
+      enddo
+    endif
 
     ! Do any particles need to be split?
     npartnew = npart
     npartold = npart
     nsplit_total = 0
+    n_relax = 0
 
     do jj = 1,apr_max
       do ii = 1,npartold
@@ -87,17 +114,35 @@ contains
         if (apri > apr_level(ii)) then
           call splitpart(ii,npartnew)
           ntot = npartnew
+          if (do_relax) then
+            n_relax = n_relax + 2
+            relaxlist(n_relax-1) = ii
+            relaxlist(n_relax)   = npartnew
+          endif
         endif
       enddo
     enddo
+
     ! Take into account all the added particles
     print*,'split: ',(npartnew-npartold)
     npart = npartnew
 
+    ! Do any particles need to be merged?
+
+    ! If we need to relax, do it here
+    if (n_relax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,n_relax,relaxlist)
+    ! Turn it off now because we only want to do this on first splits
+    do_relax = .false.
+
+    ! Do my hacky write
     looped_through = looped_through + 1
     call nasty_write(looped_through,npart,xyzh(:,:),fxyzu(:,:),apr_level(:))
 
-    ! Do any particles need to be merged?
+
+    ! Tidy up
+    if (do_relax) then
+      deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
+    endif
 
   end subroutine update_apr
 
@@ -163,14 +208,14 @@ contains
       xyzh(2,j) = xyzh(2,i) + y_add
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
-      xyzh(4,j) = xyzh(4,i)*(2)**(1./3.)
+      xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
     enddo
 
     ! Edit the old particle that was sent in and kept
     xyzh(1,i) = xyzh(1,i) - x_add
     xyzh(2,i) = xyzh(2,i) - y_add
     apr_level(i) = aprnew
-    xyzh(4,i) = xyzh(4,i)*2.0**(1./3.)
+    xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
 
   end subroutine splitpart
 
@@ -240,7 +285,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine nasty_write(ifile,npart,xyzh,fxyzu,apr_level)
-    use part, only:massoftype,igas,rhoh,apr_massoftype
+    use part, only:igas,rhoh,apr_massoftype
     real, intent(in) :: xyzh(:,:),fxyzu(:,:)
     integer, intent(in) :: apr_level(:),ifile,npart
     integer :: ii,iunit=24,apri
