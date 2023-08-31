@@ -67,7 +67,7 @@ module mpidens
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
-    integer          :: apr(minpart)                           ! apr resolution level (needs to be stored here)
+    integer          :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
  end type celldens
 
  type stackdens

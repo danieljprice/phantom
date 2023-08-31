@@ -600,7 +600,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
- use part,     only:massoftype,iradxi
+ use part,     only:massoftype,iradxi,apr_massoftype
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
@@ -623,7 +623,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  real,         intent(in)    :: rad(:,:)
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
- integer                     :: j,n,iloc,aprj
+ integer                     :: j,n,iloc
  real                        :: dx,dy,dz,runix,runiy,runiz
  real                        :: rij2,rij,rij1,q2i,qi,q2prev,rij1grkern
  real                        :: wabi,grkerni,dwdhi,dphidhi
@@ -738,9 +738,13 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 
        ! adjust masses for apr
        ! this defaults to massoftype if apr_level=1
-       aprj = apr_level(j)
-       pmassi = massoftype(iamtypei)/(2.**(apri-1))
-       pmassj = massoftype(iamtypej)/(2.**(aprj-1))
+       if (use_apr) then
+         pmassi = apr_massoftype(iamtypei,apri)
+         pmassj = apr_massoftype(iamtypej,apr_level(j))
+       else
+         pmassi = massoftype(iamtypei)
+         pmassj = massoftype(iamtypej)
+       endif
 
        sametype: if (same_type) then
           dwdhi = (-qi*grkerni - 3.*wabi)
@@ -1373,8 +1377,9 @@ end subroutine start_cell
 !+
 !--------------------------------------------------------------------------
 subroutine finish_cell(cell,cell_converged)
+ use dim,      only:use_apr
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho,apr_massoftype
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1405,7 +1410,11 @@ subroutine finish_cell(cell,cell_converged)
     !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
     apri = cell%apr(i)
-    pmassi = massoftype(iamtypei)/(2.0**(apri-1))
+    if (use_apr) then
+      pmassi = apr_massoftype(iamtypei,apri)
+    else
+      pmassi = massoftype(iamtypei)
+    endif
 
     call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
                        gradhi=gradhi,dhdrhoi_out=dhdrhoi,omegai_out=omegai)
@@ -1501,9 +1510,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
-                       maxgradh,idust,ifluxx,ifluxz,ithick
+                       maxgradh,idust,ifluxx,ifluxz,ithick,apr_massoftype
  use io,          only:fatal,real4
- use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation
+ use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation,use_apr
  use options,     only:use_dustfrac,implicit_radiation
  use viscosity,   only:bulkvisc,shearparam
  use linklist,    only:set_hmaxcell
@@ -1567,7 +1576,11 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     endif
 
     apri = cell%apr(i)
-    pmassi = massoftype(iamtypei)/(2.**(apri - 1))
+    if (use_apr) then
+      pmassi = apr_massoftype(iamtypei,apri)
+    else
+      pmassi = massoftype(iamtypei)
+    endif
 
     if (calculate_density) then
        call finish_rhosum(rhosum,pmassi,hi,.false.,rhoi=rhoi,gradhi=gradhi,gradsofti=gradsofti)
@@ -1603,7 +1616,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
           dustfrac(:,lli) = 0.
           if (iamgasi) then
              do l=1,ndustlarge
-                rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31 ! need to do apr fix here
+                rhodusti(l) = cnormk*massoftype(idust+l-1)*(rhosum(irhodusti+l-1))*hi31 !TDB fix apr here
                 dustfrac(ndustsmall+l,lli) = rhodusti(l)*rho1i ! dust-to-gas ratio
              enddo
           endif

@@ -644,6 +644,21 @@ real function get_pmass(i,use_gas)
  endif
 
 end function get_pmass
+
+!
+!----------------------------------------------------------------
+!+
+!  this function returns the particle mass adjusted
+!  for the resolution level
+!+
+!----------------------------------------------------------------
+pure real function apr_massoftype(itype,apri)
+ integer, intent(in) :: itype,apri
+
+ apr_massoftype = massoftype(itype)/(2.**(apri-1))
+
+end function apr_massoftype
+
 !
 !----------------------------------------------------------------
 !+

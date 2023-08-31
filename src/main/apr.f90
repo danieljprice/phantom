@@ -65,10 +65,10 @@ contains
   !  Subroutine to check if particles need to be split or merged
   !+
   !-----------------------------------------------------------------------
-  subroutine update_apr(npart,xyzh,vxyzu,apr_level)
-    use part, only:ntot,npartoftype
+  subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+    use part,             only:ntot
     use quitdump,         only:quit
-    real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
+    real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,npartnew,nsplit_total,apri,npartold
 
@@ -95,7 +95,7 @@ contains
     npart = npartnew
 
     looped_through = looped_through + 1
-    call nasty_write(looped_through,npart,xyzh(:,:),apr_level(:))
+    call nasty_write(looped_through,npart,xyzh(:,:),fxyzu(:,:),apr_level(:))
 
     ! Do any particles need to be merged?
 
@@ -239,13 +239,13 @@ contains
   !  Hacky routine that just writes out the raw position, mass, density and h
   !+
   !-----------------------------------------------------------------------
-  subroutine nasty_write(ifile,npart,xyzh,apr_level)
-    use part, only:massoftype,igas,rhoh
-    real, intent(in) :: xyzh(:,:)
+  subroutine nasty_write(ifile,npart,xyzh,fxyzu,apr_level)
+    use part, only:massoftype,igas,rhoh,apr_massoftype
+    real, intent(in) :: xyzh(:,:),fxyzu(:,:)
     integer, intent(in) :: apr_level(:),ifile,npart
-    integer :: ii,iunit=24
+    integer :: ii,iunit=24,apri
     character(len=120) :: mydumpfile,rootname
-    real :: rhoi,hfact,pmass,apri
+    real :: rhoi,hfact,pmass
 
     hfact = 1.2 ! straight from the *.in file
 
@@ -253,18 +253,22 @@ contains
     write(mydumpfile,"(a,'_',i5.5,'.dat')") trim(rootname),ifile
 
     open(iunit,file=mydumpfile,status='replace')
-    write(iunit,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
     1,'x', &
     2,'y', &
     3,'h', &
     4,'rho', &
-    5,'mass'
+    5,'mass',&
+    6,'fx',&
+    7,'fy',&
+    8,'fz',&
+    9,'apri'
 
     do ii = 1,npart
       apri = apr_level(ii)
-      pmass = massoftype(igas)/(2.**(apri-1))
+      pmass = apr_massoftype(igas,apri)
       rhoi = rhoh(xyzh(4,ii),pmass)
-      write(iunit,'(5(es18.10,1X))') xyzh(1:2,ii),xyzh(4,ii),rhoi,pmass
+      write(iunit,'(9(es18.10,1X))') xyzh(1:2,ii),xyzh(4,ii),rhoi,pmass,fxyzu(1:3,ii),real(apri)
     enddo
 
     close(iunit)

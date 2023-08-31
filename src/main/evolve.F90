@@ -231,7 +231,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
 #ifdef APR
  ! split or merge as required
- call update_apr(npart,xyzh,vxyzu,apr_level)
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 #endif
 
     dtmaxold    = dtmax
