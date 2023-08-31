@@ -73,9 +73,9 @@ contains
     use relaxem,          only:relax_particles
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
-    integer :: ii,jj,npartnew,nsplit_total,apri,npartold,n_ref,n_relax
+    integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,n_ref,n_relax,nmerge
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
-    integer, allocatable :: relaxlist(:)
+    integer, allocatable :: relaxlist(:),mergelist(:)
 
     ! Before adjusting the particles, if we're going to
     ! relax them then let's save the reference particles
@@ -128,6 +128,23 @@ contains
     npart = npartnew
 
     ! Do any particles need to be merged?
+    allocate(mergelist(npart))
+    do jj = 1,apr_max-1
+      kk = apr_max - jj + 1             ! to go from apr_max -> 2
+      mergelist = -1 ! initialise
+      nmerge = 0
+      do ii = 1,npart
+        ! note that here we only do this process for particles that are not already counted in the blending region
+        if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
+          nmerge = nmerge + 1
+          mergelist(nmerge) = ii
+        endif
+      enddo
+      ! Now send them to be merged
+      if (nmerge > 0) print*,'I want to merge some',mergelist(1:10)
+      read*
+    enddo
+
 
     ! If we need to relax, do it here
     if (n_relax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,n_relax,relaxlist)
@@ -143,6 +160,7 @@ contains
     if (do_relax) then
       deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
     endif
+    deallocate(mergelist)
 
   end subroutine update_apr
 
