@@ -208,7 +208,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use units,            only:udist,unit_density
  use centreofmass,     only:get_centreofmass
  use energies,         only:etot,angtot,totmom,mdust,xyzcom,mtot
- use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
  character(len=*), intent(in)  :: infile
@@ -720,6 +720,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     angtot_in = angtot
     totmom_in = totmom
     mdust_in  = mdust
+    mtot_in   = mtot
     if (id==master .and. iverbose >= 1) then
        write(iprint,'(1x,a)') 'Setting initial values to verify conservation laws:'
     endif
@@ -741,6 +742,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (mdust_in(i) > 0.) write(iprint,'(1x,a,es18.6)') 'Initial '//trim(dust_label(i))//' mass:     ',mdust_in(i)
        enddo
        write(iprint,'(1x,a,es18.6)') 'Initial total dust mass:', sum(mdust_in(:))
+    endif
+    if (use_apr) then
+       write(iprint,'(1x,a,es18.6)') 'Initial total mass:  ', mtot_in
     endif
  endif
 !

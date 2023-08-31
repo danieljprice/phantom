@@ -37,10 +37,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa,mtot
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
-                            check_magnetic_stability
+                            check_magnetic_stability,mtot_in
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
@@ -89,7 +89,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
 #ifdef APR
   use apr,             only:update_apr
-  use part,            only:apr_level
+  use part,            only:apr_level,igas
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
@@ -136,7 +136,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_dustmass
+ logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
@@ -153,7 +153,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  abortrun_bdy = .false.
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
-                               should_conserve_angmom,should_conserve_dustmass)
+                               should_conserve_angmom,should_conserve_dustmass,&
+                               should_conserve_aprmass)
 
  noutput          = 1
  noutput_dtmax    = 1
@@ -400,6 +401,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           enddo
        endif
        if (mhd) call check_magnetic_stability(hdivBB_xa)
+       if (should_conserve_aprmass) call check_conservation_error(mtot,mtot_in,massoftype(igas),'total mass')
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))

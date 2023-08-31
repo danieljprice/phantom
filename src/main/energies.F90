@@ -62,7 +62,8 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
-                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome
+                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
+                          use_apr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -70,8 +71,8 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,rad,iradxi,gamma_chem
- use part,           only:pxyzu,fxyzu,fext
+                          iamdust,ndusttypes,rad,iradxi,gamma_chem,apr_level
+ use part,           only:pxyzu,fxyzu,fext,apr_massoftype
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,gamma,eos_is_non_ideal,eos_outputs_gasP
@@ -186,7 +187,7 @@ subroutine compute_energies(t)
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype) &
-!$omp shared(luminosity,track_lum) &
+!$omp shared(luminosity,track_lum,apr_level) &
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
@@ -203,7 +204,11 @@ subroutine compute_energies(t)
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
-          pmassi = massoftype(itype)
+          if (use_apr) then
+            pmassi = apr_massoftype(itype,apr_level(i))
+          else
+            pmassi = massoftype(itype)
+          endif
        endif
 
        rhoi = rhoh(hi,pmassi)
@@ -495,9 +500,17 @@ subroutine compute_energies(t)
        vyi = vxyzu(2,i)
        vzi = vxyzu(3,i)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+         if (use_apr) then
+           pmassi = apr_massoftype(iamtype(iphase(i)),apr_level(i))
+         else
+           pmassi = massoftype(iamtype(iphase(i)))
+         endif
        else
-          pmassi = massoftype(igas)
+         if (use_apr) then
+           pmassi = apr_massoftype(igas,apr_level(i))
+         else
+           pmassi = massoftype(igas)
+         endif
        endif
        xmomacc = xmomacc + pmassi*vxi
        ymomacc = ymomacc + pmassi*vyi
@@ -705,7 +718,11 @@ subroutine compute_energies(t)
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
  if (calc_gravitwaves) then
-    pmassi = massoftype(igas)
+    if (use_apr) then
+      pmassi = apr_massoftype(igas,apr_level(i))
+    else
+      pmassi = massoftype(igas)
+    endif
     x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
     if (gr) then
        !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
