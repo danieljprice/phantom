@@ -81,14 +81,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: filename,lattice,pspec_filename1,pspec_filename2,pspec_filename3
  real    :: totmass,deltax,pi
- integer :: i,j,k,ierr,ncross
+ integer :: i,ierr,ncross
  logical :: iexist,isperiodic(3)
- real    :: kwave,denom,length, c1,c3,lambda
- real    :: perturb_rho0,xval
- real    :: Vup(0:3),v(0:3),const,phi,rhoprim,sqrtg,u0,x,gcov(0:3,0:3),alpha,hub
+ real    :: length, c1,c3
+ real    :: hub
  real    :: last_scattering_temp
- real    :: u
- real    :: scale_factor,gradphi(3),Hubble_param,vxyz(3),dxgrid,gridorigin
+ real    :: scale_factor,gradphi(3),vxyz(3),dxgrid,gridorigin
  integer :: nghost, gridres, gridsize
  real, allocatable    :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
 !  procedure(rho_func), pointer :: density_func
@@ -249,6 +247,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  pspec_filename1 = 'init_vel1_64.dat'
  pspec_filename2 = 'init_vel2_64.dat'
  pspec_filename3 = 'init_vel3_64.dat'
+ 
+ ! Check if files exist otherwise skip and return flat space
+ if (.not. check_files(pspec_filename1,pspec_filename2,pspec_filename3)) then 
+   print*, "Velocity files not found..."
+   print*, "Setting up flat space!"
+   return 
+ endif 
+ 
+
  ! Read in velocities from vel file here
  ! Should be made into a function at some point
 !  open(unit=444,file=pspec_filename,status='old')
@@ -537,7 +544,7 @@ subroutine interpolate_val(position,valgrid,gridsize,gridorigin,dxgrid,val)
  integer, intent(in) :: gridsize
  real, intent(out)   :: val
  integer :: xupper,yupper,zupper,xlower,ylower,zlower
- real    :: xlowerpos,ylowerpos,zlowerpos,xupperpos,yupperpos,zupperpos
+ real    :: xlowerpos,ylowerpos,zlowerpos!,xupperpos,yupperpos,zupperpos
  real    :: interptmp(7)
  real    :: xd,yd,zd
 
@@ -611,5 +618,18 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
 
 
 end subroutine get_grid_neighbours
+
+logical function check_files(file1,file2,file3)
+   character(len=40), intent(in) :: file1,file2,file3
+   logical :: file1_exist, file2_exist, file3_exist
+
+   INQUIRE(file=file1,exist=file1_exist)
+   INQUIRE(file=file2,exist=file2_exist)
+   INQUIRE(file=file3,exist=file3_exist) 
+   
+   if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then 
+      check_files =  .false. 
+   endif 
+end function check_files
 
 end module setup
