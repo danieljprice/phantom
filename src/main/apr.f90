@@ -152,8 +152,7 @@ contains
       if (nmerge > 0) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
                                               vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
                                               nrelax,relaxlist,npartnew)
-      print*,'particles at apr_level',kk,':',nmerge
-      print*,'merged: ',nkilled
+      print*,'merged: ',nkilled,kk
     enddo
     ! update npart as required
     npart = npartnew
@@ -311,9 +310,6 @@ contains
           nrelax = nrelax + 1
           relaxlist(nrelax) = eldest
         endif
-        ! update list
-        npartoftype(iamtypei) = npartoftype(iamtypei) - 1
-        npartnew = npartnew - 1
 
         ! discard tuther
         call kill_particle(tuther,npartoftype)

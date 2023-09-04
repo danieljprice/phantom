@@ -209,6 +209,12 @@ subroutine compute_energies(t)
           else
             pmassi = massoftype(itype)
           endif
+       else
+         if (use_apr) then
+           pmassi = apr_massoftype(igas,apr_level(i))
+         else
+           pmassi = massoftype(igas)
+         endif
        endif
 
        rhoi = rhoh(hi,pmassi)

@@ -78,7 +78,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy,implicit_radiation
- use part,             only:rad,radprop
+ use part,             only:rad,radprop,igas
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
 #ifdef LIVE_ANALYSIS
@@ -89,7 +89,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
 #ifdef APR
   use apr,             only:update_apr
-  use part,            only:apr_level,igas
+  use part,            only:apr_level
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
