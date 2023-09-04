@@ -175,12 +175,12 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,apr_massoftype,apr_level
  use part,              only:nucleation,gamma_chem
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome
+                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,use_apr
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
@@ -213,7 +213,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  Z_i    = Z_in
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level) &
 !$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
@@ -235,7 +235,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 
        if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
 
-       pmassi  = massoftype(iamtypei)
+       if (use_apr) then
+         pmassi = apr_massoftype(iamtypei,apr_level(i))
+       else
+         pmassi  = massoftype(iamtypei)
+       endif
        rhoi    = rhoh(hi,pmassi)
        !
        !--Convert dust variable to dustfrac

@@ -32,7 +32,7 @@ module apr
   real, allocatable    :: apr_regions(:)
   real    :: sep_factor = 0.2
   integer, save :: looped_through = 0
-  logical :: do_relax = .false.
+  logical :: do_relax = .true.
 
 contains
 
