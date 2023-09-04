@@ -32,7 +32,7 @@ module apr
   real, allocatable    :: apr_regions(:)
   real    :: sep_factor = 0.2
   integer, save :: looped_through = 0
-  logical :: do_relax = .true.
+  logical :: do_relax = .false.
 
 contains
 
@@ -56,6 +56,7 @@ contains
     allocate(apr_regions(apr_max))
     apr_regions(apr_max) = apr_rad
     apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
+    apr_regions(2) = 0.3
 
     ierr = 0
 
@@ -107,7 +108,9 @@ contains
     nsplit_total = 0
     nrelax = 0
 
+    apri = 0 ! to avoid compiler errors
     do jj = 1,apr_max
+      npartold = npartnew ! to account for new particles as they are being made
       do ii = 1,npartold
         ! this is the refinement level it *should* have based
         ! on it's current position
@@ -122,12 +125,13 @@ contains
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
           endif
+          nsplit_total = nsplit_total + 1
         endif
       enddo
     enddo
 
     ! Take into account all the added particles
-    print*,'split: ',(npartnew-npartold)
+    print*,'split: ',nsplit_total
     npart = npartnew
 
     ! Do any particles need to be merged?
@@ -313,7 +317,7 @@ contains
 
         ! discard tuther
         call kill_particle(tuther,npartoftype)
-        nkilled = nkilled + 1
+        nkilled = nkilled + 2
         ! If this particle was on the shuffle list previously, take it off
         do m = 1,nrelax
           if (relaxlist(m) == tuther) relaxlist(m) = 0
