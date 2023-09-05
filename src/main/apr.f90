@@ -32,7 +32,8 @@ module apr
   real, allocatable    :: apr_regions(:)
   real    :: sep_factor = 0.2
   integer, save :: looped_through = 0
-  logical :: do_relax = .false.
+  logical :: do_relax = .true.
+  logical :: apr_verbose = .false.
 
 contains
 
@@ -120,7 +121,7 @@ contains
         if (apri > apr_level(ii)) then
           call splitpart(ii,npartnew)
           ntot = npartnew
-          if (do_relax) then
+          if (do_relax .and. (jj==apr_max-1)) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
@@ -131,7 +132,7 @@ contains
     enddo
 
     ! Take into account all the added particles
-    print*,'split: ',nsplit_total
+    if (apr_verbose) print*,'split: ',nsplit_total
     npart = npartnew
 
     ! Do any particles need to be merged?
@@ -154,9 +155,9 @@ contains
       enddo
       ! Now send them to be merged
       if (nmerge > 0) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
-                                              vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
-                                              nrelax,relaxlist,npartnew)
-      print*,'merged: ',nkilled,kk
+      vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
+      nrelax,relaxlist,npartnew)
+      if (apr_verbose) print*,'merged: ',nkilled,kk
     enddo
     ! update npart as required
     npart = npartnew
@@ -172,7 +173,6 @@ contains
     ! Do my hacky write
     looped_through = looped_through + 1
     call nasty_write(looped_through,npart,xyzh(:,:),fxyzu(:,:),apr_level(:))
-
 
     ! Tidy up
     if (do_relax) then
@@ -217,8 +217,9 @@ contains
   !-----------------------------------------------------------------------
   subroutine splitpart(i,npartnew)
     use part,    only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
-    use part,    only:set_particle_type
+    use part,    only:set_particle_type,Bxyz,Bevol
     use physcon, only:pi
+    use dim,     only:mhd
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,aprnew
@@ -245,6 +246,10 @@ contains
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
+      if (mhd) then
+        Bxyz(:,j) = Bxyz(:,j)*0.5
+        Bevol(:,j) = Bevol(:,j)*0.5
+      endif
     enddo
 
     ! Edit the old particle that was sent in and kept
@@ -252,6 +257,10 @@ contains
     xyzh(2,i) = xyzh(2,i) - y_add
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
+    if (mhd) then
+      Bxyz(:,i) = Bxyz(:,i)*0.5
+      Bevol(:,i) = Bevol(:,i)*0.5
+    endif
 
   end subroutine splitpart
 
@@ -266,14 +275,14 @@ contains
     use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
     use mpiforce, only:cellforce
     use kdtree,   only:inodeparts,inoderange
-    use part,     only:kill_particle,npartoftype,get_partinfo,iphase
+    use part,     only:kill_particle,npartoftype,Bxyz,Bevol
+    use dim,      only:mhd
     integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
     integer, intent(in)    :: current_apr,mergelist(:)
     real, intent(inout)    :: xyzh(:,:)
     real, intent(inout)    :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer :: remainder,icell,i,n_cell,apri,m
-    integer :: eldest,tuther,iamtypei
-    logical :: iactive,isgas,isdust
+    integer :: eldest,tuther
     real    :: com(3)
     type(cellforce)        :: cell
 
@@ -301,7 +310,6 @@ contains
       if (apri < current_apr) then
         eldest = mergelist(inodeparts(inoderange(1,icell)))
         tuther = mergelist(inodeparts(inoderange(2,icell)))
-        call get_partinfo(iphase(tuther),iactive,isgas,isdust,iamtypei)
 
         ! keep eldest, reassign it
         xyzh(1,eldest) = cell%xpos(1)
@@ -309,6 +317,11 @@ contains
         xyzh(3,eldest) = cell%xpos(3)
         xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - 1
+        if (mhd) then
+          Bxyz(:,eldest) = 0.5*(Bxyz(:,eldest) + Bxyz(:,tuther))
+          Bevol(:,eldest) = 0.5*(Bevol(:,eldest) + Bevol(:,tuther))
+        endif
+
         ! add it to the shuffling list if needed
         if (do_relax) then
           nrelax = nrelax + 1

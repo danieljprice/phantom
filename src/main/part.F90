@@ -270,9 +270,10 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
-!--APR
+!--APR - we need these arrays whether we use apr or not
 !
  integer, allocatable :: apr_level(:)
+ integer, allocatable :: apr_level_soa(:)
 !
 
 !--derivatives (only needed if derivs is called)
@@ -388,6 +389,10 @@ subroutine allocate_part
    maxan = maxp_apr
    maxphase = maxp_apr
    maxalpha = maxp_apr
+   if (mhd) then
+     maxmhd = maxp_apr
+     maxmhdan = maxp_apr
+   endif
  endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)
@@ -399,6 +404,7 @@ subroutine allocate_part
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
+ call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -535,6 +541,7 @@ subroutine deallocate_part
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
  if (allocated(apr_level))    deallocate(apr_level)
+ if (allocated(apr_level_soa)) deallocate(apr_level_soa)
 
 end subroutine deallocate_part
 
@@ -1284,7 +1291,10 @@ subroutine copy_particle_all(src,dst,new_part)
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
  endif
- if (use_apr) apr_level(dst) = apr_level(src)
+ if (use_apr) then
+   apr_level(dst)     = apr_level(src)
+   apr_level_soa(dst) = apr_level_soa(src)
+ endif
 
  if (new_part) then
     norig      = norig + 1
