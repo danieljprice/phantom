@@ -20,10 +20,11 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
 !   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart
+ use dim,         only:maxp,ncellsmax,minpart,use_apr
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi,apr_level
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
+                       apr_level,apr_level_soa,apr_massoftype
 
  implicit none
 
@@ -356,7 +357,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  nproot = 0
  !$omp parallel default(none) &
  !$omp shared(np,xyzh) &
- !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot) &
+ !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
  !$omp reduction(+:ncross) &
@@ -402,6 +403,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
 #endif
        xyzh_soa(nproot,:) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
+       if (use_apr) apr_level_soa(nproot) = apr_level(i)
     endif isnotdead
  enddo
 
@@ -565,7 +567,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npnode,massoftype,dfac) &
-    !$omp shared(xyzh_soa,i1,iphase_soa) &
+    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
@@ -577,7 +579,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(i)))
+         if (use_apr) then
+           pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+         else
+           pmassi = massoftype(iamtype(iphase_soa(i)))
+         endif
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -594,7 +600,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(i)))
+         if (use_apr) then
+           pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+         else
+           pmassi = massoftype(iamtype(iphase_soa(i)))
+         endif
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -636,10 +646,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !--compute size of node
  !!$omp parallel do if (npnode > 1000 .and. doparallel) &
  !!$omp default(none) schedule(static) &
- !!$omp shared(npnode,xyzh_soa,x0,i1) &
+ !!$omp shared(npnode,xyzh_soa,x0,i1,apr_level_soa) &
+ !!$omp shared(iphase_soa,massoftype) &
  !!$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
 #ifdef GRAVITY
- !!$omp shared(iphase_soa,massoftype) &
  !!$omp reduction(+:quads) &
 #endif
  !!$omp reduction(max:r2max)
@@ -658,7 +668,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase_soa(i)))
+      if (use_apr) then
+        pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+      else
+        pmassi = massoftype(iamtype(iphase_soa(i)))
+      endif
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
     quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
@@ -1487,7 +1501,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(xyzh, ifirstincell, ncells) &
+!$omp shared(xyzh, ifirstincell, ncells, apr_level) &
 !$omp shared(node, ll, iphase, massoftype, maxlevel) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
 !$omp private(dx, dy, dz, dr2, icell, i, x0) &
@@ -1511,7 +1525,11 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+          if (use_apr) then
+            pmassi = apr_massoftype(iamtype(iphase(i)),apr_level(i))
+          else
+            pmassi = massoftype(iamtype(iphase(i)))
+          endif
        endif
        x0(1) = x0(1) + pmassi*xi
        x0(2) = x0(2) + pmassi*yi
@@ -1549,7 +1567,11 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        hmax  = max(hi, hmax)
 #ifdef GRAVITY
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+         if (use_apr) then
+           pmassi = apr_massoftype(iamtype(iphase(i)),apr_level(i))
+         else
+           pmassi = massoftype(iamtype(iphase(i)))
+         endif
        endif
        quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
        quads(2) = quads(2) + pmassi*(3.*dx*dy)
@@ -1804,6 +1826,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 #endif
        xyzh_soa(npnode,:) = xyzh(:,i)
        iphase_soa(npnode) = iphase(i)
+       if (use_apr) apr_level_soa(npnode) = apr_level(i)
     enddo
 
     ! set all particles to belong to this node
