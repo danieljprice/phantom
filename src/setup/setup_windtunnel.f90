@@ -38,24 +38,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:nrhotab
  use physcon,     only:solarm,solarr
  use units,       only:udist,umass,utime,set_units
- use inject,      only:init_inject,BHL_r_star,BHL_m_star,BHL_mach,BHL_pmass,BHL_closepacked,BHL_handled_layers,&
+ use inject,      only:init_inject,nstar,BHL_r_star,BHL_mach,BHL_closepacked,BHL_handled_layers,&
                        BHL_wind_cylinder_radius,BHL_wind_injection_x,BHL_wind_length,BHL_psep
  use mpidomain,   only:i_belong
  use timestep,    only:dtmax,tmax
+ use unifdis,     only:mask_prototype
+ use setup_params,only:rhozero,npart_total
+ use mpidomain,    only:i_belong
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real               :: m,hacc,rhocentre,rmin,tcrush,rho_inf,v_inf,pres_inf,cs_inf,&
-                       pmass,element_volume,rho_star
+ real               :: rhocentre,rmin,tcrush,rho_inf,v_inf,pres_inf,cs_inf,&
+                       pmass,element_volume,rho_star,Mstar
  real, allocatable  :: r(:),den(:)
- integer            :: ierr,npts,nstar
+ integer            :: ierr,npts,np
  logical            :: use_exactN
  character(len=30)  :: lattice
  
- call set_units(mass=solarm,dist=solarr,G=1.d0)
+ call set_units(mass=1.,dist=1.,G=1.)
  !
  !--general parameters
  !
@@ -74,9 +77,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! Star parameters
  BHL_r_star = 0.1
- BHL_m_star = 1.e-3
- nstar = 10000
- pmass = BHL_m_star / real(nstar)
+ Mstar = 1.e-3
+ nstar = 1000
+ pmass = Mstar / real(nstar)
  massoftype(igas) = pmass
  lattice = 'closepacked'
  use_exactN = .true.
@@ -98,27 +101,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  BHL_psep = BHL_psep / BHL_r_star  ! need to provide in units of Rstar, separation between layers of wind particle
 
  ! Set default tmax and dtmax
- rho_star = BHL_m_star/BHL_r_star**3
+ rho_star = Mstar/BHL_r_star**3
  tcrush = 2.*BHL_r_star*sqrt(rho_star/rho_inf)/v_inf
  dtmax = 1.6*0.05*tcrush
  tmax  = 1.6*2.5*tcrush
  
- ! Set star
-!  allocate(r(nrhotab),den(nrhotab))
-!  call rho_polytrope(gamma,polyk,BHL_m_star,r,den,npts,rhocentre,set_polyk=.true.,Rstar=BHL_r_star)
-!  rmin = r(1)
-!  call set_star_density(lattice,id,master,rmin,BHL_r_star,BHL_m_star,hfact,&
-!                        npts,den,r,npart,npartoftype,massoftype,xyzh,use_exactN,np,i_belong)
-!  deallocate(r,den)
-
-
+ ! Initialise particle injection
  call init_inject(ierr)
  npart = 0
+ np = 0
  npartoftype(:) = 0
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
+
+ ! Set star
+ allocate(r(nrhotab),den(nrhotab))
+ call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=BHL_r_star)
+ rmin = r(1)
+ call set_star_density(lattice,id,master,rmin,BHL_r_star,Mstar,hfact,&
+                       npts,den,r,npart,npartoftype,massoftype,xyzh,&
+                       use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
+ deallocate(r,den)
  
- print *, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
+ print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 
 end subroutine setpart
     

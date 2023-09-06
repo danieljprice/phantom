@@ -38,6 +38,7 @@ module inject
  real, public :: BHL_mach = 3.
  real, public :: BHL_r_star = .1
  real, public :: BHL_m_star
+ integer, public :: nstar = 0
 
  ! Particle-related parameters
  real, public :: BHL_closepacked = 1.
@@ -150,7 +151,7 @@ subroutine init_inject(ierr)
     layer_odd(:,:) = layer_even(:,:)
  endif
  max_layers = int(BHL_wind_length*BHL_r_star/distance_between_layers)
- max_particles = int(max_layers*(nodd+neven)/2)
+ max_particles = int(max_layers*(nodd+neven)/2) + nstar
  print *, 'BHL maximum layers: ', max_layers
  print *, 'BHL maximum particles: ', max_particles
  if (max_particles > maxp) call fatal('BHL', 'maxp too small for this simulation, please increase MAXP!')
@@ -188,11 +189,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  last_time = time-dtlast
- outer_layer = ceiling(last_time/time_between_layers)
- inner_layer = ceiling(time/time_between_layers)-1 + handled_layers
+ outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
+ inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
  ! Inject layers
- do i=outer_layer,inner_layer
-    local_time = time - i*time_between_layers
+ do i=outer_layer,inner_layer  ! loop over layers
+    local_time = time - i*time_between_layers  ! time at which layer was injected
     i_limited = mod(i,max_layers)
     i_part = int(i_limited/2)*(nodd+neven)+mod(i_limited,2)*neven
     if (mod(i,2) == 0) then
@@ -222,7 +223,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+nstar+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
