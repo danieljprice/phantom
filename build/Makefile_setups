@@ -834,7 +834,7 @@ endif
 ifeq ($(SETUP), windtunnel)
 #   Wind tunnel setup
     SETUPFILE= setup_windtunnel.f90
-    SRCINJECT= inject_BHL.f90
+    SRCINJECT= inject_windtunnel.f90
     GRAVITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes

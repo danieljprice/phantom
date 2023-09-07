@@ -27,7 +27,7 @@ contains
 
 !----------------------------------------------------------------
 !+
-!  setup for gas sphere inside wind tunnel
+!  setup for polytropic gas sphere inside wind tunnel
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
@@ -38,27 +38,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use extern_densprofile, only:nrhotab
  use physcon,     only:solarm,solarr
  use units,       only:udist,umass,utime,set_units
- use inject,      only:init_inject,nstar,BHL_r_star,BHL_mach,BHL_closepacked,BHL_handled_layers,&
-                       BHL_wind_cylinder_radius,BHL_wind_injection_x,BHL_wind_length,BHL_psep
+ use inject,      only:init_inject,nstar,Rstar,mach_inf,lattice_type,BHL_handled_layers,&
+                       BHL_wind_cylinder_radius,BHL_wind_injection_x,BHL_wind_length,&
+                       cs_inf,rho_inf
  use mpidomain,   only:i_belong
  use timestep,    only:dtmax,tmax
  use unifdis,     only:mask_prototype
+ use kernel,      only:hfact_default
  use setup_params,only:rhozero,npart_total
- use mpidomain,    only:i_belong
+ use mpidomain,   only:i_belong
+ use table_utils, only:yinterp
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
  real,              intent(out)   :: xyzh(:,:),vxyzu(:,:),massoftype(:),polyk,gamma,hfact
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
- real               :: rhocentre,rmin,tcrush,rho_inf,v_inf,pres_inf,cs_inf,&
-                       pmass,element_volume,rho_star,Mstar
- real, allocatable  :: r(:),den(:)
- integer            :: ierr,npts,np
+ real               :: rhocentre,rmin,tcrush,v_inf,pres_inf,pmass,rho_star,Mstar,densi,presi,ri
+ real, allocatable  :: r(:),den(:),pres(:)
+ integer            :: ierr,npts,np,i
  logical            :: use_exactN
  character(len=30)  :: lattice
  
- call set_units(mass=1.,dist=1.,G=1.)
+ call set_units(mass=solarm,dist=solarr,G=1.)
  !
  !--general parameters
  !
@@ -67,43 +69,35 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 5./3.
  ieos  = 2
  gmw   = 0.6
+ hfact = hfact_default
 
  ! Wind parameters (see inject_BHL module)
- BHL_mach = 1.31
- rho_inf = 6.8e-5
+ mach_inf = 1.31
+ rho_inf  = 6.8e-5
  pres_inf = 5.9e-6
- cs_inf = sqrt(gamma*pres_inf/rho_inf)
- v_inf = BHL_mach*cs_inf
+ cs_inf   = sqrt(gamma*pres_inf/rho_inf)
+ v_inf    = mach_inf*cs_inf
 
  ! Star parameters
- BHL_r_star = 0.1
+ Rstar = 0.1
  Mstar = 1.e-3
- nstar = 1000
- pmass = Mstar / real(nstar)
- massoftype(igas) = pmass
+ nstar = 1000000
  lattice = 'closepacked'
  use_exactN = .true.
+ pmass = Mstar / real(nstar)
+ massoftype(igas) = pmass
 
  ! Wind injection settings
- BHL_closepacked = 1.           ! do not change, this is hardwired at the moment
+ lattice_type = 1
  BHL_handled_layers = 4.
- BHL_wind_cylinder_radius = 5.  ! in units of Rstar
+ BHL_wind_cylinder_radius = 10. ! in units of Rstar
  BHL_wind_injection_x = -5.     ! in units of Rstar
- BHL_wind_length = 20.          ! in units of Rstar
-
- ! Calculate particle separation between layers given rho_inf, depending on lattice type
- element_volume = pmass / rho_inf
- if (BHL_closepacked == 1.) then
-    BHL_psep = (sqrt(2.)*element_volume)**(1./3.)
- else
-    BHL_psep = element_volume**(1./3.) 
- endif
- BHL_psep = BHL_psep / BHL_r_star  ! need to provide in units of Rstar, separation between layers of wind particle
+ BHL_wind_length = 50.          ! in units of Rstar
 
  ! Set default tmax and dtmax
- rho_star = Mstar/BHL_r_star**3
- tcrush = 2.*BHL_r_star*sqrt(rho_star/rho_inf)/v_inf
- dtmax = 1.6*0.05*tcrush
+ rho_star = Mstar/Rstar**3
+ tcrush = 2.*Rstar*sqrt(rho_star/rho_inf)/v_inf
+ dtmax = 0.1!1.6*0.05*tcrush
  tmax  = 1.6*2.5*tcrush
  
  ! Initialise particle injection
@@ -114,14 +108,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
 
- ! Set star
- allocate(r(nrhotab),den(nrhotab))
- call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=BHL_r_star)
+ ! Set polytropic star
+ allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
+ call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
+ pres = polyk*den**gamma
  rmin = r(1)
- call set_star_density(lattice,id,master,rmin,BHL_r_star,Mstar,hfact,&
+ call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,&
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
- deallocate(r,den)
+ ! Set thermal energy
+ do i = 1,npart
+    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    densi = yinterp(den(1:npts),r(1:npts),ri)
+    presi = yinterp(pres(1:npts),r(1:npts),ri)
+    vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
+ enddo
+ nstar = npart
+ 
+ deallocate(r,den,pres)
  
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 
