@@ -309,7 +309,7 @@ endif
 ifeq ($(APR), yes)
     FPPFLAGS += -DAPR
 		SRCAPR=relaxem.f90 apr.f90
-		SRCKERNEL= kernel_WendlandC2.f90
+		KERNEL=WendlandC2
 endif
 
 #

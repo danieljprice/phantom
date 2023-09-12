@@ -22,7 +22,6 @@ contains
 
 ! Subroutine to relax the new set of particles to a reference particle distribution
 subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
-  use timestep,  only:time
   use deriv,     only:get_derivs_global
   integer,           intent(in)    :: npart,n_ref,nrelax
   real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)

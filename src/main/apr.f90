@@ -22,7 +22,7 @@ module apr
   !
   implicit none
 
-  public :: init_apr,update_apr,read_options_apr,write_options_apr
+  public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
 
   private
   integer :: apr_max = 2
@@ -30,6 +30,7 @@ module apr
   real    :: x_centre = 0.0, y_centre = 0.0, z_centre = 0.0
   real    :: apr_rad = 0.2
   real, allocatable    :: apr_regions(:)
+  integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
   integer, save :: looped_through = 0
   logical :: do_relax = .true.
@@ -54,10 +55,11 @@ contains
     endif
 
     ! initiliase the regions
-    allocate(apr_regions(apr_max))
+    allocate(apr_regions(apr_max),npart_regions(apr_max))
     apr_regions(apr_max) = apr_rad
     apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
     apr_regions(2) = 0.3
+    npart_regions = 0
 
     ierr = 0
 
@@ -69,18 +71,23 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
-    use dim, only:maxp_hard
-    use part,             only:ntot,isdead_or_accreted,igas,apr_massoftype,&
-                               shuffle_part
-    use quitdump,         only:quit
-    use relaxem,          only:relax_particles
+    use dim,      only:maxp_hard
+    use part,     only:ntot,isdead_or_accreted,igas,apr_massoftype,&
+                       shuffle_part
+    use quitdump, only:quit
+    use relaxem,  only:relax_particles
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
-    integer :: n_ref,nrelax,nmerge,nkilled
+    integer :: n_ref,nrelax,nmerge,nkilled,apr_current
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
+    logical :: top_level
+    real :: xi,yi
+
+    ! If this routine doesn't need to be used, just skip it
+    if (apr_max == 1) return
 
     ! Before adjusting the particles, if we're going to
     ! relax them then let's save the reference particles
@@ -108,20 +115,26 @@ contains
     npartold = npart
     nsplit_total = 0
     nrelax = 0
-
     apri = 0 ! to avoid compiler errors
+    top_level = .false.
+
+
     do jj = 1,apr_max
       npartold = npartnew ! to account for new particles as they are being made
+      if (jj==apr_max-1) top_level = .true.
+
       do ii = 1,npartold
+        apr_current = apr_level(ii)
+        xi = xyzh(1,ii)
+        yi = xyzh(2,ii)
         ! this is the refinement level it *should* have based
         ! on it's current position
-        call get_apr(xyzh(1:2,ii),apri)
+        call get_apr((/xi,yi/),apri)
         ! if the level it should have is greater than the
         ! level it does have, increment it up one
-        if (apri > apr_level(ii)) then
+        if (apri > apr_current) then
           call splitpart(ii,npartnew)
-          ntot = npartnew
-          if (do_relax .and. (jj==apr_max-1)) then
+          if (do_relax .and. top_level) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
@@ -132,11 +145,16 @@ contains
     enddo
 
     ! Take into account all the added particles
-    if (apr_verbose) print*,'split: ',nsplit_total
     npart = npartnew
+    ntot = npartnew
+    if (apr_verbose) then
+      print*,'split: ',nsplit_total
+      print*,'npart: ',npart
+    endif
 
     ! Do any particles need to be merged?
     allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(4,npart))
+    npart_regions = 0
     do jj = 1,apr_max-1
       kk = apr_max - jj + 1             ! to go from apr_max -> 2
       mergelist = -1 ! initialise
@@ -144,6 +162,7 @@ contains
       nkilled = 0
       xyzh_merge = 0.
       vxyzu_merge = 0.
+
       do ii = 1,npart
         ! note that here we only do this process for particles that are not already counted in the blending region
         if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
@@ -151,16 +170,24 @@ contains
           mergelist(nmerge) = ii
           xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
           vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
+          npart_regions(kk) = npart_regions(kk) + 1
         endif
       enddo
+
       ! Now send them to be merged
       if (nmerge > 0) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
       vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
       nrelax,relaxlist,npartnew)
-      if (apr_verbose) print*,'merged: ',nkilled,kk
+      if (apr_verbose) then
+        print*,'merged: ',nkilled,kk
+        print*,'npart: ',npartnew - nkilled
+      endif
+      npart_regions(kk) = npart_regions(kk) - nkilled
     enddo
     ! update npart as required
     npart = npartnew
+    npart_regions(1) = npartnew - sum(npart_regions(2:apr_max))
+    if (apr_verbose) print*,'particles at each level:',npart_regions(:)
 
     ! If we need to relax, do it here
     if (nrelax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
@@ -170,15 +197,12 @@ contains
     ! As we may have killed particles, time to do an array shuffle
     call shuffle_part(npart)
 
-    ! Do my hacky write
-    looped_through = looped_through + 1
-    call nasty_write(looped_through,npart,xyzh(:,:),fxyzu(:,:),apr_level(:))
-
     ! Tidy up
     if (do_relax) then
       deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
     endif
     deallocate(mergelist)
+
 
   end subroutine update_apr
 
@@ -217,9 +241,8 @@ contains
   !-----------------------------------------------------------------------
   subroutine splitpart(i,npartnew)
     use part,    only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
-    use part,    only:set_particle_type,Bxyz,Bevol
+    use part,    only:set_particle_type
     use physcon, only:pi
-    use dim,     only:mhd
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,aprnew
@@ -246,10 +269,6 @@ contains
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
-      if (mhd) then
-        Bxyz(:,j) = Bxyz(:,j)*0.5
-        Bevol(:,j) = Bevol(:,j)*0.5
-      endif
     enddo
 
     ! Edit the old particle that was sent in and kept
@@ -257,10 +276,6 @@ contains
     xyzh(2,i) = xyzh(2,i) - y_add
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
-    if (mhd) then
-      Bxyz(:,i) = Bxyz(:,i)*0.5
-      Bevol(:,i) = Bevol(:,i)*0.5
-    endif
 
   end subroutine splitpart
 
@@ -275,8 +290,7 @@ contains
     use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
     use mpiforce, only:cellforce
     use kdtree,   only:inodeparts,inoderange
-    use part,     only:kill_particle,npartoftype,Bxyz,Bevol
-    use dim,      only:mhd
+    use part,     only:kill_particle,npartoftype
     integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
     integer, intent(in)    :: current_apr,mergelist(:)
     real, intent(inout)    :: xyzh(:,:)
@@ -317,10 +331,6 @@ contains
         xyzh(3,eldest) = cell%xpos(3)
         xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - 1
-        if (mhd) then
-          Bxyz(:,eldest) = 0.5*(Bxyz(:,eldest) + Bxyz(:,tuther))
-          Bevol(:,eldest) = 0.5*(Bevol(:,eldest) + Bevol(:,tuther))
-        endif
 
         ! add it to the shuffling list if needed
         if (do_relax) then
@@ -406,40 +416,50 @@ contains
   !  Hacky routine that just writes out the raw position, mass, density and h
   !+
   !-----------------------------------------------------------------------
-  subroutine nasty_write(ifile,npart,xyzh,fxyzu,apr_level)
-    use part, only:igas,rhoh,apr_massoftype
-    real, intent(in) :: xyzh(:,:),fxyzu(:,:)
-    integer, intent(in) :: apr_level(:),ifile,npart
-    integer :: ii,iunit=24,apri
+  subroutine hacky_write(ifile)
+    use part, only:igas,rhoh,apr_massoftype,Bxyz, &
+                   npart,xyzh,apr_level
+    use dim,  only:mhd
+    use timestep, only:time
+    character(len=*), intent(in) :: ifile
+    integer :: ii,iunit=24,apri,ierr
     character(len=120) :: mydumpfile,rootname
-    real :: rhoi,hfact,pmass
+    real :: rhoi,pmass
+    real :: hfact
 
     hfact = 1.2 ! straight from the *.in file
 
-    rootname = 'rawinfo'
-    write(mydumpfile,"(a,'_',i5.5,'.dat')") trim(rootname),ifile
+    rootname = 'raw'
+    write(mydumpfile,"(a,'.raw')") trim(ifile)
 
-    open(iunit,file=mydumpfile,status='replace')
-    write(iunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
+    open(iunit,file=mydumpfile,status='replace',form='formatted')
+    ! Now we write the header, and here we just hard-wire what we need to
+  !  write(iunit,iostat=ierr) time,npart,npart,1.6,1.2,2,3, &
+  !   6,1,3,3,-1.0,-1.0,1.0,1.0,12,'cartesian'
+  !   if (ierr/=0) print*,'AH SOMETHING WRONG IN WRITE'
+    write(iunit,"('#',8(1x,'[',i2.2,1x,a11,']',2x))") &
     1,'x', &
     2,'y', &
     3,'h', &
     4,'rho', &
     5,'mass',&
-    6,'fx',&
-    7,'fy',&
-    8,'fz',&
-    9,'apri'
+    6,'apri',&
+    7,'Bx',&
+    8,'By'
 
-    do ii = 1,npart
-      apri = apr_level(ii)
-      pmass = apr_massoftype(igas,apri)
+    do ii=1,npart
+      pmass = apr_massoftype(igas,apr_level(ii))
       rhoi = rhoh(xyzh(4,ii),pmass)
-      write(iunit,'(9(es18.10,1X))') xyzh(1:2,ii),xyzh(4,ii),rhoi,pmass,fxyzu(1:3,ii),real(apri)
+      if (.not.mhd) then
+        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), 0.0, 0.
+      else
+        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), Bxyz(1,ii), Bxyz(2,ii)
+      endif
     enddo
 
     close(iunit)
 
-  end subroutine nasty_write
+  end subroutine hacky_write
+
 
 end module apr

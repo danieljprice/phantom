@@ -88,7 +88,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:ianalysis
 #endif
 #ifdef APR
-  use apr,             only:update_apr
+  use apr,             only:update_apr,hacky_write
   use part,            only:apr_level
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
@@ -529,6 +529,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call get_timings(t1,tcpu1)
        if (writedump) then
           if (fulldump) then
+#ifdef APR
+             call hacky_write(dumpfile)
+#endif
              call write_fulldump(time,dumpfile)
              if (id==master) then
                 call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
