@@ -89,13 +89,13 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
 
   a_ref(:,:) = 0.
 
+  ! Over the new set of particles that are to be shuffled
   !$omp parallel do schedule(guided) default (none) &
   !$omp shared(xyzh,xyzh_ref,npart,n_ref,force_ref,a_ref,relaxlist) &
   !$omp shared(nrelax,apr_level,dxbound,dybound,dzbound) &
   !$omp shared(mass_ref) &
   !$omp private(i,j,xi,yi,zi,rij,h21,h31,rhoj,rij2,qj2,pmassi)
 
-  ! Over the new set of particles that are to be shuffled
   over_new: do k = 1,nrelax
     if (relaxlist(k) == 0) cycle over_new
     i = relaxlist(k)
@@ -109,7 +109,7 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
       rij(1) = xyzh_ref(1,j) - xi
       rij(2) = xyzh_ref(2,j) - yi
       rij(3) = xyzh_ref(3,j) - zi
-      mass_ref = apr_massoftype(igas,apr_level(j))
+      mass_ref = apr_massoftype(igas,apr_level(j))   ! TBD: fix this to allow for dust
 
       if (periodic) then
         if (abs(rij(1)) > 0.5*dxbound) rij(1) = rij(1) - dxbound*SIGN(1.0,rij(1))
@@ -119,10 +119,11 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
 
       h21 = 1./(xyzh_ref(4,j))**2
       h31 = 1./(xyzh_ref(4,j))**3
-      rhoj = rhoh(xyzh(4,j),mass_ref)
+      rhoj = rhoh(xyzh_ref(4,j),mass_ref)
 
       rij2 = dot_product(rij,rij)
       qj2  = rij2*h21
+
       if (qj2 < radkern2) then
         ! Interpolate acceleration at the location of the new particle
         a_ref(:,i) = a_ref(:,i) + force_ref(:,j)*wkern(qj2,sqrt(qj2))*cnormk*h31/rhoj
@@ -130,7 +131,6 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
 
     enddo over_reference
   enddo over_new
-
   !$omp end parallel do
 
 end subroutine get_reference_accelerations
