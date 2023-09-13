@@ -1495,7 +1495,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
  use options,        only:tolh,alpha,alphau,alphaB,iexternalforce,ieos
  use part,           only:massoftype,hfact,Bextx,Bexty,Bextz,ndustsmall,ndustlarge,&
                           idust,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use setup_params,   only:rhozero
  use timestep,       only:dtmax_user,idtmax_n_next,idtmax_frac_next,C_cour,C_force
  use externalforces, only:write_headeropts_extern
@@ -1597,6 +1597,7 @@ subroutine fill_header(sphNGdump,t,nparttot,npartoftypetot,nblocks,nptmass,hdr,i
     call add_to_rheader(etot_in,'etot_in',hdr,ierr)
     call add_to_rheader(angtot_in,'angtot_in',hdr,ierr)
     call add_to_rheader(totmom_in,'totmom_in',hdr,ierr)
+    call add_to_rheader(mtot_in,'mtot_in',hdr,ierr)
     call add_to_rheader(mdust_in(1:ndusttypes),'mdust_in',hdr,ierr)
     if (use_dust) then
        call add_to_rheader(grainsize(1:ndusttypes),'grainsize',hdr,ierr)
@@ -1632,7 +1633,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  use options,        only:ieos,iexternalforce
  use part,           only:massoftype,Bextx,Bexty,Bextz,mhd,periodic,&
                           maxtypes,grainsize,graindens,ndusttypes
- use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
+ use checkconserved, only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in,mtot_in
  use setup_params,   only:rhozero
  use externalforces, only:read_headeropts_extern,extract_iextern_from_hdr
  use boundary,       only:xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
@@ -1767,8 +1768,9 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
  call extract('etot_in',    etot_in,    hdr,ierrs(2))
  call extract('angtot_in',  angtot_in,  hdr,ierrs(3))
  call extract('totmom_in',  totmom_in,  hdr,ierrs(4))
- call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(5))
- if (any(ierrs(1:4) /= 0)) then
+ call extract('mtot_in',    mtot_in,    hdr,ierrs(5))
+ call extract('mdust_in',   mdust_in(1:ndusttypes), hdr,ierrs(6))
+ if (any(ierrs(1:5) /= 0)) then
     write(*,*) 'ERROR reading values to verify conservation laws.  Resetting initial values.'
     get_conserv = 1.0
  endif
