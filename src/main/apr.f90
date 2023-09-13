@@ -14,7 +14,7 @@ module apr
   !
   ! :Runtime parameters:
   !   - apr_max           : number of resolution levels
-  !   - ref_dir           : increase (0) or decrease (1) resolution from the base resolution
+  !   - ref_dir           : increase (1) or decrease (-1) resolution from the base resolution
   !   - [x,y,z]_centre    : centre coordinates of the region to be more highly resolved
   !   - apr_rad           : radius of the region to be more highly resolved
   !
@@ -26,14 +26,14 @@ module apr
 
   private
   integer :: apr_max = 2
-  integer :: ref_dir = 0
+  integer :: ref_dir = 1, top_level = 1
   real    :: x_centre = 0.0, y_centre = 0.0, z_centre = 0.0
   real    :: apr_rad = 0.2
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
   logical :: apr_verbose = .false.
-  logical :: do_relax = .true.
+  logical :: do_relax = .false.
 
 contains
 
@@ -44,7 +44,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine init_apr(apr_level,ierr)
     use dim, only:maxp_hard
-    use part, only:npart
+    use part, only:npart,massoftype
     integer, intent(inout) :: ierr,apr_level(:)
     logical :: previously_set
 
@@ -58,7 +58,7 @@ contains
 
     if (.not.previously_set) then
       ! initialise the base resolution level
-      if (ref_dir == 0) then
+      if (ref_dir == 1) then
         apr_level = 1
       else
         apr_level = apr_max
@@ -67,10 +67,25 @@ contains
 
     ! initiliase the regions
     allocate(apr_regions(apr_max),npart_regions(apr_max))
-    apr_regions(apr_max) = apr_rad
-    apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-    apr_regions(2) = 0.3
+    if (ref_dir == 1) then
+      apr_regions(apr_max) = apr_rad
+      apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
+      apr_regions(2) = 0.3
+      top_level = apr_max
+    else
+      apr_regions(1) = apr_rad
+      apr_regions(apr_max) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
+      apr_regions(2) = 0.3
+      top_level = 1
+    endif
     npart_regions = 0
+
+    ! if we are derefining we make sure that
+    ! massoftype(igas) is associated with the
+    ! largest particle
+    if (ref_dir == -1) then
+      massoftype(:) = massoftype(:) * 2.**(apr_max -1)
+    endif
 
     ierr = 0
 
@@ -94,8 +109,7 @@ contains
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
-    logical :: top_level
-    real :: xi,yi
+    real :: xi,yi,zi
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
@@ -127,25 +141,24 @@ contains
     nsplit_total = 0
     nrelax = 0
     apri = 0 ! to avoid compiler errors
-    top_level = .false.
 
 
     do jj = 1,apr_max
       npartold = npartnew ! to account for new particles as they are being made
-      if (jj==apr_max-1) top_level = .true.
 
       do ii = 1,npartold
         apr_current = apr_level(ii)
         xi = xyzh(1,ii)
         yi = xyzh(2,ii)
+        zi = xyzh(3,ii)
         ! this is the refinement level it *should* have based
         ! on it's current position
-        call get_apr((/xi,yi/),apri)
+        call get_apr((/xi,yi,zi/),apri)
         ! if the level it should have is greater than the
         ! level it does have, increment it up one
         if (apri > apr_current) then
           call splitpart(ii,npartnew)
-          if (do_relax .and. top_level) then
+          if (do_relax .and. (apri == top_level)) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
@@ -223,16 +236,20 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine get_apr(pos,apri)
-    real, intent(in)     :: pos(2)
+    real, intent(in)     :: pos(3)
     integer, intent(out) :: apri
     integer :: jj, kk
-    real :: dx,dy,r
+    real :: dx,dy,dz,r
 
     do jj = 1,apr_max
-      kk = apr_max - jj + 1       ! going from apr_max -> 1
+      if (ref_dir == 1) then
+        kk = apr_max - jj + 1       ! going from apr_max -> 1
+      else
+        kk = jj                    ! going from 1 -> apr_max
+      endif
       dx = pos(1) - x_centre
       dy = pos(2) - y_centre
-      !  dz = pos(3) - z_centre
+      dz = pos(3) - z_centre
       r = sqrt(dx**2 + dy**2)
       if (r < apr_regions(kk)) then
         apri = kk
@@ -240,7 +257,7 @@ contains
       endif
     enddo
 
-    print*,'function get_apr did not find a level'
+    print*,'get_apr did not find apri'
 
   end subroutine get_apr
 
@@ -328,7 +345,8 @@ contains
       call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
       com(1) = cell%xpos(1)
       com(2) = cell%xpos(2)
-      call get_apr(com(1:2),apri)
+      com(3) = cell%xpos(3)
+      call get_apr(com(1:3),apri)
       ! If the apr level based on the com is lower than the current level,
       ! we merge!
       if (apri < current_apr) then
@@ -413,7 +431,7 @@ contains
     integer, intent(in) :: iunit
 
     call write_inopt(apr_max,'apr_max','maximum number of resolution levels',iunit)
-    call write_inopt(ref_dir,'ref_dir','increase (0) or decrease (1) resolution',iunit)
+    call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
     call write_inopt(x_centre,'x_centre','x pos of region',iunit)
     call write_inopt(y_centre,'y_centre','y pos of region',iunit)
     call write_inopt(z_centre,'z_centre','z pos of region',iunit)
@@ -430,9 +448,8 @@ contains
     use part, only:igas,rhoh,apr_massoftype,Bxyz, &
                    npart,xyzh,apr_level
     use dim,  only:mhd
-    use timestep, only:time
     character(len=*), intent(in) :: ifile
-    integer :: ii,iunit=24,apri,ierr
+    integer :: ii,iunit=24
     character(len=120) :: mydumpfile,rootname
     real :: rhoi,pmass
     real :: hfact
