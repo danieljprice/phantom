@@ -32,9 +32,8 @@ module apr
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
-  integer, save :: looped_through = 0
-  logical :: do_relax = .true.
   logical :: apr_verbose = .false.
+  logical :: do_relax = .true.
 
 contains
 
@@ -45,13 +44,25 @@ contains
   !-----------------------------------------------------------------------
   subroutine init_apr(apr_level,ierr)
     use dim, only:maxp_hard
+    use part, only:npart
     integer, intent(inout) :: ierr,apr_level(:)
+    logical :: previously_set
 
-    ! initialise the base resolution level
-    if (ref_dir == 0) then
-      apr_level = 1
-    else
-      apr_level = apr_max
+    ! if we're reading in a file that already has the levels set,
+    ! don't override these
+    previously_set = .false.
+    if (sum(apr_level(1:npart)) > npart) then
+      previously_set = .true.
+      do_relax = .false.
+    endif
+
+    if (.not.previously_set) then
+      ! initialise the base resolution level
+      if (ref_dir == 0) then
+        apr_level = 1
+      else
+        apr_level = apr_max
+      endif
     endif
 
     ! initiliase the regions
@@ -190,7 +201,7 @@ contains
     if (apr_verbose) print*,'particles at each level:',npart_regions(:)
 
     ! If we need to relax, do it here
-    if (nrelax > 0) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
+    if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     ! Turn it off now because we only want to do this on first splits
     do_relax = .false.
 
@@ -202,7 +213,6 @@ contains
       deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
     endif
     deallocate(mergelist)
-
 
   end subroutine update_apr
 

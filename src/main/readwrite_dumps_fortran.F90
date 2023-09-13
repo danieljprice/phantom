@@ -506,7 +506,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                       dustprop,dustprop_label,dustfrac_label,ndusttypes,&
-                      rad,rad_label,do_radiation,maxirad,luminosity,apr_level
+                      rad,rad_label,do_radiation,maxirad,luminosity
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
