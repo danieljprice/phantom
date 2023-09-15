@@ -308,7 +308,7 @@ endif
 
 ifeq ($(APR), yes)
     FPPFLAGS += -DAPR
-		SRCAPR=relaxem.f90 apr.f90
+		SRCAPR=relaxem.f90 apr_region.f90 apr.f90
 		KERNEL=WendlandC2
 endif
 

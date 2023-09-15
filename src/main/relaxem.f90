@@ -27,20 +27,20 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
   real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
   integer,           intent(in)    :: relaxlist(1:nrelax)
   real,  allocatable :: a_ref(:,:)
-  real :: ke,maxshift
+  real :: ke,maxshift,ke_init,shuffle_tol
   logical :: converged
   integer :: ishift,nshifts
 
-  print*,'Relaxing',nrelax,' particles the heavenly way from',n_ref,'references.'
+  write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
 
   ! Initialise for the loop
   converged = .false.
   ishift = 0
   nshifts = 50
+  shuffle_tol = 0.05
 
   ! a_ref stores the accelerations at the locations of the new particles as interpolated from the old ones
   allocate(a_ref(3,npart))
-  print*,'Doing an initial shuffle'
 
   do while (.not.converged)
 
@@ -54,12 +54,14 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     ! the interpolated values (i.e. what they do have minus what they should have)
     call shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
 
-    print*,'shuffling:',ishift,'of',nshifts,'with',ke
+    if (ishift == 0) ke_init = ke
+
+    write(*,"(1x,1(a,f5.1,a,i3,a))") 'shuffle decreased to ',ke/ke_init*100.,'% of initial with',ishift,' shifts'
 
     ! Todo: cut-off criteria
-    if (ishift >= nshifts) converged = .true.
+    if (ishift >= nshifts .or. (ke/ke_init < shuffle_tol)) converged = .true.
     ishift = ishift + 1
-  ! !  print*,'Relaxing at step ',ishift
+
   enddo
 
   ! Tidy up

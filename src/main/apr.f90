@@ -13,10 +13,9 @@ module apr
   ! :Owner: Rebecca Nealon
   !
   ! :Runtime parameters:
-  !   - apr_max           : number of resolution levels
+  !   - apr_max_in        : number of refinement levels (3 -> 2x resolution)
   !   - ref_dir           : increase (1) or decrease (-1) resolution from the base resolution
-  !   - [x,y,z]_centre    : centre coordinates of the region to be more highly resolved
-  !   - apr_rad           : radius of the region to be more highly resolved
+  !   - apr_type          : choice of region, defined in apr_region.f90
   !
   ! :Dependencies: None
   !
@@ -25,10 +24,9 @@ module apr
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
 
   private
-  integer :: apr_max = 2
-  integer :: ref_dir = 1, top_level = 1
-  real    :: x_centre = 0.0, y_centre = 0.0, z_centre = 0.0
-  real    :: apr_rad = 0.2
+  integer :: apr_max, apr_max_in = 1
+  integer :: ref_dir = 1, top_level = 1, apr_type = 1
+  real    :: apr_centre(3)
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
@@ -45,8 +43,13 @@ contains
   subroutine init_apr(apr_level,ierr)
     use dim, only:maxp_hard
     use part, only:npart,massoftype
+    use apr_region, only:set_apr_region
     integer, intent(inout) :: ierr,apr_level(:)
     logical :: previously_set
+    real    :: apr_rad
+
+    ! the resolution levels are in addition to the base resolution
+    apr_max = apr_max_in + 1
 
     ! if we're reading in a file that already has the levels set,
     ! don't override these
@@ -66,11 +69,13 @@ contains
     endif
 
     ! initiliase the regions
+    call set_apr_region(apr_type,apr_centre,apr_rad)
     allocate(apr_regions(apr_max),npart_regions(apr_max))
     if (ref_dir == 1) then
       apr_regions(apr_max) = apr_rad
       apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-      apr_regions(2) = 0.3
+      apr_regions(2) = 0.4
+      apr_regions(3) = 0.3
       top_level = apr_max
     else
       apr_regions(1) = apr_rad
@@ -247,9 +252,9 @@ contains
       else
         kk = jj                    ! going from 1 -> apr_max
       endif
-      dx = pos(1) - x_centre
-      dy = pos(2) - y_centre
-      dz = pos(3) - z_centre
+      dx = pos(1) - apr_centre(1)
+      dy = pos(2) - apr_centre(2)
+      dz = pos(3) - apr_centre(3)
       r = sqrt(dx**2 + dy**2)
       if (r < apr_regions(kk)) then
         apri = kk
@@ -277,8 +282,8 @@ contains
 
     ! calculate the angle from this particle to the centre of the region
     ! we will split and then rotate the particle positions through this angle
-    dx = xyzh(1,i) - x_centre
-    dy = xyzh(2,i) - y_centre
+    dx = xyzh(1,i) - apr_centre(1)
+    dy = xyzh(2,i) - apr_centre(2)
     theta = atan2(dy,dx) + 0.5*pi
     x_add = sep_factor*cos(theta)*xyzh(4,i)
     y_add = sep_factor*sin(theta)*xyzh(4,i)
@@ -395,23 +400,14 @@ contains
     imatch  = .true.
     select case(trim(name))
     case('apr_max')
-      read(valstring,*,iostat=ierr) apr_max
+      read(valstring,*,iostat=ierr) apr_max_in
       ngot = ngot + 1
-      if (apr_max  <  1) call fatal(label,'apr_max < 1 in input options')
+      if (apr_max_in  <  1) call fatal(label,'apr_max < 1 in input options')
     case('ref_dir')
       read(valstring,*,iostat=ierr) ref_dir
       ngot = ngot + 1
-    case('x_centre')
-      read(valstring,*,iostat=ierr) x_centre
-      ngot = ngot + 1
-    case('y_centre')
-      read(valstring,*,iostat=ierr) y_centre
-      ngot = ngot + 1
-    case('z_centre')
-      read(valstring,*,iostat=ierr) z_centre
-      ngot = ngot + 1
-    case('apr_rad')
-      read(valstring,*,iostat=ierr) apr_rad
+    case('apr_type')
+      read(valstring,*,iostat=ierr) apr_type
       ngot = ngot + 1
     case default
       imatch = .false.
@@ -430,12 +426,9 @@ contains
     use infile_utils, only:write_inopt
     integer, intent(in) :: iunit
 
-    call write_inopt(apr_max,'apr_max','maximum number of resolution levels',iunit)
+    call write_inopt(apr_max_in,'apr_max','number of refinement levels (3 -> 2x resolution)',iunit)
     call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
-    call write_inopt(x_centre,'x_centre','x pos of region',iunit)
-    call write_inopt(y_centre,'y_centre','y pos of region',iunit)
-    call write_inopt(z_centre,'z_centre','z pos of region',iunit)
-    call write_inopt(apr_rad,'apr_rad','radius of region',iunit)
+    call write_inopt(apr_type,'apr_type','1: static',iunit)
 
   end subroutine write_options_apr
 
