@@ -78,7 +78,7 @@ end subroutine relax_particles
 
 subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
   force_ref,nrelax,relaxlist)
-  use part,         only:xyzh,apr_massoftype,igas,apr_level,rhoh
+  use part,         only:xyzh,massoftypefunc,igas,apr_level,rhoh
   use dim,          only:periodic
   use kernel,       only:wkern,grkern,radkern2,cnormk
   use boundary,     only:dxbound,dybound,dzbound
@@ -104,14 +104,14 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
-    pmassi = apr_massoftype(igas,apr_level(i))
+    pmassi = massoftypefunc(igas,apr_level(i))
 
     ! Over the reference set of particles to which we are matching the accelerations
     over_reference: do j = 1,n_ref  ! later this should only be over active particles
       rij(1) = xyzh_ref(1,j) - xi
       rij(2) = xyzh_ref(2,j) - yi
       rij(3) = xyzh_ref(3,j) - zi
-      mass_ref = apr_massoftype(igas,apr_level(j))   ! TBD: fix this to allow for dust
+      mass_ref = massoftypefunc(igas,apr_level(j))   ! TBD: fix this to allow for dust
 
       if (periodic) then
         if (abs(rij(1)) > 0.5*dxbound) rij(1) = rij(1) - dxbound*SIGN(1.0,rij(1))
@@ -147,7 +147,7 @@ end subroutine get_reference_accelerations
 
 subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
   use dim,      only:periodic
-  use part,     only:xyzh,vxyzu,fxyzu,igas,apr_massoftype,rhoh,apr_level
+  use part,     only:xyzh,vxyzu,fxyzu,igas,massoftypefunc,rhoh,apr_level
   use eos,      only:get_spsound
   use options,  only:ieos
   use boundary, only:cross_boundary
@@ -175,7 +175,7 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
     if (relaxlist(j) == 0) cycle
     i = relaxlist(j)
     hi = xyzh(4,i)
-    pmassi = apr_massoftype(igas,apr_level(i))
+    pmassi = massoftypefunc(igas,apr_level(i))
     rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs

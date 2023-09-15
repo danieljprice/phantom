@@ -213,7 +213,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,apr_massoftype
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,massoftypefunc
  use ptmass,       only:icreate_sinks,rho_crit,r_crit2
  use units,        only:unit_density
 #endif
@@ -672,7 +672,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              iamtypei = igas
           endif
           if (use_apr) then
-            pmassi = apr_massoftype(iamtypei,apr_level(i))
+            pmassi = massoftypefunc(iamtypei,apr_level(i))
           else
             pmassi = massoftype(iamtypei)
           endif
@@ -902,7 +902,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr,use_apr
- use part,        only:rhoh,dvdx,apr_massoftype
+ use part,        only:rhoh,dvdx,massoftypefunc
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
 #ifdef GRAVITY
@@ -1313,7 +1313,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
        endif
        if (use_apr) then
-         pmassj = apr_massoftype(iamtypej,apr_level(j))
+         pmassj = massoftypefunc(iamtypej,apr_level(j))
        else
          pmassj = massoftype(iamtypej)
        endif
@@ -1929,7 +1929,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           iamtypej = iamtype(iphase(j))
        endif
        if (use_apr) then
-         pmassj = apr_massoftype(iamtypej,apr_level(j))
+         pmassj = massoftypefunc(iamtypej,apr_level(j))
        else
          pmassj = massoftype(iamtypej)
        endif
@@ -2072,7 +2072,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  use dim,       only:maxp,ndivcurlv,ndivcurlB,maxdvdx,maxalpha,maxvxyzu,mhd,mhd_nonideal,&
                 use_dustgrowth,gr,use_dust,ind_timesteps,use_apr
  use part,      only:iamgas,maxphase,rhoanddhdrho,igas,massoftype,get_partinfo,&
-                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,apr_massoftype
+                     iohm,ihall,iambi,ndustsmall,iradP,igasP,ics,itemp,massoftypefunc
  use viscosity, only:irealvisc,bulkvisc
  use dust,      only:get_ts,idrag
  use part,      only:grainsize,graindens
@@ -2144,7 +2144,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (use_apr) then
-      pmassi = apr_massoftype(iamtypei,apr_level(i))
+      pmassi = massoftypefunc(iamtypei,apr_level(i))
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -2384,7 +2384,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  use io,          only:error,id
  use dim,         only:maxvxyzu,use_apr
  use options,     only:beta,alphau,alphaB,iresistive_heating
- use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,massoftype,apr_massoftype
+ use part,        only:get_partinfo,iamgas,mhd,igas,maxphase,massoftype,massoftypefunc
  use viscosity,   only:irealvisc,bulkvisc
 
  type(cellforce), intent(inout)  :: cell
@@ -2453,7 +2453,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     i = inodeparts(cell%arr_index(ip))
 
     if (use_apr) then
-      pmassi = apr_massoftype(iamtypei,cell%apr(ip))
+      pmassi = massoftypefunc(iamtypei,cell%apr(ip))
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -2520,7 +2520,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall,apr_massoftype
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall,massoftypefunc
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2635,7 +2635,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (use_apr) then
-      pmassi = apr_massoftype(iamtypei,cell%apr(ip))
+      pmassi = massoftypefunc(iamtypei,cell%apr(ip))
     else
       pmassi = massoftype(iamtypei)
     endif

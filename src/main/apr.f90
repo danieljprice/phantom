@@ -24,14 +24,14 @@ module apr
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
 
   private
-  integer :: apr_max, apr_max_in = 1
+  integer :: apr_max, apr_max_in = 3
   integer :: ref_dir = 1, top_level = 1, apr_type = 1
   real    :: apr_centre(3)
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
   logical :: apr_verbose = .false.
-  logical :: do_relax = .false.
+  logical :: do_relax = .true.
 
 contains
 
@@ -103,7 +103,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     use dim,      only:maxp_hard
-    use part,     only:ntot,isdead_or_accreted,igas,apr_massoftype,&
+    use part,     only:ntot,isdead_or_accreted,igas,massoftypefunc,&
                        shuffle_part
     use quitdump, only:quit
     use relaxem,  only:relax_particles
@@ -134,7 +134,7 @@ contains
         if (.not.isdead_or_accreted(xyzh(4,ii))) then ! ignore dead particles
           n_ref = n_ref + 1
           xyzh_ref(1:4,n_ref) = xyzh(1:4,ii)
-          pmass_ref(n_ref) = apr_massoftype(igas,apr_level(ii))
+          pmass_ref(n_ref) = massoftypefunc(igas,apr_level(ii))
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
         endif
       enddo
@@ -438,7 +438,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine hacky_write(ifile)
-    use part, only:igas,rhoh,apr_massoftype,Bxyz, &
+    use part, only:igas,rhoh,massoftypefunc,Bxyz, &
                    npart,xyzh,apr_level
     use dim,  only:mhd
     character(len=*), intent(in) :: ifile
@@ -468,7 +468,7 @@ contains
     8,'By'
 
     do ii=1,npart
-      pmass = apr_massoftype(igas,apr_level(ii))
+      pmass = massoftypefunc(igas,apr_level(ii))
       rhoi = rhoh(xyzh(4,ii),pmass)
       if (.not.mhd) then
         write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), 0.0, 0.

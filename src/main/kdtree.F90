@@ -24,7 +24,7 @@ module kdtree
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
-                       apr_level,apr_level_soa,apr_massoftype
+                       apr_level,apr_level_soa,massoftypefunc
 
  implicit none
 
@@ -580,7 +580,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+           pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i))
          else
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
@@ -601,7 +601,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+           pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i))
          else
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
@@ -669,7 +669,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #ifdef GRAVITY
     if (maxphase==maxp) then
       if (use_apr) then
-        pmassi = apr_massoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+        pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i))
       else
         pmassi = massoftype(iamtype(iphase_soa(i)))
       endif
@@ -1526,7 +1526,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        zi = xyzh(3,i)
        if (maxphase==maxp) then
           if (use_apr) then
-            pmassi = apr_massoftype(iamtype(iphase(i)),apr_level(i))
+            pmassi = massoftypefunc(iamtype(iphase(i)),apr_level(i))
           else
             pmassi = massoftype(iamtype(iphase(i)))
           endif
@@ -1568,7 +1568,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 #ifdef GRAVITY
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = apr_massoftype(iamtype(iphase(i)),apr_level(i))
+           pmassi = massoftypefunc(iamtype(iphase(i)),apr_level(i))
          else
            pmassi = massoftype(iamtype(iphase(i)))
          endif

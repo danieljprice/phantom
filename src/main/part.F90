@@ -659,12 +659,17 @@ end function get_pmass
 !  for the resolution level
 !+
 !----------------------------------------------------------------
-pure real function apr_massoftype(itype,apri)
- integer, intent(in) :: itype,apri
+pure real function massoftypefunc(itype,apri)
+ integer, intent(in) :: itype
+ integer, optional, intent(in) :: apri
 
- apr_massoftype = massoftype(itype)/(2.**(apri-1))
+ if (present(apri)) then
+   massoftypefunc = massoftype(itype)/(2.**(apri-1))
+ else
+   massoftypefunc = massoftype(itype)
+ endif
 
-end function apr_massoftype
+end function massoftypefunc
 
 !
 !----------------------------------------------------------------

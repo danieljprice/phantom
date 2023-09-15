@@ -600,7 +600,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
  use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh
- use part,     only:massoftype,iradxi,apr_massoftype
+ use part,     only:massoftype,iradxi,massoftypefunc
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation,use_apr
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
@@ -739,8 +739,8 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        ! adjust masses for apr
        ! this defaults to massoftype if apr_level=1
        if (use_apr) then
-         pmassi = apr_massoftype(iamtypei,apri)
-         pmassj = apr_massoftype(iamtypej,apr_level(j))
+         pmassi = massoftypefunc(iamtypei,apri)
+         pmassj = massoftypefunc(iamtypej,apr_level(j))
        else
          pmassi = massoftype(iamtypei)
          pmassj = massoftype(iamtypej)
@@ -1379,7 +1379,7 @@ end subroutine start_cell
 subroutine finish_cell(cell,cell_converged)
  use dim,      only:use_apr
  use io,       only:iprint,fatal
- use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho,apr_massoftype
+ use part,     only:get_partinfo,iamgas,maxphase,massoftype,igas,hrho,massoftypefunc
  use options,  only:tolh
 
  type(celldens),  intent(inout) :: cell
@@ -1411,7 +1411,7 @@ subroutine finish_cell(cell,cell_converged)
 
     apri = cell%apr(i)
     if (use_apr) then
-      pmassi = apr_massoftype(iamtypei,apri)
+      pmassi = massoftypefunc(iamtypei,apri)
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -1510,7 +1510,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
                          maxneighact,np,ncalc,radprop)
  use part,        only:hrho,rhoh,get_partinfo,iamgas,&
                        mhd,maxphase,massoftype,igas,ndustlarge,ndustsmall,xyzh_soa,&
-                       maxgradh,idust,ifluxx,ifluxz,ithick,apr_massoftype
+                       maxgradh,idust,ifluxx,ifluxz,ithick,massoftypefunc
  use io,          only:fatal,real4
  use dim,         only:maxp,ndivcurlv,ndivcurlB,nalpha,use_dust,do_radiation,use_apr
  use options,     only:use_dustfrac,implicit_radiation
@@ -1577,7 +1577,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
     apri = cell%apr(i)
     if (use_apr) then
-      pmassi = apr_massoftype(iamtypei,apri)
+      pmassi = massoftypefunc(iamtypei,apri)
     else
       pmassi = massoftype(iamtypei)
     endif

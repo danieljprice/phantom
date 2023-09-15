@@ -99,7 +99,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          apr_massoftype
+                          massoftypefunc
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -277,7 +277,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (store_itype) then
           itype = iamtype(iphase(i))
           if (use_apr) then
-            pmassi = apr_massoftype(itype,apr_level(i))
+            pmassi = massoftypefunc(itype,apr_level(i))
           else
             pmassi = massoftype(itype)
           endif
