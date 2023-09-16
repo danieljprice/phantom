@@ -72,16 +72,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  hfact = hfact_default
 
  ! Wind parameters (see inject_BHL module)
- mach_inf = 1.31
- rho_inf  = 6.8e-5
- pres_inf = 5.9e-6
+ mach_inf = 1.55
+ rho_inf  = 0.0068
+ pres_inf = 5.64e-4
  cs_inf   = sqrt(gamma*pres_inf/rho_inf)
  v_inf    = mach_inf*cs_inf
 
  ! Star parameters
  Rstar = 0.1
  Mstar = 1.e-3
- nstar = 1000000
+ nstar = 10000000
  lattice = 'closepacked'
  use_exactN = .true.
  pmass = Mstar / real(nstar)
@@ -92,13 +92,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  BHL_handled_layers = 4.
  BHL_wind_cylinder_radius = 10. ! in units of Rstar
  BHL_wind_injection_x = -5.     ! in units of Rstar
- BHL_wind_length = 50.          ! in units of Rstar
+ BHL_wind_length = 20.          ! in units of Rstar
 
  ! Set default tmax and dtmax
  rho_star = Mstar/Rstar**3
  tcrush = 2.*Rstar*sqrt(rho_star/rho_inf)/v_inf
  dtmax = 0.1!1.6*0.05*tcrush
- tmax  = 1.6*2.5*tcrush
+ tmax  = 45.2!1.6*2.5*tcrush
  
  ! Initialise particle injection
  call init_inject(ierr)

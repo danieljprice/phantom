@@ -838,6 +838,7 @@ ifeq ($(SETUP), windtunnel)
     GRAVITY=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
 endif
 
 ifeq ($(SETUP), jet)
