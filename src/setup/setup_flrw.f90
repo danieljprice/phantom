@@ -38,6 +38,7 @@ module setup
  real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
+ real              :: rho_matter
  real(kind=8)      :: udist,umass
 
  !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
@@ -132,15 +133,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
- hub =  10.553495658357338!/10.d0
+ hub =  10.553495658357338
  !hub = 23.588901903912664
  !hub = 0.06472086375185665
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
  phaseoffset = 0.
 
  ! Approx Temp of the CMB in Kelvins
- last_scattering_temp = 3000
- last_scattering_temp = (rhozero/radconst)**(1./4.)*0.999999999999999d0
+ !last_scattering_temp = 3000
+ !last_scattering_temp = (rhozero/radconst)**(1./4.)*0.999999999999999d0
+ last_scattering_temp = 0.
 
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
@@ -209,7 +211,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(radiation_dominated)
  case('"yes"')
 
-    rhozero = rhozero - radconst*last_scattering_temp**4
+    ! Set a value of rho_matter 
+    rho_matter = 1.e-20
+    !rhozero = rhozero - radconst*last_scattering_temp**4
+    ! Solve for temperature 
+    last_scattering_temp = ((rhozero-rho_matter)/radconst)**(1./4.)
+    rhozero = rho_matter
  end select
 
  xval = density_func(0.75)
@@ -255,7 +262,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
 
  totmass = rhozero*dxbound*dybound*dzbound
- massoftype = totmass/npart_total
+ massoftype(1) = totmass/npart_total
  if (id==master) print*,' particle mass = ',massoftype(1)
  if (id==master) print*,' initial sound speed = ',cs0,' pressure = ',cs0**2/gamma
 
@@ -325,6 +332,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        print*, "Pressure: ", (gamma-1)*rhozero*vxyzu(4,i)
        print*, "Pressure from energy density: ", 3.d0 * hub**2 / (8.d0 * pi)/3.
        print*, "Pressure 1/3 \rho u: ",radconst*(last_scattering_temp**4)/3.
+       print*, "particle mass: ", massoftype
     end select
  enddo
 
