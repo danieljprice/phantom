@@ -1162,8 +1162,19 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
     endif
  enddo
 
- MRL(iR1T) = MRL(iR1T) / real(nR1T)
- MRL(iFBV) = MRL(iFBV) / real(nFB)
+ if (nR1T == 0) then
+   MRL(iR1T) = 0
+ else
+   MRL(iR1T) = MRL(iR1T) / real(nR1T)
+ endif
+ 
+ if (nFB == 0) then
+   MRL(iFBV) = 0
+ else
+   MRL(iFBV) = MRL(iFBV) / real(nFB)
+ endif
+
+
 
  MRL(iMRL1) = MRL(iMRL1) + xyzmh_ptmass(4,1)
  MRL(iMRL2) = MRL(iMRL2) + xyzmh_ptmass(4,2)
