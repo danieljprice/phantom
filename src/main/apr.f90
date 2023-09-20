@@ -29,9 +29,10 @@ module apr
   real    :: apr_centre(3)
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
-  real    :: sep_factor = 0.2
+  real    :: sep_factor = 0.25
   logical :: apr_verbose = .false.
   logical :: do_relax = .true.
+  logical :: adjusted_split = .true.
 
 contains
 
@@ -74,8 +75,8 @@ contains
     if (ref_dir == 1) then
       apr_regions(apr_max) = apr_rad
       apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-      apr_regions(2) = 0.4
-      apr_regions(3) = 0.3
+!      apr_regions(2) = 0.4
+!      apr_regions(3) = 0.3
       top_level = apr_max
     else
       apr_regions(1) = apr_rad
@@ -277,16 +278,24 @@ contains
     use physcon, only:pi
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
-    integer :: j,npartold,aprnew
-    real :: theta,dx,dy,x_add,y_add
+    integer :: j,npartold,aprnew,next_door
+    real :: theta,dx,dy,x_add,y_add,sep,rneigh
+
+    if (adjusted_split) then
+      call closest_neigh(i,next_door,rneigh)
+      sep = min(sep_factor*xyzh(4,i),0.35*rneigh)
+      sep = sep/xyzh(4,i)  ! for consistency later on
+    else
+      sep = sep_factor
+    endif
 
     ! calculate the angle from this particle to the centre of the region
     ! we will split and then rotate the particle positions through this angle
     dx = xyzh(1,i) - apr_centre(1)
     dy = xyzh(2,i) - apr_centre(2)
     theta = atan2(dy,dx) + 0.5*pi
-    x_add = sep_factor*cos(theta)*xyzh(4,i)
-    y_add = sep_factor*sin(theta)*xyzh(4,i)
+    x_add = sep*cos(theta)*xyzh(4,i)
+    y_add = sep*sin(theta)*xyzh(4,i)
 
     npartold = npartnew
     npartnew = npartold + 1
@@ -480,6 +489,32 @@ contains
     close(iunit)
 
   end subroutine hacky_write
+
+  subroutine closest_neigh(i,next_door,rmin)
+    use part, only:xyzh,npart
+    integer, intent(in)  :: i
+    integer, intent(out) :: next_door
+    real,    intent(out) :: rmin
+    real :: dx,dy,dz,rtest
+    integer :: j
+
+    rmin = huge(rmin)
+    next_door = 0
+    do j = 1,npart
+      if (j == i) cycle
+      dx = xyzh(1,i) - xyzh(1,j)
+      dy = xyzh(2,i) - xyzh(2,j)
+      dz = xyzh(3,i) - xyzh(3,j)
+      rtest = dx**2 + dy**2 + dz**2
+      if (rtest < rmin) then
+        next_door = j
+        rmin = rtest
+      endif
+    enddo
+
+    rmin = sqrt(rmin)
+
+  end subroutine closest_neigh
 
 
 end module apr
