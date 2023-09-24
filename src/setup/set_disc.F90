@@ -323,6 +323,13 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  !
  sigma_normdust = 1.d0
  if (do_mixture) then
+    if (present(r_grid)) then
+       rad_tmp = r_grid
+    else
+       do i=1,maxbins
+          rad_tmp(i) = R_indust + (i-1) * (R_outdust-R_indust)/real(maxbins-1)
+       enddo
+    endif
     !--sigma_normdust set from dust disc mass
     call get_disc_mass(disc_mdust,enc_m_tmp,rad_tmp,Q_tmp,sigmaprofiledust, &
                        sigma_normdust,star_m,p_indexdust,q_inddust, &
