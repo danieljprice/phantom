@@ -117,10 +117,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
  
- call check_setup(pmass,ierr)
- if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
  pmass = Mstar / real(nstar)
  massoftype(igas) = pmass
+ call check_setup(pmass,ierr)
+ if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
 
 
  ! Initialise particle injection
@@ -259,7 +259,7 @@ end subroutine read_setupfile
 !+
 !-----------------------------------------------------------------------
 subroutine check_setup(pmass,ierr)
- real, intent(in) :: pmass
+ real, intent(in)     :: pmass
  integer, intent(out) :: ierr
  real                 :: min_layer_sep
 

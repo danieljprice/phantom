@@ -40,7 +40,7 @@ module inject
 
  ! Particle-related parameters
  integer, public :: lattice_type = 1
- real,    public :: handled_layers = 4
+ integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
  real,    public :: wind_injection_x = -10.
  real,    public :: wind_length = 100.
@@ -146,7 +146,8 @@ subroutine init_inject(ierr)
  max_particles = int(max_layers*(nodd+neven)/2) + nstar
  time_between_layers = distance_between_layers/v_inf
 
- call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers,max_layers,nstar,max_particles)
+ call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
+                    time_between_layers,max_layers,nstar,max_particles)
 
  if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
