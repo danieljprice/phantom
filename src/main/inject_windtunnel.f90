@@ -12,13 +12,13 @@ module inject
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - lattice_type         : *0: cubic distribution, 1: closepacked distribution*
-!   - BHL_handled_layers   : *(integer) number of handled BHL wind layers*
-!   - mach_inf             : *BHL wind mach number*
-!   - Rstar                : *BHL star radius (in accretion radii)*
-!   - BHL_radius           : *radius of the wind cylinder (in star radii)*
-!   - BHL_wind_injection_x : *x position of the wind injection boundary (in star radii)*
-!   - BHL_wind_length      : *crude wind length (in star radii)*
+!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
+!   - handled_layers   : *(integer) number of handled BHL wind layers*
+!   - v_inf            : *BHL wind speed*
+!   - Rstar            : *BHL star radius (in accretion radii)*
+!   - BHL_radius       : *radius of the wind cylinder (in star radii)*
+!   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
+!   - wind_length      : *crude wind length (in star radii)*
 !
 ! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
 !   units
@@ -32,23 +32,22 @@ module inject
 !--runtime settings for this module
 !
  ! Main parameters: model MS6 from Ruffert & Arnett (1994)
- real,    public :: mach_inf = 1.
+ real,    public :: v_inf = 1.
  real,    public :: rho_inf = 1.
- real,    public :: cs_inf = 1.
+ real,    public :: pres_inf = 1.
  real,    public :: Rstar = .1
  integer, public :: nstar  = 0
 
  ! Particle-related parameters
  integer, public :: lattice_type = 1
- real,    public :: BHL_handled_layers = 4.
- real,    public :: BHL_wind_cylinder_radius = 30.
- real,    public :: BHL_wind_injection_x = -10.
- real,    public :: BHL_wind_length = 100.
+ real,    public :: handled_layers = 4
+ real,    public :: wind_radius = 30.
+ real,    public :: wind_injection_x = -10.
+ real,    public :: wind_length = 100.
 
  private
- integer :: handled_layers
- real    :: wind_cylinder_radius,wind_injection_x,psep,distance_between_layers,&
-            time_between_layers,h_inf,u_inf,v_inf
+ real    :: wind_rad,wind_x,psep,distance_between_layers,&
+            time_between_layers,h_inf,u_inf
  integer :: max_layers,max_particles,nodd,neven
  logical :: first_run = .true.
  real, allocatable :: layer_even(:,:),layer_odd(:,:)
@@ -68,16 +67,16 @@ subroutine init_inject(ierr)
  use dim,        only:maxp
  use io,         only:fatal
  integer, intent(out) :: ierr
- real :: pmass,element_volume,y,z
+ real :: pmass,element_volume,y,z,cs_inf,mach
  integer :: size_y, size_z, pass, i, j
 
  ierr = 0
 
- v_inf = mach_inf*cs_inf
- u_inf = cs_inf**2 / (gamma*(gamma-1.))
- handled_layers = int(BHL_handled_layers)
- wind_cylinder_radius = BHL_wind_cylinder_radius * Rstar
- wind_injection_x = BHL_wind_injection_x * Rstar
+ u_inf = pres_inf / (rho_inf*(gamma-1.))
+ cs_inf = sqrt(gamma*pres_inf/rho_inf)
+ mach = v_inf/cs_inf
+ wind_rad = wind_radius * Rstar
+ wind_x = wind_injection_x * Rstar
  pmass = massoftype(igas)
 
  ! Calculate particle separation between layers given rho_inf, depending on lattice type
@@ -92,8 +91,8 @@ subroutine init_inject(ierr)
 
  if (lattice_type == 1) then
     distance_between_layers = psep*sqrt(6.)/3.
-    size_y = ceiling(3.*wind_cylinder_radius/psep)
-    size_z = ceiling(3.*wind_cylinder_radius/(sqrt(3.)*psep/2.))
+    size_y = ceiling(3.*wind_rad/psep)
+    size_z = ceiling(3.*wind_rad/(sqrt(3.)*psep/2.))
     do pass=1,2
        if (pass == 2) then
           if (allocated(layer_even)) deallocate(layer_even)
@@ -105,17 +104,17 @@ subroutine init_inject(ierr)
        do i=1,size_y
           do j=1,size_z
              ! Even layer
-             y = -1.5*wind_cylinder_radius + (i-1)*psep
-             z = -1.5*wind_cylinder_radius + (j-1)*psep*sqrt(3.)/2.
+             y = -1.5*wind_rad + (i-1)*psep
+             z = -1.5*wind_rad + (j-1)*psep*sqrt(3.)/2.
              if (mod(j,2) == 0) y = y + .5*psep
-             if (y**2+z**2  <  wind_cylinder_radius**2) then
+             if (y**2+z**2  <  wind_rad**2) then
                 neven = neven + 1
                 if (pass == 2) layer_even(:,neven) = (/ y,z /)
              endif
              ! Odd layer
              y = y + psep*.5
              z = z + psep*sqrt(3.)/6.
-             if (y**2+z**2  <  wind_cylinder_radius**2) then
+             if (y**2+z**2  <  wind_rad**2) then
                 nodd = nodd + 1
                 if (pass == 2) layer_odd(:,nodd) = (/ y,z /)
              endif
@@ -124,16 +123,16 @@ subroutine init_inject(ierr)
     enddo
  else
     distance_between_layers = psep
-    size_y = ceiling(3.*wind_cylinder_radius/psep)
+    size_y = ceiling(3.*wind_rad/psep)
     size_z = size_y
     do pass=1,2
        if  (pass == 2) allocate(layer_even(2,neven), layer_odd(2,neven))
        neven = 0
        do i=1,size_y
           do j=1,size_z
-             y = -1.5*wind_cylinder_radius+(i-1)*psep
-             z = -1.5*wind_cylinder_radius+(j-1)*psep
-             if (y**2+z**2  <  wind_cylinder_radius**2) then
+             y = -1.5*wind_rad+(i-1)*psep
+             z = -1.5*wind_rad+(j-1)*psep
+             if (y**2+z**2  <  wind_rad**2) then
                 neven = neven + 1
                 if (pass == 2) layer_even(:,neven) = (/ y,z /)
              endif
@@ -142,20 +141,14 @@ subroutine init_inject(ierr)
     enddo
     layer_odd(:,:) = layer_even(:,:)
  endif
- max_layers = int(BHL_wind_length*Rstar/distance_between_layers)
- max_particles = int(max_layers*(nodd+neven)/2) + nstar
- print *, 'BHL maximum layers: ', max_layers
- print *, 'BHL maximum particles: ', max_particles
- print *, 'nstar: ',nstar  
- if (max_particles > maxp) call fatal('BHL', 'maxp too small for this simulation, please increase MAXP!')
- time_between_layers = distance_between_layers/v_inf
- print *, 'distance_between_layers: ',distance_between_layers  
- print *, 'time_between_layers: ',time_between_layers  
- print *, 'pmass: ',pmass
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
- !if (setup) then
-!    tmax = (100.*abs(wind_injection_x)/v_inf)/utime
-! endif
+ max_layers = int(wind_length*Rstar/distance_between_layers)
+ max_particles = int(max_layers*(nodd+neven)/2) + nstar
+ time_between_layers = distance_between_layers/v_inf
+
+ if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
+
+ call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers,max_layers,nstar,max_particles)
 
 end subroutine init_inject
 
@@ -200,7 +193,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        xyz(2:3,:) = layer_odd(:,:)
        np = nodd
     endif
-    x = wind_injection_x + local_time*v_inf
+    x = wind_x + local_time*v_inf
     xyz(1,:) = x
     vxyz(1,:) = v_inf
     vxyz(2:3,:) = 0.
@@ -256,6 +249,37 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
 
 end subroutine inject_or_update_particles
 
+
+!-----------------------------------------------------------------------
+!+
+!  Print summary of wind properties (assumes inputs are in code units)
+!+
+!-----------------------------------------------------------------------
+subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
+                         time_between_layers,max_layers,nstar,max_particles)
+ use units, only:unit_velocity,unit_pressure,unit_density
+ real, intent(in)    :: v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers
+ integer, intent(in) :: max_layers,nstar,max_particles
+
+ print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1" 
+ print*, 'wind density: ',rho_inf * unit_density," g cm^-3" 
+ print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2" 
+ print*, 'wind mach number: ', mach
+
+ print*, 'maximum wind layers: ', max_layers
+ print*, 'pmass: ',pmass
+ print*, 'nstar: ',nstar
+ print*, 'nstar + max. wind particles: ', max_particles
+ print*, 'distance_between_layers: ',distance_between_layers  
+ print*, 'time_between_layers: ',time_between_layers
+
+ print*, 'planet crossing time: ',2*Rstar/v_inf
+ print*, 'wind impact time: ',(abs(wind_injection_x) - Rstar)/v_inf
+
+end subroutine print_summary
+
+
 !-----------------------------------------------------------------------
 !+
 !  Writes input options to the input file
@@ -265,18 +289,19 @@ subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(mach_inf,'mach_inf','BHL wind mach number',iunit)
- call write_inopt(cs_inf,'cs_inf','ambient sound speed',iunit)
- call write_inopt(rho_inf,'rho_inf','ambient density',iunit)
- call write_inopt(Rstar,'Rstar','BHL star radius (in accretion radii)',iunit)
- call write_inopt(nstar,'nstar','No. of particles making up star',iunit)
+ call write_inopt(v_inf,'v_inf','wind speed (code units)',iunit)
+ call write_inopt(pres_inf,'pres_inf','ambient pressure (code units)',iunit)
+ call write_inopt(rho_inf,'rho_inf','ambient density (code units)',iunit)
+ call write_inopt(Rstar,'Rstar','sphere radius (code units)',iunit)
+ call write_inopt(nstar,'nstar','No. of particles making up sphere',iunit)
  call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
- call write_inopt(BHL_handled_layers,'BHL_handled_layers','(integer) number of handled BHL wind layers',iunit)
- call write_inopt(BHL_wind_cylinder_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
- call write_inopt(BHL_wind_injection_x,'BHL_wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
- call write_inopt(BHL_wind_length,'BHL_wind_length','crude wind length (in star radii)',iunit)
+ call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
+ call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
+ call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
+ call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
 
 end subroutine write_options_inject
+
 
 !-----------------------------------------------------------------------
 !+
@@ -295,14 +320,14 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- case('mach_inf')
-    read(valstring,*,iostat=ierr) mach_inf
+ case('v_inf')
+    read(valstring,*,iostat=ierr) v_inf
     ngot = ngot + 1
-    if (mach_inf <= 0.)    call fatal(label,'invalid setting for mach_inf (<=0)')
- case('cs_inf')
-    read(valstring,*,iostat=ierr) cs_inf
+    if (v_inf <= 0.)    call fatal(label,'v_inf must be positive')
+ case('pres_inf')
+    read(valstring,*,iostat=ierr) pres_inf
     ngot = ngot + 1
-    if (cs_inf <= 0.) call fatal(label,'cs_inf must be positive')
+    if (pres_inf <= 0.) call fatal(label,'pres_inf must be positive')
  case('rho_inf')
     read(valstring,*,iostat=ierr) rho_inf
     ngot = ngot + 1
@@ -318,22 +343,21 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) lattice_type
     ngot = ngot + 1
     if (lattice_type/=0 .and. lattice_type/=1)    call fatal(label,'lattice_type must be 0 or 1')
- case('BHL_handled_layers')
-    read(valstring,*,iostat=ierr) BHL_handled_layers
+ case('handled_layers')
+    read(valstring,*,iostat=ierr) handled_layers
     ngot = ngot + 1
-    if (dble(int(BHL_handled_layers))  /=  BHL_handled_layers) call fatal(label,'BHL_handled_layers must be integer')
-    if (int(BHL_handled_layers)  <  0) call fatal(label,'BHL_handled_layers must be positive or zero')
+    if (handled_layers < 0) call fatal(label,'handled_layers must be positive or zero')
  case('BHL_radius')
-    read(valstring,*,iostat=ierr) BHL_wind_cylinder_radius
+    read(valstring,*,iostat=ierr) wind_radius
     ngot = ngot + 1
-    if (BHL_wind_cylinder_radius <= 0.) call fatal(label,'BHL_wind_cylinder_radius must be >0')
- case('BHL_wind_injection_x')
-    read(valstring,*,iostat=ierr) BHL_wind_injection_x
+    if (wind_radius <= 0.) call fatal(label,'wind_radius must be >0')
+ case('wind_injection_x')
+    read(valstring,*,iostat=ierr) wind_injection_x
     ngot = ngot + 1
- case('BHL_wind_length')
-    read(valstring,*,iostat=ierr) BHL_wind_length
+ case('wind_length')
+    read(valstring,*,iostat=ierr) wind_length
     ngot = ngot + 1
-    if (BHL_wind_length <= 0.) call fatal(label,'BHL_wind_length must be positive')
+    if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
  end select
 
  igotall = (ngot >= 10)
