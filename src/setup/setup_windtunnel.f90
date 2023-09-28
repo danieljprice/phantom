@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! Wind parameters (see inject_windtunnel module)
  v_inf    = 230e5 / unit_velocity
- rho_inf  = 4.e-4 / unit_density
+ rho_inf  = 4.e-2 / unit_density
  pres_inf = 6.6e10 / unit_pressure
 
  ! Star parameters

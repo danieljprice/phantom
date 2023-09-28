@@ -146,9 +146,9 @@ subroutine init_inject(ierr)
  max_particles = int(max_layers*(nodd+neven)/2) + nstar
  time_between_layers = distance_between_layers/v_inf
 
- if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
-
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,time_between_layers,max_layers,nstar,max_particles)
+
+ if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
 end subroutine init_inject
 
