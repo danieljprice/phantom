@@ -38,7 +38,6 @@ module inject
  real, public :: BHL_mach = 3.
  real, public :: BHL_r_star = .1
  real, public :: BHL_m_star
- integer, public :: nstar = 0
 
  ! Particle-related parameters
  real, public :: BHL_closepacked = 1.
@@ -151,7 +150,7 @@ subroutine init_inject(ierr)
     layer_odd(:,:) = layer_even(:,:)
  endif
  max_layers = int(BHL_wind_length*BHL_r_star/distance_between_layers)
- max_particles = int(max_layers*(nodd+neven)/2) + nstar
+ max_particles = int(max_layers*(nodd+neven)/2)
  print *, 'BHL maximum layers: ', max_layers
  print *, 'BHL maximum particles: ', max_particles
  if (max_particles > maxp) call fatal('BHL', 'maxp too small for this simulation, please increase MAXP!')
@@ -223,7 +222,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+nstar+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
