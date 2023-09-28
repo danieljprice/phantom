@@ -116,7 +116,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+                          fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level,apr_weight)
  use dim,       only:maxp,maxneigh,ndivcurlv,ndivcurlB,maxalpha,mhd_nonideal,nalpha,&
                      use_dust,fast_divcurlB,mpi,gr,use_apr
  use io,        only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -149,6 +149,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
  real,         intent(in)    :: rad(:,:)
  real,         intent(inout) :: radprop(:,:)
  real(kind=4), intent(out)   :: dvdx(:,:)
+ real,         intent(in)    :: apr_weight(:)
 
  real,   save :: xyzcache(isizecellcache,3)
 !$omp threadprivate(xyzcache)
@@ -238,6 +239,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(gradh) &
 !$omp shared(iphase) &
 !$omp shared(apr_level) &
+!$omp shared(apr_weight) &
 !$omp shared(Bevol) &
 !$omp shared(divcurlv) &
 !$omp shared(divcurlB) &
@@ -323,7 +325,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     cell%nits   = 0
     cell%nneigh = 0
 
-    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
+    call start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level,apr_weight)
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
     call get_hmaxcell(icell,cell%hmax)
 
@@ -343,7 +345,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        endif
     endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level,apr_weight)
 
     if (do_export) then
        call write_cell(stack_waiting,cell)
@@ -376,7 +378,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 nrelink = nrelink + 1
              endif
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level,apr_weight)
 
              if (do_export) then
                 call write_cell(stack_waiting,cell)
@@ -446,7 +448,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level,apr_weight)
 
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -507,7 +509,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level,apr_weight)
 
              call write_cell(stack_redo,cell)
           else
@@ -591,10 +593,10 @@ end subroutine densityiterate
 !  MAKE SURE THIS ROUTINE IS INLINED BY THE COMPILER
 !+
 !----------------------------------------------------------------
-pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,apri,&
+pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,apri,aprweighti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
-                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
+                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level,apr_weight)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
@@ -609,6 +611,7 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  integer,      intent(in)    :: iamtypei,apri
  logical,      intent(in)    :: iamgasi,iamdusti
  integer,      intent(in)    :: listneigh(:),apr_level(:)
+ real,         intent(in)    :: aprweighti,apr_weight(:)
  integer,      intent(in)    :: nneigh
  integer,      intent(out)   :: nneighi
  real,         intent(inout) :: dxcache(:,:)
@@ -739,8 +742,8 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        ! adjust masses for apr
        ! this defaults to massoftype if apr_level=1
        if (use_apr) then
-         pmassi = massoftypefunc(iamtypei,apri)
-         pmassj = massoftypefunc(iamtypej,apr_level(j))
+         pmassi = massoftypefunc(iamtypei,apri,aprweighti)
+         pmassj = massoftypefunc(iamtypej,apr_level(j),apr_weight(j))
        else
          pmassi = massoftype(iamtypei)
          pmassj = massoftype(iamtypej)
@@ -1205,11 +1208,11 @@ end subroutine reduce_and_print_neighbour_stats
 !+
 !--------------------------------------------------------------------------
 pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache,rad,apr_level)
+                             xyzcache,rad,apr_level,apr_weight)
  use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
  use io,          only:id
- use dim,         only:mpi
+ use dim,         only:mpi,use_apr
 
  type(celldens),  intent(inout)  :: cell
 
@@ -1222,10 +1225,11 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  real,            intent(in)     :: xyzcache(isizecellcache,3)
  real,            intent(in)     :: rad(:,:)
  integer,         intent(in)     :: apr_level(:)
+ real,            intent(in)     :: apr_weight(:)
 
  real                            :: dxcache(7,isizeneighcache)
 
- real(kind=8)                    :: hi
+ real(kind=8)                    :: hi,aprweighti
  real(kind=8)                    :: hi1,hi21,hi31,hi41
 
  integer                         :: iamtypei
@@ -1255,14 +1259,21 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     hi31  = hi1*hi21
     hi41  = hi21*hi21
 
-    apri = cell%apr(i) ! assume it's always being used here for simplicity
+    if (use_apr) then
+      apri = cell%apr(i)
+      aprweighti = cell%apr_weight(i)
+    else
+      apri = 1
+      aprweighti = 1.0
+    endif
+
 
     ignoreself = (cell%owner == id)
 
-    call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,apri,&
-                          listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
-                          .true.,.false.,getdv,getdB,realviscosity,&
-                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level)
+    call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
+                          apri,aprweighti,listneigh,nneigh,nneighi,dxcache,xyzcache,&
+                          cell%rhosums(:,i),.true.,.false.,getdv,getdB,realviscosity,&
+                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad,apr_level,apr_weight)
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
@@ -1291,7 +1302,7 @@ end subroutine compute_hmax
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
+subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level,apr_weight)
  use io,          only:fatal
  use dim,         only:maxp,maxvxyzu,do_radiation,use_apr
  use part,        only:maxphase,get_partinfo,mhd,igas,iamgas,&
@@ -1306,6 +1317,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
  real,               intent(in)    :: Bevol(:,:)
  real,               intent(in)    :: rad(:,:)
  integer,            intent(in)    :: apr_level(:)
+ real,               intent(in)    :: apr_weight(:)
 
  integer :: i,ip
  integer :: iamtypei
@@ -1368,7 +1380,13 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
 
     if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
-    cell%apr(cell%npcell)                     = apr_level(i)
+    if (use_apr) then
+      cell%apr(cell%npcell)                     = apr_level(i)
+      cell%apr_weight(cell%npcell)              = apr_weight(i)
+    else
+      cell%apr(cell%npcell)                     = 1
+      cell%apr_weight(cell%npcell)              = 1.0
+    endif
 
  enddo over_parts
 
@@ -1389,7 +1407,7 @@ subroutine finish_cell(cell,cell_converged)
  real                           :: rhoi
  real(kind=8)                   :: gradhi
  real                           :: func,dfdh1,hi,hi_old,hnew
- real                           :: pmassi, xyzh(4)
+ real                           :: pmassi, xyzh(4),aprweighti
  integer                        :: i,iamtypei,apri !,nwarnup,nwarndown
  logical                        :: iactivei,iamgasi,iamdusti,converged
 
@@ -1410,8 +1428,9 @@ subroutine finish_cell(cell,cell_converged)
     !if (.not.iactivei) print*,' ERROR: should be no inactive particles here',iamtypei,iactivei
 
     apri = cell%apr(i)
+    aprweighti = cell%apr_weight(i)
     if (use_apr) then
-      pmassi = massoftypefunc(iamtypei,apri)
+      pmassi = massoftypefunc(iamtypei,apri,aprweighti)
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -1548,7 +1567,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
  logical      :: iactivei,iamgasi,iamdusti
  logical      :: igotrmatrix
  real         :: hi,hi1,hi21,hi31,hi41
- real         :: pmassi,rhoi
+ real         :: pmassi,rhoi,aprweighti
  real(kind=8) :: gradhi,gradsofti
  real         :: divcurlvi(5),rmatrix(6),dvdxi(9)
  real         :: divcurlBi(ndivcurlB)
@@ -1576,8 +1595,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
     endif
 
     apri = cell%apr(i)
+    aprweighti = cell%apr_weight(i)
     if (use_apr) then
-      pmassi = massoftypefunc(iamtypei,apri)
+      pmassi = massoftypefunc(iamtypei,apri,aprweighti)
     else
       pmassi = massoftype(iamtypei)
     endif

@@ -41,11 +41,12 @@ contains
   !  Initialising all the apr arrays and properties
   !+
   !-----------------------------------------------------------------------
-  subroutine init_apr(apr_level,ierr)
+  subroutine init_apr(apr_level,apr_weight,ierr)
     use dim, only:maxp_hard
     use part, only:npart,massoftype
     use apr_region, only:set_apr_region
     integer, intent(inout) :: ierr,apr_level(:)
+    real, intent(inout)    :: apr_weight(:)
     logical :: previously_set
     real    :: apr_rad
 
@@ -93,6 +94,9 @@ contains
       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
     endif
 
+    ! set the initial weightings
+    apr_weight(:) = 1.0
+
     ierr = 0
 
   end subroutine init_apr
@@ -102,13 +106,13 @@ contains
   !  Subroutine to check if particles need to be split or merged
   !+
   !-----------------------------------------------------------------------
-  subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+  subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
     use dim,      only:maxp_hard
     use part,     only:ntot,isdead_or_accreted,igas,massoftypefunc,&
                        shuffle_part
     use quitdump, only:quit
     use relaxem,  only:relax_particles
-    real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
+    real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),apr_weight(:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
     integer :: n_ref,nrelax,nmerge,nkilled,apr_current
@@ -119,6 +123,9 @@ contains
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
+
+    print*,apr_weight(1:10)
+    read*
 
     ! Before adjusting the particles, if we're going to
     ! relax them then let's save the reference particles

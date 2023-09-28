@@ -36,7 +36,8 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                  ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics,apr_level)
+                  ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics,&
+                  apr_level,apr_weight)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
                           sink_radiation,use_dustgrowth,ind_timesteps
  use io,             only:iprint,fatal,error
@@ -85,6 +86,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(inout) :: pxyzu(:,:), dens(:)
  real,         intent(inout) :: metrics(:,:,:,:)
  integer,      intent(in)    :: apr_level(:)
+ real,         intent(in)    :: apr_weight(:)
  integer                     :: ierr,i
  real(kind=4)                :: t1,tcpu1,tlast,tcpulast
 
@@ -128,13 +130,13 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  if (icall==1) then
     call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level,apr_weight)
     if (.not. fast_divcurlB) then
        ! Repeat the call to calculate all the non-density-related quantities in densityiterate.
        ! This needs to be separate for an accurate calculation of divcurlB which requires an up-to-date rho.
        ! if fast_divcurlB = .false., then all additional quantities are calculated during the previous call
        call densityiterate(3,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                           stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
+                           stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level,apr_weight)
     endif
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
@@ -168,7 +170,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (sinks_have_heating(nptmass,xyzmh_ptmass)) call ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
  call force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
             rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
-            ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
+            ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level,apr_weight)
  call do_timing('force',tlast,tcpulast)
 
  if (use_dustgrowth) then ! compute growth rate of dust particles
@@ -217,7 +219,7 @@ end subroutine derivs
 subroutine get_derivs_global(tused,dt_new,dt)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustfrac,&
-                ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,apr_level
+                ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,apr_level,apr_weight
  use timing, only:printused,getused
  use io,     only:id,master
  real(kind=4), intent(out), optional :: tused
@@ -233,7 +235,7 @@ subroutine get_derivs_global(tused,dt_new,dt)
  call getused(t1)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,eos_vars,&
-             time,dti,dtnew,pxyzu,dens,metrics,apr_level)
+             time,dti,dtnew,pxyzu,dens,metrics,apr_level,apr_weight)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1

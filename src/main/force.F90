@@ -182,7 +182,7 @@ contains
 !----------------------------------------------------------------
 subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                  rad,drad,radprop,dustprop,dustgasprop,dustfrac,ddustevol,fext,fxyz_drag,&
-                 ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level)
+                 ipart_rhomax,dt,stressmax,eos_vars,dens,metrics,apr_level,apr_weight)
 
  use dim,          only:maxvxyzu,maxneigh,mhd,mhd_nonideal,lightcurve,mpi,use_apr
  use io,           only:iprint,fatal,iverbose,id,master,real4,warning,error,nprocs
@@ -240,6 +240,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  real,         intent(in)    :: fext(:,:)
  real,         intent(inout) :: fxyz_drag(:,:)
  real,         intent(in)    :: eos_vars(:,:)
+ real,         intent(in)    :: apr_weight(:)
  real,         intent(out)   :: fxyzu(:,:),ddustevol(:,:)
  real,         intent(in)    :: Bevol(:,:)
  real,         intent(out)   :: dBevol(:,:)
@@ -427,7 +428,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(mpitype) &
 !$omp shared(dens) &
 !$omp shared(metrics) &
-!$omp shared(apr_level) &
+!$omp shared(apr_level,apr_weight) &
 #ifdef GRAVITY
 !$omp shared(massoftype,npart,maxphase) &
 !$omp private(hi,pmassi,rhoi) &
@@ -494,7 +495,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 
     call start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
                     dustfrac,dustprop,fxyz_dragold,eta_nimhd,eos_vars,alphaind,stressmax,&
-                    rad,radprop,dens,metrics,apr_level,dt)
+                    rad,radprop,dens,metrics,apr_level,apr_weight,dt)
     if (cell%npcell == 0) cycle over_cells
 
     call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -525,7 +526,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
     call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                       iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                       dustfrac,dustprop,fxyz_dragold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                      rad,radprop,dens,metrics,apr_level,dt)
+                      rad,radprop,dens,metrics,apr_level,apr_weight,dt)
 
     if (do_export) then
        call write_cell(stack_waiting,cell)
@@ -585,7 +586,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          iphase,divcurlv,divcurlB,alphaind,eta_nimhd,eos_vars, &
                          dustfrac,dustprop,fxyz_dragold,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                         rad,radprop,dens,metrics,apr_level,dt)
+                         rad,radprop,dens,metrics,apr_level,apr_weight,dt)
 
        remote_export = .false.
        remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -672,7 +673,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              iamtypei = igas
           endif
           if (use_apr) then
-            pmassi = massoftypefunc(iamtypei,apr_level(i))
+            pmassi = massoftypefunc(iamtypei,apr_level(i),apr_weight(i))
           else
             pmassi = massoftype(iamtypei)
           endif
@@ -894,7 +895,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                           dustfrac,dustprop,fxyz_drag,gradh,divcurlv,alphaind, &
                           alphau,alphaB,bulkvisc,stressmax,&
                           ndrag,nstokes,nsuper,ts_min,ibinnow_m1,ibin_wake,ibin_neighi,&
-                          ignoreself,rad,radprop,dens,metrics,apr_level,dt)
+                          ignoreself,rad,radprop,dens,metrics,apr_level,apr_weight,dt)
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
@@ -963,6 +964,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real,            intent(in)    :: rad(:,:),dens(:),metrics(:,:,:,:)
  real,            intent(inout) :: radprop(:,:)
  integer,         intent(in)    :: apr_level(:)
+ real,            intent(in)    :: apr_weight(:)
  real,            intent(in)    :: dt
  integer :: j,n,iamtypej
  logical :: iactivej,iamgasj,iamdustj
@@ -1313,7 +1315,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
        endif
        if (use_apr) then
-         pmassj = massoftypefunc(iamtypej,apr_level(j))
+         pmassj = massoftypefunc(iamtypej,apr_level(j),apr_weight(j))
        else
          pmassj = massoftype(iamtypej)
        endif
@@ -1929,7 +1931,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           iamtypej = iamtype(iphase(j))
        endif
        if (use_apr) then
-         pmassj = massoftypefunc(iamtypej,apr_level(j))
+         pmassj = massoftypefunc(iamtypej,apr_level(j),apr_weight(j))
        else
          pmassj = massoftype(iamtypej)
        endif
@@ -2065,7 +2067,7 @@ end subroutine get_stress
 
 subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol, &
                      dustfrac,dustprop,fxyz_drag,eta_nimhd,eos_vars,alphaind,stressmax,&
-                     rad,radprop,dens,metrics,apr_level,dt)
+                     rad,radprop,dens,metrics,apr_level,apr_weight,dt)
 
  use io,        only:fatal
  use options,   only:alpha,use_dustfrac,limit_radiation_flux
@@ -2102,6 +2104,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
  real,               intent(in)    :: eos_vars(:,:)
  real,               intent(in)    :: dt
  integer,            intent(in)    :: apr_level(:)
+ real,               intent(in)    :: apr_weight(:)
  real         :: radRi
  real         :: radPi
 
@@ -2144,7 +2147,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (use_apr) then
-      pmassi = massoftypefunc(iamtypei,apr_level(i))
+      pmassi = massoftypefunc(iamtypei,apr_level(i),apr_weight(i))
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -2289,8 +2292,10 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
     if (use_apr) then
       cell%apr(cell%npcell)                        = apr_level(i)
+      cell%apr_weight(cell%npcell)                 = apr_weight(i)
     else
       cell%apr(cell%npcell)                        = 1
+      cell%apr_weight(cell%npcell)                 = 1.0
     endif
 
     alphai = alpha
@@ -2380,7 +2385,7 @@ end subroutine start_cell
 subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                         iphase,divcurlv,divcurlB,alphaind,eta_nimhd, eos_vars, &
                         dustfrac,dustprop,fxyz_drag,gradh,ibinnow_m1,ibin_wake,stressmax,xyzcache,&
-                        rad,radprop,dens,metrics,apr_level,dt)
+                        rad,radprop,dens,metrics,apr_level,apr_weight,dt)
  use io,          only:error,id
  use dim,         only:maxvxyzu,use_apr
  use options,     only:beta,alphau,alphaB,iresistive_heating
@@ -2414,6 +2419,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
  real,            intent(in)     :: dens(:),metrics(:,:,:,:)
  real,            intent(in)     :: dt
  integer,         intent(in)     :: apr_level(:)
+ real,            intent(in)     :: apr_weight(:)
 
  real                            :: hi
  real(kind=8)                    :: hi1,hi21,hi31,hi41
@@ -2453,7 +2459,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     i = inodeparts(cell%arr_index(ip))
 
     if (use_apr) then
-      pmassi = massoftypefunc(iamtypei,cell%apr(ip))
+      pmassi = massoftypefunc(iamtypei,cell%apr(ip),cell%apr_weight(ip))
     else
       pmassi = massoftype(iamtypei)
     endif
@@ -2488,7 +2494,7 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
                          dustfrac,dustprop,fxyz_drag,gradh,divcurlv,alphaind, &
                          alphau,alphaB,bulkvisc,stressmax, &
                          cell%ndrag,cell%nstokes,cell%nsuper,cell%tsmin(ip),ibinnow_m1,ibin_wake,cell%ibinneigh(ip), &
-                         ignoreself,rad,radprop,dens,metrics,apr_level,dt)
+                         ignoreself,rad,radprop,dens,metrics,apr_level,apr_weight,dt)
 
  enddo over_parts
 
@@ -2635,7 +2641,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (use_apr) then
-      pmassi = massoftypefunc(iamtypei,cell%apr(ip))
+      pmassi = massoftypefunc(iamtypei,cell%apr(ip),cell%apr_weight(ip))
     else
       pmassi = massoftype(iamtypei)
     endif

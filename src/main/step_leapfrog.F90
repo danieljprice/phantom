@@ -96,7 +96,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftypetot,apr_level,&
+                          iamboundary,get_ntypes,npartoftypetot,apr_level,apr_weight,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
                           massoftypefunc
@@ -261,7 +261,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(pxyzu,ppred,apr_level) &
+!$omp shared(pxyzu,ppred,apr_level,apr_weight) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ialphaloc) &
@@ -277,7 +277,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (store_itype) then
           itype = iamtype(iphase(i))
           if (use_apr) then
-            pmassi = massoftypefunc(itype,apr_level(i))
+            pmassi = massoftypefunc(itype,apr_level(i),apr_weight(i))
           else
             pmassi = massoftype(itype)
           endif
@@ -378,7 +378,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
-                ppred,dens,metrics,apr_level)
+                ppred,dens,metrics,apr_level,apr_weight)
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
@@ -653,7 +653,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,dustfrac,&
-                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level)
+                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level,apr_weight)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred

@@ -46,7 +46,8 @@ module mpiforce
                                           4                               + &  !  waiting_index
                                           1 * minpart                     + &  !  iphase(minpart)
                                           1 * minpart                     + &  !  ibinneigh(minpart)
-                                          1 * minpart                          !  apr_level
+                                          1 * minpart                     + &  !  apr_level
+                                          1 * minpart                          !  apr_weight
 
  type cellforce
     sequence
@@ -70,6 +71,7 @@ module mpiforce
     integer(kind=1)  :: ibinneigh(minpart)
     integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
     integer          :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+    real             :: apr_weight(minpart)
  end type cellforce
 
  type stackforce
@@ -218,6 +220,12 @@ subroutine get_mpitype_of_cellforce(dtype)
  blens(nblock) = 1
  mpitypes(nblock) = MPI_INTEGER4
  call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = 1
+ mpitypes(nblock) = MPI_REAL8
+ call MPI_GET_ADDRESS(cell%apr_weight,addr,mpierr)
  disp(nblock) = addr - start
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
