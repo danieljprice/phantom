@@ -69,6 +69,7 @@ CCFLAGS = -O5
 LIBCXX = -lstdc++
 #FPPFLAGS=
 LDFLAGS=
+SRCPHOTO=
 LIBTOOL=ar rcs
 
 #----------------------------------------------------------------
@@ -85,6 +86,7 @@ LIBTOOL=ar rcs
 # -DDRIVING             ! use turbulence driving
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
+# -DPHOTO               ! turn on the photoevaporation
 # -DLIGHTCURVE          ! lightcurve estimation
 
 include Makefile_setups
@@ -94,23 +96,15 @@ ifndef SETUPFILE
 endif
 
 ifndef SRCNIMHD
-    SRCNIMHD = nicil.F90 nicil_supplement.f90
+    SRCNIMHD = nicil.F90 nicil_supplement.F90
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.f90 growth.F90
+    SRCDUST = dust.F90 growth.F90
 endif
 
 ifdef SMOL
     SRCDUST+= growth_smol.f90
-endif
-
-ifdef SRCINJECT
-    INJECT_PARTICLES=yes
-else
-    # compile with default wind injection modules but INJECT_PARTICLES=yes or no
-    # is still optional in the setup block
-    SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
 endif
 
 #ifndef SRCGROWTH
@@ -129,8 +123,8 @@ ifeq ($(MCFOST), yes)
        MCFOST_LIBS = $(PREFIX)/lib
        MCFOST_LIB = $(PREFIX)/lib
        MCFOST_INCLUDE = $(PREFIX)/include
-       ifeq ("X$(HDF5_DIR)","X")
-           HDF5_DIR=$(PREFIX)
+       ifeq ("X$(HDF5ROOT)","X")
+           HDF5ROOT=$(PREFIX)
        endif
     else
     #--otherwise assume the source code is lying around somewhere
@@ -149,8 +143,8 @@ ifeq ($(MCFOST), yes)
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-   -L$(HDF5_DIR) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
-	#-L$(HDF5_DIR)/lib/Intel -lhdf5_fortran
+   -L$(HDF5ROOT) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
+	#-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran
 endif
 
 include Makefile_systems
@@ -276,16 +270,20 @@ ifeq ($(STS_TIMESTEPS), yes)
     FPPFLAGS += -DSTS_TIMESTEPS
 endif
 
+ifeq ($(DEBUG), yes)
+    FFLAGS += -DDEBUG
+endif
+
 ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
 endif
 
-ifeq ($(SINK_RADIATION), yes)
-    FPPFLAGS += -DSINK_RADIATION
-endif
-
 ifeq ($(DUST_NUCLEATION), yes)
     FPPFLAGS += -DDUST_NUCLEATION
+endif
+
+ifeq ($(SINK_RADIATION), yes)
+    FPPFLAGS += -DSINK_RADIATION
 endif
 
 ifdef SRCTURB
@@ -301,9 +299,6 @@ else
 endif
 endif
 
-ifeq ($(AOCC), yes)
-    FPPFLAGS += -DAOCC
-endif
 #
 # kernel choice
 #
@@ -322,8 +317,12 @@ endif
 # on command line. Otherwise on
 # if injection module selected
 #
-ifeq ($(INJECT_PARTICLES), yes)
+ifeq ($(INJECT_PARTICLES), no)
+    SRCINJECT=
+else
+ifdef SRCINJECT
     FPPFLAGS += -DINJECT_PARTICLES
+endif
 endif
 
 ifdef LIGHTCURVE
@@ -415,21 +414,21 @@ endif
 #   - lib for the shared library .so files
 #
 # Often both directories are under one root,
-# e.g. HDF5_DIR= /usr/local/opt/hdf5
-# In this case just set HDF5_DIR for your machine.
+# e.g. HDF5ROOT= /usr/local/opt/hdf5
+# In this case just set HDF5ROOT for your machine.
 #
 # However, sometimes these directories are separate,
 # then you must set both HDF5INCLUDE and HDF5LIB.
 #
 ifeq ($(HDF5), yes)
-ifeq (X$(HDF5_DIR), X)
-    HDF5_DIR= /usr/local/opt/hdf5
+ifeq (X$(HDF5ROOT), X)
+    HDF5ROOT= /usr/local/opt/hdf5
 endif
 ifeq (X$(HDF5INCLUDE), X)
-    HDF5INCLUDE= $(HDF5_DIR)/include
+    HDF5INCLUDE= $(HDF5ROOT)/include
 endif
 ifeq (X$(HDF5LIB), X)
-    HDF5LIB= $(HDF5_DIR)/lib
+    HDF5LIB= $(HDF5ROOT)/lib
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
@@ -472,13 +471,13 @@ SRCPOTS= extern_corotate.f90 \
          extern_binary.f90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
-         extern_gnewton.f90 \
-         lumin_nsdisc.F90 extern_prdrag.f90 \
+         extern_gnewton.F90 \
+         lumin_nsdisc.F90 extern_prdrag.F90 \
          extern_Bfield.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
          extern_gwinspiral.f90 \
-         externalforces.f90
+         externalforces.F90
 endif
 ifeq (X$(SRCPOT), X)
 SRCPOT=${SRCPOTS}
@@ -487,7 +486,7 @@ endif
 # metrics for GR
 #
 ifeq ($(GR),yes)
-    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.f90=externalforces_gr.f90)
+    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.F90=externalforces_gr.F90)
 endif
 ifdef METRIC
     SRCMETRIC= metric_${METRIC}.f90
@@ -512,7 +511,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
 # equations of state
 #
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos_stamatellos.f90 eos.f90
+SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos_stamatellos.F90 eos.F90
 
 ifeq ($(HDF5), yes)
     SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
@@ -537,14 +536,14 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          checkoptions.F90 viscosity.f90 damping.f90 options.f90 cons2primsolver.f90 radiation_utils.f90 cons2prim.f90 \
          centreofmass.f90 ${SRCPOT} checkconserved.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
-         mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
-         partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
-         utils_deriv.f90 radiation_implicit.f90 ${SRCTURB} \
-         ${SRCINJECT_DEPS} wind_equations.f90 wind.F90 ${SRCINJECT} \
+         mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
+         partinject.F90 utils_inject.f90 dust_formation.F90 ptmass_radiation.F90 ptmass_heating.F90 \
+         radiation_implicit.f90 ${SRCTURB} \
+         ${SRCPHOTO} ${SRCINJECT_DEPS} ${SRCINJECT} \
          ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
-         readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
-         utils_shuffleparticles.F90 evwrite.f90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         readwrite_infile.F90 dens.F90 force.F90 utils_deriv.f90 deriv.F90 energies.F90 sort_particles.F90 \
+         utils_shuffleparticles.F90 evwrite.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.F90 initial.F90
 
@@ -611,16 +610,15 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 \
-         boundary.f90 boundary_dynamic.f90 mpi_utils.F90 \
-         utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
-         ${DOMAIN} mpi_dens.F90 mpi_force.F90 \
-         mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 boundary.f90 boundary_dynamic.f90 mpi_utils.F90 \
+         utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 ${DOMAIN} \
+         mpi_dens.F90 mpi_force.F90 \
+         mpi_balance.F90 mpi_memory.F90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
-         ${SRCGR} ${SRCPOT} \
+         ${SRCGR} ${SRCPOT} ${SRCPHOTO} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
@@ -680,18 +678,18 @@ cleansetup:
 # phantom test suite
 #
 ifeq ($(MPI),yes)
-    SRCTESTMPI = test_mpi.f90
+    SRCTESTMPI = test_mpi.F90
 else
     SRCTESTMPI =
 endif
 
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.F90 test_growth.f90 test_smol.F90 \
-         test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
+         test_dust.F90 test_growth.F90 test_smol.F90 \
+         test_nonidealmhd.F90 directsum.f90 test_gravity.F90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
          test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
-         test_hierarchical.f90 test_damping.f90 test_wind.f90 \
+         test_hierarchical.f90 test_damping.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
@@ -767,7 +765,7 @@ OBJG2PDF= io.o utils_filenames.o asciiutils.o write_griddata.o \
 .PHONY: grid2pdf
 grid2pdf: checksys checkparams checkhdf5 $(OBJG2PDF)
 	@echo "objects are $(OBJG2PDF)"
-	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5_DIR)/lib -lhdf5
+	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5ROOT)/lib -lhdf5
 	@echo ""
 	@echo "Grid2pdf: we are Possibly Dangerously Fanatical"
 	@echo ""
@@ -1101,10 +1099,10 @@ cleantestbinary:
 # check for anything that depends on HDF5
 #
 checkhdf5:
-   ifeq (X${HDF5_DIR}, X)
-	@echo; echo "ERROR: HDF5_DIR should be set before compiling with HDF5 utilities"; echo; ${MAKE} err;
+   ifeq (X${HDF5ROOT}, X)
+	@echo; echo "ERROR: HDF5ROOT should be set before compiling with HDF5 utilities"; echo; ${MAKE} err;
    else
-	@if [ -d $$HDF5_DIR ]; then echo; echo "HDF5_DIR=$$HDF5_DIR"; echo; else echo; echo "ERROR: Directory given by HDF5_DIR=$$HDF5_DIR does not exist"; echo; ${MAKE} err; fi;
+	@if [ -d $$HDF5ROOT ]; then echo; echo "HDF5ROOT=$$HDF5ROOT"; echo; else echo; echo "ERROR: Directory given by HDF5ROOT=$$HDF5ROOT does not exist"; echo; ${MAKE} err; fi;
    endif
 
 #----------------------------------------------------

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module checkoptions
 !
@@ -14,7 +14,7 @@ module checkoptions
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, metric_tools, mpiutils, part
+! :Dependencies: dim, io, metric_tools, part
 !
  implicit none
  public :: check_compile_time_settings
@@ -30,10 +30,9 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,     only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts
- use io,       only:error,id,master,fatal,warning
- use mpiutils, only:barrier_mpi
+ use part,  only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
+ use dim,   only:use_dustgrowth,maxtypes
+ use io,    only:error,id,master,fatal,warning
 #ifdef GR
  use metric_tools, only:icoordinate,icoord_cartesian
  use dim,          only:maxsts
@@ -143,16 +142,10 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef DUSTGROWTH
- if (.not. use_dustgrowth) then
-    call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
-    ierr = 16
- endif
+ if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
 #endif
 
- if (mpi .and. inject_parts) call error(string,'MPI currently not compatible with particle injection')
-
- call barrier_mpi
-
+ return
 end subroutine check_compile_time_settings
 
 end module checkoptions

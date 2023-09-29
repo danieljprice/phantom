@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module datautils
 !
@@ -209,10 +209,10 @@ logical function has_write_permission(dir)
 
  has_write_permission = .true.
  open(newunit=iunit,file=trim(dir)//'data.tmp.abcd',action='write',iostat=ierr)
- if (ierr /= 0) has_write_permission = .false.
-
- close(iunit,status='delete',iostat=ierr)
- if (ierr /= 0) has_write_permission = .false.
+ if (ierr /= 0) then
+    has_write_permission = .false.
+ endif
+ close(iunit,status='delete')
 
 end function has_write_permission
 

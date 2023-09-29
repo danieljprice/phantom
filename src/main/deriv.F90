@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module deriv
 !
@@ -16,10 +16,12 @@ module deriv
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
 !   forces, forcing, growth, io, linklist, metric_tools, options, part,
-!   ptmass, ptmass_radiation, radiation_implicit, timestep, timestep_ind,
-!   timing
+!   photoevap, ptmass, ptmass_radiation, radiation_implicit, timestep,
+!   timestep_ind, timing
 !
  implicit none
+ character(len=80), parameter, public :: &  ! module version
+    modid="$Id$"
 
  public :: derivs, get_derivs_global
  real, private :: stressmax
@@ -38,7 +40,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
-                          sink_radiation,use_dustgrowth,ind_timesteps
+                          sink_radiation,use_dustgrowth
  use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -46,10 +48,18 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
+#ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
- use timestep,       only:dtmax,dtcourant,dtforce,dtrad
+#else
+ use timestep,       only:dtcourant,dtforce,dtrad
+#endif
+ use timestep,       only:dtmax
 #ifdef DRIVING
  use forcing,        only:forceit
+#endif
+#ifdef PHOTO
+ use photoevap,      only:find_ionfront,photo_ionize
+ use part,           only:massoftype
 #endif
  use growth,         only:get_growth_rate
  use ptmass_radiation, only:get_dust_temperature
@@ -121,6 +131,16 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
+#ifdef PHOTO
+ !
+ ! update location of particles on grid and calculate the location of the ionization front
+ !
+ call find_ionfront(time,npart,xyzh,massoftype(igas))
+ !
+ ! update the temperatures of the particles depending on whether ionized or not
+ !
+ call photo_ionize(vxyzu,npart)
+#endif
 !
 ! calculate density by direct summation
 !
@@ -151,7 +171,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
-    call do_timing('radiation',tlast,tcpulast)
  endif
 
 !
@@ -191,11 +210,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! set new timestep from Courant/forces condition
 !
- if (ind_timesteps) then
-    dtnew = dtmax/2.**nbinmax  ! minimum timestep over all particles
- else
-    dtnew = min(dtforce,dtcourant,dtrad,dtmax)
- endif
+#ifdef IND_TIMESTEPS
+ dtnew = dtmax/2**nbinmax  ! minimum timestep over all particles
+#else
+ dtnew = min(dtforce,dtcourant,dtrad,dtmax)
+#endif
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 

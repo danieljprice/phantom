@@ -2,11 +2,11 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module setup
 !
-! setup for test particles
+! None
 !
 ! :References: None
 !
@@ -41,8 +41,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use options,        only:iexternalforce,alpha,alphamax,alphau,beta,nfulldump
  use units,          only:set_units
  use physcon,        only:solarm
- use externalforces, only:iext_star
+#ifdef GR
+ use externalforces, only:iext_gr
  use metric,         only:a
+#else
+ use externalforces, only:iext_star
+#endif
  use eos,            only:ieos
  use physcon,        only:pi
  use prompting,      only:prompt
@@ -66,11 +70,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! general parameters
  !
  time  = 0.
- if (gr) then
-    gamma = 5./3. ! GR cannot have gamma=1
- else
-    gamma = 1.
- endif
+ gamma = 1.
  polyk = 0.
  npart = 10
  ieos  = 11
@@ -192,8 +192,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(1:3,i) = rtan*vcirc
  enddo
 
- a = spin
- if (.not.gr) iexternalforce = iext_star
+#ifdef GR
+ iexternalforce = iext_gr
+ a              = spin
+#else
+ iexternalforce = iext_star
+#endif
 
 end subroutine setpart
 
