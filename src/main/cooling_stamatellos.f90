@@ -87,6 +87,14 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
            Ti,gmwi)
  presi = eos_vars(igasP,i)
 
+
+if (isnan(kappaBari)) then
+   print *, "kappaBari is NaN\n", " ui(erg) = ", ui*unit_ergg, "rhoi=", rhoi*unit_density, "Ti=", Ti, &
+        "i=", i
+   stop
+endif
+
+
  select case (od_method)
  case (1)
     coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
