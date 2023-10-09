@@ -823,7 +823,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !
     ! predictor step for external forces, also recompute external forces
     !
-    !$omp parallel do default(none) &
+    !$omp parallel do default(none) schedule(runtime)  &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp,eos_vars) &
     !$omp shared(dt,hdt,xtol,ptol) &
@@ -957,7 +957,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp reduction(min:dtextforce_min) &
     !$omp reduction(+:accretedmass,naccreted,nlive) &
     !$omp shared(idamp,damp_fac)
-    !$omp do
+    !$omp do schedule(runtime)
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
