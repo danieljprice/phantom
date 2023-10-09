@@ -13,23 +13,16 @@ module analysis
 ! :Owner: Fitz Hu
 !
 ! :Runtime parameters:
-!   - angmax : *max angular momentum*
-!   - angmin : *min angular momentum*
-!   - emax   : *max energy*
-!   - emin   : *min energy*
-!   - lummax : *max luminosity*
-!   - lummin : *min luminosity*
-!   - mh     : *black hole mass in code units*
-!   - nbins  : *number of bins*
-!   - rmax   : *max radius*
-!   - rmin   : *min radius*
-!   - trmax  : *max return time*
-!   - trmin  : *min return time*
-!   - vmax   : *max velocity*
-!   - vmin   : *min velocity*
+!   - rad_cap   : *capture shell radius*
+!   - drad_cap  : *capture shell thickness*
+!   - v_max     : *max velocity*
+!   - v_min     : *min velocity*
+!   - theta_max : *max azimuthal angle*
+!   - theta_min : *min azimuthal angle*
+!   - phi_max   : *max altitude angle*
+!   - phi_min   : *min altitude angle*
 !
-! :Dependencies: dump_utils, infile_utils, io, physcon, prompting,
-!   readwrite_dumps, sortutils, vectorutils
+! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
 !
  implicit none
  character(len=8), parameter, public :: analysistype = 'radiotde'
@@ -37,21 +30,19 @@ module analysis
 
  private
 
- real, dimension(:), allocatable :: theta,plot_theta,phi,vr,vtheta,vphi
+ real, dimension(:), allocatable    :: theta,plot_theta,phi,vr,vtheta,vphi
  logical, dimension(:), allocatable :: cap
 
  !---- These can be changed in the params file
- integer :: nbins
- !--- If min=max then lims are set dynamically
- real :: rad_cap = 1.e16 ! radius where the outflow in captured (in cm)
- real :: drad_cap = 4.7267e14 ! thickness of the shell to capture outflow (in cm)
- real :: v_min = 0.
- real :: v_max = 1.
- real :: theta_min = -180.
- real :: theta_max = 180.
- real :: phi_min = -90.
- real :: phi_max = 90.
- real :: m_accum, m_cap, vr_accum_mean, vr_cap_mean, v_accum_mean, v_cap_mean, e_accum, e_cap
+ real    :: rad_cap = 1.e16 ! radius where the outflow in captured (in cm)
+ real    :: drad_cap = 4.7267e14 ! thickness of the shell to capture outflow (in cm)
+ real    :: v_min = 0.
+ real    :: v_max = 1.
+ real    :: theta_min = -180.
+ real    :: theta_max = 180.
+ real    :: phi_min = -90.
+ real    :: phi_max = 90.
+ real    :: m_accum, m_cap, vr_accum_mean, vr_cap_mean, v_accum_mean, v_cap_mean, e_accum, e_cap
  integer :: n_accum, n_cap
 
 contains
@@ -64,11 +55,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer,            intent(in) :: numfile,npart,iunit
  real,               intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,               intent(in) :: pmass,time
- character(len=120) :: output,prefile
+ character(len=120) :: output
  character(len=30)  :: filename
- integer :: i,ierr,j
- logical :: iexist
- real :: val,toMsun,todays
+ integer            :: i,ierr
+ logical            :: iexist
+ real               :: toMsun,todays
 
  m_accum = 0.
  n_accum = 0
@@ -140,16 +131,15 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  close(iunit)
  endif
 
- deallocate(theta(npart),plot_theta(npart),phi(npart),vr(npart),vtheta(npart),vphi(npart),cap(npart))
+ deallocate(theta,plot_theta,phi,vr,vtheta,vphi,cap)
 
  inquire(file='outflows',exist=iexist)
  if (iexist) then
-    open(iunit,file='outflows',status='old',access='append')
+    open(iunit,file='outflows',status='old',position='append')
  else
     open(iunit,file='outflows',status='new')
-    write(iunit,*) '# time, m_cap[msun], m_accum[msun], &
-                      vr_accum_mean[c], vr_cap_mean[c], v_accum_mean[c], &
-                      v_cap_mean[c], e_accum[erg], e_cap[erg]'
+    write(iunit,*) '# time, m_cap[msun], m_accum[msun], vr_accum_mean[c], vr_cap_mean[c], &
+                      v_accum_mean[c], v_cap_mean[c], e_accum[erg], e_cap[erg]'
  endif
  write(iunit,'(9(es18.10,1x))') &
     time*todays, &
@@ -177,9 +167,9 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
  integer, intent(in) :: npart
  real, intent(in)    :: pmass,xyzh(:,:),vxyzu(:,:)
  integer :: i
- real :: r,v,x,y,z,xyz(1:3),vx,vy,vz,vxyz(1:3)
- real :: thetai,phii,vri
- real :: vr_accum_add,vr_cap_add,v_accum_add,v_cap_add
+ real    :: r,v,x,y,z,xyz(1:3),vx,vy,vz,vxyz(1:3)
+ real    :: thetai,phii,vri
+ real    :: vr_accum_add,vr_cap_add,v_accum_add,v_cap_add
 
  vr_accum_add = 0.
  vr_cap_add = 0.
@@ -197,15 +187,11 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
     vxyz = (/vx,vy,vz/)
     r = sqrt(dot_product(xyz,xyz))
     v = sqrt(dot_product(vxyz,vxyz))
-    !print*, 'x', xyz, r
-    !print*, 'v', vxyz, sqrt(dot_product(vxyz,vxyz))
     if (r > rad_cap) then
        m_accum = m_accum + pmass 
        n_accum = n_accum + 1
        e_accum = e_accum + 0.5*pmass*v**2
-       !print*, dot_product(vxyz,xyz)/r, cosd(phii)*sind(thetai)*vx + sind(phii)*sind(thetai)*vy + cosd(thetai)*vz
-       vri = dot_product(vxyz,xyz)/r !cosd(phii)*sind(thetai)*vx + sind(phii)*sind(thetai)*vy + cosd(thetai)*vz
-       if (vri < 0) print*, vxyz, xyz, r
+       vri = dot_product(vxyz,xyz)/r
        vr_accum_add = vr_accum_add + vri
        v_accum_add = v_accum_add + v
        if (r-rad_cap < drad_cap .and. (v .ge. v_min .and. v .le. v_max)) then
@@ -270,8 +256,8 @@ subroutine read_tdeparams(filename,ierr)
  use io,           only:error
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
- integer, parameter :: iunit = 21
- integer :: nerr
+ integer, parameter        :: iunit = 21
+ integer                   :: nerr
  type(inopts), allocatable :: db(:)
 
  print "(a)",'reading analysis options from '//trim(filename)
