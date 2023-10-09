@@ -233,6 +233,7 @@ real function rho_tab(r)
  real             :: logrho1,logrho2,logrho_tab
  real             :: gradient
 
+ rho_tab = 0.
  do i = 1,nprof-1
     if (r > rad_prof(i) .and. r < rad_prof(i+1)) then
        select case (interpolation)
@@ -261,6 +262,7 @@ real function get_temp_r(r,rad_prof,temp_prof)
  integer :: i
  real    :: t1,r1
 
+ get_temp_r = temperature
  do i = 1,nprof
     if (r > rad_prof(i) .and. r < rad_prof(i+1)) then
        t1 = temp_prof(i)
