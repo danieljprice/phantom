@@ -138,8 +138,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     open(iunit,file='outflows',status='old',position='append')
  else
     open(iunit,file='outflows',status='new')
-    write(iunit,*) '# time, m_cap[msun], m_accum[msun], vr_accum_mean[c], vr_cap_mean[c], &
-                      v_accum_mean[c], v_cap_mean[c], e_accum[erg], e_cap[erg]'
+    write(iunit,'(9(A15,1X))') '# time', 'm_cap[msun]', 'm_accum[msun]', 'vr_accum_mean[c]', 'vr_cap_mean[c]', &
+                               'v_accum_mean[c]', 'v_cap_mean[c]', 'e_accum[erg]', 'e_cap[erg]'
  endif
  write(iunit,'(9(es18.10,1x))') &
     time*todays, &
