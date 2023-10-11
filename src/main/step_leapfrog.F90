@@ -1,4 +1,4 @@
-!--------------------------------------------------------------------------!
+ !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
@@ -550,6 +550,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 endif
              endif
           endif
+       endif
     enddo corrector
 !$omp enddo
 !$omp end parallel
