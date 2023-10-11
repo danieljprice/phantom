@@ -27,7 +27,6 @@ module eos_stamatellos
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
-
 contains
 
 subroutine init_S07cool()
@@ -65,7 +64,8 @@ subroutine read_optab(eos_file,ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
-    if (index(adjustl(junk),'::') == 0) then !ignore comment lines
+    if (len(trim(adjustl(junk))) == 0) cycle ! blank line
+    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
        junk = adjustl(junk)
        read(junk, *,iostat=errread) nx, ny
        exit
@@ -80,6 +80,8 @@ subroutine read_optab(eos_file,ierr)
     enddo
  enddo
  print *, 'nx,ny=', nx, ny
+ print *, "Optable first row:"
+ print *, (OPTABLE(1,1,i),i=1, 6)
 end subroutine read_optab
 
 !

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -14,7 +14,7 @@ module setup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, dim, extern_spiral, externalforces, io, kernel,
+! :Dependencies: datafiles, dim, extern_spiral, externalforces, io,
 !   mpiutils, options, part, physcon, prompting, random, set_dust,
 !   setup_params, units
 !
@@ -62,7 +62,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,             only:fatal
  use prompting,      only:prompt
  use set_dust,       only:set_dustfrac
- use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -101,7 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !--initialising units and flags
 !
 ! set code units
- call set_units(dist=100.*pc,mass=1.d5*solarm,G=1.d0)
+ call set_units(dist=100.*pc,mass=1.d05*solarm,G=1.)
 !
 !--set input file options
 !--maxvxyzu(3-4) and therefore ieos(1-2) are set in dim_galdisc
@@ -109,7 +108,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  icooling       = 0   !1=cooling on, 0=off
  nfulldump      = 1
 
- hfact = hfact_default
+ hfact = 1.2
 
 !
 !-------------------------Setting-energies-------------------------
@@ -404,7 +403,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,i10)",' random seed = ',iseed
     print "(3(a,f10.3),a)",' galactic disc setup... rmin = ',rcylin,' rmax = ',rcyl,' in units of ',udist/kpc,' kpc'
     xi = ran2(iseed)
-    npart = min(maxp,500000)
+    npart = maxp
     call prompt('Enter number of particles ',npart,1,maxp)
     call bcast_mpi(npart)
     if (npart > maxp) call fatal('setup','npart > maxp; use ./phantomsetup --maxp=10000000')
@@ -577,6 +576,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     enddo
  endif
 
+ return
 end subroutine setpart
 
 !/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\

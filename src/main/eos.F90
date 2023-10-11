@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module eos
 !
@@ -54,7 +54,7 @@ module eos
  logical,            public :: extract_eos_from_hdr = .false.
  integer,            public :: isink = 0.
 
- public  :: equationofstate,setpolyk,eosinfo,get_mean_molecular_weight
+ public  :: equationofstate,setpolyk,eosinfo,utherm,en_from_utherm,get_mean_molecular_weight
  public  :: get_TempPresCs,get_spsound,get_temperature,get_pressure,get_cv
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  public  :: get_local_u_internal
@@ -752,6 +752,63 @@ real function get_u_from_rhoT(rho,temp,eos_type,uguess) result(u)
 
 end function get_u_from_rhoT
 
+
+!-----------------------------------------------------------------------
+!+
+!  the following two functions transparently handle evolution
+!  of the entropy instead of the thermal energy
+!+
+!-----------------------------------------------------------------------
+real function utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,en
+
+ en = vxyzui(4)
+ if (gr) then
+    utherm = en
+ elseif (ien_type == ien_entropy) then
+    gamm1 = (gammai - 1.)
+    if (gamm1 > tiny(gamm1)) then
+       utherm = (en/gamm1)*rho**gamm1
+    else
+       stop 'gamma=1 using entropy evolution'
+    endif
+ elseif (ien_type == ien_etotal) then
+    utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
+ else
+    utherm = en
+ endif
+
+end function utherm
+
+!-----------------------------------------------------------------------
+!+
+!  function to transparently handle evolution of the entropy
+!  instead of the thermal energy
+!+
+!-----------------------------------------------------------------------
+real function en_from_utherm(vxyzui,rho,gammai)
+ real, intent(in) :: vxyzui(4),rho,gammai
+ real             :: gamm1,utherm
+
+ utherm = vxyzui(4)
+ if (gr) then
+    en_from_utherm = utherm
+ elseif (ien_type == ien_entropy) then
+    gamm1 = gammai - 1.
+    if (gamm1 > tiny(gamm1)) then
+       en_from_utherm = gamm1*utherm*rho**(1.-gamma)
+    else
+       stop 'gamma=1 using entropy evolution'
+    endif
+ elseif (ien_type == ien_etotal) then
+    en_from_utherm = utherm + 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
+ else
+    en_from_utherm = utherm
+ endif
+
+end function en_from_utherm
+
 !-----------------------------------------------------------------------
 !+
 !  Get recombination energy (per unit mass) assumming complete
@@ -1355,7 +1412,6 @@ end subroutine read_headeropts_eos
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_eos(iunit)
- use dim,            only:use_krome
  use infile_utils,   only:write_inopt
  use eos_helmholtz,  only:eos_helmholtz_write_inopt
  use eos_barotropic, only:write_options_eos_barotropic
@@ -1365,11 +1421,9 @@ subroutine write_options_eos(iunit)
 
  write(iunit,"(/,a)") '# options controlling equation of state'
  call write_inopt(ieos,'ieos','eqn of state (1=isoth;2=adiab;3=locally iso;8=barotropic)',iunit)
-
- if (.not.use_krome .or. .not.eos_outputs_mu(ieos)) then
-    call write_inopt(gmw,'mu','mean molecular weight',iunit)
- endif
-
+#ifndef KROME
+ if (.not. eos_outputs_mu(ieos)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+#endif
  select case(ieos)
  case(8)
     call write_options_eos_barotropic(iunit)

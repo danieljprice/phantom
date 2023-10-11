@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module evolve
 !
@@ -30,7 +30,7 @@ module evolve
 
 contains
 
-subroutine evol(infile,logfile,evfile,dumpfile,flag)
+subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:iprint,iwritein,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
@@ -62,8 +62,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #else
  use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
 #endif
- use timestep_sts,     only:use_sts
- use supertimestep,    only:step_sts
+ use timestep_sts,     only: use_sts
+ use supertimestep,    only: step_sts
 #ifdef DRIVING
  use forcing,          only:write_forcingdump
 #endif
@@ -105,7 +105,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use mf_write,         only:binpos_write
 #endif
 
- integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
@@ -166,7 +165,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use_global_dt = .false.
  istepfrac     = 0
  tlast         = tzero
- dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
+ dt            = dtmax/2**nbinmax
  nmovedtot     = 0
  tall          = 0.
  tcheck        = time
@@ -218,19 +217,15 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     ! injection of new particles into simulation
     !
-    if (.not. present(flag)) then
-       npart_old=npart
-       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
-    endif
+    npart_old=npart
+    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 
     dtmaxold    = dtmax
 #ifdef IND_TIMESTEPS
     istepfrac   = istepfrac + 1
     nbinmaxprev = nbinmax
-    if (nbinmax > maxbins) call fatal('evolve','timestep too small: try decreasing dtmax?')
-
     !--determine if dt needs to be decreased; if so, then this will be done
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.

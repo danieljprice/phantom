@@ -2,15 +2,13 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module cullendehnen
 !
-! Utility routines for the Cullen & Dehnen shock detection switch
+! cullendehnen
 !
-! :References:
-!   Cullen & Dehnen (2010), MNRAS 408, 669
-!   Price et al. (2018), PASA 35, e031
+! :References: None
 !
 ! :Owner: Elisabeth Borchert
 !
@@ -28,6 +26,7 @@ contains
 !+
 !-------------------------------------------------------------------------------
 pure real function get_alphaloc(divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax)
+ !use kernel, only:radkern
  real, intent(in) :: divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax
  real :: source
  real :: temp
@@ -63,7 +62,7 @@ pure real function xi_limiter(dvdx)
 
  fac    = max(-divv,0.)**2
  traceS = curlvx**2 + curlvy**2 + curlvz**2
- if (fac + traceS > epsilon(0.)) then
+ if (fac + traceS > 0.) then
     xi_limiter = fac/(fac + traceS)
  else
     xi_limiter = 1.

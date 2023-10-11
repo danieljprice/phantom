@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module sethierarchical
 !
@@ -19,8 +19,7 @@ module sethierarchical
 !
 ! :Owner: Simone Ceppi
 !
-! :Runtime parameters:
-!   - hierarchy : *string definining the hierarchy (e.g. 111,112,121,1221,1222)*
+! :Runtime parameters: None
 !
 ! :Dependencies: infile_utils, setbinary, sethier_utils
 !
@@ -111,35 +110,24 @@ subroutine write_hierarchical_setupfile(iunit)
  integer :: i
 
  write(iunit,"(/,a)") '# options for hierarchical system'
- call write_inopt(hierarchy, 'hierarchy','string definining the hierarchy (e.g. 111,112,121,1221,1222)', iunit)
+ call write_inopt(hierarchy, 'hierarchy','', iunit)
 
  hs%labels = process_hierarchy(hierarchy)
 
  write(iunit,"(/,a)") '# sink properties'
  do i=1,hs%labels%sink_num
-    call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass',&
-                     'mass of object '//trim(hs%labels%sink(i)), iunit)
- enddo
- do i=1,hs%labels%sink_num
-    call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr',&
-                     'accretion radius for object '//trim(hs%labels%sink(i)), iunit)
+    call write_inopt(hs%sinks(i)%mass, trim(hs%labels%sink(i))//'_mass','', iunit)
+    call write_inopt(hs%sinks(i)%accr, trim(hs%labels%sink(i))//'_accr','', iunit)
  enddo
 
  write(iunit,"(/,a)") '# orbit properties'
  do i=1,hs%labels%hl_num
-    write(iunit,"(a)") '# binary '//trim(hs%labels%hl(i))
-    call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a',&
-         'semi-major axis for binary '//trim(hs%labels%hl(i)),iunit)
-    call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e',&
-         'eccentricity for binary '//trim(hs%labels%hl(i)),iunit)
-    call write_inopt(hs%levels(i)%inc, trim(hs%labels%hl(i))//'_i',&
-         'i [deg] inclination for binary '//trim(hs%labels%hl(i)),iunit)
-    call write_inopt(hs%levels(i)%O, trim(hs%labels%hl(i))//'_O',&
-         'Omega [deg] PA of ascending node for binary '//trim(hs%labels%hl(i)),iunit)
-    call write_inopt(hs%levels(i)%w, trim(hs%labels%hl(i))//'_w',&
-         'w [deg] argument of periapsis for binary '//trim(hs%labels%hl(i)),iunit)
-    call write_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f',&
-         'f [deg] true anomaly for binary '//trim(hs%labels%hl(i)),iunit)
+    call write_inopt(hs%levels(i)%a, trim(hs%labels%hl(i))//'_a','',iunit)
+    call write_inopt(hs%levels(i)%e, trim(hs%labels%hl(i))//'_e','',iunit)
+    call write_inopt(hs%levels(i)%inc, trim(hs%labels%hl(i))//'_i','',iunit)
+    call write_inopt(hs%levels(i)%O, trim(hs%labels%hl(i))//'_O','',iunit)
+    call write_inopt(hs%levels(i)%w, trim(hs%labels%hl(i))//'_w','',iunit)
+    call write_inopt(hs%levels(i)%f, trim(hs%labels%hl(i))//'_f','',iunit)
  enddo
 
 end subroutine write_hierarchical_setupfile

@@ -2,17 +2,13 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module cons2primsolver
 !
-! Internal routines containing the GR conservative to
-! primitive variable solver, as described in section 7
-! of Liptai & Price (2019)
+! None
 !
-! :References:
-!   Liptai & Price (2019), MNRAS 485, 819
-!   Tejeda (2012), PhD thesis, IAS Trieste
+! :References: None
 !
 ! :Owner: David Liptai
 !

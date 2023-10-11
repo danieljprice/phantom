@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                             !
+! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
 module relaxstar
 !
@@ -15,6 +15,7 @@ module relaxstar
 !
 ! :Runtime parameters:
 !   - maxits   : *maximum number of relaxation iterations*
+!   - tol_dens : *% error in density to stop relaxation*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
 ! :Dependencies: checksetup, damping, deriv, dim, dump_utils, energies,
@@ -26,6 +27,7 @@ module relaxstar
  public :: relax_star,write_options_relax,read_options_relax
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
+ real,    private :: tol_dens = 1.   ! allow 1% RMS error in density
  integer, private :: maxits = 1000
 
  real,    private :: gammaprev,hfactprev,mass1prev
@@ -175,9 +177,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ierr = ierr_unbound
     return
  endif
- if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
+ if (id==master) print "(/,3(a,1pg11.3),/,a,0pf6.2,a,es11.3,a,i4)",&
    ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
-   '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
+   '       WILL stop WHEN: dens error < ',tol_dens,'% AND Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
     if (.not.restart) call write_fulldump(t,filename)
@@ -213,22 +215,18 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     ! compute energies and check for convergence
     !
     call compute_energies(t)
-    converged = (ekin > 0. .and. ekin/abs(epot) < tol_ekin) !.and. rmserr < 0.01*tol_dens)
+    converged = (ekin > 0. .and. ekin/abs(epot) < tol_ekin .and. rmserr < 0.01*tol_dens)
     !
     ! print information to screen
     !
     if (use_step) then
-       if (id==master .and. mod(nits,10)==0 .or. nits==1) then
-          print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",&
-                ' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
-                ' Ekin/Epot:',ekin/abs(epot)
-       endif
+       if (id==master) print "(a,es10.3,a,2pf6.2,2(a,1pg11.3))",&
+        ' Relaxing star: t/dyn:',t/tdyn,', dens error:',rmserr,'%, R*:',rmax, &
+        ' Ekin/Epot:',ekin/abs(epot)
     else
-       if (id==master .and. mod(nits,10)==0 .or. nits==1) then
-          print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
-                ' Relaxing star: Iter',nits,'/',maxits, &
-                ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
-       endif
+       if (id==master) print "(a,i4,a,i4,a,2pf6.2,2(a,1pg11.3))",&
+        ' Relaxing star: Iter',nits,'/',maxits, &
+        ', dens error:',rmserr,'%, R*:',rmax,' Ekin/Epot:',ekin/abs(epot)
     endif
     !
     ! additional diagnostic output, mainly for debugging/checking
@@ -441,7 +439,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
  real,             intent(inout) :: xyzh(:,:),vxyzu(:,:)
  logical,          intent(out)   :: restart
  integer,          intent(out)   :: ierr
- logical :: iexist
+ logical :: iexist,tagged
  character(len=len(filename)) :: restart_file,filetmp
  character(len=lenid) :: fileid
  type(dump_h) :: hdr
@@ -466,7 +464,7 @@ subroutine check_for_existing_file(filename,npart,mgas,xyzh,vxyzu,restart,ierr)
 
  print "(/,1x,a)",'>> RESTARTING relaxation from '//trim(restart_file)
  call open_dumpfile_r(idump,restart_file,fileid,ierr)
- call read_header(idump,hdr,ierr)
+ call read_header(idump,hdr,tagged,ierr)
  close(idump)
  if (ierr /= 0) then
     print "(a)",' ERROR: could not read file header'
@@ -547,6 +545,7 @@ subroutine write_options_relax(iunit)
  integer, intent(in) :: iunit
 
  call write_inopt(tol_ekin,'tol_ekin','tolerance on ekin/epot to stop relaxation',iunit)
+ call write_inopt(tol_dens,'tol_dens','% error in density to stop relaxation',iunit)
  call write_inopt(maxits,'maxits','maximum number of relaxation iterations',iunit)
 
 end subroutine write_options_relax
@@ -562,6 +561,7 @@ subroutine read_options_relax(db,nerr)
  integer,      intent(inout) :: nerr
 
  call read_inopt(tol_ekin,'tol_ekin',db,errcount=nerr)
+ call read_inopt(tol_dens,'tol_dens',db,errcount=nerr)
  call read_inopt(maxits,'maxits',db,errcount=nerr)
 
 end subroutine read_options_relax
