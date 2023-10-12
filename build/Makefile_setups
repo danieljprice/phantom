@@ -177,6 +177,18 @@ ifeq ($(SETUP), grtde)
     ANALYSIS= analysis_gws.f90
 endif
 
+ifeq ($(SETUP), radiotde)
+#   radio tidal disruption event in general relativity
+    GR=yes
+    METRIC=minkowski
+    KNOWN_SETUP=yes
+    GRAVITY=no
+    IND_TIMESTEPS=no
+    ANALYSIS=analysis_radiotde.f90
+    MODFILE=moddump_radiotde.f90
+    SYSTEM=gfortran
+endif
+
 ifeq ($(SETUP), srpolytrope)
 #   polytrope in special relativity
     FPPFLAGS= -DPRIM2CONS_FIRST
