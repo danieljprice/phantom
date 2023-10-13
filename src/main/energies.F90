@@ -72,7 +72,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi,gamma_chem,apr_level,apr_weight
- use part,           only:pxyzu,fxyzu,fext,massoftypefunc
+ use part,           only:pxyzu,fxyzu,fext,aprmassoftype
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,gamma,eos_is_non_ideal,eos_outputs_gasP
@@ -165,7 +165,7 @@ subroutine compute_energies(t)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
-!$omp shared(alphaind,massoftype,irealvisc,iu) &
+!$omp shared(alphaind,massoftype,irealvisc,iu,aprmassoftype) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd,eta_constant) &
@@ -205,13 +205,13 @@ subroutine compute_energies(t)
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
           if (use_apr) then
-            pmassi = massoftypefunc(itype,apr_level(i),apr_weight(i))
+            pmassi = aprmassoftype(itype,apr_level(i))*apr_weight(i)
           else
             pmassi = massoftype(itype)
           endif
        else
          if (use_apr) then
-           pmassi = massoftypefunc(igas,apr_level(i),apr_weight(i))
+           pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
          else
            pmassi = massoftype(igas)
          endif
@@ -507,13 +507,13 @@ subroutine compute_energies(t)
        vzi = vxyzu(3,i)
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = massoftypefunc(iamtype(iphase(i)),apr_level(i),apr_weight(i))
+           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))*apr_weight(i)
          else
            pmassi = massoftype(iamtype(iphase(i)))
          endif
        else
          if (use_apr) then
-           pmassi = massoftypefunc(igas,apr_level(i),apr_weight(i))
+           pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
          else
            pmassi = massoftype(igas)
          endif
@@ -725,7 +725,7 @@ subroutine compute_energies(t)
 
  if (calc_gravitwaves) then
     if (use_apr) then
-      pmassi = massoftypefunc(igas,apr_level(i),apr_weight(i))
+      pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
     else
       pmassi = massoftype(igas)
     endif

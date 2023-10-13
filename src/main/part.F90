@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,maxp_apr
+               inucleation,itau_alloc,itauL_alloc,use_apr,maxp_apr,apr_maxhard
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -340,7 +340,7 @@ module part
 
  integer         :: npartoftype(maxtypes)
  integer(kind=8) :: npartoftypetot(maxtypes)
- real            :: massoftype(maxtypes)
+ real            :: massoftype(maxtypes),aprmassoftype(maxtypes,apr_maxhard)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -390,7 +390,6 @@ subroutine allocate_part
    maxgradh = maxp_apr
    maxan = maxp_apr
    maxphase = maxp_apr
-   maxalpha = maxp_apr
    if (mhd) then
      maxmhd = maxp_apr
      maxmhdan = maxp_apr
@@ -658,36 +657,6 @@ real function get_pmass(i,use_gas)
  endif
 
 end function get_pmass
-
-!
-!----------------------------------------------------------------
-!+
-!  this function returns the particle mass adjusted
-!  for the resolution level
-!+
-!----------------------------------------------------------------
-pure real function massoftypefunc(itype,apri,weighti)
- integer, intent(in) :: itype
- integer, optional, intent(in) :: apri
- real,    optional, intent(in) :: weighti
- integer :: level
- real :: weight
-
- if (present(apri)) then
-   level = apri
- else
-   level = 1
- endif
-
- if (present(weighti)) then
-   weight = weighti
- else
-   weight = 1.0
- endif
-
- massoftypefunc = massoftype(itype)/(2.**(level-1))*weight
-
-end function massoftypefunc
 
 !
 !----------------------------------------------------------------

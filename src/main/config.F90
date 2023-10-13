@@ -325,8 +325,10 @@ module dim
  integer            :: maxp_apr = maxp_hard
 #ifdef APR
  logical, parameter :: use_apr = .true.
+ integer, parameter :: apr_maxhard = 10
 #else
  logical, parameter :: use_apr = .false.
+ integer, parameter :: apr_maxhard = 0
 #endif
 
 !--------------------

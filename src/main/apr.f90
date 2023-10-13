@@ -26,12 +26,12 @@ module apr
   private
   integer :: apr_max, apr_max_in = 3
   integer :: ref_dir = 1, top_level = 1, apr_type = 1
-  real    :: apr_centre(3)
+  real    :: apr_centre(3),apr_rad,apr_blend
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.25
   logical :: apr_verbose = .false.
-  logical :: do_relax = .true.
+  logical :: do_relax = .false.
   logical :: adjusted_split = .true.
 
 contains
@@ -43,12 +43,12 @@ contains
   !-----------------------------------------------------------------------
   subroutine init_apr(apr_level,apr_weight,ierr)
     use dim, only:maxp_hard
-    use part, only:npart,massoftype
+    use part, only:npart,massoftype,aprmassoftype
     use apr_region, only:set_apr_region
     integer, intent(inout) :: ierr,apr_level(:)
     real, intent(inout)    :: apr_weight(:)
     logical :: previously_set
-    real    :: apr_rad
+    integer :: i
 
     ! the resolution levels are in addition to the base resolution
     apr_max = apr_max_in + 1
@@ -71,13 +71,13 @@ contains
     endif
 
     ! initiliase the regions
-    call set_apr_region(apr_type,apr_centre,apr_rad)
+    call set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
     allocate(apr_regions(apr_max),npart_regions(apr_max))
     if (ref_dir == 1) then
       apr_regions(apr_max) = apr_rad
-      apr_regions(1) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-!      apr_regions(2) = 0.4
-!      apr_regions(3) = 0.3
+      apr_regions(1) = 100.    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
+  !    apr_regions(2) = 3.0
+  !    apr_regions(3) = 2.0
       top_level = apr_max
     else
       apr_regions(1) = apr_rad
@@ -94,6 +94,11 @@ contains
       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
     endif
 
+    ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
+    do i = 1,apr_max
+      aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
+    enddo
+
     ! set the initial weightings
     apr_weight(:) = 1.0
 
@@ -108,10 +113,11 @@ contains
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
     use dim,      only:maxp_hard
-    use part,     only:ntot,isdead_or_accreted,igas,massoftypefunc,&
+    use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
                        shuffle_part
     use quitdump, only:quit
     use relaxem,  only:relax_particles
+    use apr_region, only:dynamic_apr,set_apr_region
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),apr_weight(:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
@@ -121,11 +127,11 @@ contains
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi
 
+    ! if the centre of the region can move, update it
+    if (dynamic_apr) call set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
+
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
-
-    print*,apr_weight(1:10)
-    read*
 
     ! Before adjusting the particles, if we're going to
     ! relax them then let's save the reference particles
@@ -142,7 +148,7 @@ contains
         if (.not.isdead_or_accreted(xyzh(4,ii))) then ! ignore dead particles
           n_ref = n_ref + 1
           xyzh_ref(1:4,n_ref) = xyzh(1:4,ii)
-          pmass_ref(n_ref) = massoftypefunc(igas,apr_level(ii))
+          pmass_ref(n_ref) = aprmassoftype(igas,apr_level(ii))
           force_ref(1:3,n_ref) = fxyzu(1:3,ii)*pmass_ref(n_ref)
         endif
       enddo
@@ -212,7 +218,7 @@ contains
       enddo
 
       ! Now send them to be merged
-      if (nmerge > 0) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
+      if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
       vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
       nrelax,relaxlist,npartnew)
       if (apr_verbose) then
@@ -444,7 +450,7 @@ contains
 
     call write_inopt(apr_max_in,'apr_max','number of refinement levels (3 -> 2x resolution)',iunit)
     call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
-    call write_inopt(apr_type,'apr_type','1: static',iunit)
+    call write_inopt(apr_type,'apr_type','1: static, 2: moving sink',iunit)
 
   end subroutine write_options_apr
 
@@ -454,7 +460,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine hacky_write(ifile)
-    use part, only:igas,rhoh,massoftypefunc,Bxyz, &
+    use part, only:igas,rhoh,aprmassoftype,Bxyz, &
                    npart,xyzh,apr_level
     use dim,  only:mhd
     character(len=*), intent(in) :: ifile
@@ -484,7 +490,7 @@ contains
     8,'By'
 
     do ii=1,npart
-      pmass = massoftypefunc(igas,apr_level(ii))
+      pmass = aprmassoftype(igas,apr_level(ii))
       rhoi = rhoh(xyzh(4,ii),pmass)
       if (.not.mhd) then
         write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), 0.0, 0.

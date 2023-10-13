@@ -24,7 +24,7 @@ module kdtree
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
  use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
-                       apr_level,apr_level_soa,massoftypefunc, &
+                       apr_level,apr_level_soa,aprmassoftype, &
                        apr_weight,apr_weight_soa
 
  implicit none
@@ -570,7 +570,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npnode,massoftype,dfac) &
+    !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
     !$omp shared(xyzh_soa,apr_level_soa,apr_weight_soa,i1,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
@@ -584,7 +584,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i),apr_weight_soa(i))
+           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))*apr_weight_soa(i)
          else
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
@@ -605,7 +605,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i),apr_weight_soa(i))
+           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))*apr_weight_soa(i)
          else
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
@@ -673,7 +673,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #ifdef GRAVITY
     if (maxphase==maxp) then
       if (use_apr) then
-        pmassi = massoftypefunc(iamtype(iphase_soa(i)),apr_level_soa(i),apr_weight_soa(i))
+        pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))*apr_weight_soa(i)
       else
         pmassi = massoftype(iamtype(iphase_soa(i)))
       endif
@@ -1506,7 +1506,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
 !$omp shared(xyzh, ifirstincell, ncells, apr_level,apr_weight) &
-!$omp shared(node, ll, iphase, massoftype, maxlevel) &
+!$omp shared(node, ll, iphase, massoftype, maxlevel,aprmassoftype) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
 !$omp private(dx, dy, dz, dr2, icell, i, x0) &
 #ifdef GRAVITY
@@ -1530,7 +1530,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        zi = xyzh(3,i)
        if (maxphase==maxp) then
           if (use_apr) then
-            pmassi = massoftypefunc(iamtype(iphase(i)),apr_level(i),apr_weight(i))
+            pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))*apr_weight(i)
           else
             pmassi = massoftype(iamtype(iphase(i)))
           endif
@@ -1572,7 +1572,7 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 #ifdef GRAVITY
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = massoftypefunc(iamtype(iphase(i)),apr_level(i),apr_weight(i))
+           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i),apr_weight(i))
          else
            pmassi = massoftype(iamtype(iphase(i)))
          endif

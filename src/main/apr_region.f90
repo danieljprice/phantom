@@ -35,9 +35,10 @@ contains
   !+
   !-----------------------------------------------------------------------
 
-subroutine set_apr_region(apr_type,apr_centre,apr_rad)
+subroutine set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
+  use part, only: xyzmh_ptmass
   integer, intent(in) :: apr_type
-  real,    intent(out) :: apr_centre(3),apr_rad
+  real,    intent(out) :: apr_centre(3),apr_rad,apr_blend
 
   select case (apr_type)
 
@@ -47,11 +48,21 @@ subroutine set_apr_region(apr_type,apr_centre,apr_rad)
     apr_centre(2) = 0.0
     apr_centre(3) = 0.0
     apr_rad = 0.2
+    apr_blend = 0.1
+
+  case(2) ! around sink particle 2 - e.g. a planet
+    dynamic_apr = .true.
+    apr_centre(1) = xyzmh_ptmass(1,2)
+    apr_centre(2) = xyzmh_ptmass(2,2)
+    apr_centre(3) = xyzmh_ptmass(3,2)
+    apr_rad = 2.0
+    apr_blend = 0.1
 
   case default
     dynamic_apr = .false.
     apr_centre(:) = 0.
     apr_rad = 0.2
+    apr_blend = 0.1
 
   end select
 
