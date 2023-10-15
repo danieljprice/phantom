@@ -88,7 +88,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
 !
  npart = 0
  npartoftype(:) = 0
- massoftype = 1d-9
+ massoftype = 0.
 
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.

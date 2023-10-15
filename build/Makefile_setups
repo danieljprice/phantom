@@ -609,7 +609,7 @@ ifeq ($(SETUP), blob)
 #   Blob evaporation problem
     PERIODIC=yes
     SETUPFILE= setup_blob.f90
-    DOUBLEPRECISION= no
+    DOUBLEPRECISION=no
     KNOWN_SETUP=yes
 endif
 
@@ -841,6 +841,16 @@ ifeq ($(SETUP), BHL)
     SRCINJECT= inject_BHL.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
+endif
+
+ifeq ($(SETUP), windtunnel)
+#   Wind tunnel setup
+    SETUPFILE= setup_windtunnel.f90
+    SRCINJECT= inject_windtunnel.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
 endif
 
 ifeq ($(SETUP), jet)
