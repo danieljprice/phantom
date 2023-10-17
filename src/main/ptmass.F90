@@ -1721,8 +1721,10 @@ end subroutine calculate_mdot
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
- use part,   only:imassenc,ihsoft,massoftype,igas,xyzmh_ptmass
+ use part,   only:imassenc,ihsoft,massoftype,igas,xyzmh_ptmass, &
+                  aprmassoftype,apr_level,apr_weight
  use kernel, only:radkern2
+ use dim,    only:use_apr
  integer, intent(in) :: nptmass,npart
  real,    intent(in) :: xyzh(:,:)
  integer             :: i,j,ncount
@@ -1736,7 +1738,11 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
           ncount = ncount + 1
        endif
     enddo
-    xyzmh_ptmass(imassenc,i) = ncount * massoftype(igas)
+    if (use_apr) then
+      xyzmh_ptmass(imassenc,i) = ncount * aprmassoftype(igas,apr_level(i))*apr_weight(i)
+    else
+      xyzmh_ptmass(imassenc,i) = ncount * massoftype(igas)
+    endif
  enddo
 
 end subroutine ptmass_calc_enclosed_mass

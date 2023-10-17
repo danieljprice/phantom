@@ -1236,7 +1236,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              else
                pmassi = massoftype(itype)
              endif
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
           endif
+
           !
           ! predict v to the half step
           !
@@ -1418,6 +1421,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                pmassi = massoftype(itype)
              endif
              if (iamboundary(itype)) cycle accreteloop
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
           endif
           !
           ! correct v to the full step using only the external force
@@ -1440,7 +1445,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              fyi = fext(2,i)
              fzi = fext(3,i)
              if (ind_timesteps) ibin_wakei = ibin_wake(i)
-
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                  vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
                                  itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
