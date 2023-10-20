@@ -133,7 +133,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                                    xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
- requires_eos_opts = any((/2,3,4,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32,33,35,41/) == analysis_to_perform)
+ requires_eos_opts = any((/2,3,4,5,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32,33,35,41/) == analysis_to_perform)
  if (dump_number == 0 .and. requires_eos_opts) call set_eos_options(analysis_to_perform)
 
  select case(analysis_to_perform)
