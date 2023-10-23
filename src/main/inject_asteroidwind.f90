@@ -36,7 +36,6 @@ module inject
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  real         :: vlag          = 0.0      ! percentage lag in velocity of wind
  integer      :: mdot_type     = 2        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
- logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
 !-----------------------------------------------------------------------
@@ -47,7 +46,6 @@ contains
 subroutine init_inject(ierr)
  integer, intent(inout) :: ierr
 
- scaling_set = .false.
  ierr = 0
 
 end subroutine init_inject
@@ -225,8 +223,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject
