@@ -2043,6 +2043,10 @@ subroutine get_stress(pri,spsoundi,rhoi,rho1i,xi,yi,zi, &
 !
     pro2i  = (pri + radPi)*rho1i*rho1i + stressiso
     vwavei = spsoundi
+
+    if (do_radiation) then
+       vwavei = sqrt(vwavei*vwavei + 4.*radPi/(3.*rhoi))  ! Commercon et al. (2011)
+    endif
  endif
 
 end subroutine get_stress
