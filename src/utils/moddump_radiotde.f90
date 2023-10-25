@@ -24,7 +24,7 @@ module moddump
 !
  implicit none
  public :: modify_dump
- private :: rho,rho_tab,get_temp_r,uerg,calc_rhobreak,write_setupfile,read_setupfile
+ private :: rho,rho_tab,get_temp_r,uerg,calc_rhobreak,calc_rho0,write_setupfile,read_setupfile
 
  private
  integer           :: ieos_in,nprof,nbreak,nbreak_old
@@ -34,7 +34,7 @@ module moddump
  real, allocatable :: rhof_n(:),rhof_rbreak(:),rhof_rhobreak(:)
  real, allocatable :: rhof_n_in(:),rhof_rbreak_in(:)
  real, allocatable :: rad_prof(:),dens_prof(:)
- real              :: rhof_rho0
+ real              :: rhof_rho0,m_target,m_threshold
  logical           :: use_func,use_func_old,remove_overlap
 
 contains
@@ -96,6 +96,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  allocate(rhof_n(nbreak),rhof_rbreak(nbreak))
  rhof_n            = -1.7
  rhof_rbreak       = rad_min
+ m_target          = dot_product(npartoftype,massoftype)*umass/solarm
+ m_threshold       = 1.e-3
   !--Profile default setups
  read_temp         = .false.
  profile_filename  = default_name
@@ -131,7 +133,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     allocate(rhof_n(nbreak),rhof_rbreak(nbreak),rhof_rhobreak(nbreak))
     rhof_n(:) = rhof_n_in(1:nbreak)
     rhof_rbreak(:) = rhof_rbreak_in(1:nbreak)
-    call calc_rhobreak()
  else
     if (temperature .le. 0) read_temp = .true.
     rhof => rho_tab    
@@ -167,12 +168,25 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rad_max = rad_max/udist
     rhof_rbreak = rhof_rbreak/udist
     rhof_rhobreak = rhof_rhobreak/unit_density
+    m_target = m_target*solarm/umass
+    m_threshold = m_threshold*solarm/umass
  else
     rad_prof = rad_prof/udist
     dens_prof = dens_prof/unit_density
     rad_min = rad_prof(1)
     rad_max = rad_prof(nprof)
  endif
+
+ !--Calc rho0 and rhobreak
+ if (use_func) then
+    if (rhof_rho0 < 0.) then
+       call calc_rho0(rhof)
+    elseif (m_target < 0.) then
+       call calc_rhobreak()
+    else
+       call fatal('moddump','Must give rho0 or m_target')
+    endif
+ endif 
 
  !--remove unwanted particles
  if (ignore_radius > 0) then
@@ -308,6 +322,33 @@ subroutine calc_rhobreak()
 
 end subroutine calc_rhobreak
 
+subroutine calc_rho0(rhof)
+ use units,      only:unit_density
+ use stretchmap, only:get_mass_r
+ procedure(rho), pointer, intent(in) :: rhof
+ real    :: rho0_min,rho0_max,totmass
+ integer :: iter
+ 
+ rho0_min = 0.
+ rho0_max = 1.
+ totmass = -1.
+ iter = 0
+
+ do while (abs(totmass - m_target) > m_threshold)
+    rhof_rho0 = 0.5*(rho0_min + rho0_max)
+    call calc_rhobreak()
+    totmass = get_mass_r(rhof,rad_max,rad_min)
+    if (totmass > m_target) then
+       rho0_max = rhof_rho0
+    else
+       rho0_min = rhof_rho0
+    endif
+    iter = iter + 1
+ enddo
+ write(*,'(a11,1x,es10.2,1x,a12,1x,i3,1x,a10)') ' Get rho0 =', rhof_rho0*unit_density, 'g/cm^-3 with', iter, 'iterations'
+
+end subroutine
+
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -332,7 +373,9 @@ subroutine write_setupfile(filename)
     call write_inopt(rad_min,'rad_min','inner radius of the circumnuclear gas cloud',iunit)
     call write_inopt(rad_max,'rad_max','outer radius of the circumnuclear gas cloud',iunit)
     write(iunit,"(/,a)") '# density broken power law'
-    call write_inopt(rhof_rho0,'rhof_rho0','density at rad_min (in g/cm^3)',iunit)
+    call write_inopt(rhof_rho0,'rhof_rho0','density at rad_min (in g/cm^3) (-ve = ignore and calc for m_target)',iunit)
+    call write_inopt(m_target,'m_target','target mass in circumnuclear gas cloud (in Msun) (-ve = ignore and use rho0)',iunit)
+    call write_inopt(m_threshold,'m_threshold','threshold in solving rho0 for m_target (in Msun)',iunit)
     call write_inopt(nbreak,'nbreak','number of broken power laws',iunit)
     write(iunit,"(/,a)") '#    section 1 (from rad_min)'
     call write_inopt(rhof_n(1),'rhof_n_1','power law index of the section',iunit)
@@ -387,7 +430,9 @@ subroutine read_setupfile(filename,ierr)
  if (use_func) then
     call read_inopt(rad_min,'rad_min',db,min=ignore_radius,err=ierr)
     call read_inopt(rad_max,'rad_max',db,min=rad_min,err=ierr)
-    call read_inopt(rhof_rho0,'rhof_rho0',db,min=0.,err=ierr)
+    call read_inopt(rhof_rho0,'rhof_rho0',db,err=ierr)
+    call read_inopt(m_target,'m_target',db,err=ierr)
+    call read_inopt(m_threshold,'m_threshold',db,err=ierr)
     call read_inopt(nbreak,'nbreak',db,min=1,err=ierr)
     allocate(rhof_rbreak_in(in_num),rhof_n_in(in_num))
     call read_inopt(rhof_n_in(1),'rhof_n_1',db,err=ierr)
