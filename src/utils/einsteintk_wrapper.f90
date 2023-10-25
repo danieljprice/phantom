@@ -239,7 +239,7 @@ subroutine et2phantom_tmunu()
  ! Correct Tmunu
  ! Convert to 8byte real to stop compiler warning
  tmunugrid = real(cfac)*tmunugrid
-
+ 
 
 end subroutine et2phantom_tmunu
 
@@ -418,15 +418,13 @@ end subroutine phantom2et_momentum
 
  ! Subroutine for performing a phantom dump from einstein toolkit
 subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
- use cons2prim, only:cons2primall
- !use part, only:npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars
  use einsteintk_utils
  use evwrite,          only:write_evfile,write_evlog
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use fileutils,        only:getnextfilename
  use tmunu2grid, only:check_conserved_dens
  real, intent(in)  :: time, dt_et
- real(kind=16) :: cfac
+ !real(kind=16) :: cfac
  !logical, intent(in), optional :: checkpoint
  !integer, intent(in) :: checkpointno 
  character(*),optional, intent(in) :: checkpointfile
@@ -437,10 +435,7 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  else 
      createcheckpoint = .false.
  endif   
- !character(len=20) :: logfile,evfile,dumpfile
 
- ! Call cons2prim since values are updated with MoL
- !call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  ! Write EV_file
  if (.not. createcheckpoint) then 
        call write_evfile(time,dt_et)
@@ -451,14 +446,19 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
        call write_fulldump(time,dumpfilestor)
  endif 
 
- !print*, "Evfile: ", evfilestor
- !print*, "logfile: ", logfilestor
- !print*, "dumpfle: ", dumpfilestor
  ! Write full dump
  if (createcheckpoint) then 
        call write_fulldump(time,checkpointfile) 
  endif 
+
+ ! Quick and dirty write cfac to txtfile
  
+ ! Density check vs particles
+!  call check_conserved_dens(rhostargrid,cfac)
+!  open(unit=777, file="cfac.txt", action='write', position='append')
+!  print*, time, cfac 
+!  write(777,*) time, cfac
+!  close(unit=777)
 
 end subroutine et2phantom_dumphydro
 
