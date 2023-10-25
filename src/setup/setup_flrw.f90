@@ -63,7 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use unifdis,      only:set_unifdis,rho_func!,mass_func
  use boundary,     only:xmin,ymin,zmin,xmax,ymax,zmax,dxbound,dybound,dzbound,set_boundary
  use part,         only:periodic
- use physcon,      only:years,pc,solarm
+ use physcon,      only:years,pc,solarm,pi
  use units,        only:set_units
  use mpidomain,    only:i_belong
  use stretchmap,   only:set_density_profile
@@ -81,7 +81,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=40) :: filename,lattice
- real    :: totmass,deltax,pi
+ real    :: totmass,deltax
  integer :: i,ierr
  logical :: iexist
  real    :: kwave,denom,length, c1,c3,lambda
@@ -89,15 +89,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: Vup(0:3),phi,sqrtg,gcov(0:3,0:3),alpha,hub
  real    :: last_scattering_temp
  procedure(rho_func), pointer :: density_func
- !procedure(mass_func), pointer :: mass_function
 
  density_func => rhofunc  ! desired density function
- !mass_function => massfunc ! desired mass funciton
+ 
 
  !
  !--general parameters
  !
- perturb_wavelength = 1.
+ perturb_wavelength = 1.0
  time = 0.
  if (maxvxyzu < 4) then
     gamma = 1.
@@ -106,8 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! irrelevant for
     gamma = 4./3.
  endif
- ! Redefinition of pi to fix numerical error
- pi = 4.D0*Datan(1.0D0)
+ 
  !
  ! default units
  !
@@ -133,11 +131,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Then it should be set using the Friedmann equation:
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
- hub =  10.553495658357338
+ hub =  10.553495658357338!/10.
  !hub = 23.588901903912664
  !hub = 0.06472086375185665
- rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ rhozero = 3. * hub**2 / (8. * pi)
  phaseoffset = 0.
+ ampl = 0.
 
  ! Approx Temp of the CMB in Kelvins
  !last_scattering_temp = 3000
@@ -146,9 +145,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
- c1 = 1.d0/(4.d0*PI*rhozero)
+ c1 = 1./(4.*pi*rhozero)
  !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
- c3 =  - sqrt(1.d0/(6.d0*PI*rhozero)) 
+ c3 =  - sqrt(1./(6.*pi*rhozero)) 
  !c3 = hub/(4.d0*PI*rhozero)
 
 
@@ -203,8 +202,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  lambda = perturb_wavelength*length
  kwave  = (2.d0*pi)/lambda
  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
- ! Hardcode to ensure double precision, that is requried
- !rhozero = 13.294563008157013D0
  rhozero = 3.d0 * hub**2 / (8.d0 * pi)
  print*, rhozero
 
@@ -212,7 +209,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case('"yes"')
 
     ! Set a value of rho_matter 
-    rho_matter = 1.e-20
+    rho_matter = 1.e-40
     !rhozero = rhozero - radconst*last_scattering_temp**4
     ! Solve for temperature 
     last_scattering_temp = ((rhozero-rho_matter)/radconst)**(1./4.)
@@ -221,7 +218,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  xval = density_func(0.75)
  xval = density_func(0.5)
- !stop
 
  select case(ilattice)
  case(2)
@@ -277,11 +273,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     select case(perturb_direction)
     case ('"x"')
-       ! should not be zero, for a pertrubed wave
-       !vxyzu(1,i) = ampl*sin(kwave*(xyzh(1,i)-xmin))
-       vxyzu(1,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
+       ! should not be zero, for a perturbed wave
+       vxyzu(1,i)  = kwave*c3*ampl*cos((2.*pi*xyzh(1,i))/lambda - phaseoffset)
        phi = ampl*sin(kwave*xyzh(1,i)-phaseoffset)
-       Vup(1)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(1,i) - phaseoffset)
+       Vup(1)  = kwave*c3*ampl*cos(2.*pi*xyzh(1,i) - phaseoffset)
        Vup(2:3) = 0.
        call perturb_metric(phi,gcov)
        call get_sqrtg(gcov,sqrtg)
@@ -290,10 +285,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        vxyzu(1,i) = Vup(1)*alpha
        vxyzu(2:3,i) = 0.
     case ('"y"')
-       vxyzu(2,i)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
+       vxyzu(2,i)  = kwave*c3*ampl*cos((2.*pi*xyzh(2,i))/lambda - phaseoffset)
        phi = ampl*sin(kwave*xyzh(2,i)-phaseoffset)
        Vup = 0.
-       Vup(2)  = kwave*c3*ampl*cos(2.d0*pi*xyzh(2,i) - phaseoffset)
+       Vup(2)  = kwave*c3*ampl*cos(2.*pi*xyzh(2,i) - phaseoffset)
 
        call perturb_metric(phi,gcov)
        call get_sqrtg(gcov,sqrtg)
@@ -304,9 +299,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
     case ('"all"')
        phi = ampl*(sin(kwave*xyzh(1,i)-phaseoffset) - sin(kwave*xyzh(2,i)-phaseoffset) - sin(kwave*xyzh(3,i)-phaseoffset))
-       Vup(1)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(1,i))/lambda - phaseoffset)
-       Vup(2)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(2,i))/lambda - phaseoffset)
-       Vup(3)  = kwave*c3*ampl*cos((2.d0*pi*xyzh(3,i))/lambda - phaseoffset)
+       Vup(1)  = kwave*c3*ampl*cos((2.*pi*xyzh(1,i))/lambda - phaseoffset)
+       Vup(2)  = kwave*c3*ampl*cos((2.*pi*xyzh(2,i))/lambda - phaseoffset)
+       Vup(3)  = kwave*c3*ampl*cos((2.*pi*xyzh(3,i))/lambda - phaseoffset)
 
        call perturb_metric(phi,gcov)
        call get_sqrtg(gcov,sqrtg)
@@ -330,7 +325,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        if (maxvxyzu >= 4 .and. gamma > 1.) vxyzu(4,i) = (radconst*(last_scattering_temp**4))/rhozero !vxyzu(4,i) = cs0**2/(gamma*(gamma-1.))
        ! Check that the pressure is correct
        print*, "Pressure: ", (gamma-1)*rhozero*vxyzu(4,i)
-       print*, "Pressure from energy density: ", 3.d0 * hub**2 / (8.d0 * pi)/3.
+       print*, "Pressure from energy density: ", 3. * hub**2 / (8. * pi)/3.
        print*, "Pressure 1/3 \rho u: ",radconst*(last_scattering_temp**4)/3.
        print*, "particle mass: ", massoftype
     end select
@@ -345,7 +340,6 @@ contains
 !----------------------------------------------------
 real function rhofunc(x)
  use utils_gr, only:perturb_metric, get_u0, get_sqrtg
- !use metric_tools, only:unpack_metric
  real, intent(in) :: x
  real :: const, phi, rhoprim, gcov(0:3,0:3), sqrtg,u0,v(3),Vup(3)
  real :: alpha
@@ -355,7 +349,7 @@ real function rhofunc(x)
  !rhofunc = ampl*sin(kwave*(x-xmin))
  ! Eq 28. in Macpherson+ 2017
  ! Although it is missing a negative sign
- const = -kwave*kwave*c1 - 2.d0
+ const = -kwave*kwave*c1 - 2.
  phi = ampl*sin(kwave*x-phaseoffset)
  !rhofunc = rhozero*(1.d0 + const*ampl*sin(kwave*x))
  ! Get the primative density from the linear perb
@@ -368,7 +362,7 @@ real function rhofunc(x)
  ! Define the 3 velocities to calculate u0
  ! Three velocity will need to be converted from big V to small v
  !
- Vup(1) = kwave*c3*ampl*cos((2.d0*pi*x)/lambda-phaseoffset)
+ Vup(1) = kwave*c3*ampl*cos((2.*pi*x)/lambda-phaseoffset)
  Vup(2:3) = 0.
  alpha = sqrt(-gcov(0,0))
  v(1) = Vup(1)*alpha
@@ -376,10 +370,6 @@ real function rhofunc(x)
  ! calculate u0
  ! TODO Should probably handle this error at some point
  call get_u0(gcov,v,u0,ierr)
- !print*,"u0: ", u0
- !print*, alpha
- !print*,"gcov: ", gcov
- !print*, "sqrtg: ", sqrtg
  ! Perform a prim2cons
  rhofunc = rhoprim*u0*sqrtg
 
@@ -393,7 +383,7 @@ real function massfunc(x,xmin)
  real :: lorrentz, bigv2
 
  ! The value inside the bracket
- const = -kwave*kwave*c1 - 2.d0
+ const = -kwave*kwave*c1 - 2.
  phi = ampl*sin(kwave*x-phaseoffset)
  !expr = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*x)/lambda)
  !exprmin = ampl*(-(1./kwave))*cos(phaseoffset - (2.d0*pi*xmin)/lambda)
@@ -411,7 +401,7 @@ real function massfunc(x,xmin)
  ! Define the 3 velocities to calculate u0
  ! Three velocity will need to be converted from big V to small v
  !
- Vup(1) = kwave*c3*ampl*cos((2.d0*pi*x)/lambda-phaseoffset)
+ Vup(1) = kwave*c3*ampl*cos((2.*pi*x)/lambda-phaseoffset)
  Vup(2:3) = 0.
  alpha = sqrt(-gcov(0,0))
  !v(0) = 1
@@ -422,12 +412,6 @@ real function massfunc(x,xmin)
  call get_u0(gcov,v,u0,ierr)
  massfunc = (massprim)!*lorrentz
  massfunc = massprim!*sqrtg*u0
-!  print*,u0
-!  print*,sqrtg
-!  print*, massfunc
-!  print*, massprim
- !stop 
-
 
 end function massfunc
 

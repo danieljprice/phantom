@@ -424,7 +424,9 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use evwrite,          only:write_evfile,write_evlog
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use fileutils,        only:getnextfilename
+ use tmunu2grid, only:check_conserved_dens
  real, intent(in)  :: time, dt_et
+ real(kind=16) :: cfac
  !logical, intent(in), optional :: checkpoint
  !integer, intent(in) :: checkpointno 
  character(*),optional, intent(in) :: checkpointfile
