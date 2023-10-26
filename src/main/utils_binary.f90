@@ -2,11 +2,13 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module binaryutils
 !
 ! Utility routines for binary setup, also used in asteroid injection
+! Main thing is routines to compute eccentric anomaly from mean anomaly
+! by solving Kepler's equation
 !
 ! :References: None
 !
@@ -19,24 +21,39 @@ module binaryutils
  implicit none
  real, parameter :: pi = 4.*atan(1.)
 
+ public :: get_E,get_E_from_mean_anomaly
+ public :: get_orbit_bits
+
 contains
 
 !---------------------------------------------------------------
 !+
-! Get eccentric anomaly (this function uses bisection
-! to guarantee convergence, which is not guaranteed for
-! small M or E)
+! Get eccentric anomaly given time since pericentre
 !+
 !---------------------------------------------------------------
 subroutine get_E(period,ecc,deltat,E)
  real, intent(in)  :: period,ecc,deltat
  real, intent(out) :: E
- real :: mu,M_ref,M_guess
- real :: E_left,E_right,E_guess
- real, parameter :: tol = 1.e-10
+ real :: mu,M_ref
 
  mu = 2.*pi/period
  M_ref = mu*deltat ! mean anomaly
+
+ E = get_E_from_mean_anomaly(M_ref,ecc)
+
+end subroutine get_E
+
+!---------------------------------------------------------------
+!+
+! Get eccentric anomaly from mean anomaly (this function uses
+! bisection to guarantee convergence, which is not guaranteed for
+! small M or E)
+!+
+!---------------------------------------------------------------
+real function get_E_from_mean_anomaly(M_ref,ecc) result(E)
+ real, intent(in) :: M_ref,ecc
+ real :: E_left,E_right,E_guess,M_guess
+ real, parameter :: tol = 1.e-10
 
  ! first guess
  E_left = 0.
@@ -45,7 +62,13 @@ subroutine get_E(period,ecc,deltat,E)
  M_guess = M_ref - 2.*tol
 
  do while (abs(M_ref - M_guess) > tol)
-    M_guess = E_guess - ecc*sin(E_guess)
+    if (ecc < 1.) then     ! eccentric
+       M_guess = E_guess - ecc*sin(E_guess)
+    elseif (ecc > 1.) then ! hyperbolic
+       M_guess = ecc*sinh(E_guess) - E_guess
+    else                   ! parabolic
+       M_guess = E_guess + 1./3.*E_guess**3
+    endif
     if (M_guess > M_ref) then
        E_right = E_guess
     else
@@ -56,7 +79,28 @@ subroutine get_E(period,ecc,deltat,E)
 
  E = E_guess
 
-end subroutine get_E
+end function get_E_from_mean_anomaly
+
+!---------------------------------------------------------------
+!+
+!  Get eccentric (or parabolic/hyperbolic) anomaly from true anomaly
+!  https://space.stackexchange.com/questions/23128/design-of-an-elliptical-transfer-orbit/23130#23130
+!+
+!---------------------------------------------------------------
+real function get_E_from_true_anomaly(theta,ecc) result(E)
+ real, intent(in) :: theta  ! true anomaly in radians
+ real, intent(in) :: ecc    ! eccentricity
+
+ if (ecc < 1.) then
+    E = atan2(sqrt(1. - ecc**2)*sin(theta),(ecc + cos(theta)))
+ elseif (ecc > 1.) then ! hyperbolic
+    !E = atanh(sqrt(ecc**2 - 1.)*sin(theta)/(ecc + cos(theta)))
+    E = 2.*atanh(sqrt((ecc - 1.)/(ecc + 1.))*tan(0.5*theta))
+ else ! parabolic
+    E = tan(0.5*theta)
+ endif
+
+end function get_E_from_true_anomaly
 
 !-----------------------------------------------------------------------
 !+
@@ -64,7 +108,6 @@ end subroutine get_E
 !  mass of central object and iexternalforce (for LT corrections)
 !+
 !-----------------------------------------------------------------------
-
 subroutine get_orbit_bits(vel,rad,m1,iexternalforce,semia,ecc,ra,rp)
  real, intent(in)    :: m1, vel(3), rad(3)
  integer, intent(in) :: iexternalforce

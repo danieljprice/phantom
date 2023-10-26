@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setfixedentropycore
 !
@@ -131,13 +131,11 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore)
        msoft = mh - mcore
     endif
     if (mold * mass < 0.) fac = fac * 0.5
-    if (mold == mass) then
-       write(*,'(a,f12.5)') 'Warning: Setting fixed entropy for m(r=0)/msoft = ',mass/msoft
+    if (abs(mold-mass) < tiny(0.)) then
+       write(*,'(/,1x,a,f12.5)') 'WARNING: Setting fixed entropy for m(r=0)/msoft = ',mass/msoft
        exit
     endif
  enddo
-
- return
 
 end subroutine calc_rho_and_pres
 
@@ -179,8 +177,6 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
     if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
  enddo
-
- return
 
 end subroutine one_shot
 

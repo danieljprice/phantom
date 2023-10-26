@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module densityforce
 !
@@ -27,8 +27,6 @@ module densityforce
  use timing,  only:getused,printused,print_time
 
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: densityiterate,get_neighbour_stats
 
@@ -404,7 +402,10 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     enddo
  endif
 
- call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ if (mpi) then
+    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+         irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+ endif
 
  !$omp master
  call get_timings(t2,tcpu2)
@@ -422,6 +423,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
  n_remote_its = 0
  iterations_finished = .false.
+ if (.not.mpi) iterations_finished = .true.
  !$omp end master
  !$omp barrier
 
@@ -469,11 +471,12 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo
     endif igot_remote
 
-    call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    if (mpi) call recv_while_wait(stack_waiting,xrecvbuf,irequestrecv,&
+             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
     call reset_cell_counters(cell_counters)
     !$omp barrier
 
-    iam_waiting: if (stack_waiting%n > 0) then
+    iam_waiting: if (mpi .and. stack_waiting%n > 0) then
        !$omp do schedule(runtime)
        over_waiting: do i = 1, stack_waiting%n
           cell = stack_waiting%cells(i)
@@ -525,7 +528,8 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        enddo
     endif iam_waiting
 
-    call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,irequestsend,thread_complete,cell_counters,ncomplete_mpi)
+    if (mpi) call recv_while_wait(stack_remote,xrecvbuf,irequestrecv,&
+             irequestsend,thread_complete,cell_counters,ncomplete_mpi)
 
     !$omp master
     if (reduceall_mpi('max',stack_redo%n) > 0) then
@@ -885,7 +889,6 @@ pure subroutine calculate_rmatrix_from_sums(rhosum,denom,rmatrix,idone)
  rmatrix(6) = rxxi*ryyi - rxyi*rxyi    ! zz
  idone = .true.
 
- return
 end subroutine calculate_rmatrix_from_sums
 
 !----------------------------------------------------------------
@@ -920,7 +923,7 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  !--time derivative of div v, needed for Cullen-Dehnen switch
  if (nalpha >= 2) then
     !--Divvdt For switch
-    if (use_exact_linear) then
+    if (use_exact_linear .and. abs(denom) > tiny(denom)) then
        ddenom = 1./denom
        call exactlinear(gradaxdx,gradaxdy,gradaxdz,rhosum(idaxdxi),rhosum(idaxdyi),rhosum(idaxdzi),rmatrix,ddenom)
        call exactlinear(gradaydx,gradaydy,gradaydz,rhosum(idaydxi),rhosum(idaydyi),rhosum(idaydzi),rmatrix,ddenom)

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module damping
 !
@@ -29,7 +29,7 @@ module damping
 !
  implicit none
 
- public  :: calc_damp,apply_damp
+ public  :: calc_damp,apply_damp,get_damp_fac_disc
  public  :: write_options_damping,read_options_damping
 
  private
@@ -55,11 +55,12 @@ subroutine calc_damp(time, damp_fac)
  use physcon, only:pi
  real, intent(out)   :: damp_fac
  real, intent(in)    :: time
- real                :: tau1, tau2, tdyn_star
+ real                :: tau1, tau2, tdyn_star, orbital_period
 
  select case(idamp)
  case(3)
-    damp_fac = 1./(damp*2.*pi*sqrt(r1in**3)) ! fraction of orbital time at r=r1in with G=M=1
+    orbital_period = 2.*pi*sqrt(r1in**3)  ! G=M=1
+    damp_fac = damp/orbital_period ! fraction of orbital time at r=r1in with G=M=1
  case(2)
     tdyn_star = tdyn_s / utime
     tau1 = tdyn_star * 0.1

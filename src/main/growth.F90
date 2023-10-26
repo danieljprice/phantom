@@ -2,16 +2,16 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module growth
 !
 ! Contains routine for dust growth and fragmentation
 !
 ! :References:
-!  Stepinski & Valageas (1997)
-!  Kobayashi & Tanaka (2009)
-!  Rozner & Grishin (2020)
+!  Stepinski & Valageas (1997), A&A 319, 1007
+!  Kobayashi & Tanaka (2010), Icarus 206, 735
+!  Rozner, Grishin & Perets (2020), MNRAS 496, 4827
 !
 ! :Owner: Arnaud Vericel
 !
@@ -38,6 +38,7 @@ module growth
  use units,        only:udist,umass,utime,unit_density,unit_velocity
  use physcon,      only:au,Ro
  use part,         only:xyzmh_ptmass,nptmass,this_is_a_flyby
+ use options,      only:use_mcfost
  implicit none
 
  !--Default values for the growth and fragmentation of dust in the input file
@@ -62,11 +63,9 @@ module growth
  real, public           :: cohacc
  real, public           :: dsize
 
-#ifdef MCFOST
  logical, public        :: f_smax    = .false.
  real,    public        :: size_max  = 0.2 !- cm
  integer, public        :: b_per_dex = 5
-#endif
 
  public                 :: get_growth_rate,get_vrelonvfrag,check_dustprop
  public                 :: write_options_growth,read_options_growth,print_growthinfo,init_growth
@@ -218,6 +217,12 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
  rho  = 0.
 
  !--get ds/dt over all particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,iphase,ieos,massoftype,use_dustfrac,dustfrac) &
+ !$omp shared(ifrag,ieros,utime,umass,dsize,cohacc) &
+ !$omp shared(xyzh,vxyzu,dustprop,dustgasprop,dsdt,VrelVf,tstop,deltav) &
+ !$omp private(i,iam,rho,rhog,rhod,vrel)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        iam = iamtype(iphase(i))
@@ -263,6 +268,8 @@ subroutine get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,dsdt)
        dsdt(i) = 0.
     endif
  enddo
+ !$omp end parallel do
+
 
 end subroutine get_growth_rate
 
@@ -342,7 +349,7 @@ end subroutine comp_snow_line
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_growth(iunit)
- use infile_utils,        only:write_inopt
+ use infile_utils, only:write_inopt
  integer, intent(in)        :: iunit
 
  write(iunit,"(/,a)") '# options controlling growth'
@@ -365,11 +372,11 @@ subroutine write_options_growth(iunit)
     call write_inopt(dsizecgs,'dsize','size of ejected grain during erosion in cm',iunit)
  endif
 
-#ifdef MCFOST
- call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
- call write_inopt(size_max,'size_max_user','(mcfost) maximum size for binning in cm',iunit)
- call write_inopt(b_per_dex,'bin_per_dex','(mcfost) number of bins of sizes per dex',iunit)
-#endif
+ if (use_mcfost) then
+    call write_inopt(f_smax,'force_smax','(mcfost) set manually maximum size for binning',iunit)
+    call write_inopt(size_max,'size_max_user','(mcfost) maximum size for binning in cm',iunit)
+    call write_inopt(b_per_dex,'bin_per_dex','(mcfost) number of bins of sizes per dex',iunit)
+ endif
 
 end subroutine write_options_growth
 
@@ -429,7 +436,6 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) this_is_a_flyby
     ngot = ngot + 1
     if (nptmass < 2) tmp = .true.
-#ifdef MCFOST
  case('force_smax')
     read(valstring,*,iostat=ierr) f_smax
     ngot = ngot + 1
@@ -439,14 +445,11 @@ subroutine read_options_growth(name,valstring,imatch,igotall,ierr)
  case('bin_per_dex')
     read(valstring,*,iostat=ierr) b_per_dex
     ngot = ngot + 1
-#endif
  case default
     imatch = .false.
  end select
 
-#ifdef MCFOST
- imcf = 3
-#endif
+ if (use_mcfost) imcf = 3
 
  if (ieros == 1) goteros = 3
 
@@ -810,6 +813,7 @@ subroutine merge_bins(npart,grid,npartmin)
  ndustlarge           = ndusttypes
 
 end subroutine merge_bins
+
 !-----------------------------------------------------------------------
 !+
 !  Convert a one-fluid dustgrowth sim into a two-fluid one (used by moddump_dustadd)
@@ -881,7 +885,12 @@ subroutine convert_to_twofluid(npart,xyzh,vxyzu,massoftype,npartoftype,np_ratio,
  use_dustfrac       = .false.
 
 end subroutine convert_to_twofluid
-!--Compute the relative velocity following Stepinski & Valageas (1997)
+
+!-----------------------------------------------------------------------
+!+
+!  Compute the relative velocity following Stepinski & Valageas (1997)
+!+
+!-----------------------------------------------------------------------
 real function vrelative(dustgasprop,Vt)
  use physcon,     only:roottwo
  real, intent(in) :: dustgasprop(:),Vt

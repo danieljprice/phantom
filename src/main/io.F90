@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module io
 !
@@ -218,7 +218,6 @@ subroutine formatreal(val,string,ierror,precision)
 ! endif
  string = trim(adjustl(string))
 
- return
 end subroutine formatreal
 
 !--------------------------------------------------------------------
@@ -406,12 +405,12 @@ subroutine warn(wherefrom,string,severity)
     if (buffer_warnings) then
        call buffer_warning(trim(wherefrom),trim(string),ncount)
        if (ncount < maxcount) then
-          write(iprint,"(' WARNING! ',a,': ',a)") trim(wherefrom),trim(string)
+          write(iprint,"(/' WARNING! ',a,': ',a,/)") trim(wherefrom),trim(string)
        elseif (ncount==maxcount) then
           write(iprint,"(' (buffering remaining warnings... ',a,') ')") trim(string)
        endif
     else
-       write(iprint,"(' WARNING! ',a,': ',a)") trim(wherefrom),trim(string)
+       write(iprint,"(/' WARNING! ',a,': ',a,/)") trim(wherefrom),trim(string)
     endif
  case(3)
     ncount = 0_8
@@ -434,7 +433,6 @@ subroutine warn(wherefrom,string,severity)
     write(iprint,"(/' WARNING(unknown severity)! ',a,': ',a)") trim(wherefrom),trim(string)
  end select
 
- return
 end subroutine warn
 
 !--------------------------------------------------------------------
@@ -565,6 +563,7 @@ subroutine die
 #endif
 
  call exit(1)
+
 end subroutine die
 
 end module io

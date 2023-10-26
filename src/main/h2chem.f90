@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module chem
 !
@@ -261,7 +261,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
        nstep2=1
        tstep2=tstep
     elseif (abco <= 0.d0) then
-       nstep2=int(rhoi*1000.d0)
+       nstep2=int(rhoi*1000.d0)+1
        tstep2=tstep/nstep2
     else
 !       tsteptest=-abco/(k0*abcp*beta*np1*np1 - gamma_co*abco*np1)

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module datautils
 !
@@ -18,7 +18,7 @@ module datautils
 ! :Dependencies: None
 !
  implicit none
- public :: find_datafile
+ public :: find_datafile,download_datafile
 
  private
 
@@ -52,20 +52,25 @@ function find_datafile(filename,dir,env_var,url,verbose) result(filepath)
  inquire(file=trim(filename),exist=iexist)
  if (iexist) then
     filepath = trim(filename)
+    if (isverbose) print "(a)",' reading '//trim(filepath)
  else
     ierr = 0
     mydir  = ' '
     if (present(env_var)) then
        my_env_var = env_var
+       call get_environment_variable(my_env_var,env_dir)
+    elseif (present(dir)) then
+       env_dir = dir
     else
-       my_env_var = 'DATA_DIR'
+       env_dir = './'
     endif
-    call get_environment_variable(my_env_var,env_dir)
     if (len_trim(env_dir) > 0) then
        mydir = trim(env_dir)
        if (present(dir)) mydir = trim(mydir)//'/'//trim(dir)//'/'
-       if (isverbose) print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//&
+       if (isverbose .and. present(env_var)) then
+          print "(a)",' Reading '//trim(filename)//' in '//trim(mydir)//&
                                   ' (from '//trim(my_env_var)//' setting)'
+       endif
        filepath = trim(mydir)//trim(filename)
        inquire(file=trim(filepath),exist=iexist)
        if (.not.iexist) then
@@ -204,10 +209,10 @@ logical function has_write_permission(dir)
 
  has_write_permission = .true.
  open(newunit=iunit,file=trim(dir)//'data.tmp.abcd',action='write',iostat=ierr)
- if (ierr /= 0) then
-    has_write_permission = .false.
- endif
- close(iunit,status='delete')
+ if (ierr /= 0) has_write_permission = .false.
+
+ close(iunit,status='delete',iostat=ierr)
+ if (ierr /= 0) has_write_permission = .false.
 
 end function has_write_permission
 

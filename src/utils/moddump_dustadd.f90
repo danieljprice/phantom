@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -154,10 +154,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
 
        enddo
+    endif
 
-       if (use_dustgrowth) then
-          call set_dustprop(npart)
-       endif
+    if (use_dustgrowth) then
+       call set_dustprop(npart)
     endif
  endif
 

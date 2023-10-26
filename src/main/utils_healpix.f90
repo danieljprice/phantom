@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module healpix
 !
@@ -18,7 +18,7 @@ module healpix
 !            Mars 2008: i8b same as i4b on machines not supporting 64 bits (NO64BITS flag set)
 !            Feb  2009: introduce healpix_version
 !
-! :References: None
+! :References: K. M. Górski et al, 2005, ApJ, 622, 759
 !
 ! :Owner: Mats Esseldeurs
 !

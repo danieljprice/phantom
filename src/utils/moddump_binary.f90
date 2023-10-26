@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -16,9 +16,9 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
+! :Dependencies: centreofmass, dim, eos, extern_corotate, externalforces,
 !   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
-!   rho_profile, setbinary, table_utils, timestep, units, vectorutils
+!   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
 
@@ -39,11 +39,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                              primarycore_mass,primarycore_hsoft,hsoft
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
- use rho_profile,       only:read_mesa
+ use readwrite_mesa,    only:read_mesa
  use dim,               only:maxptmass,maxp,nsinkproperties
  use io,                only:fatal,idisk1,iprint
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
+ use eos,               only:X_in,Z_in
 
  integer, intent(inout)    :: npart
  integer, intent(inout)    :: npartoftype(:)
@@ -54,13 +55,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                   :: nstar1,nstar2,nptmass1,nptmass2,iprim,isec
  real                      :: primary_mass,companion_mass_1,companion_mass_2,mass_ratio,m1,a,hsoft2,pmass1,pmass2
  real                      :: mass_donor,separation,newCoM,period,m2,primarycore_xpos_old
- real                      :: a1,a2,e,vr,hsoft_default = 3.
- real                      :: hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
+ real                      :: a1,a2,e,hsoft_default = 3.
+ real                      :: hacc,hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
- real                      :: time2,hfact2,Rstar
+ real                      :: time2,hfact2
  real                      :: xyzmh1_stash(nsinkproperties),xyzmh2_stash(nsinkproperties),vxyz1_stash(3),vxyz2_stash(3)
  real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
- logical                   :: corotate_answer,iprimary_grav_ans
+ logical                   :: use_corotating_frame,iprimary_grav_ans
  character(len=20)         :: filename = 'binary.in'
  character(len=100)        :: densityfile,dumpname
  type(inopts), allocatable :: db(:)
@@ -170,59 +171,46 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
     select case(setup_case)
     case(1,8)
-       ! set binary defaults
-       companion_mass_1 = 0.6
+       ! set defaults
+       m2 = 0.6
        a1 = 100.
        e = 0.
-       hacc1 = 0.
-       hacc2 = 0.
-       vr = 0.
+       hacc = 0.
+       hsoft = 0.
+       use_corotating_frame = .false.
 
-       ! find current stellar radius
-       Rstar = 0.
-       do i = 1,npart
-          Rstar  = max(Rstar,sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i))))
-       enddo
-
-       print*, 'Current mass unit is ', umass,'g):'
-       pmass1 = massoftype(igas)
-       print*, 'Current particle mass in code units are ', pmass1
-       call prompt('Enter companion mass in code units',companion_mass_1,0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
-       print*, 'Current length unit is ', udist ,'cm):'
-       print*, 'Current stellar radius in code units is ', Rstar
-       call prompt('Enter orbit semi-major axis in code units', a1, 0.)
-       call prompt('Enter orbit eccentricity', e, 0., 1.)
-       call prompt('Enter accretion radius for the companion in code units', hacc2, 0.)
-       call prompt('Enter companion radial velocity', vr)
-
+       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+       call delete_dead_or_accreted_particles(npart,npartoftype)  !removes the dead or accreted particles for a correct total mass computation
        nptmass1 = nptmass
-       if (nptmass1 == 1) then ! there is a sink stellar core
-          ! stash primary sink arrays
+       nstar1 = npart
+       pmass1 = massoftype(igas)
+       m1 = nstar1 * pmass1
+       if (nptmass1 > 1) then
+          call fatal('moddump_binary', 'unexpected number of sink particles in dump file (nptmass > 1)')
+       elseif (nptmass1 == 1) then  ! there is a sink stellar core
+          m1 = m1 + xyzmh_ptmass(4,1)
           xyzmh1_stash(1:nsinkproperties) = xyzmh_ptmass(1:nsinkproperties,1)
           vxyz1_stash(1:3) = vxyz_ptmass(1:3,1)
-          hacc1 = xyzmh_ptmass(ihacc,1)
-          print*,'Dump contains one sink particle with m=',xyzmh1_stash(4),', hacc=',hacc1,', and hsoft=',xyzmh1_stash(ihsoft)
-       elseif (nptmass1 > 1) then
-          call fatal('moddump_binary', 'unexpected number of sink particles in dump file (nptmass > 1)')
+          print*,'Dump contains one sink particle with m=',xyzmh1_stash(4),&
+                  ', hacc=',xyzmh1_stash(ihacc),', and hsoft=',xyzmh1_stash(ihsoft)
        endif
 
-       corotate_answer = .false.
-       call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', corotate_answer)
-       call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
-
-       !removes the dead or accreted particles for a correct total mass computation
-       call delete_dead_or_accreted_particles(npart,npartoftype)
-       nstar1 = npart ! stash npart in star 1
-       print*,' Got ',nstar1,npartoftype(igas),' after deleting accreted particles'
-
-       !sets up the binary system orbital parameters
-       primary_mass = nstar1 * massoftype(igas) + xyzmh1_stash(4)
-       print*, 'Current primary mass in code units is ',primary_mass
+       print*, 'Current mass unit is ', umass,'g):'
+       print*, 'Current primary mass in code units is ',m1
+       call prompt('Enter companion mass in code units',m2, 0.) ! For case 8, eventually want to read mass of star 2 from header instead of prompting it
+       print*, 'Current length unit is ', udist ,'cm):'
+       call prompt('Enter orbit semi-major axis in code units', a1, 0.)
+       call prompt('Enter orbit eccentricity', e, 0., 1.)
+       if (setup_case == 1) then
+          call prompt('Enter accretion radius for the companion in code units', hacc, 0.)
+          call prompt('Enter softening length for companion', hsoft, 0.)
+       endif
+       call prompt('Do you want to transform to a corotating frame and simulate corotating binary?', use_corotating_frame)
 
        ! set the binary
-       if (corotate_answer) then ! corotating frame
+       if (use_corotating_frame) then
           iexternalforce = iext_corotate  !turns on corotation
-          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
+          call set_binary(m1,m2,a1,e,xyzmh1_stash(ihacc),hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate)
           print "(/,a,es18.10,/)", ' The angular velocity in the corotating frame is: ', omega_corotate
 
           ! set all the gas velocities in corotating frame to 0, implying that the binary is corotating
@@ -231,7 +219,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              vxyzu(1:3,i) = 0.
           enddo
        else ! non corotating frame
-          call set_binary(primary_mass,companion_mass_1,a1,e,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
+          call set_binary(m1,m2,a1,e,xyzmh1_stash(ihacc),hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
           ! sink no. 2 & 3 are created by "set_binary" in the ptmass arrays, and nptmass increases by 2
        endif
 
@@ -243,19 +231,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           isec = 2
        endif
 
+       !shifts star 1 gas to the primary sink
+       do i=1,npart
+          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh_ptmass(1:3,iprim)
+          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz_ptmass(1:3,iprim)
+       enddo
+
        ! Store sink velocity and position in binary orbit
        xyzmh1_stash(1:3) = xyzmh_ptmass(1:3,iprim)
        vxyz1_stash(1:3) = vxyz_ptmass(1:3,iprim)
        xyzmh2_stash(1:3) = xyzmh_ptmass(1:3,isec)
        vxyz2_stash(1:3) = vxyz_ptmass(1:3,isec)
-
-       !shifts star 1 gas to the primary sink
-       do i=1,npart
-          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh1_stash(1:3)
-          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz1_stash(1:3)
-       enddo
-
-       call prompt('Enter softening length for companion',xyzmh2_stash(ihsoft),0.)
 
        if (setup_case == 8) then
           dumpname = ''
@@ -279,11 +265,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           ! read dump file containing star 2
           call read_dump(trim(dumpname),time2,hfact2,idisk1+1,iprint,0,1,ierr)
-          nptmass2 = nptmass ! Number of point masses in second dump. Any sink information is overwritten into the first column of sink arrays
-          xyzmh2_stash(4) = xyzmh_ptmass(4,1)
+          if (ierr /= 0) call fatal('read_dump','error reading second dump file')
+          nptmass2 = nptmass
+          if (nptmass2 > 1) then
+             call fatal('moddump_binary', 'unexpected number of sink particles in second dump file (nptmass > 1)')
+          elseif (nptmass == 1) then
+             xyzmh2_stash(4:nsinkproperties) = xyzmh_ptmass(4:nsinkproperties,1)
+          endif
 
           pmass2 = massoftype(igas)
-          if (ierr /= 0) call fatal('read_dump','error reading second dump file')
           if ( abs(1.-pmass2/pmass1) > 1.e-3) then
              call fatal('moddump_binary','unequal mass particles between dumps 1 and 2, pmass2 /= pmass1')
           endif
@@ -298,22 +288,32 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
           npart = nstar1 + nstar2
           npartoftype(igas) = npart
+          nptmass = nptmass1 + nptmass2
+
+          ! shift star 2 gas to secondary sink
+          do i=1,nstar2
+             xyzh(1:3,i) = xyzh(1:3,i) + xyzmh2_stash(1:3)
+             vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz2_stash(1:3)
+          enddo
+
+          if (nptmass2 == 1) then
+             xyzmh_ptmass(1:nsinkproperties,nptmass1+nptmass2) = xyzmh2_stash(1:nsinkproperties)
+             vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
+          endif
+
        else
-          nstar2 = 0
-          nptmass2 = 0
+          nptmass = nptmass1 + 1
+          xyzmh_ptmass(1:3,nptmass) = xyzmh2_stash(1:3)
+          vxyz_ptmass(1:3,nptmass) = vxyz2_stash(1:3)
+          xyzmh_ptmass(4,nptmass) = m2
+          xyzmh_ptmass(ihacc,nptmass) = hacc
+          xyzmh_ptmass(ihsoft,nptmass) = hsoft
        endif
 
-       ! shift star 2 gas to secondary sink
-       do i=1,nstar2
-          xyzh(1:3,i) = xyzh(1:3,i) + xyzmh2_stash(1:3)
-          vxyzu(1:3,i) = vxyzu(1:3,i) + vxyz2_stash(1:3)
-       enddo
-
-       nptmass = nptmass1 + nptmass2
-       xyzmh_ptmass(1:nsinkproperties,1) = xyzmh1_stash(1:nsinkproperties)
-       xyzmh_ptmass(1:nsinkproperties,2) = xyzmh2_stash(1:nsinkproperties)
-       vxyz_ptmass(1:3,1) = vxyz1_stash(1:3)
-       vxyz_ptmass(1:3,2) = vxyz2_stash(1:3)
+       if (nptmass1 == 1) then
+          xyzmh_ptmass(1:nsinkproperties,1) = xyzmh1_stash(1:nsinkproperties)
+          vxyz_ptmass(1:3,1) = vxyz1_stash(1:3)
+       endif
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
@@ -331,7 +331,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
 
-       call read_mesa(densityfile,den,r,pres,m,enitab,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
+       call read_mesa(densityfile,den,r,pres,m,enitab,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
        rcut = yinterp(r,m,mcut)
 
        irhomax = 1

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module raytracer
 !
@@ -12,7 +12,13 @@ module raytracer
 !   - interpolate optical depths to all SPH particles
 ! Applicable both for single and binary star wind simulations
 !
+<<<<<<< HEAD
 ! :References: None
+=======
+! WARNING: This module has only been tested on phantom wind setup
+!
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122
+>>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
 !
 ! :Owner: Mats Esseldeurs
 !

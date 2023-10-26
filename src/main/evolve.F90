@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module evolve
 !
@@ -16,11 +16,12 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, centreofmass, checkconserved, dim, energies,
-!   evwrite, externalforces, fileutils, forcing, inject, io, io_summary,
-!   mf_write, mpiutils, options, part, partinject, ptmass, quitdump,
-!   radiation_utils, readwrite_dumps, readwrite_infile, step_lf_global,
-!   supertimestep, timestep, timestep_ind, timestep_sts, timing
+! :Dependencies: analysis, boundary_dyn, centreofmass, checkconserved, dim,
+!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
+!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
+!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
+!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
+!   timing
 !
  implicit none
  public :: evol
@@ -29,7 +30,7 @@ module evolve
 
 contains
 
-subroutine evol(infile,logfile,evfile,dumpfile)
+subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:iprint,iwritein,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
@@ -61,8 +62,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #else
  use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
 #endif
- use timestep_sts,     only: use_sts
- use supertimestep,    only: step_sts
+ use timestep_sts,     only:use_sts
+ use supertimestep,    only:step_sts
 #ifdef DRIVING
  use forcing,          only:write_forcingdump
 #endif
@@ -93,6 +94,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
+ use boundary_dyn,     only:dynamic_bdy,update_boundaries
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -103,6 +105,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use mf_write,         only:binpos_write
 #endif
 
+ integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
@@ -127,7 +130,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  integer         :: npart_old
 #endif
- logical         :: fulldump,abortrun,at_dump_time,writedump
+ logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
  logical         :: should_conserve_dustmass
  logical         :: use_global_dt
@@ -143,6 +146,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  dtrad     = huge(dtrad)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
+ abortrun_bdy = .false.
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass)
@@ -162,7 +166,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use_global_dt = .false.
  istepfrac     = 0
  tlast         = tzero
- dt            = dtmax/2**nbinmax
+ dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
  nmovedtot     = 0
  tall          = 0.
  tcheck        = time
@@ -214,15 +218,19 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! injection of new particles into simulation
     !
-    npart_old=npart
-    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    if (.not. present(flag)) then
+       npart_old=npart
+       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    endif
 #endif
 
     dtmaxold    = dtmax
 #ifdef IND_TIMESTEPS
     istepfrac   = istepfrac + 1
     nbinmaxprev = nbinmax
+    if (nbinmax > maxbins) call fatal('evolve','timestep too small: try decreasing dtmax?')
+
     !--determine if dt needs to be decreased; if so, then this will be done
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
@@ -246,6 +254,11 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 
     !--print summary of timestep bins
     if (iverbose >= 2) call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+
+    !--Implement dynamic boundaries (for individual-timestepping) once per dump
+    if (dynamic_bdy .and. nactive==nalive .and. istepfrac==2**nbinmax) then
+       call update_boundaries(nactive,nalive,npart,abortrun_bdy)
+    endif
 #else
     !--If not using individual timestepping, set nskip to the total number of particles
     !  across all nodes
@@ -543,8 +556,14 @@ subroutine evol(infile,logfile,evfile,dumpfile)
        istepfrac = 0
        nmovedtot = 0
 #endif
-       !  print summary of energies and other useful values to the log file
+       !--print summary of energies and other useful values to the log file
        if (id==master) call write_evlog(iprint)
+
+#ifndef IND_TIMESTEPS
+       !--Implement dynamic boundaries (for global timestepping)
+       if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
+#endif
+
        !
        !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
        !  based on the wall time between the last two dumps added to the current total walltime used.
@@ -555,6 +574,13 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
              write(iprint,"(1x,a)") '>> ABORTING... '
           endif
+          return
+       endif
+
+       if (abortrun_bdy) then
+          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
+          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
+          write(iprint,"(1x,a)") '>> ABORTING... '
           return
        endif
 
