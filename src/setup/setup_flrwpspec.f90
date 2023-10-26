@@ -89,16 +89,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: scale_factor,gradphi(3),vxyz(3),dxgrid,gridorigin
  integer :: nghost, gridres, gridsize
  real, allocatable    :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
-!  procedure(rho_func), pointer :: density_func
-!  procedure(mass_func), pointer :: mass_function
-
-!  density_func => rhofunc  ! desired density function
-!  mass_function => massfunc ! desired mass funciton
-
+ 
  !
  !--general parameters
  !
- !perturb_wavelength = 1.
+ perturb_wavelength = 0.
  time = 0.
  if (maxvxyzu < 4) then
     gamma = 1.
@@ -108,7 +103,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     gamma = 4./3.
  endif
  ! Redefinition of pi to fix numerical error
- pi = 4.D0*Datan(1.0D0)
+ pi = 4.*atan(1.)
  !
  ! default units
  !
@@ -124,10 +119,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set default values for input parameters
  !
  npartx   = 64
+ length = 0.
  ilattice = 1
  perturb  = '"no"'
  perturb_direction = '"none"'
  radiation_dominated = '"no"'
+ ampl = 0. 
 
  ! Ideally this should read the values of the box length
  ! and initial Hubble parameter from the par file.
@@ -135,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !!!!!! rhozero = (3H^2)/(8*pi*a*a)
 
  hub = 10.553495658357338
- rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ rhozero = 3. * hub**2 / (8. * pi)
  phaseoffset = 0.
 
  ! Set some default values for the grid
@@ -151,9 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  isperiodic = .true.
  ncross = 0
 
- allocate(vxgrid(gridsize,gridsize,gridsize))
- allocate(vygrid(gridsize,gridsize,gridsize))
- allocate(vzgrid(gridsize,gridsize,gridsize))
+ 
 
  ! Approx Temp of the CMB in Kelvins
  last_scattering_temp = 3000
@@ -161,9 +156,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! Define some parameters for Linear pertubations
  ! We assume ainit = 1, but this may not always be the case
- c1 = 1.d0/(4.d0*PI*rhozero)
+ c1 = 1./(4.*PI*rhozero)
  !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
- c3 = - sqrt(1.d0/(6.d0*PI*rhozero))
+ c3 = - sqrt(1./(6.*PI*rhozero))
 
 
  if (gr) then
@@ -195,11 +190,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! set units and boundaries
  !
  if (gr) then
-    call set_units(dist=udist,c=1.d0,G=1.d0)
+    call set_units(dist=udist,c=1.,G=1.)
  else
-    call set_units(dist=udist,mass=umass,G=1.d0)
+    call set_units(dist=udist,mass=umass,G=1.)
  endif
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
+ 
+ 
+ allocate(vxgrid(gridsize,gridsize,gridsize))
+ allocate(vygrid(gridsize,gridsize,gridsize))
+ allocate(vzgrid(gridsize,gridsize,gridsize))
  !
  ! setup particles
  !
@@ -216,9 +216,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !  lambda = perturb_wavelength*length
 !  kwave  = (2.d0*pi)/lambda
 !  denom = length - ampl/kwave*(cos(kwave*length)-1.0)
- ! Hardcode to ensure double precision, that is requried
- !rhozero = 13.294563008157013D0
- rhozero = 3.d0 * hub**2 / (8.d0 * pi)
+ rhozero = 3. * hub**2 / (8. * pi)
 
 
  lattice = 'cubic'
