@@ -589,7 +589,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  !  check that radiation properties are sensible
  !
- if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-10) then
+ if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-15) then
     nerror = nerror + 1
     print*,'ERROR: isink_radiation > 1 and sink particle has no luminosity'
     return
