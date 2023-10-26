@@ -129,8 +129,8 @@ ifeq ($(MCFOST), yes)
        MCFOST_LIBS = $(PREFIX)/lib
        MCFOST_LIB = $(PREFIX)/lib
        MCFOST_INCLUDE = $(PREFIX)/include
-       ifeq ("X$(HDF5ROOT)","X")
-           HDF5ROOT=$(PREFIX)
+       ifeq ("X$(HDF5_DIR)","X")
+           HDF5_DIR=$(PREFIX)
        endif
     else
     #--otherwise assume the source code is lying around somewhere
@@ -149,8 +149,8 @@ ifeq ($(MCFOST), yes)
     FPPFLAGS+= -DMCFOST
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
-   -L$(HDF5ROOT) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
-	#-L$(HDF5ROOT)/lib/Intel -lhdf5_fortran
+   -L$(HDF5_DIR) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
+	#-L$(HDF5_DIR)/lib/Intel -lhdf5_fortran
 endif
 
 include Makefile_systems
@@ -415,21 +415,21 @@ endif
 #   - lib for the shared library .so files
 #
 # Often both directories are under one root,
-# e.g. HDF5ROOT= /usr/local/opt/hdf5
-# In this case just set HDF5ROOT for your machine.
+# e.g. HDF5_DIR= /usr/local/opt/hdf5
+# In this case just set HDF5_DIR for your machine.
 #
 # However, sometimes these directories are separate,
 # then you must set both HDF5INCLUDE and HDF5LIB.
 #
 ifeq ($(HDF5), yes)
-ifeq (X$(HDF5ROOT), X)
-    HDF5ROOT= /usr/local/opt/hdf5
+ifeq (X$(HDF5_DIR), X)
+    HDF5_DIR= /usr/local/opt/hdf5
 endif
 ifeq (X$(HDF5INCLUDE), X)
-    HDF5INCLUDE= $(HDF5ROOT)/include
+    HDF5INCLUDE= $(HDF5_DIR)/include
 endif
 ifeq (X$(HDF5LIB), X)
-    HDF5LIB= $(HDF5ROOT)/lib
+    HDF5LIB= $(HDF5_DIR)/lib
 endif
     FFLAGS+= -I$(HDF5INCLUDE)
     CCFLAGS+= -I$(HDF5INCLUDE)
@@ -538,7 +538,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          utils_filenames.f90 utils_summary.F90 ${SRCCHEM} ${SRCDUST} \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
-         utils_deriv.f90 radiation_implicit.f90 ${SRCTURB} \
+         utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90 ${SRCINJECT} \
          ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
@@ -766,7 +766,7 @@ OBJG2PDF= io.o utils_filenames.o asciiutils.o write_griddata.o \
 .PHONY: grid2pdf
 grid2pdf: checksys checkparams checkhdf5 $(OBJG2PDF)
 	@echo "objects are $(OBJG2PDF)"
-	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5ROOT)/lib -lhdf5
+	$(FC) $(FFLAGS) -o $(BINDIR)/grid2pdf $(OBJG2PDF) $(LDFLAGS) -L$(HDF5_DIR)/lib -lhdf5
 	@echo ""
 	@echo "Grid2pdf: we are Possibly Dangerously Fanatical"
 	@echo ""
@@ -1100,10 +1100,10 @@ cleantestbinary:
 # check for anything that depends on HDF5
 #
 checkhdf5:
-   ifeq (X${HDF5ROOT}, X)
-	@echo; echo "ERROR: HDF5ROOT should be set before compiling with HDF5 utilities"; echo; ${MAKE} err;
+   ifeq (X${HDF5_DIR}, X)
+	@echo; echo "ERROR: HDF5_DIR should be set before compiling with HDF5 utilities"; echo; ${MAKE} err;
    else
-	@if [ -d $$HDF5ROOT ]; then echo; echo "HDF5ROOT=$$HDF5ROOT"; echo; else echo; echo "ERROR: Directory given by HDF5ROOT=$$HDF5ROOT does not exist"; echo; ${MAKE} err; fi;
+	@if [ -d $$HDF5_DIR ]; then echo; echo "HDF5_DIR=$$HDF5_DIR"; echo; else echo; echo "ERROR: Directory given by HDF5_DIR=$$HDF5_DIR does not exist"; echo; ${MAKE} err; fi;
    endif
 
 #----------------------------------------------------

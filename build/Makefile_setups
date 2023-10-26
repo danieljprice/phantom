@@ -19,6 +19,12 @@ ifeq ($(SETUP), mcfost) # [buildbot skip]
     override SETUP=disc
     MCFOST=yes
 endif
+ifeq ($(SETUP), dustymcfost) # [buildbot skip]
+    OBSOLETE_SETUP=yes
+    OLDSETUP=dustymcfost
+    override SETUP=dustydisc
+    MCFOST=yes
+endif
 ifeq ($(SETUP), planets) # [buildbot skip]
     OBSOLETE_SETUP=yes
     OLDSETUP= planets
@@ -169,6 +175,18 @@ ifeq ($(SETUP), grtde)
     IND_TIMESTEPS=yes
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS= analysis_gws.f90
+endif
+
+ifeq ($(SETUP), radiotde)
+#   radio tidal disruption event in general relativity
+    GR=yes
+    METRIC=minkowski
+    KNOWN_SETUP=yes
+    GRAVITY=no
+    IND_TIMESTEPS=no
+    ANALYSIS=analysis_radiotde.f90
+    MODFILE=moddump_radiotde.f90
+    SYSTEM=gfortran
 endif
 
 ifeq ($(SETUP), srpolytrope)
@@ -591,7 +609,7 @@ ifeq ($(SETUP), blob)
 #   Blob evaporation problem
     PERIODIC=yes
     SETUPFILE= setup_blob.f90
-    DOUBLEPRECISION= no
+    DOUBLEPRECISION=no
     KNOWN_SETUP=yes
 endif
 
@@ -823,6 +841,16 @@ ifeq ($(SETUP), BHL)
     SRCINJECT= inject_BHL.f90
     KNOWN_SETUP=yes
     IND_TIMESTEPS=yes
+endif
+
+ifeq ($(SETUP), windtunnel)
+#   Wind tunnel setup
+    SETUPFILE= setup_windtunnel.f90
+    SRCINJECT= inject_windtunnel.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
 endif
 
 ifeq ($(SETUP), jet)

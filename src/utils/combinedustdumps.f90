@@ -28,7 +28,7 @@ program combinedustdumps
  use part,            only:xyzh,vxyzu,npart,hfact,iphase,npartoftype,massoftype,&
                            igas,idust,ndusttypes,ndustsmall,ndustlarge,set_particle_type,&
                            grainsize,graindens,iamtype,isdead_or_accreted
- use readwrite_dumps, only:read_dump,write_fulldump
+ use readwrite_dumps, only:read_dump,write_fulldump,init_readwrite_dumps
  use units,           only:set_units,select_unit,umass,udist,utime
  use memory,          only:allocate_memory
  use checksetup,      only:check_setup
@@ -38,10 +38,12 @@ program combinedustdumps
  real, allocatable :: xyzh_tmp(:,:,:),vxyzu_tmp(:,:,:),massofdust_tmp(:)
  real, allocatable :: grainsize_tmp(:),graindens_tmp(:)
  integer, allocatable :: npartofdust_tmp(:)
- integer :: i,j,counter,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
- integer :: nwarn,nerror
+ integer :: i,j,ipart,itype,ierr,nargs,idust_tmp,ninpdumps
+ integer(kind=8) :: counter
+ integer :: nwarn,nerror,ndust
  real    :: time
  real(kind=8) :: utime_tmp,udist_tmp,umass_tmp
+ logical :: first_gas_only
 
  call set_io_unit_numbers
  iprint = 6
@@ -70,6 +72,8 @@ program combinedustdumps
  ! read first dumpfile HEADER ONLY: check idust, check MAXP
  ! we assume all dumps are from the same phantom version
  !
+
+ call init_readwrite_dumps()
  counter = 0
  idust_tmp = idust ! new dumps, location of first dust particle type
  do i=1,ninpdumps
@@ -82,6 +86,11 @@ program combinedustdumps
     counter = counter + npartoftype(idust_tmp)
  enddo
  !
+ ! save the number of dust particles for later
+ !
+ ndust = npartoftype(idust_tmp)
+
+ !
  !--sanity check array sizes
  !
  if (idust+ninpdumps-1 > size(npartoftype)) then
@@ -91,17 +100,21 @@ program combinedustdumps
  !
  ! allocate memory
  !
- call allocate_memory(int(counter,kind=8))
+ call allocate_memory(counter)
  !
  ! read gas particles from first file
  !
+
  call read_dump(trim(indumpfiles(1)),time,hfact,idisk1,iprint,0,1,ierr)
+
  !
  ! allocate temporary arrays
  !
- allocate (xyzh_tmp(ninpdumps,4,npartoftype(idust_tmp)),stat=ierr)
+
+ allocate (xyzh_tmp(ninpdumps,4,ndust),stat=ierr)
+ print*,shape(xyzh_tmp),npartoftype(idust_tmp),idust_tmp
  if (ierr /= 0) stop 'error allocating memory to store positions'
- allocate (vxyzu_tmp(ninpdumps,maxvxyzu,npartoftype(idust_tmp)),stat=ierr)
+ allocate (vxyzu_tmp(ninpdumps,maxvxyzu,ndust),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store velocities'
  allocate (npartofdust_tmp(ninpdumps),stat=ierr)
  if (ierr /= 0) stop 'error allocating memory to store number of dust particles'
@@ -115,6 +128,7 @@ program combinedustdumps
  !
  !--read dumps and get dust particle information
  !
+ first_gas_only = .false.
  do i=1,ninpdumps
     call read_dump(trim(indumpfiles(i)),time,hfact,idisk1,iprint,0,1,ierr)
     if (ierr /= 0) stop 'error reading dumpfile'
@@ -123,6 +137,7 @@ program combinedustdumps
     grainsize_tmp(i) = grainsize(1)
     graindens_tmp(i) = graindens(1)
     counter = 0
+    if (i == 1 .and. npartoftype(idust_tmp) == 0) first_gas_only = .true.
     do j=1,maxp
        if (iphase(j)==idust_tmp) then
           counter = counter + 1
@@ -156,6 +171,7 @@ program combinedustdumps
  !
  do i=2,ninpdumps
     itype = idust + i - 1
+    if (first_gas_only) itype = idust + i - 2
     npartoftype(itype) = npartofdust_tmp(i)
     massoftype(itype) = massofdust_tmp(i)
     grainsize(i) = grainsize_tmp(i)
@@ -176,6 +192,7 @@ program combinedustdumps
  !--dust properties
  !
  ndusttypes = ninpdumps
+ if (first_gas_only) ndusttypes = ninpdumps - 1
  ndustlarge = ndusttypes
  ndustsmall = 0
 

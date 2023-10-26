@@ -72,11 +72,12 @@ echo "url = $url";
 pwd=$PWD;
 phantomdir="$pwd/../";
 listofcomponents='main setup analysis utils';
-#listofcomponents='analysis'
+#listofcomponents='setup'
 #
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))
@@ -195,14 +196,15 @@ check_phantomsetup ()
    #
    # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
    #
+   infile="${prefix}.in"
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
+      #test_setupfile_options "$prefix" "$prefix.setup" $infile;
    else
       print_result "no .setup file" $warn;
    fi
-   infile="${prefix}.in"
    if [ -e "$infile" ]; then
       print_result "creates .in file" $pass;
       #
@@ -245,6 +247,39 @@ check_phantomsetup ()
    if [ $myfail -gt 0 ]; then
       echo $setup >> $faillogsetup;
    fi
+}
+#
+# check that all possible values of certain
+# variables in the .setup file work
+#
+test_setupfile_options()
+{
+   myfail=0;
+   setup=$1;
+   setupfile=$2;
+   infile=$3;
+   range=''
+   if [ "X$setup"=="Xstar" ]; then
+      param='iprofile'
+      range='1 2 3 4 5 6 7'
+   fi
+   for x in $range; do
+       valstring="$param = $x"
+       echo "checking $valstring"
+       sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
+       cp ${setupfile}.tmp $setupfile
+       rm $infile
+       ./phantomsetup $setupfile < /dev/null > /dev/null;
+       ./phantomsetup $setupfile < /dev/null;
+
+       if [ -e $infile ]; then
+          print_result "successful phantomsetup with $valstring" $pass;
+       else
+          print_result "FAIL: failed to create .in file with $valstring" $fail;
+          myfail=$(( myfail + 1 ));
+          echo $setup $valstring >> $faillogsetup;
+       fi
+   done
 }
 #
 # unit tests for phantomanalysis utility

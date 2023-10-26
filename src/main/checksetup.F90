@@ -422,7 +422,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
+ if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
        print*,'ERROR: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
        print*,'                but the centre of mass is not at the origin!'

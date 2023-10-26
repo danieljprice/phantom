@@ -56,15 +56,14 @@ module timing
                                  itimer_rad_arrays    = 15, &
                                  itimer_rad_its       = 16, &
                                  itimer_rad_flux      = 17, &
-                                 itimer_rad_lambda    = 18, &
-                                 itimer_rad_diff      = 19, &
-                                 itimer_rad_update    = 20, &
-                                 itimer_rad_store     = 21, &
-                                 itimer_cons2prim     = 22, &
-                                 itimer_extf          = 23, &
-                                 itimer_ev            = 24, &
-                                 itimer_io            = 25
- integer, public, parameter :: ntimers = 25 ! should be equal to the largest itimer index
+                                 itimer_rad_diff      = 18, &
+                                 itimer_rad_update    = 19, &
+                                 itimer_rad_store     = 20, &
+                                 itimer_cons2prim     = 21, &
+                                 itimer_extf          = 22, &
+                                 itimer_ev            = 23, &
+                                 itimer_io            = 24
+ integer, public, parameter :: ntimers = 24 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -97,7 +96,6 @@ subroutine setup_timers
  call init_timer(itimer_rad_arrays  , 'arrays',      itimer_radiation  )
  call init_timer(itimer_rad_its     , 'its',         itimer_radiation  )
  call init_timer(itimer_rad_flux    , 'flux',        itimer_rad_its    )
- call init_timer(itimer_rad_lambda  , 'lambda',      itimer_rad_its    )
  call init_timer(itimer_rad_diff    , 'diff',        itimer_rad_its    )
  call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )

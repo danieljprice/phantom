@@ -8,6 +8,7 @@ Here is the Phantom developer guide.
 
    fork
    fortran
+   vscode
    philosophy
    styleguide
    setup
