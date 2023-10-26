@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
- use inject,    only: init_inject,set_default_options_inject
+ use inject,    only: init_inject
  use setbinary, only: set_binary
  use sethierarchical, only: set_multiple
  use io,        only: master
@@ -168,7 +168,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  endif
 
- call set_default_options_inject()
 !
 !--space available for injected gas particles
 !

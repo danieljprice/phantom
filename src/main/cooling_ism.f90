@@ -196,7 +196,6 @@ end subroutine write_options_cooling_ism
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
- use part, only:h2chemistry
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr

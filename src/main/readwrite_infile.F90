@@ -119,7 +119,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
- use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use part,               only:maxp,mhd,maxalpha,nptmass
  use boundary_dyn,       only:write_options_boundary
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint

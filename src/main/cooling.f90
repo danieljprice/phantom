@@ -58,7 +58,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_cooling(id,master,iprint,ierr)
- use dim,               only:maxvxyzu,h2chemistry
+ use dim,               only:maxvxyzu
  use units,             only:unit_ergg
  use physcon,           only:mass_proton_cgs,kboltz
  use io,                only:error
@@ -74,30 +74,28 @@ subroutine init_cooling(id,master,iprint,ierr)
 
  cooling_in_step = .true.
  ierr = 0
- if (h2chemistry) then
-    if (id==master) write(iprint,*) 'initialising cooling function...'
+ select case(icooling)
+ case(8)
+    if (id==master) write(iprint,*) 'initialising ISM cooling function...'
     call init_chem()
     call init_cooling_ism()
- else
-    select case(icooling)
-    case(6)
-       call init_cooling_KI02(ierr)
-    case(5)
-       call init_cooling_KI02(ierr)
-       cooling_in_step = .false.
-    case(4)
-       ! Initialise molecular cooling
-       call init_cooling_molec
-    case(3)
-       ! Gammie
-       cooling_in_step = .false.
-    case(7)
-       ! Gammie PL
-       cooling_in_step = .false.
-    case default
-       call init_cooling_solver(ierr)
-    end select
- endif
+ case(6)
+    call init_cooling_KI02(ierr)
+ case(5)
+    call init_cooling_KI02(ierr)
+    cooling_in_step = .false.
+ case(4)
+    ! Initialise molecular cooling
+    call init_cooling_molec
+ case(3)
+    ! Gammie
+    cooling_in_step = .false.
+ case(7)
+    ! Gammie PL
+    cooling_in_step = .false.
+ case default
+    call init_cooling_solver(ierr)
+ end select
 
  !--calculate the energy floor in code units
  if (Tfloor > 0.) then
@@ -172,7 +170,6 @@ end subroutine energ_cooling
 !-----------------------------------------------------------------------
 subroutine write_options_cooling(iunit)
  use infile_utils,      only:write_inopt
- use part,              only:h2chemistry
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
  use cooling_gammie_PL,  only:write_options_cooling_gammie_PL
@@ -182,23 +179,20 @@ subroutine write_options_cooling(iunit)
 
  write(iunit,"(/,a)") '# options controlling cooling'
  call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
- if (h2chemistry) then
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=on)',iunit)
-    if (icooling > 0) call write_options_cooling_ism(iunit)
- else
-    call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling library (step), 2=cooling library (force),'// &
-                     '3=Gammie, 5,6=KI02, 7=powerlaw)',iunit)
-    select case(icooling)
-    case(0,4,5,6)
+ call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
+                     '3=Gammie, 5,6=KI02, 7=powerlaw, 8=ISM)',iunit)
+ select case(icooling)
+ case(0,4,5,6)
        ! do nothing
-    case(3)
-       call write_options_cooling_gammie(iunit)
-    case(7)
-       call write_options_cooling_gammie_PL(iunit)
-    case default
-       call write_options_cooling_solver(iunit)
-    end select
- endif
+ case(8)
+    call write_options_cooling_ism(iunit)
+ case(3)
+    call write_options_cooling_gammie(iunit)
+ case(7)
+    call write_options_cooling_gammie_PL(iunit)
+ case default
+    call write_options_cooling_solver(iunit)
+ end select
  if (icooling > 0) call write_inopt(Tfloor,'Tfloor','temperature floor (K); on if > 0',iunit)
 
 end subroutine write_options_cooling
@@ -209,10 +203,10 @@ end subroutine write_options_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
- use part,              only:h2chemistry
  use io,                only:fatal
+ use dim,               only:maxp_h2,h2chemistry,maxp
  use cooling_gammie,    only:read_options_cooling_gammie
- use cooling_gammie_PL,  only:read_options_cooling_gammie_PL
+ use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
@@ -241,25 +235,23 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) Tfloor
  case default
     imatch = .false.
-    if (h2chemistry) then
+    select case(icooling)
+    case(0,4,5,6)
+       ! do nothing
+    case(8)
        call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
-    else
-       select case(icooling)
-       case(0,4,5,6)
-          ! do nothing
-       case(3)
-          call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
-       case(7)
-          call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
-       case default
-          call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
-       end select
-    endif
+       h2chemistry = .true.
+       maxp_h2 = maxp
+    case(3)
+       call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
+    case(7)
+       call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
+    case default
+       call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
+    end select
  end select
  ierr = 0
- if (h2chemistry .and. igotallism .and. ngot >= 2) then
-    igotall = .true.
- elseif (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc) then
+ if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism) then
     igotall = .true.
  else
     igotall = .false.

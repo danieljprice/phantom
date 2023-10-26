@@ -207,7 +207,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #else
  use timestep,     only:C_cour,C_force
 #endif
- use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
+ use part,         only:divBsymm,isdead_or_accreted,ngradh,gravity,ibin_wake
  use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
 #ifdef GRAVITY
  use kernel,       only:kernel_softening
@@ -2492,7 +2492,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
                           use_dustfrac,damp,icooling,implicit_radiation
- use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
+ use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
                           nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall
  use cooling,        only:energ_cooling,cooling_in_step

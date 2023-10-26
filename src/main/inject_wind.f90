@@ -664,7 +664,7 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- if (sonic_type < 0) call set_default_options_inject
+ !if (sonic_type < 0) call set_default_options_inject
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
@@ -695,9 +695,13 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
- logical :: isowind = .true.
+ logical :: isowind = .true., init_opt = .false.
  character(len=30), parameter :: label = 'read_options_inject'
 
+ if (.not.init_opt) then
+    init_opt = .true.
+    call set_default_options_inject()
+ endif
  imatch  = .true.
  igotall = .false.
  select case(trim(name))

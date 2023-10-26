@@ -241,12 +241,8 @@ module dim
 ! H2 Chemistry
 !--------------------
  integer :: maxp_h2 = 0
-#ifdef H2CHEM
- logical, parameter :: h2chemistry = .true.
-#else
- logical, parameter :: h2chemistry = .false.
-#endif
  integer, parameter :: nabundances = 5
+ logical :: h2chemistry = .false.
 
 !--------------------
 ! Self-gravity
@@ -405,10 +401,6 @@ subroutine update_max_sizes(n,ntot)
 #ifdef NONIDEALMHD
  maxmhdni = maxp
 #endif
-#endif
-
-#ifdef H2CHEM
- maxp_h2 = maxp
 #endif
 
 #ifdef GRAVITY

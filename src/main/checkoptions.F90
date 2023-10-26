@@ -30,8 +30,8 @@ contains
 !
 !-------------------------------------------------------------------
 subroutine check_compile_time_settings(ierr)
- use part,     only:mhd,gravity,ngradh,h2chemistry,maxvxyzu,use_dust,gr
- use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts
+ use part,     only:mhd,gravity,ngradh,maxvxyzu,use_dust,gr
+ use dim,      only:use_dustgrowth,maxtypes,mpi,inject_parts,h2chemistry
  use io,       only:error,id,master,fatal,warning
  use mpiutils, only:barrier_mpi
 #ifdef GR

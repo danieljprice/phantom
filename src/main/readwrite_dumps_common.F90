@@ -29,9 +29,9 @@ contains
 !+
 !--------------------------------------------------------------------
 character(len=lenid) function fileident(firstchar,codestring)
- use part,    only:h2chemistry,mhd,npartoftype,idust,gravity,lightcurve
+ use part,    only:mhd,npartoftype,idust,gravity,lightcurve
  use options, only:use_dustfrac
- use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation
+ use dim,     only:use_dustgrowth,phantom_version_string,use_krome,store_dust_temperature,do_nucleation,h2chemistry
  use gitinfo, only:gitsha
  character(len=2), intent(in) :: firstchar
  character(len=*), intent(in), optional :: codestring
