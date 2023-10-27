@@ -8,7 +8,7 @@ module analysis
 !
 ! Analysis routine which computes optical depths throughout the simulation
 !
-! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122 
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122
 !
 ! :Owner: Mats Esseldeurs
 !
@@ -22,11 +22,7 @@ module analysis
  use part,             only:rhoh,isdead_or_accreted,nsinkproperties,iReff
  use dump_utils,       only:read_array_from_file
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
-<<<<<<< HEAD
                                  neighcount,neighb,neighmax
-=======
-                                    neighcount,neighb,neighmax
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
  use dust_formation,   only:calc_kappa_bowen
  use physcon,          only:kboltz,mass_proton_cgs,au,solarm
  use linklist,         only:set_linklist,allocate_linklist,deallocate_linklist
@@ -55,11 +51,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(100) :: neighbourfile
  character(100)   :: jstring, kstring
  real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), &
-<<<<<<< HEAD
          xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
-=======
-              xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
  real, dimension(:), allocatable :: tau
  integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2!,iu
  integer :: start, finish, method, analyses, minOrder, maxOrder, order, raypolation, refineScheme
@@ -408,11 +400,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           close(iu4)
           totalTime = totalTime + timeTau
           open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-<<<<<<< HEAD
                      status='replace', action='write')
-=======
-                         status='replace', action='write')
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
           do i=1, size(tau)
              write(iu2, *) tau(i)
           enddo
@@ -447,11 +435,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              times(k+1) = timeTau
              totalTime = totalTime + timeTau
              open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-<<<<<<< HEAD
                         status='replace', action='write')
-=======
-                            status='replace', action='write')
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
@@ -484,11 +468,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              else
                 call system_clock(start)
                 call get_all_tau_adaptive(npart2, primsec(1:3,1), xyzh2, kappa, Rstar, j, k, refineScheme,&
-<<<<<<< HEAD
-                                                                                          tau, primsec(1:3,2), Rcomp)
-=======
-                                                                                              tau, primsec(1:3,2), Rcomp)
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
+                                          tau, primsec(1:3,2), Rcomp)
                 call system_clock(finish)
              endif
              timeTau = (finish-start)/1000.
@@ -496,11 +476,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              times(k-minOrder+1) = timeTau
              totalTime = totalTime + timeTau
              open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-<<<<<<< HEAD
                         '_'//trim(kstring)//'.txt', status='replace', action='write')
-=======
-                            '_'//trim(kstring)//'.txt', status='replace', action='write')
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
@@ -648,11 +624,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print*,'Time = ',timeTau,' seconds.'
        totalTime = totalTime + timeTau
        open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-<<<<<<< HEAD
                   '_'//trim(kstring)//'.txt', status='replace', action='write')
-=======
-                     '_'//trim(kstring)//'.txt', status='replace', action='write')
->>>>>>> 1788ae4727111d338799b7ac860734cdc905eafb
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
