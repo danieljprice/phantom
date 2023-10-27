@@ -355,6 +355,7 @@ subroutine update_max_sizes(n,ntot)
 #ifdef KROME
  maxp_krome = maxp
 #endif
+ if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION
  store_dust_temperature = .true.

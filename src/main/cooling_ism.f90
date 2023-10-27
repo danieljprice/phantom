@@ -59,7 +59,7 @@ module cooling_ism
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 54
 
-! These varables are initialised in init_cooling_ism
+! These variables are initialised in init_cooling_ism
  real :: temptab(nmd)
  real :: cltab(ncltab, nmd),dtcltab(ncltab, nmd)
  real :: dtlog, tmax, tmin

@@ -204,7 +204,7 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use io,                only:fatal
- use dim,               only:maxp_h2,h2chemistry,maxp
+ use dim,               only:h2chemistry
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
@@ -241,7 +241,6 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     case(8)
        call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
        h2chemistry = .true.
-       maxp_h2 = maxp
     case(3)
        call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
     case(7)

@@ -294,7 +294,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
 ! End of updating H2/CO ratio. Now to update HI/HII/e- ratio.
 !------------------------------------------------------------------------------------
 !--If were not including H2, could set h2ratio to a small value (e.g. 1.e-7) and just
-!--have this part to calculate heating and cooloing (need nh1 and np1 though).
+!--have this part to calculate heating and cooling (need nh1 and np1 though).
 !
 ! column density of HI excluding protons
 !
