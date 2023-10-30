@@ -6,17 +6,16 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup routine for uniform distribution
+! Setup routine for a constant density + petrubtations FLRW universe 
+! as described in Magnall et al. 2023 
 !
 ! :References: None
 !
 ! :Owner: Spencer Magnall
 !
 ! :Runtime parameters:
-!   - Bzero               : *magnetic field strength in code units*
 !   - cs0                 : *initial sound speed in code units*
 !   - dist_unit           : *distance unit (e.g. au)*
-!   - dust_to_gas         : *dust-to-gas ratio*
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
 !   - mass_unit           : *mass unit (e.g. solarm)*
 !   - nx                  : *number of particles in x direction*
@@ -27,25 +26,18 @@ module setup
 !   options, part, physcon, prompting, setup_params, stretchmap, unifdis,
 !   units, utils_gr
 !
- use dim,          only:use_dust,mhd
- use options,      only:use_dustfrac
+ use dim,          only:use_dust
  use setup_params, only:rhozero
  use physcon, only:radconst
  implicit none
  public :: setpart
 
  integer           :: npartx,ilattice
- real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero,ampl,phaseoffset
+ real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
  real              :: rho_matter
  real(kind=8)      :: udist,umass
-
- !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
- logical :: BalsaraKim = .false.
-
- !--dust
- real    :: dust_to_gas
 
  private
 
@@ -481,19 +473,6 @@ subroutine setup_interactive(id,polyk)
  endif
  call bcast_mpi(cs0)
  !
- ! dust to gas ratio
- !
- if (use_dustfrac) then
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
- endif
- !
- ! magnetic field strength
- if (mhd .and. balsarakim) then
-    call prompt('Enter magnetic field strength in code units ',Bzero,0.)
-    call bcast_mpi(Bzero)
- endif
- !
  ! type of lattice
  !
  if (id==master) then
@@ -545,12 +524,6 @@ subroutine write_setupfile(filename)
  call write_inopt(perturb_direction, 'FLRWSolver::FLRW_perturb_direction','Pertubation direction',iunit)
  call write_inopt(radiation_dominated, 'radiation_dominated','Radiation dominated universe (yes/no)',iunit)
  call write_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength','Perturbation wavelength',iunit)
- if (use_dustfrac) then
-    call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
- endif
- if (mhd .and. balsarakim) then
-    call write_inopt(Bzero,'Bzero','magnetic field strength in code units',iunit)
- endif
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  close(iunit)
 

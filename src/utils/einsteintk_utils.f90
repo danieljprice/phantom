@@ -60,7 +60,6 @@ subroutine init_etgrid(nx,ny,nz,dx,dy,dz,originx,originy,originz)
 
  allocate(rhostargrid(nx,ny,nz))
 
- ! TODO Toggle for this to save memory
  allocate(entropygrid(nx,ny,nz))
 
  ! metric derivs are stored in the form
@@ -94,13 +93,6 @@ subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)
  vy = vxyzu(2,i)
  vz = vxyzu(3,i)
 
- ! dp/dt
- !print*, "fext: ", fext(:,i)
- !print*, "fxyzu: ", fxyzu(:,i)
- !fx = fxyzu(1,i) + fext(1,i)
- !print*, "fx: ", fx
- !fy = fxyzu(2,i) + fext(2,i)
- !fz = fxyzu(3,i) + fext(3,i)
  fx = fext(1,i)
  fy = fext(2,i)
  fz = fext(3,i)
@@ -177,35 +169,4 @@ subroutine set_rendering(flag)
 
 end subroutine set_rendering
 
- ! Do I move this to tmunu2grid??
- ! I think yes
-
-
- ! Moved to einsteintk_wrapper.f90 to fix dependency issues
-
- ! subroutine get_metricderivs_all(dtextforce_min)
- !   use part, only:npart, xyzh,vxyzu,metrics,metricderivs,dens,fext
- !   use timestep, only:bignumber,C_force
- !   use extern_gr, only:get_grforce
- !   use metric_tools, only:pack_metricderivs
- !   real, intent(out) :: dtextforce_min
- !   integer :: i
- !   real :: pri,dtf
-
- !   pri = 0.
- !   dtextforce_min = bignumber
-
- !   !$omp parallel do default(none) &
- !   !$omp shared(npart, xyzh,metrics,metricderivs,vxyzu,dens,C_force,fext) &
- !   !$omp firstprivate(pri) &
- !   !$omp private(i,dtf) &
- !   !$omp reduction(min:dtextforce_min)
- !   do i=1, npart
- !     call pack_metricderivs(xyzh(1:3,i),metricderivs(:,:,:,i))
- !     call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i), &
- !          vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
- !     dtextforce_min = min(dtextforce_min,C_force*dtf)
- !   enddo
- !   !$omp end parallel do
- ! end subroutine get_metricderivs_all
 end module einsteintk_utils

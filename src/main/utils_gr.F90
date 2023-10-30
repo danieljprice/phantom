@@ -116,8 +116,7 @@ subroutine rho2dens(dens,rho,position,metrici,v)
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
 
- ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
- !sqrtg = 1.
+
  call unpack_metric(metrici,gcov=gcov)
  call get_sqrtg(gcov, sqrtg)
  call get_u0(gcov,v,U0,ierror)
@@ -197,8 +196,6 @@ subroutine get_sqrtg(gcov, sqrtg)
        a13*a21*a32*a44 - a11*a23*a32*a44 - a12*a21*a33*a44 + a11*a22*a33*a44
 
     sqrtg = sqrt(-det)
-    !print*, "sqrtg: ", sqrtg
-    !stop
  else
     ! If we are not using an evolving metric then
     ! Sqrtg = 1

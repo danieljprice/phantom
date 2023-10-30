@@ -118,7 +118,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
  if (present(verbose)) isverbose = verbose
  if (present(rhotab)) use_rhotab = .true.
  if (present(massfunc)) use_massfunc = .true.
- print*,"Use mass func?: ", use_massfunc
+ if (use_massfunc) print "(a)", 'Using massfunc rather than numerically-integrated table'
  if (present(rhofunc) .or. present(rhotab)) then
     if (isverbose) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
     !
@@ -327,8 +327,6 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
           xyzh(2,i) = x(2)
           xyzh(3,i) = x(3)
           xyzh(4,i) = hi*(rhozero/rhoi)**(1./3.)
-          !print*, "Rho value for particle is: ", rhoi
-          !print*, "Smoothing length for particle is: ", xyzh(4,i)
           if (its >= maxits) nerr = nerr + 1
        endif
     enddo

@@ -794,7 +794,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 !
  if (dtextforce < dtsph) then
     dt = dtextforce
-    last_step = .true. ! Just to check if things are working
+    last_step = .false.
  else
     dt = dtsph
     last_step = .true.

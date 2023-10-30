@@ -424,26 +424,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
- !print*, "Before init metric!"
  call init_metric(npart,xyzh,metrics,metricderivs)
- !print*, "metric val is: ", metrics(:,:,:,1)
- !print*, "Before prims2consall"
- !print*, "Density value before prims2cons: ", dens(1)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
- !print*, "Density value after prims2cons: ", dens(1)
- !print*, "internal energy is: ", vxyzu(4,1)
- !print*, "initial entropy is : ", pxyzu(4,1)
 #endif
  if (iexternalforce > 0 .and. imetric /= imet_minkowski) then
     call initialise_externalforces(iexternalforce,ierr)
     if (ierr /= 0) call fatal('initial','error in external force settings/initialisation')
-    !print*, "Before get_grforce_all"
     call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    !print*, "Before get_tmunu_all"
-    !call get_tmunu_all_exact(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
-    !call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
-    !print*, "get_tmunu_all finished!"
-    !call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac=.true.)
  endif
 #else
  if (iexternalforce > 0) then

@@ -1015,6 +1015,7 @@ ifeq ($(SETUP), testgr)
 endif
 
 ifeq ($(SETUP), flrw)
+#   constant density FLRW cosmology with perturbations  
  GR=yes
  KNOWN_SETUP=yes
  IND_TIMESTEPS=no
@@ -1022,7 +1023,9 @@ ifeq ($(SETUP), flrw)
  SETUPFILE= setup_flrw.f90
  PERIODIC=yes
 endif
+
 ifeq ($(SETUP), flrwpspec)
+#  FLRW universe using a CMB powerspectrum and the Zeldovich approximation
  GR=yes
  KNOWN_SETUP=yes
  IND_TIMESTEPS=no

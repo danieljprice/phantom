@@ -6,17 +6,17 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup routine for uniform distribution
+! Setup routine for realistic cosmological initial conditions based
+! on the Zeldovich approximation. 
+! Requries velocity files generated from a powerspectrum. 
 !
 ! :References: None
 !
 ! :Owner: Spencer Magnall
 !
 ! :Runtime parameters:
-!   - Bzero               : *magnetic field strength in code units*
 !   - cs0                 : *initial sound speed in code units*
 !   - dist_unit           : *distance unit (e.g. au)*
-!   - dust_to_gas         : *dust-to-gas ratio*
 !   - ilattice            : *lattice type (1=cubic, 2=closepacked)*
 !   - mass_unit           : *mass unit (e.g. solarm)*
 !   - nx                  : *number of particles in x direction*
@@ -25,26 +25,19 @@ module setup
 !
 ! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
 !   mpiutils, options, part, physcon, prompting, setup_params, stretchmap,
-!   unifdis, units, utils_gr
+!   unifdis, units, utils_gr   
 !
- use dim,          only:use_dust,mhd
- use options,      only:use_dustfrac
+ use dim,          only:use_dust
  use setup_params, only:rhozero
  use physcon, only:radconst
  implicit none
  public :: setpart
 
  integer           :: npartx,ilattice
- real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,Bzero,ampl,phaseoffset
+ real              :: cs0,xmini,xmaxi,ymini,ymaxi,zmini,zmaxi,ampl,phaseoffset
  character(len=20) :: dist_unit,mass_unit,perturb_direction,perturb,radiation_dominated
  real              :: perturb_wavelength
  real(kind=8)      :: udist,umass
-
- !--change default defaults to reproduce the test from Section 5.6.7 of Price+(2018)
- logical :: BalsaraKim = .false.
-
- !--dust
- real    :: dust_to_gas
 
  private
 
@@ -366,19 +359,7 @@ subroutine setup_interactive(id,polyk)
     call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  endif
  call bcast_mpi(cs0)
- !
- ! dust to gas ratio
- !
- if (use_dustfrac) then
-    call prompt('Enter dust to gas ratio',dust_to_gas,0.)
-    call bcast_mpi(dust_to_gas)
- endif
- !
- ! magnetic field strength
- if (mhd .and. balsarakim) then
-    call prompt('Enter magnetic field strength in code units ',Bzero,0.)
-    call bcast_mpi(Bzero)
- endif
+ 
  !
  ! type of lattice
  !
@@ -431,12 +412,6 @@ subroutine write_setupfile(filename)
  call write_inopt(perturb_direction, 'FLRWSolver::FLRW_perturb_direction','Pertubation direction',iunit)
  call write_inopt(radiation_dominated, 'radiation_dominated','Radiation dominated universe (yes/no)',iunit)
  call write_inopt(perturb_wavelength,'FLRWSolver::single_perturb_wavelength','Perturbation wavelength',iunit)
- if (use_dustfrac) then
-    call write_inopt(dust_to_gas,'dust_to_gas','dust-to-gas ratio',iunit)
- endif
- if (mhd .and. balsarakim) then
-    call write_inopt(Bzero,'Bzero','magnetic field strength in code units',iunit)
- endif
  call write_inopt(ilattice,'ilattice','lattice type (1=cubic, 2=closepacked)',iunit)
  close(iunit)
 
@@ -515,19 +490,18 @@ subroutine read_setupfile(filename,ierr)
 end subroutine read_setupfile
 
 subroutine read_veldata(velarray,vfile,gridsize)
- ! TODO ERROR HANDLING??
  integer, intent(in) :: gridsize
  character(len=20),intent(in) :: vfile
  real,intent(out) :: velarray(:,:,:)
- integer :: i,j,k
+ integer :: i,j,k,iu
 
- open(unit=444,file=vfile,status='old')
+ open(newunit=iu,file=vfile,status='old')
  do k=1,gridsize
     do j=1,gridsize
-       read(444,*) (velarray(i,j,k), i=1, gridsize)
+       read(iu,*) (velarray(i,j,k), i=1, gridsize)
     enddo
  enddo
- close(444)
+ close(iu)
  print*, "Finished reading ", vfile
 
 end subroutine read_veldata
@@ -618,12 +592,12 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
 end subroutine get_grid_neighbours
 
 logical function check_files(file1,file2,file3)
-   character(len=40), intent(in) :: file1,file2,file3
+   character(len=*), intent(in) :: file1,file2,file3
    logical :: file1_exist, file2_exist, file3_exist
 
-   INQUIRE(file=file1,exist=file1_exist)
-   INQUIRE(file=file2,exist=file2_exist)
-   INQUIRE(file=file3,exist=file3_exist) 
+   inquire(file=file1,exist=file1_exist)
+   inquire(file=file2,exist=file2_exist)
+   inquire(file=file3,exist=file3_exist) 
    
    if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then 
       check_files =  .false. 
