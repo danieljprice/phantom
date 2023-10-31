@@ -249,7 +249,7 @@ end subroutine Cint
 !  Interpolate between values using linear interpolation in 1D
 !+
 !------------------------------------------------------------------------
-subroutine linear_interpolator_one_d(val0,val1,u,val)
+pure subroutine linear_interpolator_one_d(val0,val1,u,val)
  real, intent(out) :: val
  real, intent(in)  :: val0,val1,u
 

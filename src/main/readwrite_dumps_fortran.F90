@@ -218,6 +218,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                  luminosity,eta_nimhd,eta_nimhd_label
+ use part,  only:metrics,metricderivs,tmunus 
  use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -227,6 +228,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 #ifdef PRDRAG
  use lumin_nsdisc, only:beta
 #endif
+ use metric_tools, only:imetric, imet_et
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -363,7 +365,25 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
        if (gr) then
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
-          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8)) 
+          if (imetric==imet_et) then
+             ! Output metric if imetric=iet
+             call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             !  call write_array(1,metrics(1,3,1,:), 'gty (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             !  call write_array(1,metrics(1,2,1,:), 'gtz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metrics(4,4,1,:), 'gzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+
+             call write_array(1,metricderivs(1,1,1,:), 'dxgtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metricderivs(2,2,1,:), 'dxgxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metricderivs(3,3,1,:), 'dxgyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metricderivs(4,4,1,:), 'dxgzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+
+             call write_array(1,tmunus(1,1,:),  'tmunutt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+          endif
        endif
        if (eos_is_non_ideal(ieos) .or. (.not.store_dust_temperature .and. icooling > 0)) then
           call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))

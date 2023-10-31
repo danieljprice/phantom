@@ -151,7 +151,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
-
 ! determine twas for each ibin
  if (ind_timesteps .and. sts_it_n) then
     time_now = timei + dtsph
@@ -359,6 +358,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+
  if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
 
 !
@@ -370,14 +370,17 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     dt_too_small = .false.
+
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
+
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
+
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
        ! dt < dtmax/2**nbinmax and exit
@@ -656,7 +659,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo iterations
-
+ 
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
@@ -804,7 +807,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
-
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
@@ -816,7 +818,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
     endif
-
     !---------------------------
     ! predictor during substeps
     !---------------------------
@@ -946,7 +947,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     naccreted    = 0
     nlive = 0
     dtextforce_min = bignumber
-
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp shared(maxphase,maxp) &
