@@ -45,12 +45,12 @@ contains
 !
 !----------------------------------------------------------------
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use physcon,      only:solarm,years,mass_proton_cgs
+ use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
  use part,         only:igas,set_particle_type,delete_particles_inside_radius, &
                         delete_particles_outside_sphere,kill_particle,shuffle_part
  use io,           only:fatal,master,id
- use units,        only:umass,udist,utime,set_units,unit_density
+ use units,        only:umass,udist,utime,set_units,unit_density,unit_ergg
  use timestep,     only:dtmax,tmax
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -219,10 +219,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set particle properties
  do i = npart_old+1,npart
     call set_particle_type(i,igas)
-    r = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+    r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)       
     vxyzu(4,i) = uerg(rhof(r),temperature)
     vxyzu(1:3,i) = 0. ! stationary for now
+    pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/rhof(r)) + 4.*radconst*temperature**3 / (3.*rhof(r))) / kboltz/ unit_ergg
  enddo
  
  !--Set timesteps
