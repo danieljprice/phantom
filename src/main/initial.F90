@@ -138,8 +138,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
- use extern_gr,        only:get_grforce_all
+ use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
  use metric_tools,     only:init_metric,imet_minkowski,imetric
+ use einsteintk_utils
+ use tmunu2grid
 #endif
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw
@@ -422,7 +424,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
-! COMPUTE METRIC HERE
  call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif

@@ -83,6 +83,8 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
  ncpu = 0
  ncpureal = 0
  cpuspeed = 0.
+ cachesizel2 = 0.
+ cachesizel3 = 0.
  cpumodel = ''
  cachesize = ''
  inquire(file='/proc/cpuinfo',exist=iexist)

@@ -494,7 +494,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90
+SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90 
 #
 # chemistry and cooling
 #
@@ -547,6 +547,10 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.F90 initial.F90
 
+# Needed as einsteintk_wrapper depends on initial
+ifeq ($(GR),yes)
+	SOURCES+=einsteintk_wrapper.f90
+endif
 OBJECTS1 = $(SOURCES:.f90=.o)
 OBJECTS = $(OBJECTS1:.F90=.o)
 

@@ -270,6 +270,15 @@ module dim
  logical, parameter :: gr = .false.
 #endif
 
+!---------------------
+! Numerical relativity
+!---------------------
+#ifdef NR
+ logical, parameter :: nr = .true.
+#else
+ logical, parameter :: nr = .false.
+#endif  
+
 !--------------------
 ! Supertimestepping
 !--------------------
