@@ -47,7 +47,8 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,      only:solarm,years,mass_proton_cgs
  use setup_params, only:npart_total
- use part,         only:igas,set_particle_type,delete_particles_inside_radius,delete_particles_outside_sphere
+ use part,         only:igas,set_particle_type,delete_particles_inside_radius, &
+                        delete_particles_outside_sphere,kill_particle,shuffle_part
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density
  use timestep,     only:dtmax,tmax
@@ -174,14 +175,22 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  !--remove unwanted particles
- npart_old = npart
- call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
- write(*,'(I10,1X,A23,1X,E8.2,1X,A14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
- npart_old = npart
- if (remove_overlap) then
-    call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
-    write(*,'(I10,1X,A24,1X,E8.2,1X,A14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+ if (ignore_radius > 0) then
     npart_old = npart
+    call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
+    write(*,'(I10,1X,A23,1X,E8.2,1X,A14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
+    npart_old = npart
+    if (remove_overlap) then
+       call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
+       write(*,'(I10,1X,A24,1X,E8.2,1X,A14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+       npart_old = npart
+    endif
+ else
+    write(*,'(a)') ' Ignore all TDE particles'
+    do i = 1,npart
+       call kill_particle(i,npartoftype)
+    enddo
+    call shuffle_part(npart)
  endif
 
  !--setup cloud
@@ -316,7 +325,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for setting up a circumnuclear gas cloud'
 
  write(iunit,"(/,a)") '# geometry'
- call write_inopt(ignore_radius,'ignore_radius','tde particle inside this radius will be ignored',iunit)
+ call write_inopt(ignore_radius,'ignore_radius','tde particle inside this radius will be ignored (-ve = ignore tde particles for later injection)',iunit)
  call write_inopt(remove_overlap,'remove_overlap','remove outflow particles overlap with circum particles',iunit)
  call write_inopt(use_func,'use_func','if use broken power law for density profile',iunit)
  if (use_func) then
