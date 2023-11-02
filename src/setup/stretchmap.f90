@@ -30,11 +30,12 @@ module stretchmap
  public :: set_density_profile
  public :: get_mass_r
  public :: rho_func
+ public :: mass_func
 
- integer, private :: ngrid = 1024 ! number of points used when integrating rho to get mass
+ integer, private :: ngrid =  8192 ! number of points used when integrating rho to get mass
  integer, parameter, private :: maxits = 100  ! max number of iterations
  integer, parameter, private :: maxits_nr = 30  ! max iterations with Newton-Raphson
- real,    parameter, private :: tol = 1.e-9  ! tolerance on iterations
+ real,    parameter, private :: tol = 1.e-10  ! tolerance on iterations
  integer, parameter, public :: ierr_zero_size_density_table = 1, & ! error code
                                ierr_memory_allocation = 2, & ! error code
                                ierr_table_size_differs = 3, & ! error code
@@ -45,11 +46,17 @@ module stretchmap
   end function rho_func
  end interface
 
+ abstract interface
+  real function mass_func(x,xmin)
+   real, intent(in) :: x, xmin
+  end function mass_func
+ end interface
+
  private
 
 contains
 
-subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,coord,verbose,err)
+subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,start,geom,coord,verbose,err)
 !
 !  Subroutine to implement the stretch mapping procedure
 !
@@ -91,6 +98,7 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: min,max
  procedure(rho_func), pointer, optional :: rhofunc
+ procedure(mass_func), pointer, optional :: massfunc
  real,    intent(in), optional :: rhotab(:),xtab(:)
  integer, intent(in), optional :: start, geom, coord
  logical, intent(in), optional :: verbose
@@ -101,13 +109,16 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
  real, allocatable  :: xtable(:),masstab(:)
  integer            :: i,its,igeom,icoord,istart,nt,nerr,ierr
  logical            :: is_r, is_rcyl, bisect, isverbose
- logical            :: use_rhotab
+ logical            :: use_rhotab, use_massfunc
 
  isverbose = .true.
  use_rhotab = .false.
+ use_massfunc = .false.
+
  if (present(verbose)) isverbose = verbose
  if (present(rhotab)) use_rhotab = .true.
-
+ if (present(massfunc)) use_massfunc = .true.
+ if (use_massfunc) print "(a)", 'Using massfunc rather than numerically-integrated table'
  if (present(rhofunc) .or. present(rhotab)) then
     if (isverbose) print "(a)",' >>>>>>  s  t  r  e   t    c     h       m     a    p   p  i  n  g  <<<<<<'
     !
@@ -176,6 +187,8 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
           totmass = get_mass_r(rhofunc,xmax,xmin)
        elseif (is_rcyl) then
           totmass = get_mass_rcyl(rhofunc,xmax,xmin)
+       elseif (use_massfunc) then
+          totmass = massfunc(xmax,min)
        else
           totmass = get_mass(rhofunc,xmax,xmin)
        endif
@@ -203,8 +216,8 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
 
     nerr = 0
     !$omp parallel do default(none) &
-    !$omp shared(np,xyzh,rhozero,igeom,use_rhotab,rhotab,xtable,masstab,nt) &
-    !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart,rhofunc) &
+    !$omp shared(np,xyzh,rhozero,igeom,use_rhotab,use_massfunc,rhotab,xtable,masstab,nt) &
+    !$omp shared(xmin,xmax,totmass,icoord,is_r,is_rcyl,istart,rhofunc,massfunc) &
     !$omp private(x,xold,xt,fracmassold,its,xprev,xi,hi,rhoi) &
     !$omp private(func,dfunc,xminbisect,xmaxbisect,bisect) &
     !$omp reduction(+:nerr)
@@ -239,6 +252,8 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
                 func  = get_mass_r(rhofunc,xi,xmin)
              elseif (is_rcyl) then
                 func  = get_mass_rcyl(rhofunc,xi,xmin)
+             elseif (use_massfunc) then
+                func = massfunc(xi,xmin)
              else
                 func  = get_mass(rhofunc,xi,xmin)
              endif
@@ -266,6 +281,9 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,rhotab,xtab,start,geom,co
                 elseif (is_rcyl) then
                    func  = get_mass_rcyl(rhofunc,xi,xmin) - fracmassold
                    dfunc = 2.*pi*xi*rhofunc(xi)
+                elseif (use_massfunc) then
+                   func  = massfunc(xi,xmin) - fracmassold
+                   dfunc = rhofunc(xi)
                 else
                    func  = get_mass(rhofunc,xi,xmin) - fracmassold
                    dfunc = rhofunc(xi)

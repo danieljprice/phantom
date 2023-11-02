@@ -119,7 +119,6 @@ program phantomsetup
     call init_domains(nprocs)
     id = 0
  endif
-
  do myid=0,nprocsfake-1
 
     myid1 = myid
