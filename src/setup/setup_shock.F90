@@ -406,6 +406,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  use physcon,   only:pi,Rg,au,solarm
  use prompting, only:prompt
  use units,     only:udist,utime,unit_density,unit_pressure
+ use setunits,  only:set_units_interactive
  real,    intent(inout) :: gamma,polyk
  real,    intent(out)   :: dtg
  logical, intent(in)    :: iexist
@@ -436,6 +437,9 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  yright = 0.0
  zright = 0.0
  const  = sqrt(4.*pi)
+
+ call set_units_interactive(gr)
+
 !
 !--list of shocks
 !
@@ -679,6 +683,8 @@ end function get_conserved_density
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
  use dim,          only:tagline
+ use setunits,     only:write_options_units
+ use part,         only:gr
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
@@ -689,6 +695,8 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  open(unit=lu,file=filename,status='replace',form='formatted')
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
+
+ call write_options_units(lu,gr)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
@@ -754,6 +762,8 @@ end subroutine write_setupfile
 !------------------------------------------
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
+ use setunits,     only:read_options_and_set_units
+ use part,         only:gr
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
@@ -767,6 +777,10 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  write(iprint, '(1x,2a)') 'Setup_shock: Reading setup options from ',trim(filename)
 
  nerr = 0
+
+ ! units
+ call read_options_and_set_units(db,nerr,gr)
+
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)
