@@ -47,7 +47,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
- use part,         only:igas,set_particle_type,delete_particles_inside_radius, &
+ use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
                         delete_particles_outside_sphere,kill_particle,shuffle_part
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density,unit_ergg
@@ -205,6 +205,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call kill_particle(i,npartoftype)
     enddo
     call shuffle_part(npart)
+    npart_old = npart
  endif
 
  !--setup cloud
@@ -367,7 +368,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for setting up a circumnuclear gas cloud'
 
  write(iunit,"(/,a)") '# geometry'
- call write_inopt(ignore_radius,'ignore_radius','tde particle inside this radius will be ignored (-ve = ignore tde particles for later injection)',iunit)
+ call write_inopt(ignore_radius,'ignore_radius','ignore tde particle inside this radius (-ve = ignore all for injection)',iunit)
  call write_inopt(remove_overlap,'remove_overlap','remove outflow particles overlap with circum particles',iunit)
  call write_inopt(use_func,'use_func','if use broken power law for density profile',iunit)
  if (use_func) then
