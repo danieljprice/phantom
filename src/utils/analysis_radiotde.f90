@@ -315,23 +315,19 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,ents)
     if (ents(i) > 3.5e5 .and. ri < 6.5e6 .and. ri > rad_max) rad_max = ri
  enddo
  write(*,'(a25,1x,es8.1,1x,a5,1x,es8.1,1x,a2)') ' Shock is determined from', shock_r*udist/au, 'au to', rad_max*udist/au, 'au'
- shock_r = 0.5*(rad_min + rad_max)
+ shock_r = rad_min
 
  n = 0
- !shock_e = 0.
- !v_add = 0.
+ shock_e = 0.
  half_m = pmass*0.5
  do i = 1,npart
     ri = rad_all(i)
     if (ri > rad_min .and. ri < rad_max .and. ents(i) > 3.5e5) then
        n = n + 1
-       !shock_e = half_m*vr_all(i)**2
-       !v_add = v_add + vr_all(i)
+       shock_e = shock_e + half_m*vr_all(i)**2
     endif
  enddo
- !shock_v = v_add/n
  shock_m = pmass*n
- shock_e = 0.5*shock_m*shock_v**2
  shock_rho = shock_m*4./3.*pi*(rad_max**3-rad_min**3)
 
 end subroutine 
