@@ -6,27 +6,18 @@
 !--------------------------------------------------------------------------!
 module inject
 !
-! Handles TDE outflow particle injection
+! Handles particle injections from another simulations (for TDE outflow only currently)
 !
 ! :References: None
 !
 ! :Owner: Fitz Hu
 !
 ! :Runtime parameters:
-!   - iboundary_spheres  : *number of boundary spheres (integer)*
-!   - iwind_resolution   : *if<>0 set number of particles on the sphere, reset particle mass*
-!   - nfill_domain       : *number of spheres used to set the background density profile*
-!   - outer_boundary     : *delete gas particles outside this radius (au)*
-!   - sonic_type         : *find transonic solution (1=yes,0=no)*
-!   - wind_inject_radius : *wind injection radius (au, if 0 takes Rstar)*
-!   - wind_mass_rate     : *wind mass loss rate (Msun/yr)*
-!   - wind_shell_spacing : *desired ratio of sphere spacing to particle spacing*
-!   - wind_temperature   : *wind temperature at injection radius (K, if 0 takes Teff)*
-!   - wind_velocity      : *injection wind velocity (km/s, if sonic_type = 0)*
+!   - start_dump      : *dump to start looking for particles to inject*
+!   - r_inject        : *radius to inject particles*
 !
-! :Dependencies: cooling_molecular, dim, dust_formation, eos, icosahedron,
-!   infile_utils, injectutils, io, options, part, partinject, physcon,
-!   ptmass_radiation, setbinary, timestep, units, wind, wind_equations
+! :Dependencies: fileutils, io, timestep, units, dump_utils, part,
+!   readwrite_dumps_fortran, readwrite_dumps_common, partinject, infile_utils
 !
  use fileutils, only:getnextfilename
 
@@ -57,7 +48,6 @@ contains
 subroutine init_inject(ierr)
  use io,        only:error
  use timestep,  only:time
- use fileutils, only:getnextfilename
  use units,     only:udist
 
  integer, intent(out) :: ierr
