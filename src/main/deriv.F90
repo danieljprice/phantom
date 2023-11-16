@@ -69,9 +69,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use derivutils,     only:do_timing
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
- use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge,calc_lambda_hybrid
+ use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,icooling
- use eos_stamatellos, only:doFLD
+ use eos_stamatellos, only:doFLD,lambda_FLD
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -176,8 +176,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  
  ! compute diffusion term for hybrid RT & polytropic cooling method
  if (icooling == 8 .and. dt > 0. .and. doFLD) then
- 	!print *, "calling lambda_hybrud from deriv"
-   call calc_lambda_hybrid(xyzh,vxyzu(4,:),dens)
+ 	!print *, "calling lambda_hybrid from deriv"
+    call set_linklist(npart,nactive,xyzh,vxyzu)   
+    call calc_lambda(npart,xyzh,vxyzu,dens,lambda_FLD)
  endif
  
 !
@@ -264,5 +265,176 @@ subroutine get_derivs_global(tused,dt_new,dt)
  if (present(dt_new)) dt_new = dtnew
 
 end subroutine get_derivs_global
+
+subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
+  use io,    only:error
+  use dim,   only:maxneigh
+  use part,  only:get_partinfo,iamgas,iboundary,igas,maxphase,massoftype,iphase,gradh
+#ifdef PERIODIC
+  use boundary,  only:dxbound,dybound,dzbound
+#endif
+  use kernel,   only:radkern2,wkern,grkern,cnormk,get_kernel
+  use linklist, only:get_neighbour_list
+  use units,    only:unit_density,unit_ergg
+  use eos_stamatellos, only:getopac_opdep,arad
+
+  integer,         intent(in)     :: npart 
+  real,            intent(in)     :: xyzh(:,:)
+  real,            intent(in)     :: vxyzu(:,:)
+  real,            intent(in)     :: rho(:)
+  real,            intent(inout)  :: lambda(:)
+
+  integer, parameter  :: maxcellcache = 10000
+  logical :: iactivei,iamdusti,iamgasi,iactivej,iamgasj,iamdustj
+  integer :: iamtypei,i,j,n,iamtypej,mylistneigh(maxneigh),nneigh
+  integer(kind=1) :: iphasei
+  real                :: rhoi,rhoj,uradi,xi,yi,zi
+  real                :: dradi,Ti,Tj,kappaBarj,kappaPartj,gmwj,gammaj,wkerni,grkerni
+  real                :: kappaBari,kappaParti,gmwi,dx,dy,dz,rij2,rij,rij1,Wi,dWi
+  real                :: dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,dT4
+  real                :: pmassi,pmassj,hi,hi21,hi1,q,q2,q2i,xj,yj,zj,qi,q2j
+  real                :: hj21,hi4i,hj,hj1,hi41,hi31,gradhi
+  real                :: xyzcache(maxcellcache,4)
+  logical             :: added_self,ignoreself
+  ignoreself = .true.
+
+! loop over parts                                                                     
+!$omp parallel do schedule(runtime) default(none) &
+!$omp shared(npart,xyzh,iphase,ignoreself) &
+!$omp shared(rho,lambda,massoftype,vxyzu,unit_density,unit_ergg,gradh) &
+!$omp private(i,j,n,mylistneigh,nneigh,xyzcache,iphasei,iactivei) &
+!$omp private(iamdusti,iamgasi,iactivej,iamgasj,iamdustj,iamtypei,iamtypej) &
+!$omp private(rhoi,rhoj,uradi,xi,yi,zi,dradi,Ti,Tj,kappaBarj,kappaPartj,gmwj) &
+!$omp private(gammaj,wkerni,grkerni,kappaBari,kappaParti,gmwi,dx,dy,dz,rij2) &
+!$omp private(rij,rij1,Wi,dWi,dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,dT4) &
+!$omp private(pmassi,pmassj,hi,hi21,hi1,q,q2,q2i,xj,yj,zj,qi,q2j,hj21,hi4i,hj,hj1) &
+!$omp private(hi41,hi31,gradhi,added_self)
+
+  over_parts: do i = 1,npart
+    !                                                                              
+    !---loop of neighbours to calculate radiation energy density
+    !                                                    
+     !check active and gas particle                         
+     call get_neighbour_list(i,mylistneigh,nneigh,xyzh,xyzcache,maxcellcache, &
+                           getj=.true.) 
+     iphasei = iphase(i)
+     call get_partinfo(iphasei,iactivei,iamgasi,iamdusti,iamtypei)
+     if (.not. iactivei) cycle over_parts
+     if (iamtypei == iboundary) cycle over_parts
+     if (.not. iamgasi) cycle over_parts
+
+     uradi = 0.
+     dradi = 0.
+     pmassi = massoftype(iamtypei)
+     rhoi = rho(i)
+     added_self = .false.
+
+     call getopac_opdep(vxyzu(4,i)*unit_ergg,rhoi*unit_density,kappabari, &
+          kappaparti,ti,gmwi)
+     hi    = xyzh(4,i)
+     hi1   = 1./hi
+     hi21  = hi1*hi1
+     hi31  = hi1*hi21
+     hi41  = hi21*hi21
+     xi = xyzh(1,i)
+     yi = xyzh(2,i)
+     zi = xyzh(3,i)
+     !                                                                  
+     !--compute density and related quantities from the smoothing length
+     !                                                                  
+     pmassi = massoftype(iamtypei)
+     dradxi = 0.0
+     dradyi = 0.0
+     dradzi = 0.0
+
+ loop_over_neighbours: do n = 1,nneigh
+        j = mylistneigh(n)
+        if (j < 0) cycle loop_over_neighbours
+        if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours
+
+        if (n <= maxcellcache) then
+           ! positions from cache are already mod boundary                              
+           xj = xyzcache(n,1)
+           yj = xyzcache(n,2)
+           zj = xyzcache(n,3)
+        else
+           xj = xyzh(1,j)
+           yj = xyzh(2,j)
+           zj = xyzh(3,j)
+        endif
+
+        dx = xi - xj
+        dy = yi - yj
+        dz = zi - zj
+#ifdef PERIODIC
+        if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+        if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+#endif
+        rij2 = dx*dx + dy*dy + dz*dz + TINY(0.)
+        rij = SQRT(rij2)
+        q2i = rij2*hi21
+        qi = SQRT(q2i)
+
+       !--hj is in the cell cache but not in the neighbour cache
+       !  as not accessed during the density summation          
+        hj1 = 1./xyzh(4,j)
+        hj = 1./hj1
+        hj21 = hj1*hj1
+        q2j  = rij2*hj21
+        is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+           call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+           
+           if (.not.iamgasj) cycle loop_over_neighbours
+           !Get kernel quantities                  
+           if (gradh(1,i) > 0.) then
+              gradhi = gradh(1,i)
+           else
+  !call error('force','stored gradh is zero, resetting to 1')                
+              gradhi = 1.
+           endif
+
+           call get_kernel(q2,q,wkerni,grkerni)
+           Wi = wkerni*cnormk*hi21*hi1
+           dWi = grkerni*cnormk*hi21*hi21*gradh(1,i)
+           pmassj = massoftype(iamtypej)
+           rhoj = rho(j)
+
+          call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,kappaBarj, &
+               kappaPartj,Tj,gmwj)
+          uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)
+          ! unit vector components    
+          runix = dx/rij
+          runiy = dy/rij
+          runiz = dz/rij
+
+          dT4 = Ti**4d0 - Tj**4d0
+          dradxi = dradxi + arad*pmassj*dT4*dWi*runix/rhoj
+          dradyi = dradyi + arad*pmassj*dT4*dWi*runiy/rhoj
+          dradzi = dradzi + arad*pmassj*dT4*dWi*runiz/rhoj
+       endif is_sph_neighbour
+
+    enddo loop_over_neighbours
+
+    if (.not. added_self) then
+       !       print *, "Has not added self in lambda hybrid
+       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
+    endif
+    !    urad  = cnormk*uradi + arad*Ti**4.0d0
+    dradi = cnormk*SQRT(dradxi**2.0d0 + dradyi**2.0d0 + dradzi**2.0d0)
+    !Now calculate flux limiter coefficients                          
+    !Calculate in cgs (converted to code units in forcei)
+
+    if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
+       R_rad = 0.0d0
+    else
+       R_rad = dradi/(uradi*rhoi*kappaParti)
+    endif
+
+    lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
+
+ enddo over_parts
+!$omp end parallel do
+end subroutine calc_lambda
 
 end module deriv

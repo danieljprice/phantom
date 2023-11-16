@@ -22,7 +22,7 @@ module eos_stamatellos
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_fld(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
  real, parameter,public      :: arad=7.5657d-15
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
- logical,parameter,public :: doFLD = .true.
+ logical,parameter,public :: doFLD = .True.
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
@@ -31,13 +31,14 @@ contains
 
 subroutine init_S07cool()
  use part, only:npart,maxradprop 
- print *, "Allocating S07 arrays"
+ print *, "Allocating cooling arrays"
  allocate(gradP_cool(npart))
  allocate(Gpot_cool(npart))
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
 ! allocate(radprop_FLD(maxradprop,npart))    
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
+ if (doFLD) print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
 end subroutine init_S07cool
 
 subroutine finish_S07cool()
@@ -59,7 +60,7 @@ subroutine read_optab(eos_file,ierr)
 
  ! read in data file for interpolation
  filepath=find_phantom_datafile(eos_file,'cooling')
- print *,"FILEPATH:",filepath
+ print *,"EOS file: FILEPATH:",filepath
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
  do
@@ -79,9 +80,9 @@ subroutine read_optab(eos_file,ierr)
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
     enddo
  enddo
- print *, 'nx,ny=', nx, ny
- print *, "Optable first row:"
- print *, (OPTABLE(1,1,i),i=1, 6)
+! print *, 'nx,ny=', nx, ny
+! print *, "Optable first row:"
+! print *, (OPTABLE(1,1,i),i=1, 6)
 end subroutine read_optab
 
 !
@@ -109,7 +110,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
     rhoi_ = rhoi
  endif
 
- i = 1
+ i = 2
  do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
     i = i + 1
  enddo
@@ -120,7 +121,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
     ui_ = ui
  endif
 
- j = 1
+ j = 2
  do while ((OPTABLE(i-1,j,3) <= ui_).and.(j < ny))
     j = j + 1
  enddo
