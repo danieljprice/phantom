@@ -290,7 +290,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  case(12)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if (.not. use_var_comp) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if ((star%isoftcore<=0) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
 
  if (need_polyk(star%iprofile)) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)
