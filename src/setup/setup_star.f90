@@ -40,6 +40,7 @@ module setup
  use externalforces,     only:iext_densprofile
  use extern_densprofile, only:nrhotab
  use setstar,            only:ibpwpoly,ievrard,imesa,star_t,need_polyk
+ use setunits,           only:dist_unit,mass_unit
  implicit none
  !
  ! Input parameters
@@ -49,7 +50,6 @@ module setup
  real               :: maxvxyzu
  logical            :: iexist
  logical            :: relax_star_in_setup,write_rho_to_file
- character(len=20)  :: dist_unit,mass_unit
  type(star_t)       :: star
 
  public             :: setpart
