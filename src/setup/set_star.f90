@@ -445,7 +445,7 @@ end subroutine set_defaults_given_profile
 !  interactive prompting for setting up a star
 !+
 !-----------------------------------------------------------------------
-subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
+subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk,iopacity_type)
  use prompting,     only:prompt
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
  use units,         only:in_solarm,in_solarr,in_solarl,udist,umass,unit_luminosity
@@ -453,7 +453,7 @@ subroutine set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
  type(star_t), intent(out)   :: star
  integer,      intent(in)    :: id,master
  logical,      intent(out)   :: use_var_comp
- integer,      intent(out)   :: need_iso
+ integer,      intent(out)   :: need_iso,iopacity_type
  integer,      intent(inout) :: ieos
  real,         intent(inout) :: polyk
  integer :: i
@@ -571,6 +571,7 @@ end subroutine set_star_interactive
 !+
 !-----------------------------------------------------------------------
 subroutine write_options_star(star,iunit,label)
+ use eos,           only:iopacity_type
  use infile_utils,  only:write_inopt,get_optstring
  use setstar_utils, only:nprofile_opts,profile_opt,need_inputprofile,need_rstar
  use units,         only:in_solarm,in_solarr,in_solarl
@@ -664,6 +665,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  use setstar_utils, only:need_inputprofile,need_rstar,nprofile_opts
  use units,         only:umass,udist,unit_luminosity
  use physcon,       only:solarm,solarr,solarl
+ use eos,           only:iopacity_type
  type(star_t),              intent(out)   :: star
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(out)   :: need_iso
