@@ -23,7 +23,8 @@ module eos_idealplusrad
  real, parameter :: tolerance = 1e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
-           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
+           get_idealplusrad_rhofrompresT
 
  private
 
@@ -129,5 +130,19 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,gamma,eni)
  eni = Rg*tempi/((gamma-1.)*mu) + radconst*tempi**4/densi
 
 end subroutine get_idealplusrad_enfromtemp
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates density from pressure and temperature
+!+
+!----------------------------------------------------------------
+subroutine get_idealplusrad_rhofrompresT(presi,tempi,mu,densi)
+ real, intent(in)  :: presi,tempi,mu
+ real, intent(out) :: densi
+
+ densi = (presi - 1./3.*radconst*tempi**4) * mu / (Rg*tempi)
+
+end subroutine get_idealplusrad_rhofrompresT
 
 end module eos_idealplusrad

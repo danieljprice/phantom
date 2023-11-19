@@ -64,7 +64,7 @@ contains
 subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                              r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
                              npts,rmin,Rstar,Mstar,rhocentre,&
-                             isoftcore,isofteningopt,rcore,mcore,hsoft,outputfilename,&
+                             isoftcore,isofteningopt,rcore,mcore,hsoft,Lstar,outputfilename,&
                              composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
@@ -78,7 +78,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
- real,              intent(inout) :: gamma,polyk,hsoft
+ real,              intent(inout) :: gamma,polyk,hsoft,Lstar
  real,              intent(in)    :: X_in,Z_in
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
  real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
@@ -127,7 +127,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        allocate(mu(size(den)))
        mu = 0.
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
-       call set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
+       call set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = 0.5 * rcore
        ! solve for temperature and energy profile
        do i=1,size(r)

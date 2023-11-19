@@ -30,19 +30,23 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,m,X,Y,ierr)
- use eos,                 only:ieos,X_in,Z_in,init_eos,get_mean_molecular_weight
+subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
+ use eos,                 only:ieos,X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
+ use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
  use table_utils,         only:interpolator,yinterp,flip_array
  use setcubiccore,        only:set_cubic_core,find_mcore_given_rcore,&
                                find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore, only:set_fixedS_softened_core
+ use setfixedlumcore,     only:set_fixedlum_softened_core
  use physcon,             only:solarr,solarm
+ use units,               only:unit_luminosity
  integer, intent(in) :: isoftcore,isofteningopt
+ real, intent(in)    :: Lstar
  real, intent(inout) :: rcore,mcore
  real, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr
- real                :: Xcore,Zcore,rc
+ real                :: Xcore,Zcore,rc,Lstar_cgs
  logical             :: isort_decreasing,iexclude_core_mass
 
  ! Output data to be sorted from stellar surface to interior?
@@ -72,9 +76,10 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,m,X,
  rc = rcore*solarr
  Xcore = yinterp(X,r,rc)
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
+ gmw = get_mean_molecular_weight(Xcore,Zcore)
 
  write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
-                                      ', mu = ',get_mean_molecular_weight(Xcore,Zcore)
+                                      ', mu = ',gmw
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
@@ -92,6 +97,15 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,m,X,
     call set_cubic_core(mcore,rcore,den,r,pres,m)
  case(2)
     call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
+    if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
+ case(3)
+    if (iopacity_type==1) then
+       call init_eos_mesa(Xcore,Zcore,ierr)  ! Need to initialise MESA opacity tables
+    elseif (iopacity_type /= 2) then
+       call fatal('set_softened_core','Cannot use zero opacity (iopacity_type<1) with a fixed-luminosity core')
+    endif 
+    Lstar_cgs = Lstar * unit_luminosity
+    call set_fixedlum_softened_core(rcore,Lstar_cgs,mcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  end select
 
