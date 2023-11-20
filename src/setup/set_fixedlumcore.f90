@@ -83,8 +83,8 @@ subroutine set_fixedlum_softened_core(rcore,Lstar,mcore,rho,r,pres,m,Xcore,Ycore
  iverbose = 0
  call shoot_for_mcore(r_alloc,mc,m(icore),Lstar,rho_alloc,pres_alloc,T_alloc,Xcore,Ycore,iverbose)
  mcore = mc / solarm
- write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
- write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
+ write(*,'(1x,a,f8.5,a)') 'Obtained core mass of ',mcore,' Msun'
+ write(*,'(1x,a,f8.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
  rho(1:icore)  = rho_alloc(1:icore)
  pres(1:icore) = pres_alloc(1:icore)
  call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
@@ -99,7 +99,8 @@ end subroutine set_fixedlum_softened_core
 !+
 !-----------------------------------------------------------------------
 subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
- use eos, only:get_mean_molecular_weight
+ use eos,     only:get_mean_molecular_weight
+ use physcon, only:solarm
  real, allocatable, dimension(:), intent(in)    :: r
  integer, intent(in)                            :: iverbose
  real, intent(in)                               :: Lstar,mh,Xcore,Ycore
@@ -135,16 +136,13 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
     elseif (mass/msoft < 1d-10) then  ! m(r=0) sufficiently close to zero
-       write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on central mass reached on iteration no.',it,', fac=',fac
+       write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on central mass reached on iteration no.',it,', fac =',fac
        exit
     else
        mcore = mcore * (1. + fac)
     endif
     msoft = mh - mcore
-    if (mold * mass < 0.) then
-       fac_new = fac * 0.99
-       if (fac_new > tiny(0.)) fac = fac_new
-    endif
+    if (mold * mass < 0.) fac = fac * 0.99
 
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
@@ -153,7 +151,8 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
        exit
     endif
 
-    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e12.5))') it,'m(r=0) = ',mass,'mcore_old = ',mcore_old,'mcore = ',mcore,'fac = ',fac
+    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8))') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
+                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac
  enddo
 
 end subroutine shoot_for_mcore
@@ -193,6 +192,7 @@ subroutine one_shot(r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
  mass  = msoft
  lum(Nmax) = Lstar
  mu_local = mu
+ ierr = 0
 
  do i = Nmax, 1, -1
     pres(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
@@ -202,13 +202,12 @@ subroutine one_shot(r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
     rho_code = rho(i) / unit_density
     call get_opacity(iopacity_type,rho_code,T(i),kappa_code)
     kappai = kappa_code * unit_opacity
-    kappai = 0.32 !!!!! CONSTANT OPACITY
     T(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
              * 3./(16.*pi*radconst*c) * rho(i)*kappai*lum(i) / (r(i)**2*T(i)**3) &
              + dr(i)**2 * T(i+1) &
              + ( dr(i+1)**2 - dr(i)**2) * T(i) ) / dr(i+1)**2
     call calc_rho_from_PT(ieos,pres(i-1),T(i-1),rho(i-1),ierr,mu_local)
-    mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
+    mass = mass - rho(i)*dvol(i)
     lum(i-1) = luminosity(mass,msoft,Lstar)
     
     if (iverbose > 2) print*,Nmax-i+1,rho(i-1),mass,pres(i-1),T(i-1),kappai
@@ -220,14 +219,14 @@ subroutine one_shot(r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
     if (rho(i-1)<rho(i)) then
        if (iverbose > 1) then 
           print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
-          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,rho(i),rho(i-1),mass
+          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4,2x,e12.7)') i,rho(i),rho(i-1),mass,kappai
        endif
        ierr = ierr_rho
     endif
     if (pres(i-1)<pres(i)) then
        if (iverbose > 1) then
           print*,'WARNING: Pressure inversion at i = ',i, 'm = ',mass/solarm
-          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,pres(i-1),rho(i),mass
+          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4,2x,e12.7)') i,pres(i-1),rho(i),mass,kappai
        endif
        ierr = ierr_pres
        return
@@ -241,15 +240,15 @@ end subroutine one_shot
 !  Luminosity that is linear with mass, reaching Lstar at mcore
 !+
 !-----------------------------------------------------------------------
-function luminosity(m,mcore,Lstar,hsoft)
+function luminosity(m,msoft,Lstar,hsoft)
 !  use kernel, only:wkern,cnormk,radkern2
- real, intent(in)           :: m,mcore,Lstar
+ real, intent(in)           :: m,msoft,Lstar
  real, intent(in), optional :: hsoft
  real                       :: luminosity,q
  integer                    :: ilum
 
  ilum = 0
- q = m/mcore
+ q = m/msoft
 
  select case(ilum)
  case(1)  ! smooth step
