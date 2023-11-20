@@ -438,7 +438,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  zright = 0.0
  const  = sqrt(4.*pi)
 
- call set_units_interactive(gr)
+ if (do_radiation) call set_units_interactive(gr)
 
 !
 !--list of shocks
@@ -682,7 +682,7 @@ end function get_conserved_density
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline
+ use dim,          only:tagline,do_radiation
  use setunits,     only:write_options_units
  use part,         only:gr
  integer,          intent(in) :: iprint,numstates
@@ -696,7 +696,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
- call write_options_units(lu,gr)
+ if (do_radiation) call write_options_units(lu,gr)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
@@ -764,6 +764,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use setunits,     only:read_options_and_set_units
  use part,         only:gr
+ use dim,          only:do_radiation
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
@@ -779,7 +780,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  nerr = 0
 
  ! units
- call read_options_and_set_units(db,nerr,gr)
+ if (do_radiation) call read_options_and_set_units(db,nerr,gr)
 
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
