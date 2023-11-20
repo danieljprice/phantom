@@ -107,7 +107,7 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
  real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres,temp
  integer                                        :: Nmax,it,ierr
- real                                           :: mass,mold,msoft,fac,mu,mcore_old,fac_new
+ real                                           :: mass,mold,msoft,fac,mu,mcore_old
 
 ! INSTRUCTIONS
 
@@ -137,6 +137,7 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
        mcore = mcore * (1. - fac)
     elseif (mass/msoft < 1d-10) then  ! m(r=0) sufficiently close to zero
        write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on central mass reached on iteration no.',it,', fac =',fac
+       if (ierr == ierr_rho) write(*,'(a)') 'WARNING: Profile contains density inversion'
        exit
     else
        mcore = mcore * (1. + fac)
@@ -147,6 +148,7 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
                                  &central mass. m(r=0)/msoft = ',mass/msoft
+       if (ierr == ierr_rho) write(*,'(1x,a)') 'WARNING: Profile contains density inversion'
        write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif
