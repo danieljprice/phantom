@@ -120,7 +120,7 @@ module prompting
  interface prompt
   module procedure &
       integer_prompt, real_prompt, string_prompt, double_prompt, logical_prompt, intarr_prompt
- end interface
+ end interface prompt
  public :: prompt,print_logical
 
 contains

@@ -11,7 +11,7 @@ The Phantom SPH code, by Daniel Price.
 This code is designed to be an ultra-sleek, ultra-low-memory, code for high resolution SPH simulations.
 
 - Project homepage: http://phantomsph.bitbucket.io/
-- Code repository: https://bitbucket.org/danielprice/phantom/
+- Code repository: https://github.com/danieljprice/phantom
 - Documentation: https://phantomsph.readthedocs.org/
 
 Contents
@@ -33,14 +33,14 @@ Contents
 Licence
 -------
 
-Phantom is available under the `GPLv3 licence <https://bitbucket.org/danielprice/phantom/src/master/LICENCE>`__.
+Phantom is available under the `GPLv3 licence <https://github.com/danieljprice/phantom/src/master/LICENCE>`__.
 
 Please cite the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant methods papers if you use Phantom in print.
 
 Nightly tests
 -------------
 
-The `Nightly build results <http://phantomsph.bitbucket.io/nightly/>`__ are available.
+Nightly tests are now incorporated as continuous integration tests (github actions) on every pull request.
 
 Indices and tables
 ------------------

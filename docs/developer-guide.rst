@@ -10,7 +10,6 @@ Here is the Phantom developer guide.
    philosophy
    styleguide
    testing
-   docker
    datafiles
    staging
    fork

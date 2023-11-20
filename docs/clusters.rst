@@ -140,7 +140,7 @@ Get phantom
 
 Clone a copy of phantom into your home directory::
 
-   $ git clone https://bitbucket.org/danielprice/phantom.git
+   $ git clone https://github.com/danieljprice/phantom
 
 Distinguishing between /home and /scratch filesystems
 -------------------------------------------------------

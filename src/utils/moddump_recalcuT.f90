@@ -61,7 +61,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Changing to ieos = ',ieos
  do i = 1,npart
     densi = rhoh(xyzh(4,i),massoftype(igas))
-    call calc_temp_and_ene(densi*unit_density,eos_vars(igasP,i)*unit_pressure,eni,tempi,ierr)
+    call calc_temp_and_ene(ieos,densi*unit_density,eos_vars(igasP,i)*unit_pressure,eni,tempi,ierr)
     vxyzu(4,i) = eni / unit_ergg
     if (store_temperature) eos_vars(itemp,i) = tempi
  enddo

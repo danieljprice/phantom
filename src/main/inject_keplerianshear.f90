@@ -55,7 +55,7 @@ module inject
  type injectparams
     real, public :: R_in, R_out, Rsect_in, Rsect_out, width, R_mid, dr_bound, phi_inject
     real, public :: phimax, p_index,q_index, HoverR, object_mass, disc_mass
- end type
+ end type injectparams
 
  type(injectparams), public :: injp
 

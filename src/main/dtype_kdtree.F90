@@ -64,7 +64,7 @@ module dtypekdtree
     real :: xmin(ndimtree)
     real :: xmax(ndimtree)
 #endif
- end type
+ end type kdnode
 
 contains
 

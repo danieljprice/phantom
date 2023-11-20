@@ -120,7 +120,7 @@ end subroutine get_options_from_fileid
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
+                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
@@ -130,12 +130,12 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
  use io,   only:warning,id,master
- use options,    only:alpha,use_dustfrac
+ use options,    only:alpha,use_dustfrac,use_variable_composition
  use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
  integer,         intent(in)    :: i1,i2,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:),got_raden(:),got_kappa,got_iorig
@@ -250,6 +250,7 @@ subroutine check_arrays(i1,i2,npartoftype,npartread,nptmass,nsinkproperties,mass
  if (store_temperature .and. .not.got_temp) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
  endif
+ use_variable_composition = (got_x .and. got_z .and. got_mu)
  if (store_dust_temperature .and. .not.got_Tdust) then
     if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
  endif

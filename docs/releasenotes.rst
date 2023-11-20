@@ -187,7 +187,7 @@ Tests
 ~~~~~
 
 -  test for momentum and energy conservation in two fluid dust-gas drag
-- code performance is now checked nightly against a `suite of benchmarks <https://bitbucket.org/danielprice/phantom-benchmarks>`__
+-  code performance is now checked nightly against a suite of benchmarks
 -  sends error code to system if a fatal error happens (Pinte)
 -  added check on the conservation of angular momentum with dust/gas
 

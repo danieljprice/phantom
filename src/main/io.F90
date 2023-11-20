@@ -41,12 +41,12 @@ module io
  !  to real*4 for output
  interface real4
   module procedure realr4,reald4,reali4
- end interface
+ end interface real4
 
  !--generic interface of format int handles both int*4 and int*8
  interface formatint
   module procedure formatint4,formatint8
- end interface
+ end interface formatint
  !
  !--internal storage of warnings database for buffered warnings
  !
@@ -62,7 +62,7 @@ module io
     character(len=lenmsg)   :: message
     integer(kind=8)         :: ncount
     integer :: level
- end type
+ end type warningdb_entry
 
  integer, parameter :: maxwarningdb = 20
  type(warningdb_entry) :: warningdb(maxwarningdb)

@@ -127,7 +127,7 @@ end subroutine get_eos_pressure_temp_mesa
 !  density and internal energy using bisection method
 !+
 !----------------------------------------------------------------
-subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
+pure subroutine get_eos_eT_from_rhop_mesa(rho,pres,eint,temp,guesseint)
  real, intent(in)           :: rho,pres
  real, intent(out)          :: eint,temp
  real, intent(in), optional :: guesseint
