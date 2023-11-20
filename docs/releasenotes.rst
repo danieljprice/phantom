@@ -1,6 +1,55 @@
 Release notes
 =============
 
+v2022.0.0 - 17th Jan 2022
+-------------------------
+
+Physics
+~~~~~~~
+- Option for gravitational wave emission in quadrupole approximation from any simulation (`Toscani et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510..992T/abstract>`__)
+- Further improvements to wind injection/line cooling/dust formation (contributed by Lionel Siess and Ward Homan)
+- Ideal + radiation + H/He ionisation equation of state (Lau, Hirai)
+- Allow for variable composition (X, Z, mu) in stars (Lau, Hirai)
+- Radiative feedback implemented via MCFOST based on sink particle Mdot (`Borchert et al. 2021 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.510L..37B/abstract>`__)
+- Sink particles can now merge (thanks to James Wurster; #172)
+- Option for thermal energy floor / minimum temperature (Wurster)
+- Fixes/improvements to implicit cooling (Wurster)
+- Updated NICIL library for non-ideal MHD coefficients to v2.1 (Wuster; #115)
+
+Setup
+~~~~~
+- Further improvements to automated relax-star procedure and to setup_star in general (See Appendix C of `Lau et al. 2022 <https://ui.adsabs.harvard.edu/abs/2021arXiv211100923L/abstract>`__)
+- Real star profiles allowed in GR tidal disruption event setup and moddump (Hu, Sharma)
+- Set up for an hierarchical triple system embedded in a circum-triple disc (Ceppi, Cuello; #102, #110)
+- Firehose setup added for testing tidal disruption flows
+
+Bugs
+~~~~
+- Bug fixed where showarrays utility did not work with single precision files (#164)
+- Bug fix with particle IDs tracking with MPI (Chan, Liptai via ADACS)
+- Bug fix with particle waking with MPI (Chan, Liptai via ADACS)
+- Fix missing sink force reduction during initial setup (Chan, Liptai via ADACS)
+- Fix reading integer arrays from native phantom files (Chan, Liptai via ADACS)
+- Bug fix with seg fault in test suite during sink particle creation (#132)
+- Bug fixes with molecular line cooling (Homan)
+- Bug fix with timestep during particle injection (Wurster)
+- Bug fixes with disc setup (Ragusa)
+
+Utils
+~~~~~
+- improved common envelope analysis routines (Lau)
+- some issues with hdf5 read/write fixed (Chan)
+- diffdumps utility now works with MPI
+- import/export to Kepler 1D stellar evolution code (Sharma, Heger)
+- bug fixes in dustydisc analysis
+- fix unit conversion of distance and mass in moddump dustadd.f90 (Longarini)
+
+Other
+~~~~~
+- entire build and test suite now checked during continuous integration/ github workflows (Chan, Liptai via ADACS)
+- fixed warnings regarding temporary array creation when compiling with ifort
+- compiler warnings fixed
+
 v2021.0.0 - 25th Jan 2021
 -------------------------
 
@@ -11,10 +60,10 @@ Physics
 - Interface with KROME chemistry library for chemistry+cooling (contributed by Ward Homan)
 - Multigrain dust-as-particles (i.e. multiple large grain species) now works (Mentiplay et al. 2020)
 - Overdamping problem for small grains fixed when dust is simulated with particles (`Price & Laibe 2020 <https://ui.adsabs.harvard.edu/abs/2020MNRAS.495.3929P/abstract>`__)
-- Stepinski-Valageas dust growth algorithm works with both dust-as-mixture and dust-as-particles (Vericel et al. 2020)
+- Stepinski-Valageas dust growth algorithm works with both dust-as-mixture and dust-as-particles (`Vericel et al. 2020 <https://ui.adsabs.harvard.edu/abs/2021MNRAS.507.2318V/abstract>`__)
 - Preliminary implementation of flux limited diffusion radiation hydro, explicit timestepping only (Biriukov, Borchert)
 - Added "ideal + radiation" equation of state (Lau)
-- Various improvements to asteroid wind injection modules (Trevascus, Nealon)
+- Various improvements to asteroid wind injection modules (Trevascus, Nealon, see `Trevascus et al. 2021 <https://ui.adsabs.harvard.edu/abs/2021MNRAS.505L..21T/abstract>`__)
 - gravitational wave inspiral via external force works with sink particles (Toscani)
 - gravitational wave emission computed automatically using Quadrupole approximation (Toscani)
 - NICIL library for non-ideal MHD diffusion coefficients updated to v1.2.6 (Wurster)

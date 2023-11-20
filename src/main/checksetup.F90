@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module checksetup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, centreofmass, dim, dust, eos, externalforces,
-!   gravwaveutils, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   io, metric_tools, nicil, options, part, physcon, sortutils, timestep,
+!   units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -38,12 +38,12 @@ contains
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
  use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,maxdusttypes,use_dustgrowth, &
-                do_radiation,store_temperature,n_nden_phantom,mhd_nonideal
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
                 iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,dustfrac,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,ndustsmall,rad,radprop, &
-                remove_particle_from_npartoftype
+                remove_particle_from_npartoftype,ien_type,ien_etotal,gr
  use eos,             only:gamma,polyk,eos_is_non_ideal
  use centreofmass,    only:get_centreofmass
  use options,         only:ieos,icooling,iexternalforce,use_dustfrac,use_hybrid
@@ -53,13 +53,12 @@ subroutine check_setup(nerror,nwarn,restart)
  use units,           only:G_is_unity,get_G_code
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use nicil,           only:n_nden
- use gravwaveutils,   only:calc_gravitwaves
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,j,nbad,itype,nunity,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
- real         :: hi,hmin,hmax,dust_to_gas
+ real         :: hi,hmin,hmax,dust_to_gas_mean
  logical      :: accreted,dorestart
  character(len=3) :: string
 !
@@ -114,10 +113,6 @@ subroutine check_setup(nerror,nwarn,restart)
     nwarn = nwarn + 1
  endif
 #endif
- if ( eos_is_non_ideal(ieos) .and. .not. store_temperature) then
-    print*,'WARNING! Using non-ideal EoS but not storing temperature'
-    nwarn = nwarn + 1
- endif
  if (npart < 0) then
     print*,'Error in setup: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
@@ -336,15 +331,9 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  endif
-!
-!--check that if ccode=1 that all particles are gas particles
-!  otherwise warn that gravitational wave strain calculation is wrong
-!
- if (calc_gravitwaves) then
-    if (any(npartoftype(2:) > 0)) then
-       print*,'WARNING: gravitational wave strain calculation assumes gas particles, but other particle types are present'
-       nwarn = nwarn + 1
-    endif
+ if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then
+    print*,'Cannot use total energy with self gravity or mhd'
+    nerror = nerror + 1
  endif
 !
 !--sanity checks on magnetic field
@@ -402,7 +391,7 @@ subroutine check_setup(nerror,nwarn,restart)
  if (use_dustfrac) then
     nbad = 0
     nunity = 0
-    dust_to_gas = 0.
+    dust_to_gas_mean = 0.
     do i=1,npart
        do j=1,ndustsmall
           if (dustfrac(j,i) < 0. .or. dustfrac(j,i) > 1.) then
@@ -411,10 +400,11 @@ subroutine check_setup(nerror,nwarn,restart)
           elseif (abs(dustfrac(j,i)-1.) < tiny(1.)) then
              nunity = nunity + 1
           else
-             dust_to_gas = dust_to_gas + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
+             dust_to_gas_mean = dust_to_gas_mean + dustfrac(j,i)/(1. - sum(dustfrac(:,i)))
           endif
        enddo
     enddo
+    dust_to_gas_mean = dust_to_gas_mean/real(npart-nbad-nunity)
     if (nbad > 0) then
        print*,'ERROR: ',nbad,' of ',npart,' particles with dustfrac outside [0,1]'
        nerror = nerror + 1
@@ -432,7 +422,7 @@ subroutine check_setup(nerror,nwarn,restart)
        endif
        nwarn = nwarn + 1
     endif
-    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas/real(npart-nbad-nunity)
+    if (id==master) write(*,"(a,es10.3,/)") ' Mean dust-to-gas ratio is ',dust_to_gas_mean
  endif
 
 #ifdef GR
@@ -448,6 +438,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check dust growth arrays
 !
  if (use_dustgrowth) call check_setup_growth(npart,nerror)
+!
+!--check dust nucleation arrays
+!
+ if (do_nucleation) call check_setup_nucleation(npart,nerror)
 !
 !--check point mass setup
 !
@@ -591,6 +585,11 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
 
 end subroutine check_setup_ptmass
 
+!------------------------------------------------------------------
+!+
+! check dust growth arrays are sensible
+!+
+!------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
  use part, only:dustprop,dustprop_label
  integer, intent(in)    :: npart
@@ -611,12 +610,44 @@ subroutine check_setup_growth(npart,nerror)
 
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad,' of ',npart,' with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
        nerror = nerror + 1
     endif
  enddo
 
 end subroutine check_setup_growth
+
+!------------------------------------------------------------------
+!+
+! check dust nucleation arrays are sensible
+!+
+!------------------------------------------------------------------
+subroutine check_setup_nucleation(npart,nerror)
+ use part, only:nucleation,nucleation_label,n_nucleation,idmu,idgamma
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: nerror
+ integer :: i,j,nbad(n_nucleation)
+
+ nbad = 0
+ !-- Check that all the parameters are > 0 when needed
+ do i=1,npart
+    if (nucleation(idmu,i) < 0.1) nbad(idmu) = nbad(idmu) + 1
+    if (nucleation(idgamma,i) < 1.) nbad(idgamma) = nbad(idgamma) + 1
+
+    if (any(isnan(nucleation(:,i)))) then
+       print*,'NaNs in nucleation array'
+       nerror = nerror + 1
+    endif
+ enddo
+
+ do j=1,n_nucleation
+    if (nbad(j) > 0) then
+       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(nucleation_label(j))//' <= 0'
+       nerror = nerror + 1
+    endif
+ enddo
+
+end subroutine check_setup_nucleation
 
 !------------------------------------------------------------------
 !+
@@ -684,7 +715,7 @@ end subroutine check_setup_dustgrid
 subroutine check_gr(npart,nerror,xyzh,vxyzu)
  use metric_tools, only:pack_metric,unpack_metric
  use utils_gr,     only:get_u0
- use part,         only:isdead_or_accreted
+ use part,         only:isdead_or_accreted,ien_type,ien_entropy,ien_etotal,ien_entropy_s
  use units,        only:in_geometric_units,get_G_code,get_c_code
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
@@ -724,6 +755,13 @@ subroutine check_gr(npart,nerror,xyzh,vxyzu)
     nerror = nerror + 1
  endif
 
+ if (ien_type /= ien_etotal .and. ien_type /= ien_entropy .and. ien_type /= ien_entropy_s) then
+    print "(/,a,i1,a,i1,a,i3,/)",' ERROR: ien_type is incorrect for GR, need ', &
+                                 ien_entropy, ', ', ien_etotal, ' or ', ien_entropy_s, &
+                                 ' but get ', ien_type
+    nerror = nerror + 1
+ endif
+
 end subroutine check_gr
 #endif
 
@@ -738,7 +776,7 @@ end subroutine check_gr
 
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
+ use part,      only:maxphase,maxp,iphase,igas,iamtype
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -759,9 +797,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  do i=1,npart
-    if (isdead_or_accreted(xyzh(4,index(i)))) cycle
     j = i+1
-    if (isdead_or_accreted(xyzh(4,index(j)))) cycle
     dx2 = 0.
     if (maxphase==maxp) itypei = iamtype(iphase(index(i)))
     do while (dx2 < epsilon(dx2) .and. j < npart)
@@ -777,9 +813,6 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
           endif
        endif
        j = j + 1
-       do while (isdead_or_accreted(xyzh(4,j)) .and. j < npart)
-          j = j + 1
-       enddo
     enddo
  enddo
 

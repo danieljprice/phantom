@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -11,7 +11,7 @@ module krome_interface
 !
 ! :References: None
 !
-! :Owner: Lionel
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters: None
 !
@@ -112,7 +112,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
  use krome_main,    only: krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
- use eos,           only:ieos,get_temperature,get_local_u_internal!equationofstate
+ use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
 
  real, intent(in)    :: dt,xyzh(4),rho
  real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
@@ -135,6 +135,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
  T_gas_cool = T_local
 ! get the new internal energy
  u = get_local_u_internal(gamma_chem,mu_chem,T_local)
+ !u = T_local/(mu_chem*temperature_coef)/(gamma_chem-1.)
 
 end subroutine update_krome
 

@@ -30,6 +30,6 @@ Contents
    ozstar
    monarch
    pawsey
+   kennedy
    running-mac
-   stable
    data-curation

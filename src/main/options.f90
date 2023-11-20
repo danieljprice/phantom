@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -18,10 +18,8 @@ module options
 !
 ! :Dependencies: dim, eos, kernel, part, timestep, units, viscosity
 !
- use eos, only:ieos,iopacity_type ! so this is available via options module
+ use eos, only:ieos,iopacity_type,use_var_comp ! so this is available via options module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 !
 ! these are parameters which may be changed by the user
 ! and read from the input file
@@ -37,6 +35,7 @@ module options
  real, public :: alphamax
  real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
+ integer, public :: ireconav
 
 ! additional .ev data
  logical, public :: calc_erot
@@ -53,12 +52,10 @@ module options
  ! radiation
  logical,public :: exchange_radiation_energy, limit_radiation_flux
 
- ! variable composition
- logical,public :: use_variable_composition
-
  public :: set_default_options
  public :: ieos
  public :: iopacity_type
+ public :: use_var_comp  ! use variable composition
 
  private
 
@@ -66,7 +63,7 @@ contains
 
 subroutine set_default_options
  use timestep,  only:set_defaults_timestep
- use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha
+ use part,      only:hfact,Bextx,Bexty,Bextz,mhd,maxalpha,ien_type,ien_entropy
  use viscosity, only:set_defaults_viscosity
  use dim,       only:maxp,maxvxyzu,nalpha,gr,do_radiation
  use kernel,    only:hfact_default
@@ -104,7 +101,9 @@ subroutine set_default_options
  ipdv_heating       = 1
  iresistive_heating = 1
  icooling           = 0
- polyk2             = 0 ! only used for ieos=8
+ ien_type           = 0
+ if (gr) ien_type   = ien_entropy
+ polyk2             = 0. ! only used for ieos=8
 
  ! artificial viscosity
  if (maxalpha>0 .and. maxalpha==maxp) then
@@ -122,6 +121,7 @@ subroutine set_default_options
  ! artificial thermal conductivity
  alphau = 1.
  if (gr) alphau = 0.1
+ ireconav = 1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
@@ -130,7 +130,6 @@ subroutine set_default_options
  hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
  !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
- if (gr) beta      = 1.0
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
  ! radius outside which we kill particles
@@ -156,7 +155,7 @@ subroutine set_default_options
  endif
 
  ! variable composition
- use_variable_composition = .false.
+ use_var_comp = .false.
 
 end subroutine set_default_options
 

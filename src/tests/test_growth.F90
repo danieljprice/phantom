@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,8 +14,8 @@ module testgrowth
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, domain, dust, energies,
-!   eos, growth, io, kernel, mpiutils, options, part, physcon,
+! :Dependencies: boundary, checksetup, deriv, dim, dust, energies, eos,
+!   growth, io, kernel, mpidomain, mpiutils, options, part, physcon,
 !   step_lf_global, testdust, testutils, timestep, unifdis, units,
 !   viscosity
 !
@@ -107,7 +107,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
                           fxyzu,fext,Bevol,dBevol,dustprop,ddustprop,&
                           dustfrac,dustevol,ddustevol,iphase,maxtypes,&
                           VrelVf,dustgasprop,Omega_k,alphaind,iamtype,&
-                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic
+                          ndustlarge,ndustsmall,rhoh,deltav,this_is_a_test,periodic, &
+                          npartoftypetot,update_npartoftypetot
  use step_lf_global, only:step,init_step
  use deriv,          only:get_derivs_global
  use energies,       only:compute_energies
@@ -124,13 +125,11 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  use physcon,        only:au,solarm,Ro,pi
  use viscosity,      only:shearparam
  use units,          only:set_units,udist,unit_density!,unit_velocity
- use domain,         only:i_belong
+ use mpidomain,      only:i_belong
  use checksetup,     only:check_setup
 
  integer, intent(inout) :: ntests,npass
  logical, intent(in)    :: frag,onefluid
-
- integer(kind=8) :: npartoftypetot(maxtypes)
 
  integer :: nx,nerror,nwarn
  integer :: itype,npart_previous,i,j,nsteps,modu,noutputs
@@ -242,8 +241,8 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
     call set_particle_type(i,itype)
  enddo
  npartoftype(itype)    = npart - npart_previous
- npartoftypetot(itype) = reduceall_mpi('+',npartoftype(itype))
- massoftype(itype)     = totmass/npartoftype(itype)
+ call update_npartoftypetot
+ massoftype(itype)     = totmass/npartoftypetot(itype)
 
  !- setting dust particles if not one fluid
  if (.not. use_dustfrac) then

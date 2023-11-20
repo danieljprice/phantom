@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -265,7 +265,7 @@ end subroutine duplicate_star
 subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  use part,            only: igas,set_particle_type,eos_vars,alphaind,maxeosvars
  use prompting,       only: prompt
- use dim,             only: maxp,maxvxyzu,nalpha,maxalpha,store_temperature
+ use dim,             only: maxp,maxvxyzu,nalpha,maxalpha
  use readwrite_dumps, only: read_dump
  use io,              only: idisk1,iprint
  integer, intent(inout) :: npart
@@ -295,10 +295,8 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  if (ierr /= 0) stop ' error allocating memory to store positions'
  allocate(vxyzu2(maxvxyzu,maxp),stat=ierr)  ! velocity + thermal energy
  if (ierr /= 0) stop ' error allocating memory to store velocity'
- if (store_temperature) then        ! temperature
-    allocate(eos_vars2(maxeosvars,maxp),stat=ierr)
-    if (ierr /= 0) stop ' error allocating memory to store temperature'
- endif
+ allocate(eos_vars2(maxeosvars,maxp),stat=ierr) ! temperature
+ if (ierr /= 0) stop ' error allocating memory to store temperature'
  if (maxalpha == maxp) then         ! artificial viscosity alpha
     allocate(alphaind2(nalpha,maxp),stat=ierr)
     if (ierr /= 0) stop ' error allocating memory to store alphaind'
@@ -307,9 +305,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
  Nstar2 = npart
  xyzh2  = xyzh
  vxyzu2 = vxyzu
- if (store_temperature) then
-    eos_vars2 = eos_vars
- endif
+ eos_vars2 = eos_vars
  if (maxalpha == maxp) then
     alphaind2 = alphaind
  endif
@@ -334,9 +330,7 @@ subroutine add_star(npart,npartoftype,xyzh,vxyzu,Nstar1,Nstar2)
     vxyzu(2,i) = vxyzu2(2,i-npart)
     vxyzu(3,i) = vxyzu2(3,i-npart)
     vxyzu(4,i) = vxyzu2(4,i-npart)
-    if (store_temperature) then
-       eos_vars(:,i) = eos_vars2(:,i-npart)
-    endif
+    eos_vars(:,i) = eos_vars2(:,i-npart)
     if (maxalpha == maxp) then
        alphaind(1,i) = real(alphaind2(1,i-npart),kind=4)
        alphaind(2,i) = real(alphaind2(2,i-npart),kind=4)

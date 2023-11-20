@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -14,14 +14,15 @@ module ionization_mod
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: physcon
+! :Dependencies: eos_idealplusrad, part, physcon, units
 !
  implicit none
 
  real, allocatable, public, dimension(:)  :: eion
+ logical, public                          :: done_ion_setup = .false.
  real, allocatable, private, dimension(:) :: logeion,arec,brec,crec,drec,arec1c,brec1c
  real, private                            :: frec,edge,tanh_c,dtanh_c
- real, parameter, private                 :: tanh_edge=3.6467
+ real, parameter, private                 :: tanh_edge = 3.64673859532966
 
  interface rapid_tanh
   module procedure rapid_tanhs,rapid_tanhv
@@ -126,8 +127,10 @@ subroutine ionization_setup
  use physcon, only:Rg
  real :: x
 
- allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
-          arec1c(1:2),brec1c(1:2),logeion(1:4))
+ if (.not. done_ion_setup) then
+    allocate(eion(1:4),arec(2:4),brec(2:4),crec(1:4),drec(1:4),&
+             arec1c(1:2),brec1c(1:2),logeion(1:4))
+ endif
 
  eion(1) = 4.36e12   ! H2   [erg/mol]
  eion(2) = 1.312e13  ! HI   [erg/mol]
@@ -152,6 +155,7 @@ subroutine ionization_setup
  dtanh_c= x*x*((((x*x-21.)*x*x+420.)*x*x-6615.)*x*x+59535.)&
                / (15.*((x*x+28.)*x*x+63.)**2)
 
+ done_ion_setup = .true.
  return
 end subroutine ionization_setup
 
@@ -306,5 +310,34 @@ real function get_erec(logd,T,X,Y)
 
  return
 end function get_erec
+
+!----------------------------------------------------------------
+!+
+!  Calculate thermal (gas + radiation internal energy) energy of a
+!  gas particle. Inputs and outputs in code units
+!+
+!----------------------------------------------------------------
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,ethi)
+ use part,             only:rhoh
+ use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+ use physcon,          only:radconst,Rg
+ use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
+ integer, intent(in) :: ieos
+ real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
+ real, intent(out)   :: ethi
+ real                :: hi,densi_cgs,mui
+
+ select case (ieos)
+ case(10,20) ! calculate just gas + radiation thermal energy
+    hi = xyzh(4)
+    densi_cgs = rhoh(hi,particlemass)*unit_density
+    mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
+    call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,gamma,ethi)
+    ethi = particlemass * ethi / unit_ergg
+ case default ! assuming internal energy = thermal energy
+    ethi = particlemass * vxyzu(4)
+ end select
+
+end subroutine calc_thermal_energy
 
 end module ionization_mod

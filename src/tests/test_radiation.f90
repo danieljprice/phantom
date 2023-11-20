@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@ module testradiation
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, deriv, dim, domain, eos, io, kernel, mpiutils,
-!   options, part, physcon, radiation_utils, readwrite_dumps,
+! :Dependencies: boundary, deriv, dim, eos, io, kernel, mpidomain,
+!   mpiutils, options, part, physcon, radiation_utils, readwrite_dumps,
 !   step_lf_global, testutils, timestep, unifdis, units
 !
  use part,      only:ithick,iradxi,ifluxx,ifluxy,ifluxz,ikappa
@@ -77,10 +77,10 @@ subroutine test_exchange_terms(ntests,npass)
                       npartoftype,rad,radprop,maxvxyzu
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
- use eos,        only:gmw,gamma,polyk
+ use eos,        only:gmw,gamma,polyk,iopacity_type
  use boundary,   only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use mpiutils,   only:reduceall_mpi
- use domain,     only:i_belong
+ use mpidomain,  only:i_belong
  real :: psep,hfact
  real :: pmassi,rhozero,totmass
  integer, intent(inout) :: ntests,npass
@@ -92,6 +92,7 @@ subroutine test_exchange_terms(ntests,npass)
  call init_part()
  iverbose = 0
  exchange_radiation_energy = .false.
+ iopacity_type = -1  ! preserve the opacity value
 
  psep = 1./16.
  hfact = hfact_default
@@ -185,14 +186,14 @@ subroutine test_uniform_derivs(ntests,npass)
  use unifdis,         only:set_unifdis
  use units,           only:set_units,unit_opacity,get_c_code,unit_velocity,unit_ergg,get_radconst_code
  use physcon,         only:Rg,pi,seconds
- use eos,             only:gamma,gmw
+ use eos,             only:gamma,gmw,iopacity_type
  use readwrite_dumps, only:write_fulldump
  use boundary,        only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax
  use deriv,           only:get_derivs_global
  use step_lf_global,  only:init_step,step
  use timestep,        only:dtmax
  use mpiutils,        only:reduceall_mpi
- use domain,          only:i_belong
+ use mpidomain,       only:i_belong
  integer, intent(inout) :: ntests,npass
  real :: psep,hfact,a,c_code,cv1,rhoi
  real :: dtext,pmassi, dt,t,kappa_code
@@ -220,6 +221,7 @@ subroutine test_uniform_derivs(ntests,npass)
  npartoftype(igas) = npart
  nactive = npart
 
+ iopacity_type = -1  ! preserve the opacity value
  c_code = get_c_code()
  gamma = 5./3.
  gmw = 2.0

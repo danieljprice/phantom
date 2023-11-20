@@ -1,9 +1,7 @@
 How to set up and run a common envelope binary simulation
 =========================================================
 
-Use SETUP=star:
-
-::
+Use SETUP=star::
 
    ~/phantom/scripts/writemake.sh star > Makefile
 
@@ -12,9 +10,7 @@ Use SETUP=star:
    make setup
    ./phantomsetup star
 
-Will create star.in. Set the following options:
-
-::
+Will create star.in. Set the following options::
 
                    tmax =       4000.    ! end time
                   dtmax =         50.    ! time between dumps
@@ -33,9 +29,7 @@ Will create star.in. Set the following options:
                   hsoft =       1.000    ! softening length for sink particles (Plummer)
                   f_acc =       1.000    ! particles < f_acc*h_acc accreted without checks
 
-Run this to completion:
-
-::
+Run this to completion::
 
    make
    ./phantom star.in

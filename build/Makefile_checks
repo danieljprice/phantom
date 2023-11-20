@@ -1,0 +1,118 @@
+.PHONY: checksystem checkparams checksplash checksys
+
+checksystem: checksys checksetup
+
+checksys:
+   ifeq ($(KNOWN_SYSTEM), yes)
+	@echo ""
+	@echo "Compiling Phantom v$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO) for $(SYSTEM) system..........."
+	@echo ""
+        ifneq ($(SYSTEM),$(LASTSYSTEM))
+	    @echo system changed from ${LASTSYSTEM} to ${SYSTEM}
+	    @${MAKE} clean
+	    @${MAKE} cleanmathflags
+        endif
+	@echo $(SYSTEM) > .make_lastsystem
+   else
+	@echo ""
+	@echo "make: WARNING: value of SYSTEM = $(SYSTEM) not recognised..."
+	@echo "=> set the environment variable SYSTEM to one listed "
+	@echo "   in build/Makefile and try again"
+	@echo ""
+	@${MAKE} compilers
+	@${MAKE} err;
+   endif
+
+checksetup:
+   ifeq ($(OBSOLETE_SETUP), yes)
+	@echo "make: WARNING: value of SETUP = $(OLDSETUP) is obsolete..."
+	@echo "=> setting SETUP = $(SETUP)"
+	@echo
+   endif
+   ifeq ($(KNOWN_SETUP), yes)
+	@echo "Using options for "$(SETUP)" setup"
+	@echo ""
+        ifneq ($(SETUP),$(LASTSETUP))
+	    @echo setup changed from ${LASTSETUP} to ${SETUP}
+	    @${MAKE} clean
+        endif
+	@echo $(SETUP) > .make_lastsetup
+   else
+	@echo "setup '$(SETUP)' not recognised..."
+	@echo ""
+	@echo "Please set SETUP to one listed in build/Makefile"
+	@echo ""
+	@echo " e.g.:"
+	@echo " make SETUP=sedov"
+	@echo " make SETUP=disc"
+	@echo " make SETUP=turbdrive"
+	@echo ""
+	@echo " or:"
+	@echo " export SETUP=sedov"
+	@echo " make"
+	@echo ""
+	@echo "You may also wish to consider the following compile-time options:"
+	@echo ""
+	@echo " DEBUG=yes/no"
+	@echo " DOUBLEPRECISION=yes/no"
+	@echo " OPENMP=yes/no"
+	@echo " ENDIAN=BIG/LITTLE"
+	@echo ""
+	@${MAKE} err;
+   endif
+
+checkparams:
+	@echo "Using $(KERNEL) kernel"
+   ifeq ($(DEBUG), yes)
+	@echo "Debugging flags are ON"
+   endif
+   ifeq ($(DOUBLEPRECISION), yes)
+	@echo "Flags set for DOUBLE PRECISION"
+   else
+	@echo "Flags set for SINGLE PRECISION"
+   endif
+   ifeq ($(OPENMP), yes)
+	@echo "Compiling in PARALLEL (OpenMP)"
+   else
+	@echo "Compiling in SERIAL"
+   endif
+   ifeq ($(ENDIAN), BIG)
+	@echo "Flags set for conversion to BIG endian"
+   endif
+   ifeq ($(ENDIAN), LITTLE)
+	@echo "Flags set for conversion to LITTLE endian"
+   endif
+   ifneq ($(FPPFLAGS),$(LASTFPPFLAGS))
+	@echo 'pre-processor flags changed from "'${LASTFPPFLAGS}'" to "'${FPPFLAGS}'"'
+	@${MAKE} clean;
+	#for x in ../src/*/*.F90; do y=`basename $$x`; rm -f $${y/.F90/.o}; done
+   endif
+	@echo "Preprocessor flags are "${FPPFLAGS}
+	@echo "${FPPFLAGS}" > .make_lastfppflags
+   ifneq ($(FFLAGS),$(LASTFFLAGS))
+	@echo 'Fortran flags changed from "'${LASTFFLAGS}'" to "'${FFLAGS}'"'
+	@${MAKE} clean;
+   endif
+	@echo "Fortran flags are "${FFLAGS}
+	@echo "${FFLAGS}" > .make_lastfflags
+
+checksplash:
+   ifneq ("X$(SPLASH_DIR)","X")
+	@echo; echo "Compiling SPLASH source files from "$(SPLASH_DIR); echo
+   else
+	@echo; echo "ERROR: cannot find SPLASH directory needed for some source files - try \"export SPLASH_DIR=${HOME}/splash\""; echo
+   endif
+
+checkmcfost:
+   ifneq ("X$(MCFOST_DIR)","X")
+	@echo; echo "MCFOST directory is "$(MCFOST_DIR); echo;
+   else
+	@echo; echo "ERROR: cannot find MCFOST directory for linking - set this using MCFOST_DIR"; echo; ${MAKE} err
+   endif
+
+checksmol:
+   ifneq ("X$(SMOL_DIR)","X")
+	@echo; echo "Linking SMOLUCHOWSKY library from "$(SMOL_DIR); echo
+   else
+	@echo; echo "ERROR: cannot find SMOL_DIR directory needed for Smoluchowsky library - try \"export SMOL_DIR=${HOME}/smol\""; echo
+   endif

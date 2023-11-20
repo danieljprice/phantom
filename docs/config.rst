@@ -16,7 +16,7 @@ Setup block
 ~~~~~~~~~~~
 
 The compile-time configuration of Phantom is specified using the SETUP
-block in phantom/build/Makefile. For example the default disc setup is
+block in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/master/build/Makefile_setups>`__. For example the default disc setup is
 “disc”:
 
 ::
@@ -35,6 +35,10 @@ block in phantom/build/Makefile. For example the default disc setup is
 The choice of C preprocessor flags (FPPFLAGS=) can be used to specify
 particular physics. Otherwise these are specified using variables in
 this block as follows:
+
+Pre-cooked setups
+~~~~~~~~~~~~~~~~~
+For many applications a :doc:`pre-cooked SETUP block <setups>` already exists. View the full list :doc:`here <setups>`. You can also override any of the compile-time settings manually, using the options below.
 
 Code modules
 ------------
