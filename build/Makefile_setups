@@ -999,3 +999,14 @@ ifeq ($(SETUP), radiativebox)
     RADIATION=yes
     PERIODIC=yes
 endif
+
+ifeq ($(SETUP), amuse)
+    FPPFLAGS=-DAMUSE
+    H2CHEM=yes
+    ISOTHERMAL=no
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+    MAXPTMASS=1000
+    MAXP=10000000
+endif

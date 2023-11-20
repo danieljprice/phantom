@@ -6,6 +6,8 @@
 !
 subroutine amuse_initialize_code()
     use dim, only:maxp,maxp_hard,maxvxyzu
+    use io, only:id,nprocs
+    use mpiutils, only:init_mpi
     use memory, only:allocate_memory
     use units, only:set_units,utime,umass,udist,unit_density
     use physcon, only:gram,seconds,solarm,pc
@@ -18,7 +20,8 @@ subroutine amuse_initialize_code()
     use timestep,         only:dtcourant,dtforce
 #endif
     implicit none
-    call allocate_memory(maxp_hard)
+    call init_mpi(id,nprocs)
+    call allocate_memory(int(maxp_hard,kind=8))
     call initialise()
     call amuse_set_defaults()
     call amuse_set_polyk(0.)
@@ -222,7 +225,6 @@ subroutine amuse_init_evol()
  logical         :: fulldump,abortrun,at_dump_time
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
- type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 
  nsteps    = 0
  tzero     = time
@@ -288,7 +290,9 @@ subroutine amuse_new_step(tlast)
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
                             icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
  use step_lf_global,   only:step
- use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer
+ use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
+                            setup_timers,timers,reduce_timers,ntimers,&
+                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
  use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
 #ifdef SORT
  use sort_particles,   only:sort_part
@@ -358,7 +362,6 @@ subroutine amuse_new_step(tlast)
 #endif
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
- type(timer)     :: timer_fromstart,timer_lastdump,timer_step,timer_ev,timer_io
 !
 ! --------------------- main loop ----------------------------------------
 !
@@ -368,7 +371,7 @@ subroutine amuse_new_step(tlast)
  !timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
 
  if (istepfrac==0) then
-    twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+    twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
     call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
                                   rhomaxold,rhomaxnow,nfulldump,use_global_dt)
  endif
@@ -387,7 +390,7 @@ subroutine amuse_new_step(tlast)
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
     ! if (istepfrac==2**nbinmax) then
-    !    twallperdump = reduceall_mpi('max', timer_lastdump%wall)
+    !    twallperdump = reduceall_mpi('max', timers(itimer_lastdump)%wall)
     !    call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_ifactor,dtmax_log_dratio,&
     !                                  rhomaxold,rhomaxnow,nfulldump,use_global_dt)
     ! endif
@@ -426,7 +429,7 @@ subroutine amuse_new_step(tlast)
     !--timings for step call
 
     call get_timings(t2,tcpu2)
-    call increment_timer(timer_step,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_step,t2-t1,tcpu2-tcpu1)
     call summary_counter(iosum_nreal,t2-t1)
 
 #ifdef IND_TIMESTEPS
@@ -464,7 +467,7 @@ subroutine amuse_new_step(tlast)
     if (abs(tcheck-time) > 1.e-4) print*, "time, tcheck: ", time, tcheck
 
     if (id==master .and. (iverbose >= 1 .or. inbin <= 3)) &
-       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,npart)
+       call print_dtlog_ind(iprint,istepfrac,2**nbinmaxprev,time,dt,nactivetot,tcpu2-tcpu1,ntot)
 
     !--if total number of bins has changed, adjust istepfrac and dt accordingly
     !  (ie., decrease or increase the timestep)
@@ -509,7 +512,7 @@ subroutine amuse_new_step(tlast)
 !--Update timer from last dump to see if dtmax needs to be reduced
 !
     call get_timings(t2,tcpu2)
-    call increment_timer(timer_lastdump,t2-t1,tcpu2-tcpu1)
+    call increment_timer(itimer_lastdump,t2-t1,tcpu2-tcpu1)
 
 #ifdef CORRECT_BULK_MOTION
     call correct_bulk_motion()
@@ -807,13 +810,14 @@ subroutine amuse_get_pressure(i, p)
     integer :: i, eos_type
     double precision :: pmassi, ponrho, rho, spsound, x, y, z
     double precision, intent(out) :: p
+    real :: tempi
     eos_type = ieos
     pmassi = massoftype(abs(iphase(i)))
     call amuse_get_density(i, rho)
     x = xyzh(1,i)
     y = xyzh(2,i)
     z = xyzh(3,i)
-    call equationofstate(eos_type,ponrho,spsound,rho,x,y,z)
+    call equationofstate(eos_type,ponrho,spsound,rho,x,y,z,tempi)
     p = ponrho * rho
 end subroutine amuse_get_pressure
 
