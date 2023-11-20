@@ -249,7 +249,7 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
  else
     KH   = cst/X * exp(-H_ion /(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
-    xx   = (1./2.) * (-KH    + sqrt(KH**2+4.*KH))
+    xx   = 0.5 * (-KH    + sqrt(KH**2+4.*KH))
  endif
  if (T_gas > 3.d5) then
     z1 = 1.
@@ -288,7 +288,7 @@ end function v_th
 !  ADDITIONAL PHYSICS: compute fraction of gas that has speeds lower than v_crit
 !                      from the cumulative distribution function of the
 !                      Maxwell-Boltzmann distribution
-!+
+! doi : 10.4236/ijaa.2020.103010
 !-----------------------------------------------------------------------
 real function MaxBol_cumul(T_gas, mu,  v_crit)
 
@@ -298,8 +298,8 @@ real function MaxBol_cumul(T_gas, mu,  v_crit)
 
  real             :: a
 
- a            = sqrt( kboltz*T_gas/(mu*mass_proton_cgs) )
- MaxBol_cumul = erf(v_crit/(sqrt(2.)*a)) - sqrt(2./pi) * (v_crit*exp(-v_crit**2/(2.*a**2))) / a
+ a            = sqrt(2.*kboltz*T_gas/(mu*mass_proton_cgs))
+ MaxBol_cumul = erf(v_crit/a) - 2./sqrt(pi) * v_crit/a *exp(-(v_crit/a)**2)
 
 end function MaxBol_cumul
 
@@ -489,7 +489,7 @@ real function cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: D0=0.4255, D1=2.457, D2=-6.404, D3=1.513, D4=0.05343 ! see Table 3 in Weingartner & Draine 2001, last line
 
- if (T_gas > 1000.) then
+ if (T_gas > 1000.) then !. .and. T_gas < 1.e4) then
     ne = n_e(T_gas, rho_gas, mu, nH, nHe)
     x  = log(G*sqrt(T_gas)/ne)
     cool_coulomb = 1.d-28*ne*nH*T_gas**(D0+D1/x)*exp(D2+D3*x-D4*x**2)
@@ -588,6 +588,7 @@ end function cool_He_ionisation
 !-----------------------------------------------------------------------
 !+
 !  CHEMICAL: Cooling due to ro-vibrational excitation of H2 (Lepp & Shull 1983)
+!            (Smith & Rosen, 2003, MNRAS, 339)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_rovib(T_gas, nH, nH2)
@@ -604,8 +605,8 @@ real function cool_H2_rovib(T_gas, nH, nH2)
     kH_01 = 1.0d-12*sqrt(T_gas)*exp(-1000./T_gas)
  endif
  kH2_01 = 1.45d-12*sqrt(T_gas)*exp(-28728./(T_gas+1190.))
- Lvh    = 1.1d-13*exp(-6744./T_gas)
- Lvl    = 8.18d-13*(nH*kH_01+nH2*kH2_01)
+ Lvh    = 1.1d-18*exp(-6744./T_gas)
+ Lvl    = 8.18d-13*(nH*kH_01+nH2*kH2_01)*exp(-6840./T_gas)
 
  x   = log10(T_gas/1.0d4)
  if (T_gas < 1087.) then
@@ -627,7 +628,7 @@ end function cool_H2_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  CHEMICAL: H2 dissociation cooling (Shapiro & Kang 1987)
+!  CHEMICAL: H2 dissociation cooling (Shapiro & Kang 1987, Smith & Rosen 2003)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
@@ -655,7 +656,7 @@ end function cool_H2_dissociation
 !-----------------------------------------------------------------------
 !+
 !  CHEMICAL: H2 recombination heating (Hollenbach & Mckee 1979)
-!            for an overview, see Valentine Wakelama et al. 2017
+!            for an overview, see Wakelam et al. 2017, Smith & Rosen 2003
 !+
 !-----------------------------------------------------------------------
 real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
@@ -675,8 +676,8 @@ real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
  beta   = 1./(1.+n_gas*(2.*nH2/n_gas*((1./n2)-(1./n1))+1./n1))
  xi     = 7.18d-12*n_gas*nH*(1.-beta)
 
- fa     = (1.+1.0d4*exp(-600./T_dust))**(-1.)    ! eq 3.4
- k_rec  = 3.0d-1*(sqrt(T_gas)*fa)/(1.+0.04*sqrt(T_gas+T_dust)+2.0d-3*T_gas+8.0d-6*T_gas**2) ! eq 3.8
+ fa     = 1./(1.+1.d4*exp(-600./T_dust))    ! eq 3.4
+ k_rec  = 3.d-18*(sqrt(T_gas)*fa)/(1.+0.04*sqrt(T_gas+T_dust)+2.d-3*T_gas+8.d-6*T_gas**2) ! eq 3.8
 
  heat_H2_recombination = k_rec*xi
 
@@ -701,16 +702,22 @@ real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
 ! use cumulative distribution of Maxwell-Boltzmann
 ! to account for collisions that destroy CO
 
+ if (T_gas > 3000. .or. T_gas < 250.) then
+    cool_CO_rovib = 0.
+    return
+ endif
  v_crit = sqrt( 2.*1.78d-11/(mu*mass_proton_cgs) )  ! kinetic energy
  nfCO   = MaxBol_cumul(T_gas, mu,  v_crit) * nCO
 
  n_gas  = rho_gas/(mu*mass_proton_cgs)
- n_crit = 3.3d6*(T_gas/1000.)**0.75                                                                             !McKee et al. 1982 eq. 5.3
- sigma  = 3.0d-16*(T_gas/1000.)**(-1./4.)                                                                       !McKee et al. 1982 eq. 5.4
- Qrot   = n_gas*nfCO*0.5*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1. + (n_gas/n_crit) + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
+ n_crit = 3.3d6*(T_gas/1000.)**0.75      !McKee et al. 1982 eq. 5.3
+ sigma  = 3.d-16*(T_gas/1000.)**(-0.25)  !McKee et al. 1982 eq. 5.4
+ !v_th = sqrt((8.*kboltz*T_gas)/(pi*mH2_cgs)) !3.1
+ Qrot   = 0.5*n_gas*nfCO*kboltz*T_gas*sigma*v_th(T_gas, mu) / (1. + (n_gas/n_crit) + 1.5*sqrt(n_gas/n_crit))
+!McKee et al. 1982 eq. 5.2
 
- QvibH2 = 1.83d-26*nH2*nfCO*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.))) !Neufeld & Kaufman 1993
- QvibH  = 1.28d-24*nH *nfCO*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43)  !Neufeld & Kaufman 1993
+ QvibH2 = 1.83d-26*nH2*nfCO*T_gas*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.)))  !Smith & Rosen
+ QvibH  = 1.28d-24*nH *nfCO*sqrt(T)*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43) !Smith & Rosen
 
  cool_CO_rovib = Qrot+QvibH+QvibH2
 
@@ -772,7 +779,8 @@ real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
 
  n_gas     = rho_gas/(mu*mass_proton_cgs)
  sigma     = 2.0d-16
- n_crit    = 1.33d7*sqrt(T_gas)
+ !n_crit    = 1.33d7*sqrt(T_gas)
+ n_crit    = 1.5d10*sqrt(T_gas/1000.) !table 3 Hollenbach & McKee 1989
 
  cool_OH_rot = n_gas*nfOH*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
 
