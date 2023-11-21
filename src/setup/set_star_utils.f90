@@ -129,14 +129,15 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        allocate(mu(size(den)))
        mu = 0.
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
-       call set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
-       hsoft = rcore/radkern
-       ! solve for temperature and energy profile
        if (do_radiation) then
           eos_type = 12
        else
           eos_type = ieos
        endif
+       call set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
+       hsoft = rcore/radkern
+
+       ! solve for temperature and energy profile
        do i=1,size(r)
           mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
           if (i==1) then

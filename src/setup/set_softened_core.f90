@@ -30,8 +30,8 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
- use eos,                 only:ieos,X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
+subroutine set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
+ use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
  use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
  use table_utils,         only:interpolator,yinterp,flip_array
@@ -41,7 +41,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pre
  use setfixedlumcore,     only:set_fixedlum_softened_core
  use physcon,             only:solarr,solarm
  use units,               only:unit_luminosity
- integer, intent(in) :: isoftcore,isofteningopt
+ integer, intent(in) :: eos_type,isoftcore,isofteningopt
  real, intent(in)    :: Lstar
  real, intent(inout) :: rcore,mcore
  real, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
@@ -49,6 +49,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pre
  real                :: Xcore,Zcore,rc,Lstar_cgs
  logical             :: isort_decreasing,iexclude_core_mass
 
+ write(*,'(/,1x,a)') 'Setting softened core profile'
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
  !
@@ -78,17 +79,16 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pre
  Zcore = 1.-Xcore-yinterp(Y,r,rc)
  gmw = get_mean_molecular_weight(Xcore,Zcore)
 
- write(*,'(1x,a,f7.5,a,f7.5,a,f7.5)') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,&
-                                      ', mu = ',gmw
+ write(*,'(1x,3(a,f7.5))') 'Using composition at core boundary: X = ',Xcore,', Z = ',Zcore,', mu = ',gmw
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
- if (ieos==10) then
+ if (eos_type==10) then
     X_in = Xcore
     Z_in = Zcore
+    call init_eos(eos_type,ierr)  ! need to initialise EoS again with newfound composition
  endif
 
- call init_eos(ieos,ierr)
  if (ierr /= 0) call fatal('set_softened_core','could not initialise equation of state')
 
  ! call core-softening subroutines
