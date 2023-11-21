@@ -99,9 +99,7 @@ subroutine set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pre
     call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  case(3)
-    if (iopacity_type==1) then
-       call init_eos_mesa(Xcore,Zcore,ierr)  ! Need to initialise MESA opacity tables
-    elseif (iopacity_type /= 2) then
+    if (iopacity_type < 1) then
        call fatal('set_softened_core','Cannot use zero opacity (iopacity_type<1) with a fixed-luminosity core')
     endif 
     Lstar_cgs = Lstar * unit_luminosity
