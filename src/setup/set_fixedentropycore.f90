@@ -124,6 +124,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
 
  do
     mold = mass
+    ierr = 0
     call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr) ! returned mass is m(r=0)
     it = it + 1
 
