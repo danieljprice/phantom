@@ -19,7 +19,7 @@ module eos_stamatellos
 
  implicit none
  real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_fld(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
+ real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
  real, parameter,public      :: arad=7.5657d-15
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,parameter,public :: doFLD = .True.
@@ -27,6 +27,7 @@ module eos_stamatellos
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
+ public :: get_k_fld
 contains
 
 subroutine init_S07cool()
@@ -146,7 +147,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  gmw1 = m*ui_ + c
 
- j = 1
+ j = 2
  do while ((OPTABLE(i,j,3) <= ui).and.(j < ny))
     j = j + 1
  enddo
@@ -212,12 +213,12 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     rhoi_ = rhoi
  endif
 
- i = 1
+ i = 2
  do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
     i = i + 1
  enddo
 
- j = 1
+ j = 2
  do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
@@ -227,7 +228,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  u1 = m*Teqi + c
 
- j = 1
+ j = 2
  do while ((OPTABLE(i,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
@@ -242,6 +243,22 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
+
+subroutine get_k_fld(rhoi,eni,i,ki,Ti)
+  use physcon,  only:steboltz
+  use units,    only:unit_density,unit_ergg,unit_opacity
+  real,intent(in)    :: rhoi,eni
+  integer,intent(in) :: i
+  real               :: kappaBar,gmwi,kappaPart
+  real,intent(out)   :: ki,Ti
+
+  call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+  ki = 16d0 * steboltz * lambda_FLD(i) * Ti**3 /rhoi/kappaPart/unit_opacity
+  if (isnan(ki)) then
+     print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
+          lambda_FLD(i), Ti, rhoi,kappaPart
+  endif
+end subroutine get_k_fld
 
 !subroutine calc_FLD(xyzhi,duFLDi,pmassj,tempi,tempj,rhoi,rhoj,j,grkerni)
  !real,intent(inout) :: duFLDi

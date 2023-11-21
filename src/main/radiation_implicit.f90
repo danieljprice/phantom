@@ -1564,6 +1564,9 @@ end subroutine solve_quartic
    ! print *, n,ncompact,utherm(i)
     uradi = 0.
     dradi = 0.
+    dradxi = 0.
+    dradyi = 0.
+    dradzi = 0.
     rhoi = rho(i)
     added_self = .false.
     hi = xyzh(4,i)

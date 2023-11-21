@@ -58,7 +58,7 @@ end subroutine init_star
 subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg
- use units,    only:umass,udist,unit_density,unit_ergg,utime
+ use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_opacity
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           iunitst,duFLD,doFLD
  use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
@@ -98,22 +98,22 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
     coldensi = coldensi*umass/udist/udist ! physical units
  case (2)
 ! Lombardi+ method of estimating the mean column density
-    coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+    coldensi = 1.014d0 * presi /abs(gradP_cool(i))! 1.014d0*P/(-gradP/rho) Lombardi+2015
     coldensi = coldensi *umass/udist/udist ! physical units
  end select
 
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
  dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
-
-
+ 
 ! calculate Teqi
- if (od_method == 1) then
+ if (od_method == 1 .or. od_method == 2) then
    if (doFLD) then
    ! include term from FLD
-      Teqi = (du_FLDi+dudti_sph)*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+      Teqi = (du_FLDi+dudti_sph)*(coldensi**2.d0*kappaBari/unit_opacity + (1.d0/(kappaParti/unit_opacity))) &
+           *unit_ergg/utime
       du_tot = dudti_sph + dudt_rad + du_FLDi
    else
-      Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+      Teqi = dudti_sph*(coldensi**2.d0*kappaBari/unit_opacity + (1.d0/(kappaParti/unit_opacity)))*unit_ergg/utime
       du_tot = dudti_sph + dudt_rad 
    endif
    Teqi = Teqi/4.d0/steboltz
@@ -127,13 +127,13 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
    ueqi = ueqi/unit_ergg
   endif
        
-    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
-    umini = umini/unit_ergg
+  call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+  umini = umini/unit_ergg
      
 ! calculate thermalization timescale and
 ! internal energy update -> put in form where it'll work as dudtcool
-	select case (od_method)
-	case (1)
+ ! select case (od_method)
+  !case (1)
      if ((du_tot) == 0.d0) then
         tthermi = 0d0
      else
@@ -144,27 +144,29 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
      else
         dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
      endif
-     case (2)
-     	if (abs(dudt_rad) > 0.d0) then
-    	 	tthermi = (umini - ui) / dudt_rad ! + tiny(dudt_rad))
-     		dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
-     	else  ! ie Tmini == Ti
-     		dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
-     	end if
-     end select
+!  case (2)
+!     if (abs(dudt_rad) > 0.d0) then
+!        tthermi = (umini - ui) / dudt_rad ! + tiny(dudt_rad))
+!        dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt &
+!             + dudti_sph
+!     else  ! ie Tmini == Ti
+!        dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
+!     end if
+!  end select
      
      
-     if (isnan(dudti_cool)) then
-        print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-        print *, "rhoi=",rhoi, "Ti=", Ti
-        print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
-        print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-        print *, "dudt_rad=", dudt_rad 
-        call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
-        stop
-     else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
-        dudti_cool = (umini - ui)/dt
-     endif
+  if (isnan(dudti_cool)) then
+!     print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
+     print *, "sph, rad, fld", dudti_sph,dudt_rad,du_FLDi
+     print *, "rhoi=",rhoi, "Ti=", Ti
+!     print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
+!     print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+!     print *, "dudt_rad=", dudt_rad, "ueqi", ueqi 
+!     call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
+     stop
+  else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+     dudti_cool = (umini - ui)/dt
+  endif
 
 end subroutine cooling_S07
 

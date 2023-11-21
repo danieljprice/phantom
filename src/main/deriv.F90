@@ -275,7 +275,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
 #endif
   use kernel,   only:radkern2,wkern,grkern,cnormk,get_kernel
   use linklist, only:get_neighbour_list
-  use units,    only:unit_density,unit_ergg
+  use units,    only:unit_density,unit_ergg,unit_opacity
   use eos_stamatellos, only:getopac_opdep,arad
 
   integer,         intent(in)     :: npart 
@@ -300,7 +300,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
 
 ! loop over parts                                                                     
 !$omp parallel do schedule(runtime) default(none) &
-!$omp shared(npart,xyzh,iphase,ignoreself) &
+!$omp shared(npart,xyzh,iphase,ignoreself,unit_opacity) &
 !$omp shared(rho,lambda,massoftype,vxyzu,unit_density,unit_ergg,gradh) &
 !$omp private(i,j,n,mylistneigh,nneigh,xyzcache,iphasei,iactivei) &
 !$omp private(iamdusti,iamgasi,iactivej,iamgasj,iamdustj,iamtypei,iamtypej) &
@@ -322,7 +322,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
      if (.not. iactivei) cycle over_parts
      if (iamtypei == iboundary) cycle over_parts
      if (.not. iamgasi) cycle over_parts
-
+     if (rho(i) < tiny(rhoi)) cycle over_parts
      uradi = 0.
      dradi = 0.
      pmassi = massoftype(iamtypei)
@@ -350,6 +350,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
  loop_over_neighbours: do n = 1,nneigh
         j = mylistneigh(n)
         if (j < 0) cycle loop_over_neighbours
+        if (rho(j) < tiny(rhoi)) cycle loop_over_neighbours
         if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours
 
         if (n <= maxcellcache) then
@@ -399,7 +400,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
            dWi = grkerni*cnormk*hi21*hi21*gradh(1,i)
            pmassj = massoftype(iamtypej)
            rhoj = rho(j)
-
+           if (rhoj < tiny(rhoj)) cycle loop_over_neighbours
           call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,kappaBarj, &
                kappaPartj,Tj,gmwj)
           uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)
@@ -428,11 +429,14 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
     if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
        R_rad = 0.0d0
     else
-       R_rad = dradi/(uradi*rhoi*kappaParti)
+       R_rad = dradi/(uradi*rhoi*kappaParti/unit_opacity)
     endif
 
     lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
-
+    if (isnan(lambda(i))) then
+       print *, "lambda isnan. i, R_Rad, uradi,dradi,rhoi,kappaParti", &
+            i,R_Rad,uradi,dradi,rhoi,kappaParti
+    endif
  enddo over_parts
 !$omp end parallel do
 end subroutine calc_lambda
