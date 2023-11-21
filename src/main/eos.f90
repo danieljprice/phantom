@@ -445,6 +445,7 @@ subroutine init_eos(eos_type,ierr)
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
+ integer              :: ierr_mesakapp
 
  ierr = 0
  !
@@ -521,7 +522,11 @@ subroutine init_eos(eos_type,ierr)
  end select
  done_init_eos = .true.
 
- if (do_radiation .and. iopacity_type==1) call init_eos_mesa(X_in,Z_in,ierr)
+ if (do_radiation .and. iopacity_type==1) then
+    write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
+    call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
+    ierr = max(ierr,ierr_mesakapp)
+ endif
 
 end subroutine init_eos
 
