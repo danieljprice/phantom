@@ -89,8 +89,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  integer,           intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out) :: comp_label(:)
  integer :: ierr,i,eos_type
- logical :: calc_polyk,iexist
- real    :: eni,tempi,guessene
+ logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
  !
  ! set up tabulated density profile
@@ -132,7 +131,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        else
           eos_type = ieos
        endif
-       call set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
+       regrid_core = .true.
+       call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr)
        hsoft = rcore/radkern
 
        call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)

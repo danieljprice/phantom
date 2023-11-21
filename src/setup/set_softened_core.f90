@@ -30,7 +30,7 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
+subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
  use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
  use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
@@ -43,11 +43,13 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,
  use units,               only:unit_luminosity
  integer, intent(in) :: eos_type,isoftcore,isofteningopt
  real, intent(in)    :: Lstar
+ logical, intent(in) :: regrid_core
  real, intent(inout) :: rcore,mcore
- real, intent(inout) :: r(:),den(:),m(:),pres(:),X(:),Y(:)
- integer             :: core_index,ierr
+ real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
+ integer             :: core_index,ierr,npts
  real                :: Xcore,Zcore,rc,Lstar_cgs
  logical             :: isort_decreasing,iexclude_core_mass
+ real, allocatable   :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
 
  write(*,'(/,1x,a)') 'Setting softened core profile'
  ! Output data to be sorted from stellar surface to interior?
@@ -83,6 +85,23 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
+ 
+ if (regrid_core) then
+    ! make copy of original arrays
+    npts = size(r)
+    allocate(r1(npts),den1(npts),pres1(npts),m1(npts),X1(npts),Y1(npts))
+    r1 = r
+    den1 = den
+    pres1 = pres
+    m1 = m
+    X1 = X
+    Y1 = Y
+    Ncore = 5000  ! number of grid points in softened region (hardwired for now)
+    call regrid_core(Ncore,rcore*solarr,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
+    X(:) = X(size(X))
+    Y(:) = Y(size(Y))
+ endif
+
  if (eos_type==10) then
     X_in = Xcore
     Z_in = Zcore
@@ -122,5 +141,45 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,
  endif
 
 end subroutine set_softened_core
+
+
+!-----------------------------------------------------------------------
+!+
+!  Increase number of grid points in softened region to help converge in
+!  shooting. Currently, use linear grid points
+!
+!  Ncore: No. of grid points to use in softened region
+!+
+!-----------------------------------------------------------------------
+subroutine regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
+ integer, intent(in)            :: Ncore
+ real, intent(in)               :: rcore_cm
+ integer, intent(inout)         :: icore
+ real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1 
+ real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
+ integer                        :: Ncore,npts,npts_old,i
+ real                           :: dr
+
+ npts_old = size(r1)
+ npts = npts_old - icore + Ncore
+
+ allocate(r2(npts),den2(npts),pres2(npts),m2(npts),X2(npts),Y2(npts))
+ r2(Ncore:npts)    = r1(icore:npts_old)
+ den2(Ncore:npts)  = den1(icore:npts_old)
+ pres2(Ncore:npts) = pres1(icore:npts_old)
+ m2(Ncore:npts)    = m1(icore:npts_old)
+ X2(Ncore:npts)    = X1(icore:npts_old)
+ Y2(Ncore:npts)    = Y1(icore:npts_old)
+
+ ! Set uniform r grid in softened region
+ dr = rcore_cm/real(Ncore)
+ do i = 1,Ncore-1
+    r2(i) = real(i)*dr
+ enddo
+ r2(Ncore) = rcore_cm
+
+ icore = Ncore
+
+end subroutine regrid_core
 
 end module setsoftenedcore
