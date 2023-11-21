@@ -70,6 +70,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use eos_piecewise,      only:get_dPdrho_piecewise
  use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
  use kernel,             only:radkern
+ use part,               only:do_radiation
  use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
  use readwrite_mesa,     only:read_mesa,write_mesa
  use readwrite_kepler,   only:read_kepler_file
@@ -89,7 +90,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  real,              intent(inout) :: rcore,mcore
  integer,           intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out) :: comp_label(:)
- integer :: ierr,i
+ integer :: ierr,i,eos_type
  logical :: calc_polyk,iexist
  real    :: eni,tempi,guessene
  procedure(func), pointer :: get_dPdrho
@@ -131,6 +132,11 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        call set_softened_core(isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = rcore/radkern
        ! solve for temperature and energy profile
+       if (do_radiation) then
+          eos_type = 12
+       else
+          eos_type = ieos
+       endif
        do i=1,size(r)
           mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
           if (i==1) then
@@ -140,7 +146,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
              guessene = en(i-1)
              tempi = temp(i-1)
           endif
-          call calc_temp_and_ene(ieos,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+          call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
           en(i) = eni
           temp(i) = tempi
        enddo
