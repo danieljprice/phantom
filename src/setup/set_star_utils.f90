@@ -68,7 +68,6 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                              composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
- use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
  use kernel,             only:radkern
  use part,               only:do_radiation
  use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
@@ -76,7 +75,6 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
- use physcon,            only:kb_on_mh,radconst
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
@@ -137,20 +135,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        call set_softened_core(eos_type,isoftcore,isofteningopt,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
        hsoft = rcore/radkern
 
-       ! solve for temperature and energy profile
-       do i=1,size(r)
-          mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
-          if (i==1) then
-             guessene = 1.5*pres(i)/den(i)  ! initial guess
-             tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
-          else
-             guessene = en(i-1)
-             tempi = temp(i-1)
-          endif
-          call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
-          en(i) = eni
-          temp(i) = tempi
-       enddo
+       call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
        call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
        ! now read the softened profile instead
        call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
@@ -462,5 +447,41 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  enddo
 
 end subroutine set_star_thermalenergy
+
+
+!-----------------------------------------------------------------------
+!+
+!  Solve for u, T profiles given rho, P
+!+
+!-----------------------------------------------------------------------
+subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
+ use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
+ use physcon, only:radconst,kb_on_mh
+ integer, intent(in) :: eos_type
+ real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
+ logical, intent(in) :: regrid_core
+ real, intent(inout) :: temp(:),en(:),mu(:)
+ integer             :: i,ierr
+ real                :: guessene,tempi,eni
+
+ if (regrid_core) then  ! lengths of rho, P arrays have changed, so need to resize temp, en, and mu
+    deallocate(temp,en,mu)
+    allocate(temp(size(r)),en(size(r)),mu(size(r)))
+ endif
+
+ do i=1,size(r)
+    mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
+    if (i==1) then
+       guessene = 1.5*pres(i)/den(i)  ! initial guess
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+    else
+       guessene = en(i-1)
+       tempi = temp(i-1)
+    endif
+    call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+    en(i) = eni
+    temp(i) = tempi
+ enddo
+end subroutine
 
 end module setstar_utils
