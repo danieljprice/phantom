@@ -24,7 +24,7 @@ module setfixedlumcore
  public :: set_fixedlum_softened_core
 
  private
- integer, parameter :: ierr_pres=1,ierr_rho=2,ierr_mass=3
+ integer, parameter :: ierr_rho=1,ierr_pres=2,ierr_mass=3
 
 contains
 
@@ -135,9 +135,12 @@ subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,i
     call one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,temp,mass,iverbose,ierr) ! returned mass is m(r=0)
     it = it + 1
 
+    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8),2x,a,i1)') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
+                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac,'ierr = ',ierr
+
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
-    elseif (mass/msoft < 1d-10) then  ! m(r=0) sufficiently close to zero
+    elseif (mass/msoft < 1d-10 .and. ierr <= ierr_pres) then  ! m(r=0) sufficiently close to zero
        write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on central mass reached on iteration no.',it,', fac =',fac
        if (ierr == ierr_rho) write(*,'(a)') 'WARNING: Profile contains density inversion'
        exit
@@ -145,9 +148,14 @@ subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,i
        mcore = mcore * (1. + fac)
     endif
     msoft = mh - mcore
-    if (mold * mass < 0.) fac = fac * 0.99
 
-    if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
+    if (abs(mold-mass) < tiny(0.)) then
+       fac = fac * 1.02
+    elseif (mold * mass < 0.) then
+       fac = fac * 0.99
+    endif
+
+    if (abs(mold-mass) < tiny(0.) .and. ierr <= ierr_rho) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
                                  &central mass. m(r=0)/msoft = ',mass/msoft
        if (ierr == ierr_rho) write(*,'(1x,a)') 'WARNING: Profile contains density inversion'
@@ -155,8 +163,7 @@ subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,i
        exit
     endif
 
-    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8),2x,a,i1)') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
-                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac,'ierr = ',ierr
+    
  enddo
 
 end subroutine shoot_for_mcore
@@ -173,8 +180,8 @@ subroutine one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ier
  use radiation_utils,     only:get_opacity
  use setfixedentropycore, only:gcore
  use units,               only:unit_density,unit_opacity
+ integer, intent(in)                            :: eos_type,iverbose
  real, intent(in)                               :: mcore,msoft,Lstar,mu
- integer, intent(in)                            :: iverbose
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres,T
  real, intent(out)                              :: mass
@@ -212,7 +219,7 @@ subroutine one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ier
              + ( dr(i+1)**2 - dr(i)**2) * T(i) ) / dr(i+1)**2
     call calc_rho_from_PT(eos_type,pres(i-1),T(i-1),rho(i-1),ierr,mu_local)
     mass = mass - rho(i)*dvol(i)
-    lum(i-1) = luminosity(mass,msoft,Lstar)
+    lum(i-1) = luminosity(mass/msoft,Lstar)
     
     if (iverbose > 2) print*,Nmax-i+1,rho(i-1),mass,pres(i-1),T(i-1),kappai
     if (mass < 0.) then ! m(r) < 0 encountered, exit and decrease mcore
@@ -241,32 +248,35 @@ end subroutine one_shot
 
 !-----------------------------------------------------------------------
 !+
-!  Luminosity that is linear with mass, reaching Lstar at mcore
+!  Normalised luminosity function. q can be m/msoft or r/rcore
+!  Note: For point mass heating, q = r/(radkern*hsoft), not r/hsoft, so
+!        that luminosity reaches target value at r = radkern*hsoft
 !+
 !-----------------------------------------------------------------------
-function luminosity(m,msoft,Lstar,hsoft)
-!  use kernel, only:wkern,cnormk,radkern2
- real, intent(in)           :: m,msoft,Lstar
+function luminosity(q,Lstar,hsoft)
+!  use kernel, only:radkern,wkern,cnormk
+ real, intent(in)           :: q,Lstar
  real, intent(in), optional :: hsoft
- real                       :: luminosity,q
+ real                       :: luminosity
  integer                    :: ilum
 
  ilum = 0
- q = m/msoft
 
- select case(ilum)
- case(1)  ! smooth step
-    luminosity = (3.*q**2 - 2.*q**3)*Lstar
-!  case(2)  ! sink kernel
-!     q2 = q*q
-!     if (q2 < radkern2) then
-!        luminosity = cnormk*wkern(q2,q)/hsoft**3 * Lstar
-!     else
-!        luminosity = Lstar
-!     endif
- case default  ! constant heating rate
-    luminosity = q*Lstar
- end select
+ if (q > 1) then
+    luminosity = 1.
+ else
+    select case(ilum)
+    case(1)  ! smooth step
+       luminosity = 3.*q**2 - 2.*q**3
+   !  case(2)  ! kernel softening
+   !     r_on_hsoft = q*radkern
+   !     luminosity = cnormk*wkern(r_on_hsoft*r_on_hsoft,r_on_hsoft)/hsoft**3
+    case default  ! linear (constant heating rate)
+       luminosity = q
+    end select
+   endif
+
+ luminosity = luminosity * Lstar
 
 end function luminosity
 
