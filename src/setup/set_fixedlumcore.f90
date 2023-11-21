@@ -34,12 +34,13 @@ contains
 !  Lstar in erg/s
 !+
 !-----------------------------------------------------------------------
-subroutine set_fixedlum_softened_core(rcore,Lstar,mcore,rho,r,pres,m,Xcore,Ycore,ierr)
- use eos,                 only:ieos,calc_temp_and_ene,get_mean_molecular_weight,iopacity_type
+subroutine set_fixedlum_softened_core(eos_type,rcore,Lstar,mcore,rho,r,pres,m,Xcore,Ycore,ierr)
+ use eos,                 only:calc_temp_and_ene,get_mean_molecular_weight,iopacity_type
  use io,                  only:fatal
  use physcon,             only:solarm,solarr
  use table_utils,         only:interpolator
  use setfixedentropycore, only:calc_mass_from_rho
+ integer, intent(in)  :: eos_type
  real, intent(in)     :: rcore,Lstar,Xcore,Ycore
  real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
  real, allocatable    :: r_alloc(:),rho_alloc(:),pres_alloc(:),T_alloc(:)
@@ -76,12 +77,12 @@ subroutine set_fixedlum_softened_core(rcore,Lstar,mcore,rho,r,pres,m,Xcore,Ycore
  allocate(T_alloc(0:icore+1))
  do i = icore,icore+1
     mu = get_mean_molecular_weight(Xcore,1.-Xcore-Ycore)
-    call calc_temp_and_ene(ieos,rho(i),pres(i),eni,T_alloc(i),ierr,mu_local=mu, &
+    call calc_temp_and_ene(eos_type,rho(i),pres(i),eni,T_alloc(i),ierr,mu_local=mu, &
                            X_local=Xcore,Z_local=1.-Xcore-Ycore)
  enddo
 
  iverbose = 0
- call shoot_for_mcore(r_alloc,mc,m(icore),Lstar,rho_alloc,pres_alloc,T_alloc,Xcore,Ycore,iverbose)
+ call shoot_for_mcore(eos_type,r_alloc,mc,m(icore),Lstar,rho_alloc,pres_alloc,T_alloc,Xcore,Ycore,iverbose)
  mcore = mc / solarm
  write(*,'(1x,a,f8.5,a)') 'Obtained core mass of ',mcore,' Msun'
  write(*,'(1x,a,f8.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
@@ -98,16 +99,16 @@ end subroutine set_fixedlum_softened_core
 !  Returns softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
+subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
  use eos,     only:get_mean_molecular_weight
  use physcon, only:solarm
- real, allocatable, dimension(:), intent(in)    :: r
- integer, intent(in)                            :: iverbose
- real, intent(in)                               :: Lstar,mh,Xcore,Ycore
- real, intent(inout)                            :: mcore
- real, allocatable, dimension(:), intent(inout) :: rho,pres,temp
- integer                                        :: Nmax,it,ierr
- real                                           :: mass,mold,msoft,fac,mu,mcore_old
+ integer, intent(in)                               :: eos_type,iverbose
+ real,    allocatable, dimension(:), intent(in)    :: r
+ real,    intent(in)                               :: Lstar,mh,Xcore,Ycore
+ real,    intent(inout)                            :: mcore
+ real,    allocatable, dimension(:), intent(inout) :: rho,pres,temp
+ integer                                           :: Nmax,it,ierr
+ real                                              :: mass,mold,msoft,fac,mu,mcore_old
 
 ! INSTRUCTIONS
 
@@ -130,7 +131,8 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
  do
     mold = mass
     mcore_old = mcore
-    call one_shot(r,mcore,msoft,Lstar,mu,rho,pres,temp,mass,iverbose,ierr) ! returned mass is m(r=0)
+    ierr = 0
+    call one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,temp,mass,iverbose,ierr) ! returned mass is m(r=0)
     it = it + 1
 
     if (mass < 0.) then
@@ -153,8 +155,8 @@ subroutine shoot_for_mcore(r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,iverbose)
        exit
     endif
 
-    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8))') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
-                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac
+    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8),2x,a,i1)') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
+                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac,'ierr = ',ierr
  enddo
 
 end subroutine shoot_for_mcore
@@ -165,9 +167,9 @@ end subroutine shoot_for_mcore
 !  One shot: Solve structure for given guess for msoft/mcore
 !+
 !-----------------------------------------------------------------------
-subroutine one_shot(r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
+subroutine one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
  use physcon,             only:gg,pi,radconst,c,solarm
- use eos,                 only:ieos,calc_rho_from_PT,iopacity_type
+ use eos,                 only:calc_rho_from_PT,iopacity_type
  use radiation_utils,     only:get_opacity
  use setfixedentropycore, only:gcore
  use units,               only:unit_density,unit_opacity
@@ -208,7 +210,7 @@ subroutine one_shot(r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
              * 3./(16.*pi*radconst*c) * rho(i)*kappai*lum(i) / (r(i)**2*T(i)**3) &
              + dr(i)**2 * T(i+1) &
              + ( dr(i+1)**2 - dr(i)**2) * T(i) ) / dr(i+1)**2
-    call calc_rho_from_PT(ieos,pres(i-1),T(i-1),rho(i-1),ierr,mu_local)
+    call calc_rho_from_PT(eos_type,pres(i-1),T(i-1),rho(i-1),ierr,mu_local)
     mass = mass - rho(i)*dvol(i)
     lum(i-1) = luminosity(mass,msoft,Lstar)
     
