@@ -32,12 +32,12 @@ contains
 !  Main subroutine that calculates the constant entropy softened profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
- use eos,         only:ieos
+subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  use dim,         only:do_radiation
  use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
+ integer, intent(in)  :: eos_type
  real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
  real, allocatable    :: r_alloc(:),rho_alloc(:),pres_alloc(:)
  real, intent(in)     :: rcore,Xcore,Ycore
@@ -55,14 +55,14 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  if (do_radiation) then
     ientropy = 2
  else
-    select case(ieos)
+    select case(eos_type)
     case(2)
        ientropy = 1
     case(10,12,20)
        ientropy = 2
     case default
        call fatal('setfixedentropycore',&
-                   'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
+                   'eos_type not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
     end select
  endif
 

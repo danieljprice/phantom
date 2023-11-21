@@ -115,14 +115,14 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  case(1)
     call set_cubic_core(mcore,rcore,den,r,pres,m)
  case(2)
-    call set_fixedS_softened_core(mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
+    call set_fixedS_softened_core(eos_type,mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  case(3)
     if (iopacity_type < 1) then
        call fatal('set_softened_core','Cannot use zero opacity (iopacity_type<1) with a fixed-luminosity core')
     endif 
     Lstar_cgs = Lstar * unit_luminosity
-    call set_fixedlum_softened_core(rcore,Lstar_cgs,mcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
+    call set_fixedlum_softened_core(eos_type,rcore,Lstar_cgs,mcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  end select
 
