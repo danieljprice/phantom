@@ -88,7 +88,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  real,              intent(inout) :: rcore,mcore
  integer,           intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out) :: comp_label(:)
- integer :: ierr,i,eos_type
+ integer :: ierr,eos_type
  logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
  !
@@ -131,7 +131,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        else
           eos_type = ieos
        endif
-       regrid_core = .true.
+       regrid_core = .false.  ! hardwired to be false for now
        call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr)
        hsoft = rcore/radkern
 
@@ -460,7 +460,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
  integer, intent(in) :: eos_type
  real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
  logical, intent(in) :: regrid_core
- real, intent(inout) :: temp(:),en(:),mu(:)
+ real, allocatable, intent(inout) :: temp(:),en(:),mu(:)
  integer             :: i,ierr
  real                :: guessene,tempi,eni
 

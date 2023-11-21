@@ -46,7 +46,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  logical, intent(in) :: regrid_core
  real, intent(inout) :: rcore,mcore
  real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
- integer             :: core_index,ierr,npts
+ integer             :: core_index,ierr,npts,Ncore
  real                :: Xcore,Zcore,rc,Lstar_cgs
  logical             :: isort_decreasing,iexclude_core_mass
  real, allocatable   :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
@@ -97,7 +97,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     X1 = X
     Y1 = Y
     Ncore = 5000  ! number of grid points in softened region (hardwired for now)
-    call regrid_core(Ncore,rcore*solarr,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
+    call calc_regrid_core(Ncore,rcore*solarr,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
     X(:) = X(size(X))
     Y(:) = Y(size(Y))
  endif
@@ -151,13 +151,13 @@ end subroutine set_softened_core
 !  Ncore: No. of grid points to use in softened region
 !+
 !-----------------------------------------------------------------------
-subroutine regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
+subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2,m2,X2,Y2)
  integer, intent(in)            :: Ncore
  real, intent(in)               :: rcore_cm
  integer, intent(inout)         :: icore
  real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1 
  real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
- integer                        :: Ncore,npts,npts_old,i
+ integer                        :: npts,npts_old,i
  real                           :: dr
 
  npts_old = size(r1)
@@ -180,6 +180,6 @@ subroutine regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,pres2
 
  icore = Ncore
 
-end subroutine regrid_core
+end subroutine calc_regrid_core
 
 end module setsoftenedcore
