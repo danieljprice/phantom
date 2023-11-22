@@ -228,7 +228,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  
  !--Set timesteps
- tmax = 10.*years/utime
+ tmax = 3.*years/utime
  dtmax = tmax/1000.
 
 end subroutine modify_dump
