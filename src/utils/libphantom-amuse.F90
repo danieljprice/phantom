@@ -1330,7 +1330,7 @@ subroutine amuse_set_icooling(icooling_in)
     use part, only:h2chemistry
     use chem, only:init_chem
     use cooling, only:init_cooling,Tfloor
-    use h2cooling, only:init_h2cooling
+    !use cooling_ism, only:init_cooling
     implicit none
     integer :: ierr
     integer, intent(in) :: icooling_in

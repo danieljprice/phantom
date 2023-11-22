@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -53,7 +53,7 @@ subroutine set_defaults_timestep
  nmax    = -1
  nout    = -1
 
- dtwallmax = 43200.0         ! maximum wall time between dumps (seconds); default = 12h
+ dtwallmax = 0.              ! maximum wall time between dumps (seconds)
 
  ! Values to control dtmax changing with increasing densities
  dtmax_dratio =  0.          ! dtmax will change if this ratio is exceeded in a timestep (recommend 1.258)

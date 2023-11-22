@@ -16,4 +16,3 @@ This section contains the basic user guide for Phantom.
    utils
    dumpfile
    hdf5
-   sinks

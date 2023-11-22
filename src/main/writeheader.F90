@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -150,9 +150,9 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
           write(iprint,"(2x,2(a,es14.6))") 'ymin = ',ymin,' ymax = ',ymax
           write(iprint,"(2x,2(a,es14.6))") 'zmin = ',zmin,' zmax = ',zmax
        else
-          write(iprint,"(2x,2(a,f10.5))")  'xmin = ',xmin,' xmax = ',xmax
-          write(iprint,"(2x,2(a,f10.5))")  'ymin = ',ymin,' ymax = ',ymax
-          write(iprint,"(2x,2(a,f10.5))")  'zmin = ',zmin,' zmax = ',zmax
+          write(iprint,"(2x,2(a,g12.5))")  'xmin = ',xmin,' xmax = ',xmax
+          write(iprint,"(2x,2(a,g12.5))")  'ymin = ',ymin,' ymax = ',ymax
+          write(iprint,"(2x,2(a,g12.5))")  'zmin = ',zmin,' zmax = ',zmax
        endif
     else
        write(iprint,"(a)") ' No boundaries set '

@@ -20,13 +20,13 @@ import sys
 # -- Project information -----------------------------------------------------
 
 project = 'Phantom'
-copyright = '2022 The Authors'
+copyright = '2023 The Authors'
 author = 'Daniel Price'
 
 # The short X.Y version
-version = '2022.0'
+version = '2023.0'
 # The full version, including alpha/beta/rc tags
-release = '2022.0.1'
+release = '2023.0.0'
 
 
 # -- General configuration ---------------------------------------------------
@@ -90,6 +90,13 @@ html_theme = 'sphinx_rtd_theme'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+#
+# custom css files
+#
+html_css_files = [
+    'css/custom.css',
+]
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.
