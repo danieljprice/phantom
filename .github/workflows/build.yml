@@ -27,7 +27,7 @@ env:
 
 jobs:
   matrix_prep:
-    # Skip schedueld runs on forks
+    # Skip scheduled runs on forks
     if: ${{ github.event_name != 'schedule' || github.repository == 'danieljprice/phantom' }}
     runs-on: ubuntu-latest
     outputs:
@@ -67,6 +67,9 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
+    - name: Update package list
+      run: sudo apt-get update
+
     - name: Setup Intel repo
       if: matrix.system == 'ifort'
       id: intel-repo
@@ -101,6 +104,11 @@ jobs:
       run: |
         source /opt/intel/oneapi/setvars.sh
         printenv >> $GITHUB_ENV
+
+    - name: Install numpy and matplotlib for analysis unit tests
+      run: |
+        sudo apt-get install -y python3-numpy
+        sudo apt-get install -y python3-matplotlib
 
     - name: "Clone phantom"
       uses: actions/checkout@v3
@@ -152,6 +160,10 @@ jobs:
     - name: logs/setup-failures-${{ matrix.system }}.txt
       if: always()
       run: cat logs/setup-failures-${{ matrix.system }}.txt || true
+
+    - name: logs/analysis-failures-${{ matrix.system }}.txt
+      if: always()
+      run: cat logs/analysis-failures-${{ matrix.system }}.txt || true
 
     - name: logs/make-*-${{ matrix.system }}.txt
       if: always()

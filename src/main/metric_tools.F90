@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module metric_tools
 !
@@ -33,7 +33,8 @@ module metric_tools
  integer, public, parameter :: &
     imet_minkowski      = 1,   &    ! Minkowski metric
     imet_schwarzschild  = 2,   &    ! Schwarzschild metric
-    imet_kerr           = 3         ! Kerr metric
+    imet_kerr           = 3,   &    ! Kerr metric
+    imet_et             = 6         ! Tabulated metric from Einstein toolkit
 
 !--- Choice of coordinate system
 !    (When using this with PHANTOM, it should always be set to cartesian)
@@ -187,6 +188,7 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
  real, optional,  intent(out) :: metricderivs(:,:,:,:)
  integer :: i
 
+
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &
  !$omp private(i)
@@ -261,5 +263,7 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  if (present(betadown))    betadown    = metrici(0,1:3,1)
 
 end subroutine unpack_metric
+
+
 
 end module metric_tools

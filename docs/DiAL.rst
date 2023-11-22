@@ -4,8 +4,11 @@ Getting started on DiAL (Data Intensive@Leicester, DiRAC cluster at Leicester)
 Apply for an account
 --------------------
 
-Follow the instructions for how to apply for an account:
-https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/dirac/request-access
+| Follow the instructions for how to apply for an account: 
+| https://www2.le.ac.uk/offices/itservices/ithelp/services/hpc/dirac/request-access
+
+| Be sure to also set up two-factor authentication:
+| https://dial3-docs.dirac.ac.uk/Getting_started/connecting_dial3/
 
 First time you log in
 ---------------------
@@ -240,7 +243,7 @@ ST/R001014/1. DiRAC is part of the National e-Infrastructure.
 More info
 ---------
 
-More info is available on the following websites:
-https://dirac.ac.uk/
-https://dirac.ac.uk/resources/#DataIntensive1
-https://www630.lamp.le.ac.uk/Getting_started/connecting_dial3/
+| More info is available on the following websites:
+| https://dirac.ac.uk/
+| https://dirac.ac.uk/resources/#DataIntensive1
+| https://www630.lamp.le.ac.uk/Getting_started/connecting_dial3/

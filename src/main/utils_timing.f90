@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module timing
 !
@@ -50,11 +50,20 @@ module timing
                                  itimer_force         = 9,  &
                                  itimer_force_local   = 10, &
                                  itimer_force_remote  = 11, &
-                                 itimer_cons2prim     = 12, &
-                                 itimer_extf          = 13, &
-                                 itimer_ev            = 14, &
-                                 itimer_io            = 15
- integer, public, parameter :: ntimers = 15 ! should be equal to the largest itimer index
+                                 itimer_radiation     = 12, &
+                                 itimer_rad_save      = 13, &
+                                 itimer_rad_neighlist = 14, &
+                                 itimer_rad_arrays    = 15, &
+                                 itimer_rad_its       = 16, &
+                                 itimer_rad_flux      = 17, &
+                                 itimer_rad_diff      = 18, &
+                                 itimer_rad_update    = 19, &
+                                 itimer_rad_store     = 20, &
+                                 itimer_cons2prim     = 21, &
+                                 itimer_extf          = 22, &
+                                 itimer_ev            = 23, &
+                                 itimer_io            = 24
+ integer, public, parameter :: ntimers = 24 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -81,6 +90,15 @@ subroutine setup_timers
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_radiation   , 'radiation',   itimer_step  )
+ call init_timer(itimer_rad_save    , 'save',        itimer_radiation  )
+ call init_timer(itimer_rad_neighlist,'neighlist',   itimer_radiation  )
+ call init_timer(itimer_rad_arrays  , 'arrays',      itimer_radiation  )
+ call init_timer(itimer_rad_its     , 'its',         itimer_radiation  )
+ call init_timer(itimer_rad_flux    , 'flux',        itimer_rad_its    )
+ call init_timer(itimer_rad_diff    , 'diff',        itimer_rad_its    )
+ call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
+ call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_extf        , 'extf',        itimer_step  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
@@ -293,11 +311,10 @@ subroutine print_timer(lu,itimer,time_total)
  integer,      intent(in) :: itimer
  real(kind=4), intent(in) :: time_total
 
- ! Print label and tree structure
- write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
-
  ! Print timings
  if (timers(itimer)%wall > epsilon(0._4)) then
+    ! Print label and tree structure
+    write(lu, "(1x,a)", advance="no") trim(timers(itimer)%treelabel)
     if (time_total > 7200.0) then
        write(lu,"('  ',f7.2,'h   ',f8.2,'h    ',f6.2,'   ',f6.2,'%','   ',f6.2,'%')")  &
             timers(itimer)%wall/3600.,&
@@ -320,8 +337,6 @@ subroutine print_timer(lu,itimer,time_total)
             timers(itimer)%loadbal*100.,&
             timers(itimer)%wall/time_total*100.
     endif
- else
-    write(lu, "()")
  endif
 
 end subroutine print_timer

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module dim
 !
@@ -22,8 +22,6 @@ module dim
  integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
  integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
  character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
- character(len=80), parameter :: &  ! module version
-    modid="$Id$"
 
  public
 
@@ -49,8 +47,10 @@ module dim
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3
+ logical, parameter :: isothermal = .true.
 #else
  integer, parameter :: maxvxyzu = 4
+ logical, parameter :: isothermal = .false.
 #endif
 
  integer :: maxTdust = 0
@@ -128,7 +128,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -137,7 +137,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -270,6 +270,15 @@ module dim
  logical, parameter :: gr = .false.
 #endif
 
+!---------------------
+! Numerical relativity
+!---------------------
+#ifdef NR
+ logical, parameter :: nr = .true.
+#else
+ logical, parameter :: nr = .false.
+#endif  
+
 !--------------------
 ! Supertimestepping
 !--------------------
@@ -280,6 +289,7 @@ module dim
 !--------------------
  logical :: do_nucleation = .false.
  integer :: itau_alloc    = 0
+ integer :: itauL_alloc   = 0
  integer :: inucleation   = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
@@ -313,9 +323,9 @@ module dim
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
- logical, parameter :: particles_are_injected = .true.
+ logical, parameter :: inject_parts = .true.
 #else
- logical, parameter :: particles_are_injected = .false.
+ logical, parameter :: inject_parts = .false.
 #endif
 
 !--------------------
@@ -334,12 +344,18 @@ module dim
  integer :: maxmhdan = 0
  integer :: maxdustan = 0
  integer :: maxgran = 0
+ integer :: maxindan = 0
 
  !--------------------
  ! Phase and gradh sizes - inconsistent with everything else, but keeping to original logic
  !--------------------
  integer :: maxphase = 0
  integer :: maxgradh = 0
+
+ !--------------------
+ ! a place to store the number of the dumpfile; required for restart dumps
+ !--------------------
+ integer :: idumpfile = 0
 
 contains
 
@@ -427,6 +443,10 @@ subroutine update_max_sizes(n,ntot)
  maxmhdan = maxmhd
  maxdustan = maxp_dustfrac
  maxgran = maxgr
+#endif
+
+#ifdef IND_TIMESTEPS
+ maxindan = maxan
 #endif
 
 #ifdef RADIATION

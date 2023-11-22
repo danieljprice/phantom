@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -30,7 +30,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use setdisc, only:set_disc
- use units,   only:udist, umass, utime, set_units
+ use units,   only:udist,umass,set_units
  use physcon, only:solarm,km
  use io,      only:master
  use externalforces, only:accradius1,mass1,iext_prdrag
@@ -52,7 +52,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  udist_km = 1.e5/udist   ! code units are cm
  gamma = 1.0
- npart = size(xyzh(1,:))
+ npart = 1e5
  npartoftype(1) = npart
  hfact = 1.2
  time  = 0.
@@ -93,7 +93,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  accradius1 = R_in
  mass1 = Mstar
 
- return
 end subroutine setpart
 
 end module setup

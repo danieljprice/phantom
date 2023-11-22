@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 program phantommoddump
 !
@@ -165,12 +165,8 @@ program phantommoddump
  endif
 
  if (mhd) then
-    if (ihavesetupB) then
-       ians = .false.
-       call prompt(' add/reset magnetic fields?',ians)
-    else
-       ians = .true.
-    endif
+    ians = .false.
+    if (.not.ihavesetupB) call prompt(' add/reset magnetic fields?',ians)
     if (ians) then
        call set_Bfield(npart,npartoftype(:),xyzh,massoftype(:),vxyzu,polyk, &
                        Bxyz,Bextx,Bexty,Bextz)

@@ -43,7 +43,7 @@ applychanges=0;
 doindent=1;
 gitstaged=0;
 input_file='';
-
+bot_names='';
 while [[ "$1" == --* ]]; do
   case $1 in
     --apply)
@@ -65,14 +65,19 @@ while [[ "$1" == --* ]]; do
 
    --file)
       shift
-      input_file=$1
+      input_file=$1;
       break;
       ;;
 
    --files)
       shift
-      input_files="$*"
+      input_files="$*";
       break;
+      ;;
+
+    --only)
+      shift
+      bot_names=$1;
       ;;
 
     *)
@@ -126,6 +131,17 @@ if [[ $doindent == 1 ]]; then
    bots_to_run="${bots_to_run} indent";
 fi
 #bots_to_run='shout';
+
+#
+# if --only flag is given, override list of bots_to_run
+#
+if [[ "$bot_names" != "" ]]; then
+   bots_to_run="${bot_names}"
+   echo ">> Running only ${bots_to_run} bots via --only flag"
+fi
+#
+# cycle over all the possible bots and run them...
+#
 modified=0
 for edittype in $bots_to_run; do
     filelist='';
@@ -165,6 +181,9 @@ for edittype in $bots_to_run; do
                if [[ "$input_files" != "" && "$input_files" != *"$dir/$file"* && "$edittype" != "authors" ]]; then
                  continue
                fi
+               if [[ "$file" == "libphantom-evolve.F90" ]]; then # skip as causes indent-bot trouble
+                  continue
+               fi
                out="$tmpdir/$file"
 #               echo "FILE=$file OUT=$out";
                case $edittype in
@@ -188,7 +207,7 @@ for edittype in $bots_to_run; do
                'shout' )
                  sed -e 's/SQRT(/sqrt(/g' \
                      -e 's/NINT(/nint(/g' \
-                     -e 's/STOP/stop/g' \
+                     -e 's/ STOP/ stop/g' \
                      -e 's/ATAN/atan/g' \
                      -e 's/ACOS(/acos(/g' \
                      -e 's/ASIN(/asin(/g' \
@@ -220,7 +239,29 @@ for edittype in $bots_to_run; do
                      -e 's/DOT_PRODUCT/dot_product/g' \
                      -e 's/ DIMENSION(/ dimension(/g' \
                      -e 's/CONTINUE/continue/g' \
+                     -e 's/KIND=/kind=/g' \
                      -e 's/ INTEGER/ integer/g' \
+                     -e 's/ PARAMETER/ parameter/g' \
+                     -e 's/INTENT(IN)/intent(in)/g' \
+                     -e 's/INTENT(OUT)/intent(out)/g' \
+                     -e 's/INTENT(INOUT)/intent(inout)/g' \
+                     -e 's/intent(IN)/intent(in)/g' \
+                     -e 's/intent(OUT)/intent(out)/g' \
+                     -e 's/intent(INOUT)/intent(inout)/g' \
+                     -e 's/INT(/int(/g' \
+                     -e 's/MIN(/min(/g' \
+                     -e 's/ABS(/abs(/g' \
+                     -e 's/NOT(/not(/g' \
+                     -e 's/IAND(/iand(/g' \
+                     -e 's/IEOR(/ieor(/g' \
+                     -e 's/MODULO(/modulo(/g' \
+                     -e 's/HUGE(/huge(/g' \
+                     -e 's/TINY(/tiny(/g' \
+                     -e 's/SELECTED_REAL_KIND(/selected_real_kind(/g' \
+                     -e 's/SELECTED_INT_KIND(/selected_int_kind(/g' \
+                     -e 's/SELECTED_REAL_kind(/selected_real_kind(/g' \
+                     -e 's/SELECTED_INT_kind(/selected_int_kind(/g' \
+                     -e 's/KIND(/kind(/g' \
                      -e 's/ REAL/ real/g' $file > $out;;
                'endif' )
                  sed -e 's/end if/endif/g' \

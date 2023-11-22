@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module bondiexact
 !
@@ -23,6 +23,9 @@ module bondiexact
 
  real, public  :: rcrit   = 5.
  real, private :: rhocrit = 1.
+
+ logical, public :: iswind = .false.
+ integer, public :: isol   = 0
 
  private
 

@@ -1,31 +1,40 @@
-Making sure your changes are safe to commit
-===========================================
+Getting your code to pass the github actions
+============================================
 
-There are two automated checking procedures that you can use to make
-sure that changes you are about to commit do not break the code. These
-are both run nightly anyway (and will email you the results), but here
-is how to make sure that your changes do not break the code for others.
+On every pull request a sequence of continuous integration tests
+are performed to check that code is safe to merge into master.
+The scripts in the `.github/workflows <https://github.com/danieljprice/phantom/tree/master/.github/workflows>`_ directory are as follows:
 
-Running the test suite
-~~~~~~~~~~~~~~~~~~~~~~
+- |build|_: checks that phantom, phantomsetup, phantomanalysis and phantommoddump compile with every possible SETUP= flag
+- |test|_: runs the test suite [see below]
+- |mpi|_: runs the test suite with MPI [see below]
+- |mcfost|_: compiles and links phantom+mcfost
 
-You can run the whole test suite using:
+.. |build| image:: https://github.com/danieljprice/phantom/actions/workflows/build.yml/badge.svg
+.. _build: https://github.com/danieljprice/phantom/actions/workflows/build.yml
 
-::
+.. |test| image:: https://github.com/danieljprice/phantom/actions/workflows/test.yml/badge.svg
+.. _test: https://github.com/danieljprice/phantom/actions/workflows/test.yml
+
+.. |mpi| image:: https://github.com/danieljprice/phantom/actions/workflows/mpi.yml/badge.svg
+.. _mpi: https://github.com/danieljprice/phantom/actions/workflows/mpi.yml
+
+.. |mcfost| image:: https://github.com/danieljprice/phantom/actions/workflows/mcfost.yml/badge.svg
+.. _mcfost: https://github.com/danieljprice/phantom/actions/workflows/mcfost.yml
+
+Running the test suite on your own machine
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can run the test suite using::
 
    make test
 
-This is just a shortcut for the following sequence of commands:
-
-::
+This is just a shortcut for the following sequence of commands::
 
    make SETUP=test phantomtest
    ./bin/phantomtest
 
-The test suite is also run nightly to check for regressions. You can run
-the complete nightly test yourself using the testbot wrapper script:
-
-::
+You can run the complete testsuite yourself using the testbot wrapper script::
 
    cd phantom/scripts
    ./testbot.sh
@@ -34,9 +43,7 @@ Running selected parts of the test suite
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can run just part of the test suite by giving an additional argument
-as follows:
-
-::
+as follows::
 
    make SETUP=test phantomtest && ./bin/phantomtest derivs
 
@@ -98,23 +105,76 @@ A non-exhaustive list of possible arguments are as follows:
 The buildbot
 ~~~~~~~~~~~~
 
-The buildbot runs nightly and checks that the code compiles in all of
-the possible SETUP configurations in the Makefile. You can run this
-yourself as follows:
-
-::
+The buildbot also runs in `an action <https://github.com/danieljprice/phantom/actions>`_ and checks that the code compiles in :doc:`all of
+the possible SETUP configurations in the Makefile <setups>`. You can run this
+offline as follows::
 
    cd phantom/scripts
    ./buildbot.sh
 
-Because some of the setups are compiled with large static arrays which
-may exceed the memory limits of your local machine, you can optionally
-check only those setups that have idim less than some value, e.g.:
+If you want to check only those SETUPS that were failing in the actions,
+edit the buildbot.sh script and override the allsetups= line, e.g::
+
+   allsetups='disc star'
+
+Common reasons for failure
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+We enforce the following policies in merging to the master branch:
+
+1. Code must compile and run with and without DEBUG=yes
+2. Code must compile with ability to change the precision of reals to real*4 (this is enforced in SETUP=blob)
+3. Code must compile with no warnings when compiled with gfortran (enforced with NOWARN=yes which adds the -Werror flag)
+4. Testsuite must work with and without MPI, i.e. compile with MPI=yes
+
+How to reproduce the github build environment offline
+======================================================
+Just occasionally it is hard to reproduce a failure in the actions. It *is*
+possible to recreate the github actions environment offline, using a Docker container.
+I suggest to do this *only* as a last resort. The recommended steps are as follows:
+
+Running the actions locally
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1. Install `Docker <https://docs.docker.com/desktop/install/mac-install/>`_
+2. Install `act <https://github.com/nektos/act>`_
+3. run the pull_request workflow
 
 ::
 
-   cd phantom/scripts
-   ./buildbot.sh 1000000
+   act pull_request
 
-which checks only SETUPs with idim set to 1 million particles or less in
-the dim file.
+Checking the phantom build that is failing manually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+If you just want to check things manually but in the same environment
+as used in the actions, try the following::
+
+1. Install [Docker](https://docs.docker.com/desktop/install/mac-install/)
+2. Install Docker command line tools
+
+::
+
+    brew install docker
+
+3. Install the ubuntu-latest image in Docker, e.g. by typing in a terminal [around 6.5Gb download]
+
+::
+
+   docker pull nektos/act-environments-ubuntu:18.04
+
+4. Run the image, and proceed to run phantom build checks manually
+
+::
+
+   git clone https://github.com/danieljprice/phantom
+   mkdir -p runs/mydisc
+   cd runs/mydisc
+   ~/phantom/scripts/writemake.sh disc > Makefile
+   export DEBUG=yes
+   export PHANTOM_DIR=~/phantom
+   make
+   make setup
+   make analysis
+   make moddump
+   ./phantomsetup disc
+   ./phantomsetup disc
+   ./phantomsetup disc
+   ./phantom disc

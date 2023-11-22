@@ -2,13 +2,17 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module cons2primsolver
 !
-! None
+! Internal routines containing the GR conservative to
+! primitive variable solver, as described in section 7
+! of Liptai & Price (2019)
 !
-! :References: None
+! :References:
+!   Liptai & Price (2019), MNRAS 485, 819
+!   Tejeda (2012), PhD thesis, IAS Trieste
 !
 ! :Owner: David Liptai
 !
@@ -71,7 +75,7 @@ end subroutine get_u
 !+
 !----------------------------------------------------------------
 subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
- use utils_gr,     only:get_u0
+ use utils_gr,     only:get_u0,get_sqrtg
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw,get_entropy
@@ -89,9 +93,9 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
 
  enth = 1. + u + P/dens
 
- ! Hard coded sqrtg=1 since phantom is always in cartesian coordinates
- sqrtg = 1.
+ ! get determinant of metric
  call unpack_metric(metrici,gcov=gcov)
+ call get_sqrtg(gcov,sqrtg)
 
  call get_u0(gcov,v,U0,ierror)
  if (ierror > 0) call error('get_u0 in prim2cons','1/sqrt(-v_mu v^mu) ---> non-negative: v_mu v^mu')
@@ -130,6 +134,7 @@ end subroutine primitive2conservative
 !+
 !----------------------------------------------------------------
 subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
+ use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
  use io,           only:fatal
@@ -143,20 +148,21 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP
  real :: sqrtg,sqrtg_inv,lorentz_LEO,pmom2,alpha,betadown(1:3),betaUP(1:3),enth_old,v3d(1:3)
- real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,cgsdens,cgsu
+ real :: f,df,term,lorentz_LEO2,gamfac,pm_dot_b,sqrt_gamma_inv,enth,gamma1,sqrt_gamma
+ real(kind=8) :: cgsdens,cgsu
  integer :: niter, i
  real, parameter :: tol = 1.e-12
  integer, parameter :: nitermax = 100
  logical :: converged
+ real    :: gcov(0:3,0:3)
  ierr = 0
 
- ! Hard coding sqrgt=1 since phantom is always in cartesian coordinates
- sqrtg = 1.
- sqrtg_inv = 1./sqrtg
-
  ! Get metric components from metric array
- call unpack_metric(metrici,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
+ call unpack_metric(metrici,gcov=gcov,gammaijUP=gammaijUP,alpha=alpha,betadown=betadown,betaUP=betaUP)
 
+ ! Retrieve sqrt(g)
+ call get_sqrtg(gcov,sqrtg)
+ sqrtg_inv = 1./sqrtg
  pmom2 = 0.
  do i=1,3
     pmom2 = pmom2 + pmom(i)*dot_product(gammaijUP(:,i),pmom(:))
@@ -167,6 +173,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
 
  niter = 0
  converged = .false.
+ call get_sqrt_gamma(gcov,sqrt_gamma)
  sqrt_gamma_inv = alpha*sqrtg_inv ! get determinant of 3 spatial metric
  term = rho*sqrt_gamma_inv
  gamfac = gamma/(gamma-1.)
@@ -188,7 +195,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        case (12)
           cgsdens = dens * unit_density
           cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
-          u = cgsu / unit_ergg
+          u = real(cgsu / unit_ergg)
           if (u > 0.) then
              gamma1 = P/(u*dens)
              gamma = 1. + gamma1
@@ -205,7 +212,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
        p = en*dens**gamma
     endif
 
-    f = 1. + gamfac*P/dens - enth_old
+    if (ien_type /= ien_entropy_s) f = 1. + gamfac*P/dens - enth_old
 
     !This line is unique to the equation of state - implemented for adiabatic at the moment
     if (ien_type == ien_etotal) then
@@ -213,20 +220,15 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     elseif (ieos==4) then
        df = -1. ! Isothermal, I think...
     elseif (ien_type == ien_entropy_s) then
-       select case (ieos)
-       case (12)
-          df = -1. + (pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
-       case (2)
-          df = -1. + (2.*gamfac*pmom2*P)/(3.*lorentz_LEO2 * enth_old**3 * dens)
-       case default
-          df = 0.
-          call fatal('cons2primsolver','only implemented for eos 2 and 12')
-       end select
     else
        df = -1. + (gamma*pmom2*P)/(lorentz_LEO2 * enth_old**3 * dens)
     endif
 
-    enth = enth_old - f/df
+    if (ien_type /= ien_entropy_s) then ! .or. ieos /= 12) then
+       enth = enth_old - f/df
+    else
+       enth = 1. + gamfac*P/dens ! update enth with temp instead of NR
+    endif
 
     ! Needed in dust case when f/df = NaN casuses enth = NaN
     if (enth-1. < tiny(enth)) enth = 1. + 1.5e-6
@@ -237,6 +239,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  enddo
 
  if (.not.converged) ierr = 1
+
 
  lorentz_LEO = sqrt(1.+pmom2/enth**2)
  dens = term/lorentz_LEO
@@ -251,7 +254,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
     case (12)
        cgsdens = dens * unit_density
        cgsu = 1.5*rg*temp/gmw + radconst*temp**4/cgsdens
-       u = cgsu / unit_ergg
+       u = real(cgsu / unit_ergg)
        if (u > 0.) then
           gamma = 1. + P/(u*dens)
        else

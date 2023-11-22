@@ -83,13 +83,20 @@
 |           |                                                                                  |
 |           | but solved by first solving the quartic equation:                                |
 |           |                                                                                  |
-|           | :math:`u = \frac32 \frac{k_b T}{\mu m_H} +  \frac13 a T^4`                       |
+|           | :math:`u = \frac32 \frac{k_b T}{\mu m_H} + \frac{a T^4}{\rho}`                   |
 |           |                                                                                  |
 |           | for temperature (given u), then solving for pressure using                       |
 |           |                                                                                  |
-|           | :math:`P = \frac{k_b T}{\mu m_H} + a T^4`                                        |
+|           | :math:`P = \frac{k_b T}{\mu m_H} + \frac13 a T^4`                                |
 |           |                                                                                  |
 |           | hence in this equation of state gamma (and temperature) are an output            |
+|           |                                                                                  |
++-----------+----------------------------------------------------------------------------------+
+| 13        | **Locally isothermal eos for generic hierarchical system**                       |
+|           |                                                                                  |
+|           | Assuming all sink particles are stars.                                           |
+|           | Generalisation of Farris et al. (2014; for binaries) to N stars.                 |
+|           | For two sink particles this is identical to ieos=14                              |
 |           |                                                                                  |
 +-----------+----------------------------------------------------------------------------------+
 | 14        | **Locally isothermal eos from Farris et al. (2014) for binary system**           |

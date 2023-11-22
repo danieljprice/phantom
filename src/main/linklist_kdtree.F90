@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module linklist
 !
@@ -25,8 +25,6 @@ module linklist
  use part,         only:ll
  use dtypekdtree,  only:kdnode
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  integer,               allocatable :: cellatid(:)
  integer,     public,   allocatable :: ifirstincell(:)
@@ -107,9 +105,9 @@ subroutine set_hmaxcell(inode,hmaxcell)
  ! walk tree up
  do while (node(n)%parent /= 0)
     n = node(n)%parent
-!$omp critical (node_hmax)
+!$omp critical (crit_node_hmax)
     node(n)%hmax = max(node(n)%hmax, hmaxcell)
-!$omp end critical (node_hmax)
+!$omp end critical (crit_node_hmax)
  enddo
 
 end subroutine set_hmaxcell

@@ -13,13 +13,11 @@ number of particles use:
    make SETUP=disc MAXP=10000000
 
 Setup block
-~~~~~~~~~~~
+-----------
 
 The compile-time configuration of Phantom is specified using the SETUP
 block in `build/Makefile_setups <https://github.com/danieljprice/phantom/blob/master/build/Makefile_setups>`__. For example the default disc setup is
-“disc”:
-
-::
+“disc”::
 
    ifeq ($(SETUP), disc)
    #   locally isothermal gas disc
@@ -37,59 +35,59 @@ particular physics. Otherwise these are specified using variables in
 this block as follows:
 
 Pre-cooked setups
-~~~~~~~~~~~~~~~~~
+-----------------
 For many applications a :doc:`pre-cooked SETUP block <setups>` already exists. View the full list :doc:`here <setups>`. You can also override any of the compile-time settings manually, using the options below.
 
 Code modules
 ------------
 
-+-----------------+-----------------+-----------------+-----------------+
-| *Variable*      | *Setting*       | *Default value* | *Description*   |
-+=================+=================+=================+=================+
-| SETUPFILE       | .f90 file(s)    | setup_unifdis.F | The setup       |
-|                 |                 | 90              | routine and any |
-|                 |                 |                 | auxiliary       |
-|                 |                 |                 | routines needed |
-|                 |                 |                 | by phantomsetup |
-+-----------------+-----------------+-----------------+-----------------+
-| LINKLIST        | .f90 file(s)    | linklist.F90    | The neighbour   |
-|                 |                 |                 | finding         |
-|                 |                 |                 | algorithm       |
-|                 |                 |                 | (fixed grid,    |
-|                 |                 |                 | fixed           |
-|                 |                 |                 | cylindrical     |
-|                 |                 |                 | grid or kdtree) |
-+-----------------+-----------------+-----------------+-----------------+
-| ANALYSIS        | .f90 file(s)    | analysis_dthead | (optional) The  |
-|                 |                 | er.f90          | analysis        |
-|                 |                 |                 | routine and any |
-|                 |                 |                 | auxiliary       |
-|                 |                 |                 | routines used   |
-|                 |                 |                 | by the          |
-|                 |                 |                 | phantomanalysis |
-|                 |                 |                 | utility         |
-+-----------------+-----------------+-----------------+-----------------+
-| SRCTURB         | .f90 file(s)    | forcing_ouproce | (optional)      |
-|                 |                 | ss.f90          | Turbulence      |
-|                 |                 |                 | driving routine |
-|                 |                 |                 | (triggers       |
-|                 |                 |                 | -DDRIVING)      |
-+-----------------+-----------------+-----------------+-----------------+
-| SRCINJECT       | .f90 file(s)    | inject_rochelob | (optional)      |
-|                 |                 | e.f90           | Module handling |
-|                 |                 |                 | particle        |
-|                 |                 |                 | injection       |
-|                 |                 |                 | (triggers       |
-|                 |                 |                 | -DINJECT_PARTIC |
-|                 |                 |                 | LES)            |
-+-----------------+-----------------+-----------------+-----------------+
-| MODFILE         | .f90 file(s)    | moddump.f90     | (optional)      |
-|                 |                 |                 | Routine used by |
-|                 |                 |                 | moddump utility |
-|                 |                 |                 | (to modify an   |
-|                 |                 |                 | existing dump   |
-|                 |                 |                 | file)           |
-+-----------------+-----------------+-----------------+-----------------+
++-----------------+-----------------+-----------------------+-----------------+
+| *Variable*      | *Setting*       | *Default value*       | *Description*   |
++=================+=================+=======================+=================+
+| SETUPFILE       | .f90 file(s)    | setup_unifdis.F90     | The setup       |
+|                 |                 |                       | routine and any |
+|                 |                 |                       | auxiliary       |
+|                 |                 |                       | routines needed |
+|                 |                 |                       | by phantomsetup |
++-----------------+-----------------+-----------------------+-----------------+
+| LINKLIST        | .f90 file(s)    | linklist.F90          | The neighbour   |
+|                 |                 |                       | finding         |
+|                 |                 |                       | algorithm       |
+|                 |                 |                       | (fixed grid,    |
+|                 |                 |                       | fixed           |
+|                 |                 |                       | cylindrical     |
+|                 |                 |                       | grid or kdtree) |
++-----------------+-----------------+-----------------------+-----------------+
+| ANALYSIS        | .f90 file(s)    | analysis_dtheader.f90 | (optional) The  |
+|                 |                 |                       | analysis        |
+|                 |                 |                       | routine and any |
+|                 |                 |                       | auxiliary       |
+|                 |                 |                       | routines used   |
+|                 |                 |                       | by the          |
+|                 |                 |                       | phantomanalysis |
+|                 |                 |                       | utility         |
++-----------------+-----------------+-----------------------+-----------------+
+| SRCTURB         | .f90 file(s)    | forcing.f90           | (optional)      |
+|                 |                 |                       | Turbulence      |
+|                 |                 |                       | driving routine |
+|                 |                 |                       | (triggers       |
+|                 |                 |                       | -DDRIVING)      |
++-----------------+-----------------+-----------------------+-----------------+
+| SRCINJECT       | .f90 file(s)    | inject_rochelobe.f90  | (optional)      |
+|                 |                 |                       | Module handling |
+|                 |                 |                       | particle        |
+|                 |                 |                       | injection       |
+|                 |                 |                       | (triggers       |
+|                 |                 |                       | -DINJECT_PARTIC |
+|                 |                 |                       | LES)            |
++-----------------+-----------------+-----------------------+-----------------+
+| MODFILE         | .f90 file(s)    | moddump.f90           | (optional)      |
+|                 |                 |                       | Routine used by |
+|                 |                 |                       | moddump utility |
+|                 |                 |                       | (to modify an   |
+|                 |                 |                       | existing dump   |
+|                 |                 |                       | file)           |
++-----------------+-----------------+-----------------------+-----------------+
 
 Code performance and accuracy
 -----------------------------
@@ -250,15 +248,6 @@ or put this in the SETUP block:
 
 ::
 
-   ifeq ($(SETUP), isodisc)
-       FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DISOTHERMAL
+   ifeq ($(SETUP), disc)
        ...
        IND_TIMESTEPS=yes
-
-or add it as a preprocessor flag:
-
-::
-
-   ifeq ($(SETUP), isodisc)
-       FPPFLAGS= -DDISC_VISCOSITY -DSORT_RADIUS_INIT -DISOTHERMAL -DIND_TIMESTEPS
-       ...

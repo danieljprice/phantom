@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setflyby
 !
@@ -194,7 +194,7 @@ function get_T_flyby(m1,m2,dma,n0) result(T)
  xi = -2*sqrt(n0-1.0)*dma
  yi = dma*(1.0-(xi/p)**2)
 
- !--graviational parameter
+ !--gravitational parameter
  G = 1.0 ! we assume code units where G=1
  mu = G*(m1+m2)
 
