@@ -40,7 +40,9 @@ module analysis
  real    :: v_accum_mean, v_cap_mean
  real    :: e_accum, e_cap
  integer :: n_accum, n_cap
- real    :: shock_v, shock_r, shock_e, shock_m, shock_rho
+ real    :: shock_v, rad_min, rad_max, shock_e, shock_m!, shock_rho
+ real    :: shock_v_tde, rad_min_tde, rad_max_tde, shock_e_tde, shock_m_tde!, shock_rho
+ real    :: shock_v_cnm, rad_min_cnm, rad_max_cnm, shock_e_cnm, shock_m_cnm!, shock_rho
 
  !---- These can be changed in the params file
  real    :: rad_cap = 1.e16 ! radius where the outflow in captured (in cm)
@@ -51,6 +53,10 @@ module analysis
  real    :: theta_max = 180.
  real    :: phi_min = -90.
  real    :: phi_max = 90.
+
+ !--- shock detection global var
+ integer           :: npart_cnm = -1, npart_tde = -1
+ real, allocatable :: ent_bg(:)
 
 contains
 
@@ -65,7 +71,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  real,               intent(in) :: pmass,time
  character(len=120) :: output
  character(len=30)  :: filename
- integer            :: i,ierr
+ integer            :: i,ierr,npart_new,npart_tde_old
  logical            :: iexist
  real               :: toMsun,todays
 
@@ -75,7 +81,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  n_cap = 0
  e_accum = 0.
  e_cap = 0.
- ana = 'outflow'
+ ana = 'shock'
 
  toMsun = umass/solarm
  todays = utime/days
@@ -86,11 +92,8 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  endif
 
 ! Print the analysis being done
- write(*,'("Performing analysis type ",A)') analysistype
- write(*,'("Input file name is ",A)') dumpfile
-
- write(output,"(a8,i5.5)") 'outflow_',numfile
- write(*,'("Output file name is ",A)') output
+ write(*,'(" Performing analysis type ",A)') analysistype
+ write(*,'(" Input file name is ",A)') dumpfile
 
  ! Read black hole mass from params file
  filename = 'analysis_'//trim(analysistype)//'.params'
@@ -101,13 +104,31 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     print*,' Edit '//trim(filename)//' and rerun phantomanalysis'
     stop
  endif
- 
+
+ ! read background entropy
+ if (npart_cnm < 0) then 
+    if (npart_tde < 0) npart_tde = 10*npart
+    allocate(ent_bg(npart_tde)) ! save more memory for later injection
+    npart_cnm = npart 
+    call record_background(pxyzu(4,:),0,npart,ent_bg)
+    write(*,'(I9,1x,a16)') npart_cnm, 'particles in CNM'
+    npart_tde = 0
+ endif
+! not meaningful and will not do anything if cut-and-put
+ npart_tde_old = npart_tde
+ npart_tde = npart - npart_cnm
+ npart_new = npart_tde - npart_tde_old
+ if (npart_new > 0) call record_background(pxyzu(4,:),npart_tde_old+npart_cnm,npart_new,ent_bg)
+
+ ! allocate memory
  allocate(rad_all(npart),vr_all(npart),v_all(npart))
  call to_rad(npart,xyzh,vxyzu,rad_all,vr_all,v_all)
 
  select case (trim(ana))
  case ('outflow')
     write(*,'(a)') ' Analysing the outflow ...'
+    write(output,"(a8,i5.5)") 'outflow_',numfile
+    write(*,'(" Output file name is ",A)') output
 
     rad_cap = rad_cap/udist
     if (drad_cap < 0.) then
@@ -190,15 +211,17 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        open(iunit,file='shock',status='old',position='append')
     else
        open(iunit,file='shock',status='new')
-       write(iunit,'(7(A,1x))') '#', 'time', 'radius[cm]', 'velocity[c]', 'mass[Msun]', 'energy[erg]', 'density[g/cm-3]'
+       write(iunit,'(17(A,1x))') '#', 'time', 'rad_min[cm]', 'rad_max[cm]', 'velocity[c]', 'mass[Msun]', 'energy[erg]', & !'density[g/cm-3]'
+                                             'rad_min_tde[cm]', 'rad_max_tde[cm]', 'vel_tde[c]', 'mass_tde[Msun]', 'ene_tde[erg]', &
+                                             'rad_min_cnm[cm]', 'rad_max_cnm[cm]', 'vel_cnm[c]', 'mass_cnm[Msun]', 'ene_cnm[erg]'
     endif
-    write(iunit,'(6(es18.10,1x))') &
+    if (rad_max > 0.) then
+    write(iunit,'(16(es18.10,1x))') &
        time*todays, &
-       shock_r*udist, &
-       shock_v, &
-       shock_m*umass/solarm, &
-       shock_e*unit_energ, &
-       shock_rho*unit_density
+       rad_min*udist, rad_max*udist, shock_v, shock_m*umass/solarm, shock_e*unit_energ, &
+       rad_min_tde*udist, rad_max_tde*udist, shock_v_tde, shock_m_tde*umass/solarm, shock_e_tde*unit_energ, &
+       rad_min_cnm*udist, rad_max_cnm*udist, shock_v_cnm, shock_m_cnm*umass/solarm, shock_e_cnm*unit_energ !shock_rho*unit_density
+    endif
     close(iunit)
 
   case default
@@ -295,42 +318,86 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
 
 end subroutine outflow_analysis
 
-subroutine shock_analysis(npart,pmass,rad_all,vr_all,ents)
+subroutine record_background(ent,npart_old,npart_new,ent_bg)
+ real, intent(in)    :: ent(:)
+ integer, intent(in) :: npart_old,npart_new
+ real, intent(inout) :: ent_bg(:)
+ integer, parameter  :: iunit=235
+ integer             :: ierr,i
+
+ print*, 'Record background entropy of ', npart_new, ' particles'
+ 
+ do i=1,npart_new
+    ent_bg(npart_old+i) = ent(npart_old+i)*1.1 ! give some range for self evolution 
+                                                   !(is there a reasonable choice instead of arbitrary?)
+ enddo
+
+end subroutine record_background
+
+subroutine shock_analysis(npart,pmass,rad_all,vr_all,ent)
  use units,   only: udist
  use physcon, only: au,pi
  integer, intent(in) :: npart
- real, intent(in) :: pmass,rad_all(:),vr_all(:),ents(:)
- integer :: imin,i,n
- real    :: rad_max,ri,half_m,rad_min,v_add
+ real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:)
+ integer :: imin,i,n,n_cnm,n_tde
+ real    :: ri,half_m,ei,vi
  ! 
- !------Determine the radius range of the shock
+ !------Determine the shock
  !
- imin = maxloc(ents(:),dim=1)
- rad_min = rad_all(imin)
- shock_v = vr_all(imin)
-
- rad_max = 0.
- do i = 1,npart
-    ri = rad_all(i)
-    if (ents(i) > 3.5e5 .and. ri < 6.5e6 .and. ri > rad_max) rad_max = ri
- enddo
- write(*,'(a25,1x,es8.1,1x,a5,1x,es8.1,1x,a2)') ' Shock is determined from', shock_r*udist/au, 'au to', rad_max*udist/au, 'au'
- shock_r = rad_min
-
  n = 0
+ n_cnm = 0.
+ n_tde = 0.
  shock_e = 0.
+ shock_e_cnm = 0.
+ shock_e_tde = 0.
+ shock_v = 0. ! take max vel
+ shock_v_cnm = 0.
+ shock_v_tde = 0.
+ rad_max = 0.
+ rad_max_cnm = 0.
+ rad_max_tde = 0.
+ rad_min = huge(0.)
+ rad_min_cnm = huge(0.)
+ rad_min_tde = huge(0.)
  half_m = pmass*0.5
+
  do i = 1,npart
-    ri = rad_all(i)
-    if (ri > rad_min .and. ri < rad_max .and. ents(i) > 3.5e5) then
+    if (ent(i) > ent_bg(i)) then
+       ri = rad_all(i)
+       vi = vr_all(i)
+       ei = half_m*vi**2
        n = n + 1
-       shock_e = shock_e + half_m*vr_all(i)**2
+       if (vi > shock_v) shock_v = vi
+       if (ri < rad_min) rad_min = ri
+       if (ri > rad_max) rad_max = ri
+       shock_e = shock_e + ei
+
+       if (i > npart_cnm) then
+          ! tde outflow
+          n_tde = n_tde + 1
+          if (vi > shock_v_tde) shock_v_tde = vi
+          if (ri < rad_min_tde) rad_min_tde = ri
+          if (ri > rad_max_tde) rad_max_tde = ri
+          shock_e_tde = shock_e_tde + ei
+       else
+          ! cnm
+          n_cnm = n_cnm + 1
+          if (vi > shock_v_cnm) shock_v_cnm = vi
+          if (ri < rad_min_cnm) rad_min_cnm = ri
+          if (ri > rad_max_cnm) rad_max_cnm = ri
+          shock_e_cnm = shock_e_cnm + ei
+       endif
     endif
  enddo
- shock_m = pmass*n
- shock_rho = shock_m*4./3.*pi*(rad_max**3-rad_min**3)
 
-end subroutine 
+ write(*,'(a14,1x,es8.1,1x,a5,1x,es8.1,1x,a2)') ' Shock is from', rad_min*udist/au, 'au to', rad_max*udist/au, 'au'
+
+ shock_m = pmass*n
+ shock_m_cnm = pmass*n_cnm
+ shock_m_tde = pmass*n_tde
+ !shock_rho = shock_m*4./3.*pi*(rad_max**3-rad_min**3)
+
+end subroutine shock_analysis
 
 !----------------------------------------------------------------
 !+
@@ -361,6 +428,7 @@ subroutine write_tdeparams(filename)
     call write_inopt(phi_min,'phi_min','min phi (in deg)',iunit)
     call write_inopt(phi_max,'phi_max','max phi (in deg)',iunit)
  case ('shock')
+    call write_inopt(npart_tde,'npart_tde','npart in tde sims',iunit)
  case default
  end select
 
@@ -377,7 +445,7 @@ subroutine read_tdeparams(filename,ierr)
  integer                   :: nerr
  type(inopts), allocatable :: db(:)
 
- print "(a)",'reading analysis options from '//trim(filename)
+ print "(a)",' reading analysis options from '//trim(filename)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
@@ -398,6 +466,7 @@ subroutine read_tdeparams(filename,ierr)
     call read_inopt(phi_min,'phi_min',db,min=-90.,max=90.,errcount=nerr)
     call read_inopt(phi_max,'phi_max',db,min=-90.,max=90.,errcount=nerr)
  case ('shock')
+    call read_inopt(npart_tde,'npart_tde',db,min=0,errcount=nerr)
  case default
  end select
 
