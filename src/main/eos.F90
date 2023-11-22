@@ -624,7 +624,7 @@ real function utherm(vxyzui,rho,gammai)
     else
        stop 'gamma=1 using entropy evolution'
     endif
- else if (ien_type == ien_etotal) then
+ elseif (ien_type == ien_etotal) then
     utherm = en - 0.5*dot_product(vxyzui(1:3),vxyzui(1:3))
  else
     utherm = en
@@ -795,26 +795,26 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
 end function entropy
 
 real function get_entropy(rho,pres,mu_in,ieos)
-   use units,   only:unit_density,unit_pressure,unit_ergg
-   use physcon, only:kboltz
-   integer, intent(in) :: ieos
-   real, intent(in)    :: rho,pres,mu_in
-   real                :: cgsrho,cgspres,cgss
+ use units,   only:unit_density,unit_pressure,unit_ergg
+ use physcon, only:kboltz
+ integer, intent(in) :: ieos
+ real, intent(in)    :: rho,pres,mu_in
+ real                :: cgsrho,cgspres,cgss
 
-   cgsrho = rho * unit_density
-   cgspres = pres * unit_pressure
-   select case (ieos)
-   case (12)
-      cgss = entropy(cgsrho,cgspres,mu_in,2)
-   case (10, 20)
-      cgss = entropy(cgsrho,cgspres,mu_in,3)
-   case default
-      cgss = entropy(cgsrho,cgspres,mu_in,1)
-   end select
-   cgss = cgss/kboltz ! s/kb
-   get_entropy = cgss/unit_ergg
+ cgsrho = rho * unit_density
+ cgspres = pres * unit_pressure
+ select case (ieos)
+ case (12)
+    cgss = entropy(cgsrho,cgspres,mu_in,2)
+ case (10, 20)
+    cgss = entropy(cgsrho,cgspres,mu_in,3)
+ case default
+    cgss = entropy(cgsrho,cgspres,mu_in,1)
+ end select
+ cgss = cgss/kboltz ! s/kb
+ get_entropy = cgss/unit_ergg
 
- end function get_entropy
+end function get_entropy
 
 !-----------------------------------------------------------------------
 !+
@@ -862,7 +862,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  real, intent(inout) :: temp
  real, intent(out)   :: P
  integer, intent(in) :: ieos
- real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss,temp_old
+ real                :: corr,df,f,temp_new,cgsrho,cgsp,cgss
  real,    parameter  :: eoserr=1d-12
  integer             :: niter
  integer, parameter  :: nitermax = 1000
@@ -900,7 +900,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  ! check temp
  if (temp > huge(0.)) call fatal('entropy','entropy too large will given infinte temperature, &
-                           considering reducing entropy factor C_ent')
+                                 &considering reducing entropy factor C_ent')
 
  ! change back to code unit
  P = cgsP / unit_pressure

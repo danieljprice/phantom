@@ -1888,7 +1888,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  enddo loop_over_neighbours2
 
  if (gr .and. gravity .and. ien_type == ien_etotal) then
-   fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
+    fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif
 
  return
@@ -2433,13 +2433,15 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
- use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome
+ use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
+                          store_dust_temperature,do_nucleation
  use eos,            only:gamma,ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
-                          use_dustfrac,damp
+                          use_dustfrac,damp,icooling
  use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating
- use cooling,        only:energ_cooling,cooling_explicit
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating, &
+                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp
+ use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
 #ifdef IND_TIMESTEPS
  use part,           only:ibin
@@ -2682,7 +2684,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
     if (gr .and. ien_type == ien_etotal) then
-      fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
+       fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
     endif
     epoti = epoti + 0.5*pmassi*poti
     poten(i) = real(epoti,kind=kind(poten))
@@ -2754,6 +2756,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 #ifdef KROME
                 fxyz4 = fxyz4 + (gamma_chem(i) - 1.)*rhoi**(1.-gamma_chem(i))*fsum(idudtdissi)
 #else
+                !LS if do_nucleation one should use the local gamma : nucleation(idgamma,i)
                 fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
 #endif
              endif
@@ -2781,13 +2784,10 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
           else ! eni is the internal energy
              fac = rhoi/rhogasi
-#ifndef IMPLICIT_COOLING
              pdv_work = pri*rho1i*rho1i*drhodti
-             !the pdv_work is accounted for in wind_cooling.F90
              if (ipdv_heating > 0) then
                 fxyz4 = fxyz4 + fac*pdv_work
              endif
-#endif
              if (ishock_heating > 0) then
                 if (fsum(idudtdissi) < -epsilon(0.)) &
                    call warning('force','-ve entropy derivative',i,var='dudt_diss',val=fsum(idudtdissi))
@@ -2810,9 +2810,18 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              endif
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
-             if (cooling_explicit) then
-                dudtcool = 0.
-                call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,0.,Tgas=tempi)
+             if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
+                if (store_dust_temperature) then
+                   if (do_nucleation) then
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i),&
+                           nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   else
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                   endif
+                else
+                   ! cooling without stored dust temperature
+                   call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt)
+                endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif
              !  if (nuclear_burning) then

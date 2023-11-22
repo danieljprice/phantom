@@ -10,11 +10,11 @@ module cons2primsolver
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, metric_tools, options, units, utils_gr
+! :Dependencies: eos, io, metric_tools, part, physcon, units, utils_gr
 !
  use eos, only:ieos,polyk
  use part, only:ien_etotal,ien_entropy,ien_entropy_s
@@ -258,7 +258,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
           gamma = gamma_global
        endif
     case (2)
-      call get_u(u,P,dens,gamma)
+       call get_u(u,P,dens,gamma)
     end select
  else
     p = en*dens**gamma

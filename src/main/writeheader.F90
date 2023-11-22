@@ -84,7 +84,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo
- use cooling,          only:cooling_implicit,cooling_explicit,Tfloor,ufloor
+ use cooling,          only:cooling_in_step,Tfloor,ufloor
  use readwrite_infile, only:write_infile
  use physcon,          only:pi
  use kernel,           only:kernelname,radkern
@@ -170,8 +170,11 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
     if (h2chemistry)      write(iprint,"(1x,a)") 'H2 Chemistry is ON'
     if (use_dustfrac)     write(iprint,"(1x,a)") 'One-fluid dust is ON'
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
-    if (cooling_explicit) write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
-    if (cooling_implicit) write(iprint,"(1x,a)") 'Cooling is implicitly calculated in step'
+    if (cooling_in_step)  then
+       write(iprint,"(1x,a)") 'Cooling is calculated in step'
+    else
+       write(iprint,"(1x,a)") 'Cooling is explicitly calculated in force'
+    endif
     if (ufloor > 0.) then
        write(iprint,"(3(a,Es10.3),a)") ' WARNING! Imposing temperature floor of = ',Tfloor,' K = ', &
        ufloor*unit_ergg,' erg/g = ',ufloor,' code units'

@@ -35,7 +35,7 @@ module dim
 #ifdef MAXP
  integer, parameter :: maxp_hard = MAXP
 #else
- integer, parameter :: maxp_hard = 1200000
+ integer, parameter :: maxp_hard = 5200000
 #endif
 
  ! maximum number of point masses
@@ -279,7 +279,8 @@ module dim
 ! Dust formation
 !--------------------
  logical :: do_nucleation = .false.
- integer :: inucleation = 0
+ integer :: itau_alloc    = 0
+ integer :: inucleation   = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION

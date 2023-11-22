@@ -16,10 +16,10 @@ module readwrite_infile
 ! :Runtime parameters:
 !   - C_cour             : *Courant number*
 !   - C_force            : *dt_force number*
-!   - alpha              : *art. viscosity parameter*
+!   - alpha              : *shock viscosity parameter*
 !   - alphaB             : *art. resistivity parameter*
-!   - alphamax           : *MAXIMUM art. viscosity parameter*
-!   - alphau             : *art. conductivity parameter*
+!   - alphamax           : *MAXIMUM shock viscosity parameter*
+!   - alphau             : *shock conductivity parameter*
 !   - avdecayconst       : *decay time constant for viscosity switches*
 !   - beta               : *beta viscosity*
 !   - bulkvisc           : *magnitude of bulk viscosity*
@@ -37,6 +37,7 @@ module readwrite_infile
 !   - iopacity_type      : *opacity method (0=inf,1=mesa,-1=preserve)*
 !   - ipdv_heating       : *heating from PdV work (0=off, 1=on)*
 !   - irealvisc          : *physical viscosity type (0=none,1=const,2=Shakura/Sunyaev)*
+!   - ireconav           : *use reconstruction in shock viscosity (-1=off,0=no limiter,1=Van Leer)*
 !   - iresistive_heating : *resistive heating (0=off, 1=on)*
 !   - ishock_heating     : *shock heating (0=off, 1=on)*
 !   - iverbose           : *verboseness of log (-1=quiet 0=default 1=allsteps 2=debug 5=max)*
@@ -300,7 +301,7 @@ end subroutine write_infile
 !+
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
- use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation
+ use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,itau_alloc
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master
@@ -669,7 +670,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (icooling > 0 .and. ieos /= 2) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
-    if (((isink_radiation == 1 .and. idust_opacity == 0 ) .or. isink_radiation == 3 ) .and. alpha_rad < 1.d-10) &
+    if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
+       .and. alpha_rad < 1.d-10 .and. itau_alloc == 0) &
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')

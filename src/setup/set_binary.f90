@@ -102,7 +102,6 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'pericentre       :',semimajoraxis*(1. - eccentricity), &
         'apocentre        :',semimajoraxis*(1. + eccentricity)
  endif
-
  if (accretion_radius1 > Rochelobe1) then
     print "(1x,a)",'WARNING: set_binary: accretion radius of primary > Roche lobe'
  endif
@@ -342,7 +341,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !--- Checks to avoid bad substitutions
  if (present(subst)) then
     write(hier_prefix, *) subst
-    io = 0
+    io=0
     subst_index = 0
     mtot = 0.
     do i=1,lines
@@ -435,6 +434,13 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     ! positions and accretion radii
     xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
 
+    ! test Jolien
+!    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
+!    'i1     :',i1, &
+!     'mass i1:',xyzmh_ptmass(4,i1), &
+!     'i2     :',i2, &
+!     'mass i2:',xyzmh_ptmass(4,i2)
+
     ! velocities
     vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 
@@ -500,7 +506,6 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
        call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
 
-
        ! Rotate substituting sinks by ascending node longitude around the z axis
        call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
        call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
@@ -529,14 +534,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
 end subroutine set_multiple
 
-!-------------------------------------
+!------------------------------------
 ! Rotate an (x,y,z) point by theta
 ! radiants around an axis with alpha,
 ! beta and gamma eulerian angles
-!-------------------------------------
+!------------------------------------
 pure subroutine gen_rotate(xyz,alpha,beta,gamma,theta)
  real, intent(inout) :: xyz(3)
- real, intent(in)    :: alpha,beta,gamma,theta
+ real, intent(in)    :: alpha, beta, gamma,theta
  real :: xi,yi,zi,A,B,C,D,E,F,G,H,I,nx,ny,nz
 
  nx=cos(alpha)
