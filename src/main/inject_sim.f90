@@ -15,6 +15,7 @@ module inject
 ! :Runtime parameters:
 !   - start_dump      : *dump to start looking for particles to inject*
 !   - r_inject        : *radius to inject particles*
+!   - final_dump      : *stop injection after reaching this dump*
 !
 ! :Dependencies: fileutils, io, timestep, units, dump_utils, part,
 !   readwrite_dumps_fortran, readwrite_dumps_common, partinject, infile_utils
@@ -32,9 +33,11 @@ module inject
 
 ! global variables
  
- character(len=120) :: start_dump,pre_dump,next_dump
+ character(len=120) :: start_dump,final_dump,pre_dump,next_dump
  integer :: npart_sim
- real    :: r_inject,r_inject_cgs,next_time
+ real    :: r_inject,r_inject_cgs,next_time!,e_inject
+ real, allocatable :: xyzh_pre(:,:),xyzh_next(:,:),vxyzu_next(:,:),pxyzu_next(:,:)
+ logical, allocatable :: injected(:)
 
  character(len=*), parameter :: label = 'inject_tdeoutflow'
 
@@ -57,11 +60,11 @@ subroutine init_inject(ierr)
  !
  !--find the tde dump at the right time
  !
- next_dump = start_dump
+ next_dump = getnextfilename(start_dump)
  call get_dump_time_npart(trim(next_dump),next_time,ierr,npart_out=npart_sim)
  ierr = 0
  niter = 0
-
+    
  do while (next_time < time .and. niter < max_niter)
     niter = niter + 1
     pre_dump = next_dump
@@ -78,6 +81,10 @@ subroutine init_inject(ierr)
  write(*,'(a,1x,es10.2)') ' Start read sims and inject particle from '//trim(next_dump)//' at t =',next_time
 
  r_inject = r_inject_cgs/udist ! to code unit
+ allocate(xyzh_pre(4,npart_sim),xyzh_next(4,npart_sim),vxyzu_next(4,npart_sim),pxyzu_next(4,npart_sim),injected(npart_sim))
+ xyzh_pre = 0.
+ injected = .false.
+ !e_inject = -1./r_inject
 
 end subroutine init_inject
 
@@ -93,23 +100,19 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- real, allocatable :: xyzh_pre(:,:),xyzh_next(:,:),vxyzu_next(:,:),pxyzu_next(:,:)
  integer           :: npart_old,ierr
  real :: tfac
 
- allocate(xyzh_pre(4,npart_sim),xyzh_next(4,npart_sim),vxyzu_next(4,npart_sim),pxyzu_next(4,npart_sim))
- xyzh_pre = 0.
  !
  !--inject particles only if time has reached
  !
  tfac = 1.
  if (time >= next_time) then
     ! read next dump
-    next_dump = getnextfilename(pre_dump)
     call read_dump(next_dump,xyzh_next,ierr,vxyzu_dump=vxyzu_next,pxyzu_dump=pxyzu_next)
 
     npart_old = npart
-    call inject_required_part(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
+    call inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
 
     ! copy to pre for next injection use
     pre_dump = next_dump
@@ -118,8 +121,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call find_next_dump(next_dump,next_time,ierr)
     start_dump = next_dump
 
-    write(*,'(i5,1x,a22)') npart-npart_old, 'particles are injected' 
+    write(*,'(i5,1x,a27,1x,a)') npart-npart_old, 'particles are injected from', trim(pre_dump) 
     
+    if (pre_dump == final_dump) then
+       write(*,'(a)') ' Reach the final dumpfile. Stop injecting ...'
+       next_time = huge(0.)
+    endif
+
     tfac = 1.d-10 ! set a tiny timestep so the code has time to adjust for timestep
  endif
 
@@ -209,35 +217,37 @@ end subroutine inject_particles
 
  end subroutine find_next_dump
 
- subroutine inject_required_part(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
+ subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
     use part,       only:igas,pxyzu,isdead_or_accreted
     use partinject, only:add_or_update_particle
     integer, intent(inout) :: npart, npartoftype(:)
     real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
     real, intent(in) :: xyzh_pre(:,:), xyzh_next(:,:), vxyzu_next(:,:), pxyzu_next(:,:)
     integer :: i,partid
-    real :: r_next,r_pre,vr_next
+    real :: r_next,r_pre,vr_next!,e_next
 
     !
     !--check all the particles
     !
     do i=1,npart_sim
-       if (.not. isdead_or_accreted(xyzh_next(4,i))) then
+       if (.not. isdead_or_accreted(xyzh_next(4,i)) .and. .not. injected(i)) then
           r_next = sqrt(dot_product(xyzh_next(1:3,i),xyzh_next(1:3,i)))
           r_pre = sqrt(dot_product(xyzh_pre(1:3,i),xyzh_pre(1:3,i)))
           vr_next = (dot_product(xyzh_next(1:3,i),vxyzu_next(1:3,i)))/r_next
+          !e_next = 0.5*vr_next**2 - 1./r_next
 
-          if (r_next > r_inject .and. r_pre < r_inject .and. vr_next > 0.) then
+          if (r_next > r_inject .and. r_pre < r_inject .and. vr_next > 0.) then! .and. e_next > e_inject) then
              ! inject particle by copy the data into position
              partid = npart+1
              call add_or_update_particle(igas,xyzh_next(1:3,i),vxyzu_next(1:3,i),xyzh_next(4,i), &
                                     vxyzu_next(4,i),partid,npart,npartoftype,xyzh,vxyzu)
              pxyzu(:,partid) = pxyzu_next(:,i)
+             injected(i) = .true.
           endif
        endif
     enddo
 
- end subroutine inject_required_part
+ end subroutine inject_required_part_tde
    
 
 !-----------------------------------------------------------------------
@@ -248,19 +258,21 @@ end subroutine inject_particles
 subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
- character(len=10), parameter :: start_dump_default = 'dump_00000'
+ character(len=10), parameter :: start_dump_default = 'dump_00000', &
+                                 final_dump_default = 'dump_02000'
  real, parameter :: r_inject_default = 5.e14
 
  ! write something meaningful in infile
  if (r_inject_cgs < tiny(0.)) then
     start_dump = start_dump_default
     r_inject_cgs = r_inject_default
+    final_dump = final_dump_default
  endif
 
  write(iunit,"(/,a)") '# options controlling particle injection'
- !call write_inopt(direc,'direc','directory of the tde dumpfiles',iunit)
  call write_inopt(trim(start_dump),'start_dump','dumpfile to start for injection',iunit)
  call write_inopt(r_inject_cgs,'r_inject','radius to inject tde outflow (in cm)',iunit)
+ call write_inopt(trim(final_dump),'final_dump','stop injection after this dump',iunit)
 
 end subroutine write_options_inject
 
@@ -280,9 +292,6 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
- !case('direc')
-!    read(valstring,*,iostat=ierr) direc
-!    ngot = ngot + 1
  case('start_dump')
     read(valstring,*,iostat=ierr) start_dump
     ngot = ngot + 1
@@ -290,9 +299,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_inject_cgs
     ngot = ngot + 1
     if (r_inject_cgs < 0.) call fatal(label,'invalid setting for r_inject (<0)')
+ case('final_dump')
+    read(valstring,*,iostat=ierr) final_dump
+    ngot = ngot + 1
  end select
 
- igotall = (ngot >= 2)
+ igotall = (ngot >= 3)
 
 end subroutine read_options_inject
 
