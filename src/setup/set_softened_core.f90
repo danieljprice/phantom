@@ -51,6 +51,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  logical             :: isort_decreasing,iexclude_core_mass
  real, allocatable   :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
 
+ ierr = 0
  write(*,'(/,1x,a)') 'Setting softened core profile'
  ! Output data to be sorted from stellar surface to interior?
  isort_decreasing = .true.     ! Needs to be true if to be read by Phantom
@@ -85,7 +86,13 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  call interpolator(r,rc,core_index)  ! find index of core
  X(1:core_index) = Xcore
  Y(1:core_index) = yinterp(Y,r,rc)
- 
+ if (eos_type==10) then
+    X_in = Xcore
+    Z_in = Zcore
+    if (ierr /= 0) call fatal('set_softened_core','could not initialise equation of state')
+ endif
+ call init_eos(eos_type,ierr)  ! need to initialise EoS again with newfound composition (also needed for iopacity_type = 1)
+
  if (regrid_core) then
     ! make copy of original arrays
     npts = size(r)
