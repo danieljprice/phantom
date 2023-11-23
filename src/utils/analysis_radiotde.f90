@@ -55,7 +55,7 @@ module analysis
  real    :: phi_max = 90.
 
  !--- shock detection global var
- integer           :: npart_cnm = -1, npart_tde = -1
+ integer           :: npart_cnm = -1, npart_tde, npart_tde_reserve=-1
  real, allocatable :: ent_bg(:)
 
 contains
@@ -107,12 +107,11 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  ! read background entropy
  if (npart_cnm < 0) then 
-    if (npart_tde < 0) npart_tde = 10*npart
-    allocate(ent_bg(npart_tde)) ! save more memory for later injection
+    if (npart_tde_reserve < 0) npart_tde_reserve = 10*npart
+    allocate(ent_bg(npart_tde_reserve+npart)) ! save more memory for later injection
     npart_cnm = npart 
     call record_background(pxyzu(4,:),0,npart,ent_bg)
     write(*,'(I9,1x,a16)') npart_cnm, 'particles in CNM'
-    npart_tde = 0
  endif
 ! not meaningful and will not do anything if cut-and-put
  npart_tde_old = npart_tde
@@ -428,7 +427,7 @@ subroutine write_tdeparams(filename)
     call write_inopt(phi_min,'phi_min','min phi (in deg)',iunit)
     call write_inopt(phi_max,'phi_max','max phi (in deg)',iunit)
  case ('shock')
-    call write_inopt(npart_tde,'npart_tde','npart in tde sims',iunit)
+    call write_inopt(npart_tde_reserve,'npart_tde','npart in tde sims (-ve=10*npart of cnm)',iunit)
  case default
  end select
 
@@ -466,7 +465,7 @@ subroutine read_tdeparams(filename,ierr)
     call read_inopt(phi_min,'phi_min',db,min=-90.,max=90.,errcount=nerr)
     call read_inopt(phi_max,'phi_max',db,min=-90.,max=90.,errcount=nerr)
  case ('shock')
-    call read_inopt(npart_tde,'npart_tde',db,min=0,errcount=nerr)
+    call read_inopt(npart_tde_reserve,'npart_tde',db,min=0,errcount=nerr)
  case default
  end select
 
