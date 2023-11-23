@@ -62,7 +62,7 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use readwrite_dumps, only: opened_full_dump
- use units,           only: utime,udist,unit_energ,umass,unit_density
+ use units,           only: utime,udist,unit_energ,umass!,unit_density
  use physcon,         only: solarm,days
  use part,            only: pxyzu
  character(len=*),   intent(in) :: dumpfile
@@ -323,7 +323,7 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
  integer, intent(in) :: npart_old,npart_new
  real, intent(inout) :: ent_bg(:)
  integer, parameter  :: iunit=235
- integer             :: ierr,i
+ integer             :: i
 
  print*, 'Record background entropy of ', npart_new, ' particles'
  
@@ -339,7 +339,7 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,ent)
  use physcon, only: au,pi
  integer, intent(in) :: npart
  real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:)
- integer :: imin,i,n,n_cnm,n_tde
+ integer :: i,n,n_cnm,n_tde
  real    :: ri,half_m,ei,vi
  ! 
  !------Determine the shock
