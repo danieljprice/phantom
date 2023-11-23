@@ -25,7 +25,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'sim'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject, &
+           set_default_options_inject
  private
 !
 !--runtime settings for this module
