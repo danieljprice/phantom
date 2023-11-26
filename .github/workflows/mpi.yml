@@ -43,7 +43,7 @@ jobs:
 
     env:
       OMP_STACKSIZE: 512M
-      OMP_NUM_THREADS: 4
+      OMP_NUM_THREADS: 2
 
     steps:
 
