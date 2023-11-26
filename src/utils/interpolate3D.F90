@@ -16,19 +16,14 @@ module interpolations3D
 !
 ! :Dependencies: einsteintk_utils, kernel
 !
-
 !----------------------------------------------------------------------
 !
 !  Module containing all of the routines required for interpolation
 !  from 3D data to a 3D grid (SLOW!)
 !
 !----------------------------------------------------------------------
-
  use einsteintk_utils,  only:exact_rendering
- use kernel,       only:radkern2,radkern,cnormk,wkern!,wallint  ! Moved to this module
- !use interpolation, only:iroll ! Moved to this module
-
- !use timing,        only:wall_time,print_time ! Using cpu_time for now
+ use kernel,       only:radkern2,radkern,cnormk,wkern
  implicit none
  integer, parameter :: doub_prec = kind(0.d0)
  real :: cnormk3D = cnormk
@@ -70,7 +65,6 @@ subroutine interpolate3D(xyzh,weight,dat,itype,npart,&
 
 integer, intent(in) :: npart,npixx,npixy,npixz
 real, intent(in)    :: xyzh(4,npart)
-!real, intent(in), dimension(npart) :: x,y,z,hh ! change to xyzh()
 real, intent(in), dimension(npart) :: weight,dat
 integer, intent(in), dimension(npart) :: itype
 real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
@@ -97,7 +91,6 @@ real :: pixint, wint
 !logical, parameter :: exact_rendering = .true.   ! use exact rendering y/n
 integer :: usedpart, negflag
 
-
 !$ integer :: omp_get_num_threads,omp_get_thread_num
 integer(kind=selected_int_kind(10)) :: iprogress,j  ! up to 10 digits
 
@@ -106,16 +99,9 @@ x(:) = xyzh(1,:)
 y(:) = xyzh(2,:)
 z(:) = xyzh(3,:)
 hh(:) = xyzh(4,:)
-!print*, "smoothing length: ", hh(1:10)
-! cnormk3D set the value from the kernel routine
 cnormk3D = cnormk
 radkernel = radkern
 radkernel2 = radkern2
-! print*, "radkern: ", radkern
-! print*, "radkernel: ",radkernel
-! print*, "radkern2: ", radkern2
-
-! print*, "npix: ", npixx, npixy,npixz
 
 if (exact_rendering) then
 print "(1x,a)",'interpolating to 3D grid (exact/Petkova+2018 on subgrid) ...'
@@ -160,11 +146,6 @@ usedpart = 0
 xminpix = xmin !- 0.5*pixwidthx
 yminpix = ymin !- 0.5*pixwidthy
 zminpix = zmin !- 0.5*pixwidthz
-! print*, "xminpix: ", xminpix
-! print*, "yminpix: ", yminpix
-! print*, "zminpix: ", zminpix
-! print*, "dat: ", dat(1:10)
-! print*, "weights: ", weight(1:10)
 pixwidthmax = max(pixwidthx,pixwidthy,pixwidthz)
 !
 !--use a minimum smoothing length on the grid to make
@@ -277,15 +258,12 @@ negflag = 0
 !
 !--precalculate an array of dx2 for this particle (optimisation)
 !
-! Check the x position of the grid cells
-!open(unit=677,file="posxgrid.txt",action='write',position='append')
 nxpix = 0
 do ipix=ipixmin,ipixmax
   nxpix = nxpix + 1
   ipixi = ipix
   if (periodicx) ipixi = iroll(ipix,npixx)
   xpixi = xminpix + ipix*pixwidthx
-  !write(677,*) ipix, xpixi
   !--watch out for errors with periodic wrapping...
   if (nxpix <= size(dx2i)) then
      dx2i(nxpix) = ((xpixi - xi)**2)*hi21
@@ -415,13 +393,6 @@ if (allocated(datnorm)) deallocate(datnorm)
 call cpu_time(t_end)
 t_used = t_end - t_start
 print*, 'Interpolate3D completed in ',t_end-t_start,'s'
-!if (t_used > 10.) call print_time(t_used)
-
-!print*, 'Number of particles in the volume: ', usedpart
-!  datsmooth(1,1,1) = 3.14159
-!  datsmooth(32,32,32) = 3.145159
-!  datsmooth(11,11,11) = 3.14159
-!  datsmooth(10,10,10) = 3.145159
 
 end subroutine interpolate3D
 
@@ -441,7 +412,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !logical, intent(in), exact_rendering
  real, allocatable :: datnorm(:,:,:)
 
- integer :: i,ipix,jpix,kpix,lockindex,smoothindex
+ integer :: i,ipix,jpix,kpix,smoothindex
  integer :: iprintinterval,iprintnext
  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
  integer :: ipixi,jpixi,kpixi,nxpix,nwarn,threadid
@@ -561,7 +532,7 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax) &
  !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi) &
  !$omp private(dx2i,nxpix,zpix,dz,dz2,dyz2,dy,ypix,q2,wab) &
- !$omp private(pixint,wint,negflag,dfac,threadid,lockindex,smoothindex) &
+ !$omp private(pixint,wint,negflag,dfac,threadid,smoothindex) &
  !$omp firstprivate(iprintnext) &
  !$omp reduction(+:nwarn,usedpart)
  !$omp master
@@ -644,15 +615,12 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
     !
     !--precalculate an array of dx2 for this particle (optimisation)
     !
-    ! Check the x position of the grid cells
-    !open(unit=677,file="posxgrid.txt",action='write',position='append')
     nxpix = 0
     do ipix=ipixmin,ipixmax
        nxpix = nxpix + 1
        ipixi = ipix
        if (periodicx) ipixi = iroll(ipix,npixx)
        xpixi = xminpix + ipix*pixwidthx
-       !write(677,*) ipix, xpixi
        !--watch out for errors with periodic wrapping...
        if (nxpix <= size(dx2i)) then
           dx2i(nxpix) = ((xpixi - xi)**2)*hi21
@@ -732,24 +700,14 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !
                    !--calculate data value at this pixel using the summation interpolant
                    !
-                   ! Find out where this pixel sits in the lock array 
-                   ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
-                   !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
-                   !!$call omp_set_lock(ilock(lockindex))
-                   !!$omp critical (datsmooth)
                    do smoothindex=1, ilendat
                      !$omp atomic 
                      datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
                    enddo 
-                   !!$omp end critical (datsmooth)
                    if (normalise) then
                       !$omp atomic
-                      !!$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                      !!$omp end critical (datnorm)
-                   endif
-                   
-                   !!$call omp_unset_lock(ilock(lockindex))
+                   endif    
                 endif
              else
                 if (q2 < radkernel2) then
@@ -761,25 +719,14 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !
                    !--calculate data value at this pixel using the summation interpolant
                    !
-                   !!$omp atomic ! Atomic statmements only work with scalars 
-                   !!$omp set lock ! Does this work with an array?
-                   ! Find out where this pixel sits in the lock array 
-                   ! lockindex = (k-1)*nx*ny + (j-1)*nx + i 
-                   !lockindex = (kpixi-1)*npixx*npixy + (jpixi-1)*npixx + ipixi
-                   !!$call omp_set_lock(ilock(lockindex)) 
-                   !!$omp critical (datsmooth)
                    do smoothindex=1,ilendat
                      !$omp atomic 
                      datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
                    enddo 
-                   !!$omp end critical (datsmooth)
                    if (normalise) then
                       !$omp atomic
-                      !!$omp critical (datnorm)
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                      !!$omp end critical (datnorm)
                    endif
-                  !!$call omp_unset_lock(ilock(lockindex)) 
                   
                 endif
              endif
@@ -789,11 +736,6 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  enddo over_parts
  !$omp enddo
  !$omp end parallel
-
-!!$ do i=1,npixx*npixy*npixz
-!!$  call omp_destroy_lock(ilock(i))
-!!$ enddo
-!!$ if (allocated(ilock)) deallocate(ilock)
 
  if (nwarn > 0) then
     print "(a,i11,a,/,a)",' interpolate3D: WARNING: contributions truncated from ',nwarn,' particles',&
@@ -812,260 +754,11 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  endif
  if (allocated(datnorm)) deallocate(datnorm)
 
- !call wall_time(t_end)
  call cpu_time(t_end)
  t_used = t_end - t_start
  print*, 'Interpolate3DVec completed in ',t_end-t_start,'s'
- !if (t_used > 10.) call print_time(t_used)
-
- !print*, 'Number of particles in the volume: ', usedpart
- !  datsmooth(1,1,1) = 3.14159
- !  datsmooth(32,32,32) = 3.145159
- !  datsmooth(11,11,11) = 3.14159
- !  datsmooth(10,10,10) = 3.145159
 
 end subroutine interpolate3D_vecexact
-
- ! subroutine interpolate3D_vec(x,y,z,hh,weight,datvec,itype,npart,&
- !      xmin,ymin,zmin,datsmooth,npixx,npixy,npixz,pixwidthx,pixwidthy,pixwidthz,&
- !      normalise,periodicx,periodicy,periodicz)
-
- !  integer, intent(in) :: npart,npixx,npixy,npixz
- !  real, intent(in), dimension(npart)    :: x,y,z,hh,weight
- !  real, intent(in), dimension(npart,3)  :: datvec
- !  integer, intent(in), dimension(npart) :: itype
- !  real, intent(in) :: xmin,ymin,zmin,pixwidthx,pixwidthy,pixwidthz
- !  real(doub_prec), intent(out), dimension(3,npixx,npixy,npixz) :: datsmooth
- !  logical, intent(in) :: normalise,periodicx,periodicy,periodicz
- !  real(doub_prec), dimension(npixx,npixy,npixz) :: datnorm
-
- !  integer :: i,ipix,jpix,kpix
- !  integer :: iprintinterval,iprintnext
- !  integer :: ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax
- !  integer :: ipixi,jpixi,kpixi,nxpix,nwarn
- !  real :: xminpix,yminpix,zminpix
- !  real, dimension(npixx) :: dx2i
- !  real :: xi,yi,zi,hi,hi1,hi21,radkern,wab,q2,const,dyz2,dz2
- !  real :: termnorm,dy,dz,ypix,zpix,xpixi,ddatnorm
- !  real, dimension(3) :: term
- !  !real :: t_start,t_end
- !  logical :: iprintprogress
- !  !$ integer :: omp_get_num_threads
- !  integer(kind=selected_int_kind(10)) :: iprogress  ! up to 10 digits
-
- !  datsmooth = 0.
- !  datnorm = 0.
- !  if (normalise) then
- !     print "(1x,a)",'interpolating to 3D grid (normalised) ...'
- !  else
- !     print "(1x,a)",'interpolating to 3D grid (non-normalised) ...'
- !  endif
- !  if (pixwidthx <= 0. .or. pixwidthy <= 0. .or. pixwidthz <= 0.) then
- !     print "(1x,a)",'interpolate3D: error: pixel width <= 0'
- !     return
- !  endif
- !  if (any(hh(1:npart) <= tiny(hh))) then
- !     print*,'interpolate3D: WARNING: ignoring some or all particles with h < 0'
- !  endif
-
- !  !
- !  !--print a progress report if it is going to take a long time
- !  !  (a "long time" is, however, somewhat system dependent)
- !  !
- !  iprintprogress = (npart  >=  100000) .or. (npixx*npixy  > 100000)
- !  !$ iprintprogress = .false.
- !  !
- !  !--loop over particles
- !  !
- !  iprintinterval = 25
- !  if (npart >= 1e6) iprintinterval = 10
- !  iprintnext = iprintinterval
- !  !
- !  !--get starting CPU time
- !  !
- !  !call cpu_time(t_start)
-
- !  xminpix = xmin - 0.5*pixwidthx
- !  yminpix = ymin - 0.5*pixwidthy
- !  zminpix = zmin - 0.5*pixwidthz
-
- !  const = cnormk3D  ! normalisation constant (3D)
- !  nwarn = 0
-
- ! !$omp parallel default(none) &
- ! !$omp shared(hh,z,x,y,weight,datvec,itype,datsmooth,npart) &
- ! !$omp shared(xmin,ymin,zmin,radkernel,radkernel2) &
- ! !$omp shared(xminpix,yminpix,zminpix,pixwidthx,pixwidthy,pixwidthz) &
- ! !$omp shared(npixx,npixy,npixz,const) &
- ! !$omp shared(iprintprogress,iprintinterval) &
- ! !$omp shared(datnorm,normalise,periodicx,periodicy,periodicz) &
- ! !$omp private(hi,xi,yi,zi,radkern,hi1,hi21) &
- ! !$omp private(term,termnorm,xpixi) &
- ! !$omp private(iprogress,iprintnext) &
- ! !$omp private(ipixmin,ipixmax,jpixmin,jpixmax,kpixmin,kpixmax) &
- ! !$omp private(ipix,jpix,kpix,ipixi,jpixi,kpixi) &
- ! !$omp private(dx2i,nxpix,zpix,dz,dz2,dyz2,dy,ypix,q2,wab) &
- ! !$omp reduction(+:nwarn)
- ! !$omp master
- ! !$  print "(1x,a,i3,a)",'Using ',omp_get_num_threads(),' cpus'
- ! !$omp end master
- !  !
- !  !--loop over particles
- !  !
- ! !$omp do schedule (guided, 2)
- !  over_parts: do i=1,npart
- !     !
- !     !--report on progress
- !     !
- !     if (iprintprogress) then
- !        iprogress = 100*i/npart
- !        if (iprogress >= iprintnext) then
- !           write(*,"('(',i3,'% -',i12,' particles done)')") iprogress,i
- !           iprintnext = iprintnext + iprintinterval
- !        endif
- !     endif
- !     !
- !     !--skip particles with itype < 0
- !     !
- !     if (itype(i) < 0 .or. weight(i) < tiny(0.)) cycle over_parts
-
- !     hi = hh(i)
- !     if (hi <= 0.) cycle over_parts
-
- !     !
- !     !--set kernel related quantities
- !     !
- !     xi = x(i)
- !     yi = y(i)
- !     zi = z(i)
-
- !     hi1 = 1./hi
- !     hi21 = hi1*hi1
- !     radkern = radkernel*hi   ! radius of the smoothing kernel
- !     termnorm = const*weight(i)
- !     term(:) = termnorm*datvec(i,:)
- !     !
- !     !--for each particle work out which pixels it contributes to
- !     !
- !     ipixmin = int((xi - radkern - xmin)/pixwidthx)
- !     jpixmin = int((yi - radkern - ymin)/pixwidthy)
- !     kpixmin = int((zi - radkern - zmin)/pixwidthz)
- !     ipixmax = int((xi + radkern - xmin)/pixwidthx) + 1
- !     jpixmax = int((yi + radkern - ymin)/pixwidthy) + 1
- !     kpixmax = int((zi + radkern - zmin)/pixwidthz) + 1
-
- !     if (.not.periodicx) then
- !        if (ipixmin < 1)     ipixmin = 1      ! make sure they only contribute
- !        if (ipixmax > npixx) ipixmax = npixx  ! to pixels in the image
- !     endif
- !     if (.not.periodicy) then
- !        if (jpixmin < 1)     jpixmin = 1
- !        if (jpixmax > npixy) jpixmax = npixy
- !     endif
- !     if (.not.periodicz) then
- !        if (kpixmin < 1)     kpixmin = 1
- !        if (kpixmax > npixz) kpixmax = npixz
- !     endif
- !     !
- !     !--precalculate an array of dx2 for this particle (optimisation)
- !     !
- !     nxpix = 0
- !     do ipix=ipixmin,ipixmax
- !        nxpix = nxpix + 1
- !        ipixi = ipix
- !        if (periodicx) ipixi = iroll(ipix,npixx)
- !        xpixi = xminpix + ipix*pixwidthx
- !        !--watch out for errors with perioic wrapping...
- !        if (nxpix <= size(dx2i)) then
- !           dx2i(nxpix) = ((xpixi - xi)**2)*hi21
- !        endif
- !     enddo
-
- !     !--if particle contributes to more than npixx pixels
- !     !  (i.e. periodic boundaries wrap more than once)
- !     !  truncate the contribution and give warning
- !     if (nxpix > npixx) then
- !        nwarn = nwarn + 1
- !        ipixmax = ipixmin + npixx - 1
- !     endif
- !     !
- !     !--loop over pixels, adding the contribution from this particle
- !     !
- !     do kpix = kpixmin,kpixmax
- !        kpixi = kpix
- !        if (periodicz) kpixi = iroll(kpix,npixz)
- !        zpix = zminpix + kpix*pixwidthz
- !        dz = zpix - zi
- !        dz2 = dz*dz*hi21
-
- !        do jpix = jpixmin,jpixmax
- !           jpixi = jpix
- !           if (periodicy) jpixi = iroll(jpix,npixy)
- !           ypix = yminpix + jpix*pixwidthy
- !           dy = ypix - yi
- !           dyz2 = dy*dy*hi21 + dz2
-
- !           nxpix = 0
- !           do ipix = ipixmin,ipixmax
- !              ipixi = ipix
- !              if (periodicx) ipixi = iroll(ipix,npixx)
- !              nxpix = nxpix + 1
- !              q2 = dx2i(nxpix) + dyz2 ! dx2 pre-calculated; dy2 pre-multiplied by hi21
- !              !
- !              !--SPH kernel - standard cubic spline
- !              !
- !              if (q2 < radkernel2) then
- !                 wab = wkernel(q2)
- !                 !
- !                 !--calculate data value at this pixel using the summation interpolant
- !                 !
- !                 !$omp atomic
- !                 datsmooth(1,ipixi,jpixi,kpixi) = datsmooth(1,ipixi,jpixi,kpixi) + term(1)*wab
- !                 !$omp atomic
- !                 datsmooth(2,ipixi,jpixi,kpixi) = datsmooth(2,ipixi,jpixi,kpixi) + term(2)*wab
- !                 !$omp atomic
- !                 datsmooth(3,ipixi,jpixi,kpixi) = datsmooth(3,ipixi,jpixi,kpixi) + term(3)*wab
- !                 if (normalise) then
- !                    !$omp atomic
- !                    datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
- !                 endif
- !              endif
- !           enddo
- !        enddo
- !     enddo
- !  enddo over_parts
- ! !$omp enddo
- ! !$omp end parallel
-
- !  if (nwarn > 0) then
- !     print "(a,i11,a,/,a)",' interpolate3D: WARNING: contributions truncated from ',nwarn,' particles',&
- !                            '                that wrap periodic boundaries more than once'
- !  endif
- !  !
- !  !--normalise dat array
- !  !
- !  if (normalise) then
- !     !$omp parallel do default(none) schedule(static) &
- !     !$omp shared(datsmooth,datnorm,npixz,npixy,npixx) &
- !     !$omp private(kpix,jpix,ipix,ddatnorm)
- !     do kpix=1,npixz
- !        do jpix=1,npixy
- !           do ipix=1,npixx
- !              if (datnorm(ipix,jpix,kpix) > tiny(datnorm)) then
- !                 ddatnorm = 1./datnorm(ipix,jpix,kpix)
- !                 datsmooth(1,ipix,jpix,kpix) = datsmooth(1,ipix,jpix,kpix)*ddatnorm
- !                 datsmooth(2,ipix,jpix,kpix) = datsmooth(2,ipix,jpix,kpix)*ddatnorm
- !                 datsmooth(3,ipix,jpix,kpix) = datsmooth(3,ipix,jpix,kpix)*ddatnorm
- !              endif
- !           enddo
- !        enddo
- !     enddo
- !     !$omp end parallel do
- !  endif
-
- !  return
-
- ! end subroutine interpolate3D_vec
 
  !------------------------------------------------------------
  ! interface to kernel routine to avoid problems with openMP
