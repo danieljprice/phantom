@@ -263,6 +263,7 @@ subroutine test_directsum(ntests,npass)
  real :: epoti,tree_acc_prev
  real, allocatable :: fgrav(:,:),fxyz_ptmass_gas(:,:)
 
+ maxvxyzu = size(vxyzu(:,1))
  tree_acc_prev = tree_accuracy
  do k = 1,6
     if (labeltype(k)/='bound') then
@@ -282,7 +283,6 @@ subroutine test_directsum(ntests,npass)
 !
        call init_part()
        np       = 1000
-       maxvxyzu = size(vxyzu(:,1))
        totvol   = 4./3.*pi*rmax**3
        nx       = int(np**(1./3.))
        psep     = totvol**(1./3.)/real(nx)
