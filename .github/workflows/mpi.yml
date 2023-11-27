@@ -19,7 +19,7 @@ jobs:
           - yes
         ntasks:
           - 1
-          - 4
+          - 2
         input: # [SETUP, phantom_tests]
           - ['test', '']
           - ['testkd', '']
