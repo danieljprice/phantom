@@ -547,11 +547,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        dx = xyzmh_ptmass(1:3,j) - xyzmh_ptmass(1:3,i)
        r  = sqrt(dot_product(dx,dx))
        if (r <= tiny(r)) then
-<<<<<<< HEAD
-          print*,'ERROR! sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
-=======
           print*,'ERROR: sink ',j,' on top of sink ',i,' at ',xyzmh_ptmass(1:3,i)
->>>>>>> master
           nerror = nerror + 1
        elseif (r <= max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihacc,j))) then
           print*,'WARNING: sinks ',i,' and ',j,' within each others accretion radii: sep =',&
