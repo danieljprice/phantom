@@ -114,6 +114,7 @@ subroutine test_binary(ntests,npass)
  use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
+ use timing,         only:getused,printused
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
@@ -122,6 +123,7 @@ subroutine test_binary(ntests,npass)
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: angle,rin,rout
  real :: fxyz_sinksink(4,2) ! we only use 2 sink particles in the tests here
+ real(kind=4) :: t1
  character(len=20) :: dumpfile
  real, parameter :: tolgw = 1.2e-2
  !
@@ -178,7 +180,8 @@ subroutine test_binary(ntests,npass)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
-    omega   = sqrt((m1+m2)/a**3)
+    omega   = sqrt(m1*m2/(m1+m2)/a**3)
+    if (itest==5) omega   = sqrt((m1+m2)/a**3)
     t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
     call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,verbose=.false.)
@@ -239,8 +242,10 @@ subroutine test_binary(ntests,npass)
     !
     !--take the sink-sink timestep specified by the get_forces routine
     !
-    dt      = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega)) !2.0/(nsteps)
-    dtmax   = dt  ! required prior to derivs call, as used to set ibin
+    dt = C_force*dtsinksink
+    if (m2 <= 0.) dt = min(C_force*dtsinksink,4.e-3*sqrt(2.*pi/omega))
+
+    dtmax = dt  ! required prior to derivs call, as used to set ibin
     !
     !--compute SPH forces
     !
@@ -283,6 +288,7 @@ subroutine test_binary(ntests,npass)
     nfailgw = 0; ncheckgw = 0
     dumpfile='test_00000'
     f_acc = 1.
+    call getused(t1)
     call init_step(npart,t,dtmax)
     do i=1,nsteps
        t = t + dt
@@ -304,6 +310,7 @@ subroutine test_binary(ntests,npass)
        endif
     enddo
     call compute_energies(t)
+    call printused(t1)
     nfailed(:) = 0
     select case(itest)
     case(3)

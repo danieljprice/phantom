@@ -1843,6 +1843,7 @@ end subroutine set_planets
 !
 !--------------------------------------------------------------------------
 subroutine set_sink_oblateness(isink,J2,planet_size,spin_period_hrs,kfac,obliquity)
+ use physcon, only:jupiterr
  integer, intent(in) :: isink
  real, intent(in) :: J2,planet_size,spin_period_hrs,kfac,obliquity
  real :: spin_am,planet_radius,planet_spin_period
@@ -3266,6 +3267,7 @@ end subroutine read_oblateness_options
 subroutine print_oblateness_info(isink,spin_period_hrs)
  use vectorutils, only:unitvec,mag
  use units,       only:unit_angmom
+ use physcon,     only:earthr,jupiterr,au
  integer, intent(in) :: isink
  real,    intent(in) :: spin_period_hrs
  real :: u(3)
