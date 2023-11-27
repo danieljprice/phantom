@@ -89,7 +89,7 @@ subroutine init_inject(ierr)
  if (lattice_type == 1) then
     psep = (sqrt(2.)*element_volume)**(1./3.)
  elseif (lattice_type == 0) then
-    psep = element_volume**(1./3.) 
+    psep = element_volume**(1./3.)
  else
     call fatal("init_inject",'unknown lattice_type (must be 0 or 1)')
  endif
@@ -268,16 +268,16 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
  integer, intent(in) :: max_layers,nstar,max_particles
 
  print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
- print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1" 
- print*, 'wind density: ',rho_inf * unit_density," g cm^-3" 
- print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2" 
+ print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind density: ',rho_inf * unit_density," g cm^-3"
+ print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2"
  print*, 'wind mach number: ', mach
 
  print*, 'maximum wind layers: ', max_layers
  print*, 'pmass: ',pmass
  print*, 'nstar: ',nstar
  print*, 'nstar + max. wind particles: ', max_particles
- print*, 'distance_between_layers: ',distance_between_layers  
+ print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
 
  print*, 'planet crossing time: ',2*Rstar/v_inf

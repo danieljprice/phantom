@@ -1167,7 +1167,7 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  else
    MRL(iR1T) = MRL(iR1T) / real(nR1T)
  endif
- 
+
  if (nFB == 0) then
    MRL(iFBV) = 0
  else

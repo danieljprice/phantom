@@ -6,8 +6,8 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! Setup routine for a constant density + petrubtations FLRW universe 
-! as described in Magnall et al. 2023 
+! Setup routine for a constant density + petrubtations FLRW universe
+! as described in Magnall et al. 2023
 !
 ! :References: None
 !
@@ -83,7 +83,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  procedure(rho_func), pointer :: density_func
 
  density_func => rhofunc  ! desired density function
- 
+
 
  !
  !--general parameters
@@ -97,7 +97,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ! irrelevant for
     gamma = 4./3.
  endif
- 
+
  !
  ! default units
  !
@@ -139,7 +139,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! We assume ainit = 1, but this may not always be the case
  c1 = 1./(4.*pi*rhozero)
  !c2 = We set g(x^i) = 0 as we only want to extract the growing mode
- c3 =  - sqrt(1./(6.*pi*rhozero)) 
+ c3 =  - sqrt(1./(6.*pi*rhozero))
  !c3 = hub/(4.d0*PI*rhozero)
 
 
@@ -189,7 +189,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! general parameters
 !
 ! time should be read in from the par file
- !time   = 0.08478563386065302 
+ !time   = 0.08478563386065302
  time = 0.18951066686763596 ! z~1000
  lambda = perturb_wavelength*length
  kwave  = (2.d0*pi)/lambda
@@ -200,10 +200,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  select case(radiation_dominated)
  case('"yes"')
 
-    ! Set a value of rho_matter 
+    ! Set a value of rho_matter
     rho_matter = 1.e-40
     !rhozero = rhozero - radconst*last_scattering_temp**4
-    ! Solve for temperature 
+    ! Solve for temperature
     last_scattering_temp = ((rhozero-rho_matter)/radconst)**(1./4.)
     rhozero = rho_matter
  end select

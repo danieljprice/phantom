@@ -695,13 +695,13 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !--calculate data value at this pixel using the summation interpolant
                    !
                    do smoothindex=1, ilendat
-                     !$omp atomic 
+                     !$omp atomic
                      datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
-                   enddo 
+                   enddo
                    if (normalise) then
                       !$omp atomic
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
-                   endif    
+                   endif
                 endif
              else
                 if (q2 < radkernel2) then
@@ -714,14 +714,14 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
                    !--calculate data value at this pixel using the summation interpolant
                    !
                    do smoothindex=1,ilendat
-                     !$omp atomic 
+                     !$omp atomic
                      datsmooth(smoothindex,ipixi,jpixi,kpixi) = datsmooth(smoothindex,ipixi,jpixi,kpixi) + term(smoothindex)*wab
-                   enddo 
+                   enddo
                    if (normalise) then
                       !$omp atomic
                       datnorm(ipixi,jpixi,kpixi) = datnorm(ipixi,jpixi,kpixi) + termnorm*wab
                    endif
-                  
+
                 endif
              endif
           enddo
@@ -741,10 +741,10 @@ subroutine interpolate3D_vecexact(xyzh,weight,dat,ilendat,itype,npart,&
  if (normalise) then
    do i=1, ilendat
     where (datnorm > tiny(datnorm))
-      
-       datsmooth(i,:,:,:) = datsmooth(i,:,:,:)/datnorm(:,:,:) 
+
+       datsmooth(i,:,:,:) = datsmooth(i,:,:,:)/datnorm(:,:,:)
     end where
-   enddo 
+   enddo
  endif
  if (allocated(datnorm)) deallocate(datnorm)
 

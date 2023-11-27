@@ -104,10 +104,10 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  tmunugrid = 0.
  datsmooth = 0.
 
- ! Vectorized tmunu calculation 
- 
+ ! Vectorized tmunu calculation
+
  ! Put tmunu into an array of form
- ! tmunu(npart,16) 
+ ! tmunu(npart,16)
  do k=1, 4
    do j=1,4
       do i=1,npart
@@ -116,8 +116,8 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
          ! print*, "Index in array is: ", (k-1)*4 + j
          ! print*,tmunus(k,j,1)
          dat(i, (k-1)*4 + j) = tmunus(k,j,i)
-      enddo 
-   enddo 
+      enddo
+   enddo
 enddo
 !stop
 ilendat = 16
@@ -139,17 +139,17 @@ do i=1,4
       !print*, datsmooth((i-1)*4 + j, 10,10,10)
    enddo
 enddo
-!stop 
+!stop
 ! do k=1,4
 !    do j=1,4
 !       do i=1,4
 !          print*, "Lock index is: ", (k-1)*16+ (j-1)*4 + i
 !       enddo
 !    enddo
-! enddo 
+! enddo
 
 ! tmunugrid(0,0,:,:,:) = datsmooth(1,:,:,:)
-                  
+
  ! TODO Unroll this loop for speed + using symmetries
  ! Possiblly cleanup the messy indexing
 !  do k=1,4

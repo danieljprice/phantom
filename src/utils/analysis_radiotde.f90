@@ -151,7 +151,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     v_cap_mean, &
     e_accum*unit_energ, &
     e_cap*unit_energ
- close(iunit) 
+ close(iunit)
 
  write(*,'(I8,1X,A2,1X,I8,1X,A34)') n_cap, 'of', npart, 'particles are in the capture shell'
  write(*,'(I8,1X,A2,1X,I8,1X,A40)') n_accum, 'of', npart, 'particles are outside the capture radius'
@@ -175,7 +175,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
  vr_cap_add = 0.
  v_accum_add = 0.
  v_cap_add = 0.
- 
+
  do i = 1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
@@ -188,7 +188,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
     r = sqrt(dot_product(xyz,xyz))
     v = sqrt(dot_product(vxyz,vxyz))
     if (r > rad_cap) then
-       m_accum = m_accum + pmass 
+       m_accum = m_accum + pmass
        n_accum = n_accum + 1
        e_accum = e_accum + 0.5*pmass*v**2
        vri = dot_product(vxyz,xyz)/r
@@ -264,7 +264,7 @@ subroutine read_tdeparams(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- 
+
  call read_inopt(rad_cap,'rad_cap',db,min=0.,errcount=nerr)
  call read_inopt(drad_cap,'drad_cap',db,errcount=nerr)
 
