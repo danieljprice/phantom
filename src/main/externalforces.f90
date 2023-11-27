@@ -40,6 +40,7 @@ module externalforces
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
+ real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
 
  public :: mass1
@@ -635,7 +636,9 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  select case(iexternalforce)
  case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
+    if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
     call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
+    call write_inopt(accradius1_hard,'accradius1_hard','hard accretion radius of central object',iunit)
  end select
 
  select case(iexternalforce)
@@ -770,6 +773,10 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
     read(valstring,*,iostat=ierr) accradius1
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
     if (accradius1 < 0.)    call fatal(tag,'negative accretion radius')
+ case('accradius1_hard')
+    read(valstring,*,iostat=ierr) accradius1_hard
+    if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1_hard value')
+    if (accradius1_hard > accradius1) call fatal(tag,'hard accretion boundary must be within soft accretion boundary')
  case('eps_soft')
     read(valstring,*,iostat=ierr) eps_soft
     if (iexternalforce <= 0) call warn(tag,'no external forces: ignoring accradius1 value')
