@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module lumin_nsdisc
 !
@@ -17,7 +17,7 @@ module lumin_nsdisc
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, infile_utils, io, physcon, units
+! :Dependencies: eos, infile_utils, io, physcon, units
 !
 
  use physcon, only: pi
@@ -120,17 +120,11 @@ end subroutine make_grid_points
 subroutine get_grid_bins( r, zt, rbin, ztbin, phi, phibin )
  use physcon, only:pi, twopi
  use io, only : fatal
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  real,    intent(in)  :: r, phi, zt
  integer, intent(out) :: rbin, ztbin, phibin
  real :: B, C, ztnew
-#ifdef FINVSQRT
- rbin  = int( nr*finvsqrt( (rmax-rmin)/((r-rmin))))    !optimized for speed not readability
-#else
+
  rbin  = int( nr*sqrt( (r-rmin)/(rmax-rmin)))
-#endif
 
  B = 2.*(thetamin-thetamax)/(nth)
  C = 2.*(zmin-zmax)/nz
@@ -249,7 +243,7 @@ subroutine make_beta_grids(xyzh,particlemass,npart)
  real :: cell_volume, logzero, x, y, z
  integer :: rbin, thbin, phbin, zbin, ipart, totpart
 
- kappa = calc_kappa( frac_X, 2. ) * (umass/(udist*udist))   !kappa in code units
+ kappa = real(calc_kappa( frac_X, 2. ) * (umass/(udist*udist)))   !kappa in code units
 
  logzero = careful_log( 0.0 )
 
@@ -532,8 +526,8 @@ subroutine set_Lstar( BurstProfile, time, dmdt, Mstar )
  real             :: ptime, ptime2
 
 !this assumes c=G=1.
- LEdd = fourpi*Mstar/(calc_kappa( frac_X, 2. ) / ( udist*udist / umass ))
- ptime  = time*utime
+ LEdd = real(fourpi*Mstar/(calc_kappa( frac_X, 2. ) / ( udist*udist / umass )))
+ ptime  = real(time*utime)
  ptime2 = ptime*ptime
 
  select case( BurstProfile )
@@ -663,12 +657,11 @@ end subroutine set_Lstar
 !----------------------------------------------------
 
 real function get_AccLum( dmdt, Mstar )       !Luminosity from accretion
- use physcon, only:gg
- use units, only:udist,umass,utime
+ use units, only:get_G_code
  real, intent(in) :: dmdt, Mstar
  real :: ggcode, Rstar
 
- ggcode = gg / (udist**3/(utime**2*umass))
+ ggcode = get_G_code()
  Rstar = 1.
 
  get_AccLum =  (ggcode * Mstar * dmdt / Rstar) / LEdd
@@ -744,7 +737,7 @@ real function beta(x,y,z)
  case( 3 )
     r = sqrt(x**2 + y**2)
     H = calc_scaleheight(r)
-    kappa = calc_kappa( frac_X, 2. ) * (umass/(udist*udist))
+    kappa = real(calc_kappa( frac_X, 2. ) * (umass/(udist*udist)))
     tau = 1.0-erf( abs(z) / (roottwo*H) )
     tau = tau * rpiontwo * kappa * calc_sigma(r) * H
     beta = exp(-tau)
@@ -1058,7 +1051,9 @@ real function calc_sigma( r )
  use physcon, only:solarm
  real, intent(in) :: r
  real :: R_in = 1., Mdisc
- Mdisc = 1.4d0*solarm/umass*5.e-16
+
+ Mdisc = real(1.4d0*solarm/umass*5.d-16)
+
  if ( r>r_In ) then
     calc_sigma = sqrt(R_in) * Mdisc * r**(-3./2.)*(1-sqrt(R_in/r))
  else

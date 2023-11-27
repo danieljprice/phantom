@@ -15,4 +15,5 @@ Contents
    pawsey
    nci
    DiAL
+   kennedy
    g2

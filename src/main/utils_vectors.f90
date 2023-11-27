@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module vectorutils
 !
@@ -147,11 +147,9 @@ pure subroutine rotatevec(u,v,theta)
 
  !--normalise v
  k = v/sqrt(dot_product(v,v))
-
  !--Rodrigues rotation formula
  call cross_product3D(k,u,w)
  u = u*cos(theta) + w*sin(theta) + k*dot_product(k,u)*(1-cos(theta))
-
 end subroutine rotatevec
 
 !------------------------------------------------------------------------

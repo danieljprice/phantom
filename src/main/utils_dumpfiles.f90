@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module dump_utils
 !
@@ -72,7 +72,8 @@ module dump_utils
                                ierr_intsize   = 5,&
                                ierr_notags    = 6,&
                                ierr_unknown   = 7,&
-                               ierr_notenough = 8
+                               ierr_notenough = 8,&
+                               ierr_arraysize = 9
 
  type dump_h
     integer :: nums(ndatatypes)
@@ -171,7 +172,6 @@ function get_dumpname(filename,id)
 
  write(get_dumpname,"(a,a5,i3.3)") trim(filename),'_part',id+1
 
- return
 end function get_dumpname
 
 !--------------------------------------------------------------------
@@ -190,7 +190,6 @@ subroutine skipblock(iunit,nums1,nums2,nums3,nums4,tagged,ierr)
  nskip = sum(nums1)+sum(nums2)+sum(nums3)+sum(nums4)
  call skip_arrays(iunit,nskip,tagged,ierr)
 
- return
 end subroutine skipblock
 
 !--------------------------------------------------------------------
@@ -312,6 +311,9 @@ subroutine extracthdr_int4(tag,val,hdr,ierr,default)
 
 end subroutine extracthdr_int4
 
+!-----------------------------------------------
+! extraction of single int*8 value from header
+!-----------------------------------------------
 subroutine extracthdr_int8(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  integer(kind=8),  intent(out) :: val
@@ -341,6 +343,9 @@ subroutine extracthdr_int8(tag,val,hdr,ierr,default)
 
 end subroutine extracthdr_int8
 
+!-----------------------------------------------
+! extraction of single real*4 value from header
+!-----------------------------------------------
 subroutine extracthdr_real4(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  real(kind=4),     intent(out) :: val
@@ -369,6 +374,9 @@ subroutine extracthdr_real4(tag,val,hdr,ierr,default)
  endif
 end subroutine extracthdr_real4
 
+!-----------------------------------------------
+! extraction of single real*8 value from header
+!-----------------------------------------------
 subroutine extracthdr_real8(tag,val,hdr,ierr,default)
  character(len=*), intent(in)  :: tag
  real(kind=8),     intent(out) :: val
@@ -380,7 +388,7 @@ subroutine extracthdr_real8(tag,val,hdr,ierr,default)
 
  if (present(default)) then
     def = default
-    rdef = default
+    rdef = real(default)
  else
     def = 0.d0
     rdef = 0.
@@ -424,6 +432,9 @@ subroutine extracthdr_int4arr(tag,val,hdr,ierr)
 
 end subroutine extracthdr_int4arr
 
+!------------------------------------------
+! extraction of int*8 arrays from header
+!------------------------------------------
 subroutine extracthdr_int8arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  integer(kind=8),  intent(out) :: val(:)
@@ -444,6 +455,9 @@ subroutine extracthdr_int8arr(tag,val,hdr,ierr)
 
 end subroutine extracthdr_int8arr
 
+!------------------------------------------
+! extraction of real*4 arrays from header
+!------------------------------------------
 subroutine extracthdr_real4arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  real(kind=4),     intent(out) :: val(:)
@@ -463,6 +477,9 @@ subroutine extracthdr_real4arr(tag,val,hdr,ierr)
  endif
 end subroutine extracthdr_real4arr
 
+!------------------------------------------
+! extraction of real*8 arrays from header
+!------------------------------------------
 subroutine extracthdr_real8arr(tag,val,hdr,ierr)
  character(len=*), intent(in)  :: tag
  real(kind=8),     intent(out) :: val(:)
@@ -1104,12 +1121,13 @@ end subroutine open_dumpfile_w
 ! open a dump file and read the file id
 ! and generic header information
 !-----------------------------------------
-subroutine open_dumpfile_r(iunit,filename,fileid,ierr,singleprec,requiretags)
+subroutine open_dumpfile_r(iunit,filename,fileid,ierr,singleprec,requiretags,tagged)
  integer,              intent(in)  :: iunit
  character(len=*),     intent(in)  :: filename
  character(len=lenid), intent(out) :: fileid
  integer,              intent(out) :: ierr
- logical,              intent(in), optional :: singleprec,requiretags
+ logical,              intent(in),  optional :: singleprec,requiretags
+ logical,              intent(out), optional :: tagged
  integer(kind=4) :: int1i,int2i,int3i
  integer         :: iversion_file,ierr1
  logical         :: r4,must_have_tags
@@ -1176,7 +1194,11 @@ subroutine open_dumpfile_r(iunit,filename,fileid,ierr,singleprec,requiretags)
     endif
  endif
 
- return
+ ! return whether or not file is in tagged format
+ if (present(tagged)) then
+    tagged = (fileid(2:2) == 'T' .or. fileid(2:2) == 't')
+ endif
+
 end subroutine open_dumpfile_r
 
 !-------------------------------------------------------
@@ -1201,6 +1223,8 @@ character(len=60) function get_error_text(ierr)
     get_error_text = 'default int size wrong'
  case(ierr_notags)
     get_error_text = 'routine requires tagged format but not detected'
+ case(ierr_arraysize)
+    get_error_text = 'array size too small for requested data'
  case default
     get_error_text = 'unknown error'
  end select
@@ -1212,18 +1236,21 @@ end function get_error_text
 !  read the file header into the dump_header structure
 !+
 !-------------------------------------------------------
-subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
+subroutine read_header(iunit,hdr,ierr,singleprec,tagged)
  integer,      intent(in) :: iunit
  type(dump_h), intent(out) :: hdr
- logical,      intent(in)  :: tagged
  integer,      intent(out) :: ierr
  logical,      intent(in), optional :: singleprec
- logical :: convert_prec
+ logical,      intent(in), optional :: tagged
+ logical :: convert_prec,tags
  integer :: i,n
  real(kind=4), allocatable :: dumr4(:)
 
  convert_prec = .false.
  if (present(singleprec)) convert_prec = singleprec
+
+ tags = .true.
+ if (present(tagged)) tags = tagged
 
  do i=1,ndatatypes
     read (iunit, iostat=ierr) n
@@ -1232,66 +1259,66 @@ subroutine read_header(iunit,hdr,tagged,ierr,singleprec)
     select case(i)
     case(i_int)
        allocate(hdr%inttags(n),hdr%intvals(n),stat=ierr)
-       hdr%inttags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%inttags(1:n)
-          read(iunit, iostat=ierr) hdr%intvals(1:n)
+          hdr%inttags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%inttags
+          read(iunit, iostat=ierr) hdr%intvals
        endif
     case(i_int1)
        allocate(hdr%int1tags(n),hdr%int1vals(n),stat=ierr)
-       hdr%int1tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int1tags(1:n)
-          read(iunit, iostat=ierr) hdr%int1vals(1:n)
+          hdr%int1tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%int1tags
+          read(iunit, iostat=ierr) hdr%int1vals
        endif
     case(i_int2)
        allocate(hdr%int2tags(n),hdr%int2vals(n),stat=ierr)
-       hdr%int2tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int2tags(1:n)
-          read(iunit, iostat=ierr) hdr%int2vals(1:n)
+          hdr%int2tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%int2tags
+          read(iunit, iostat=ierr) hdr%int2vals
        endif
     case(i_int4)
        allocate(hdr%int4tags(n),hdr%int4vals(n),stat=ierr)
-       hdr%int4tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int4tags(1:n)
-          read(iunit, iostat=ierr) hdr%int4vals(1:n)
+          hdr%int4tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%int4tags
+          read(iunit, iostat=ierr) hdr%int4vals
        endif
     case(i_int8)
        allocate(hdr%int8tags(n),hdr%int8vals(n),stat=ierr)
-       hdr%int8tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%int8tags(1:n)
-          read(iunit, iostat=ierr) hdr%int8vals(1:n)
+          hdr%int8tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%int8tags
+          read(iunit, iostat=ierr) hdr%int8vals
        endif
     case(i_real)
        allocate(hdr%realtags(n),hdr%realvals(n),stat=ierr)
-       hdr%realtags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%realtags(1:n)
+          hdr%realtags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%realtags
           if (convert_prec .and. kind(0.) /= 4) then
              allocate(dumr4(n),stat=ierr)
-             read(iunit, iostat=ierr) dumr4(1:n)
+             read(iunit, iostat=ierr) dumr4
              hdr%realvals(1:n) = real(dumr4(1:n))
              deallocate(dumr4)
           else
-             read(iunit, iostat=ierr) hdr%realvals(1:n)
+             read(iunit, iostat=ierr) hdr%realvals
           endif
        endif
     case(i_real4)
        allocate(hdr%real4tags(n),hdr%real4vals(n),stat=ierr)
-       hdr%real4tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%real4tags(1:n)
-          read(iunit, iostat=ierr) hdr%real4vals(1:n)
+          hdr%real4tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%real4tags
+          read(iunit, iostat=ierr) hdr%real4vals
        endif
     case(i_real8)
        allocate(hdr%real8tags(n),hdr%real8vals(n),stat=ierr)
-       hdr%real8tags(:) = ''
        if (n > 0) then
-          if (tagged) read(iunit, iostat=ierr) hdr%real8tags(1:n)
-          read(iunit, iostat=ierr) hdr%real8vals(1:n)
+          hdr%real8tags(:) = ''
+          if (tags) read(iunit, iostat=ierr) hdr%real8tags
+          read(iunit, iostat=ierr) hdr%real8vals
        endif
     end select
  enddo
@@ -2036,6 +2063,10 @@ subroutine read_array_real4(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
     matched    = .true.
     if (match_datatype) then
        got_arr = .true.
+       if (i2 > size(arr)) then
+          print*,'ERROR: array size too small reading array: need ',i2,' got ',size(arr)
+          read(iunit,iostat=ierr)
+       endif
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     else
        print*,'ERROR: wrong datatype for '//trim(tag)//' (is not real4)'
@@ -2053,32 +2084,48 @@ end subroutine read_array_real4
 !--------------------------------------------------------------------
 subroutine read_array_real4arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,matched,ierr)
  real(kind=4),     intent(inout) :: arr(:,:)
- character(len=*), intent(in)    :: arr_tag(size(arr(1,:))),tag
- logical,          intent(inout) :: got_arr(size(arr(1,:)))
+ character(len=*), intent(in)    :: arr_tag(:),tag
+ logical,          intent(inout) :: got_arr(:)
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
  integer      :: i,j,nread
  real(kind=4) :: dum
  real(kind=8) :: dumr8
+ real(kind=4), allocatable :: dummy(:)
  real(kind=8), allocatable :: dummyr8(:)
  logical      :: match_datatype
 
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real4 .or. (kind(0.)==4 .and. ikind==i_real))
 
- do j=1,size(arr(:,1))
+ do j=1,min(size(arr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
        matched    = .true.
        if (match_datatype) then
           got_arr(j) = .true.
-          read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
+          if (i2 > size(arr)) then
+             print*,'ERROR: array size too small reading '//trim(tag)
+             ierr = ierr_arraysize
+             return
+          endif
+          nread = i2-i1+1
+          allocate(dummy(nread))
+          read(iunit,iostat=ierr) (dum,i=1,noffset),dummy(1:nread)
+          arr(j,i1:i2) = dummy
+          deallocate(dummy)
+          !read(iunit,iostat=ierr) (dum,i=1,noffset),arr(j,i1:i2)
        elseif (ikind==i_real4) then
           got_arr(j) = .true.
           !print*,'WARNING: converting '//trim(tag)//' from real*8->real*4'
           nread = i2-i1+1
           allocate(dummyr8(nread))
           read(iunit,iostat=ierr) (dumr8,i=1,noffset),dummyr8(1:nread)
+          if (i2 > size(arr)) then
+             print*,'ERROR: array size too small reading '//trim(tag)
+             ierr = ierr_arraysize
+             return
+          endif
           arr(j,i1:i2) = real(dummyr8(:),kind=4)
           deallocate(dummyr8)
        else
@@ -2115,6 +2162,11 @@ subroutine read_array_real8(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,ma
     matched    = .true.
     if (match_datatype) then
        got_arr = .true.
+       if (i2 > size(arr)) then
+          print*,'ERROR: array size too small reading '//trim(tag),i2,size(arr)
+          ierr = ierr_arraysize
+          return
+       endif
        read(iunit,iostat=ierr) (dum,i=1,noffset),arr(i1:i2)
     elseif (ikind==i_real4) then
        got_arr = .true.
@@ -2140,8 +2192,8 @@ end subroutine read_array_real8
 !--------------------------------------------------------------------
 subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag,matched,ierr)
  real(kind=8),     intent(inout) :: arr(:,:)
- character(len=*), intent(in)    :: arr_tag(size(arr(1,:))),tag
- logical,          intent(inout) :: got_arr(size(arr(1,:)))
+ character(len=*), intent(in)    :: arr_tag(:),tag
+ logical,          intent(inout) :: got_arr(:)
  integer,          intent(in)    :: ikind,i1,i2,noffset,iunit
  logical,          intent(inout) :: matched
  integer,          intent(out)   :: ierr
@@ -2155,7 +2207,7 @@ subroutine read_array_real8arr(arr,arr_tag,got_arr,ikind,i1,i2,noffset,iunit,tag
  if (matched .or. ikind < i_real) return
  match_datatype = (ikind==i_real8 .or. (kind(0.)==8 .and. ikind==i_real))
 
- do j=1,size(arr(:,1))
+ do j=1,min(size(arr(:,1)),size(arr_tag))
     if (match_tag(tag,arr_tag(j)) .and. .not.matched) then
        matched    = .true.
        if (match_datatype) then

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module readwrite_dumps_common
 !
@@ -14,8 +14,8 @@ module readwrite_dumps_common
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dump_utils, eos, gitinfo, io, options, part,
-!   sphNGutils
+! :Dependencies: dim, dump_utils, dust_formation, eos, gitinfo, io,
+!   options, part, sphNGutils
 !
  use dump_utils, only:lenid
  implicit none
@@ -118,24 +118,28 @@ end subroutine get_options_from_fileid
 !---------------------------------------------------------------
 subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
-                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T,got_x,got_z,got_mu, &
+                        got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                         got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
-                        got_dustgasprop,got_temp,got_raden,got_kappa,got_Tdust,got_iorig,iphase,&
+                        got_dustgasprop,got_rad,got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
- use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,do_radiation,store_dust_temperature
+ use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
+                do_radiation,store_dust_temperature,do_nucleation,use_krome
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
- use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,&
-                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig
+ use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
+                xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
+                itemp,iX,iZ,imu
  use io,   only:warning,id,master
- use options,    only:alpha,use_dustfrac,use_var_comp
- use sphNGutils, only:itype_from_sphNG_iphase,isphNG_accreted
+ use options,        only:alpha,use_dustfrac,use_var_comp
+ use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
+ use dust_formation, only:init_nucleation
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
- logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha,got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_x,got_z,got_mu
+ logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
- logical,         intent(in)    :: got_psi,got_temp,got_Tdust,got_pxyzu(:),got_raden(:),got_kappa,got_iorig
+ logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
+ logical,         intent(in)    :: got_radprop(:),got_iorig
  integer(kind=1), intent(inout) :: iphase(:)
  integer(kind=8), intent(inout) :: iorig(:)
  real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
@@ -172,7 +176,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        !
        !--iphase is required if there is more than one particle type
        !
-       write(*,*) 'error in rdump: need type information but iamtype not present in dump file'
+       write(*,"(/,a,/)") 'error in rdump: need type information but iamtype not present in dump file'
        ierr = 8
        return
     else
@@ -208,13 +212,13 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
           vxyzu(4,i) = 1.5*polyk
           !print*,'u = ',vxyzu(4,i)
        enddo
-       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = 3/2 * cs^2'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: u not in file but setting u = 3/2 * cs^2'
     else
        do i=i1,i2
           vxyzu(4,i) = (1.0/(gamma-1.0))*polyk*rhoh(xyzh(4,i),get_pmass(i,use_gas))**(gamma - 1.)
           !print*,'u = ',vxyzu(4,i)
        enddo
-       if (id==master .and. i1==1) write(*,*) 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: u not in file but setting u = (K*rho**(gamma-1))/(gamma-1)'
     endif
  endif
  if (h2chemistry .and. .not.all(got_abund)) then
@@ -222,37 +226,37 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     ierr = 9
     return
  endif
-#ifdef KROME
- if (.not.all(got_krome_mols).and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
-!     ierr = 9
-    return
+ if (use_krome) then
+    if (.not.all(got_krome_mols).and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but abundances not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_gamma .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_mu .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
+       !     ierr = 9
+       return
+    endif
+    if (.not.got_krome_T .and. npartread > 0) then
+       if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
+       !     ierr = 9
+       return
+    endif
  endif
- if (.not.got_krome_gamma .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but gamma not found in dump file'
-!     ierr = 9
-    return
+ if (eos_is_non_ideal(ieos) .and. .not.got_eosvars(itemp)) then
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing temperature information from file'
  endif
- if (.not.got_krome_mu .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but mu not found in dump file'
-!     ierr = 9
-    return
- endif
- if (.not.got_krome_T .and. npartread > 0) then
-    if (id==master) write(*,*) 'error in rdump: using KROME chemistry, but temperature not found in dump file'
-!     ierr = 9
-    return
- endif
-#endif
- if (eos_is_non_ideal(ieos) .and. .not.got_temp) then
-    if (id==master .and. i1==1) write(*,*) 'WARNING: missing temperature information from file'
- endif
- use_var_comp = (got_x .and. got_z .and. got_mu)
+ use_var_comp = (got_eosvars(iX) .and. got_eosvars(iZ) .and. got_eosvars(imu))
  if (store_dust_temperature .and. .not.got_Tdust) then
-    if (id==master .and. i1==1) write(*,*) 'WARNING: missing dust temperature information from file'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: missing dust temperature information from file'
  endif
  if (maxalpha==maxp) then
-    if (got_alpha) then
+    if (got_alpha(1)) then
        if (alphafile < 0.99 .and. tfile > 0.) then
           if (any(alphaind(1,i1:i2) > 1.0 .or. alphaind(1,i1:i2) < 0.)) then
              if (id==master) write(iprint,*) 'ERROR! AV alpha < 0 or alpha > 1 in dump file: using alpha'
@@ -260,7 +264,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
           endif
        endif
     else
-       if (id==master .and. i1==1) write(*,*) 'WARNING: alpha not found in file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: alpha not found in file'
        alphaind(1,i1:i2) = real(alpha,kind=4)
     endif
  endif
@@ -276,27 +280,25 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     enddo
  endif
  if (use_dustfrac .and. .not. all(got_dustfrac(1:ndusttypes))) then
-    if (id==master .and. i1==1) write(*,*) 'ERROR! using one-fluid dust, but no dust fraction found in dump file'
+    if (id==master .and. i1==1) write(*,*) 'WARNING! using one-fluid dust, but no dust fraction found in dump file'
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
-    !ierr = 13
-    return
  endif
  if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain size found in dump file'
+    ierr = ierr + 1
  endif
- if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
-    return
+ if (use_dustgrowth .and. .not.got_dustprop(2)) then
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_VrelVf) then
-    write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no Vrel/Vfrag found in dump file'
+    ierr = ierr + 1
  endif
  if (use_dustgrowth .and. .not.got_dustgasprop(3)) then
-    write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
-    return
+    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no St found in dump file'
+    ierr = ierr + 1
  endif
  !
  ! sink particle arrays
@@ -315,29 +317,29 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        endif
     enddo
     if (.not.all(got_sink_vels(1:3))) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING! sink particle velocities not found'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
     endif
     if (id==master .and. i1==1) then
        print "(2(a,i4),a)",' got ',nsinkproperties,' sink properties from ',nptmass,' sink particles'
-       if (nptmass > 0) print "(1x,47('-'),/,1x,a,'|',4(a9,1x,'|'),/,1x,47('-'))",&
-                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   '
+       if (nptmass > 0) print "(1x,58('-'),/,1x,a,'|',5(a9,1x,'|'),/,1x,58('-'))",&
+                              'ID',' Mass    ',' Racc    ',' Macc    ',' hsoft   ',' Lsink   '
        do i=1,min(nptmass,999)
-          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',4(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i), &
-                                            xyzmh_ptmass(ihacc,i),xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i)
+          if (xyzmh_ptmass(4,i) > 0.) print "(i3,'|',5(1pg9.2,1x,'|'))",i,xyzmh_ptmass(4,i),xyzmh_ptmass(ihacc,i),&
+                                            xyzmh_ptmass(imacc,i),xyzmh_ptmass(ihsoft,i),xyzmh_ptmass(ilum,i)
        enddo
-       if (nptmass > 0) print "(1x,47('-'))"
+       if (nptmass > 0) print "(1x,58('-'))"
     endif
  endif
  !
  ! radiation arrays
  !
  if (do_radiation) then
-    if (.not.all(got_raden)) then
+    if (.not.all(got_rad)) then
        if (id==master .and. i1==1) write(*,*) 'ERROR: RADIATION=yes but radiation arrays not found in Phantom dump file'
        ierr = ierr + 1
     endif
-    if (.not.got_kappa) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
+    if (.not.got_radprop(ikappa)) then
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif
 
@@ -346,10 +348,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (mhd) then
     if (.not.all(got_Bxyz(1:3))) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (.not.got_psi) then
-       if (id==master .and. i1==1) write(*,*) 'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
+       if (id==master .and. i1==1) write(*,"(/,a,/)") &
+          'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
  endif
@@ -359,8 +362,17 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (gr) then
     if (.not.all(got_pxyzu(1:3))) then
-       write(*,*) 'WARNING: GR but momentum arrays not found in Phantom dump file'
+       write(*,"(/,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
        pxyzu(:,i1:i2) = 0.
+    endif
+ endif
+ !
+ ! Dust nucleation arrays
+ !
+ if (do_nucleation) then
+    if (.not.all(got_nucleation)) then
+       write(*,"(/,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
+       call init_nucleation()
     endif
  endif
 
@@ -372,7 +384,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        iorig(i) = i + noffset
     enddo
     norig = i2
-    if (id==master .and. i1==1) write(*,*) 'WARNING: Particle IDs not in dump; resetting IDs'
+    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  else
     norig = 0
     do i=i1,i2
