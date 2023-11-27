@@ -431,24 +431,24 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  logical :: createcheckpoint
 
  if (present(checkpointfile)) then
-       createcheckpoint = .true.
+    createcheckpoint = .true.
  else
-     createcheckpoint = .false.
+    createcheckpoint = .false.
  endif
 
  ! Write EV_file
  if (.not. createcheckpoint) then
-       call write_evfile(time,dt_et)
+    call write_evfile(time,dt_et)
 
-       evfilestor  = getnextfilename(evfilestor)
-       logfilestor = getnextfilename(logfilestor)
-       dumpfilestor = getnextfilename(dumpfilestor)
-       call write_fulldump(time,dumpfilestor)
+    evfilestor  = getnextfilename(evfilestor)
+    logfilestor = getnextfilename(logfilestor)
+    dumpfilestor = getnextfilename(dumpfilestor)
+    call write_fulldump(time,dumpfilestor)
  endif
 
  ! Write full dump
  if (createcheckpoint) then
-       call write_fulldump(time,checkpointfile)
+    call write_fulldump(time,checkpointfile)
  endif
 
  ! Quick and dirty write cfac to txtfile

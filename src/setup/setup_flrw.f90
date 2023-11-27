@@ -408,9 +408,9 @@ real function massfunc(x,xmin)
 end function massfunc
 
 real function deltaint(x)
-   real, intent(in) :: x
+ real, intent(in) :: x
 
-   deltaint = (1./kwave)*(kwave*kwave*c1 - 2)*ampl*cos(2*pi*x/lambda)
+ deltaint = (1./kwave)*(kwave*kwave*c1 - 2)*ampl*cos(2*pi*x/lambda)
 
 end function deltaint
 

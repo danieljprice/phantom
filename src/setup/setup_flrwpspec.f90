@@ -241,9 +241,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  ! Check if files exist otherwise skip and return flat space
  if (.not. check_files(pspec_filename1,pspec_filename2,pspec_filename3)) then
-   print*, "Velocity files not found..."
-   print*, "Setting up flat space!"
-   return
+    print*, "Velocity files not found..."
+    print*, "Setting up flat space!"
+    return
  endif
 
 
@@ -592,16 +592,16 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
 end subroutine get_grid_neighbours
 
 logical function check_files(file1,file2,file3)
-   character(len=*), intent(in) :: file1,file2,file3
-   logical :: file1_exist, file2_exist, file3_exist
+ character(len=*), intent(in) :: file1,file2,file3
+ logical :: file1_exist, file2_exist, file3_exist
 
-   inquire(file=file1,exist=file1_exist)
-   inquire(file=file2,exist=file2_exist)
-   inquire(file=file3,exist=file3_exist)
+ inquire(file=file1,exist=file1_exist)
+ inquire(file=file2,exist=file2_exist)
+ inquire(file=file3,exist=file3_exist)
 
-   if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then
-      check_files =  .false.
-   endif
+ if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then
+    check_files =  .false.
+ endif
 end function check_files
 
 end module setup

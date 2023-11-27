@@ -89,9 +89,9 @@ subroutine dt_grforce(xyzh,fext,dtf)
 
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
  if (f2i > 0.) then
-   dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
+    dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
  else
-   dtf1 = huge(dtf1)
+    dtf1 = huge(dtf1)
  endif
 
  select case (imetric)

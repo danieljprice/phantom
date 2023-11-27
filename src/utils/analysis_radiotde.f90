@@ -107,9 +107,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call tde_analysis(npart,pmass,xyzh,vxyzu)
 
  if (n_cap > 0) then
- open(iunit,file=output)
- write(iunit,'("# ",es20.12,"   # TIME")') time
- write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+    open(iunit,file=output)
+    write(iunit,'("# ",es20.12,"   # TIME")') time
+    write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'theta',      &
        2,'thetap',  &
        3,'phi', &
@@ -117,18 +117,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        5,'vtheta',   &
        6,'vphi'
 
- do i = 1,npart
-    if (cap(i)) then
-       write(iunit,'(6(es18.10,1X))') &
+    do i = 1,npart
+       if (cap(i)) then
+          write(iunit,'(6(es18.10,1X))') &
           theta(i),   &
           plot_theta(i), &
           phi(i),    &
           vr(i),   &
           vtheta(i),    &
           vphi(i)
-    endif
- enddo
- close(iunit)
+       endif
+    enddo
+    close(iunit)
  endif
 
  deallocate(theta,plot_theta,phi,vr,vtheta,vphi,cap)

@@ -597,10 +597,10 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
        if (dustRT) then
           if (dust_temp(i) < Tdust_threshold) opacity = nucleation(idkappa,i)
        endif
-      !  if (opacity < 0.) then
-      !     ierr = max(ierr,ierr_negative_opacity)
-      !     call error(label,'Negative opacity',val=opacity)
-      !  endif
+       !  if (opacity < 0.) then
+       !     ierr = max(ierr,ierr_negative_opacity)
+       !     call error(label,'Negative opacity',val=opacity)
+       !  endif
 
        if (limit_radiation_flux) then
           radRi = get_rad_R(rhoi,EU01i,dedx,opacity)

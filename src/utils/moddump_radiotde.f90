@@ -94,7 +94,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use_func          = .true.
  use_func_old      = use_func
  remove_overlap    = .true.
-  !--Power law default setups
+ !--Power law default setups
  rad_max           = 7.1e16        ! in cm
  rad_min           = 8.7e15        ! in cm
  nbreak            = 1
@@ -103,7 +103,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  allocate(rhof_n(nbreak),rhof_rbreak(nbreak))
  rhof_n            = -1.7
  rhof_rbreak       = rad_min
-  !--Profile default setups
+ !--Profile default setups
  read_temp         = .false.
  profile_filename  = default_name
  nprof             = 7

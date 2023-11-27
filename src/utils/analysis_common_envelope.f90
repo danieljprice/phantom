@@ -1163,15 +1163,15 @@ subroutine roche_lobe_values(time,npart,particlemass,xyzh,vxyzu)
  enddo
 
  if (nR1T == 0) then
-   MRL(iR1T) = 0
+    MRL(iR1T) = 0
  else
-   MRL(iR1T) = MRL(iR1T) / real(nR1T)
+    MRL(iR1T) = MRL(iR1T) / real(nR1T)
  endif
 
  if (nFB == 0) then
-   MRL(iFBV) = 0
+    MRL(iFBV) = 0
  else
-   MRL(iFBV) = MRL(iFBV) / real(nFB)
+    MRL(iFBV) = MRL(iFBV) / real(nFB)
  endif
 
 
@@ -2549,7 +2549,7 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
     z(i) = dot_product(ri, vnorm)
     Rvec = ri - z(i)*vnorm
     R(i) = sqrt(dot_product(Rvec,Rvec))
-   !  write(iu,"(es13.6,2x,es13.6,2x,es13.6)") R(i),z(i),rho(i)
+    !  write(iu,"(es13.6,2x,es13.6,2x,es13.6)") R(i),z(i),rho(i)
     write(iu,"(es13.6,2x,es13.6,2x,es13.6,2x,es13.6,2x,es13.6)") xyzh(1,i),xyzh(2,i),xyzh(3,i),rho(i),vxyzu(4,i)
  enddo
 
