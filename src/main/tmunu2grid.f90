@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module tmunu2grid
 !
@@ -104,52 +104,52 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  tmunugrid = 0.
  datsmooth = 0.
 
- ! Vectorized tmunu calculation 
- 
- ! Put tmunu into an array of form
- ! tmunu(npart,16) 
- do k=1, 4
-   do j=1,4
-      do i=1,npart
-         ! Check that this is correct!!!
-         ! print*,"i j is: ", k, j
-         ! print*, "Index in array is: ", (k-1)*4 + j
-         ! print*,tmunus(k,j,1)
-         dat(i, (k-1)*4 + j) = tmunus(k,j,i)
-      enddo 
-   enddo 
-enddo
-!stop
-ilendat = 16
+ ! Vectorized tmunu calculation
 
-call interpolate3D_vecexact(xyzh,weights,dat,ilendat,itype,npart,&
+ ! Put tmunu into an array of form
+ ! tmunu(npart,16)
+ do k=1, 4
+    do j=1,4
+       do i=1,npart
+          ! Check that this is correct!!!
+          ! print*,"i j is: ", k, j
+          ! print*, "Index in array is: ", (k-1)*4 + j
+          ! print*,tmunus(k,j,1)
+          dat(i, (k-1)*4 + j) = tmunus(k,j,i)
+       enddo
+    enddo
+ enddo
+!stop
+ ilendat = 16
+
+ call interpolate3D_vecexact(xyzh,weights,dat,ilendat,itype,npart,&
                          xmininterp(1),xmininterp(2),xmininterp(3), &
                          datsmooth(:,ilower:iupper,jlower:jupper,klower:kupper),&
                          ngrid(1),ngrid(2),ngrid(3),dxgrid(1),dxgrid(2),dxgrid(3),&
                          normalise,periodicx,periodicy,periodicz)
 
 ! Put the smoothed array into tmunugrid
-do i=1,4
-   do j=1,4
-      ! Check this is correct too!
-      !print*,"i j is: ", i, j
-      !print*, "Index in array is: ", (i-1)*4 + j
-      tmunugrid(i-1,j-1,:,:,:) = datsmooth((i-1)*4 + j, :,:,:)
-      !print*, "tmunugrid: ", tmunugrid(i-1,j-1,10,10,10)
-      !print*, datsmooth((i-1)*4 + j, 10,10,10)
-   enddo
-enddo
-!stop 
+ do i=1,4
+    do j=1,4
+       ! Check this is correct too!
+       !print*,"i j is: ", i, j
+       !print*, "Index in array is: ", (i-1)*4 + j
+       tmunugrid(i-1,j-1,:,:,:) = datsmooth((i-1)*4 + j, :,:,:)
+       !print*, "tmunugrid: ", tmunugrid(i-1,j-1,10,10,10)
+       !print*, datsmooth((i-1)*4 + j, 10,10,10)
+    enddo
+ enddo
+!stop
 ! do k=1,4
 !    do j=1,4
 !       do i=1,4
 !          print*, "Lock index is: ", (k-1)*16+ (j-1)*4 + i
 !       enddo
 !    enddo
-! enddo 
+! enddo
 
 ! tmunugrid(0,0,:,:,:) = datsmooth(1,:,:,:)
-                  
+
  ! TODO Unroll this loop for speed + using symmetries
  ! Possiblly cleanup the messy indexing
 !  do k=1,4

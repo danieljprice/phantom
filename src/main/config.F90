@@ -277,7 +277,7 @@ module dim
  logical, parameter :: nr = .true.
 #else
  logical, parameter :: nr = .false.
-#endif  
+#endif
 
 !--------------------
 ! Supertimestepping

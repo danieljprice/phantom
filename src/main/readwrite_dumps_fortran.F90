@@ -20,8 +20,8 @@ module readwrite_dumps_fortran
 !
 ! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
 !   dust, dust_formation, eos, externalforces, fileutils, io, lumin_nsdisc,
-!   memory, mpi, mpiutils, options, part, readwrite_dumps_common,
-!   setup_params, sphNGutils, timestep, units
+!   memory, metric_tools, mpi, mpiutils, options, part,
+!   readwrite_dumps_common, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag
@@ -218,7 +218,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
                  luminosity,eta_nimhd,eta_nimhd_label
- use part,  only:metrics,metricderivs,tmunus 
+ use part,  only:metrics,metricderivs,tmunus
  use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -365,7 +365,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
        if (gr) then
           call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
-          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8)) 
+          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
           if (imetric==imet_et) then
              ! Output metric if imetric=iet
              call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))

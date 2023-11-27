@@ -14,8 +14,7 @@ module extern_gr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, fastmath, io, metric_tools, part, physcon, timestep,
-!   utils_gr
+! :Dependencies: eos, io, metric_tools, part, physcon, timestep, utils_gr
 !
  implicit none
 
@@ -87,12 +86,12 @@ subroutine dt_grforce(xyzh,fext,dtf)
  real, intent(out) :: dtf
  real :: r,r2,dtf1,dtf2,f2i
  integer, parameter :: steps_per_orbit = 100
- 
+
  f2i = fext(1)*fext(1) + fext(2)*fext(2) + fext(3)*fext(3)
- if (f2i > 0.) then 
-   dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
+ if (f2i > 0.) then
+    dtf1 = sqrt(xyzh(4)/sqrt(f2i)) ! This is not really accurate since fi is a component of dp/dt, not da/dt
  else
-   dtf1 = huge(dtf1)
+    dtf1 = huge(dtf1)
  endif
 
  select case (imetric)
@@ -100,9 +99,9 @@ subroutine dt_grforce(xyzh,fext,dtf)
     r2   = xyzh(1)*xyzh(1) + xyzh(2)*xyzh(2) + xyzh(3)*xyzh(3)
     r    = sqrt(r2)
     dtf2 = (2.*pi*sqrt(r*r2))/steps_per_orbit
- case default 
+ case default
     dtf2 = huge(dtf2)
- end select 
+ end select
 
  dtf = min(dtf1,dtf2)
 

@@ -659,7 +659,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
     endif
  enddo iterations
- 
+
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
