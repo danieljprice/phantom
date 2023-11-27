@@ -2943,6 +2943,7 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
  real                         :: fxi, fyi, fzi, phii
  real, dimension(4,maxptmass) :: fssxyz_ptmass
  real, dimension(4,maxptmass) :: fxyz_ptmass
+ real, dimension(3,maxptmass) :: dsdt_ptmass
  real, dimension(3)           :: com_xyz,com_vxyz
  integer                      :: i,ncols,merge_n,merge_ij(nptmass)
 
@@ -2981,11 +2982,11 @@ subroutine sink_properties(time,npart,particlemass,xyzh,vxyzu)
              '       CoM vz' /)
 
  fxyz_ptmass = 0.
- call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
  fssxyz_ptmass = fxyz_ptmass
  do i=1,npart
     call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                            fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
+                            fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,dsdt_ptmass,fonrmax)
  enddo
 
  ! Determine position and velocity of the CoM
@@ -3177,6 +3178,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  real, dimension(:), allocatable, save :: ang_mom_old,time_old
  real, dimension(:,:), allocatable     :: drag_force
  real, dimension(4,maxptmass)          :: fxyz_ptmass,fxyz_ptmass_sinksink
+ real, dimension(3,maxptmass)          :: dsdt_ptmass
  real, dimension(3)                    :: avg_vel,avg_vel_par,avg_vel_perp,&
                                           com_xyz,com_vxyz,unit_vel,unit_vel_perp,&
                                           pos_wrt_CM,vel_wrt_CM,ang_mom,com_vec,&
@@ -3316,7 +3318,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
     ! Sum acceleration (fxyz_ptmass) on companion due to gravity of gas particles
     force_cut_vec = 0.
     fxyz_ptmass = 0.
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
 
     sizeRcut = 5
     if (i == 1) allocate(Rcut(sizeRcut))
@@ -3328,12 +3330,12 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
        if (.not. isdead_or_accreted(xyzh(4,j))) then
           ! Get total gravitational force from gas
           call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,fonrmax)
+                                  fxi,fyi,fzi,phii,particlemass,fxyz_ptmass,dsdt_ptmass,fonrmax)
           ! Get force from gas within distance cutoff
           do k = 1,sizeRcut
              if ( separation(xyzh(1:3,j), xyzmh_ptmass(1:4,i)) < Rcut(k) ) then
                 call get_accel_sink_gas(nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),xyzmh_ptmass,&
-                                        fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),fonrmax)
+                                        fxi,fyi,fzi,phii,particlemass,force_cut_vec(1:4,:,k),dsdt_ptmass,fonrmax)
              endif
           enddo
        endif
@@ -3377,7 +3379,7 @@ subroutine gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
 
     ! Calculate core + gas mass based on projected gravitational force
     Fgrav = fxyz_ptmass(1:3,i) * xyzmh_ptmass(4,i) - drag_perp_proj * (-unit_vel)                               ! Ftot,gas + Fsinksink = Fdrag + Fgrav
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,phitot,dtsinksink,0,0.,merge_ij,merge_n)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass_sinksink,phitot,dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     Fgrav = Fgrav + fxyz_ptmass_sinksink(1:3,i) * xyzmh_ptmass(4,i)
     Fgrav_mag = distance(Fgrav)
     mass_coregas = Fgrav_mag * sinksinksep**2 / xyzmh_ptmass(4,i)

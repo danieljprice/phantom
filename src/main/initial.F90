@@ -126,8 +126,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
-                            maxphase,iphase,isetphase,iamtype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
+                            maxphase,iphase,isetphase,iamtype,igas,idust,massoftype, &
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
@@ -491,7 +491,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -505,7 +505,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
              pmassi = massoftype(iamtype(iphase(i)))
           endif
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo

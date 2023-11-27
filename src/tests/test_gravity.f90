@@ -237,7 +237,7 @@ subroutine test_directsum(ntests,npass)
  use dim,             only:maxp,maxptmass,mpi
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
-                           nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong
+                           nptmass,xyzmh_ptmass,fxyz_ptmass,dsdt_ptmass,ibelong
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -425,7 +425,8 @@ subroutine test_directsum(ntests,npass)
 !
 !--compute gravity on the sink particles
 !
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.,merge_ij,merge_n)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
+                             dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
     call bcast_mpi(epoti)
 !
 !--compare the results
@@ -458,7 +459,8 @@ subroutine test_directsum(ntests,npass)
     call get_derivs_global()
 
     epoti = 0.0
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,dtsinksink,0,0.,merge_ij,merge_n)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epoti,&
+                             dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
 !
 !--prevent double counting of sink contribution to potential due to MPI
 !
@@ -473,7 +475,7 @@ subroutine test_directsum(ntests,npass)
     do i=1,npart
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                                xyzmh_ptmass,fxyzu(1,i),fxyzu(2,i),fxyzu(3,i),&
-                               phii,pmassi,fxyz_ptmass_gas,fonrmax,dtsinksink)
+                               phii,pmassi,fxyz_ptmass_gas,dsdt_ptmass,fonrmax,dtsinksink)
        epot_gas_sink = epot_gas_sink + pmassi*phii
        epoti = epoti + poten(i)
     enddo

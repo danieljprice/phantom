@@ -468,7 +468,8 @@ OBJDIR=obj
 # external forces
 #
 ifeq (X$(SRCPOTS), X)
-SRCPOTS= extern_corotate.f90 \
+SRCPOTS= extern_gr.F90 \
+         extern_corotate.f90 \
          extern_binary.f90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
@@ -478,6 +479,7 @@ SRCPOTS= extern_corotate.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
          extern_gwinspiral.f90 \
+         extern_geopot.f90 \
          externalforces.f90
 endif
 ifeq (X$(SRCPOT), X)
@@ -487,8 +489,9 @@ endif
 # metrics for GR
 #
 ifeq ($(GR),yes)
-    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.f90=externalforces_gr.f90)
+    SRCPOT=$(SRCPOTS:externalforces.f90=externalforces_gr.f90)
 endif
+
 ifdef METRIC
     SRCMETRIC= metric_${METRIC}.f90
 else
@@ -570,16 +573,14 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
+ifeq ($(KROME), krome)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
-ifeq ($(KROME), krome)
 	@echo "krome coupling status = enabled"
-else
-	@echo "krome coupling status = disabled"
-endif
 	@echo ""
 	@echo "========================================="
+endif
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
