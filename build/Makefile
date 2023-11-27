@@ -571,16 +571,14 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
+ifeq ($(KROME), krome)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
-ifeq ($(KROME), krome)
 	@echo "krome coupling status = enabled"
-else
-	@echo "krome coupling status = disabled"
-endif
 	@echo ""
 	@echo "========================================="
+endif
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
