@@ -10,7 +10,7 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: fhu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
 !   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
