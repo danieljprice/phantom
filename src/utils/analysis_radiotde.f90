@@ -194,10 +194,10 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
        vri = dot_product(vxyz,xyz)/r
        vr_accum_add = vr_accum_add + vri
        v_accum_add = v_accum_add + v
-       if (r-rad_cap < drad_cap .and. (v .ge. v_min .and. v .le. v_max)) then
+       if (r-rad_cap < drad_cap .and. (v  >=  v_min .and. v  <=  v_max)) then
           thetai = atan2d(y,x)
           phii = atan2d(z,sqrt(x**2+y**2))
-          if ((thetai .ge. theta_min .and. thetai .le. theta_max) .and. (phii .ge. phi_min .and. phii .le. phi_max)) then
+          if ((thetai  >=  theta_min .and. thetai  <=  theta_max) .and. (phii  >=  phi_min .and. phii  <=  phi_max)) then
              m_cap = m_cap + pmass
              n_cap = n_cap + 1
              cap(i) = .true.

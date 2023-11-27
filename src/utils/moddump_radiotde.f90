@@ -132,7 +132,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rhof_rbreak(:) = rhof_rbreak_in(1:nbreak)
     call calc_rhobreak()
  else
-    if (temperature .le. 0) read_temp = .true.
+    if (temperature  <=  0) read_temp = .true.
     rhof => rho_tab    
 
     deallocate(rhof_n,rhof_rbreak)
