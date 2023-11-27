@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module interpolations3D
 !
@@ -16,12 +16,6 @@ module interpolations3D
 !
 ! :Dependencies: einsteintk_utils, kernel
 !
-!----------------------------------------------------------------------
-!
-!  Module containing all of the routines required for interpolation
-!  from 3D data to a 3D grid (SLOW!)
-!
-!----------------------------------------------------------------------
  use einsteintk_utils,  only:exact_rendering
  use kernel,       only:radkern2,radkern,cnormk,wkern
  implicit none

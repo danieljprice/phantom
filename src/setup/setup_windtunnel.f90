@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -10,11 +10,25 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Mstar            : *sphere mass in code units*
+!   - Rstar            : *sphere radius in code units*
+!   - gamma            : *adiabatic index*
+!   - handled_layers   : *number of handled layers*
+!   - lattice_type     : *0: cubic, 1: close-packed cubic*
+!   - nstar            : *number of particles resolving gas sphere*
+!   - pres_inf         : *wind pressure / dyn cm^2*
+!   - rho_inf          : *wind density / g cm^-3*
+!   - v_inf            : *wind speed / km s^-1*
+!   - wind_injection_x : *injection x in units of Rstar*
+!   - wind_length      : *wind length in units of Rstar*
+!   - wind_radius      : *injection radius in units of Rstar*
 !
-! :Dependencies: inject, part, physcon, units
+! :Dependencies: dim, eos, extern_densprofile, infile_utils, inject, io,
+!   kernel, mpidomain, part, physcon, rho_profile, setstar_utils, setunits,
+!   setup_params, table_utils, timestep, unifdis, units
 !
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&

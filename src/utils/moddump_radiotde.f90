@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,17 +10,25 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: fhu
 !
 ! :Runtime parameters:
-!   - temperature : *Temperature*
-!   - mu          : *mean molecular mass*
-!   - ieos_in     : *equation of state*
-!   - use_func    : *use broken power law or profile date points*
+!   - ieos             : *equation of state used*
+!   - ignore_radius    : *tde particle inside this radius will be ignored*
+!   - mu               : *mean molecular density of the cloud*
+!   - nbreak           : *number of broken power laws*
+!   - nprof            : *number of data points in the cloud profile*
+!   - profile_filename : *filename for the cloud profile*
+!   - rad_max          : *outer radius of the circumnuclear gas cloud*
+!   - rad_min          : *inner radius of the circumnuclear gas cloud*
+!   - remove_overlap   : *remove outflow particles overlap with circum particles*
+!   - rhof_n_1         : *power law index of the section*
+!   - rhof_rho0        : *density at rad_min (in g/cm^3)*
+!   - temperature      : *temperature of the gas cloud (-ve = read from file)*
+!   - use_func         : *if use broken power law for density profile*
 !
-! :Dependencies: datafiles, eos, io, stretchmap, kernel,
-!   mpidomain, part, physcon, setup_params,
-!   spherical, timestep, units, infile_utils
+! :Dependencies: eos, infile_utils, io, kernel, mpidomain, part, physcon,
+!   setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
  public :: modify_dump

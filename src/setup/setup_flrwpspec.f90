@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -24,8 +24,8 @@ module setup
 !   - rhozero             : *initial density in code units*
 !
 ! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
-!   mpiutils, options, part, physcon, prompting, setup_params, stretchmap,
-!   unifdis, units, utils_gr   
+!   mpiutils, part, physcon, prompting, setup_params, stretchmap, unifdis,
+!   units, utils_gr
 !
  use dim,          only:use_dust
  use setup_params, only:rhozero

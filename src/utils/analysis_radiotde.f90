@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
@@ -10,17 +10,17 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: fhu
 !
 ! :Runtime parameters:
-!   - rad_cap   : *capture shell radius*
-!   - drad_cap  : *capture shell thickness*
-!   - v_max     : *max velocity*
-!   - v_min     : *min velocity*
-!   - theta_max : *max azimuthal angle*
-!   - theta_min : *min azimuthal angle*
-!   - phi_max   : *max altitude angle*
-!   - phi_min   : *min altitude angle*
+!   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
+!   - phi_max   : *max phi (in deg)*
+!   - phi_min   : *min phi (in deg)*
+!   - rad_cap   : *capture inner radius (in cm)*
+!   - theta_max : *max theta (in deg)*
+!   - theta_min : *min theta (in deg)*
+!   - v_max     : *max velocity (in c)*
+!   - v_min     : *min velocity (in c)*
 !
 ! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
 !

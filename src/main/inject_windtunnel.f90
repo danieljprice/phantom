@@ -9,14 +9,19 @@ module inject
 ! Handles injection for gas sphere in wind tunnel
 !
 !
+! :References: None
+!
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - handled_layers   : *(integer) number of handled BHL wind layers*
-!   - v_inf            : *BHL wind speed*
-!   - Rstar            : *BHL star radius (in accretion radii)*
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*
+!   - Rstar            : *sphere radius (code units)*
+!   - handled_layers   : *(integer) number of handled BHL wind layers*
+!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
+!   - nstar            : *No. of particles making up sphere*
+!   - pres_inf         : *ambient pressure (code units)*
+!   - rho_inf          : *ambient density (code units)*
+!   - v_inf            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
