@@ -48,7 +48,7 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use part,           only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                          ihacc,ihsoft,eos_vars,rad,nsinkproperties
+                          ihacc,ihsoft,eos_vars,rad,nsinkproperties,iJ2,iReff,ispinx,ispinz
  use setbinary,      only:set_binary,get_a_from_period
  use units,          only:is_time_unit,in_code_units,utime
  use physcon,        only:solarm,au,pi,solarr,days
@@ -61,6 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use mpidomain,      only:i_belong
  use centreofmass,   only:reset_centreofmass
  use setunits,       only:mass_unit,dist_unit
+ use physcon,        only:deg_to_rad
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -187,8 +188,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  if (iexternalforce==iext_geopot .or. iexternalforce==iext_star) then
     ! delete first sink particle and copy its properties to the central potential
     nptmass = nptmass - 1
-    mass1 = m1
-    accradius1 = hacc1
+    mass1 = xyzmh_ptmass(4,nptmass+1)
+    accradius1 = xyzmh_ptmass(ihacc,nptmass+1)
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
  else
