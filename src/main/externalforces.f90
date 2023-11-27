@@ -558,12 +558,13 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use extern_binary, only:binary_accreted,accradius1
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
+ integer, intent(in), optional :: i  ! for compatibility with GR routine
  real :: r2
 
  accreted = .false.

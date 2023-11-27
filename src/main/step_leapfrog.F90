@@ -115,14 +115,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
-#ifdef GR
  use part,           only:metricderivs
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
-#else
  use cooling,        only:cooling_in_step
-#endif
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  use damping,        only:idamp
@@ -230,23 +227,22 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
-#ifdef GR
- if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+ if (gr) then
+    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
+       call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+       call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+    else
+       call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+    endif
  else
-    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+    if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
+       call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
+                        nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
+    else
+       call step_extern_sph(dtsph,npart,xyzh,vxyzu)
+    endif
  endif
-
-#else
- if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
-                     nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
- else
-    call step_extern_sph(dtsph,npart,xyzh,vxyzu)
- endif
-#endif
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
 
@@ -679,13 +675,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
 
-#ifdef GR
- call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-#endif
+ if (gr) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 end subroutine step
 
-#ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                            ien_type,eos_vars,igamma,itemp
@@ -1028,7 +1021,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
 end subroutine step_extern_gr
 
-#endif
 !----------------------------------------------------------------
 !+
 !  This is the equivalent of the routine below when no external

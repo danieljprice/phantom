@@ -482,7 +482,7 @@ SRCPOTS= extern_corotate.f90 \
          externalforces.f90
 endif
 ifeq (X$(SRCPOT), X)
-SRCPOT=${SRCPOTS}
+SRCPOT=extern_gr.F90 ${SRCPOTS}
 endif
 #
 # metrics for GR
