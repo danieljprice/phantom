@@ -123,7 +123,7 @@ subroutine test_binary(ntests,npass)
  real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: angle,rin,rout
- real :: fxyz_sinksink(4,2) ! we only use 2 sink particles in the tests here
+ real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real(kind=4) :: t1
  character(len=20) :: dumpfile
  real, parameter :: tolgw = 1.2e-2
@@ -227,9 +227,10 @@ subroutine test_binary(ntests,npass)
     !
     if (id==master) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
-                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_ptmass)
+                                dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink)
     endif
-    fxyz_ptmass(:,:) = 0.
+    fxyz_ptmass(:,1:nptmass) = 0.
+    dsdt_ptmass(:,1:nptmass) = 0.
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtsinksink)
 
@@ -238,7 +239,10 @@ subroutine test_binary(ntests,npass)
        call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
                 fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
     enddo
-    if (id==master) fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
+    if (id==master) then
+       fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
+       dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_sinksink(:,1:nptmass)
+    endif
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
 
@@ -291,7 +295,7 @@ subroutine test_binary(ntests,npass)
     nfailgw = 0; ncheckgw = 0
     dumpfile='test_00000'
     f_acc = 1.
-    call getused(t1)
+    if (id==master) call getused(t1)
     call init_step(npart,t,dtmax)
     do i=1,nsteps
        t = t + dt
@@ -313,7 +317,7 @@ subroutine test_binary(ntests,npass)
        endif
     enddo
     call compute_energies(t)
-    call printused(t1)
+    if (id==master) call printused(t1)
     nfailed(:) = 0
     select case(itest)
     case(3)

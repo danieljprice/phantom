@@ -1074,7 +1074,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,icooling
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
+                          fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
  use chem,           only:update_abundances,get_dphot
  use cooling_ism,    only:dphot0,energ_cooling_ism,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1176,9 +1176,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                                       dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           endif
           fxyz_ptmass_sinksink=fxyz_ptmass
+          dsdt_ptmass_sinksink=dsdt_ptmass
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
           fxyz_ptmass(:,:) = 0.
+          dsdt_ptmass(:,:) = 0.
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
