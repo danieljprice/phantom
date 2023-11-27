@@ -109,7 +109,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nwarn = nwarn + 1
     endif
     if (gamma <= 0.) then
-       print*,'WARNING! gamma not set (should be set > 0 even if not used)'
+       if (id==master) print*,'WARNING! gamma not set (should be set > 0 even if not used)'
        nwarn = nwarn + 1
     endif
  endif
@@ -117,10 +117,10 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
  elseif (npart==0 .and. nptmass==0) then
-    print*,'WARNING! setup: npart = 0 (and no sink particles either)'
+    if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
  elseif (npart==0) then
-    print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
+    if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif
 
