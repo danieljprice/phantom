@@ -1400,13 +1400,14 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
  real                         :: pC, pC2, pC2H, pC2H2, nH_tot, epsC, S
  real                         :: taustar, taugr, JstarS
+ real                         :: v_esci
  real, parameter :: Scrit = 2. ! Critical saturation ratio
  logical :: verbose = .false.
 
  allocate(quant(4,npart))
- Nquantities = 13
+ Nquantities = 14
  if (dump_number == 0) then
-    print "(13(a,/))",&
+    print "(14(a,/))",&
            '1) Total energy (kin + pot + therm)', &
            '2) Mach number', &
            '3) Opacity from MESA tables', &
@@ -1419,7 +1420,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
            '10) Mass coordinate', &
            '11) Gas omega w.r.t. CoM', &
            '12) Gas omega w.r.t. sink 1',&
-           '13) JstarS' !option to calculate JstarS
+           '13) JstarS', &
+           '14) Escape velocity'
 
     quantities_to_calculate = (/1,2,4,5/)
     call prompt('Choose first quantity to compute ',quantities_to_calculate(1),0,Nquantities)
@@ -1435,7 +1437,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  com_vxyz = 0.
  do k=1,4
     select case (quantities_to_calculate(k))
-    case(0,1,2,3,6,8,9,13) ! Nothing to do
+    case(0,1,2,3,6,8,9,13,14) ! Nothing to do
     case(4,5,11,12) ! Fractional difference between gas and orbital omega
        if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
           com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
@@ -1582,6 +1584,9 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
        case(10) ! Mass coordinate
           quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
 
+       case(14) ! Escape_velocity
+         call calc_escape_velocities(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,v_esci)
+         quant(k,i) = v_esci
        case default
           print*,"Error: Requested quantity is invalid."
           stop
@@ -3868,7 +3873,8 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
- etoti = epoti + ekini + einti
+ etoti = epoti + ekini + einti 
+
 end subroutine calc_gas_energies
 
 
@@ -4556,5 +4562,31 @@ subroutine set_eos_options(analysis_to_perform)
  if (ierr /= 0) call fatal('analysis_common_envelope',"Failed to initialise EOS")
 
 end subroutine set_eos_options
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates escape velocity for all SPH particles given the potential energy
+!  of the system at that time
+!+
+!----------------------------------------------------------------
+subroutine calc_escape_velocities(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,v_esc)
+   use ptmass, only:get_accel_sink_gas
+   use part,   only:nptmass
+   real, intent(in)                       :: particlemass
+   real(4), intent(in)                    :: poten
+   real, dimension(4), intent(in)         :: xyzh,vxyzu
+   real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
+   real                                   :: phii,epoti 
+   real                                   :: fxi,fyi,fzi
+   real, intent(out)                      :: v_esc
+   
+   phii = 0.0
+   call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
+
+   epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
+   v_esc = sqrt(2*abs(epoti/particlemass))
+   
+end subroutine calc_escape_velocities
 
 end module analysis
