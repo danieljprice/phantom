@@ -115,6 +115,7 @@ subroutine test_binary(ntests,npass)
  use checksetup,     only:check_setup
  use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
+ use options,        only:ipdv_heating,ishock_heating
  integer, intent(inout) :: ntests,npass
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
@@ -134,6 +135,8 @@ subroutine test_binary(ntests,npass)
  tree_accuracy = 0.
  h_soft_sinksink = 0.
  calc_gravitwaves = .true.
+ ipdv_heating = 0
+ ishock_heating = 0
 
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)

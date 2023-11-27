@@ -273,7 +273,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  v1 = -dv*m2/mtot
  v2 =  dv*m1/mtot
 
- omega0 = v1(2)/x1(1)
+ omega0 = v2(2)/x2(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
@@ -282,8 +282,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
-        'Omega_0 (prim)   :',v1(2)/x1(1), &
-        'Omega_0 (second) :',v1(2)/x1(1), &
+        'Omega_0 (prim)   :',v2(2)/x2(1), &
+        'Omega_0 (second) :',v2(2)/x2(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
