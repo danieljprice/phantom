@@ -141,7 +141,7 @@ subroutine get_idealplusrad_rhofrompresT(presi,tempi,mu,densi)
  real, intent(in)  :: presi,tempi,mu
  real, intent(out) :: densi
 
- densi = (presi - 1./3.*radconst*tempi**4) * mu / (Rg*tempi)
+ densi = (presi - radconst*tempi**4 /3.) * mu / (Rg*tempi)
 
 end subroutine get_idealplusrad_rhofrompresT
 
