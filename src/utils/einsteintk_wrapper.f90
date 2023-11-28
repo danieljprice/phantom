@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module einsteintk_wrapper
 !
@@ -239,7 +239,7 @@ subroutine et2phantom_tmunu()
  ! Correct Tmunu
  ! Convert to 8byte real to stop compiler warning
  tmunugrid = real(cfac)*tmunugrid
- 
+
 
 end subroutine et2phantom_tmunu
 
@@ -286,7 +286,7 @@ subroutine phantom2et_consvar()
 
  ! Correct momentum and Density
  ! Conversion of cfac to 8byte real to avoid
- ! compiler warning 
+ ! compiler warning
  rhostargrid = real(cfac)*rhostargrid
  pxgrid = real(cfac)*pxgrid
  entropygrid = real(cfac)*entropygrid
@@ -426,37 +426,37 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  real, intent(in)  :: time, dt_et
  !real(kind=16) :: cfac
  !logical, intent(in), optional :: checkpoint
- !integer, intent(in) :: checkpointno 
+ !integer, intent(in) :: checkpointno
  character(*),optional, intent(in) :: checkpointfile
- logical :: createcheckpoint 
+ logical :: createcheckpoint
 
- if (present(checkpointfile)) then 
-       createcheckpoint = .true.
- else 
-     createcheckpoint = .false.
- endif   
+ if (present(checkpointfile)) then
+    createcheckpoint = .true.
+ else
+    createcheckpoint = .false.
+ endif
 
  ! Write EV_file
- if (.not. createcheckpoint) then 
-       call write_evfile(time,dt_et)
+ if (.not. createcheckpoint) then
+    call write_evfile(time,dt_et)
 
-       evfilestor  = getnextfilename(evfilestor)
-       logfilestor = getnextfilename(logfilestor)
-       dumpfilestor = getnextfilename(dumpfilestor)
-       call write_fulldump(time,dumpfilestor)
- endif 
+    evfilestor  = getnextfilename(evfilestor)
+    logfilestor = getnextfilename(logfilestor)
+    dumpfilestor = getnextfilename(dumpfilestor)
+    call write_fulldump(time,dumpfilestor)
+ endif
 
  ! Write full dump
- if (createcheckpoint) then 
-       call write_fulldump(time,checkpointfile) 
- endif 
+ if (createcheckpoint) then
+    call write_fulldump(time,checkpointfile)
+ endif
 
  ! Quick and dirty write cfac to txtfile
- 
+
  ! Density check vs particles
 !  call check_conserved_dens(rhostargrid,cfac)
 !  open(unit=777, file="cfac.txt", action='write', position='append')
-!  print*, time, cfac 
+!  print*, time, cfac
 !  write(777,*) time, cfac
 !  close(unit=777)
 

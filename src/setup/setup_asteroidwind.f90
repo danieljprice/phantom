@@ -22,13 +22,15 @@ module setup
 !   - ipot          : *wd modelled by 0=sink or 1=externalforce*
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
+!   - mdot          : *mass injection rate (g/s)*
 !   - norbits       : *number of orbits*
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   io, options, part, physcon, setbinary, spherical, timestep, units
+!   inject, io, kernel, options, part, physcon, setbinary, spherical,
+!   timestep, units
 !
  use inject, only:mdot
  implicit none
