@@ -109,14 +109,6 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     Y(:) = Y(size(Y))
  endif
 
- if (eos_type==10) then
-    X_in = Xcore
-    Z_in = Zcore
-    call init_eos(eos_type,ierr)  ! need to initialise EoS again with newfound composition
- endif
-
- if (ierr /= 0) call fatal('set_softened_core','could not initialise equation of state')
-
  ! call core-softening subroutines
  select case(isoftcore) ! choose type of core-softening
  case(1)
