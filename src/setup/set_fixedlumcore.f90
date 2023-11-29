@@ -24,7 +24,7 @@ module setfixedlumcore
  public :: set_fixedlum_softened_core
 
  private
- integer, parameter :: ierr_rho=1,ierr_pres=2,ierr_mass=3
+ integer, parameter :: ierr_rho=1,ierr_pres=2,ierr_mass=3,ierr_lum=4
 
 contains
 
@@ -81,11 +81,11 @@ subroutine set_fixedlum_softened_core(eos_type,rcore,Lstar,mcore,rho,r,pres,m,Xc
                            X_local=Xcore,Z_local=1.-Xcore-Ycore)
  enddo
 
- iverbose = 0
+ iverbose = 1
  call shoot_for_mcore(eos_type,r_alloc,mc,m(icore),Lstar,rho_alloc,pres_alloc,T_alloc,Xcore,Ycore,iverbose)
  mcore = mc / solarm
- write(*,'(1x,a,f8.5,a)') 'Obtained core mass of ',mcore,' Msun'
- write(*,'(1x,a,f8.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
+ write(*,'(1x,a,es24.16e3,a)') 'Obtained core mass of ',mcore,' Msun'
+ write(*,'(1x,a,es24.16e3,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
  rho(1:icore)  = rho_alloc(1:icore)
  pres(1:icore) = pres_alloc(1:icore)
  call calc_mass_from_rho(r(1:icore),rho(1:icore),m(1:icore))
@@ -107,8 +107,9 @@ subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,i
  real,    intent(in)                               :: Lstar,mh,Xcore,Ycore
  real,    intent(inout)                            :: mcore
  real,    allocatable, dimension(:), intent(inout) :: rho,pres,temp
- integer                                           :: Nmax,it,ierr
- real                                              :: mass,mold,msoft,fac,mu,mcore_old
+ integer                                           :: Nmax,it_m,it_l,ierr
+ real                                              :: mass,mold,msoft,fac_m,fac_l,mu,mcore_old,&
+                                                      eps0,epsold,l,lold,tol_eps,tol_m
 
 ! INSTRUCTIONS
 
@@ -125,46 +126,90 @@ subroutine shoot_for_mcore(eos_type,r,mcore,mh,Lstar,rho,pres,temp,Xcore,Ycore,i
  mu = get_mean_molecular_weight(Xcore,1.-Xcore-Ycore)
 
  ! Start shooting method
- fac  = 0.0005
+ fac_m  = 0.005
  mass = msoft
- it = 0
- do
+ tol_eps = 1.e-10
+ tol_m = 1.e-10
+
+ !---------------------------LOOP-OVER-MCORE-------------------------------------
+ ! Vary mcore so that m(0) = 0
+ it_m = 0
+ loop_over_mcore: do
+    l = Lstar
+    eps0 = Lstar/msoft  ! initial guess for eps0 / erg/g
     mold = mass
     mcore_old = mcore
-    ierr = 0
-    call one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,temp,mass,iverbose,ierr) ! returned mass is m(r=0)
-    it = it + 1
+    !---------------------------LOOP-OVER-HEATING-FACTOR-------------------------------------
+    ! Vary heating factor (eps0) so that central luminosity is zero
+    it_l = 0
+    fac_l = 0.01
+    loop_over_eps0: do
+       epsold = eps0
+       lold = l
+       ierr = 0
+       call one_shot(eos_type,r,mcore,msoft,Lstar,eps0,mu,rho,pres,temp,mass,l,iverbose,ierr) ! returned mass is m(r=0)
+       it_l = it_l + 1
 
-    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e15.8),2x,a,i1)') it,'m(r=0) = ',mass/solarm,'mcore_old = ',&
-                            mcore_old/solarm,'mcore = ',mcore/solarm,'fac = ',fac,'ierr = ',ierr
+       if (iverbose > 1) write(*,'(2(1x,i5),8(2x,a,e15.8),2x,a,i1)') &
+                            it_m,it_l,'eps0=',eps0,'m(0)=',mass/solarm,&
+                            'l(0)=',l,'eps0_old=',epsold,'mcore_old = ',&
+                            mcore_old/solarm,'mcore=',mcore/solarm,'fac_l=',fac_l,&
+                            'fac_m=',fac_m,'ierr=',ierr
+
+       if (l < 0.) then
+          eps0 = eps0 * (1. - fac_l)
+       elseif (l/Lstar < tol_eps) then ! l(r=0) sufficiently close to zero
+         !  write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on luminosity reached on iteration no.',it_l,', fac_l =',fac_l
+          exit loop_over_eps0
+       else
+          eps0 = eps0 * (1. + fac_l)
+       endif
+
+       if (abs(epsold-eps0) < tiny(0.)) then
+          fac_l = fac_l * 1.05
+       elseif (lold * l < 0.) then
+          fac_l = fac_l * 0.95
+       endif
+    enddo loop_over_eps0
+    !-----------------------------------------------------------------------------------------
+    it_m = it_m + 1
+    if (iverbose == 1) write(*,'(2(1x,i5),6(2x,a,e15.8),2x,a,i1)') &
+                            it_m,it_l,'eps0=',eps0,'m(0)=',mass/solarm,'mcore_old = ',&
+                            mcore_old/solarm,'mcore=',mcore/solarm,'fac_l=',fac_l,&
+                            'fac_m=',fac_m,'ierr=',ierr
 
     if (mass < 0.) then
-       mcore = mcore * (1. - fac)
-    elseif (mass/msoft < 1d-10 .and. ierr <= ierr_pres) then  ! m(r=0) sufficiently close to zero
-       write(*,'(/,1x,a,i5,a,e12.5)') 'Tolerance on central mass reached on iteration no.',it,', fac =',fac
+       mcore = mcore * (1. - fac_m)
+    elseif (mass/msoft < tol_m .and. ierr <= ierr_pres) then  ! m(r=0) sufficiently close to zero
+       write(*,'(/,1x,a,i5,2(1x,a,es24.16e3))') 'Converged on iteration no.',it_m,', fac_m =',fac_m,'eps0 = ',eps0
        if (ierr == ierr_rho) write(*,'(a)') 'WARNING: Profile contains density inversion'
-       exit
+       exit loop_over_mcore
     else
-       mcore = mcore * (1. + fac)
+       mcore = mcore * (1. + fac_m)
     endif
     msoft = mh - mcore
 
-    if (abs(mold-mass) < tiny(0.)) then
-       fac = fac * 1.02
-    elseif (mold * mass < 0.) then
-       fac = fac * 0.99
+    if (mold * mass < 0.) then
+      fac_m = fac_m * 0.95
+    else
+      fac_m = fac_m * 1.05
     endif
+   !  if (abs(mold-mass) < tiny(0.)) then
+   !     fac_m = fac_m * 1.02
+   !  elseif (mold * mass < 0.) then
+   !     fac_m = fac_m * 0.99
+   !  endif
 
     if (abs(mold-mass) < tiny(0.) .and. ierr <= ierr_rho) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
                                  &central mass. m(r=0)/msoft = ',mass/msoft
        if (ierr == ierr_rho) write(*,'(1x,a)') 'WARNING: Profile contains density inversion'
-       write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
-       exit
+       write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it_m,', fac_m=',fac_m
+       exit loop_over_mcore
     endif
 
-    
- enddo
+ enddo loop_over_mcore
+ !-----------------------------------------------------------------------------------------
 
 end subroutine shoot_for_mcore
 
@@ -174,24 +219,24 @@ end subroutine shoot_for_mcore
 !  One shot: Solve structure for given guess for msoft/mcore
 !+
 !-----------------------------------------------------------------------
-subroutine one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ierr)
+subroutine one_shot(eos_type,r,mcore,msoft,Lstar,eps0,mu,rho,pres,T,mass,l,iverbose,ierr)
  use physcon,             only:gg,pi,radconst,c,solarm
  use eos,                 only:calc_rho_from_PT,iopacity_type
  use radiation_utils,     only:get_opacity
  use setfixedentropycore, only:gcore
  use units,               only:unit_density,unit_opacity
  integer, intent(in)                            :: eos_type,iverbose
- real, intent(in)                               :: mcore,msoft,Lstar,mu
+ real, intent(in)                               :: mcore,msoft,Lstar,eps0,mu
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres,T
- real, intent(out)                              :: mass
+ real, intent(out)                              :: mass,l
  integer, intent(out)                           :: ierr
  integer                                        :: i,Nmax
  real                                           :: kappai,kappa_code,rcore,mu_local,rho_code
  real, allocatable, dimension(:)                :: dr,dvol,lum
 
  Nmax = size(rho)-1
- allocate(dr(1:Nmax+1),dvol(1:Nmax+1),lum(1:Nmax))
+ allocate(dr(1:Nmax+1),dvol(1:Nmax+1),lum(1:Nmax+1))
 
  ! Pre-fill arrays
  do i = 1,Nmax+1
@@ -201,41 +246,53 @@ subroutine one_shot(eos_type,r,mcore,msoft,Lstar,mu,rho,pres,T,mass,iverbose,ier
 
  rcore = r(Nmax)
  mass  = msoft
- lum(Nmax) = Lstar
+ lum(Nmax:Nmax+1) = Lstar
  mu_local = mu
  ierr = 0
 
  do i = Nmax, 1, -1
-    pres(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
-                * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),rcore)) &
-                + dr(i)**2 * pres(i+1) &
-                + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
+    pres(i-1) = pres(i) + dr(i) * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),rcore))
+   !  pres(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
+   !              * rho(i) * gg * (mass/r(i)**2 + mcore * gcore(r(i),rcore)) &
+   !              + dr(i)**2 * pres(i+1) &
+   !              + ( dr(i+1)**2 - dr(i)**2) * pres(i) ) / dr(i+1)**2
     rho_code = rho(i) / unit_density
     call get_opacity(iopacity_type,rho_code,T(i),kappa_code)
     kappai = kappa_code * unit_opacity
-    T(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
-             * 3./(16.*pi*radconst*c) * rho(i)*kappai*lum(i) / (r(i)**2*T(i)**3) &
-             + dr(i)**2 * T(i+1) &
-             + ( dr(i+1)**2 - dr(i)**2) * T(i) ) / dr(i+1)**2
+    T(i-1) = T(i) + dr(i) * 3./(16.*pi*radconst*c) * rho(i)*kappai*lum(i) / (r(i)**2*T(i)**3)
+   !  T(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
+   !           * 3./(16.*pi*radconst*c) * rho(i)*kappai*lum(i) / (r(i)**2*T(i)**3) &
+   !           + dr(i)**2 * T(i+1) &
+   !           + ( dr(i+1)**2 - dr(i)**2) * T(i) ) / dr(i+1)**2
     call calc_rho_from_PT(eos_type,pres(i-1),T(i-1),rho(i-1),ierr,mu_local)
     mass = mass - rho(i)*dvol(i)
-    lum(i-1) = luminosity(mass/msoft,Lstar)
+    lum(i-1) = lum(i) - dr(i)*4.*pi*r(i)**2*rho(i)*eps0*eps_heating(r(i),rcore)
+   !  lum(i-1) = ( dr(i) * dr(i+1) * sum(dr(i:i+1)) &
+   !           * (-4.*pi)*r(i)**2*rho(i)*eps0*eps_heating(r(i),rcore) &
+   !           + dr(i)**2 * lum(i+1) &
+   !           + ( dr(i+1)**2 - dr(i)**2) * lum(i) ) / dr(i+1)**2
+    l = lum(i-1)
     
-    if (iverbose > 2) print*,Nmax-i+1,rho(i-1),mass,pres(i-1),T(i-1),kappai
+    if (iverbose > 3) print*,Nmax-i+1,rho(i-1),mass,pres(i-1),T(i-1),kappai,lum(i-1)
     if (mass < 0.) then ! m(r) < 0 encountered, exit and decrease mcore
-       if (iverbose > 1) print*,'WARNING: Negative mass reached at i = ',i, 'm = ',mass/solarm
+       if (iverbose > 2) print*,'WARNING: Negative mass reached at i = ',i, 'm = ',mass/solarm
        ierr = ierr_mass
        return
     endif
+    if (l < 0.) then ! l(r) < 0 encountered, exit and increase heating pre-factor eps0
+       if (iverbose > 2) print*,'WARNING: Negative luminosity reached at i = ',i, 'm = ',mass/solarm
+       ierr = ierr_lum
+       return
+    endif
     if (rho(i-1)<rho(i)) then
-       if (iverbose > 1) then 
+       if (iverbose > 2) then 
           print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4,2x,e12.7)') i,rho(i),rho(i-1),mass,kappai
        endif
        ierr = ierr_rho
     endif
     if (pres(i-1)<pres(i)) then
-       if (iverbose > 1) then
+       if (iverbose > 2) then
           print*,'WARNING: Pressure inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4,2x,e12.7)') i,pres(i-1),rho(i),mass,kappai
        endif
@@ -248,37 +305,21 @@ end subroutine one_shot
 
 !-----------------------------------------------------------------------
 !+
-!  Normalised luminosity function. q can be m/msoft or r/rcore
-!  Note: For point mass heating, q = r/(radkern*hsoft), not r/hsoft, so
-!        that luminosity reaches target value at r = radkern*hsoft
+!  Wrapper function to return heating rate per unit mass (epsilon).
+!  Warning: normalisation is arbitrary (see heating_kernel)
 !+
 !-----------------------------------------------------------------------
-function luminosity(q,Lstar,hsoft)
-!  use kernel, only:radkern,wkern,cnormk
- real, intent(in)           :: q,Lstar
- real, intent(in), optional :: hsoft
- real                       :: luminosity
- integer                    :: ilum
+function eps_heating(r,rcore)
+ use kernel,         only:radkern2
+ use ptmass_heating, only:heating_kernel,isink_heating
+ real, intent(in) :: r,rcore
+ real             :: eps_heating,q2
 
- ilum = 0
+ isink_heating = 1
+ q2 = radkern2 * r**2 / rcore**2
+ eps_heating = heating_kernel(q2,isink_heating)
 
- if (q > 1) then
-    luminosity = 1.
- else
-    select case(ilum)
-    case(1)  ! smooth step
-       luminosity = 3.*q**2 - 2.*q**3
-   !  case(2)  ! kernel softening
-   !     r_on_hsoft = q*radkern
-   !     luminosity = cnormk*wkern(r_on_hsoft*r_on_hsoft,r_on_hsoft)/hsoft**3
-    case default  ! linear (constant heating rate)
-       luminosity = q
-    end select
-   endif
-
- luminosity = luminosity * Lstar
-
-end function luminosity
+end function eps_heating
 
 
 end module setfixedlumcore
