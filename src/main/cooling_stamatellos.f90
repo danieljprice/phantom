@@ -66,7 +66,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  real,intent(out) :: dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom
- real            :: tcool,ueqi,tthermi,poti,presi,Hcomb
+ real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb
 
  poti = Gpot_cool(i)
 !    Tfloor is from input parameters and is background heating
@@ -126,6 +126,9 @@ endif
  endif
  call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
  ueqi = ueqi/unit_ergg
+
+ call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+ umini = umini/unit_ergg
 
 ! calculate thermalization timescale and
 ! internal energy update -> this is in a form where it'll work as dudtcool
