@@ -57,16 +57,16 @@ end subroutine init_star
 !
 subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use io,       only:warning
- use physcon,  only:steboltz,pi,solarl,Rg
- use units,    only:umass,udist,unit_density,unit_ergg,utime
+ use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh
+ use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool
  use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
  real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
  integer,intent(in) :: i
  real,intent(out) :: dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
- real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi
- real            :: tcool,ueqi,umini,tthermi,poti,presi
+ real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom
+ real            :: tcool,ueqi,tthermi,poti,presi,Hcomb
 
  poti = Gpot_cool(i)
 !    Tfloor is from input parameters and is background heating
@@ -85,8 +85,8 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 ! get opacities & Ti for ui
  call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi)
- presi = eos_vars(igasP,i)
-
+ presi = kb_on_mh*rhoi*unit_density*Ti/gmwi
+ presi = presi/unit_pressure
 
 if (isnan(kappaBari)) then
    print *, "kappaBari is NaN\n", " ui(erg) = ", ui*unit_ergg, "rhoi=", rhoi*unit_density, "Ti=", Ti, &
@@ -94,68 +94,58 @@ if (isnan(kappaBari)) then
    stop
 endif
 
-
  select case (od_method)
  case (1)
+! Stamatellos+ 2007 method
     coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
     coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
     coldensi = coldensi*umass/udist/udist ! physical units
  case (2)
-! Lombardi+ method of estimating the mean column density
-    coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
+! Lombardi+ 2015 method of estimating the mean column density
+    coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho)
     coldensi = coldensi *umass/udist/udist ! physical units
+ case (3)
+    HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
+    HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
+    Hcomb = 1.0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
+    coldensi = Hcomb*rhoi
+    coldensi = coldensi*umass/udist/udist
  end select
 
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
  dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 
-
 ! calculate Teqi
- if (od_method == 1) then
-    Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
-    Teqi = Teqi/4.d0/steboltz
-    Teqi = Teqi + Tmini4
-    if (Teqi < Tmini4) then
-       Teqi = Tmini4**(1.0/4.0)
-    else
-       Teqi = Teqi**(1.0/4.0)
-    endif
-    call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
-    ueqi = ueqi/unit_ergg
+ Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+ Teqi = Teqi/4.d0/steboltz
+ Teqi = Teqi + Tmini4
+ if (Teqi < Tmini4) then
+    Teqi = Tmini4**(1.0/4.0)
+ else
+    Teqi = Teqi**(1.0/4.0)
  endif
-
- call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
- umini = umini/unit_ergg
+ call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+ ueqi = ueqi/unit_ergg
 
 ! calculate thermalization timescale and
-! internal energy update -> put in form where it'll work as dudtcool
- select case (od_method)
- case (1)
-    if ((dudti_sph + dudt_rad) == 0.d0) then
-       tthermi = 0d0
-    else
-       tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
-    endif
-    if (tthermi == 0d0) then
-       dudti_cool = 0.d0 ! condition if denominator above is zero
-    else
-       dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
-    endif
- case (2)
-    if (abs(dudt_rad) > 0.d0) then
-       tthermi = (umini - ui) / (dudt_rad)! + tiny(dudt_rad))
-       dudti_cool = (ui*exp(-dt/tthermi) + umini*(1.d0-exp(-dt/tthermi)) -ui)/dt + dudti_sph
-    else  ! ie Tmini == Ti
-       dudti_cool = (umini - ui)/dt + dudti_sph ! ? CHECK THIS
-    endif
- end select
-
+! internal energy update -> this is in a form where it'll work as dudtcool
+ if ((dudti_sph + dudt_rad) == 0.d0) then
+    tthermi = 0d0
+ else
+    tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
+ endif
+ if (tthermi == 0d0) then
+    dudti_cool = 0.d0 ! condition if denominator above is zero
+ else
+    dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
+ endif
+ 
 
  if (isnan(dudti_cool)) then
     print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
     print *, "rhoi=",rhoi, "Ti=", Ti
     print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
-    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+    print *,  "dt=",dt,"tthermi=", tthermi
     print *, "dudt_rad=", dudt_rad
     call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
     stop
@@ -174,7 +164,7 @@ subroutine write_options_cooling_stamatellos(iunit)
 
  !N.B. Tfloor handled in cooling.F90
  call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
- call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) potential (2) pressure',iunit)
+ call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) potential (2) pressure (3) combined',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
 
 end subroutine write_options_cooling_stamatellos
@@ -196,8 +186,8 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
     ngot = ngot + 1
  case('OD method')
     read(valstring,*,iostat=ierr) od_method
-    if (od_method < 1 .or. od_method > 2) then
-       call fatal('cooling options','od_method must be 1 or 2',var='od_method',ival=od_method)
+    if (od_method < 1 .or. od_method > 3) then
+       call fatal('cooling options','od_method must be 1, 2 or 3',var='od_method',ival=od_method)
     endif
     ngot = ngot + 1
  case('EOS_file')
@@ -206,7 +196,7 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
  case default
     imatch = .false.
  end select
- if (od_method  /=  1 .and. od_method  /=  2) then
+ if (od_method  /=  1 .and. od_method  /=  2 .and. od_method /= 3) then
     call warning('cooling_stamatellos','optical depth method unknown')
  endif
 
