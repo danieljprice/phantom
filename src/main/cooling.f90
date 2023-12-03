@@ -76,7 +76,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  ierr = 0
  select case(icooling)
  case(8)
-    if (id==master) write(iprint,*) 'initialising ISM cooling function...'
+    if (id==master) write(iprint,*) 'initialising ISM cooling functions...'
     call init_chem()
     call init_cooling_ism()
  case(6)
@@ -122,7 +122,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  use physcon, only:Rg
  use units,   only:unit_ergg
  use cooling_gammie,         only:cooling_Gammie_explicit
- use cooling_gammie_PL,       only:cooling_Gammie_PL_explicit
+ use cooling_gammie_PL,      only:cooling_Gammie_PL_explicit
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
@@ -172,7 +172,7 @@ subroutine write_options_cooling(iunit)
  use infile_utils,      only:write_inopt
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
- use cooling_gammie_PL,  only:write_options_cooling_gammie_PL
+ use cooling_gammie_PL, only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  integer, intent(in) :: iunit

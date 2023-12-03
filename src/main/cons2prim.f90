@@ -176,11 +176,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa,idmu,idgamma,icv
- use part,              only:nucleation,gamma_chem
+ use part,              only:nucleation,gamma_chem,igamma
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome
+                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
@@ -217,7 +217,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
-!$omp shared(iopacity_type,use_var_comp,do_nucleation,implicit_radiation) &
+!$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
 !$omp private(Bxi,Byi,Bzi,psii,xi_limiteri,Bi,temperaturei,ierr,pmassi) &
 !$omp private(xi,yi,zi,hi) &
@@ -265,6 +265,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           mui    = nucleation(idmu,i)
           gammai = nucleation(idgamma,i)
        endif
+       if (update_muGamma) then
+          mui    = eos_vars(imu,i)
+          gammai = eos_vars(igamma,i)
+       endif
        if (use_krome) gammai = gamma_chem(i)
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
@@ -279,7 +283,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation) eos_vars(imu,i) = mui
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. update_muGamma) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           if (temperaturei > tiny(0.)) then

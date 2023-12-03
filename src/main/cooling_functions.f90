@@ -40,6 +40,7 @@ module cooling_functions
            testing_cooling_functions
 
  private
+    real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
 
 contains
 !-----------------------------------------------------------------------
@@ -149,12 +150,15 @@ subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
  real, intent(out) :: Q,dlnQ_dlnT
 
  real, parameter   :: f = 1.0d0
- real              :: eps_e
+ real              :: ne,nH
 
  if (T > 3000.) then
-    eps_e = calc_eps_e(T)
-    Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho_cgs/(1.4*mass_proton_cgs)**2
-    dlnQ_dlnT = -118400./T+log(calc_eps_e(1.001*T)/eps_e)/log(1.001)
+    nH = rho_cgs/(1.4*mass_proton_cgs)
+    ne = calc_eps_e(T)*nH
+    !the term 1/(1+sqrt(T)) comes from Cen (1992, ApjS, 78, 341)
+    Q  = -f*7.3d-19*ne*nH*exp(-118400./T)/rho_cgs/(1.+sqrt(T/1.d5))
+    dlnQ_dlnT = -118400./T+log(nH*calc_eps_e(1.001*T)/ne)/log(1.001) &
+         - 0.5*sqrt(T/1.d5)/(1.+sqrt(T/1.d5))
  else
     Q = 0.
     dlnQ_dlnT = 0.
@@ -164,7 +168,7 @@ end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
 !+
-!  compute electron equilibrium abundance (Palla et al 1983)
+!  compute electron equilibrium abundance per nH atom (Palla et al 1983)
 !+
 !-----------------------------------------------------------------------
 real function calc_eps_e(T)
@@ -235,21 +239,26 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
 
  real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
 
+ real, parameter  :: H2_diss = 7.178d-12    !  4.48 eV in erg
  real, parameter  :: H_ion   = 2.179d-11    ! 13.60 eV in erg
  real, parameter  :: He_ion  = 3.940d-11    ! 24.59 eV in erg
  real, parameter  :: He2_ion = 8.720d-11    ! 54.42 eV in erg
- real             :: n_gas, X, KH, xx, Y, KHe, KHe2, z1, z2, cst
+ real             :: KH, KH2, xx, yy, KHe, KHe2, z1, z2, cst
 
- n_gas  = rho_gas/(mu*mass_proton_cgs)
- X      = nH /n_gas
- Y      = nHe/n_gas
- cst    = mass_proton_cgs/rho_gas * sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
+ cst = mass_proton_cgs/rho_gas*sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
  if (T_gas > 1.d5) then
     xx = 1.
  else
-    KH   = cst/X * exp(-H_ion /(kboltz*T_gas))
+    KH   = cst/xH * exp(-H_ion /(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
     xx   = 0.5 * (-KH    + sqrt(KH**2+4.*KH))
+ endif
+ if (T_gas > 1.d4) then
+    yy = 1.
+ else
+    KH2  = 0.5*sqrt(0.5*mass_proton_cgs/mass_electron_cgs)**3*cst/xH * exp(-H2_diss/(kboltz*T_gas))
+    ! solution to quadratic SAHA equations (Eq. 15 in D'Angelo et al 2013)
+    yy   = 0.5 * (-KH    + sqrt(KH2**2+4.*KH2))
  endif
  if (T_gas > 3.d5) then
     z1 = 1.
@@ -257,13 +266,13 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
  else
     KHe    = 4.*cst * exp(-He_ion/(kboltz*T_gas))
     KHe2   =    cst * exp(-He2_ion/(kboltz*T_gas))
-
 ! solution to quadratic SAHA equations (Eq. 17 in D'Angelo et al 2013)
-    z1     = (2./Y ) * (-KHe-X + sqrt((KHe+X)**2+KHe*Y))
+    z1     = (2./XHe ) * (-KHe-xH + sqrt((KHe+xH)**2+KHe*xHe))
 ! solution to quadratic SAHA equations (Eq. 18 in D'Angelo et al 2013)
-    z2     = (2./Y ) * (-KHe2-X + sqrt((KHe+X+Y/4.)**2+KHe2*Y))
+    z2     = (2./xHe ) * (-KHe2-xH + sqrt((KHe+xH+xHe/4.)**2+KHe2*xHe))
  endif
- n_e    = xx * nH + z1*(1.+z2) * nHe
+ n_e       = xx * nH + z1*(1.+z2) * nHe
+ !mu  = 4./(2.*xH*(1.+xx+2.*xx*yy)+xHe*(1+z1+z1*z2))
 
 end function n_e
 
@@ -507,7 +516,6 @@ end function cool_coulomb
 real function heat_CosmicRays(nH, nH2)
 
  real, intent(in) :: nH, nH2
-
  real, parameter  :: Rcr = 5.0d-17  !cosmic ray ionisation rate [s^-1]
 
  heat_CosmicRays = Rcr*(5.5d-12*nH+2.5d-11*nH2)
@@ -524,7 +532,6 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
@@ -532,6 +539,7 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 3000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_HI = 7.3d-19*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas/(1.+sqrt(T_gas/1.d5))*exp(-118400./T_gas)
  else
     cool_HI = 0.0
@@ -549,13 +557,13 @@ real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
-    n_gas             = rho_gas/(mu*mass_proton_cgs)
+    n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_H_ionisation = 1.27d-21*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*sqrt(T_gas)/(1.+sqrt(T_gas/1.d5))*exp(-157809./T_gas)
  else
     cool_H_ionisation = 0.0
@@ -569,15 +577,17 @@ end function cool_H_ionisation
 !+
 !-----------------------------------------------------------------------
 real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
- use physcon, only:mass_proton_cgs
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
 
- real              :: n_gas
+   use physcon, only:mass_proton_cgs
+
+   real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+   real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
-    n_gas              = rho_gas/(mu*mass_proton_cgs)
+    n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_He_ionisation = 9.38d-22*n_e(T_gas, rho_gas, mu, nH, nHe)*nHe*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-285335./T_gas)
  else
     cool_He_ionisation = 0.0
@@ -594,7 +604,6 @@ end function cool_He_ionisation
 real function cool_H2_rovib(T_gas, nH, nH2)
 
  real, intent(in)  :: T_gas, nH, nH2
-
  real              :: kH_01, kH2_01
  real              :: Lvh, Lvl, Lrh, Lrl
  real              :: x, Qn
@@ -717,7 +726,7 @@ real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
 !McKee et al. 1982 eq. 5.2
 
  QvibH2 = 1.83d-26*nH2*nfCO*T_gas*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.)))  !Smith & Rosen
- QvibH  = 1.28d-24*nH *nfCO*sqrt(T)*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43) !Smith & Rosen
+ QvibH  = 1.28d-24*nH *nfCO*sqrt(T_gas)*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43) !Smith & Rosen
 
  cool_CO_rovib = Qrot+QvibH+QvibH2
 

@@ -104,7 +104,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2) then
+    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -238,7 +238,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /=9)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma

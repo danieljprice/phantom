@@ -204,7 +204,7 @@ end subroutine get_dump_size
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry
+                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -420,6 +420,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
           call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
           call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
+       endif
+       if (update_muGamma) then
+          call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
        endif
        if (do_nucleation) then
           call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))

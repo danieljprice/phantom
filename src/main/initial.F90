@@ -112,7 +112,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile
+                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -125,7 +125,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
-                            maxphase,iphase,isetphase,iamtype, &
+                            maxphase,iphase,isetphase,iamtype,igamma,imu, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
@@ -142,7 +142,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use metric_tools,     only:init_metric,imet_minkowski,imetric
 #endif
  use units,            only:utime,umass,unit_Bfield
- use eos,              only:gmw
+ use eos,              only:gmw,gamma
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
@@ -176,7 +176,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
- use dust_formation,   only:init_nucleation
+ use dust_formation,   only:init_nucleation,set_abundances
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
  use partinject,       only:update_injected_particles
@@ -537,6 +537,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (itau_alloc == 1) tau = 0.
     !initialize Lucy optical depth array tau_lucy
     if (itauL_alloc == 1) tau_lucy = 2./3.
+ endif
+ if (update_muGamma) then
+    eos_vars(igamma,:) = gamma
+    eos_vars(imu,:) = gmw
+    call set_abundances !to get mass_per_H
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this
