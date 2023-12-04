@@ -144,7 +144,7 @@ end subroutine cooling_radiative_relaxation
 !-----------------------------------------------------------------------
 subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
 
- use physcon, only: mass_proton_cgs, pi
+ use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T, rho_cgs
  real, intent(out) :: Q,dlnQ_dlnT

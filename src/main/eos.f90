@@ -1198,7 +1198,7 @@ subroutine eosinfo(eos_type,iprint)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
  case(5)
     if (maxvxyzu >= 4) then
-       write(iprint,"(/,a,f10.6,a,f10.6)") ' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2'
+       write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")
     else
        stop '[stop eos] eos = 5 cannot assume isothermal conditions'
     endif
