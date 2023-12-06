@@ -33,6 +33,7 @@ module cooling_ism
 !   splineutils, units
 !
  use physcon, only:kboltz
+ use dim,     only:nabundances
  implicit none
 !
 ! only publicly visible entries are the
@@ -80,6 +81,8 @@ module cooling_ism
 ! These variables must be initialised during problem setup
 ! (in Phantom these appear in the input file when cooling is set,
 !  here we give them sensible default values)
+ real, public :: abund_default(nabundances) = 0.
+
 !
 ! Total abundances of C, O, Si: Sembach et al. (2000)
  real, public :: abundc  = 1.4d-4
@@ -168,12 +171,20 @@ end subroutine energ_cooling_ism
 !-----------------------------------------------------------------------
 subroutine write_options_cooling_ism(iunit)
  use infile_utils, only:write_inopt
+ use dim,          only:nabundances,h2chemistry
+ use part,         only:abundance_meaning,abundance_label
  integer, intent(in) :: iunit
+ integer :: i
 
  call write_inopt(dlq,'dlq','distance for column density in cooling function',iunit)
  call write_inopt(dphot0,'dphot','photodissociation distance used for CO/H2',iunit)
  call write_inopt(dphotflag,'dphotflag','photodissociation distance static or radially adaptive (0/1)',iunit)
  call write_inopt(dchem,'dchem','distance for chemistry of HI',iunit)
+ if (.not.h2chemistry) then
+    do i=1,nabundances
+       call write_inopt(abund_default(i),abundance_label(i),abundance_meaning(i),iunit)
+    enddo
+ endif
  call write_inopt(abundc,'abundc','Carbon abundance',iunit)
  call write_inopt(abundo,'abundo','Oxygen abundance',iunit)
  call write_inopt(abundsi,'abundsi','Silicon abundance',iunit)
@@ -196,9 +207,12 @@ end subroutine write_options_cooling_ism
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
+ use part,         only:abundance_label
+ use dim,          only:h2chemistry
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
+ integer :: i
 
  imatch  = .true.
  igotall = .true. ! none of the cooling options are compulsory
@@ -234,6 +248,14 @@ subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+
+ if (.not.h2chemistry .and. .not. imatch) then
+   do i=1,nabundances
+      if (trim(name)==trim(abundance_label(i))) then
+         read(valstring,*,iostat=ierr) abund_default(i)
+      endif
+   enddo
+ endif
 
 end subroutine read_options_cooling_ism
 

@@ -259,8 +259,9 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 end subroutine get_kappa_mesa
 
 
-real function get_1overmu_mesa(rho,u,Rg) result(rmu)
- real, intent(in) :: rho,u,Rg
+real function get_1overmu_mesa(rho,u) result(rmu)
+ real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
+ real, intent(in) :: rho,u
  real :: temp,pgas
  integer :: ierr
 

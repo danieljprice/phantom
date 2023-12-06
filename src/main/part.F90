@@ -117,9 +117,16 @@ module part
 #ifdef KROME
  character(len=16)  :: abundance_label(krome_nmols)
 #else
- character(len=*), parameter :: abundance_label(5) = &
+ character(len=*), parameter :: abundance_label(nabundances) = &
    (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
 #endif
+character(len=*), parameter :: abundance_meaning(nabundances) = &
+      (/'ratio of molecular to atomic Hydrogen       ',&
+        'nHI/nH:  fraction of neutral atomic Hydrogen',&
+        'nHII/nH: fraction of ionised Hydrogen (HII) ',&
+        'ne/nH:   fraction of electrons              ',&
+        'nCO/nH:  fraction of Carbon Monoxide        '/)
+
 !
 !--make a public krome_nmols variable to avoid ifdefs elsewhere
 !

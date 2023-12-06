@@ -35,15 +35,15 @@ contains
 !  per unit mass (eni) and density (rhoi)
 !+
 !----------------------------------------------------------------
-subroutine get_idealplusrad_temp(rhoi,eni,mu,gamma,tempi,ierr)
- real, intent(in)    :: rhoi,eni,mu,gamma
+subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
+ real, intent(in)    :: rhoi,eni,mu
  real, intent(inout) :: tempi
  integer, intent(out):: ierr
  real                :: gasfac,imu,numerator,denominator,correction
  integer             :: iter
  integer, parameter  :: iter_max = 1000
 
- gasfac = 1./(gamma-1.)
+ gasfac = 3./2. !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
  imu = 1./mu
  if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
@@ -72,13 +72,13 @@ subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
 end subroutine get_idealplusrad_pres
 
 
-subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi)
+subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi,gammai)
  real, intent(in)  :: rhoi,presi,eni
  real, intent(out) :: spsoundi
- real              :: gamma
+ real, intent(out) :: gammai
 
- gamma = 1. + presi/(eni*rhoi)
- spsoundi = sqrt(gamma*presi/rhoi)
+ gammai = 1. + presi/(eni*rhoi)
+ spsoundi = sqrt(gammai*presi/rhoi)
 
 end subroutine get_idealplusrad_spsoundi
 

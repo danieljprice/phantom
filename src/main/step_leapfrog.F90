@@ -683,7 +683,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                            ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
- use eos,             only:ieos,get_pressure
+ use eos,             only:ieos
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
@@ -1306,20 +1306,19 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 !
                 dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
                 call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),&
-                      nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
+                      nabundances,dphot,dt,abundi,nabn,eos_var(imu,i),abundc,abunde,abundo,abundsi)
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
-             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
+             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),eos_vars(igamma,i),eos_vars(imu,i),T_gas_cool(i))
              dudt_chem(i) = (ui-vxyzu(4,i))/dt
              dudtcool     = dudt_chem(i)
 #else
              !evolve dust chemistry and compute dust cooling
              if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
 
-             if (update_muGamma) call calc_muGamma(rhoi*unit_density, dust_temp(i), eos_vars(imu,i), eos_vars(igamma,i),ph,ph_tot)
              !
              ! COOLING
              !
@@ -1329,21 +1328,22 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    ! Call cooling routine, requiring total density, some distance measure and
                    ! abundances in the 'abund' format
                    !
-                   call energ_cooling_ism(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                        dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abundi)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,&
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
                            dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
                    elseif (update_muGamma) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,&
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
                            dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
                    else
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),,dudtcool,dust_temp(i))
                    endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
                 endif
              endif
 #endif
