@@ -109,7 +109,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nwarn = nwarn + 1
     endif
     if (gamma <= 0.) then
-       print*,'WARNING! gamma not set (should be set > 0 even if not used)'
+       if (id==master) print*,'WARNING! gamma not set (should be set > 0 even if not used)'
        nwarn = nwarn + 1
     endif
  endif
@@ -117,10 +117,10 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
  elseif (npart==0 .and. nptmass==0) then
-    print*,'WARNING! setup: npart = 0 (and no sink particles either)'
+    if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
  elseif (npart==0) then
-    print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
+    if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif
 
@@ -511,13 +511,14 @@ end function in_range
 !------------------------------------------------------------------
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,ilum
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
+                ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r,hsink
+ real :: r,hsink,hsoft,J2
 
  if (gr .and. nptmass > 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
@@ -575,7 +576,8 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) < 0.) cycle
-    hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
+    hsoft = xyzmh_ptmass(ihsoft,i)
+    hsink = max(xyzmh_ptmass(ihacc,i),hsoft)
     if (hsink <= 0.) then
        nerror = nerror + 1
        print*,'ERROR: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
@@ -584,6 +586,35 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        nwarn = nwarn + 1
        print*,'WARNING: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
+    endif
+    !
+    ! check that softening and J2 are not used at the same time
+    !
+    J2 = abs(xyzmh_ptmass(iJ2,i))
+    if (hsoft > 0. .and. J2 > 0.) then
+       nerror = nerror + 1
+       print*,'ERROR! sink ',i,' cannot have both J2 and softening length set'
+    endif
+    !
+    ! check that J2 is a small number
+    !
+    if (J2 > 0.1) then
+       nwarn = nwarn + 1
+       print*,'WARNING! J2 (oblateness) is ridiculously large on sink particle ',i,': J2 = ',J2
+    endif
+    !
+    ! if J2 is set then the spin of a sink particle should be non-zero to begin with
+    ! in order to specify the rotation direction
+    !
+    if (J2 > 0.) then
+       if (dot_product(xyzmh_ptmass(ispinx:ispinz,i),xyzmh_ptmass(ispinx:ispinz,i)) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires non-zero spin on sink particle ',i
+       endif
+       if (xyzmh_ptmass(iReff,i) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires radius (Reff) to be specified on sink particle',i
+       endif
     endif
  enddo
  !

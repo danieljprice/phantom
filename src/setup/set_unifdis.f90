@@ -16,7 +16,7 @@ module unifdis
 !
 ! :Dependencies: random, stretchmap
 !
- use stretchmap, only:rho_func
+ use stretchmap, only:rho_func, mass_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
  public :: is_valid_lattice, is_closepacked, latticetype
@@ -53,7 +53,7 @@ contains
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,periodic, &
                        rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
-                       nptot,npy,npz,npnew_in,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
+                       nptot,npy,npz,npnew_in,rhofunc,massfunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  !use mpidomain,  only:i_belong
@@ -70,6 +70,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,npnew_in,dir,geom
  procedure(rho_func), pointer,    optional :: rhofunc
+ procedure(mass_func), pointer,   optional :: massfunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err
@@ -587,7 +588,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        endif
     endif
     call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
-         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)!,massfunc=massfunc)
     if (ierr > 0) then
        if (present(err)) err = ierr
        return

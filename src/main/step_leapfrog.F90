@@ -103,7 +103,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use cooling,        only:ufloor
@@ -115,14 +115,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
  use part,           only:ibin,ibin_old,twas,iactive,ibin_wake
-#ifdef GR
  use part,           only:metricderivs
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
-#else
  use cooling,        only:cooling_in_step
-#endif
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  use damping,        only:idamp
@@ -151,7 +148,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei  = t
  hdtsph = 0.5*dtsph
  dterr  = bignumber
-
 ! determine twas for each ibin
  if (ind_timesteps .and. sts_it_n) then
     time_now = timei + dtsph
@@ -231,23 +227,22 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 ! accretion onto sinks/potentials also happens during substepping
 !----------------------------------------------------------------------
  call get_timings(t1,tcpu1)
-#ifdef GR
- if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
-    call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-    call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-    call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+ if (gr) then
+    if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
+       call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
+       call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
+       call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+    else
+       call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+    endif
  else
-    call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+    if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
+       call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
+                        nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
+    else
+       call step_extern_sph(dtsph,npart,xyzh,vxyzu)
+    endif
  endif
-
-#else
- if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-    call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
-                     nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
- else
-    call step_extern_sph(dtsph,npart,xyzh,vxyzu)
- endif
-#endif
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
 
@@ -359,6 +354,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
+
  if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
 
 !
@@ -370,14 +366,17 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     dt_too_small = .false.
+
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
+
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
+
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
        ! dt < dtmax/2**nbinmax and exit
@@ -676,13 +675,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call fatal('step','VELOCITY ITERATIONS NOT CONVERGED!!')
  endif
 
-#ifdef GR
- call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
-#endif
+ if (gr) call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 end subroutine step
 
-#ifdef GR
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                            ien_type,eos_vars,igamma,itemp
@@ -804,7 +800,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
-
  substeps: do while (timei <= t_end_step .and. .not.done)
     hdt           = 0.5*dt
     timei         = timei + dt
@@ -816,7 +811,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
        write(iprint,"(a,f14.6)") '> external forces only : t=',timei
     endif
-
     !---------------------------
     ! predictor during substeps
     !---------------------------
@@ -946,7 +940,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     naccreted    = 0
     nlive = 0
     dtextforce_min = bignumber
-
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
     !$omp shared(maxphase,maxp) &
@@ -1028,7 +1021,6 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
 
 end subroutine step_extern_gr
 
-#endif
 !----------------------------------------------------------------
 !+
 !  This is the equivalent of the routine below when no external
@@ -1069,9 +1061,9 @@ end subroutine step_extern_sph
 !+
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
-                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nbinmax,ibin_wake)
+                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc,&
-                            do_nucleation,update_muGamma,h2chemistry
+                         do_nucleation,update_muGamma,h2chemistry
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1083,7 +1075,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use options,        only:iexternalforce,icooling
  use part,           only:maxphase,abundance,nabundances,eos_vars,epot_sinksink,eos_vars,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
+                          fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
+                          nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
  use chem,           only:update_abundances,get_dphot
  use cooling_ism,    only:dphot0,energ_cooling_ism,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1103,7 +1096,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:),fxyzu(:,:)
- real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
  integer         :: i,itype,nsubsteps,naccreted,nfail,nfaili,merge_n,nlive
@@ -1172,21 +1165,25 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     if (nptmass > 0) then
        if (id==master) then
-          call ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+          call ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
           !
           ! get sink-sink forces (and a new sink-sink timestep.  Note: fxyz_ptmass is zeroed in this subroutine)
           ! pass sink-sink forces to variable fxyz_ptmass_sinksink for later writing.
           !
           if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
-             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtf,iexternalforce,timei,merge_ij,merge_n)
+             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                      dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           endif
           fxyz_ptmass_sinksink=fxyz_ptmass
+          dsdt_ptmass_sinksink=dsdt_ptmass
           if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
        else
           fxyz_ptmass(:,:) = 0.
+          dsdt_ptmass(:,:) = 0.
        endif
        call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
@@ -1221,7 +1218,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp reduction(+:accretedmass) &
     !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
     !$omp reduction(max:fonrmax) &
-    !$omp reduction(+:fxyz_ptmass)
+    !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
     !$omp do
     predictor: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -1250,7 +1247,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           fextz = 0.
           if (nptmass > 0) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
-                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,fonrmaxi,dtphi2i)
+                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
              fonrmax = max(fonrmax,fonrmaxi)
              dtphi2  = min(dtphi2,dtphi2i)
           endif
@@ -1369,8 +1366,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     ! reduction of sink-gas forces from each MPI thread
     !
-    if (nptmass > 0) call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
-
+    if (nptmass > 0) then
+       call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+       call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+    endif
     !---------------------------
     ! corrector during substeps
     !---------------------------
@@ -1379,7 +1378,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !
     if (nptmass > 0) then
        if (id==master) then
-          call ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
+          call ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,iexternalforce)
        endif
        call bcast_mpi(vxyz_ptmass(:,1:nptmass))
     endif
