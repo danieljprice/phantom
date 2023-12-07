@@ -118,7 +118,7 @@ module part
  character(len=16)  :: abundance_label(krome_nmols)
 #else
  character(len=*), parameter :: abundance_label(nabundances) = &
-   (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+   (/'h2ratio','  abHIq','  abhpq','   abeq','   abco'/)
 #endif
 character(len=*), parameter :: abundance_meaning(nabundances) = &
       (/'ratio of molecular to atomic Hydrogen       ',&

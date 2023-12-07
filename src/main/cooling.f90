@@ -74,10 +74,11 @@ subroutine init_cooling(id,master,iprint,ierr)
  cooling_in_step = .true.
  ierr = 0
  select case(icooling)
- case(4)
+ case(4,8)
     if (id==master) write(iprint,*) 'initialising ISM cooling functions...'
     abund_default(iHI) = 1.
     call init_cooling_ism()
+    if (icooling==8) cooling_in_step = .false.
  case(6)
     call init_cooling_KI02(ierr)
  case(5)
@@ -116,6 +117,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
+ use chem,    only:get_extra_abundances
  use cooling_ism,            only:nabn,energ_cooling_ism,abund_default,abundc,abunde,abundo,abundsi
  use cooling_gammie,         only:cooling_Gammie_explicit
  use cooling_gammie_PL,      only:cooling_Gammie_PL_explicit
@@ -142,7 +144,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  if (present(kappa_in)) kappa     = kappa_in
  if (present(abund_in)) then
     abundi = abund_in
- elseif (icooling==4) then
+ elseif (icooling==4 .or. icooling==8) then
     call get_extra_abundances(abund_default,nabundances,abundi,nabn,mui,&
          abundc,abunde,abundo,abundsi)
  endif
@@ -150,13 +152,13 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  Tgas  = get_temperature_from_u(ieos,xi,yi,zi,rho,ui,gammai,mui)
  Tdust = Tgas
  if (present(Tdust_in)) Tdust = Tdust_in
- 
+
  select case (icooling)
  case (6)
     call cooling_KoyamaInutsuka_implicit(ui,rho,dt,dudt)
  case (5)
     call cooling_KoyamaInutsuka_explicit(rho,Tgas,dudt)
- case (4)
+ case (4,8)
     call energ_cooling_ism(ui,rho,divv,mui,abundi,dudt)
  case (3)
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
@@ -185,11 +187,11 @@ subroutine write_options_cooling(iunit)
  write(iunit,"(/,a)") '# options controlling cooling'
  call write_inopt(C_cool,'C_cool','factor controlling cooling timestep',iunit)
  call write_inopt(icooling,'icooling','cooling function (0=off, 1=library (step), 2=library (force),'// &
-                     '3=Gammie, 5,6=KI02, 7=powerlaw, 8=ISM)',iunit)
+                     '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw)',iunit)
  select case(icooling)
- case(0,4,5,6)
+ case(0,5,6)
        ! do nothing
- case(8)
+ case(4,8)
     call write_options_cooling_ism(iunit)
  case(3)
     call write_options_cooling_gammie(iunit)
@@ -241,11 +243,10 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
     select case(icooling)
-    case(0,4,5,6)
+    case(0,5,6)
        ! do nothing
-    case(8)
+    case(4,8)
        call read_options_cooling_ism(name,valstring,imatch,igotallism,ierr)
-       h2chemistry = .true.
     case(3)
        call read_options_cooling_gammie(name,valstring,imatch,igotallgammie,ierr)
     case(7)

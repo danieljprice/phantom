@@ -1305,8 +1305,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 ! Get updated abundances of all species, updates 'chemarrays',
                 !
                 dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),&
-                      nabundances,dphot,dt,abundi,nabn,eos_var(imu,i),abundc,abunde,abundo,abundsi)
+                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),nabundances,&
+                      dphot,dt,abundi,nabn,eos_vars(imu,i),abundc,abunde,abundo,abundsi)
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
@@ -1329,7 +1329,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    ! abundances in the 'abund' format
                    !
                    call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
-                        dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abundi)
+                        dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abund_in=abundi)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
@@ -1339,7 +1339,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
                            dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
                    else
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),,dudtcool,dust_temp(i))
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
                    endif
                 else
                    ! cooling without stored dust temperature

@@ -81,7 +81,7 @@ module cooling_ism
 ! These variables must be initialised during problem setup
 ! (in Phantom these appear in the input file when cooling is set,
 !  here we give them sensible default values)
- real, public :: abund_default(nabundances) = 0.
+ real, public :: abund_default(nabundances) = (/0.,1.,0.,0.,0./)
 
 !
 ! Total abundances of C, O, Si: Sembach et al. (2000)
@@ -176,6 +176,7 @@ subroutine write_options_cooling_ism(iunit)
  integer, intent(in) :: iunit
  integer :: i
 
+ call write_inopt(h2chemistry,'h2chemistry','Calculate H2 chemistry',iunit)
  call write_inopt(dlq,'dlq','distance for column density in cooling function',iunit)
  call write_inopt(dphot0,'dphot','photodissociation distance used for CO/H2',iunit)
  call write_inopt(dphotflag,'dphotflag','photodissociation distance static or radially adaptive (0/1)',iunit)
@@ -217,6 +218,8 @@ subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .true. ! none of the cooling options are compulsory
  select case(trim(name))
+ case('h2chemistry')
+    read(valstring,*,iostat=ierr) h2chemistry
  case('dlq')
     read(valstring,*,iostat=ierr) dlq
  case('dphot')
@@ -253,6 +256,7 @@ subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
    do i=1,nabundances
       if (trim(name)==trim(abundance_label(i))) then
          read(valstring,*,iostat=ierr) abund_default(i)
+         imatch = .true.
       endif
    enddo
  endif

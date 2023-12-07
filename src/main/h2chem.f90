@@ -25,7 +25,7 @@ module chem
 !
 
  implicit none
- public :: init_chem,update_abundances,get_dphot
+ public :: init_chem,update_abundances,get_dphot,get_extra_abundances
 !
 !--some variables needed for CO chemistry, Nelson+Langer97
 !

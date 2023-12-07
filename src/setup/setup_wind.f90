@@ -293,7 +293,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! avoid failures in the setup by ensuring that tmax and dtmax are large enough
  !
  tmax = max(tmax,100.)
- dtmax = max(tmax/10.,dtmax)
+ !dtmax = max(tmax/10.,dtmax)
 
 end subroutine setpart
 

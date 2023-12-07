@@ -40,7 +40,7 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
- integer:: sonic_type = -1
+ integer:: sonic_type = 0
  integer:: iboundary_spheres = 5
  integer:: iwind_resolution = 5
  integer:: nfill_domain = 0
