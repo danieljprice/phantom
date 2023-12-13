@@ -290,7 +290,7 @@ end subroutine exact_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
- use units,   only:unit_ergg,unit_density
+ use units,   only:unit_ergg,unit_density,utime
  use physcon, only:mass_proton_cgs
  use cooling_functions, only:cooling_neutral_hydrogen,&
      cooling_Bowen_relaxation,cooling_dust_collision,&
@@ -344,7 +344,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  endif
  !limit exponent to prevent overflow
  dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
- Q         = Q_cgs/unit_ergg
+ Q         = Q_cgs/(unit_ergg/utime)
 
  !call testfunc()
  !call exit
