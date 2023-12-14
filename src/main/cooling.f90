@@ -211,7 +211,6 @@ end subroutine write_options_cooling
 !-----------------------------------------------------------------------
 subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use io,                only:fatal
- use dim,               only:h2chemistry
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism

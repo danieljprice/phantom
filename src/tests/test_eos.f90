@@ -333,7 +333,7 @@ end subroutine test_barotropic
 subroutine test_helmholtz(ntests, npass)
  use eos,           only:maxeos,equationofstate,eosinfo,init_eos
  use eos_helmholtz, only:eos_helmholtz_get_minrho, eos_helmholtz_get_maxrho, &
-                         eos_helmholtz_get_mintemp, eos_helmholtz_get_maxtemp, eos_helmholtz_set_relaxflag
+                         eos_helmholtz_get_mintemp, eos_helmholtz_get_maxtemp
  use io,            only:id,master,stdout
  use testutils,     only:checkval,checkvalbuf,checkvalbuf_start,checkvalbuf_end
  use units,         only:unit_density

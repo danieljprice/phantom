@@ -2495,7 +2495,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
                           luminosity,nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall,imu,&
-                          igamma,abundance,nabundances
+                          igamma
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
