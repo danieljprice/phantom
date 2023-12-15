@@ -2489,7 +2489,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry
- use eos,            only:gamma,ieos,iopacity_type
+ use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
