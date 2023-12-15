@@ -595,7 +595,8 @@ subroutine compute_energies(t)
  if (.not.gr) ekin = 0.5*ekin
  emag = 0.5*emag
  ekin = reduceall_mpi('+',ekin)
- if (maxvxyzu >= 4 .or. gammai >= 1.0001) etherm = reduceall_mpi('+',etherm)
+ !LS I don't know what to do here ? gamma should be replaced by gammai ?
+ if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduceall_mpi('+',etherm)
  emag = reduceall_mpi('+',emag)
  epot = reduceall_mpi('+',epot)
  erad = reduceall_mpi('+',erad)
