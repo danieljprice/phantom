@@ -254,12 +254,12 @@ subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
  end select
 
  if (.not.h2chemistry .and. .not. imatch) then
-   do i=1,nabundances
-      if (trim(name)==trim(abundance_label(i))) then
-         read(valstring,*,iostat=ierr) abund_default(i)
-         imatch = .true.
-      endif
-   enddo
+    do i=1,nabundances
+       if (trim(name)==trim(abundance_label(i))) then
+          read(valstring,*,iostat=ierr) abund_default(i)
+          imatch = .true.
+       endif
+    enddo
  endif
 
 end subroutine read_options_cooling_ism

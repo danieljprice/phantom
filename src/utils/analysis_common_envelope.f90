@@ -1585,8 +1585,8 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
           quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
 
        case(14) ! Escape_velocity
-         call calc_escape_velocities(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,v_esci)
-         quant(k,i) = v_esci
+          call calc_escape_velocities(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,v_esci)
+          quant(k,i) = v_esci
        case default
           print*,"Error: Requested quantity is invalid."
           stop
@@ -4573,21 +4573,21 @@ end subroutine set_eos_options
 !+
 !----------------------------------------------------------------
 subroutine calc_escape_velocities(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,v_esc)
-   use ptmass, only:get_accel_sink_gas
-   use part,   only:nptmass
-   real, intent(in)                       :: particlemass
-   real(4), intent(in)                    :: poten
-   real, dimension(4), intent(in)         :: xyzh,vxyzu
-   real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
-   real                                   :: phii,epoti
-   real                                   :: fxi,fyi,fzi
-   real, intent(out)                      :: v_esc
+ use ptmass, only:get_accel_sink_gas
+ use part,   only:nptmass
+ real, intent(in)                       :: particlemass
+ real(4), intent(in)                    :: poten
+ real, dimension(4), intent(in)         :: xyzh,vxyzu
+ real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
+ real                                   :: phii,epoti
+ real                                   :: fxi,fyi,fzi
+ real, intent(out)                      :: v_esc
 
-   phii = 0.0
-   call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
+ phii = 0.0
+ call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
 
-   epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
-   v_esc = sqrt(2*abs(epoti/particlemass))
+ epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
+ v_esc = sqrt(2*abs(epoti/particlemass))
 
 end subroutine calc_escape_velocities
 

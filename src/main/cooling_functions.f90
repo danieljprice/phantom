@@ -40,7 +40,7 @@ module cooling_functions
            testing_cooling_functions
 
  private
-    real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
+ real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
 
 contains
 !-----------------------------------------------------------------------
@@ -578,10 +578,10 @@ end function cool_H_ionisation
 !-----------------------------------------------------------------------
 real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
 
-   use physcon, only:mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
-   real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-   real              :: n_gas
+ real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992

@@ -190,7 +190,7 @@ subroutine write_options_cooling(iunit)
                      '3=Gammie, 4=ISM, 5,6=KI02, 7=powerlaw)',iunit)
  select case(icooling)
  case(0,5,6)
-       ! do nothing
+    ! do nothing
  case(4,8)
     call write_options_cooling_ism(iunit)
  case(3)

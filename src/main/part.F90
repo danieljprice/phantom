@@ -120,7 +120,7 @@ module part
  character(len=*), parameter :: abundance_label(nabundances) = &
    (/'h2ratio','  abHIq','  abhpq','   abeq','   abco'/)
 #endif
-character(len=*), parameter :: abundance_meaning(nabundances) = &
+ character(len=*), parameter :: abundance_meaning(nabundances) = &
       (/'ratio of molecular to atomic Hydrogen       ',&
         'nHI/nH:  fraction of neutral atomic Hydrogen',&
         'nHII/nH: fraction of ionised Hydrogen (HII) ',&
