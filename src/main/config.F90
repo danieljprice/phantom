@@ -362,9 +362,8 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
 
-#ifdef KROME
- maxp_krome = maxp
-#endif
+ if (use_krome) maxp_krome = maxp
+
  if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION

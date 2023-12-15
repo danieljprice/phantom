@@ -224,7 +224,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
- use part,       only:ibin,krome_nmols,gamma_chem,mu_chem,T_gas_cool
+ use part,       only:ibin,krome_nmols,T_gas_cool
 #ifdef PRDRAG
  use lumin_nsdisc, only:beta
 #endif
@@ -437,11 +437,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 
        if (use_krome) then
           call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
-          call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
-          call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
           call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
        endif
-       if (update_muGamma) then
+       if (update_muGamma .or. use_krome) then
           call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,ierrs(12))
           call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
        endif
@@ -1138,7 +1136,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,ilambda,iorig,dt_in,krome_nmols,gamma_chem,mu_chem,T_gas_cool
+                      ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
@@ -1230,8 +1228,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              endif
              if (use_krome) then
                 call read_array(abundance,abundance_label,got_krome_mols,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(gamma_chem,'gamma',got_krome_gamma,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (do_nucleation) then

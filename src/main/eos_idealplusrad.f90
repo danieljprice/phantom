@@ -122,11 +122,11 @@ end subroutine get_idealgasplusrad_tempfrompres
 !  and temperature
 !+
 !----------------------------------------------------------------
-subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,gamma,eni)
- real, intent(in)  :: densi,tempi,mu,gamma
+subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
+ real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = Rg*tempi/((gamma-1.)*mu) + radconst*tempi**4/densi
+ eni = 3./2.*Rg*tempi/mu + radconst*tempi**4/densi
 
 end subroutine get_idealplusrad_enfromtemp
 

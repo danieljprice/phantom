@@ -2494,7 +2494,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
-                          luminosity,nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall,imu,&
+                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
                           igamma
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
@@ -2513,9 +2513,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density,get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
-#ifdef KROME
- use part,           only:gamma_chem
-#endif
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
@@ -2560,7 +2557,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(inout) :: dtrad
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
- real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi
+ real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi,gammai
  real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
@@ -2645,6 +2642,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     tstopi     = 0.
     dustfraci  = 0.
     dustfracisum = 0.
+    gammai = eos_vars(igamma,i)
 
     vxi = xpartveci(ivxi)
     vyi = xpartveci(ivyi)
@@ -2806,18 +2804,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
+                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idudtdissi)
              elseif (ishock_heating > 0) then
-#ifdef KROME
-                fxyz4 = fxyz4 + (gamma_chem(i) - 1.)*rhoi**(1.-gamma_chem(i))*fsum(idudtdissi)
-#else
-                !LS if do_nucleation one should use the local gamma : nucleation(idgamma,i)
-                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
-#endif
+                fxyz4 = fxyz4 + (gammai - 1.)*rhoi**(1.-gammai)*fsum(idudtdissi)
              endif
              ! add conductivity for GR
              if (gr) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idendtdissi)
+                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idendtdissi)
              endif
 #ifdef GR
 #ifdef ISENTROPIC
@@ -2879,7 +2872,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
                       call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
-                           dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                           dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i),nucleation(idK2,i),nucleation(idkappa,i))
                    elseif (update_muGamma) then
                       call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
                            dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i))

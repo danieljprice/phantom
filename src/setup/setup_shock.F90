@@ -258,12 +258,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     Pcgs = leftstate(ipr) * unit_pressure
     denscgs = leftstate(idens) * unit_density
     call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
-    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,ucgs)
     uuleft = ucgs/unit_ergg
     Pcgs = rightstate(ipr) * unit_pressure
     denscgs = rightstate(idens) * unit_density
     call get_idealgasplusrad_tempfrompres(Pcgs,denscgs,gmw,temp)
-    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,5./3.,ucgs)
+    call get_idealplusrad_enfromtemp(denscgs,temp,gmw,ucgs)
     uuright = ucgs/unit_ergg
  else
     gam1 = gamma - 1.

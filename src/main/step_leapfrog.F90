@@ -108,9 +108,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iosumflrp,iosumflrps,iosumflrc
  use cooling,        only:ufloor
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
-#ifdef KROME
- use part,           only:gamma_chem
-#endif
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
@@ -1089,7 +1086,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use dust_formation, only:evolve_dust,calc_muGamma
  use units,          only:unit_density
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
+ use part,            only: T_gas_cool
  use krome_interface, only: update_krome
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
@@ -1205,9 +1202,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(nptmass,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
     !$omp shared(nucleation,do_nucleation,update_muGamma,h2chemistry,unit_density) &
-#ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,dudt_chem) &
-#endif
     !$omp private(dphot,abundi,gmwvar,ph,ph_tot) &
     !$omp private(ui,rhoi, mui, gammai) &
     !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
@@ -1313,8 +1307,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
              call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),eos_vars(igamma,i),eos_vars(imu,i),T_gas_cool(i))
-             dudt_chem(i) = (ui-vxyzu(4,i))/dt
-             dudtcool     = dudt_chem(i)
+             dudtcool = (ui-vxyzu(4,i))/dt
 #else
              !evolve dust chemistry and compute dust cooling
              if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
