@@ -15,10 +15,9 @@ module eos_helmholtz
 !
 ! :Owner: Terrence Tricco
 !
-! :Runtime parameters:
-!   - relaxflag : *0=evolve, 1=relaxation on (keep T const)*
+! :Runtime parameters: None
 !
-! :Dependencies: datafiles, infile_utils, io, physcon, units
+! :Dependencies: datafiles, io, physcon, units
 !
  implicit none
 

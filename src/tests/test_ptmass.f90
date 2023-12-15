@@ -17,7 +17,7 @@ module testptmass
 ! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
 !   gravwaveutils, io, kdtree, kernel, mpiutils, options, part, physcon,
 !   ptmass, random, setbinary, setdisc, spherical, step_lf_global,
-!   stretchmap, testutils, timestep, units
+!   stretchmap, testutils, timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none

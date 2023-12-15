@@ -26,7 +26,7 @@ module step_lf_global
 !   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
 !   externalforces, growth, io, io_summary, krome_interface, metric_tools,
 !   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing
+!   timestep_ind, timestep_sts, timing, units
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred

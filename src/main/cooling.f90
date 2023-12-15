@@ -19,12 +19,12 @@ module cooling
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
 !
-! :Owner: Daniel Price
+! :Owner: Lionel Siess
 !
 ! :Runtime parameters:
 !   - C_cool   : *factor controlling cooling timestep*
 !   - Tfloor   : *temperature floor (K); on if > 0*
-!   - icooling : *cooling function (0=off, 1=cooling library (step), 2=cooling library (force),*
+!   - icooling : *cooling function (0=off, 1=library (step), 2=library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
 !   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,

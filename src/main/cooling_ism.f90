@@ -26,10 +26,11 @@ module cooling_ism
 !   - dphot             : *photodissociation distance used for CO/H2*
 !   - dphotflag         : *photodissociation distance static or radially adaptive (0/1)*
 !   - dust_to_gas_ratio : *dust to gas ratio*
+!   - h2chemistry       : *Calculate H2 chemistry*
 !   - iflag_atom        : *Which atomic cooling (1:Gal ISM, 2:Z=0 gas)*
 !   - iphoto            : *Photoelectric heating treatment (0=optically thin, 1=w/extinction)*
 !
-! :Dependencies: fs_data, infile_utils, io, mol_data, part, physcon,
+! :Dependencies: dim, fs_data, infile_utils, io, mol_data, part, physcon,
 !   splineutils, units
 !
  use physcon, only:kboltz

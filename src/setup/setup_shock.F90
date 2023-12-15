@@ -37,8 +37,8 @@ module setup
 !
 ! :Dependencies: boundary, cooling, dim, dust, eos, eos_idealplusrad,
 !   infile_utils, io, kernel, mpiutils, nicil, options, part, physcon,
-!   prompting, radiation_utils, set_dust, setshock, setup_params, timestep,
-!   unifdis, units
+!   prompting, radiation_utils, set_dust, setshock, setunits, setup_params,
+!   timestep, unifdis, units
 !
  use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal
  use options,   only:use_dustfrac

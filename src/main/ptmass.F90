@@ -34,8 +34,9 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
 ! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
-!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
-!   linklist, mpidomain, mpiutils, options, part, units
+!   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
+!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part, units,
+!   vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
