@@ -599,7 +599,7 @@ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,
  if (present(spsoundi)) spsoundi = csi
  if (present(mui))     mui = mu
  if (present(gammai)) gammai = gamma
- 
+
 end subroutine get_TempPresCs
 
 !-----------------------------------------------------------------------
@@ -625,7 +625,7 @@ real function get_spsound(eos_type,xyzi,rhoi,vxyzui,gammai,mui,Xi,Zi)
  if (present(Zi))  Z  = Zi
  if (present(gammai)) gam = gammai
  if (present(mui))    mu = mui
- 
+
  call get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,spsoundi=spsoundi,gammai=gam,mui=mu,Xi=X,Zi=Z)
 
  get_spsound = spsoundi

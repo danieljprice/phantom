@@ -3875,7 +3875,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
- etoti = epoti + ekini + einti 
+ etoti = epoti + ekini + einti
 
 end subroutine calc_gas_energies
 
@@ -4579,16 +4579,16 @@ subroutine calc_escape_velocities(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phi
    real(4), intent(in)                    :: poten
    real, dimension(4), intent(in)         :: xyzh,vxyzu
    real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
-   real                                   :: phii,epoti 
+   real                                   :: phii,epoti
    real                                   :: fxi,fyi,fzi
    real, intent(out)                      :: v_esc
-   
+
    phii = 0.0
    call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
 
    epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
    v_esc = sqrt(2*abs(epoti/particlemass))
-   
+
 end subroutine calc_escape_velocities
 
 end module analysis
