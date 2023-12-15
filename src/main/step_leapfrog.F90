@@ -1310,8 +1310,11 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              dudtcool = (ui-vxyzu(4,i))/dt
 #else
              !evolve dust chemistry and compute dust cooling
-             if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
-
+             if (do_nucleation) then
+                call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
+                eos_vars(imu,i)    = nucleation(idmu,i)
+                eos_vars(igamma,i) = nucleation(idgamma,i)
+             endif
              !
              ! COOLING
              !

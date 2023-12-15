@@ -134,7 +134,6 @@ end subroutine set_abundances
 subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  use units,          only:utime,unit_density
  use eos,            only:ieos,get_temperature
- use part,           only:eos_vars,igamma,imu
 
  real,    intent(in) :: dtsph,Tdust,rho,u,xyzh(4)
  real,    intent(inout) :: JKmuS(:)
@@ -148,8 +147,6 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  T         = get_temperature(ieos,xyzh,rho,vxyzui,gammai=JKmuS(idgamma),mui=JKmuS(idmu))
  call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
  JKmuS(idkappa)     = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
- eos_vars(imu,i)    = JKmuS(idmu,i)
- eos_vars(igamma,i) = JKmuS(idgamma,i)
 
 end subroutine evolve_dust
 
