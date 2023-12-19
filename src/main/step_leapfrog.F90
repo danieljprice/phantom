@@ -106,7 +106,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
- use cooling,        only:ufloor
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
@@ -116,7 +115,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
- use cooling,        only:cooling_in_step
+ use cooling,        only:ufloor,cooling_in_step
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  use damping,        only:idamp

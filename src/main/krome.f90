@@ -135,7 +135,7 @@ subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
  T_gas_cool = T_local
 ! get the new internal energy
  u = get_local_u_internal(gamma_in,mu_in,T_local)
- !u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
+! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
 
 end subroutine update_krome
 
