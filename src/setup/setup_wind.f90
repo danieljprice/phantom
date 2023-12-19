@@ -154,7 +154,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
- call set_default_options_inject()
+ filename = trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) call set_default_options_inject
 
 !--general parameters
 !
