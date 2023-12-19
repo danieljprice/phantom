@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
- use inject,    only: init_inject
+ use inject,    only: init_inject,set_default_options_inject
  use setbinary, only: set_binary
  use sethierarchical, only: set_multiple
  use io,        only: master
@@ -154,6 +154,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
+ call set_default_options_inject()
 
 !--general parameters
 !
