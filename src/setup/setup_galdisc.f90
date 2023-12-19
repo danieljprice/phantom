@@ -48,13 +48,13 @@ contains
 !
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,            only:maxp,maxvxyzu,use_dust
+ use dim,            only:maxp,maxvxyzu,use_dust,h2chemistry
  use setup_params,   only:rhozero
  use physcon,        only:Rg,pi,solarm,pc,kpc
  use units,          only:umass,udist,utime,set_units
  use mpiutils,       only:bcast_mpi
  use random,         only:ran2
- use part,           only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
+ use part,           only:abundance,iHI,dustfrac,istar,igas,ibulge,&
                           idarkmatter,iunknown,set_particle_type,ndusttypes
  use options,        only:iexternalforce,icooling,nfulldump,use_dustfrac
  use externalforces, only:externalforce,initialise_externalforces

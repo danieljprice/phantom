@@ -138,7 +138,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
  use spherical, only: set_sphere
- use timestep,  only: tmax,dtmax
+ use timestep,  only: tmax!,dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
