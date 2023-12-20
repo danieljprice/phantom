@@ -39,6 +39,7 @@ module physcon
  real(kind=8), parameter :: mass_electron_cgs = 9.10938291d-28  !Electron mass             g
  real(kind=8), parameter :: mass_proton_cgs = 1.67262158d-24    !Proton mass               g
  real(kind=8), parameter :: atomic_mass_unit = 1.660538921d-24  !Atomic mass unit          g
+ real(kind=8), parameter :: amu = atomic_mass_unit              !alias for above
  real(kind=8), parameter :: cross_section_H2_cgs = 2.367d-15    !Hydrogen molecule cs      cm^-2
  real(kind=8), parameter :: radconst = 7.5646d-15               !Radiation constant        erg cm^-3 K^-4
  real(kind=8), parameter :: kboltz = 1.38066d-16                !Boltzmann constant        erg/K
