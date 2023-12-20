@@ -2,7 +2,7 @@
 Running a simulation with stellar wind and dust formation
 =========================================================
 
-The wind and dust formation algorithms are described in `Siess et al. (2022, in prep)`.
+The wind and dust formation algorithms are described in `Siess et al. (2022)`, and algortihms for the radiation field in `Esseldeurs et al. (2023)`
 
 If you find a bug, please send me an email at lionel.siess@ulb.be
 
@@ -50,12 +50,13 @@ Content of the .setup file
 
 The .setup file contains the stellar properties and sets the mass of the particle (see however  ``iwind_resolution``).
 Each star is considered as a sink particles and its properties, e.g. its luminosity, will be used to calculate the radiation pressure.
+Companions can be added using the icompanion_star parameter.
 
 Note also that 
 
-::
+.. math::
 
-      primary_lum = 4*pi*primary_Reff**2*sigma*primary_Teff**4 
+      \textrm{primary_lum} = 4\pi\times\textrm{primary_Reff}^2\times\sigma\times\textrm{primary_Teff}^4 
       
 so you only need to provide 2 out of these 3 variables. 
 
@@ -68,6 +69,9 @@ so you only need to provide 2 out of these 3 variables.
 
 Content of the .in file
 -----------------------
+
+Options controlling particle injection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
@@ -83,7 +87,7 @@ Content of the .in file
       iboundary_spheres =           5    ! number of boundary spheres (integer)
          outer_boundary =         50.    ! delete gas particles outside this radius (au)
 
-Here’s a brief description of each of them (remember that technical details can be found in `Siess et al. (in prep)
+Here’s a brief description of each of them (remember that technical details can be found in `Siess et al. (2023)`
 
 ::
 
@@ -150,6 +154,10 @@ set the number of shells that serve as inner boundary condition for the wind
 To limit the number of particles, delete from the memory the particles that go beyond ``outer_boundary`` (in astronomical unit).
 This option is slightly different from ``rkill`` where in this case the particles are declared dead and remained allocated.
 
+
+Options controlling dust
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 ::
 
    # options controlling dust
@@ -175,12 +183,17 @@ default gas opacity. Only activated if ``idust_opacity > 0``
 
 set the C/O ratio of the ejected wind material. For the moment only C-rich chemistry (C/O > 1) is implemented. Option only available with ``idust_opacity = 2``
 
+
+Options controlling radiation pressure from sink particles
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 ::
 
    # options controling radiation pressure from sink particles
         isink_radiation =           3    ! sink radiation pressure method (0=off,1=alpha,2=dust,3=alpha+dust)
               alpha_rad =       1.000    ! fraction of the gravitational acceleration imparted to the gas
-             iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel)
+             iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy 4:MCfost)
+        iray_resolution =          -1    ! set the number of rays to 12*4**iray_resolution (deactivated if <0)
               tdust_exp =         0.5    ! exponent of the dust temperature profile
 
 ::
@@ -189,10 +202,12 @@ set the C/O ratio of the ejected wind material. For the moment only C-rich chemi
 
 set how radiation pressure is accounted for. The star's effective gravity is given by
 
-              g = Gm/r**2 *(1-alpha_rad-Gamma)
+.. math::
+
+              g_\mathrm{eff} = \frac{Gm}{r^2} \times (1-\alpha_\mathrm{rad}-\Gamma)
 
 alpha is an ad-hoc parameter that allows the launching of the wind in case of a cool wind for example when dust is not accounted for.
-Gamma = is the Eddington factor that depends on the dust opacity. gamma is therefore <> 0 only when nucleation is activated (``idust_opacity = 2``)
+Gamma is the Eddington factor that depends on the dust opacity. gamma is therefore <> 0 only when dust is activated (``idust_opacity > 0``)
 
 ::
 
@@ -202,9 +217,17 @@ parameter entering in the above equation for the effective gravity
 
 ::
 
-             iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Lucy (devel))
+             iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy 4:MCfost)
 
-defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but option (1, under development!) should be available soon.
+defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but other options are availabe as well. 
+Options 1-3 use analytical prescriptions, and option 4 uses full 3D RT using the MCfost code (under development!)
+
+::
+
+        iray_resolution =          -1    ! set the number of rays to 12*4**iray_resolution (deactivated if <0)
+
+If ``iget_tdust = 1-3``, the dust temperature profile is then given by an analytical prescription.
+In these prescriptions (see `Esseldeurs et al. (2023)`), there is directional dependance, where the resolution of this directional dependance is set by iray_resolution.
 
 ::
 
@@ -212,9 +235,12 @@ defines how the dust temperature is calculated. By default one assumes Tdust = T
 
 If ``iget_tdust = 1``, the dust temperature profile is then given by
 
-              Tdust(r) = T_star*(R_star/r)**tdust_exp
+.. math::
+
+              T_\mathrm{dust}(r) = T_\mathrm{star}*(R_\mathrm{star}/r)^\textrm{tdust_exp}
 
 where T_star and R_star are the stellar (effective) temperature and radius as defined in the .setup file
+
 
 
 **Have fun :)**

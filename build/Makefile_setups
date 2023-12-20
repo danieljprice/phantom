@@ -775,7 +775,7 @@ ifeq ($(SETUP), dustystar)
     FPPFLAGS= -DDUST_NUCLEATION -DSTAR
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
     MAXP=10000000
     GRAVITY=yes

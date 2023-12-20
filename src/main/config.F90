@@ -241,12 +241,8 @@ module dim
 ! H2 Chemistry
 !--------------------
  integer :: maxp_h2 = 0
-#ifdef H2CHEM
- logical, parameter :: h2chemistry = .true.
-#else
- logical, parameter :: h2chemistry = .false.
-#endif
  integer, parameter :: nabundances = 5
+ logical :: h2chemistry = .false.
 
 !--------------------
 ! Self-gravity
@@ -287,10 +283,11 @@ module dim
 !--------------------
 ! Dust formation
 !--------------------
- logical :: do_nucleation = .false.
- integer :: itau_alloc    = 0
- integer :: itauL_alloc   = 0
- integer :: inucleation   = 0
+ logical :: do_nucleation  = .false.
+ logical :: update_muGamma = .false.
+ integer :: itau_alloc     = 0
+ integer :: itauL_alloc    = 0
+ integer :: inucleation    = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
@@ -365,9 +362,9 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
 
-#ifdef KROME
- maxp_krome = maxp
-#endif
+ if (use_krome) maxp_krome = maxp
+
+ if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION
  store_dust_temperature = .true.
@@ -414,10 +411,6 @@ subroutine update_max_sizes(n,ntot)
 #ifdef NONIDEALMHD
  maxmhdni = maxp
 #endif
-#endif
-
-#ifdef H2CHEM
- maxp_h2 = maxp
 #endif
 
 #ifdef GRAVITY

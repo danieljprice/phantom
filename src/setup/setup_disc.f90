@@ -3251,10 +3251,10 @@ subroutine read_oblateness_options(db,nerr,label,J2i,sizei,spin_periodi,kfaci,ob
 
  call read_inopt(J2i,'J2'//trim(label),db,min=-1.0,max=1.0) ! optional, no error if not read
  if (abs(J2i) > 0.) then
-     call read_inopt(sizei,'size'//trim(label),db,errcount=nerr)
-     call read_inopt(spin_periodi,'spin_period'//trim(label),db,errcount=nerr)
-     call read_inopt(kfaci,'kfac'//trim(label),db,min=0.,max=1.,errcount=nerr)
-     call read_inopt(obliquityi,'obliquity'//trim(label),db,min=0.,max=180.,errcount=nerr)
+    call read_inopt(sizei,'size'//trim(label),db,errcount=nerr)
+    call read_inopt(spin_periodi,'spin_period'//trim(label),db,errcount=nerr)
+    call read_inopt(kfaci,'kfac'//trim(label),db,min=0.,max=1.,errcount=nerr)
+    call read_inopt(obliquityi,'obliquity'//trim(label),db,min=0.,max=180.,errcount=nerr)
  endif
 
 end subroutine read_oblateness_options
