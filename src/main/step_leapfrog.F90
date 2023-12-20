@@ -26,7 +26,7 @@ module step_lf_global
 !   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
 !   externalforces, growth, io, io_summary, krome_interface, metric_tools,
 !   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing
+!   timestep_ind, timestep_sts, timing, units
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -106,11 +106,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
- use cooling,        only:ufloor
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
-#ifdef KROME
- use part,           only:gamma_chem
-#endif
  use timestep,       only:dtmax,dtmax_ifactor,dtdiff
  use timestep_ind,   only:get_dt,nbinmax,decrease_dtmax,dt_too_small
  use timestep_sts,   only:sts_get_dtau_next,use_sts,ibin_sts,sts_it_n
@@ -119,7 +115,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
- use cooling,        only:cooling_in_step
+ use cooling,        only:ufloor,cooling_in_step
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  use damping,        only:idamp
@@ -683,7 +679,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                            ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
- use eos,             only:ieos,get_pressure
+ use eos,             only:ieos
  use io,              only:warning
  use metric_tools,    only:pack_metric
  use timestep,        only:xtol
@@ -817,7 +813,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !
     ! predictor step for external forces, also recompute external forces
     !
-    !$omp parallel do default(none) schedule(runtime)  &
+    !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
     !$omp shared(maxphase,maxp,eos_vars) &
     !$omp shared(dt,hdt,xtol,ptol) &
@@ -950,7 +946,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     !$omp reduction(min:dtextforce_min) &
     !$omp reduction(+:accretedmass,naccreted,nlive) &
     !$omp shared(idamp,damp_fac)
-    !$omp do schedule(runtime)
+    !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
@@ -1062,7 +1058,8 @@ end subroutine step_extern_sph
 !----------------------------------------------------------------
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
- use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc,do_nucleation
+ use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc,&
+                         do_nucleation,update_muGamma,h2chemistry
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1072,9 +1069,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                           idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                           ndptmass,update_ptmass
  use options,        only:iexternalforce,icooling
- use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
+ use part,           only:maxphase,abundance,nabundances,eos_vars,epot_sinksink,eos_vars,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
-                          fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma
+                          fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
+                          nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
  use chem,           only:update_abundances,get_dphot
  use cooling_ism,    only:dphot0,energ_cooling_ism,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1084,9 +1082,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use damping,        only:calc_damp,apply_damp,idamp
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use cooling,        only:energ_cooling,cooling_in_step
- use dust_formation, only:evolve_dust
+ use dust_formation, only:evolve_dust,calc_muGamma
+ use units,          only:unit_density
 #ifdef KROME
- use part,            only: gamma_chem,mu_chem,dudt_chem,T_gas_cool
+ use part,            only: T_gas_cool
  use krome_interface, only: update_krome
 #endif
  integer,         intent(in)    :: npart,ntypes,nptmass
@@ -1101,7 +1100,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  integer(kind=1) :: ibin_wakei
  real            :: timei,hdt,fextx,fexty,fextz,fextxi,fextyi,fextzi,phii,pmassi
  real            :: dtphi2,dtphi2i,vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi
- real            :: dudtcool,fextv(3),poti,ui,rhoi
+ real            :: dudtcool,fextv(3),poti,ui,rhoi,mui,gammai,ph,ph_tot
  real            :: dt,dtextforcenew,dtsinkgas,fonrmax,fonrmaxi
  real            :: dtf,accretedmass,t_end_step,dtextforce_min
  real, allocatable :: dptmass(:,:) ! dptmass(ndptmass,nptmass)
@@ -1201,12 +1200,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
     !$omp shared(nptmass,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
-    !$omp shared(nucleation,do_nucleation) &
-#ifdef KROME
-    !$omp shared(gamma_chem,mu_chem,dudt_chem) &
-#endif
-    !$omp private(dphot,abundi,gmwvar) &
-    !$omp private(ui,rhoi) &
+    !$omp shared(nucleation,do_nucleation,update_muGamma,h2chemistry,unit_density) &
+    !$omp private(dphot,abundi,gmwvar,ph,ph_tot) &
+    !$omp private(ui,rhoi, mui, gammai) &
     !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
     !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,fextv,accreted) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
@@ -1302,19 +1298,22 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 ! Get updated abundances of all species, updates 'chemarrays',
                 !
                 dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),&
-                      nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
+                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),nabundances,&
+                      dphot,dt,abundi,nabn,eos_vars(imu,i),abundc,abunde,abundo,abundsi)
              endif
 #ifdef KROME
              ! evolve chemical composition and determine new internal energy
              ! Krome also computes cooling function but only associated with chemical processes
              ui = vxyzu(4,i)
-             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),gamma_chem(i),mu_chem(i),T_gas_cool(i))
-             dudt_chem(i) = (ui-vxyzu(4,i))/dt
-             dudtcool     = dudt_chem(i)
+             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),eos_vars(igamma,i),eos_vars(imu,i),T_gas_cool(i))
+             dudtcool = (ui-vxyzu(4,i))/dt
 #else
              !evolve dust chemistry and compute dust cooling
-             if (do_nucleation) call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
+             if (do_nucleation) then
+                call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
+                eos_vars(imu,i)    = nucleation(idmu,i)
+                eos_vars(igamma,i) = nucleation(idgamma,i)
+             endif
              !
              ! COOLING
              !
@@ -1324,18 +1323,22 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    ! Call cooling routine, requiring total density, some distance measure and
                    ! abundances in the 'abund' format
                    !
-                   call energ_cooling_ism(vxyzu(4,i),rhoi,divcurlv(1,i),gmwvar,abundi,dudtcool)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                        dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abund_in=abundi)
                 elseif (store_dust_temperature) then
                    ! cooling with stored dust temperature
                    if (do_nucleation) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,&
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
                            dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   elseif (update_muGamma) then
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                           dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
                    else
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
                    endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),dudtcool,rhoi,dt)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
                 endif
              endif
 #endif

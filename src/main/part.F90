@@ -27,7 +27,7 @@ module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
-               maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
+               maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
@@ -106,7 +106,7 @@ module part
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
 !
-!--H2 and KROME chemistry
+!--H2 chemistry
 !
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
@@ -114,12 +114,22 @@ module part
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
  real, allocatable :: abundance(:,:)
+!
+!--KROME chemistry
+!
 #ifdef KROME
  character(len=16)  :: abundance_label(krome_nmols)
 #else
- character(len=*), parameter :: abundance_label(5) = &
-   (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+ character(len=*), parameter :: abundance_label(nabundances) = &
+   (/'h2ratio','  abHIq','  abhpq','   abeq','   abco'/)
 #endif
+ character(len=*), parameter :: abundance_meaning(nabundances) = &
+      (/'ratio of molecular to atomic Hydrogen       ',&
+        'nHI/nH:  fraction of neutral atomic Hydrogen',&
+        'nHII/nH: fraction of ionised Hydrogen (HII) ',&
+        'ne/nH:   fraction of electrons              ',&
+        'nCO/nH:  fraction of Carbon Monoxide        '/)
+
 !
 !--make a public krome_nmols variable to avoid ifdefs elsewhere
 !
@@ -240,10 +250,7 @@ module part
 !
 !--KROME variables
 !
- real, allocatable :: gamma_chem(:)
- real, allocatable :: mu_chem(:)
  real, allocatable :: T_gas_cool(:)
- real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
 !
@@ -453,10 +460,7 @@ subroutine allocate_part
  else
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
  endif
- call allocate_array('gamma_chem', gamma_chem, maxp_krome)
- call allocate_array('mu_chem', mu_chem, maxp_krome)
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
- call allocate_array('dudt_chem', dudt_chem, maxp_krome)
 
 
 end subroutine allocate_part
@@ -518,10 +522,7 @@ subroutine deallocate_part
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
  if (allocated(tau_lucy))     deallocate(tau_lucy)
- if (allocated(gamma_chem))   deallocate(gamma_chem)
- if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
- if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
@@ -1255,10 +1256,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
-    gamma_chem(dst)       = gamma_chem(src)
-    mu_chem(dst)          = mu_chem(src)
     T_gas_cool(dst)       = T_gas_cool(src)
-    dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
  if (maxsts==maxp) then

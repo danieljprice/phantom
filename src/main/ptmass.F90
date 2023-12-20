@@ -34,8 +34,9 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
 ! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
-!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
-!   linklist, mpidomain, mpiutils, options, part, units
+!   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
+!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part, units,
+!   vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -909,7 +910,7 @@ end subroutine update_ptmass
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  fxyz_ptmass_sinksink,eos_vars,igasP
+                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
@@ -1167,6 +1168,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           else
              if (ieos==2 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
+             elseif (ieos==5 .and. gamma > 1.001) then
+                etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(eos_vars(igamma,j) - 1.)
              elseif (ieos==8) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma_barotropic(rhoj) - 1.)
              elseif (ieos==9) then

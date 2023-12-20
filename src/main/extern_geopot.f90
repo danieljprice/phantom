@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2022 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module extern_geopot
 !
@@ -19,9 +19,10 @@ module extern_geopot
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - J2    : *J2 parameter*
+!   - J2         : *J2 value in code units*
+!   - tilt_angle : *tilt angle (obliquity) in degrees*
 !
-! :Dependencies: infile_utils, io, kernel, physcon
+! :Dependencies: infile_utils, io, physcon
 !
  implicit none
  !

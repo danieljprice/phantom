@@ -244,10 +244,6 @@ ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
 
-ifeq ($(H2CHEM), yes)
-    FPPFLAGS += -DH2CHEM
-endif
-
 ifeq ($(DISC_VISCOSITY), yes)
     FPPFLAGS += -DDISC_VISCOSITY
 endif
@@ -623,14 +619,14 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS} \
-         utils_sort.f90 sort_particles.F90
+         utils_sort.f90 sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
@@ -1328,7 +1324,7 @@ getdims:
 	@echo $(MAXP)
 
 get_setup_opts:
-	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation}  ${H2CHEM:yes=H2_Chemistry} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
 
 get_setup_file:
 	@echo "$(SETUPFILE)"

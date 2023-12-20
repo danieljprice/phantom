@@ -204,14 +204,14 @@ end subroutine get_dump_size
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                 ind_timesteps,mhd_nonideal,use_krome
+                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                  npartoftypetot,update_npartoftypetot, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
                  nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,&
-                 maxptmass,get_pmass,h2chemistry,nabundances,abundance,abundance_label,mhd,&
+                 maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
@@ -224,7 +224,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  free_header,write_header,write_array,write_block_header
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
- use part,       only:ibin,krome_nmols,gamma_chem,mu_chem,T_gas_cool
+ use part,       only:ibin,krome_nmols,T_gas_cool
 #ifdef PRDRAG
  use lumin_nsdisc, only:beta
 #endif
@@ -437,9 +437,11 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 
        if (use_krome) then
           call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
-          call write_array(1,gamma_chem,'gamma',npart,k,ipass,idump,nums,ierrs(22))
-          call write_array(1,mu_chem,'mu',npart,k,ipass,idump,nums,ierrs(23))
           call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
+       endif
+       if (update_muGamma .or. use_krome) then
+          call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
        endif
        if (do_nucleation) then
           call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
@@ -514,11 +516,11 @@ end subroutine write_fulldump_fortran
 !-------------------------------------------------------------------
 
 subroutine write_smalldump_fortran(t,dumpfile)
- use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth
+ use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth,h2chemistry
  use io,         only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,       only:xyzh,xyzh_label,npart,Bxyz,Bxyz_label,&
                       npartoftypetot,update_npartoftypetot,&
-                      maxphase,iphase,h2chemistry,nabundances,&
+                      maxphase,iphase,nabundances,&
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                       dustprop,dustprop_label,dustfrac_label,ndusttypes,&
@@ -1134,7 +1136,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,ilambda,iorig,dt_in,krome_nmols,gamma_chem,mu_chem,T_gas_cool
+                      ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
@@ -1226,8 +1228,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              endif
              if (use_krome) then
                 call read_array(abundance,abundance_label,got_krome_mols,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(gamma_chem,'gamma',got_krome_gamma,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(mu_chem,'mu',got_krome_mu,ik,i1,i2,noffset,idisk1,tag,match,ierr)
                 call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (do_nucleation) then

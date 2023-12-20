@@ -14,11 +14,12 @@ module externalforces
 !
 ! :Runtime parameters:
 !   - accradius1      : *soft accretion radius of central object*
+!   - accradius1_hard : *hard accretion radius of central object*
 !   - eps_soft        : *softening length (Plummer) for central potential in code units*
 !   - mass1           : *mass of central object in code units*
 !
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!   extern_densprofile, extern_gnewton, extern_gwinspiral,
+!   extern_densprofile, extern_geopot, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
 !   infile_utils, io, lumin_nsdisc, part, units
 !

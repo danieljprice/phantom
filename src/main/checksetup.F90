@@ -37,10 +37,10 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,h2chemistry, &
                 do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
-                iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
+                iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
@@ -104,7 +104,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2) then
+    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -238,7 +238,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /=9)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
@@ -620,7 +620,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  !  check that radiation properties are sensible
  !
- if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-10) then
+ if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-15) then
     nerror = nerror + 1
     print*,'ERROR: isink_radiation > 1 and sink particle has no luminosity'
     return
