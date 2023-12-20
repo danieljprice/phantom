@@ -252,7 +252,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 !  .. WARNING:: should not be used for misaligned discs
 !
     call get_eos_stratified(istrat,xi,yi,zi,polyk,polyk2,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,ponrhoi,spsoundi)
-    tempi    = temperature_coef*mui*ponrhoi
+    tempi = temperature_coef*mui*ponrhoi
 
  case(8)
 !
