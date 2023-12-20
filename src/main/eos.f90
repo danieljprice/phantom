@@ -434,7 +434,7 @@ end subroutine equationofstate
 !-----------------------------------------------------------------------
 subroutine init_eos(eos_type,ierr)
  use units,          only:unit_velocity
- use physcon,        only:mass_proton_cgs,kboltz
+ use physcon,        only:Rg
  use io,             only:error,warning
  use eos_mesa,       only:init_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_init
@@ -453,7 +453,7 @@ subroutine init_eos(eos_type,ierr)
  !  included in the function call rather than here
  !  c_s^2 = gamma*P/rho = gamma*kT/(gmw*m_p) -> T = P/rho * (gmw*m_p)/k
  !
- temperature_coef = mass_proton_cgs/kboltz * unit_velocity**2
+ temperature_coef = unit_velocity**2  / Rg
 
  select case(eos_type)
  case(6)

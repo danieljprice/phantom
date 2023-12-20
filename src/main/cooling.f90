@@ -33,7 +33,7 @@ module cooling
 
  use options,  only:icooling
  use timestep, only:C_cool
- use cooling_solver, only:T0_value ! expose to other routines
+ use cooling_solver, only:T0_value,lambda_shock_cgs ! expose to other routines
 
  implicit none
  character(len=*), parameter :: label = 'cooling'
@@ -46,7 +46,7 @@ module cooling
  !--Minimum temperature (failsafe to prevent u < 0); optional for ALL cooling options
  real,    public :: Tfloor = 0.                     ! [K]; set in .in file.  On if Tfloor > 0.
  real,    public :: ufloor = 0.                     ! [code units]; set in init_cooling
- public :: T0_value ! expose to public
+ public :: T0_value,lambda_shock_cgs ! expose to public
 
  private
 
@@ -147,6 +147,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  if (present(Tdust_in)) Tdust     = Tdust_in
  if (present(K2_in))    K2        = K2_in
  if (present(kappa_in)) kappa     = kappa_in
+ if (polyIndex < 1.) call fatal('energ_cooling','polyIndex < 1')
 
  select case (icooling)
  case (6)
