@@ -40,8 +40,8 @@ module setup
 !   prompting, radiation_utils, set_dust, setshock, setunits, setup_params,
 !   timestep, unifdis, units
 !
- use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal
- use options,   only:use_dustfrac
+ use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
+ use options,   only:use_dustfrac,icooling
  use timestep,  only:dtmax,tmax
  use dust,      only:K_code
  use eos,       only:ieos,gmw
@@ -87,22 +87,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
  use mpiutils,        only:bcast_mpi
  use dim,             only:ndim,mhd
- use options,         only:use_dustfrac,icooling,ieos
+ use options,         only:use_dustfrac,ieos
  use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
                            periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,            only:rad,radprop,iradxi,ikappa
  use kernel,          only:radkern,hfact_default
  use prompting,       only:prompt
  use set_dust,        only:set_dustfrac
- use units,           only:set_units,unit_opacity,unit_pressure,unit_density,unit_ergg
+ use units,           only:set_units,unit_opacity,unit_pressure,unit_density,unit_ergg,udist,unit_velocity
  use dust,            only:idrag
  use unifdis,         only:is_closepacked,is_valid_lattice
- use physcon,         only:au,solarm
+ use physcon,         only:au,solarm,kboltz,mass_proton_cgs
  use setshock,        only:set_shock,adjust_shock_boundaries,fsmooth
  use radiation_utils, only:radiation_and_gas_temperature_equal
  use eos_idealplusrad,only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos,             only:temperature_coef,init_eos
- use cooling,         only:T0_value
+ use cooling,         only:T0_value,lambda_shock_cgs
  use nicil,           only:eta_constant,eta_const_type,icnstsemi
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npartoftype(:)
@@ -116,6 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real                             :: delta,gam1,xshock,fac,dtg
  real                             :: uuleft,uuright,xbdyleft,xbdyright,dxright
  real                             :: rholeft,rhoright,denscgs,Pcgs,ucgs,temp
+ real                             :: cooling_length,cs0
  integer                          :: i,ierr,nbpts,iverbose
  character(len=120)               :: shkfile, filename
  logical                          :: iexist,jexist,use_closepacked
@@ -334,8 +335,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  if (iexist .and. icooling > 0) then
     call init_eos(ieos,ierr)
+    cooling_length = 1.0
     T0_value = temperature_coef*gmw*rightstate(ipr)/rightstate(idens)
-    print*,' Setting T0 in cooling function to ',T0_value
+    cs0 = sqrt(gamma*rightstate(ipr)/rightstate(idens))*unit_velocity  ! in cgs units
+    lambda_shock_cgs = kboltz*T0_value*cs0*mass_proton_cgs/((cooling_length*udist)*rightstate(idens)*unit_density)
+    print*,' Setting T0 in cooling function to ',T0_value,'mu = ',gmw,' u0 = ',rightstate(ipr)/((gamma-1)*rightstate(idens)),&
+           ' lambda_shock_cgs = ',lambda_shock_cgs
+    print*,' cooling length = ',(kboltz*T0_value*cs0/(lambda_shock_cgs*rightstate(idens)*unit_density/mass_proton_cgs))/udist
+    print*,' max time in code units is ',14.2*cooling_length/(cs0/unit_velocity)
+    print*,' ndens0 = ',rightstate(idens)*unit_density/mass_proton_cgs
  endif
 
 end subroutine setpart
@@ -438,7 +446,7 @@ subroutine choose_shock (gamma,polyk,dtg,iexist)
  zright = 0.0
  const  = sqrt(4.*pi)
 
- if (do_radiation) call set_units_interactive(gr)
+ if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call set_units_interactive(gr)
 
 !
 !--list of shocks
@@ -682,9 +690,8 @@ end function get_conserved_density
 !------------------------------------------
 subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
- use dim,          only:tagline,do_radiation
+ use dim,          only:tagline
  use setunits,     only:write_options_units
- use part,         only:gr
  integer,          intent(in) :: iprint,numstates
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
@@ -696,7 +703,7 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  write(lu,"(a)") '# '//trim(tagline)
  write(lu,"(a)") '# input file for Phantom shock tube setup'
 
- if (do_radiation) call write_options_units(lu,gr)
+ if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call write_options_units(lu,gr)
 
  write(lu,"(/,a)") '# shock tube'
  do i=1,numstates
@@ -763,8 +770,6 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use setunits,     only:read_options_and_set_units
- use part,         only:gr
- use dim,          only:do_radiation
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(in)  :: iprint,numstates
@@ -780,7 +785,7 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  nerr = 0
 
  ! units
- if (do_radiation) call read_options_and_set_units(db,nerr,gr)
+ if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call read_options_and_set_units(db,nerr,gr)
 
  do i=1,numstates
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)

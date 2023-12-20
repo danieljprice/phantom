@@ -48,9 +48,9 @@ contains
 !  Piecewise cooling law for simple shock problem (Creasey et al. 2011)
 !+
 !-----------------------------------------------------------------------
-subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
+subroutine piecewise_law(T, T0, rho_cgs, ndens, Q, dlnQ)
 
- real, intent(in)  :: T, T0, ndens
+ real, intent(in)  :: T, T0, rho_cgs, ndens
  real, intent(out) :: Q, dlnQ
  real :: T1,Tmid !,dlnT,fac
 
@@ -61,12 +61,12 @@ subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
     dlnQ = 0.
  elseif (T >= T0 .and. T <= Tmid) then
     !dlnT = (T-T0)/(T0/100.)
-    Q = -lambda_shock_cgs*ndens**2*(T-T0)/T0
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T-T0)/T0
     !fac = 2./(1.d0 + exp(dlnT))
-    dlnQ = 1./(T-T0+1.d-10)
+    dlnQ = 1./(T-T0+epsilon(0.))
  elseif (T >= Tmid .and. T <= T1) then
-    Q = -lambda_shock_cgs*ndens**2*(T1-T)/T0
-    dlnQ = -1./(T1-T+1.d-10)
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T1-T)/T0
+    dlnQ = -1./(T1-T+epsilon(0.))
  else
     Q    = 0.
     dlnQ = 0.
