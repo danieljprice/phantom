@@ -903,7 +903,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,gamma
- use eos_stamatellos, only:gradP_cool,Gpot_cool,duFLD,doFLD,arad,getopac_opdep,get_k_fld
+ use eos_stamatellos, only:gradP_cool,Gpot_cool,duFLD,doFLD,getopac_opdep,get_k_fld
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -1033,7 +1033,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
  real    :: radPj,fgravxi,fgravyi,fgravzi,wkernj,wkerni,gradpx,gradpy,gradpz
- real    :: gradP_cooli,gradP_coolj,kfldi,kfldj,Ti,Tj,diffterm
+ real    :: gradP_cooli,gradP_coolj,kfldi,kfldj,Ti,Tj,diffterm,gmwi
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1210,8 +1210,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     gradpy = 0d0
     gradpz = 0d0
     diffterm = 0d0
-    call get_k_fld(rhoi,eni,i,kfldi,Ti)
-!    print *, "rhoi,eni,i,kfldi,Ti", rhoi,eni,i,kfldi,Ti
+    if (dt > 0d0) then
+    !   print *, "rhoi,eni,i,kfldi,Ti", rhoi,eni,i
+       call get_k_fld(rhoi,eni,i,kfldi,Ti)
+    endif
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1752,8 +1754,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              fsum(idendtdissi) = fsum(idendtdissi) + dendissterm
              if (icooling == 8) then
                 Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
-                if (doFLD) then
-!                   print *, rhoj, "calling k_fld for j"
+                if (doFLD .and. dt > 0.) then
+                   !print *, rhoj, "calling k_fld for j", j, enj
                    call get_k_fld(rhoj,enj,j,kfldj,Tj)
                    if ((kfldj + kfldi) == 0.) then
                       diffterm = 0d0

@@ -1520,7 +1520,7 @@ end subroutine solve_quartic
 !---------------------------------------------------------
  subroutine calc_lambda_hybrid(xyzh,utherm,rho)
  use io,              only:fatal
- use eos_stamatellos, only:getopac_opdep,arad,lambda_fld
+ use eos_stamatellos, only:getopac_opdep,lambda_fld
  use kernel,          only:get_kernel,cnormk,radkern
  use units,           only:unit_density,unit_ergg,unit_opacity,udist
  use part,            only:massoftype,igas,gradh,hfact
@@ -1607,19 +1607,19 @@ end subroutine solve_quartic
        runiz = dz/rij
 
        call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj)
-       uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)!*udist**3) ! why udist here? kern has h^-3
+!       uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)!*udist**3) ! why udist here? kern has h^-3
      !  print *, 'got opdep j'
        
        dT4 = Ti**4d0 - Tj**4d0
-       dradxi = dradxi + pmassj*arad*dT4*dWi*runix/rhoj
-       dradyi = dradyi + pmassj*arad*dT4*dWi*runiy/rhoj
-       dradzi = dradzi + pmassj*arad*dT4*dWi*runiz/rhoj
+ !      dradxi = dradxi + pmassj*arad*dT4*dWi*runix/rhoj
+  !     dradyi = dradyi + pmassj*arad*dT4*dWi*runiy/rhoj
+   !    dradzi = dradzi + pmassj*arad*dT4*dWi*runiz/rhoj
     enddo loop_over_neighbours 
 
    ! print *, 'done neighbour loop for ', i,n
     if (.not. added_self) then
 !       print *, "Has not added self in lambda hybrid"
-       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
+!       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
     endif
 
     dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! magnitude

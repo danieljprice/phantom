@@ -244,7 +244,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use krome_user, only:krome_nmols
  use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
- use eos_stamatellos, only:gradP_cool,Gpot_cool
+ use eos_stamatellos, only:gradP_cool,Gpot_cool,doFLD,urad_FLD
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -407,6 +407,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iX)
              call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iZ)
           endif
+       endif
+       ! write urad to file (stamatellos + FLD)
+       if (icooling == 8 .and. doFLD) then
+          call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
        endif
 
        ! smoothing length written as real*4 to save disk space

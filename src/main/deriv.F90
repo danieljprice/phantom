@@ -71,7 +71,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,icooling
- use eos_stamatellos, only:doFLD,lambda_FLD
+
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -158,7 +158,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
  endif
-
+ 
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  else
@@ -172,13 +172,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
- endif
- 
- ! compute diffusion term for hybrid RT & polytropic cooling method
- if (icooling == 8 .and. dt > 0. .and. doFLD) then
- 	!print *, "calling lambda_hybrid from deriv"
-    call set_linklist(npart,nactive,xyzh,vxyzu)   
-    call calc_lambda(npart,xyzh,vxyzu,dens,lambda_FLD)
  endif
  
 !
@@ -276,7 +269,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
   use kernel,   only:radkern2,wkern,grkern,cnormk,get_kernel
   use linklist, only:get_neighbour_list
   use units,    only:unit_density,unit_ergg,unit_opacity
-  use eos_stamatellos, only:getopac_opdep,arad
+  use eos_stamatellos, only:getopac_opdep
 
   integer,         intent(in)     :: npart 
   real,            intent(in)     :: xyzh(:,:)
@@ -287,7 +280,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
   integer, parameter  :: maxcellcache = 10000
   logical :: iactivei,iamdusti,iamgasi,iactivej,iamgasj,iamdustj
   integer :: iamtypei,i,j,n,iamtypej,mylistneigh(maxneigh),nneigh
-  integer(kind=1) :: iphasei
+  integer(kind=1) :: iphasei,iphasej
   real                :: rhoi,rhoj,uradi,xi,yi,zi
   real                :: dradi,Ti,Tj,kappaBarj,kappaPartj,gmwj,gammaj,wkerni,grkerni
   real                :: kappaBari,kappaParti,gmwi,dx,dy,dz,rij2,rij,rij1,Wi,dWi
@@ -296,8 +289,11 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
   real                :: hj21,hi4i,hj,hj1,hi41,hi31,gradhi
   real                :: xyzcache(maxcellcache,4)
   logical             :: added_self,ignoreself
+  integer             :: success_count
   ignoreself = .true.
-
+  
+  print *, "calculating lambda in deriv"
+  success_count = 0
 ! loop over parts                                                                     
 !$omp parallel do schedule(runtime) default(none) &
 !$omp shared(npart,xyzh,iphase,ignoreself,unit_opacity) &
@@ -308,7 +304,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
 !$omp private(gammaj,wkerni,grkerni,kappaBari,kappaParti,gmwi,dx,dy,dz,rij2) &
 !$omp private(rij,rij1,Wi,dWi,dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,dT4) &
 !$omp private(pmassi,pmassj,hi,hi21,hi1,q,q2,q2i,xj,yj,zj,qi,q2j,hj21,hi4i,hj,hj1) &
-!$omp private(hi41,hi31,gradhi,added_self)
+!$omp private(hi41,hi31,gradhi,added_self,success_count,iphasej)
 
   over_parts: do i = 1,npart
     !                                                                              
@@ -319,10 +315,11 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
                            getj=.true.) 
      iphasei = iphase(i)
      call get_partinfo(iphasei,iactivei,iamgasi,iamdusti,iamtypei)
+     print *, i, iactivei,iamgasi,rho(i),"nneigh:",nneigh
      if (.not. iactivei) cycle over_parts
      if (iamtypei == iboundary) cycle over_parts
      if (.not. iamgasi) cycle over_parts
-     if (rho(i) < tiny(rhoi)) cycle over_parts
+    
      uradi = 0.
      dradi = 0.
      pmassi = massoftype(iamtypei)
@@ -350,9 +347,14 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
  loop_over_neighbours: do n = 1,nneigh
         j = mylistneigh(n)
         if (j < 0) cycle loop_over_neighbours
-        if (rho(j) < tiny(rhoi)) cycle loop_over_neighbours
+        iphasej = iphase(j) 
+        call get_partinfo(iphasej,iactivej,iamgasj,iamdustj,iamtypej)
+        if (.not. iactivej) cycle loop_over_neighbours
+        if (iamtypej == iboundary) cycle loop_over_neighbours
+        if (.not. iamgasj) cycle loop_over_neighbours
         if ((ignoreself) .and. (i==j)) cycle loop_over_neighbours
-
+        if (xyzh(4,j) < 0d0) cycle loop_over_neighbours
+        print *, "n=", n
         if (n <= maxcellcache) then
            ! positions from cache are already mod boundary                              
            xj = xyzcache(n,1)
@@ -385,8 +387,8 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
         q2j  = rij2*hj21
         is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
            call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
-           
            if (.not.iamgasj) cycle loop_over_neighbours
+           if (.not.iactivej) cycle loop_over_neighbours
            !Get kernel quantities                  
            if (gradh(1,i) > 0.) then
               gradhi = gradh(1,i)
@@ -394,7 +396,7 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
   !call error('force','stored gradh is zero, resetting to 1')                
               gradhi = 1.
            endif
-
+           !print *, "q2i,q2j", q2i,q2j
            call get_kernel(q2,q,wkerni,grkerni)
            Wi = wkerni*cnormk*hi21*hi1
            dWi = grkerni*cnormk*hi21*hi21*gradh(1,i)
@@ -403,23 +405,29 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
            if (rhoj < tiny(rhoj)) cycle loop_over_neighbours
           call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,kappaBarj, &
                kappaPartj,Tj,gmwj)
-          uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)
+!          uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)
+          if (uradi > 1e40) then
+             print *, "Urad huge- i,j,pmassj,Tj,Wi,hi,rhoj:", i,j,pmassj,Tj,Wi,1/hi1,rhoj,xj,yj,zj 
+             print *, "wkerni,cnormk,hi21,hi1", wkerni,cnormk,hi21,hi1,tiny(rhoj)
+             print *, "max min rho", maxval(rho), minval(rho)
+             stop
+          endif
           ! unit vector components    
           runix = dx/rij
           runiy = dy/rij
           runiz = dz/rij
 
           dT4 = Ti**4d0 - Tj**4d0
-          dradxi = dradxi + arad*pmassj*dT4*dWi*runix/rhoj
-          dradyi = dradyi + arad*pmassj*dT4*dWi*runiy/rhoj
-          dradzi = dradzi + arad*pmassj*dT4*dWi*runiz/rhoj
+!          dradxi = dradxi + arad*pmassj*dT4*dWi*runix/rhoj
+!          dradyi = dradyi + arad*pmassj*dT4*dWi*runiy/rhoj
+!          dradzi = dradzi + arad*pmassj*dT4*dWi*runiz/rhoj
        endif is_sph_neighbour
 
     enddo loop_over_neighbours
 
     if (.not. added_self) then
        !       print *, "Has not added self in lambda hybrid
-       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
+!       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
     endif
     !    urad  = cnormk*uradi + arad*Ti**4.0d0
     dradi = cnormk*SQRT(dradxi**2.0d0 + dradyi**2.0d0 + dradzi**2.0d0)
@@ -434,11 +442,24 @@ subroutine calc_lambda(npart,xyzh,vxyzu,rho,lambda)
 
     lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
     if (isnan(lambda(i))) then
-       print *, "lambda isnan. i, R_Rad, uradi,dradi,rhoi,kappaParti", &
-            i,R_Rad,uradi,dradi,rhoi,kappaParti
+       print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,kappaParti, Ti", &
+            i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
+    elseif (lambda(i) < tiny(lambda(i))) then
+       print *, "lambda is 0,i, rhoi, uradi", i, rhoi, uradi
+       stop
+    else
+!$omp critical
+       success_count = success_count + 1
+!$omp end critical
     endif
  enddo over_parts
 !$omp end parallel do
+ print *, "success =", success_count
+ do i=1,npart
+    if (lambda(i) < tiny(lambda(i))) then
+       print *, "lambda is 0,i, rhoi, uradi", i, rhoi, uradi,kappaParti
+    endif
+ enddo
 end subroutine calc_lambda
 
 end module deriv

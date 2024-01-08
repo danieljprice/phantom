@@ -19,8 +19,7 @@ module eos_stamatellos
 
  implicit none
  real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),radprop_FLD(:,:) !gradP_cool=gradP/rho
- real, parameter,public      :: arad=7.5657d-15
+ real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,parameter,public :: doFLD = .True.
  integer,public :: iunitst=19
@@ -37,7 +36,8 @@ subroutine init_S07cool()
  allocate(Gpot_cool(npart))
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
-! allocate(radprop_FLD(maxradprop,npart))    
+ allocate(urad_FLD(npart))    
+ urad_FLD(:) = 0d0
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
  if (doFLD) print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
 end subroutine init_S07cool
@@ -48,7 +48,7 @@ subroutine finish_S07cool()
  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
  if (allocated(duFLD)) deallocate(duFLD)
  if (allocated(lambda_fld)) deallocate(lambda_fld)
-! if (allocated(radprop_FLD)) deallocate(radprop_FLD)
+ if (allocated(urad_FLD)) deallocate(urad_FLD)
  close(iunitst)
 end subroutine finish_S07cool
 
@@ -176,13 +176,11 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  c = kappa2 - m*OPTABLE(i,1,1)
 
  kappaPart = m*rhoi_ + c
- !kappaPart = kappaPart*kappa_corr
 
  m = (kbar2 - kbar1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
  c = kbar2 - m*OPTABLE(i,1,1)
 
  kappaBar = m*rhoi_ + c
- !kappaBar = kappaBar*kappa_corr
 
  m = (Tpart2 - Tpart1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
  c = Tpart2 - m*OPTABLE(i,1,1)
@@ -193,7 +191,6 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  c = gmw2 - m*OPTABLE(i,1,1)
 
  gmwi = m*rhoi_ + c
-
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
@@ -245,18 +242,26 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 end subroutine getintenerg_opdep
 
 subroutine get_k_fld(rhoi,eni,i,ki,Ti)
-  use physcon,  only:steboltz
-  use units,    only:unit_density,unit_ergg,unit_opacity
+  use physcon,  only:c,fourpi
+  use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
   real,intent(in)    :: rhoi,eni
   integer,intent(in) :: i
   real               :: kappaBar,gmwi,kappaPart
   real,intent(out)   :: ki,Ti
 
-  call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
-  ki = 16d0 * steboltz * lambda_FLD(i) * Ti**3 /rhoi/kappaPart/unit_opacity
-  if (isnan(ki)) then
-     print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
-          lambda_FLD(i), Ti, rhoi,kappaPart
+  if (lambda_FLD(i) == 0d0) then
+     !print *, i, "lambda_FLD=0"
+     !stop
+     ki = 0.
+  else
+     call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+     kappaPart = kappaPart/unit_opacity
+     ! steboltz = 4pi/c * arad
+     ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
+     if (isnan(ki)) then
+        print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
+             lambda_FLD(i), Ti, rhoi,kappaPart
+     endif
   endif
 end subroutine get_k_fld
 
