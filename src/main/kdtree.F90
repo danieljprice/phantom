@@ -589,6 +589,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
           fac    = pmassi*dfac ! to avoid round-off error
+       elseif (use_apr) then
+         pmassi = aprmassoftype(igas,apr_level_soa(i))*apr_weight_soa(i)
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -610,6 +612,8 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
            pmassi = massoftype(iamtype(iphase_soa(i)))
          endif
           fac    = pmassi*dfac ! to avoid round-off error
+       elseif (use_apr) then
+         pmassi = aprmassoftype(igas,apr_level_soa(i))*apr_weight_soa(i)
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi

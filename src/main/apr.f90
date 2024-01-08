@@ -26,13 +26,13 @@ module apr
   private
   integer :: apr_max, apr_max_in = 3
   integer :: ref_dir = 1, top_level = 1, apr_type = 1
-  real    :: apr_centre(3),apr_rad,apr_blend
+  real    :: apr_centre(3),apr_rad = 1.0, apr_drad = 0.1, apr_blend
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.25
-  logical :: apr_verbose = .false.
+  logical :: apr_verbose = .true.
   logical :: do_relax = .false.
-  logical :: adjusted_split = .true.
+  logical :: adjusted_split = .false.
 
 contains
 
@@ -44,7 +44,7 @@ contains
   subroutine init_apr(apr_level,apr_weight,ierr)
     use dim, only:maxp_hard
     use part, only:npart,massoftype,aprmassoftype
-    use apr_region, only:set_apr_region
+    use apr_region, only:set_apr_centre,set_apr_regions
     integer, intent(inout) :: ierr,apr_level(:)
     real, intent(inout)    :: apr_weight(:)
     logical :: previously_set
@@ -71,20 +71,9 @@ contains
     endif
 
     ! initiliase the regions
-    call set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
+    call set_apr_centre(apr_type,apr_centre,apr_blend)
     allocate(apr_regions(apr_max),npart_regions(apr_max))
-    if (ref_dir == 1) then
-      apr_regions(apr_max) = apr_rad
-      apr_regions(1) = 100.    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-  !    apr_regions(2) = 3.0
-  !    apr_regions(3) = 2.0
-      top_level = apr_max
-    else
-      apr_regions(1) = apr_rad
-      apr_regions(apr_max) = 2.0    ! TBD: this should be replaced with a routine that automagically calculates the steps safely
-      apr_regions(2) = 0.3
-      top_level = 1
-    endif
+    call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
     npart_regions = 0
 
     ! if we are derefining we make sure that
@@ -92,6 +81,9 @@ contains
     ! largest particle
     if (ref_dir == -1) then
       massoftype(:) = massoftype(:) * 2.**(apr_max -1)
+      top_level = 1
+    else
+      top_level = apr_max
     endif
 
     ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
@@ -117,7 +109,7 @@ contains
                        shuffle_part
     use quitdump, only:quit
     use relaxem,  only:relax_particles
-    use apr_region, only:dynamic_apr,set_apr_region
+    use apr_region, only:dynamic_apr,set_apr_centre
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),apr_weight(:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
@@ -128,7 +120,7 @@ contains
     real :: xi,yi,zi
 
     ! if the centre of the region can move, update it
-    if (dynamic_apr) call set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
+    if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
@@ -160,7 +152,6 @@ contains
     nsplit_total = 0
     nrelax = 0
     apri = 0 ! to avoid compiler errors
-
 
     do jj = 1,apr_max
       npartold = npartnew ! to account for new particles as they are being made
@@ -245,6 +236,9 @@ contains
       deallocate(xyzh_ref,force_ref,pmass_ref,relaxlist)
     endif
     deallocate(mergelist)
+
+    !call hacky_write('phantom')
+    !call quit
 
   end subroutine update_apr
 
@@ -395,7 +389,7 @@ contains
 
         ! discard tuther
         call kill_particle(tuther,npartoftype)
-        nkilled = nkilled + 2
+        nkilled = nkilled + 2 ! this refers to the number of children killed
         ! If this particle was on the shuffle list previously, take it off
         do m = 1,nrelax
           if (relaxlist(m) == tuther) relaxlist(m) = 0
@@ -424,12 +418,18 @@ contains
     case('apr_max')
       read(valstring,*,iostat=ierr) apr_max_in
       ngot = ngot + 1
-      if (apr_max_in  <  1) call fatal(label,'apr_max < 1 in input options')
+      if (apr_max_in  <  0) call fatal(label,'apr_max < 0 in input options')
     case('ref_dir')
       read(valstring,*,iostat=ierr) ref_dir
       ngot = ngot + 1
     case('apr_type')
       read(valstring,*,iostat=ierr) apr_type
+      ngot = ngot + 1
+    case('apr_rad')
+      read(valstring,*,iostat=ierr) apr_rad
+      ngot = ngot + 1
+    case('apr_drad')
+      read(valstring,*,iostat=ierr) apr_drad
       ngot = ngot + 1
     case default
       imatch = .false.
@@ -448,9 +448,11 @@ contains
     use infile_utils, only:write_inopt
     integer, intent(in) :: iunit
 
-    call write_inopt(apr_max_in,'apr_max','number of refinement levels (3 -> 2x resolution)',iunit)
+    call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
     call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
     call write_inopt(apr_type,'apr_type','1: static, 2: moving sink',iunit)
+    call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
+    call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
   end subroutine write_options_apr
 

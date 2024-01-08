@@ -347,6 +347,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call error('setup','damping on: setting non-zero velocities to zero')
     vxyzu(1:3,:) = 0.
  endif
+
+ ! initialise apr if it is being used
+#ifdef APR
+  call init_apr(apr_level,apr_weight,ierr)
+#else
+  apr_level = 1
+  apr_weight = 1.0
+#endif
+
 !
 !--The code works in B/rho as its conservative variable, but writes B to dumpfile
 !  So we now convert our primitive variable read, B, to the conservative B/rho
@@ -565,13 +574,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                        npart,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
-#endif
-
-#ifdef APR
- call init_apr(apr_level,apr_weight,ierr)
-#else
- apr_level = 1
- apr_weight = 1.0
 #endif
 
 !

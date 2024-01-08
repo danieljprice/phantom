@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module apr_region
   !
-  ! Contains everything for live adaptive particle refinement
+  ! Contains everything for setting the adaptive particle refinement regions
   !
   ! :References: None
   !
@@ -23,7 +23,7 @@ module apr_region
   implicit none
 
   logical, public :: dynamic_apr = .false.
-  public :: set_apr_region
+  public :: set_apr_centre, set_apr_regions
 
   private
 
@@ -31,14 +31,14 @@ contains
 
   !-----------------------------------------------------------------------
   !+
-  !  Initialising all the apr arrays and properties
+  !  Setting/updating the centre of the apr region (as it may move)
   !+
   !-----------------------------------------------------------------------
 
-subroutine set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
+subroutine set_apr_centre(apr_type,apr_centre,apr_blend)
   use part, only: xyzmh_ptmass
-  integer, intent(in) :: apr_type
-  real,    intent(out) :: apr_centre(3),apr_rad,apr_blend
+  integer, intent(in)  :: apr_type
+  real,    intent(out) :: apr_centre(3),apr_blend
 
   select case (apr_type)
 
@@ -47,7 +47,6 @@ subroutine set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
     apr_centre(1) = 0.0
     apr_centre(2) = 0.0
     apr_centre(3) = 0.0
-    apr_rad = 0.2
     apr_blend = 0.1
 
   case(2) ! around sink particle 2 - e.g. a planet
@@ -55,17 +54,44 @@ subroutine set_apr_region(apr_type,apr_centre,apr_rad,apr_blend)
     apr_centre(1) = xyzmh_ptmass(1,2)
     apr_centre(2) = xyzmh_ptmass(2,2)
     apr_centre(3) = xyzmh_ptmass(3,2)
-    apr_rad = 2.0
     apr_blend = 0.1
 
   case default
     dynamic_apr = .false.
     apr_centre(:) = 0.
-    apr_rad = 0.2
     apr_blend = 0.1
 
   end select
 
-end subroutine set_apr_region
+end subroutine set_apr_centre
+
+!-----------------------------------------------------------------------
+!+
+!  Initialising all the apr region arrays that decide
+!  the spatial arrangement of the regions
+!+
+!-----------------------------------------------------------------------
+
+subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
+  integer, intent(in) :: ref_dir,apr_max
+  real, intent(in)    :: apr_rad,apr_drad
+  real, intent(inout) :: apr_regions(apr_max)
+  integer :: ii,kk
+
+  if (ref_dir == 1) then
+    apr_regions(1) = 1000. ! this needs to be a number that encompasses the whole domain
+    do ii = 2,apr_max
+      kk = apr_max - ii + 2
+      print*,ii,kk
+      apr_regions(kk) = apr_rad + (ii-1)*apr_drad
+    enddo
+  else
+    apr_regions(apr_max) = 1000. ! again this just needs to encompass the whole domain
+    do ii = 1,apr_max-1
+      apr_regions(ii) = apr_rad + (ii-1)*apr_drad
+    enddo
+  endif
+
+end subroutine set_apr_regions
 
 end module apr_region
