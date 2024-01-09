@@ -13,8 +13,8 @@ module cooling_stamatellos
 ! :Owner: Alison Young
 !
 ! :Runtime parameters:
-!   - EOS_file : *File containing tabulated EOS values*
-!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
+!   - EOS_file : File containing tabulated EOS values
+!   - Lstar    : Luminosity of host star for calculating Tmin (Lsun)
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
@@ -49,7 +49,8 @@ subroutine init_star()
     enddo
     isink_star = imin
  endif
- if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
+ if (isink_star > 0)  print *, "Using sink no. ", isink_star,&
+      "at (xyz)",xyzmh_ptmass(1:3,isink_star),"as illuminating star."
 end subroutine init_star
 
 !
@@ -71,7 +72,6 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 
  poti = Gpot_cool(i)
  du_FLDi = duFLD(i)
-! du_FLDi = 0d0
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
@@ -89,8 +89,8 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 ! get opacities & Ti for ui
  call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi)
- presi = kb_on_mh*rhoi*unit_density*Ti/gmwi
- presi = presi/unit_pressure
+ presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
+ presi = presi/unit_pressure !code units
 
  select case (od_method)
  case (1)
@@ -100,7 +100,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  case (2)
 ! Lombardi+ method of estimating the mean column density
     coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho) Lombardi+ 2015
-    coldensi = coldensi *umass/udist/udist ! physical units
+    coldensi = coldensi * umass/udist/udist ! physical units
  end select
 
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
@@ -110,7 +110,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 
  if (doFLD) then
     ! include term from FLD
-    Teqi = (du_FLDi+dudti_sph) *tcool*unit_ergg/utime
+    Teqi = (du_FLDi + dudti_sph) *tcool*unit_ergg/utime ! physical units
     du_tot = dudti_sph + dudt_rad + du_FLDi
  else
     Teqi = dudti_sph*tcool*unit_ergg/utime

@@ -250,13 +250,11 @@ subroutine get_k_fld(rhoi,eni,i,ki,Ti)
   real,intent(out)   :: ki,Ti
 
   if (lambda_FLD(i) == 0d0) then
-     !print *, i, "lambda_FLD=0"
-     !stop
      ki = 0.
   else
      call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
      kappaPart = kappaPart/unit_opacity
-     ! steboltz = 4pi/c * arad
+     ! steboltz constant = 4pi/c * arad
      ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
      if (isnan(ki)) then
         print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
@@ -264,15 +262,6 @@ subroutine get_k_fld(rhoi,eni,i,ki,Ti)
      endif
   endif
 end subroutine get_k_fld
-
-!subroutine calc_FLD(xyzhi,duFLDi,pmassj,tempi,tempj,rhoi,rhoj,j,grkerni)
- !real,intent(inout) :: duFLDi
-! integer,intent(in) :: j
-! real,intent(in)    :: xyzh(4),pmassj,tempi,tempj,rhoi,rhoj,grkerni
-! duFLDi = pmassj*arad*tempj**4d0*wkernj/rhoj
-
- !duFLDi = duFLDi
-!end subroutine calc_FLD
 
 end module eos_stamatellos
 

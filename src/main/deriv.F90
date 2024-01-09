@@ -70,7 +70,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
- use options,        only:implicit_radiation,implicit_radiation_store_drad,icooling
+ use options,        only:implicit_radiation,implicit_radiation_store_drad
 
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart

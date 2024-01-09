@@ -1655,7 +1655,6 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
 end subroutine store_results
 
-! calc_lambda is called for each cell
 subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda,urad_FLD)
   use io,    only:error
   use dim,   only:maxp
