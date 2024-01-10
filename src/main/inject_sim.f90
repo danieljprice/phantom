@@ -26,8 +26,8 @@ module inject
  character(len=*), parameter, public :: inject_type = 'sim'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject, &
-           set_default_options_inject
- private
+           set_default_options_inject,update_injected_par
+ private :: read_injected_par
 !
 !--runtime settings for this module
 !
@@ -41,6 +41,7 @@ module inject
  logical, allocatable :: injected(:)
 
  character(len=*), parameter :: label = 'inject_tdeoutflow'
+ character(len=*), parameter :: injected_filename = 'injected_par'
 
 contains
 
@@ -85,6 +86,7 @@ subroutine init_inject(ierr)
  allocate(xyzh_pre(4,npart_sim),xyzh_next(4,npart_sim),vxyzu_next(4,npart_sim),pxyzu_next(4,npart_sim),injected(npart_sim))
  xyzh_pre = 0.
  injected = .false.
+ call read_injected_par()
  !e_inject = -1./r_inject
 
 end subroutine init_inject
@@ -122,14 +124,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call find_next_dump(next_dump,next_time,ierr)
     start_dump = next_dump
 
-    write(*,'(i5,1x,a27,1x,a)') npart-npart_old, 'particles are injected from', trim(pre_dump) 
+    write(*,'(i10,1x,a27,1x,a)') npart-npart_old, 'particles are injected from', trim(pre_dump) 
     
     if (pre_dump == final_dump) then
        write(*,'(a)') ' Reach the final dumpfile. Stop injecting ...'
        next_time = huge(0.)
     endif
 
-    tfac = 1.d-10 ! set a tiny timestep so the code has time to adjust for timestep
+    tfac = 1.d-40 ! set a tiny timestep so the code has time to adjust for timestep
  endif
 
  ! update time to next inject
@@ -249,7 +251,55 @@ end subroutine inject_particles
     enddo
 
  end subroutine inject_required_part_tde
-   
+
+ subroutine read_injected_par()
+    use io, only:fatal,warning
+    integer, parameter :: iunit=242
+    logical :: iexist
+    integer :: nread,i
+    
+    inquire(file=trim(injected_filename),exist=iexist)
+
+    if (iexist) then
+       open(iunit,file=trim(injected_filename),status='old')
+       read(iunit,*) nread
+
+       ! check if npart in file is the same as npart_sim
+       if (nread /= npart_sim) call fatal('inject_sim','npart in '//trim(injected_filename)// &
+                                              ' does not match npart_sim')
+
+       do i=1,nread
+          read(iunit,*) injected(i)
+       enddo
+       close(iunit)
+    else
+       call warning('inject_sim',trim(injected_filename)//' not found, assume no particles are injected')
+       injected = .false.
+    endif
+
+ end subroutine
+
+ subroutine update_injected_par()
+    use io, only:error
+    integer, parameter :: iunit=284
+    logical :: iexist
+    integer :: i
+
+    if (allocated(injected)) then
+       inquire(file=trim(injected_filename),exist=iexist)
+       if (iexist) then
+          open(iunit,file=trim(injected_filename),status='replace')
+       else
+          open(iunit,file=trim(injected_filename),status='new')
+       endif
+
+       write(iunit,*) npart_sim
+       do i=1,npart_sim
+          write(iunit,*) injected(i)
+       enddo
+       close(iunit)
+    endif
+ end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -271,9 +321,11 @@ subroutine write_options_inject(iunit)
  endif
 
  write(iunit,"(/,a)") '# options controlling particle injection'
- call write_inopt(trim(start_dump),'start_dump','dumpfile to start for injection',iunit)
+ call write_inopt("'"//trim(start_dump)//"'",'start_dump','dumpfile to start for injection &
+                                              (with relative path if in other direc)',iunit)
  call write_inopt(r_inject_cgs,'r_inject','radius to inject tde outflow (in cm)',iunit)
- call write_inopt(trim(final_dump),'final_dump','stop injection after this dump',iunit)
+ call write_inopt("'"//trim(final_dump)//"'",'final_dump','stop injection after this dump &
+                                              (with relative path if in other direc)',iunit)
 
 end subroutine write_options_inject
 
