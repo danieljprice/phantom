@@ -348,7 +348,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-    if (icooling==8 .and. doFLD) call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+    if (icooling==8 .and. doFLD) then
+       call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+    endif
     if (do_export) then
        call write_cell(stack_waiting,cell)
     else
@@ -381,7 +383,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              endif
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-             if (icooling==8 .and. doFLD) call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+             if (icooling==8 .and. doFLD) then
+                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+             endif
              if (do_export) then
                 call write_cell(stack_waiting,cell)
                 exit local_its
@@ -451,7 +455,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-          if (icooling==8 .and. doFLD) call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+          if (icooling==8 .and. doFLD) then
+             call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+          endif
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
 
@@ -512,7 +518,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-             if (icooling==8 .and. doFLD) call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+             if (icooling==8 .and. doFLD) then
+                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+             endif
 
              call write_cell(stack_redo,cell)
           else
@@ -1822,7 +1830,7 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
      endif
 
  enddo over_parts
- if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err
+! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err
 end subroutine calc_lambda_cell
 
 end module densityforce

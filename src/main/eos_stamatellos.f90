@@ -82,8 +82,6 @@ subroutine read_optab(eos_file,ierr)
     enddo
  enddo
 ! print *, 'nx,ny=', nx, ny
-! print *, "Optable first row:"
-! print *, (OPTABLE(1,1,i),i=1, 6)
 end subroutine read_optab
 
 !
