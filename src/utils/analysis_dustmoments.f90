@@ -107,16 +107,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !print*,' got lambsol = ',lambsol
     f = integrand(x, lambsol, 0)
 
-    do k=0,size(mu)-1
-       ftmp = f*x**(k/3.)
-       kgot(k) = integrate_trap_log(ngrid,x,ftmp)
-    enddo
-
     if (debug .or. ierr /= 1) then
+       do k=0,size(mu)-1
+          ftmp = f*x**(k/3.)
+          kgot(k) = integrate_trap_log(ngrid,x,ftmp)
+       enddo
        print*,' MOMENTS IN  : ',mu
        print*,' MOMENTS OUT : ',kgot
+       if (debug) call print_moments(kgot,a0,rhoi)
     endif
-    if (debug) call print_moments(kgot,a0,rhoi)
 
      ! print results
     if (debug) then
