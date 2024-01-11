@@ -34,8 +34,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use dust_formation, only:mass_per_H
  use reconstruct_from_moments, only:reconstruct_maxent,&
                                     integrand,fsolve_error
- use integrate,                only:integrate_trap_log
- use table_utils,              only:linspace,logspace
+ use integrate,                only:integrate_trap_log,integrate_trap
+ use table_utils,              only:logspace
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -44,9 +44,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, parameter :: ngrid = 4001
  real :: khat(0:3),ki(0:3),kgot(0:3)
  real :: mu(4),x(ngrid),lambsol(4),f(ngrid),ftmp(ngrid),lambguess(4)
- real :: xmin,xmax,scalefac,sigma_log,factor,logxmean,a0,rhoi
+ real :: xmin,xmax,scalefac,sigma_log,factor,logxmean,a0,rhoi,prefac
  real, parameter :: Acarb = 12.011, rhocarb = 2.25
  character(len=20) :: filename
+ logical, parameter :: debug = .false.
 
  if (.not.do_nucleation) then
     stop 'ERROR: need DUST_NUCLEATION=yes for this analysis type'
@@ -54,63 +55,79 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  xmin = 1e4  ! critical value of N, number of monomers
  xmax = 1e20  ! want to integrate to infinity, but this is good enough
- sigma_log = 1.
+ sigma_log = 0.1
 
  call logspace(x,xmin,xmax)
  print*,' xmin, xmax  = ',xmin,xmax,' micron in code units = ',micron/udist
 
+ logxmean = 10.
+ scalefac = 100.
+ ftmp = scalefac/(x*sqrt(2.*pi*sigma_log**2))*exp(-0.5*(log(x)-logxmean)**2/sigma_log**2)
+ ftmp = exp(log(100./(x*sqrt(2.*pi*sigma_log**2))) -0.5*(log(x)-logxmean)**2/sigma_log**2)
+
+ prefac = scalefac/sqrt(2.*pi*sigma_log**2)
+ factor = -0.5/sigma_log**2
+ ftmp = exp(log(prefac) + factor*logxmean**2 + (factor*(-2*logxmean) - 1.)*log(x) + factor*(log(x)**2))
+
+ lambguess = [log(prefac) + factor*logxmean**2,factor*(-2.*logxmean) - 1.,factor,0.]
+ ftmp = exp(lambguess(1) + lambguess(2)*log(x) + lambguess(3)*log(x)**2 + lambguess(4)*log(x)**3)
+ print*,' integrated log normal Gaussian=',integrate_trap_log(ngrid,x,ftmp), ' should be ',scalefac
 
  a0 = (3.*Acarb*amu/(4.*pi*rhocarb))**(1./3.)
  print*,' mass per H = ',mass_per_H,' g'
  print*,' a0 = ',a0,' cm = ',a0/micron,' micron'
- !lambguess = [78.148545951275779 ,      -79.077042328656518 ,       16.875452444253007  ,     -1.1286214050246528 ]
- do i=1,10
+
+ ierr = 0
+ do i=1,npart
     rhoi = rhoh(xyzh(4,i),particlemass)
     khat(0:3) = nucleation(idK0:idK3,i)
     ki(0:3) = khat(0:3)*rhoi*unit_density/mass_per_H 
-    print "(/,a,i0)",' reconstructing on particle ',i
-    call print_moments(ki,a0,rhoi)
+    if (debug) print "(/,a,i0)",' reconstructing on particle ',i
+    if (debug) call print_moments(ki,a0,rhoi)
 
     mu = ki
-    print*,' MOMENTS IN  : ',mu
 
     ! try a log normal as the initial guess
-    logxmean = log(ki(3)/ki(0))
-    !print*,' guessing logxmean = ',logxmean
-    factor = -0.5/sigma_log**2
-    lambguess = factor*[logxmean**2,-logxmean,1.,0.]
-    !lambguess = [100.,-3.5,0.,0.]
+    if (.true.) then
+       prefac = mu(1)/sqrt(2.*pi*sigma_log**2)
+       logxmean = log(ki(3)/ki(0))
+       sigma_log = 1.
+       if (debug) print*,' guessing normalisation = ',prefac,' logxmean = ',logxmean, ' sigma_log = ',sigma_log
+       factor = -0.5/sigma_log**2
+       lambguess = [log(prefac) + factor*logxmean**2,factor*(-2.*logxmean) - 1.,factor,0.]
+    else
+       lambguess = lambsol
+    endif
 
-    !lambguess = [1./sqrt(2.*pi*sigma_log),ki(3)/ki(0),1000.,0.]
-    !lambguess =[-10., 0., 0., 0.]
-    !lambguess = [14.488032400232779,       -15.263198315586006,        1.2546701587241598 ,      -2.9858628177166273E-002]
-    !lambguess = [-12.672479403225283,       -12.291129733347596,        1.1116072069896121,       -2.6731093488116833E-002]
-    !lambguess = [-61.535685209145377,       -4.5732464265546762,       0.71087277282226946,       -1.9962892974256529E-002]
-    !lambguess=[-348.08538660805169,        39.219752218712493,       -1.4923716926995252,        1.6675727027061004E-002]
-    lambguess = [-20.449156136430453,       -10.860126886269576 ,       1.0326425621279325,       -2.5382727424015664E-002]
     call reconstruct_maxent(mu,x,f,lambsol,ierr,use_log=.true.,lambguess=lambguess)
-    if (ierr /= 1) print*,' INFO: '//fsolve_error(ierr)
+    if (ierr /= 1) print*,' INFO: '//fsolve_error(ierr)//' on particle ',i
 
-    print*,' got lambsol = ',lambsol
+    !lambsol = lambguess
+
+    !print*,' got lambsol = ',lambsol
     f = integrand(x, lambsol, 0)
 
     do k=0,size(mu)-1
        ftmp = f*x**(k/3.)
        kgot(k) = integrate_trap_log(ngrid,x,ftmp)
     enddo
-    print*,' MOMENTS OUT : ',kgot
-    call print_moments(kgot,a0,rhoi)
+
+    if (debug .or. ierr /= 1) then
+       print*,' MOMENTS IN  : ',mu
+       print*,' MOMENTS OUT : ',kgot
+    endif
+    if (debug) call print_moments(kgot,a0,rhoi)
 
      ! print results
-    write(filename,"(a,i5.5,a)") 'recon',i,'.out'
-    open(unit=1,file=filename,status='replace',action='write')
-    write(1,"(a)") '# N,f(N)'
-    do j=1,ngrid
-       write(1,*) x(j),f(j)
-    enddo
-    close(1)
-
-    read*
+    if (debug) then
+       write(filename,"(a,i5.5,a)") 'recon',i,'.out'
+       open(unit=1,file=filename,status='replace',action='write')
+       write(1,"(a)") '# N,f(N)'
+       do j=1,ngrid
+          write(1,*) x(j),f(j)
+       enddo
+       close(1)
+    endif
  enddo
 
 end subroutine do_analysis
