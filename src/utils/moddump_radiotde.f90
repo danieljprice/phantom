@@ -32,7 +32,7 @@ module moddump
 !
  implicit none
  public :: modify_dump
- private :: rho,rho_tab,get_temp_r,uerg,calc_rhobreak,write_setupfile,read_setupfile
+ private :: rho,rho_tab,get_temp_r,uerg,calc_rhobreak,calc_rho0,write_setupfile,read_setupfile
 
  private
  integer           :: ieos_in,nprof,nbreak,nbreak_old
@@ -42,7 +42,7 @@ module moddump
  real, allocatable :: rhof_n(:),rhof_rbreak(:),rhof_rhobreak(:)
  real, allocatable :: rhof_n_in(:),rhof_rbreak_in(:)
  real, allocatable :: rad_prof(:),dens_prof(:)
- real              :: rhof_rho0
+ real              :: rhof_rho0,m_target,m_threshold
  logical           :: use_func,use_func_old,remove_overlap
 
 contains
@@ -53,11 +53,12 @@ contains
 !
 !----------------------------------------------------------------
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
- use physcon,      only:solarm,years,mass_proton_cgs
+ use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
- use part,         only:igas,set_particle_type,delete_particles_inside_radius,delete_particles_outside_sphere
+ use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
+                        delete_particles_outside_sphere,kill_particle,shuffle_part
  use io,           only:fatal,master,id
- use units,        only:umass,udist,utime,set_units,unit_density
+ use units,        only:umass,udist,utime,set_units,unit_density,unit_ergg
  use timestep,     only:dtmax,tmax
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -103,6 +104,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  allocate(rhof_n(nbreak),rhof_rbreak(nbreak))
  rhof_n            = -1.7
  rhof_rbreak       = rad_min
+ m_target          = dot_product(npartoftype,massoftype)*umass/solarm
+ m_threshold       = 1.e-3
+ 
  !--Profile default setups
  read_temp         = .false.
  profile_filename  = default_name
@@ -138,7 +142,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     allocate(rhof_n(nbreak),rhof_rbreak(nbreak),rhof_rhobreak(nbreak))
     rhof_n(:) = rhof_n_in(1:nbreak)
     rhof_rbreak(:) = rhof_rbreak_in(1:nbreak)
-    call calc_rhobreak()
  else
     if (temperature  <=  0) read_temp = .true.
     rhof => rho_tab
@@ -174,6 +177,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rad_max = rad_max/udist
     rhof_rbreak = rhof_rbreak/udist
     rhof_rhobreak = rhof_rhobreak/unit_density
+    m_target = m_target*solarm/umass
+    m_threshold = m_threshold*solarm/umass
  else
     rad_prof = rad_prof/udist
     dens_prof = dens_prof/unit_density
@@ -181,14 +186,34 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rad_max = rad_prof(nprof)
  endif
 
+ !--Calc rho0 and rhobreak
+ if (use_func) then
+    if (rhof_rho0 < 0.) then
+       call calc_rho0(rhof)
+    elseif (m_target < 0.) then
+       call calc_rhobreak()
+    else
+       call fatal('moddump','Must give rho0 or m_target')
+    endif
+ endif 
+
  !--remove unwanted particles
- npart_old = npart
- call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
- write(*,'(I10,1X,A23,1X,E8.2,1X,A14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
- npart_old = npart
- if (remove_overlap) then
-    call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
-    write(*,'(I10,1X,A24,1X,E8.2,1X,A14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+ if (ignore_radius > 0) then
+    npart_old = npart
+    call delete_particles_inside_radius((/0.,0.,0./),ignore_radius,npart,npartoftype)
+    write(*,'(I10,1X,A23,1X,E8.2,1X,A14)') npart_old - npart, 'particles inside radius', ignore_radius*udist, 'cm are deleted'
+    npart_old = npart
+    if (remove_overlap) then
+       call delete_particles_outside_sphere((/0.,0.,0./),rad_min,npart)
+       write(*,'(I10,1X,A24,1X,E8.2,1X,A14)') npart_old - npart, 'particles outside radius', rad_min*udist, 'cm are deleted'
+       npart_old = npart
+    endif
+ else
+    write(*,'(a)') ' Ignore all TDE particles'
+    do i = 1,npart
+       call kill_particle(i,npartoftype)
+    enddo
+    call shuffle_part(npart)
     npart_old = npart
  endif
 
@@ -204,14 +229,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  !--Set particle properties
  do i = npart_old+1,npart
     call set_particle_type(i,igas)
-    r = dot_product(xyzh(1:3,i),xyzh(1:3,i))
-    if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)
+    r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)       
     vxyzu(4,i) = uerg(rhof(r),temperature)
     vxyzu(1:3,i) = 0. ! stationary for now
+    pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/rhof(r)) + 4.*radconst*temperature**3 / (3.*rhof(r))) / kboltz/ unit_ergg
  enddo
 
  !--Set timesteps
- tmax = 10.*years/utime
+ tmax = 3.*years/utime
  dtmax = tmax/1000.
 
 end subroutine modify_dump
@@ -307,6 +333,33 @@ subroutine calc_rhobreak()
 
 end subroutine calc_rhobreak
 
+subroutine calc_rho0(rhof)
+ use units,      only:unit_density
+ use stretchmap, only:get_mass_r
+ procedure(rho), pointer, intent(in) :: rhof
+ real    :: rho0_min,rho0_max,totmass
+ integer :: iter
+ 
+ rho0_min = 0.
+ rho0_max = 1.
+ totmass = -1.
+ iter = 0
+
+ do while (abs(totmass - m_target) > m_threshold)
+    rhof_rho0 = 0.5*(rho0_min + rho0_max)
+    call calc_rhobreak()
+    totmass = get_mass_r(rhof,rad_max,rad_min)
+    if (totmass > m_target) then
+       rho0_max = rhof_rho0
+    else
+       rho0_min = rhof_rho0
+    endif
+    iter = iter + 1
+ enddo
+ write(*,'(a11,1x,es10.2,1x,a12,1x,i3,1x,a10)') ' Get rho0 =', rhof_rho0*unit_density, 'g/cm^-3 with', iter, 'iterations'
+
+end subroutine
+
 !----------------------------------------------------------------
 !+
 !  write parameters to setup file
@@ -324,14 +377,16 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for setting up a circumnuclear gas cloud'
 
  write(iunit,"(/,a)") '# geometry'
- call write_inopt(ignore_radius,'ignore_radius','tde particle inside this radius will be ignored',iunit)
+ call write_inopt(ignore_radius,'ignore_radius','ignore tde particle inside this radius (-ve = ignore all for injection)',iunit)
  call write_inopt(remove_overlap,'remove_overlap','remove outflow particles overlap with circum particles',iunit)
  call write_inopt(use_func,'use_func','if use broken power law for density profile',iunit)
  if (use_func) then
     call write_inopt(rad_min,'rad_min','inner radius of the circumnuclear gas cloud',iunit)
     call write_inopt(rad_max,'rad_max','outer radius of the circumnuclear gas cloud',iunit)
     write(iunit,"(/,a)") '# density broken power law'
-    call write_inopt(rhof_rho0,'rhof_rho0','density at rad_min (in g/cm^3)',iunit)
+    call write_inopt(rhof_rho0,'rhof_rho0','density at rad_min (in g/cm^3) (-ve = ignore and calc for m_target)',iunit)
+    call write_inopt(m_target,'m_target','target mass in circumnuclear gas cloud (in Msun) (-ve = ignore and use rho0)',iunit)
+    call write_inopt(m_threshold,'m_threshold','threshold in solving rho0 for m_target (in Msun)',iunit)
     call write_inopt(nbreak,'nbreak','number of broken power laws',iunit)
     write(iunit,"(/,a)") '#    section 1 (from rad_min)'
     call write_inopt(rhof_n(1),'rhof_n_1','power law index of the section',iunit)
@@ -386,7 +441,9 @@ subroutine read_setupfile(filename,ierr)
  if (use_func) then
     call read_inopt(rad_min,'rad_min',db,min=ignore_radius,err=ierr)
     call read_inopt(rad_max,'rad_max',db,min=rad_min,err=ierr)
-    call read_inopt(rhof_rho0,'rhof_rho0',db,min=0.,err=ierr)
+    call read_inopt(rhof_rho0,'rhof_rho0',db,err=ierr)
+    call read_inopt(m_target,'m_target',db,err=ierr)
+    call read_inopt(m_threshold,'m_threshold',db,err=ierr)
     call read_inopt(nbreak,'nbreak',db,min=1,err=ierr)
     allocate(rhof_rbreak_in(in_num),rhof_n_in(in_num))
     call read_inopt(rhof_n_in(1),'rhof_n_1',db,err=ierr)
