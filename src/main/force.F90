@@ -1769,12 +1769,10 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    endif
                    duFLD(i) = duFLD(i) + diffterm
                    if (isnan(duFLD(i))) then
-                      print *, "FLD is nan for particle i=, j = ", i,j
                       print *, "rhoi,rhoj,rij2,diffterm",rhoi,rhoj,rij2,diffterm
                       print *, "kfldi, kfldj, Ti,Tj", kfldi,kfldj, Ti,Tj
-                      stop
+                      call fatal('force','duFLD is nan',i,var='duFLD',val=duFLD(i))                      
                    endif
- !                  call calc_FLD(duFLD(i),i,j,q2j,qj,hi121,hi1,pmassj,eos_vars(itemp,j),eos_vars(itemp,j),rhoj)
                 endif
              endif
           endif

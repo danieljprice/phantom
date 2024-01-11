@@ -95,9 +95,7 @@ subroutine init_cooling(id,master,iprint,ierr)
        if (.not. ex ) call fatal('cooling','file not found',var=eos_file)
        if (ieos == 2)  call read_optab(eos_file,ierr)
        if (ierr > 0) call fatal('cooling','Failed to read EOS file',var='ierr',ival=ierr)
-	   if (do_radiation) then
-	   	    call fatal('cooling','Do radiation was switched on!')
-	   endif	
+       if (do_radiation) then call fatal('cooling','Do radiation was switched on!')
        call init_star()
     case(6)
        call init_cooling_KI02(ierr)
