@@ -391,9 +391,9 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,ent)
 
  write(*,'(a14,1x,es8.1,1x,a5,1x,es8.1,1x,a2)') ' Shock is from', rad_min*udist/au, 'au to', rad_max*udist/au, 'au'
 
- shock_m = pmass*n
- shock_m_cnm = pmass*n_cnm
- shock_m_tde = pmass*n_tde
+ shock_m = shock_e*2./shock_v**2  !pmass*n
+ shock_m_cnm = shock_e_cnm*2./shock_v_cnm**2 !pmass*n_cnm
+ shock_m_tde = shock_e_tde*2./shock_v_tde**2 !pmass*n_tde
  !shock_rho = shock_m*4./3.*pi*(rad_max**3-rad_min**3)
 
 end subroutine shock_analysis
@@ -465,7 +465,7 @@ subroutine read_tdeparams(filename,ierr)
     call read_inopt(phi_min,'phi_min',db,min=-90.,max=90.,errcount=nerr)
     call read_inopt(phi_max,'phi_max',db,min=-90.,max=90.,errcount=nerr)
  case ('shock')
-    call read_inopt(npart_tde_reserve,'npart_tde',db,min=0,errcount=nerr)
+    call read_inopt(npart_tde_reserve,'npart_tde',db,errcount=nerr)
  case default
  end select
 
