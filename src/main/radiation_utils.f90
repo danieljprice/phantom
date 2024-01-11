@@ -411,14 +411,12 @@ end function get_kappa
 !  calculate opacities
 !+
 !--------------------------------------------------------------------
-subroutine get_opacity(opacity_type,density,temperature,kappa,u)
- use eos_stamatellos, only:getopac_opdep
+subroutine get_opacity(opacity_type,density,temperature,kappa)
  use mesa_microphysics, only:get_kappa_mesa
- use units,             only:unit_density,unit_opacity,unit_ergg
+ use units,             only:unit_density,unit_opacity
  real, intent(in)  :: density, temperature
  real, intent(out) :: kappa
  integer, intent(in) :: opacity_type
- real, intent(in), optional :: u
  real :: kapt,kapr,rho_cgs,Ti,gmwi,gammai,kapBar,kappaPart
 
  select case(opacity_type)
@@ -435,13 +433,6 @@ subroutine get_opacity(opacity_type,density,temperature,kappa,u)
     ! constant opacity
     !
     kappa = kappa_cgs/unit_opacity
- case(3)
-    !
-    ! opacity for Stamatellos/Lombardi EOS
-    !
-    call getopac_opdep(u*unit_ergg,density*unit_density,kapBar,kappaPart,Ti,gmwi)
-    kappa = kappaPart/unit_opacity
-
  case default
     !
     ! infinite opacity

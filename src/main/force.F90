@@ -896,14 +896,14 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #ifdef FINVSQRT
  use fastmath,    only:finvsqrt
 #endif
- use kernel,      only:grkern,cnormk,radkern2
+ use kernel,      only:grkern,cnormk,radkern2,wkern
  use part,        only:igas,idust,iohm,ihall,iambi,maxphase,iactive,&
                        iamtype,iamdust,get_partinfo,mhd,maxvxyzu,maxdvdx,igasP,ics,iradP,itemp
  use dim,         only:maxalpha,maxp,mhd_nonideal,gravity,gr
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal,gamma
- use eos_stamatellos, only:gradP_cool,Gpot_cool
+ use eos_stamatellos, only:gradP_cool,Gpot_cool,duFLD,doFLD,getopac_opdep,get_k_fld
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -1032,7 +1032,8 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,gradpx,gradpy,gradpz,gradP_cooli,gradP_coolj
+ real    :: radPj,fgravxi,fgravyi,fgravzi,wkernj,wkerni,gradpx,gradpy,gradpz
+ real    :: gradP_cooli,gradP_coolj,kfldi,kfldj,Ti,Tj,diffterm,gmwi
 
  ! unpack
  xi            = xpartveci(ixi)
@@ -1204,9 +1205,15 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  if (icooling == 8) then
     gradP_cool(i) = 0d0
     Gpot_cool(i) = 0d0
+    duFLD(i) = 0d0
     gradpx = 0d0
     gradpy = 0d0
     gradpz = 0d0
+    diffterm = 0d0
+    if (dt > 0d0) then
+    !   print *, "rhoi,eni,i,kfldi,Ti", rhoi,eni,i
+       call get_k_fld(rhoi,eni,i,kfldi,Ti)
+    endif
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1745,6 +1752,31 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              fsum(idudtdissi) = fsum(idudtdissi) + dudtdissi + dudtresist
              !--energy dissipation due to conductivity
              fsum(idendtdissi) = fsum(idendtdissi) + dendissterm
+             if (icooling == 8) then
+                Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
+                if (doFLD .and. dt > 0.) then
+                   !print *, rhoj, "calling k_fld for j", j, enj
+                   call get_k_fld(rhoj,enj,j,kfldj,Tj)
+                   if ((kfldj + kfldi) == 0.) then
+                      diffterm = 0d0
+                   elseif (rhoj == 0.) then 
+                      diffterm = 0d0
+                   else
+                      diffterm = 4d0*pmassj/rhoi/rhoj
+                      diffterm = diffterm * kfldi * kfldj / (kfldi+kfldj)
+                      diffterm = diffterm * (Ti - Tj) / rij2
+                      diffterm = diffterm*cnormk*grkerni*(runix*dx + runiy*dy + runiz*dz)
+                   endif
+                   duFLD(i) = duFLD(i) + diffterm
+                   if (isnan(duFLD(i))) then
+                      print *, "FLD is nan for particle i=, j = ", i,j
+                      print *, "rhoi,rhoj,rij2,diffterm",rhoi,rhoj,rij2,diffterm
+                      print *, "kfldi, kfldj, Ti,Tj", kfldi,kfldj, Ti,Tj
+                      stop
+                   endif
+ !                  call calc_FLD(duFLD(i),i,j,q2j,qj,hi121,hi1,pmassj,eos_vars(itemp,j),eos_vars(itemp,j),rhoj)
+                endif
+             endif
           endif
 
           !--add contribution to particle i's force

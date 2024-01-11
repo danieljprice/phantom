@@ -13,8 +13,8 @@ module cooling_stamatellos
 ! :Owner: Alison Young
 !
 ! :Runtime parameters:
-!   - EOS_file : *File containing tabulated EOS values*
-!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
+!   - EOS_file : File containing tabulated EOS values
+!   - Lstar    : Luminosity of host star for calculating Tmin (Lsun)
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
@@ -49,7 +49,8 @@ subroutine init_star()
     enddo
     isink_star = imin
  endif
- if (isink_star > 0)  print *, "Using sink no. ", isink_star, "as illuminating star."
+ if (isink_star > 0)  print *, "Using sink no. ", isink_star,&
+      "at (xyz)",xyzmh_ptmass(1:3,isink_star),"as illuminating star."
 end subroutine init_star
 
 !
@@ -59,16 +60,20 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
- use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool
- use part,       only:eos_vars,igasP,xyzmh_ptmass,igamma
+ use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
+          duFLD,doFLD
+ use part,       only:xyzmh_ptmass
+
  real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
  integer,intent(in) :: i
  real,intent(out) :: dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
- real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom
- real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb
+ real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom,du_tot
+ real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
  poti = Gpot_cool(i)
+ du_FLDi = duFLD(i)
+
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
  if (isink_star > 0 .and. Lstar > 0.d0) then
@@ -85,14 +90,14 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 ! get opacities & Ti for ui
  call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi)
- presi = kb_on_mh*rhoi*unit_density*Ti/gmwi
- presi = presi/unit_pressure
+ presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
+ presi = presi/unit_pressure !code units
 
-if (isnan(kappaBari)) then
+ if (isnan(kappaBari)) then
    print *, "kappaBari is NaN\n", " ui(erg) = ", ui*unit_ergg, "rhoi=", rhoi*unit_density, "Ti=", Ti, &
         "i=", i
    stop
-endif
+ endif
 
  select case (od_method)
  case (1)
@@ -105,6 +110,7 @@ endif
     coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho)
     coldensi = coldensi *umass/udist/udist ! physical units
  case (3)
+! Combined method
     HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
     HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
     Hcomb = 1.0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
@@ -115,8 +121,15 @@ endif
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
  dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 
-! calculate Teqi
- Teqi = dudti_sph*(coldensi**2.d0*kappaBari + (1.d0/kappaParti))*unit_ergg/utime
+ if (doFLD) then
+    ! include term from FLD
+    Teqi = (du_FLDi + dudti_sph) *tcool*unit_ergg/utime ! physical units
+    du_tot = dudti_sph + dudt_rad + du_FLDi
+ else
+    Teqi = dudti_sph*tcool*unit_ergg/utime
+    du_tot = dudti_sph + dudt_rad 
+ endif
+
  Teqi = Teqi/4.d0/steboltz
  Teqi = Teqi + Tmini4
  if (Teqi < Tmini4) then
@@ -124,37 +137,37 @@ endif
  else
     Teqi = Teqi**(1.0/4.0)
  endif
+
  call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
  ueqi = ueqi/unit_ergg
-
+        
  call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
  umini = umini/unit_ergg
 
 ! calculate thermalization timescale and
-! internal energy update -> this is in a form where it'll work as dudtcool
- if ((dudti_sph + dudt_rad) == 0.d0) then
+! internal energy update -> in form where it'll work as dudtcool
+ if ((du_tot) == 0.d0) then
     tthermi = 0d0
  else
-    tthermi = abs((ueqi - ui)/(dudti_sph + dudt_rad))
+    tthermi = abs((ueqi - ui)/(du_tot))
  endif
+
  if (tthermi == 0d0) then
     dudti_cool = 0.d0 ! condition if denominator above is zero
  else
     dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
  endif
- 
 
  if (isnan(dudti_cool)) then
     print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
     print *, "rhoi=",rhoi, "Ti=", Ti
     print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
-    print *,  "dt=",dt,"tthermi=", tthermi
-    print *, "dudt_rad=", dudt_rad
+    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+    print *, "dudt_rad=", dudt_rad 
     call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
     stop
- elseif (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+ else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
     dudti_cool = (umini - ui)/dt
-    ! print *, "dudti_cool negative and big"
  endif
 
 end subroutine cooling_S07
@@ -208,3 +221,4 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
 end subroutine read_options_cooling_stamatellos
 
 end module cooling_stamatellos
+
