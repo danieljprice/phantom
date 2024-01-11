@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -10,17 +10,25 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - temperature : *Temperature*
-!   - mu          : *mean molecular mass*
-!   - ieos_in     : *equation of state*
-!   - use_func    : *use broken power law or profile date points*
+!   - ieos             : *equation of state used*
+!   - ignore_radius    : *tde particle inside this radius will be ignored*
+!   - mu               : *mean molecular density of the cloud*
+!   - nbreak           : *number of broken power laws*
+!   - nprof            : *number of data points in the cloud profile*
+!   - profile_filename : *filename for the cloud profile*
+!   - rad_max          : *outer radius of the circumnuclear gas cloud*
+!   - rad_min          : *inner radius of the circumnuclear gas cloud*
+!   - remove_overlap   : *remove outflow particles overlap with circum particles*
+!   - rhof_n_1         : *power law index of the section*
+!   - rhof_rho0        : *density at rad_min (in g/cm^3)*
+!   - temperature      : *temperature of the gas cloud (-ve = read from file)*
+!   - use_func         : *if use broken power law for density profile*
 !
-! :Dependencies: datafiles, eos, io, stretchmap, kernel,
-!   mpidomain, part, physcon, setup_params,
-!   spherical, timestep, units, infile_utils
+! :Dependencies: eos, infile_utils, io, kernel, mpidomain, part, physcon,
+!   setup_params, spherical, stretchmap, timestep, units
 !
  implicit none
  public :: modify_dump
@@ -83,11 +91,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  temperature       = 10.           ! Temperature in Kelvin
  mu                = 2.            ! mean molecular weight
  ieos_in           = 2
- ignore_radius     = 1.e14          ! in cm 
+ ignore_radius     = 1.e14          ! in cm
  use_func          = .true.
  use_func_old      = use_func
  remove_overlap    = .true.
-  !--Power law default setups
+ !--Power law default setups
  rad_max           = 7.1e16        ! in cm
  rad_min           = 8.7e15        ! in cm
  nbreak            = 1
@@ -98,7 +106,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rhof_rbreak       = rad_min
  m_target          = dot_product(npartoftype,massoftype)*umass/solarm
  m_threshold       = 1.e-3
-  !--Profile default setups
+ 
+ !--Profile default setups
  read_temp         = .false.
  profile_filename  = default_name
  nprof             = 7
@@ -134,8 +143,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     rhof_n(:) = rhof_n_in(1:nbreak)
     rhof_rbreak(:) = rhof_rbreak_in(1:nbreak)
  else
-    if (temperature .le. 0) read_temp = .true.
-    rhof => rho_tab    
+    if (temperature  <=  0) read_temp = .true.
+    rhof => rho_tab
 
     deallocate(rhof_n,rhof_rbreak)
     allocate(dens_prof(nprof),rad_prof(nprof),masstab(nprof))
@@ -215,7 +224,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call set_sphere('random',id,master,rad_min,rad_max,delta,hfact_default,npart,xyzh, &
                  rhofunc=rhof,nptot=npart_total,exactN=.true.,np_requested=np_sphere,mask=i_belong)
  if (ierr /= 0) call fatal('moddump','error setting up the circumnuclear gas cloud')
- 
+
  npartoftype(igas) = npart
  !--Set particle properties
  do i = npart_old+1,npart
@@ -226,7 +235,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(1:3,i) = 0. ! stationary for now
     pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/rhof(r)) + 4.*radconst*temperature**3 / (3.*rhof(r))) / kboltz/ unit_ergg
  enddo
- 
+
  !--Set timesteps
  tmax = 3.*years/utime
  dtmax = tmax/1000.
@@ -362,7 +371,7 @@ subroutine write_setupfile(filename)
  integer, parameter :: iunit = 20
  integer            :: i
  character(len=20)  :: rstr,nstr
- 
+
  write(*,"(a)") ' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
  write(iunit,"(a)") '# input file for setting up a circumnuclear gas cloud'

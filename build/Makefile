@@ -244,10 +244,6 @@ ifeq ($(NONIDEALMHD), yes)
     FPPFLAGS += -DNONIDEALMHD
 endif
 
-ifeq ($(H2CHEM), yes)
-    FPPFLAGS += -DH2CHEM
-endif
-
 ifeq ($(DISC_VISCOSITY), yes)
     FPPFLAGS += -DDISC_VISCOSITY
 endif
@@ -468,7 +464,8 @@ OBJDIR=obj
 # external forces
 #
 ifeq (X$(SRCPOTS), X)
-SRCPOTS= extern_corotate.f90 \
+SRCPOTS= extern_gr.F90 \
+         extern_corotate.f90 \
          extern_binary.f90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
@@ -478,6 +475,7 @@ SRCPOTS= extern_corotate.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
          extern_gwinspiral.f90 \
+         extern_geopot.f90 \
          externalforces.f90
 endif
 ifeq (X$(SRCPOT), X)
@@ -487,8 +485,9 @@ endif
 # metrics for GR
 #
 ifeq ($(GR),yes)
-    SRCPOT=extern_gr.F90 $(SRCPOTS:externalforces.f90=externalforces_gr.f90)
+    SRCPOT=$(SRCPOTS:externalforces.f90=externalforces_gr.f90)
 endif
+
 ifdef METRIC
     SRCMETRIC= metric_${METRIC}.f90
 else
@@ -570,16 +569,14 @@ ifeq ($(UNAME), Darwin)
 endif
 
 
+ifeq ($(KROME), krome)
 	@echo ""
 	@echo "=============== CHEMISTRY ==============="
 	@echo ""
-ifeq ($(KROME), krome)
 	@echo "krome coupling status = enabled"
-else
-	@echo "krome coupling status = disabled"
-endif
 	@echo ""
 	@echo "========================================="
+endif
 	@sh ../scripts/phantom_version_gen.sh "$(IDFLAGS)"
 	@echo ""
 	@echo "The Phantom is here (in $(BINDIR)/phantom)"
@@ -622,14 +619,14 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
-         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.F90 \
+         timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
          memory.F90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
          ${SRCREADWRITE_DUMPS} \
-         utils_sort.f90 sort_particles.F90
+         utils_sort.f90 sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
 OBJDUMP= $(OBJDUMP1:.F90=.o)
 
@@ -1327,7 +1324,7 @@ getdims:
 	@echo $(MAXP)
 
 get_setup_opts:
-	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation}  ${H2CHEM:yes=H2_Chemistry} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
+	@echo "${GR:yes=GR} ${METRIC} ${MHD:yes=MHD} ${NONIDEALMHD:yes=non-ideal} ${DUST:yes=dust} ${GRAVITY:yes=self-gravity} ${RADIATION:yes=radiation} ${DISC_VISCOSITY:yes=disc_viscosity} ${ISOTHERMAL:yes=isothermal} ${PERIODIC:yes=periodic}" | xargs | sed -e 's/ /, /g' -e 's/_/ /g'
 
 get_setup_file:
 	@echo "$(SETUPFILE)"

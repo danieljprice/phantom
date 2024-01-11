@@ -16,13 +16,14 @@ module initial
 !
 ! :Dependencies: analysis, boundary, boundary_dyn, centreofmass,
 !   checkconserved, checkoptions, checksetup, cons2prim, cooling, cpuinfo,
-!   damping, densityforce, deriv, dim, dust, dust_formation, energies, eos,
-!   evwrite, extern_gr, externalforces, fastmath, fileutils, forcing,
-!   growth, inject, io, io_summary, krome_interface, linklist,
-!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
-!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
-!   ptmass, radiation_utils, readwrite_dumps, readwrite_infile, timestep,
-!   timestep_ind, timestep_sts, timing, units, writeheader
+!   damping, densityforce, deriv, dim, dust, dust_formation,
+!   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,
+!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
+!   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
+!   options, part, partinject, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing,
+!   tmunu2grid, units, writeheader
 !
 
  implicit none
@@ -112,7 +113,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mpiutils,         only:reduceall_mpi,barrier_mpi,reduce_in_place_mpi
  use dim,              only:maxp,maxalpha,maxvxyzu,maxptmass,maxdusttypes,itau_alloc,itauL_alloc,&
                             nalpha,mhd,mhd_nonideal,do_radiation,gravity,use_dust,mpi,do_nucleation,&
-                            use_dustgrowth,ind_timesteps,idumpfile
+                            use_dustgrowth,ind_timesteps,idumpfile,update_muGamma
  use deriv,            only:derivs
  use evwrite,          only:init_evfile,write_evfile,write_evlog
  use energies,         only:compute_energies
@@ -125,8 +126,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
-                            maxphase,iphase,isetphase,iamtype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
+                            maxphase,iphase,isetphase,iamtype,igas,idust,imu,igamma,massoftype, &
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
@@ -144,7 +145,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use tmunu2grid
 #endif
  use units,            only:utime,umass,unit_Bfield
- use eos,              only:gmw
+ use eos,              only:gmw,gamma
  use nicil,            only:nicil_initialise
  use nicil_sup,        only:use_consistent_gmw
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
@@ -178,7 +179,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use mf_write,         only:binpos_write,binpos_init
  use io,               only:ibinpos,igpos
 #endif
- use dust_formation,   only:init_nucleation
+ use dust_formation,   only:init_nucleation,set_abundances
 #ifdef INJECT_PARTICLES
  use inject,           only:init_inject,inject_particles
  use partinject,       only:update_injected_particles
@@ -490,7 +491,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -504,7 +505,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
              pmassi = massoftype(iamtype(iphase(i)))
           endif
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
@@ -538,6 +539,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (itau_alloc == 1) tau = 0.
     !initialize Lucy optical depth array tau_lucy
     if (itauL_alloc == 1) tau_lucy = 2./3.
+ endif
+ if (update_muGamma) then
+    eos_vars(igamma,:) = gamma
+    eos_vars(imu,:) = gmw
+    call set_abundances !to get mass_per_H
  endif
 !
 !--inject particles at t=0, and get timestep constraint on this

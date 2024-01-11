@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
@@ -10,17 +10,17 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - rad_cap   : *capture shell radius*
-!   - drad_cap  : *capture shell thickness*
-!   - v_max     : *max velocity*
-!   - v_min     : *min velocity*
-!   - theta_max : *max azimuthal angle*
-!   - theta_min : *min azimuthal angle*
-!   - phi_max   : *max altitude angle*
-!   - phi_min   : *min altitude angle*
+!   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
+!   - phi_max   : *max phi (in deg)*
+!   - phi_min   : *min phi (in deg)*
+!   - rad_cap   : *capture inner radius (in cm)*
+!   - theta_max : *max theta (in deg)*
+!   - theta_min : *min theta (in deg)*
+!   - v_max     : *max velocity (in c)*
+!   - v_min     : *min velocity (in c)*
 !
 ! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
 !
@@ -265,7 +265,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
  v_cap_add = 0.
  vr_accum_max = 0.
  vr_cap_max = 0.
- 
+
  do i = 1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
@@ -276,7 +276,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
     r = rad_all(i)
     v = v_all(i)
     if (r > rad_cap) then
-       m_accum = m_accum + pmass 
+       m_accum = m_accum + pmass
        n_accum = n_accum + 1
        e_accum = e_accum + 0.5*pmass*v**2
        vri = vr_all(i)
@@ -289,7 +289,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
        if (r-rad_cap < drad_cap .and. (v .ge. v_min .and. v .le. v_max)) then
           thetai = atan2d(y,x)
           phii = atan2d(z,sqrt(x**2+y**2))
-          if ((thetai .ge. theta_min .and. thetai .le. theta_max) .and. (phii .ge. phi_min .and. phii .le. phi_max)) then
+          if ((thetai  >=  theta_min .and. thetai  <=  theta_max) .and. (phii  >=  phi_min .and. phii  <=  phi_max)) then
              m_cap = m_cap + pmass
              n_cap = n_cap + 1
              cap(i) = .true.
@@ -448,7 +448,7 @@ subroutine read_tdeparams(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- 
+
  call read_inopt(ana,'analysis',db,errcount=nerr)
 
  select case (trim(ana))

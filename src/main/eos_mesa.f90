@@ -112,10 +112,10 @@ end subroutine get_eos_kappa_mesa
 !  density, temperature and composition
 !+
 !----------------------------------------------------------------
-real function get_eos_1overmu_mesa(den,u,Rg) result(rmu)
- real, intent(in) :: den,u,Rg
+real function get_eos_1overmu_mesa(den,u) result(rmu)
+ real, intent(in) :: den,u
 
- rmu = get_1overmu_mesa(den,u,Rg)
+ rmu = get_1overmu_mesa(den,u)
 
 end function get_eos_1overmu_mesa
 
