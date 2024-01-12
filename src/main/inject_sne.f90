@@ -20,7 +20,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'supernovae'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  integer, parameter :: maxsn = 30
  real, parameter :: xyz_sn(3,maxsn) = &
@@ -134,6 +134,11 @@ subroutine inject_particles(time,dtlast_u,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
