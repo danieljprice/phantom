@@ -932,6 +932,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
  use utils_gr,    only:get_bigv
  use radiation_utils, only:get_rad_R
+ use io, only:fatal
  integer,         intent(in)    :: i
  logical,         intent(in)    :: iamgasi,iamdusti
  real,            intent(in)    :: xpartveci(:)
@@ -1771,7 +1772,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    if (isnan(duFLD(i))) then
                       print *, "rhoi,rhoj,rij2,diffterm",rhoi,rhoj,rij2,diffterm
                       print *, "kfldi, kfldj, Ti,Tj", kfldi,kfldj, Ti,Tj
-                      call fatal('force','duFLD is nan',i,var='duFLD',val=duFLD(i))                      
+                      call fatal('force','duFLD is nan',i=i,var='duFLD',val=duFLD(i))                      
                    endif
                 endif
              endif
