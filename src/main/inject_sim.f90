@@ -321,11 +321,11 @@ subroutine write_options_inject(iunit)
  endif
 
  write(iunit,"(/,a)") '# options controlling particle injection'
- call write_inopt("'"//trim(start_dump)//"'",'start_dump','dumpfile to start for injection &
-                                              (with relative path if in other direc)',iunit)
+ call write_inopt("'"//trim(start_dump)//"'",'start_dump', &
+                  'dumpfile to start for injection (with relative path if in other direc)',iunit)
  call write_inopt(r_inject_cgs,'r_inject','radius to inject tde outflow (in cm)',iunit)
- call write_inopt("'"//trim(final_dump)//"'",'final_dump','stop injection after this dump &
-                                              (with relative path if in other direc)',iunit)
+ call write_inopt("'"//trim(final_dump)//"'",'final_dump', &
+                  'stop injection after this dump (with relative path if in other direc)',iunit)
 
 end subroutine write_options_inject
 
