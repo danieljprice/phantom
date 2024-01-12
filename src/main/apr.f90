@@ -30,7 +30,7 @@ module apr
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.25
-  logical :: apr_verbose = .true.
+  logical :: apr_verbose = .false.
   logical :: do_relax = .false.
   logical :: adjusted_split = .false.
 
@@ -106,7 +106,7 @@ contains
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
     use dim,      only:maxp_hard
     use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                       shuffle_part
+                       shuffle_part,iphase,iactive
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
@@ -118,6 +118,8 @@ contains
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi
+
+    return
 
     ! if the centre of the region can move, update it
     if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
@@ -156,7 +158,11 @@ contains
     do jj = 1,apr_max
       npartold = npartnew ! to account for new particles as they are being made
 
-      do ii = 1,npartold
+      split_over_active: do ii = 1,npartold
+
+        ! only do this on active particles
+        if (.not.iactive(iphase(ii))) cycle split_over_active
+
         apr_current = apr_level(ii)
         xi = xyzh(1,ii)
         yi = xyzh(2,ii)
@@ -175,7 +181,7 @@ contains
           endif
           nsplit_total = nsplit_total + 1
         endif
-      enddo
+      enddo split_over_active
     enddo
 
     ! Take into account all the added particles
@@ -199,7 +205,7 @@ contains
 
       do ii = 1,npart
         ! note that here we only do this process for particles that are not already counted in the blending region
-        if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
+        if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii))) .and. iactive(iphase(ii))) then ! avoid already dead particles
           nmerge = nmerge + 1
           mergelist(nmerge) = ii
           xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
@@ -209,9 +215,9 @@ contains
       enddo
 
       ! Now send them to be merged
-      if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist,xyzh_merge(:,1:nmerge),&
-      vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
-      nrelax,relaxlist,npartnew)
+      if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
+                                         vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
+                                         nrelax,relaxlist,npartnew)
       if (apr_verbose) then
         print*,'merged: ',nkilled,kk
         print*,'npart: ',npartnew - nkilled
@@ -283,6 +289,7 @@ contains
     use part,    only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
     use part,    only:set_particle_type
     use physcon, only:pi
+    use dim,          only:ind_timesteps
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,aprnew,next_door
@@ -317,6 +324,7 @@ contains
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
+      if (ind_timesteps) call put_in_smallest_bin(j)
     enddo
 
     ! Edit the old particle that was sent in and kept
@@ -324,6 +332,7 @@ contains
     xyzh(2,i) = xyzh(2,i) - y_add
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
+    if (ind_timesteps) call put_in_smallest_bin(i)
 
   end subroutine splitpart
 
@@ -339,6 +348,7 @@ contains
     use mpiforce, only:cellforce
     use kdtree,   only:inodeparts,inoderange
     use part,     only:kill_particle,npartoftype
+    use dim,      only:ind_timesteps
     integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
     integer, intent(in)    :: current_apr,mergelist(:)
     real, intent(inout)    :: xyzh(:,:)
@@ -360,7 +370,7 @@ contains
     com = 0.
     over_cells: do icell=1,int(ncells)
       i = ifirstincell(icell)
-      if (i <= 0) cycle over_cells !--skip empty cells AND inactive cells
+      if (i == 0) cycle over_cells !--skip empty cells
       n_cell = inoderange(2,icell)-inoderange(1,icell)+1
 
       call get_cell_location(icell,cell%xpos,cell%xsizei,cell%rcuti)
@@ -380,6 +390,7 @@ contains
         xyzh(3,eldest) = cell%xpos(3)
         xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - 1
+        if (ind_timesteps) call put_in_smallest_bin(eldest)
 
         ! add it to the shuffling list if needed
         if (do_relax) then
@@ -531,5 +542,18 @@ contains
 
   end subroutine closest_neigh
 
+  !-----------------------------------------------------------------------
+  !+
+  !  routine to put a particle on the shortest timestep
+  !+
+  !-----------------------------------------------------------------------
+  subroutine put_in_smallest_bin(i)
+    use timestep_ind, only:nbinmax
+    use part,         only:ibin
+    integer, intent(in) :: i
+
+    ibin(i) = nbinmax
+
+  end subroutine put_in_smallest_bin
 
 end module apr

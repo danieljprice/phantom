@@ -399,6 +399,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        else
           inodeparts(nproot) = -i ! -ve if inactive
        endif
+       if (use_apr) inodeparts(nproot) = abs(inodeparts(nproot))
 #else
        inodeparts(nproot) = i
 #endif
@@ -1829,6 +1830,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           inodeparts(npnode) = -i
        endif
+       if (use_apr) inodeparts(npnode) = abs(inodeparts(npnode))
 #else
        inodeparts(npnode) = i
 #endif

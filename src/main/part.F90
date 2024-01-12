@@ -390,6 +390,7 @@ subroutine allocate_part
    maxgradh = maxp_apr
    maxan = maxp_apr
    maxphase = maxp_apr
+   maxindan = maxp_apr
    if (mhd) then
      maxmhd = maxp_apr
      maxmhdan = maxp_apr
