@@ -26,7 +26,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'firehose'
 
  public :: inject_particles, write_options_inject, read_options_inject
- public :: init_inject, set_default_options_inject
+ public :: init_inject, set_default_options_inject, update_injected_par
 
  real, private :: Mdot = 0.
  real, private :: Mdotcode = 0.
@@ -210,6 +210,10 @@ end function Mdotfunc
 
 end subroutine inject_particles
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
