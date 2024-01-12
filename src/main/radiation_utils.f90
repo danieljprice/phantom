@@ -417,7 +417,7 @@ subroutine get_opacity(opacity_type,density,temperature,kappa)
  real, intent(in)  :: density, temperature
  real, intent(out) :: kappa
  integer, intent(in) :: opacity_type
- real :: kapt,kapr,rho_cgs,Ti,gmwi,gammai,kapBar,kappaPart
+ real :: kapt,kapr,rho_cgs
 
  select case(opacity_type)
  case(1)

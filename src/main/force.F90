@@ -1212,7 +1212,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
     gradpz = 0d0
     diffterm = 0d0
     if (dt > 0d0) then
-    !   print *, "rhoi,eni,i,kfldi,Ti", rhoi,eni,i
        call get_k_fld(rhoi,eni,i,kfldi,Ti)
     endif
  endif
@@ -1756,7 +1755,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              if (icooling == 8) then
                 Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
                 if (doFLD .and. dt > 0.) then
-                   !print *, rhoj, "calling k_fld for j", j, enj
                    call get_k_fld(rhoj,enj,j,kfldj,Tj)
                    if ((kfldj + kfldi) == 0.) then
                       diffterm = 0d0
@@ -1772,7 +1770,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    if (isnan(duFLD(i))) then
                       print *, "rhoi,rhoj,rij2,diffterm",rhoi,rhoj,rij2,diffterm
                       print *, "kfldi, kfldj, Ti,Tj", kfldi,kfldj, Ti,Tj
-                      call fatal('force','duFLD is nan',i=i,var='duFLD',val=duFLD(i))                      
+                      call fatal('force','duFLD is nan',i=i,var='duFLD',val=duFLD(i))
                    endif
                 endif
              endif

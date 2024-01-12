@@ -309,10 +309,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !
  masterthread: if (id==master) then
 !    open(unit=10,file=trim(dumpfile)//'info.dat')
-    !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool', 'eos_vars(gasP)','eos_vars(gamma)'
+    !   write(10,'(6A16)') '# R', 'Gpot_cool','poten','gradP_cool'
     !  do i=1,nparttot
     !    write(10,'(6E16.5)') sqrt(xyzh(1,i)**2+xyzh(2,i)**2+xyzh(3,i)**2),Gpot_cool(i),poten(i),&
-    !    gradP_cool(i),eos_vars(igasP,i),eos_vars(igamma,i)
+    !    gradP_cool(i)
     ! enddo
     ! close(10)
     if (idtmax_frac==0) then
@@ -409,9 +409,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           endif
        endif
        ! write urad to file (stamatellos + FLD)
-       if (icooling == 8 .and. doFLD) then
-          call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
-       endif
+!       if (icooling == 8 .and. doFLD) then
+!         call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
+!      endif
 
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
