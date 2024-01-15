@@ -33,7 +33,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use physcon,   only:micron,amu,pi
  use dust_formation, only:mass_per_H
  use reconstruct_from_moments, only:reconstruct_maxent,&
-                                    integrand,fsolve_error
+                                    integrand,fsolve_error,reconstruct_gamma_dist
  use integrate,                only:integrate_trap_log,integrate_trap,&
                                     gauss_legendre_nodes_weights_log,integrate_gauss_legendre
  use table_utils,              only:logspace
@@ -43,10 +43,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  integer :: i,j,k,ierr,n,iu,nbad
- integer, parameter :: ngrid = 101
+ integer, parameter :: ngrid = 1001
  real :: khat(0:3),ki(0:3),kgot(0:3)
  real :: mu(4),x(ngrid),w(ngrid),lambsol(4),f(ngrid),ftmp(ngrid),lambguess(4),err(4)
- real :: xmin,xmax,scalefac,sigma_log,factor,logxmean,a0,rhoi,prefac,errmax(4)
+ real :: xmin,xmax,scalefac,sigma_log,factor,logxmean,a0,rhoi,prefac,errmax(4),d_on_p,theta,p
  real(4) :: t1
  real, parameter :: Acarb = 12.011, rhocarb = 2.25
  character(len=64) :: filename,string
@@ -57,7 +57,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     stop 'ERROR: need DUST_NUCLEATION=yes for this analysis type'
  endif
 
- xmin = 1e4  ! critical value of N, number of monomers
+ xmin = 1e1  ! critical value of N, number of monomers
  xmax = 1e18  ! want to integrate to infinity, but this is good enough
  sigma_log = 0.1
 
@@ -96,7 +96,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !$omp parallel do default (none) &
  !$omp private (i,j,k,iu,ierr,khat,ki,kgot,mu,lambsol,f,ftmp,lambguess) &
- !$omp private (rhoi,prefac,factor,logxmean,sigma_log,filename,err,flag_particle,string) &
+ !$omp private (rhoi,prefac,factor,logxmean,sigma_log,filename,err,flag_particle,string,scalefac,d_on_p,theta,p) &
  !$omp shared(xyzh,nucleation,npart,particlemass,unit_density,mass_per_H,t1,x,n,w,nbad) &
  !$omp reduction(max:errmax) &
  !$omp schedule (dynamic)
@@ -110,28 +110,53 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     mu = ki
 
     ! try a log normal as the initial guess
-    if (.true.) then
+    if (.false.) then
        sigma_log = 1.
        prefac = mu(1)/sqrt(2.*pi*sigma_log**2)
        logxmean = log(ki(3)/ki(0))
        if (debug) print*,' guessing normalisation = ',prefac,' logxmean = ',logxmean, ' sigma_log = ',sigma_log
        factor = -0.5/sigma_log**2
        lambguess = [log(prefac) + factor*logxmean**2,factor*(-2.*logxmean) - 1.,factor,0.]
+    elseif (.true.) then
+       lambguess = [mu(1),1.,1.7,1.]   ! normalisation, theta, d, p
+       !lambguess(2) = mu(1)/mu(3)*lambguess(3)/lambguess(4)
+       d_on_p = 1.7
+       theta = (mu(2)/mu(1) * Gamma(d_on_p) / Gamma(d_on_p + 1./3.))**3
+       !lambguess = [1.,theta,d_on_p,1.]
+       !print*,' moments = ',(mu(1)*theta**(k/3.)*Gamma(d_on_p + k/3.)/Gamma(d_on_p),k=0,3)
+
+       !print*,' checking ',Gamma(d_on_p+1./3.)*Gamma(d_on_p+2./3.),2.*pi*3**(0.5-3*d_on_p)*Gamma(3.*d_on_p)
+       !lambguess(4) = d_on_p*lambguess(2)*1e9 / (mu(4)/mu(1))
+
+       !print*,' guess 3 for d/p is  ', mu(3)/(mu(1)*lambguess(2)*1e9),' currently ',lambguess(3)/lambguess(4)
     else
        lambguess = lambsol
     endif
 
-    call reconstruct_maxent(mu,x,f,lambsol,err,ierr,use_log=.true.,lambguess=lambguess,weights=w)
+    lambguess(1:2) = [d_on_p,0.5]
+    call reconstruct_gamma_dist(mu,lambsol,err,ierr,lambguess)
+
+    ! now check by numerical integration
+    d_on_p = lambsol(1)
+    p = lambsol(2)
+    theta = (mu(2)/mu(1) * Gamma(d_on_p) / Gamma(d_on_p + 1./(3.*p)))**3
+    lambguess = [mu(1),theta,d_on_p,p]
+
+    !call reconstruct_maxent(mu,x,f,lambsol,err,ierr,use_log=.true.,lambguess=lambguess,weights=w)
     !
     !--record max fractional error in each moment
     !
     flag_particle = .false.
-    if (any(abs(err/mu) > 0.1 .and. abs(mu) > 1e-9)) flag_particle = .true.
-    if (ierr /= 1 .and. (debug .and. flag_particle)) print*,' INFO: '//fsolve_error(ierr)//' on particle ',i
+    if (any(abs(err) > 0.1 .and. abs(mu) > 1e-9)) flag_particle = .true.
+    if (ierr /= 1 .and. (debug .or. flag_particle)) print*,' INFO: '//fsolve_error(ierr)//' on particle ',i,err
 
-    !print*,' got lambsol = ',lambsol
+    lambsol = lambguess
+    !print*,i,' got lambguess = ',lambguess
+    !print*,i,' got lambsol   = ',lambsol
+    !lambsol(2) = (mu(2)*Gamma(lambsol(3)/lambsol(4))/(mu(1)*Gamma(lambsol(3)/lambsol(4) + 1./3.)))**3 / 1e9
+    !lambsol(3) = (mu(3)*lambsol(4)/(mu(1)*lambsol(2)*1e9))
 
-    if (ierr /= 1 .and. (debug .and. flag_particle)) then
+    if (ierr /= 1 .and. (debug .or. flag_particle)) then
        f = integrand(x, lambsol, 0)
        do k=0,size(mu)-1
           ftmp = f*x**(k/3.)
@@ -139,7 +164,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           kgot(k) = integrate_gauss_legendre(ngrid,w,ftmp)
        enddo
        print*,' MOMENTS IN  : ',mu
-       print*,' MOMENTS OUT : ',kgot
+       print*,' MOMENTS OUT (numerical): ',kgot
+       scalefac = mu(1) * lambsol(4) / ((lambsol(2)) * Gamma(lambsol(3)))
+       print*,' Moments OUT (analytic ): ',(scalefac * (lambsol(2)) ** (1.+k/3.) / &
+                              lambsol(4) * Gamma(lambsol(3) + k/(3.*lambsol(4))),k=0,size(mu)-1)
        if (debug) call print_moments(kgot,a0,rhoi)
     endif
 
@@ -156,7 +184,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
 
     ! print results
-    if (debug .and. (ierr /= 1 .and. flag_particle)) then
+    if (ierr /= 1 .and. (debug .or. flag_particle)) then
        f = integrand(x, lambsol, 0)
        write(filename,"(a,i7.7,a)") 'recon',i,'.out'
        open(newunit=iu,file=filename,status='replace',action='write')
