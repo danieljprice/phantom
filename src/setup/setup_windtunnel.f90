@@ -19,7 +19,7 @@ module setup
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
-                  rho_inf,pres_inf,v_inf
+                  rho_inf,pres_inf,v_inf,windonly
 
  implicit none
  public :: setpart
@@ -132,22 +132,24 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
 
  ! Set polytropic star
- allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
- call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
- pres = polyk*den**gamma
- rmin = r(1)
- call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
+ if (.not. windonly) then
+    allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
+    call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
+    pres = polyk*den**gamma
+    rmin = r(1)
+    call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,&
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
- ! Set thermal energy
- do i = 1,npart
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    densi = yinterp(den(1:npts),r(1:npts),ri)
-    presi = yinterp(pres(1:npts),r(1:npts),ri)
-    vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
- enddo
- 
- deallocate(r,den,pres)
+    ! Set thermal energy
+    do i = 1,npart
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       densi = yinterp(den(1:npts),r(1:npts),ri)
+       presi = yinterp(pres(1:npts),r(1:npts),ri)
+       vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
+    enddo
+
+   deallocate(r,den,pres)
+ endif
  
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 

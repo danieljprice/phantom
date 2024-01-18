@@ -27,10 +27,13 @@ module inject
  character(len=*), parameter, public :: inject_type = 'windtunnel'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,windonly
 !
 !--runtime settings for this module
 !
+
+ logical :: windonly = .false.
+
  ! Main parameters: model MS6 from Ruffert & Arnett (1994)
  real,    public :: v_inf = 1.
  real,    public :: rho_inf = 1.
@@ -48,7 +51,7 @@ module inject
  private
  real    :: wind_rad,wind_x,psep,distance_between_layers,&
             time_between_layers,h_inf,u_inf
- integer :: max_layers,max_particles,nodd,neven
+ integer :: max_layers,max_particles,nodd,neven,nstarpart
  logical :: first_run = .true.
  real, allocatable :: layer_even(:,:),layer_odd(:,:)
 
@@ -71,6 +74,12 @@ subroutine init_inject(ierr)
  integer :: size_y, size_z, pass, i, j
 
  ierr = 0
+
+ if (windonly) then
+    nstarpart = 0
+ else
+    nstarpart = nstar
+ endif
 
  u_inf = pres_inf / (rho_inf*(gamma-1.))
  cs_inf = sqrt(gamma*pres_inf/rho_inf)
@@ -143,11 +152,11 @@ subroutine init_inject(ierr)
  endif
  h_inf = hfact*(pmass/rho_inf)**(1./3.)
  max_layers = int(wind_length*Rstar/distance_between_layers)
- max_particles = int(max_layers*(nodd+neven)/2) + nstar
+ max_particles = int(max_layers*(nodd+neven)/2) + nstarpart
  time_between_layers = distance_between_layers/v_inf
 
  call print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_between_layers,&
-                    time_between_layers,max_layers,nstar,max_particles)
+                    time_between_layers,max_layers,nstarpart,max_particles)
 
  if (max_particles > maxp) call fatal('windtunnel', 'maxp too small for this simulation, please increase MAXP!')
 
@@ -212,7 +221,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
        endif
        print *, np, ' particles (npart=', npart, '/', max_particles, ')'
     endif
-    call inject_or_update_particles(i_part+nstar+1, np, xyz, vxyz, h, u, .false.)
+    call inject_or_update_particles(i_part+nstarpart+1, np, xyz, vxyz, h, u, .false.)
     deallocate(xyz, vxyz, h, u)
  enddo
 
