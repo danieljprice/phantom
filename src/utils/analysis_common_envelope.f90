@@ -2064,11 +2064,12 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  if (dump_number==0) then
     iquantity = 1
     use_mass_coord = .false.
-    print "(4(/,a))",'1. Energy',&
+    print "(5(/,a))",'1. Energy',&
                      '2. Entropy',&
                      '3. Bernoulli energy',&
-                     '4. Ion fractions'
-    call prompt("Select quantity to calculate",iquantity,1,4)
+                     '4. Ion fractions',&
+                     '5. Sound speed'
+    call prompt("Select quantity to calculate",iquantity,1,5)
     call prompt("Bin in mass coordinates instead of radius?",use_mass_coord)
  endif
 
@@ -2087,7 +2088,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  call compute_energies(time)
 
  ! Allocate arrays for single variable outputs
- if ( (iquantity==1) .or. (iquantity==2) .or. (iquantity==3) ) then
+ if (iquantity==1 .or. iquantity==2 .or. iquantity==3 .or. iquantity==5) then
     nvars = 1
  else
     nvars = 5
@@ -2127,6 +2128,9 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
                     '            # HeI', &
                     '           # HeII', &
                     '          # HeIII' /)
+  case(5) ! Sound speed
+    filename = '       grid_cs.ev'
+    headerline = '# cs profile    '
  end select
 
  allocate(iorder(npart))
@@ -2174,6 +2178,8 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
        quant(i,3) = xhe0
        quant(i,4) = xhe1
        quant(i,5) = xhe2
+    case(5) ! Sound speed
+       quant(i,1) = spsoundi
     end select
  enddo
 
