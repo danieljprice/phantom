@@ -793,7 +793,7 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
  real                           :: rhopart,ponrhoi,spsoundi,tempi,r_ij,radvel
  real, dimension(3)             :: rcrossmv
  character(len=17), allocatable :: columns(:)
- integer                        :: i, j, ncols
+ integer                        :: i,j,ncols
  logical                        :: inearsink
  integer, parameter             :: ie_tot        = 1
  integer, parameter             :: ie_pot        = ie_tot + 1
@@ -826,9 +826,9 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
              '  pot energy',&
              '  kin energy',&
              'therm energy',&
-             '    sink pot',&
+             '    sink pot',&  ! does not include sink-gas potential energy
              '    sink kin',&
-             '    sink orb',&
+             '    sink orb',&  ! sink kin + sink pot
              '    comp orb',&
              '     env pot',&
              '  env energy',&
@@ -914,7 +914,7 @@ subroutine calculate_energies(time,npart,particlemass,xyzh,vxyzu)
        do j=i+1,nptmass
           if (xyzmh_ptmass(4,j) > 0.) then
              r_ij = separation(xyzmh_ptmass(1:3,i),xyzmh_ptmass(1:3,j))
-             encomp(ipot_sink) = encomp(ipot_sink) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
+             encomp(ipot_sink) = encomp(ipot_sink) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij  ! Newtonian expression is fine as long as rij > hsofti + hsoftj
              if (i==1 .and. j==2) encomp(iorb_comp) = encomp(iorb_comp) - xyzmh_ptmass(4,i) * xyzmh_ptmass(4,j) / r_ij
           endif
        enddo
