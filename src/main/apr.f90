@@ -104,7 +104,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
-    use dim,      only:maxp_hard
+    use dim,      only:maxp_hard,ind_timesteps
     use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
                        shuffle_part,iphase,iactive
     use quitdump, only:quit
@@ -155,13 +155,15 @@ contains
     nrelax = 0
     apri = 0 ! to avoid compiler errors
 
-    do jj = 1,apr_max
+    do jj = 1,apr_max-1
       npartold = npartnew ! to account for new particles as they are being made
 
       split_over_active: do ii = 1,npartold
 
         ! only do this on active particles
-        if (.not.iactive(iphase(ii))) cycle split_over_active
+        if (ind_timesteps) then
+          if (.not.iactive(iphase(ii))) cycle split_over_active
+        endif
 
         apr_current = apr_level(ii)
         xi = xyzh(1,ii)
@@ -203,16 +205,19 @@ contains
       xyzh_merge = 0.
       vxyzu_merge = 0.
 
-      do ii = 1,npart
+      merge_over_active: do ii = 1,npart
         ! note that here we only do this process for particles that are not already counted in the blending region
-        if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii))) .and. iactive(iphase(ii))) then ! avoid already dead particles
+        if ((apr_level(ii) == kk) .and. (.not.isdead_or_accreted(xyzh(4,ii)))) then ! avoid already dead particles
+          if (ind_timesteps) then
+            if (.not.iactive(iphase(ii))) cycle merge_over_active
+          endif
           nmerge = nmerge + 1
           mergelist(nmerge) = ii
           xyzh_merge(1:4,nmerge) = xyzh(1:4,ii)
           vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
           npart_regions(kk) = npart_regions(kk) + 1
         endif
-      enddo
+      enddo merge_over_active
 
       ! Now send them to be merged
       if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
