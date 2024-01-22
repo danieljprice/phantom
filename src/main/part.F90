@@ -395,6 +395,7 @@ subroutine allocate_part
      maxmhd = maxp_apr
      maxmhdan = maxp_apr
    endif
+   if (maxalpha > 0) maxalpha = maxp_apr
  endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)

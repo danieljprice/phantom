@@ -31,7 +31,7 @@ module apr
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.25
   logical :: apr_verbose = .false.
-  logical :: do_relax = .false.
+  logical :: do_relax = .true.
   logical :: adjusted_split = .false.
 
 contains
@@ -119,8 +119,6 @@ contains
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi
 
-    return
-
     ! if the centre of the region can move, update it
     if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
 
@@ -176,6 +174,8 @@ contains
         ! level it does have, increment it up one
         if (apri > apr_current) then
           call splitpart(ii,npartnew)
+          ! encompasses particles that have just split into the highest
+          ! refinement level
           if (do_relax .and. (apri == top_level)) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
@@ -221,7 +221,7 @@ contains
 
       ! Now send them to be merged
       if (nmerge > 1) call merge_with_special_tree(nmerge,mergelist(1:nmerge),xyzh_merge(:,1:nmerge),&
-                                         vxyzu_merge(:,1:nmerge),kk,xyzh,apr_level,nkilled,&
+                                         vxyzu_merge(:,1:nmerge),kk,xyzh,vxyzu,apr_level,nkilled,&
                                          nrelax,relaxlist,npartnew)
       if (apr_verbose) then
         print*,'merged: ',nkilled,kk
@@ -264,6 +264,8 @@ contains
     integer, intent(out) :: apri
     integer :: jj, kk
     real :: dx,dy,dz,r
+
+    apri = -1 ! to prevent compiler warnings
 
     do jj = 1,apr_max
       if (ref_dir == 1) then
@@ -348,7 +350,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,current_apr,&
-                                     xyzh,apr_level,nkilled,nrelax,relaxlist,npartnew)
+                                     xyzh,vxyzu,apr_level,nkilled,nrelax,relaxlist,npartnew)
     use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
     use mpiforce, only:cellforce
     use kdtree,   only:inodeparts,inoderange
@@ -356,7 +358,7 @@ contains
     use dim,      only:ind_timesteps
     integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
     integer, intent(in)    :: current_apr,mergelist(:)
-    real, intent(inout)    :: xyzh(:,:)
+    real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
     real, intent(inout)    :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer :: remainder,icell,i,n_cell,apri,m
     integer :: eldest,tuther
@@ -389,10 +391,12 @@ contains
         eldest = mergelist(inodeparts(inoderange(1,icell)))
         tuther = mergelist(inodeparts(inoderange(2,icell)))
 
-        ! keep eldest, reassign it
+        ! keep eldest, reassign it to have the com properties
         xyzh(1,eldest) = cell%xpos(1)
         xyzh(2,eldest) = cell%xpos(2)
         xyzh(3,eldest) = cell%xpos(3)
+        vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
+
         xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - 1
         if (ind_timesteps) call put_in_smallest_bin(eldest)
