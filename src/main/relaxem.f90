@@ -31,6 +31,8 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
   logical :: converged
   integer :: ishift,nshifts
 
+  write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
+
   write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
 
   ! Initialise for the loop
@@ -66,6 +68,8 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
 
   ! Tidy up
   deallocate(a_ref)
+
+  write(*,"(/,/,2x,a,/,/,70('-'))") 'APR: relaxing finished.'
 
 end subroutine relax_particles
 

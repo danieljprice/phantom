@@ -82,7 +82,6 @@ subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
     apr_regions(1) = 1000. ! this needs to be a number that encompasses the whole domain
     do ii = 2,apr_max
       kk = apr_max - ii + 2
-      print*,ii,kk
       apr_regions(kk) = apr_rad + (ii-1)*apr_drad
     enddo
   else
