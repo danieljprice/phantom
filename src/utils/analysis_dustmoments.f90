@@ -32,8 +32,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  use units,     only:unit_density
  use physcon,   only:micron,amu,pi
  use dust_formation, only:mass_per_H
- use reconstruct_from_moments, only:reconstruct_maxent,&
-                                    integrand,fsolve_error,reconstruct_gamma_dist
+ use reconstruct_from_moments, only:integrand,fsolve_error,reconstruct_gamma_dist,gamma_func,&
+                                    gamma_func_moment,gamma_func_from_moments
  use integrate,                only:integrate_trap_log,integrate_trap,&
                                     gauss_legendre_nodes_weights_log,integrate_gauss_legendre
  use table_utils,              only:logspace
@@ -43,14 +43,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
  integer :: i,j,k,ierr,n,iu,nbad
- integer, parameter :: ngrid = 1001
+ integer, parameter :: ngrid = 2001
  real :: khat(0:3),ki(0:3),kgot(0:3)
  real :: mu(4),x(ngrid),w(ngrid),lambsol(4),f(ngrid),ftmp(ngrid),lambguess(4),err(4)
  real :: xmin,xmax,scalefac,sigma_log,factor,logxmean,a0,rhoi,prefac,errmax(4),d_on_p,theta,p
  real(4) :: t1
  real, parameter :: Acarb = 12.011, rhocarb = 2.25
  character(len=64) :: filename,string
- logical, parameter :: debug = .false.
+ logical, parameter :: debug = .false., check_nans = .false.
  logical :: flag_particle,bad_soln
 
  if (.not.do_nucleation) then
@@ -58,7 +58,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
 
  xmin = 1e1  ! critical value of N, number of monomers
- xmax = 1e18  ! want to integrate to infinity, but this is good enough
+ xmax = 1e20  ! want to integrate to infinity, but this is good enough
  sigma_log = 0.1
 
  print*,' TESTING INTEGRATION METHODS...'
@@ -97,7 +97,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !$omp parallel do default (none) &
  !$omp private (i,j,k,iu,ierr,khat,ki,kgot,mu,lambsol,f,ftmp,lambguess,bad_soln) &
  !$omp private (rhoi,prefac,factor,logxmean,sigma_log,filename,err,flag_particle,string,scalefac,d_on_p,theta,p) &
- !$omp shared(xyzh,nucleation,npart,particlemass,unit_density,mass_per_H,t1,x,n,w,nbad) &
+ !$omp shared(xyzh,nucleation,npart,particlemass,unit_density,mass_per_H,a0,t1,x,n,w,nbad) &
  !$omp reduction(max:errmax) &
  !$omp schedule (dynamic)
  do i=1,npart
@@ -119,21 +119,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        lambguess = [log(prefac) + factor*logxmean**2,factor*(-2.*logxmean) - 1.,factor,0.]
     elseif (.true.) then
        lambguess = [mu(1),1.,1.7,1.]   ! normalisation, theta, d, p
-       !lambguess(2) = mu(1)/mu(3)*lambguess(3)/lambguess(4)
        d_on_p = 2.0
        theta = (mu(2)/mu(1) * Gamma(d_on_p) / Gamma(d_on_p + 1./3.))**3
-       !lambguess = [1.,theta,d_on_p,1.]
-       !print*,' moments = ',(mu(1)*theta**(k/3.)*Gamma(d_on_p + k/3.)/Gamma(d_on_p),k=0,3)
-
-       !print*,' checking ',Gamma(d_on_p+1./3.)*Gamma(d_on_p+2./3.),2.*pi*3**(0.5-3*d_on_p)*Gamma(3.*d_on_p)
-       !lambguess(4) = d_on_p*lambguess(2)*1e9 / (mu(4)/mu(1))
-
-       !print*,' guess 3 for d/p is  ', mu(3)/(mu(1)*lambguess(2)*1e9),' currently ',lambguess(3)/lambguess(4)
     else
        lambguess = lambsol
     endif
 
-    call reconstruct_gamma_dist(mu,lambsol,err,ierr)
+    call reconstruct_gamma_dist(mu,lambsol,err,ierr,lambguess=lambguess,verbose=debug)
 
     ! now check by numerical integration
     d_on_p = lambsol(1)
@@ -141,8 +133,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     theta = (mu(2)/mu(1) * Gamma(d_on_p) / Gamma(d_on_p + 1./(3.*p)))**3
     lambsol = [mu(1),theta,d_on_p,p]
 
-    lambguess = lambsol
-    !if (ierr /= 1) call reconstruct_maxent(mu,x,f,lambsol,err,ierr,use_log=.true.,lambguess=lambguess,weights=w)
+    !lambguess = lambsol
+    !print*,' lambsol from recon_gamma_dist = ',lambsol
+    !call reconstruct_maxent(mu,x,f,lambsol,err,ierr,use_log=.true.,lambguess=lambguess) !,weights=w)
+    !lambsol = lambguess
     !
     !--record max fractional error in each moment
     !
@@ -150,10 +144,14 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (any(lambsol(3:4) < 0.)) flag_particle = .true.
     if ((any(abs(err) > 0.1 .and. mu(1) > tiny(0.)))) flag_particle = .true.
  
-    if ((debug .or. flag_particle)) print*,' INFO: '//trim(fsolve_error(ierr))//' on particle ',i,' k_3 err=',err(2)
+    if (ierr /= 1 .and. (debug .and. flag_particle)) print*,' INFO: '//trim(fsolve_error(ierr))//&
+       ' on particle ',i,' k3=',mu(4),' got ',gamma_func_moment(2,lambsol(3:4),mu,3)
 
     if (ierr /= 1 .and. (debug .and. flag_particle)) then
        f = integrand(x, lambsol, 0)
+       !do k=1,ngrid
+       !   f(k) = gamma_func_from_moments(x(k),mu(1:2),lambsol(3:4))
+       !enddo
        do k=0,size(mu)-1
           ftmp = f*x**(k/3.)
           !kgot(k) = integrate_trap_log(ngrid,x,ftmp)
@@ -161,7 +159,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        enddo
        print*,' lambsol = ',lambsol
        print*,' MOMENTS IN             : ',mu
-       !print*,' MOMENTS OUT (numerical): ',kgot
+       print*,' MOMENTS OUT (numerical): ',kgot
        scalefac = mu(1) * lambsol(4) / ((lambsol(2)) * Gamma(lambsol(3)))
        print*,' Moments OUT (analytic ): ',(scalefac * (lambsol(2)) ** (1.+k/3.) / &
                               lambsol(4) * Gamma(lambsol(3) + k/(3.*lambsol(4))),k=0,size(mu)-1)
@@ -180,17 +178,20 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        call printused(t1,string)
     endif
 
-    !f = integrand(x,lambsol,0)
     bad_soln = .false.
-    !if (any(isnan(f))) then
-    !   print*,i,' grain size function contains NaNs'
-    !   bad_soln = .true.
-    !endif
-    !if (f(ngrid) > exp(-50.)) then
-    !   print*,i,' function is exploding at the large N boundary',f(ngrid)
-    !   bad_soln = .true.
-    !endif
+    if (check_nans) then
+       f = integrand(x,lambsol,0)
+       if (any(isnan(f))) then
+          print*,i,' grain size function contains NaNs'
+          bad_soln = .true.
+       endif
+       if (f(ngrid) > exp(-50.)) then
+          print*,i,' function is exploding at the large N boundary',f(ngrid)
+          bad_soln = .true.
+       endif
+    endif
     ! print results
+!    if (.true.) then
     if (debug .and. (flag_particle .or. bad_soln)) then
        f = integrand(x, lambsol, 0)
        write(filename,"(a,i7.7,a)") 'recon',i,'.out'
@@ -203,10 +204,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     endif
     if (bad_soln) stop
 
-        if (any(lambsol(3:4) < 0)) then
-            print*,i,'ERROR: d_on_p,p = ',lambsol(3:4),' should be > 0'
-            stop
-        endif
+    if (any(lambsol(3:4) < 0)) then
+       print*,i,'ERROR: d_on_p,p = ',lambsol(3:4),' should be > 0'
+       stop
+    endif
 
  enddo
  !$omp end parallel do
