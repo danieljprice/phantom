@@ -30,13 +30,16 @@ contains
 
 subroutine init_star()
  use part,    only:nptmass,xyzmh_ptmass
+ use io,      only:fatal
  integer :: i,imin
  real :: rsink2,rsink2min
 
  rsink2min = 0d0
- if (nptmass == 0 .or. Lstar == 0.0) then
+ if (nptmass == 0 .or. ( Lstar == 0.0 .and. od_method /=4)) then
     isink_star = 0 ! no stellar heating
     print *, "No stellar heating."
+ elseif (od_method ==4 .and. nptmass == 0) then
+       call fatal('init star','od_method = 4 but there is no sink!',var='nptmass',ival=nptmass)
  elseif (nptmass == 1) then
     isink_star = 1
  else
@@ -58,7 +61,7 @@ end subroutine init_star
 !
 subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use io,       only:warning
- use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh
+ use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           duFLD,doFLD
@@ -69,20 +72,21 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  real,intent(out) :: dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom,du_tot
+ real            :: cs2,Om2,Q3D,Hmod2
  real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
  poti = Gpot_cool(i)
  du_FLDi = duFLD(i)
 
+ ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+      + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
+      + (zi-xyzmh_ptmass(3,isink_star))**2d0
+
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
  if (isink_star > 0 .and. Lstar > 0.d0) then
-    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
-             + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
-             + (zi-xyzmh_ptmass(3,isink_star))**2d0
-    ri2 = ri2 *udist*udist
 ! Tfloor + stellar heating
-    Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2))
+    Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
  else
     Tmini4 = Tfloor**4d0
  endif
@@ -113,9 +117,18 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 ! Combined method
     HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
     HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
-    Hcomb = 1.0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
+    Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
     coldensi = Hcomb*rhoi
-    coldensi = coldensi*umass/udist/udist
+    coldensi = coldensi*umass/udist/udist ! physical units
+case (4) 
+! Modified Lombardi method
+    HLom  = presi/abs(gradP_cool(i))/rhoi
+    cs2 = presi/rhoi
+    Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
+    Q3D = Om2/(4.d0*pi*rhoi)
+    Hmod2 = (cs2/Om2) * piontwo /(1d0 + (1d0/(rpiontwo*Q3D)))
+    Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
+    coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
  end select
 
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
@@ -180,7 +193,7 @@ subroutine write_options_cooling_stamatellos(iunit)
 
  !N.B. Tfloor handled in cooling.F90
  call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
- call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) potential (2) pressure (3) combined',iunit)
+ call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) Stamatellos(2) Lombardi (3) combined (4) modified Lombardi',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
 
 end subroutine write_options_cooling_stamatellos
@@ -202,8 +215,8 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
     ngot = ngot + 1
  case('OD method')
     read(valstring,*,iostat=ierr) od_method
-    if (od_method < 1 .or. od_method > 3) then
-       call fatal('cooling options','od_method must be 1, 2 or 3',var='od_method',ival=od_method)
+    if (od_method < 1 .or. od_method > 4) then
+       call fatal('cooling options','od_method must be 1, 2, 3 or 4',var='od_method',ival=od_method)
     endif
     ngot = ngot + 1
  case('EOS_file')
@@ -212,9 +225,6 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
  case default
     imatch = .false.
  end select
- if (od_method  /=  1 .and. od_method  /=  2 .and. od_method /= 3) then
-    call warning('cooling_stamatellos','optical depth method unknown')
- endif
 
  if (ngot >= 3) igotallstam = .true.
 
