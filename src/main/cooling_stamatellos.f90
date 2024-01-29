@@ -23,6 +23,7 @@ module cooling_stamatellos
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 1 ! default = Stamatellos+ 2007 method
+ integer :: fld_opt = 1 ! by default FLD is switched on
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
 
@@ -193,25 +194,26 @@ subroutine write_options_cooling_stamatellos(iunit)
 
  !N.B. Tfloor handled in cooling.F90
  call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
- call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) Stamatellos(2) Lombardi (3) combined (4) modified Lombardi',iunit)
+ call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) Stamatellos (2) Lombardi (3) combined (4) modified Lombardi',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
+ call write_inopt(FLD_opt,'do FLD','Do FLD? (1) yes (0) no',iunit)
 
 end subroutine write_options_cooling_stamatellos
 
 subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
  use io, only:warning,fatal
- use eos_stamatellos, only: eos_file
+ use eos_stamatellos, only: eos_file,doFLD
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
-
 
  imatch  = .true.
  igotallstam = .false. ! cooling options are compulsory
  select case(trim(name))
  case('Lstar')
     read(valstring,*,iostat=ierr) Lstar
+    if (Lstar < 0.) call fatal('Lstar','Luminosity cannot be negative')
     ngot = ngot + 1
  case('OD method')
     read(valstring,*,iostat=ierr) od_method
@@ -222,11 +224,20 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
  case('EOS_file')
     read(valstring,*,iostat=ierr) eos_file
     ngot = ngot + 1
+ case('do FLD')
+    read(valstring,*,iostat=ierr) FLD_opt
+    if (FLD_opt < 0) call fatal('FLD_opt','FLD option out of range')
+    if (FLD_opt == 0) then
+       doFLD = .false.
+    elseif (FLD_opt == 1) then
+       doFLD = .true.
+    endif
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
 
- if (ngot >= 3) igotallstam = .true.
+ if (ngot >= 4) igotallstam = .true.
 
 end subroutine read_options_cooling_stamatellos
 

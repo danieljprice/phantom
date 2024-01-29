@@ -268,7 +268,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp shared(thread_complete) &
 !$omp shared(ncomplete_mpi) &
 !$omp shared(icooling) &
-!$omp shared(lambda_FLD,urad_FLD) &
+!$omp shared(lambda_FLD,urad_FLD,doFLD) &
 !$omp reduction(+:nlocal) &
 !$omp private(do_export) &
 !$omp private(j) &

@@ -212,7 +212,7 @@ subroutine write_options_cooling(iunit)
     if (icooling > 0) call write_options_cooling_ism(iunit)
  else
     call write_inopt(icooling,'icooling','cooling function (0=off, 1=cooling library (step), 2=cooling library (force),'// &
-         '3=Gammie, 5,6=KI02, 7=powerlaw, 8=stamatellos)',iunit)
+         '3=Gammie, 5,6=KI02, 7=powerlaw, 8=polytropic approx)',iunit)
     select case(icooling)
     case(0,4,5,6)
        ! do nothing
