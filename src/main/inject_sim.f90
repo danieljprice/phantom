@@ -36,7 +36,7 @@ module inject
  
  character(len=120) :: start_dump,final_dump,pre_dump,next_dump
  integer :: npart_sim
- real    :: r_inject,r_inject_cgs,next_time!,e_inject
+ real    :: r_inject,r_inject_cgs=-1,next_time!,e_inject
  real, allocatable :: xyzh_pre(:,:),xyzh_next(:,:),vxyzu_next(:,:),pxyzu_next(:,:)
  logical, allocatable :: injected(:)
 
