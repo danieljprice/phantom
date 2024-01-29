@@ -6,19 +6,19 @@ v2024.0.0 - 29th Jan 2024
 
 Physics
 ~~~~~~~
-- ability to use numerical relativity backend with phantom (Magnall et al. 2023; #480)
+- ability to use numerical relativity backend with phantom (`Magnall et al. 2023 <https://ui.adsabs.harvard.edu/abs/2023PhRvD.108j3534M/abstract>`__; #480)
 - further improvements to implicit radiation scheme (thanks to Mike Lau and Ryosuke Hirai; #406,#438,#441,#452,#455,#458,#474)
 - further improvements to wind injection and cooling modules (thanks to Lionel Siess, Mats Esseldeurs, Silke Maes and Jolien Malfait; #392,)
 - J2 potential due to oblateness implemented for sink particles (#289)
 - external potential implemented for geopotential model, to test J2 potential (#289)
-- implemented Loren/Bate implicit scheme for 2-fluid drag (thanks to Stephane Michoulier, #428,#436)
+- implemented Loren/Bate implicit scheme for drag with dust-as-particles (thanks to Stephane Michoulier, #428,#436)
 - dynamic boundary conditions, allowing box with expanding boundaries (thanks to James Wurster; #416)
 - bug fix in generalised Farris equation of state (thanks to Nicolas Cuello; #433)
 
 Setup
 ~~~~~
 - major reorganisation of star setup into separate module, can now setup and relax one or more stars in several different setups, allowing one-shot-setup-and-relax for common envelopes, binary stars and tidal disruption events (#405,#407,#413)
-- new hierarchical system setup: can now setup an arbitrary number of point masses or stars in hierarchical systems (thanks to Simone Ceppi; #401,#426)
+- new hierarchical system setup: can now setup an arbitrary number of point masses or stars in hierarchical systems (thanks to Simone Ceppi; #401,#426; see `Ceppi et al. 2022 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.514..906C/abstract>`__)
 - relaxation process for stars is restartable, works automatically (#414, #417)
 - can setup unbound parabolic and hyperbolic orbits using the standard 6-parameter orbital elements (#443,#448; #302)
 - use m1 and m2 in the binary disc setup instead of primary mass and mass ratio (#431)
@@ -34,7 +34,7 @@ Analysis/moddump utilities
 - cleanup and further enhancements to common envelope analysis routines (thanks to Miguel Gonzalez-Bolivar; #467,#462)
 - moddump_sink displays correct value of sink luminosity (#439)
 - analysis routine for radio emission from tidal disruption events (thanks to Fitz Hu; #472)
-- new analysis routine to compute time of dust formation (`Bermudez-Bustamante et al. 2023 <>`__)
+- new analysis routine to compute time of dust formation (`Bermudez-Bustamante et al. 2023 <https://ui.adsabs.harvard.edu/abs/2024arXiv240103644B/abstract>`__)
 
 Other
 ~~~~~
