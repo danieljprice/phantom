@@ -39,8 +39,8 @@ subroutine init_star()
  if (nptmass == 0 .or. ( Lstar == 0.0 .and. od_method /=4)) then
     isink_star = 0 ! no stellar heating
     print *, "No stellar heating."
- elseif (od_method ==4 .and. nptmass == 0) then
-       call fatal('init star','od_method = 4 but there is no sink!',var='nptmass',ival=nptmass)
+ elseif (od_method == 4 .and. nptmass == 0) then
+       print *, "NO central star."
  elseif (nptmass == 1) then
     isink_star = 1
  else
@@ -79,9 +79,11 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  poti = Gpot_cool(i)
  du_FLDi = duFLD(i)
 
- ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
-      + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
-      + (zi-xyzmh_ptmass(3,isink_star))**2d0
+ if (isink_star > 0) then
+    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+         + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
+         + (zi-xyzmh_ptmass(3,isink_star))**2d0  
+ endif
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
@@ -121,13 +123,18 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
     Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
     coldensi = Hcomb*rhoi
     coldensi = coldensi*umass/udist/udist ! physical units
-case (4) 
+ case (4) 
 ! Modified Lombardi method
     HLom  = presi/abs(gradP_cool(i))/rhoi
     cs2 = presi/rhoi
-    Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
-    Q3D = Om2/(4.d0*pi*rhoi)
-    Hmod2 = (cs2/Om2) * piontwo /(1d0 + (1d0/(rpiontwo*Q3D)))
+    if (isink_star > 0 .and. ri2 > 0d0) then
+       Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
+    else
+       Om2 = 0d0
+    endif
+    Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
+    !Q3D = Om2/(4.d0*pi*rhoi)
+    !Hmod2 = (cs2/Om2) * piontwo /(1d0 + (1d0/(rpiontwo*Q3D)))
     Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
     coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
  end select
