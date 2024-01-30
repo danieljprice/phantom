@@ -109,7 +109,6 @@ specified in `build/Makefile_setups <https://github.com/danieljprice/phantom/blo
 
    ifeq ($(SETUP), isodisc)
        ...
-       LINKLIST= linklist_cyl.F90
        SETUPFILE= setup_disc.f90
        ANALYSIS= analysis_disc.f90
        ...
@@ -120,6 +119,12 @@ giving
 
    $ ls
    phantomanalysis*
+
+which you can then run on a series of snapshots
+
+.. code-block:: bash
+
+   $ ./phantomanalysis dump_0*
 
 Phantomanalysis is a simple wrapper that reads all of the dump files on the command line in sequence and calls the analysis routine specified in the ANALYSIS variable, in this case analysis_disc.f90. For a list of pre-built analysis tools, see the :doc:`list of Phantom
 utilities <utils>`.
@@ -162,8 +167,11 @@ utility in splash. For example, to convert all files to ascii format
 
    splash to ascii blast_0*
 
-To avoid precision loss, you will need to ensure that splash is compiled
-in double precision (use make DOUBLEPRECISION=yes when compiling splash)
+You can also convert to other code formats, e.g.:
+
+.. code-block:: bash
+
+   splash to gadget blast_0*
 
 Analysis with pyanalysis
 ~~~~~~~~~~~~~~~~~~~~~~~~
