@@ -64,7 +64,7 @@ contains
 subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                              r,den,pres,temp,en,mtab,X_in,Z_in,Xfrac,Yfrac,mu,&
                              npts,rmin,Rstar,Mstar,rhocentre,&
-                             isoftcore,isofteningopt,rcore,mcore,hsoft,Lstar,outputfilename,&
+                             isoftcore,isofteningopt,rcore,mcore,hsoft,outputfilename,&
                              composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
@@ -78,7 +78,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
- real,              intent(inout) :: gamma,polyk,hsoft,Lstar
+ real,              intent(inout) :: gamma,polyk,hsoft
  real,              intent(in)    :: X_in,Z_in
  real, allocatable, intent(out)   :: r(:),den(:),pres(:),temp(:),en(:),mtab(:)
  real, allocatable, intent(out)   :: Xfrac(:),Yfrac(:),mu(:),composition(:,:)
@@ -132,7 +132,7 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
           eos_type = ieos
        endif
        regrid_core = .false.  ! hardwired to be false for now
-       call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,mtab,Xfrac,Yfrac,ierr)
+       call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr)
        hsoft = rcore/radkern
 
        call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)

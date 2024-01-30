@@ -30,7 +30,7 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
+subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,m,X,Y,ierr)
  use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
  use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
@@ -38,16 +38,13 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
  use setcubiccore,        only:set_cubic_core,find_mcore_given_rcore,&
                                find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore, only:set_fixedS_softened_core
- use setfixedlumcore,     only:set_fixedlum_softened_core
  use physcon,             only:solarr,solarm
- use units,               only:unit_luminosity
  integer, intent(in) :: eos_type,isoftcore,isofteningopt
- real, intent(in)    :: Lstar
  logical, intent(in) :: regrid_core
  real, intent(inout) :: rcore,mcore
  real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr,npts,Ncore
- real                :: Xcore,Zcore,rc,Lstar_cgs
+ real                :: Xcore,Zcore,rc
  logical             :: isort_decreasing,iexclude_core_mass
  real, allocatable   :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
 
@@ -115,13 +112,6 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     call set_cubic_core(mcore,rcore,den,r,pres,m)
  case(2)
     call set_fixedS_softened_core(eos_type,mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
-    if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
- case(3)
-    if (iopacity_type < 1) then
-       call fatal('set_softened_core','Cannot use zero opacity (iopacity_type<1) with a fixed-luminosity core')
-    endif 
-    Lstar_cgs = Lstar * unit_luminosity
-    call set_fixedlum_softened_core(eos_type,rcore,Lstar_cgs,mcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  end select
 
