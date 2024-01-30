@@ -110,8 +110,8 @@ The basic physics that is controllable at runtime (any physics that affects memo
 
    # options controlling hydrodynamics, artificial dissipation
                    ieos =           2    ! eqn of state (1=isoth; 2=adiab; 3/4=locally iso (sphere/cyl); 5=two phase)
-                  alpha =      1.0000    ! MINIMUM art. viscosity parameter (max = 1.0)
-                 alphau =      1.0000    ! art. conductivity parameter
+                  alpha =      0.0000    ! MINIMUM shock viscosity parameter (max = 1.0)
+                 alphau =      1.0000    ! shock conductivity parameter
                    beta =      2.0000    ! beta viscosity
            avdecayconst =      0.1000    ! decay time constant for viscosity switches
                    damp =      0.0000    ! artificial damping of velocities (if on, v=0 initially)
@@ -168,6 +168,6 @@ The .ev files can be visualised using any standard plotting tool. For example yo
 
    splash -e blast*.ev
 
-where column labels should be read automatically from the header of the .ev file
+where column labels should be read automatically from the header of the .ev file.
 
 For more detailed analysis of :doc:`Phantom dump files <dumpfile>`, write yourself an analysis module for the :doc:`phantomanalysis <analysis>` utility. Analysis modules exist for many common tasks, including interpolating to a 3D grid (both fixed and AMR), computing PDFs, structure functions and power spectra, getting disc surface density profiles, and converting to other formats.

@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -14,14 +14,12 @@
 #   the SETUP variable
 #
 #  OWNER: Daniel Price
-#
-#  $Id: 2788b71b1c08e560e77dce9849c5cb24a668f4b9 $
 #+
 #--------------------------------------------------------------------------
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2023
+PHANTOM_VERSION_MAJOR=2024
 PHANTOM_VERSION_MINOR=0
 PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
