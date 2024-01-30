@@ -31,7 +31,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,m,X,Y,ierr)
- use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
+ use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight
  use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
  use table_utils,         only:interpolator,yinterp,flip_array
