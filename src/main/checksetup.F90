@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module checksetup
 !
@@ -16,7 +16,7 @@ module checksetup
 !
 ! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
 !   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   sortutils, timestep, units, utils_gr
+!   ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -37,10 +37,10 @@ contains
 !+
 !------------------------------------------------------------------
 subroutine check_setup(nerror,nwarn,restart)
- use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth, &
-                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation
+ use dim,  only:maxp,maxvxyzu,periodic,use_dust,ndim,mhd,use_dustgrowth,h2chemistry, &
+                do_radiation,n_nden_phantom,mhd_nonideal,do_nucleation,use_krome
  use part, only:xyzh,massoftype,hfact,vxyzu,npart,npartoftype,nptmass,gravity, &
-                iphase,maxphase,isetphase,labeltype,igas,h2chemistry,maxtypes,&
+                iphase,maxphase,isetphase,labeltype,igas,maxtypes,&
                 idust,xyzmh_ptmass,vxyz_ptmass,iboundary,isdeadh,ll,ideadhead,&
                 kill_particle,shuffle_part,iamtype,iamdust,Bxyz,rad,radprop, &
                 remove_particle_from_npartoftype,ien_type,ien_etotal,gr
@@ -50,18 +50,19 @@ subroutine check_setup(nerror,nwarn,restart)
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:G_is_unity,get_G_code
+ use units,           only:G_is_unity,get_G_code,set_units
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,    only:dynamic_bdy,adjust_particles_dynamic_boundary
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
+ use physcon,         only:au,solarm
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real         :: hi,hmin,hmax
- logical      :: accreted,dorestart
+ logical      :: accreted,dorestart,fix_units
  character(len=3) :: string
 !
 !--check that setup is sensible
@@ -90,12 +91,6 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: sum of npartoftype  /=  npart: np=',npart,' but sum=',sum(npartoftype)
     nerror = nerror + 1
  endif
-#ifndef KROME
- if (gamma <= 0.) then
-    print*,'WARNING! gamma not set (should be set > 0 even if not used)'
-    nwarn = nwarn + 1
- endif
-#endif
  if (hfact < 1. .or. isnan(hfact)) then
     print*,'ERROR: hfact = ',hfact,', should be >= 1'
     nerror = nerror + 1
@@ -104,25 +99,29 @@ subroutine check_setup(nerror,nwarn,restart)
     print*,'ERROR: polyk = ',polyk,', should be >= 0'
     nerror = nerror + 1
  endif
-#ifdef KROME
- if (ieos /= 19) then
-    print*, 'KROME setup. Only eos=19 makes sense.'
-    nerror = nerror + 1
+ if (use_krome) then
+    if (ieos /= 19) then
+       print*, 'KROME setup. Only eos=19 makes sense.'
+       nerror = nerror + 1
+    endif
+ else
+    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5) then
+       print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
+       nwarn = nwarn + 1
+    endif
+    if (gamma <= 0.) then
+       if (id==master) print*,'WARNING! gamma not set (should be set > 0 even if not used)'
+       nwarn = nwarn + 1
+    endif
  endif
-#else
- if (polyk < tiny(0.) .and. ieos /= 2) then
-    print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
-    nwarn = nwarn + 1
- endif
-#endif
  if (npart < 0) then
     print*,'ERROR: npart = ',npart,', should be >= 0'
     nerror = nerror + 1
  elseif (npart==0 .and. nptmass==0) then
-    print*,'WARNING! setup: npart = 0 (and no sink particles either)'
+    if (id==master) print*,'WARNING! setup: npart = 0 (and no sink particles either)'
     nwarn = nwarn + 1
  elseif (npart==0) then
-    print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
+    if (id==master) print*,'WARNING! setup contains no SPH particles (but has ',nptmass,' point masses)'
     nwarn = nwarn + 1
  endif
 
@@ -240,7 +239,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /=9)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
@@ -295,7 +294,8 @@ subroutine check_setup(nerror,nwarn,restart)
 !  warn about external force settings
 !
  if (iexternalforce==iext_star .and. nptmass==0) then
-    print*,'WARNING: iexternalforce=1 does not conserve momentum - use a sink particle at r=0 if you care about this'
+    if (id==master) print "(a,/,a)",'WARNING: iexternalforce=1 does not conserve momentum:',&
+                                    '         use a sink particle at r=0 if you care about this'
     nwarn = nwarn + 1
  endif
 !
@@ -333,15 +333,22 @@ subroutine check_setup(nerror,nwarn,restart)
  if (gravity .or. nptmass > 0) then
     if (.not.G_is_unity()) then
        if (gravity) then
-          print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: self-gravity ON but G /= 1 in code units, got G=',get_G_code()
        elseif (nptmass > 0) then
-          print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
+          if (id==master) print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
-       nerror = nerror + 1
+       fix_units = .true.
+       if (fix_units) then
+          print*,' WARNING: forcing code units to au, Msun and G=1'
+          call set_units(dist=au,mass=solarm,G=1.d0)
+          nwarn = nwarn +  1
+       else
+          nerror = nerror + 1
+       endif
     endif
  endif
  if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then
-    print*,'Cannot use total energy with self gravity or mhd'
+    if (id==master) print*,'Cannot use total energy with self gravity or mhd'
     nerror = nerror + 1
  endif
 !
@@ -349,12 +356,12 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  if (mhd) then
     if (all(abs(Bxyz(:,1:npart)) < tiny(0.))) then
-       print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
+       if (id==master) print*,'WARNING: MHD is ON but magnetic field is zero everywhere'
        nwarn = nwarn + 1
     endif
     if (mhd_nonideal) then
        if (n_nden /= n_nden_phantom) then
-          print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
+          if (id==master) print*,'ERROR: n_nden in nicil.f90 needs to match n_nden_phantom in config.F90; n_nden = ',n_nden
           nerror = nerror + 1
        endif
     endif
@@ -405,7 +412,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check radiation setup
 !
- if (do_radiation) call check_setup_radiation(npart,nerror,radprop,rad)
+ if (do_radiation) call check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 !
 !--check dust growth arrays
 !
@@ -423,7 +430,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate) then
+ if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
        print*,'ERROR: Gammie (2001) cooling (icooling=3) assumes Omega = 1./r^1.5'
        print*,'                but the centre of mass is not at the origin!'
@@ -512,12 +519,14 @@ end function in_range
 !------------------------------------------------------------------
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
- use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity
+ use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
+                ilum,iJ2,ispinx,ispinz,iReff
+ use ptmass_radiation, only:isink_radiation
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
- real :: r,hsink
+ real :: r,hsink,hsoft,J2
 
  if (gr .and. nptmass > 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
@@ -575,7 +584,8 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  !
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) < 0.) cycle
-    hsink = max(xyzmh_ptmass(ihacc,i),xyzmh_ptmass(ihsoft,i))
+    hsoft = xyzmh_ptmass(ihsoft,i)
+    hsink = max(xyzmh_ptmass(ihacc,i),hsoft)
     if (hsink <= 0.) then
        nerror = nerror + 1
        print*,'ERROR: sink ',i,' has accretion radius ',xyzmh_ptmass(ihacc,i),&
@@ -585,10 +595,44 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,'WARNING: sink ',i,' has unresolved accretion radius: hmin/racc = ',hmin/hsink
        print*,'         (this makes the code run pointlessly slow)'
     endif
+    !
+    ! check that softening and J2 are not used at the same time
+    !
+    J2 = abs(xyzmh_ptmass(iJ2,i))
+    if (hsoft > 0. .and. J2 > 0.) then
+       nerror = nerror + 1
+       print*,'ERROR! sink ',i,' cannot have both J2 and softening length set'
+    endif
+    !
+    ! check that J2 is a small number
+    !
+    if (J2 > 0.1) then
+       nwarn = nwarn + 1
+       print*,'WARNING! J2 (oblateness) is ridiculously large on sink particle ',i,': J2 = ',J2
+    endif
+    !
+    ! if J2 is set then the spin of a sink particle should be non-zero to begin with
+    ! in order to specify the rotation direction
+    !
+    if (J2 > 0.) then
+       if (dot_product(xyzmh_ptmass(ispinx:ispinz,i),xyzmh_ptmass(ispinx:ispinz,i)) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires non-zero spin on sink particle ',i
+       endif
+       if (xyzmh_ptmass(iReff,i) < tiny(0.)) then
+          nerror = nerror + 1
+          print*,'ERROR! non-zero J2 requires radius (Reff) to be specified on sink particle',i
+       endif
+    endif
  enddo
  !
  !  check that radiation properties are sensible
  !
+ if (isink_radiation > 1 .and. xyzmh_ptmass(ilum,1) < 1e-15) then
+    nerror = nerror + 1
+    print*,'ERROR: isink_radiation > 1 and sink particle has no luminosity'
+    return
+ endif
  if (sinks_have_luminosity(nptmass,xyzmh_ptmass)) then
     if (any(xyzmh_ptmass(iTeff,1:nptmass) < 100.)) then
        print*,'WARNING: sink particle temperature less than 100K'
@@ -604,7 +648,7 @@ end subroutine check_setup_ptmass
 !+
 !------------------------------------------------------------------
 subroutine check_setup_growth(npart,nerror)
- use part, only:dustprop,dustprop_label
+ use part, only:dustprop,dustprop_label,iamdust,iphase,maxphase,maxp
  integer, intent(in)    :: npart
  integer, intent(inout) :: nerror
  integer :: i,j,nbad(4)
@@ -613,12 +657,16 @@ subroutine check_setup_growth(npart,nerror)
  !-- Check that all the parameters are > 0 when needed
  do i=1,npart
     do j=1,2
-       if (dustprop(j,i) < 0.) nbad(j) = nbad(j) + 1
+       if (maxphase==maxp) then
+          if (iamdust(iphase(i)) .and. dustprop(j,i) <= 0.) nbad(j) = nbad(j) + 1
+       elseif (dustprop(j,i) < 0.) then
+          nbad(j) = nbad(j) + 1
+       endif
     enddo
  enddo
  do j=1,2
     if (nbad(j) > 0) then
-       print*,'ERROR: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' < 0'
+       print*,'ERROR: dustgrowth: ',nbad(j),' of ',npart,' particles with '//trim(dustprop_label(j))//' <= 0'
        nerror = nerror + 1
     endif
  enddo
@@ -706,13 +754,13 @@ subroutine check_setup_dustgrid(nerror,nwarn)
           nerror = nerror + 1
        endif
     enddo
+    do i=1,ndusttypes
+       if (grainsize(i) > 10.*km/udist) then
+          print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
+          nwarn = nwarn + 1
+       endif
+    enddo
  endif
- do i=1,ndusttypes
-    if (grainsize(i) > 10.*km/udist) then
-       print*,'WARNING: grainsize is HUGE (>10km) in dust bin ',i,': s = ',grainsize(i)*udist/km,' km'
-       nwarn = nwarn + 1
-    endif
- enddo
 
 end subroutine check_setup_dustgrid
 
@@ -898,45 +946,56 @@ end subroutine check_for_identical_positions
 
 !------------------------------------------------------------------
 !+
-! 1) check for optically thin particles when mcfost is disabled,
-! as the particles will then be overlooked if they are flagged as thin
-! 2) check that radiation energy is never negative to begin with
-! 3) check for NaNs
+!  1) check for optically thin particles when mcfost is disabled,
+!     as the particles will then be overlooked if they are flagged as thin
+!  2) check that radiation energy is never negative to begin with
+!  3) check for NaNs
 !+
 !------------------------------------------------------------------
-subroutine check_setup_radiation(npart, nerror, radprop, rad)
+subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  use part, only:ithick, iradxi, ikappa
  integer, intent(in)    :: npart
- integer, intent(inout) :: nerror
+ integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: rad(:,:), radprop(:,:)
- integer :: i, nthin, nradEn, nkappa
+ integer :: i,nthin,nradEn,nkappa,nwarn_en
 
  nthin = 0
  nradEn = 0
  nkappa = 0
- do i=1, npart
-    if (radprop(ithick, i) < 0.5) nthin=nthin + 1
-    if (rad(iradxi, i) < 0.) nradEn=nradEn + 1
-    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa=nkappa + 1
+ nwarn_en = 0
+ do i=1,npart
+    if (radprop(ithick, i) < 0.5) nthin = nthin + 1
+    if (rad(iradxi, i) < 0.) nradEn = nradEn + 1
+    if (radprop(ikappa, i) <= 0.0 .or. isnan(radprop(ikappa,i))) nkappa = nkappa + 1
+    if (rad(iradxi, i) <= 0.) nwarn_en = nwarn_en + 1
  enddo
 
  if (nthin > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nthin,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nthin,' of ',npart,&
     ' particles are being treated as optically thin without MCFOST being compiled'
     nerror = nerror + 1
  endif
 
  if (nradEn > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nradEn,' of ',npart,&
-    ' particles have negative radiation Energy'
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nradEn,' of ',npart,&
+    ' particles have negative radiation energy'
     nerror = nerror + 1
  endif
 
+ if (nwarn_en > 0) then
+    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nwarn_en,' of ',npart,&
+    ' particles have radiation energy equal to zero'
+    nwarn = nwarn + 1
+ endif
+
  if (nkappa > 0) then
-    print "(/,a,i10,a,i10,a,/)",' WARNING in setup: ',nkappa,' of ',npart,&
+    print "(/,a,i10,a,i10,a,/)",' ERROR in setup: ',nkappa,' of ',npart,&
     ' particles have opacity <= 0.0 or NaN'
     nerror = nerror + 1
  endif
+
+ call check_NaN(npart,rad,'radiation_energy',nerror)
+ call check_NaN(npart,radprop,'radiation properties',nerror)
 
 end subroutine check_setup_radiation
 

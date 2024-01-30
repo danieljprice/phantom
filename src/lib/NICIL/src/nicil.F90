@@ -1239,6 +1239,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
        else
           nden_electronR = nicil_ionR_get_ne(nden_save(1:iire))  ! in this case, need to calculate electron density from ions
           n_g_tot        = 0. ! to prevent compiler warnings
+          zeta = 0. ! prevent compiler warnings
        endif
 
        !--Sum the ion populations from thermal and cosmic ray ionisation
@@ -1294,6 +1295,7 @@ pure subroutine nicil_update_nimhd(icall,eta_ohm,eta_hall,eta_ambi,Bfield,rho,T,
  else
     !--Return constant coefficient version and exit
     call nicil_nimhd_get_eta_cnst(eta_ohm,eta_hall,eta_ambi,Bfield,rho)
+    if (present(data_out)) data_out = 0.
  endif
  if (present(itry)) itry = itry_n0
 
@@ -2288,9 +2290,14 @@ end subroutine nicil_get_dt_nimhd
 pure subroutine nicil_get_halldrift(eta_hall,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_hall,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
- real                   :: B1
+ real                   :: B1,B2
 
- B1     = 1.0/sqrt(Bx*Bx + By*By + Bz*Bz)
+ B2 = Bx*Bx + By*By + Bz*Bz
+ if (B2 > 0.) then
+    B1 = 1.0/sqrt(B2)
+ else
+    B1 = 0.
+ endif
  vdrift = -eta_hall*jcurrent*B1
 
 end subroutine nicil_get_halldrift
@@ -2302,9 +2309,14 @@ end subroutine nicil_get_halldrift
 pure subroutine nicil_get_ambidrift(eta_ambi,Bx,By,Bz,jcurrent,vdrift)
  real,    intent(in)    :: eta_ambi,Bx,By,Bz,jcurrent(3)
  real,    intent(out)   :: vdrift(3)
- real                   :: B21
+ real                   :: B2,B21
 
- B21       = 1.0/(Bx*Bx + By*By + Bz*Bz)
+ B2 = Bx*Bx + By*By + Bz*Bz
+ if (B2 > 0.) then
+    B21 = 1.0/B2
+ else
+    B21 = 0.
+ endif
  vdrift(1) = eta_ambi*( jcurrent(2)*Bz - jcurrent(3)*By )*B21
  vdrift(2) = eta_ambi*( jcurrent(3)*Bx - jcurrent(1)*Bz )*B21
  vdrift(3) = eta_ambi*( jcurrent(1)*By - jcurrent(2)*Bx )*B21

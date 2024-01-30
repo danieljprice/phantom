@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setstar_utils
 !
@@ -69,13 +69,13 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
                              composition,comp_label,columns_compo)
  use extern_densprofile, only:read_rhotab_wrapper
  use eos_piecewise,      only:get_dPdrho_piecewise
- use eos,                only:get_mean_molecular_weight,calc_temp_and_ene,init_eos
+ use kernel,             only:radkern
+ use part,               only:do_radiation
  use rho_profile,        only:rho_uniform,rho_polytrope,rho_piecewise_polytrope,rho_evrard,func
  use readwrite_mesa,     only:read_mesa,write_mesa
  use readwrite_kepler,   only:read_kepler_file
  use setsoftenedcore,    only:set_softened_core
  use io,                 only:fatal
- use physcon,            only:kb_on_mh,radconst
  integer,           intent(in)    :: iprofile,ieos
  character(len=*),  intent(in)    :: input_profile,outputfilename
  real,              intent(in)    :: ui_coef
@@ -89,9 +89,8 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
  real,              intent(inout) :: rcore,mcore
  integer,           intent(out)   :: columns_compo
  character(len=20), allocatable, intent(out) :: comp_label(:)
- integer :: ierr,i
- logical :: calc_polyk,iexist
- real    :: eni,tempi,guessene
+ integer :: ierr,eos_type
+ logical :: calc_polyk,iexist,regrid_core
  procedure(func), pointer :: get_dPdrho
  !
  ! set up tabulated density profile
@@ -128,22 +127,16 @@ subroutine read_star_profile(iprofile,ieos,input_profile,gamma,polyk,ui_coef,&
        allocate(mu(size(den)))
        mu = 0.
        if (ierr /= 0) call fatal('setup','error in reading stellar profile from'//trim(input_profile))
-       call set_softened_core(isoftcore,isofteningopt,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr) ! sets mcore, rcore
-       hsoft = 0.5 * rcore
-       ! solve for temperature and energy profile
-       do i=1,size(r)
-          mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
-          if (i==1) then
-             guessene = 1.5*pres(i)/den(i)  ! initial guess
-             tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
-          else
-             guessene = en(i-1)
-             tempi = temp(i-1)
-          endif
-          call calc_temp_and_ene(ieos,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
-          en(i) = eni
-          temp(i) = tempi
-       enddo
+       if (do_radiation) then
+          eos_type = 12
+       else
+          eos_type = ieos
+       endif
+       regrid_core = .false.  ! hardwired to be false for now
+       call set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,mtab,Xfrac,Yfrac,ierr)
+       hsoft = rcore/radkern
+
+       call solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
        call write_mesa(outputfilename,mtab,pres,temp,r,den,en,Xfrac,Yfrac,mu=mu)
        ! now read the softened profile instead
        call read_mesa(outputfilename,den,r,pres,mtab,en,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr)
@@ -270,10 +263,10 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  npart_old = npart
  n = np
  mass_is_set = .false.
- if (npart_old /= 0 .and. massoftype(igas) > tiny(0.)) then
+ if (massoftype(igas) > tiny(0.)) then
     n = nint(Mstar/massoftype(igas))
     mass_is_set = .true.
-    !print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
+    print "(a,i0)",' WARNING: particle mass is already set, using np = ',n
  endif
  !
  ! place particles in sphere
@@ -311,11 +304,13 @@ end subroutine set_star_density
 !  Add a sink particle as a stellar core
 !+
 !-----------------------------------------------------------------------
-subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,ierr)
+subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
+                            hsoft,ilum,lcore,ierr)
  integer, intent(out) :: nptmass,ierr
  real, intent(out)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(in)     :: mcore,hsoft
- integer              :: n,ihsoft
+ real, intent(in)     :: mcore,hsoft,lcore
+ integer, intent(in)  :: ihsoft,ilum
+ integer              :: n
 
  ierr = 0
  ! Check for sensible values
@@ -327,12 +322,17 @@ subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,hsoft,
     ierr = 2
     return
  endif
+ if (lcore < 0.) then
+    ierr = 3
+    return
+ endif
 
  nptmass                = 1
  n                      = nptmass
  xyzmh_ptmass(:,n)      = 0. ! zero all quantities by default
  xyzmh_ptmass(4,n)      = mcore
  xyzmh_ptmass(ihsoft,n) = hsoft
+ xyzmh_ptmass(ilum,n)   = lcore
  vxyz_ptmass(:,n)       = 0.
 
 end subroutine set_stellar_core
@@ -476,5 +476,41 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  enddo
 
 end subroutine set_star_thermalenergy
+
+
+!-----------------------------------------------------------------------
+!+
+!  Solve for u, T profiles given rho, P
+!+
+!-----------------------------------------------------------------------
+subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
+ use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
+ use physcon, only:radconst,kb_on_mh
+ integer, intent(in) :: eos_type
+ real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
+ logical, intent(in) :: regrid_core
+ real, allocatable, intent(inout) :: temp(:),en(:),mu(:)
+ integer             :: i,ierr
+ real                :: guessene,tempi,eni
+
+ if (regrid_core) then  ! lengths of rho, P arrays have changed, so need to resize temp, en, and mu
+    deallocate(temp,en,mu)
+    allocate(temp(size(r)),en(size(r)),mu(size(r)))
+ endif
+
+ do i=1,size(r)
+    mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
+    if (i==1) then
+       guessene = 1.5*pres(i)/den(i)  ! initial guess
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+    else
+       guessene = en(i-1)
+       tempi = temp(i-1)
+    endif
+    call calc_temp_and_ene(eos_type,den(i),pres(i),eni,tempi,ierr,guesseint=guessene,mu_local=mu(i))  ! for ieos==20, mu is outputted here
+    en(i) = eni
+    temp(i) = tempi
+ enddo
+end subroutine
 
 end module setstar_utils

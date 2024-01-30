@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module inject
 !
@@ -28,14 +28,14 @@ module inject
  character(len=*), parameter, public :: inject_type = 'asteroidwind'
  real, public :: mdot = 5.e8     ! mass injection rate in grams/second
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject
 
  private
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  real         :: vlag          = 0.0      ! percentage lag in velocity of wind
  integer      :: mdot_type     = 2        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
- logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
 !-----------------------------------------------------------------------
@@ -46,7 +46,6 @@ contains
 subroutine init_inject(ierr)
  integer, intent(inout) :: ierr
 
- scaling_set = .false.
  ierr = 0
 
 end subroutine init_inject
@@ -222,5 +221,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 1)
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+ integer, optional, intent(in) :: flag
+
+end subroutine set_default_options_inject
 
 end module inject

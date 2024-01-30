@@ -38,7 +38,7 @@ On macOS you can install HDF5 with Homebrew.
    brew install hdf5
 
 The shared object library and include files are at
-``/usr/local/opt/hdf5``. Use this directory as ``HDF5ROOT`` (see below).
+``/usr/local/opt/hdf5``. Use this directory as ``HDF5_DIR`` (see below).
 
 On Ubuntu 18.04, for example, you can install HDF5 with apt.
 
@@ -48,7 +48,7 @@ On Ubuntu 18.04, for example, you can install HDF5 with apt.
 
 The location of the library is then
 ``/usr/lib/x86_64-linux-gnu/hdf5/serial``. Use this directory as
-``HDF5ROOT`` (see below).
+``HDF5_DIR`` (see below).
 
 Compiling
 ~~~~~~~~~
@@ -93,25 +93,19 @@ Compiling Phantom
 
 Writing HDF5 output is a compile time option and requires access to the
 Fortran HDF5 library. To compile for HDF5 output set ``HDF5_DIR``, for
-example if HDF5 was installed with Homebrew on macOS
-
-::
+example if HDF5 was installed with Homebrew on macOS::
 
    HDF5_DIR=/usr/local/opt/hdf5
 
-or if it was installed with APT on Ubuntu
-
-::
+or if it was installed with APT on Ubuntu::
 
    HDF5_DIR=/usr/lib/x86_64-linux-gnu/hdf5/serial
 
-Then compile with
+Then compile with::
 
-::
+   make HDF5=yes
 
-   make HDF5=yes HDF5ROOT=$HDF5_DIR
-
-The variable ``HDF5ROOT`` specifies the location of the HDF5 library.
+The variable ``HDF5_DIR`` specifies the location of the HDF5 library.
 
 .. note::
 
@@ -127,19 +121,15 @@ Ozstar
 
 On Ozstar you need to make sure that the OpenMPI and HDF5 modules are
 loaded. The variable ``HDF5_DIR`` gives the location of the HDF5 library
-once the HDF5 module is loaded.
-
-::
+once the HDF5 module is loaded::
 
    module load iccifort/2018.1.163-gcc-6.4.0
    module load openmpi/3.0.0
    module load hdf5/1.10.1
 
-Then when you compile Phantom use ``HDF5_DIR`` for ``HDF5ROOT``:
+Then when you compile Phantom ensure ``HDF5_DIR`` is set correctly::
 
-::
-
-   make SYSTEM=ozstar HDF5=yes HDF5ROOT=$HDF5_DIR phantom setup
+   make SYSTEM=ozstar HDF5=yes phantom setup
 
 Note that you must have the HDF5 module loaded when running phantom,
 phantomsetup, etc. So make sure to put ``module load hdf5/1.10.1`` in
@@ -163,7 +153,7 @@ then you would compile ``phantom2hdf5`` as follows
 
 ::
 
-   make SETUP=dustydisc MAXP=10000000 HDF5=yes HDF5ROOT=$HDF5_DIR phantom2hdf5
+   make SETUP=dustydisc MAXP=10000000 HDF5=yes phantom2hdf5
 
 Recall that you will need to set ``HDF5_DIR`` appropriately for your system.
 

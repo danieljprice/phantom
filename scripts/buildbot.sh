@@ -72,11 +72,12 @@ echo "url = $url";
 pwd=$PWD;
 phantomdir="$pwd/../";
 listofcomponents='main setup analysis utils';
-#listofcomponents='analysis'
+#listofcomponents='setup'
 #
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
+#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))
@@ -167,7 +168,7 @@ check_phantomsetup ()
    myfail=0;
    setup=$1;
    if [ -e ./bin/phantomsetup ]; then
-      print_result "exists" $pass;
+      print_result "phantomsetup exists" $pass;
    else
       print_result "FAIL: phantomsetup does not exist" $fail;
       myfail=$(( myfail + 1 ));
@@ -178,6 +179,9 @@ check_phantomsetup ()
    mkdir $dirname;
    cd /tmp/$dirname;
    cp $phantomdir/bin/phantomsetup .;
+   #
+   # run ./phantomsetup prefix, answering any questions with "Enter"
+   #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
    echo -e "$myinput" > myinput.txt;
@@ -189,15 +193,53 @@ check_phantomsetup ()
       print_result "FAIL: requires input other than 'Enter'" $fail;
       myfail=$(( myfail + 1 ));
    fi
+   #
+   # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
+   #
+   infile="${prefix}.in"
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    ./phantomsetup $prefix < myinput.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
+      #test_setupfile_options "$prefix" "$prefix.setup" $infile;
    else
       print_result "no .setup file" $warn;
    fi
-   if [ -e "$prefix.in" ]; then
+   if [ -e "$infile" ]; then
       print_result "creates .in file" $pass;
+      #
+      # if creating the .in file succeeds, try to run phantom
+      # on the .in file with nmax=0
+      #
+      if [ -e $phantomdir/bin/phantom ]; then
+         print_result "phantom exists" $pass;
+         cp $phantomdir/bin/phantom .;
+         #
+         # set nmax=0 in the .in file
+         #
+         sed 's/nmax = .*/nmax = 0/g' ${infile} > ${infile}.bak
+         mv ${infile}.bak ${infile}
+         #
+         # run phantom on the .in file
+         #
+         ./phantom $infile > /dev/null; err=$?;
+         if [ $err -eq 0 ]; then
+            print_result "./phantom $infile runs ok" $pass;
+            dumpfile="${prefix}_00000"
+            if [ -s $dumpfile ]; then
+               print_result "${dumpfile} successfully created" $pass;
+            else
+               print_result "FAIL: did not create ${dumpfile}" $fail;
+               myfail=$(( myfail + 1 ));
+            fi
+         else
+            print_result "FAIL: ./phantom $infile fails with error" $fail;
+            myfail=$(( myfail + 1 ));
+         fi
+      else
+         print_result "FAIL: phantom does not exist" $fail;
+         myfail=$(( myfail + 1 ));
+      fi
    else
       print_result "FAILED to create .in file after 3 attempts" $fail;
       myfail=$(( myfail + 1 ));
@@ -205,6 +247,39 @@ check_phantomsetup ()
    if [ $myfail -gt 0 ]; then
       echo $setup >> $faillogsetup;
    fi
+}
+#
+# check that all possible values of certain
+# variables in the .setup file work
+#
+test_setupfile_options()
+{
+   myfail=0;
+   setup=$1;
+   setupfile=$2;
+   infile=$3;
+   range=''
+   if [ "X$setup"=="Xstar" ]; then
+      param='iprofile'
+      range='1 2 3 4 5 6 7'
+   fi
+   for x in $range; do
+       valstring="$param = $x"
+       echo "checking $valstring"
+       sed "s/$param.*=.*$/$valstring/" $setupfile > ${setupfile}.tmp
+       cp ${setupfile}.tmp $setupfile
+       rm $infile
+       ./phantomsetup $setupfile < /dev/null > /dev/null;
+       ./phantomsetup $setupfile < /dev/null;
+
+       if [ -e $infile ]; then
+          print_result "successful phantomsetup with $valstring" $pass;
+       else
+          print_result "FAIL: failed to create .in file with $valstring" $fail;
+          myfail=$(( myfail + 1 ));
+          echo $setup $valstring >> $faillogsetup;
+       fi
+   done
 }
 #
 # unit tests for phantomanalysis utility
@@ -400,6 +475,9 @@ for setup in $listofsetups; do
          echo "<td>$htext</td>" >> $htmlfile;
       fi
       if [ "X$target" == "Xsetup" ] && [ "X$component" == "Xsetup" ]; then
+         # also build phantom main binary
+         echo "compiling phantom with SETUP=$setup"
+         make SETUP=$setup $nolibs $mynowarn $maxp $mydebug 1>> $makeout 2>> $errorlog; err=$?;
          check_phantomsetup $setup;
       elif [ "X$target" == "Xanalysis" ] && [ "X$component" == "Xanalysis" ]; then
          check_phantomanalysis $setup;

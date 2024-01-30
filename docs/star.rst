@@ -5,10 +5,10 @@ Setting up and relaxing a star
 ------------------------------
 
 First, follow the usual procedure for initiating a new simulation with
-phantom. We’ll use the “polytrope” setup, but you can also use the
-“star” or “neutronstar” configurations (the first two use self-gravity
-for the star, the last one uses an external potential). For TDEs use
-“tde”. That is:
+phantom. We’ll use the “star” setup, but you can also use the
+“polytrope” or “neutronstar” configurations (the first two use self-gravity
+for the star, the last one uses an external potential). For tidal disruption
+events in general relativity use“grtde”. That is:
 
 make a new directory and write a local Makefile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -38,22 +38,22 @@ run phantomsetup
 
    star.setup not found: using interactive setup
 
-   1) Uniform density profile     
-   2) Polytrope                   
+   1) Uniform density profile
+   2) Polytrope
    3) Density vs r from ascii file
-   4) KEPLER star from file       
-   5) MESA star from file         
-   6) Piecewise polytrope         
-   7) Evrard collapse             
+   4) KEPLER star from file
+   5) MESA star from file
+   6) Piecewise polytrope
+   7) Evrard collapse
   Enter which density profile to use ([1:7], default=1): 2
   Setting up Polytrope
-  Enter mass unit (e.g. solarm,jupiterm,earthm) (blank="blank",default="solarm"): 
-  Enter distance unit (e.g. au,pc,kpc,0.1pc) (blank="blank",default="solarr"): 
-  Enter the approximate number of particles in the sphere ([0:], default=100000): 
-  Enter the desired EoS for setup (default=2): 
-  Enter gamma (adiabatic index) ([1.000:7.000], default=1.667): 
-  Enter the mass of the star (code units) ([0.000:], default=1.000): 
-  Enter the radius of the star (code units) ([0.000:], default=1.000): 
+  Enter mass unit (e.g. solarm,jupiterm,earthm) (blank="blank",default="solarm"):
+  Enter distance unit (e.g. au,pc,kpc,0.1pc) (blank="blank",default="solarr"):
+  Enter the approximate number of particles in the sphere ([0:], default=100000):
+  Enter the desired EoS for setup (default=2):
+  Enter gamma (adiabatic index) ([1.000:7.000], default=1.667):
+  Enter the mass of the star (code units) ([0.000:], default=1.000):
+  Enter the radius of the star (code units) ([0.000:], default=1.000):
   Relax star automatically during setup? (default=no): y
    Writing star.setup
   STOP please check and edit .setup file and rerun phantomsetup
@@ -72,10 +72,10 @@ Open the star.setup file and make sure the parameter “relax_star” to True::
 Then run phantomsetup::
 
    ./phantomsetup star.setup
-  
+
 Which will generate a sequence of snapshots of the relaxation process::
 
-   RELAX-A-STAR-O-MATIC: Etherm:  0.499     Epot: -0.854     R*:   1.00    
+   RELAX-A-STAR-O-MATIC: Etherm:  0.499     Epot: -0.854     R*:   1.00
        WILL stop WHEN: dens error <   1.00% AND Ekin/Epot <   1.000E-07 OR Iter=0
 
    -------->   TIME =    0.000    : full dump written to file relax_00000   <--------
@@ -98,7 +98,7 @@ Once complete, you should obtain a relaxed initial conditions snapshot with the 
 
 
     input file poly.in written successfully.
-    To start the calculation, use: 
+    To start the calculation, use:
 
     ./phantom star.in
 
@@ -121,21 +121,15 @@ check the output
 Putting the star on an orbit for a tidal disruption event
 ---------------------------------------------------------
 
-If you used the “tde” setup then simply compile moddump:
-
-::
+If you used the “tde” or "grtde" setup then simply compile :doc:`moddump <moddump>`::
 
    $ make moddump
 
-otherwise you need to specify the tidal moddump file
-
-::
+otherwise you need to specify the tidal moddump file::
 
    $ make moddump MODFILE=moddump_tidal.f90
 
-Then run moddump on your relaxed star
-
-::
+Then run moddump on your relaxed star::
 
    $ ./phantommoddump star_00000 tde 0.0
    ...
@@ -146,9 +140,7 @@ Then run moddump on your relaxed star
 
 When you first run this, a “tde.tdeparams” file will be created. Edit
 this to set the star on your desired orbit, and then rerun
-phantommoddump.
-
-::
+phantommoddump::
 
    # parameters file for a TDE phantommodump
                    beta =       1.000    ! penetration factor
@@ -159,9 +151,7 @@ phantommoddump.
                     phi =       0.000    ! stellar rotation with respect to y-axis (in degrees)
                      r0 =        490.    ! starting distance
 
-After this you can simply run phantom
-
-::
+After this you can simply run phantom::
 
    $ ./phantom tde.in
 
@@ -173,18 +163,14 @@ compile phantommoddump
 
 The module used to compile this utility is specified using MODFILE= in
 phantom/build/Makefile. The default for the “polytrope” setup is
-currently moddump_spheres.f90
-
-::
+currently moddump_spheres.f90::
 
    MODFILE=moddump_spheres.f90
 
 Change this to moddump_default.f90. You can do this temporarily on the
-command line by compiling phantommoddump as follows:
+command line by compiling phantommoddump as follows::
 
-::
-
-   $ make moddump MODFILE=moddump_default.f90 MHD=yes
+   make moddump MODFILE=moddump_default.f90 MHD=yes
 
 run phantommoddump
 ~~~~~~~~~~~~~~~~~~
@@ -192,25 +178,19 @@ run phantommoddump
 ::
 
    $ ./phantommoddump
-   PhantomSPH: (c) 2007-2017 The Authors
+   PhantomSPH: (c) 2007-2023 The Authors
 
     Usage: moddump dumpfilein dumpfileout [time] [outformat]
 
-in our case we want:
-
-::
+in our case we want::
 
    ./phantommoddump star_00010 magstar_00000
 
-which will give some errors:
-
-::
+which will give some errors::
 
     ERROR! MHD arrays not found in Phantom dump file: got            0
 
-but then prompt you to add magnetic fields:
-
-::
+but then prompt you to add magnetic fields::
 
    add/reset magnetic fields? (default=no): yes
 
@@ -220,6 +200,5 @@ routine.
 now implement something decent in src/setup/set_Bfield.f90
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-you can either implement a general magnetic field setup in this routine,
-or you can just make a new moddump module that sets up the magnetic
-field in a custom way.
+you can either use the pre-cooked magnetic field setups in this routine,
+or you can just make a new :doc:`moddump <moddump>` module that sets up the magnetic field in a custom way.
