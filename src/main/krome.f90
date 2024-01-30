@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -44,7 +44,7 @@ subroutine initialise_krome()
        krome_set_user_crflux,krome_get_names,krome_get_mu_x,krome_get_gamma_x,&
        krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,krome_idx_Na,&
        krome_idx_P,krome_idx_F
- use part,       only:abundance,abundance_label,mu_chem,gamma_chem,T_gas_cool
+ use part,       only:abundance,abundance_label,eos_vars,igamma,imu,T_gas_cool
  use dim,        only:maxvxyzu
  real :: wind_temperature
 
@@ -98,8 +98,8 @@ subroutine initialise_krome()
  abundance(krome_idx_H,:)  = H_init
 
  !set initial wind temperature to star's effective temperature
- mu_chem(:)    = krome_get_mu_x(abundance(:,1))
- gamma_chem(:) = krome_get_gamma_x(abundance(:,1),wind_temperature)
+ eos_vars(imu,:)    = krome_get_mu_x(abundance(:,1))
+ eos_vars(igamma,:) = krome_get_gamma_x(abundance(:,1),wind_temperature)
  T_gas_cool(:) = wind_temperature
  if (maxvxyzu < 4) then
     print *, "CHEMISTRY PROBLEM: ISOTHERMAL SETUP USED, INTERNAL ENERGY NOT STORED"
@@ -107,35 +107,35 @@ subroutine initialise_krome()
 
 end subroutine initialise_krome
 
-subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_chem,mu_chem,T_gas_cool)
+subroutine update_krome(dt,xyzh,u,rho,xchem,gamma_in,mu_in,T_gas_cool)
 
- use krome_main,    only: krome
+ use krome_main,    only:krome
  use krome_user,    only:krome_consistent_x,krome_get_mu_x,krome_get_gamma_x
  use units,         only:unit_density,utime
  use eos,           only:ieos,get_temperature,get_local_u_internal!,temperature_coef
 
  real, intent(in)    :: dt,xyzh(4),rho
- real, intent(inout) :: u,gamma_chem,mu_chem,xchem(:)
+ real, intent(inout) :: u,gamma_in,mu_in,xchem(:)
  real, intent(out)   :: T_gas_cool
  real :: T_local, dt_cgs, rho_cgs
 
- dt_cgs = dt*utime
+ dt_cgs  = dt*utime
  rho_cgs = rho*unit_density
- T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_chem,mui=mu_chem)
- T_local=max(T_local,20.0d0)
+ T_local = get_temperature(ieos,xyzh(1:3),rho,(/0.,0.,0.,u/),gammai=gamma_in,mui=mu_in)
+ T_local = max(T_local,20.0d0)
 ! normalise abudances and balance charge conservation with e-
  call krome_consistent_x(xchem)
 ! evolve the chemistry and update the abundances
  call krome(xchem,rho_cgs,T_local,dt_cgs)
 ! update the particle's mean molecular weight
- mu_chem =  krome_get_mu_x(xchem)
+ mu_in =  krome_get_mu_x(xchem)
 ! update the particle's adiabatic index
- gamma_chem = krome_get_gamma_x(xchem,T_local)
+ gamma_in = krome_get_gamma_x(xchem,T_local)
 ! update the particle's temperature
  T_gas_cool = T_local
 ! get the new internal energy
- u = get_local_u_internal(gamma_chem,mu_chem,T_local)
- !u = T_local/(mu_chem*temperature_coef)/(gamma_chem-1.)
+ u = get_local_u_internal(gamma_in,mu_in,T_local)
+! u = T_local/(mu_in*temperature_coef)/(gamma_in-1.)
 
 end subroutine update_krome
 

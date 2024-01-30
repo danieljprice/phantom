@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -48,12 +48,12 @@ contains
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use part,           only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
-                          ihacc,ihsoft,eos_vars,rad,nsinkproperties
+                          ihacc,ihsoft,eos_vars,rad,nsinkproperties,iJ2,iReff,ispinx,ispinz
  use setbinary,      only:set_binary,get_a_from_period
  use units,          only:is_time_unit,in_code_units,utime
  use physcon,        only:solarm,au,pi,solarr,days
  use options,        only:iexternalforce
- use externalforces, only:iext_corotate,omega_corotate
+ use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
  use setstar,        only:set_star,set_defaults_star,shift_star
  use eos,            only:X_in,Z_in,ieos
@@ -61,6 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use mpidomain,      only:i_belong
  use centreofmass,   only:reset_centreofmass
  use setunits,       only:mass_unit,dist_unit
+ use physcon,        only:deg_to_rad
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -73,7 +74,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  character(len=120) :: filename
  integer :: ierr,i,nstar,nptmass_in,iextern_prev
  logical :: iexist,write_profile,use_var_comp,add_spin
- real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2)
+ real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
 !
 !--general parameters
 !
@@ -183,6 +184,22 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  iexternalforce = iextern_prev
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+ if (iexternalforce==iext_geopot .or. iexternalforce==iext_star) then
+    ! delete first sink particle and copy its properties to the central potential
+    nptmass = nptmass - 1
+    mass1 = xyzmh_ptmass(4,nptmass+1)
+    accradius1 = xyzmh_ptmass(ihacc,nptmass+1)
+    xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
+    vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
+ else
+    ! set J2 for sink particle 1 to be equal to oblateness of Saturn
+    xyzmh_ptmass(iJ2,1) = 0.01629
+    angle = 30.*deg_to_rad
+    xyzmh_ptmass(ispinx,1) = sin(angle)
+    xyzmh_ptmass(ispinz,1) = cos(angle)
+    xyzmh_ptmass(iReff,1) = xyzmh_ptmass(ihacc,1)
+ endif
 
 end subroutine setpart
 

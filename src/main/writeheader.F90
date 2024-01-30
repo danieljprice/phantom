@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -75,13 +75,13 @@ end subroutine write_codeinfo
 !+
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
- use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,use_dustgrowth,gr
+ use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
+        use_dustgrowth,gr,h2chemistry
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
  use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
- use part,             only:hfact,massoftype,mhd,&
-                            gravity,h2chemistry,periodic,massoftype,npartoftypetot,&
+ use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
  use eos,              only:eosinfo

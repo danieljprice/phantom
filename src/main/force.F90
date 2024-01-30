@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -207,7 +207,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 #else
  use timestep,     only:C_cour,C_force
 #endif
- use part,         only:divBsymm,isdead_or_accreted,h2chemistry,ngradh,gravity,ibin_wake
+ use part,         only:divBsymm,isdead_or_accreted,ngradh,gravity,ibin_wake
  use mpiutils,     only:reduce_mpi,reduceall_mpi,reduceloc_mpi,bcast_mpi
 #ifdef GRAVITY
  use kernel,       only:kernel_softening
@@ -2488,13 +2488,14 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
  use io,             only:fatal,warning
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
-                          store_dust_temperature,do_nucleation
- use eos,            only:gamma,ieos,iopacity_type
+                          store_dust_temperature,do_nucleation,update_muGamma,h2chemistry
+ use eos,            only:ieos,iopacity_type
  use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
                           use_dustfrac,damp,icooling,implicit_radiation
- use part,           only:h2chemistry,rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass, &
-                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,luminosity, &
-                          nucleation,idK2,idmu,idkappa,idgamma,dust_temp,pxyzu,ndustsmall
+ use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
+                          massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
+                          luminosity,nucleation,idK2,idkappa,dust_temp,pxyzu,ndustsmall,imu,&
+                          igamma
  use cooling,        only:energ_cooling,cooling_in_step
  use ptmass_heating, only:energ_sinkheat
  use dust,           only:drag_implicit
@@ -2512,9 +2513,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use timestep_sts,   only:use_sts
  use units,          only:unit_ergg,unit_density,get_c_code
  use eos_shen,       only:eos_shen_get_dTdu
-#ifdef KROME
- use part,           only:gamma_chem
-#endif
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
@@ -2559,7 +2557,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real,               intent(inout) :: dtrad
  real    :: c_code,dtradi,radlambdai,radkappai
  real    :: xpartveci(maxxpartveciforce),fsum(maxfsum)
- real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi
+ real    :: rhoi,rho1i,rhogasi,hi,hi1,pmassi,tempi,gammai
  real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
@@ -2644,6 +2642,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     tstopi     = 0.
     dustfraci  = 0.
     dustfracisum = 0.
+    gammai = eos_vars(igamma,i)
 
     vxi = xpartveci(ivxi)
     vyi = xpartveci(ivyi)
@@ -2805,18 +2804,13 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              fxyz4 = fxyz4 + real(u0i/tempi*(fsum(idudtdissi) + fsum(idendtdissi))/kboltz)
           elseif (ien_type == ien_entropy) then ! here eni is the entropy
              if (gr .and. ishock_heating > 0) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idudtdissi)
+                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idudtdissi)
              elseif (ishock_heating > 0) then
-#ifdef KROME
-                fxyz4 = fxyz4 + (gamma_chem(i) - 1.)*rhoi**(1.-gamma_chem(i))*fsum(idudtdissi)
-#else
-                !LS if do_nucleation one should use the local gamma : nucleation(idgamma,i)
-                fxyz4 = fxyz4 + (gamma - 1.)*rhoi**(1.-gamma)*fsum(idudtdissi)
-#endif
+                fxyz4 = fxyz4 + (gammai - 1.)*rhoi**(1.-gammai)*fsum(idudtdissi)
              endif
              ! add conductivity for GR
              if (gr) then
-                fxyz4 = fxyz4 + (gamma - 1.)*densi**(1.-gamma)*u0i*fsum(idendtdissi)
+                fxyz4 = fxyz4 + (gammai - 1.)*densi**(1.-gammai)*u0i*fsum(idendtdissi)
              endif
 #ifdef GR
 #ifdef ISENTROPIC
@@ -2867,16 +2861,27 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !--add conductivity and resistive heating
              fxyz4 = fxyz4 + fac*fsum(idendtdissi)
              if (icooling > 0 .and. dt > 0. .and. .not. cooling_in_step) then
-                if (store_dust_temperature) then
+                if (h2chemistry) then
+                   !
+                   ! Call cooling routine, requiring total density, some distance measure and
+                   ! abundances in the 'abund' format
+                   !
+                   call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                        dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
+                elseif (store_dust_temperature) then
+                   ! cooling with stored dust temperature
                    if (do_nucleation) then
-                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i),&
-                           nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                           dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+                   elseif (update_muGamma) then
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                           dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i))
                    else
-                      call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt,dust_temp(i))
+                      call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
                    endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xi,yi,zi,vxyzu(4,i),dudtcool,rhoi,dt)
+                   call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
                 endif
                 fxyz4 = fxyz4 + fac*dudtcool
              endif

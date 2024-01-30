@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -10,7 +10,7 @@ module testeos
 !
 ! :References: None
 !
-! :Owner: Terrence Tricco
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
@@ -126,7 +126,6 @@ subroutine test_idealplusrad(ntests, npass)
 
  ieos = 12
  mu = 0.6
- gamma = 5./3.
 
  call get_rhoT_grid(npts,rhogrid,Tgrid)
  dum = 0.
@@ -136,7 +135,7 @@ subroutine test_idealplusrad(ntests, npass)
  do i=1,npts
     do j=1,npts
        ! Get u, P from rho, T
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,eni)
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,eni)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
        ! Recalculate T, P, from rho, u
@@ -181,7 +180,6 @@ subroutine test_hormone(ntests, npass)
  ieos = 20
  X = 0.69843
  Z = 0.01426
- gamma = 5./3.
 
  call get_rhoT_grid(npts,rhogrid,Tgrid)
 
@@ -197,12 +195,13 @@ subroutine test_hormone(ntests, npass)
  call equationofstate(ieos,ponrhoi,csound,rhocodei,0.,0.,0.,tempi,eni_code,mu_local=mu,Xlocal=X,Zlocal=Z,gamma_local=gamma)
  do i=1,npts
     do j=1,npts
+       gamma = 5./3.
        ! Get mu from rho, T
        call get_imurec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z,imurec)
        mu = 1./imurec
 
        ! Get u, P from rho, T, mu
-       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gamma,gasrad_eni)
+       call get_idealplusrad_enfromtemp(rhogrid(i),Tgrid(j),mu,gasrad_eni)
        eni = gasrad_eni + get_erec(log10(rhogrid(i)),Tgrid(j),X,1.-X-Z)
        call get_idealplusrad_pres(rhogrid(i),Tgrid(j),mu,presi)
 
@@ -333,7 +332,7 @@ end subroutine test_barotropic
 subroutine test_helmholtz(ntests, npass)
  use eos,           only:maxeos,equationofstate,eosinfo,init_eos
  use eos_helmholtz, only:eos_helmholtz_get_minrho, eos_helmholtz_get_maxrho, &
-                         eos_helmholtz_get_mintemp, eos_helmholtz_get_maxtemp, eos_helmholtz_set_relaxflag
+                         eos_helmholtz_get_mintemp, eos_helmholtz_get_maxtemp
  use io,            only:id,master,stdout
  use testutils,     only:checkval,checkvalbuf,checkvalbuf_start,checkvalbuf_end
  use units,         only:unit_density

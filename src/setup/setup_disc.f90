@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -106,11 +106,12 @@ module setup
  use kernel,           only:hfact_default
  use options,          only:use_dustfrac,iexternalforce,use_hybrid
  use options,          only:use_mcfost,use_mcfost_stellar_parameters
- use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,igas,&
+ use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,&
+                            iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
                             VrelVf,rad,radprop,ikappa,iradxi
- use physcon,          only:au,solarm,jupiterm,earthm,pi,years
+ use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
                             ndusttypesinp,ndustlargeinp,ndustsmallinp,isetdust,&
@@ -166,6 +167,8 @@ module setup
 
  real    :: star_m(maxdiscs)
  real    :: totmass_gas
+ real    :: J2star(maxdiscs),spin_period_star(maxdiscs),obliquity_star(maxdiscs)
+ real    :: size_star(maxdiscs),kfac_star(maxdiscs)
 
  integer :: ndiscs
  integer :: onlydisc
@@ -203,13 +206,15 @@ module setup
  !--planets
  integer, parameter :: maxplanets = 9
 
- character(len=*), dimension(maxplanets), parameter :: planets = &
+ character(len=*), dimension(maxplanets), parameter :: num = &
     (/'1','2','3','4','5','6','7','8','9' /)
 
  logical :: istratify
  integer :: nplanets,discstrat
  real    :: mplanet(maxplanets),rplanet(maxplanets)
  real    :: accrplanet(maxplanets),inclplan(maxplanets)
+ real    :: J2planet(maxplanets),spin_period(maxplanets),obliquity(maxplanets)
+ real    :: planet_size(maxplanets),kfac(maxplanets)
  real    :: period_planet_longest
 
  !--planetary atmosphere
@@ -364,6 +369,13 @@ subroutine set_default_options()!id)
  accr1 = 1.
  accr2 = 1.
 
+ !--oblateness of main objects
+ J2star = 0.
+ spin_period_star = 10.
+ obliquity_star = 0.
+ size_star = 1.
+ kfac_star = 0.205
+
  !--planetary atmosphere
  surface_force = .false.
 
@@ -461,6 +473,11 @@ subroutine set_default_options()!id)
  rplanet       = (/ (10.*i, i=1,maxplanets) /)
  accrplanet    = 0.25
  inclplan      = 0.
+ J2planet      = 0.
+ spin_period   = 10.
+ obliquity     = 0.
+ planet_size   = 1.
+ kfac          = 0.205
 
  !--stratification
  istratify     = .false.
@@ -804,7 +821,7 @@ subroutine setup_central_objects(fileprefix)
        mass1                = m1
        accradius1           = accr1
        blackhole_spin       = bhspin
-       blackhole_spin_angle = bhspinangle*(pi/180.0)
+       blackhole_spin_angle = bhspinangle*deg_to_rad
        mcentral             = m1
     end select
     call update_externalforce(iexternalforce,tinitial,0.)
@@ -820,7 +837,7 @@ subroutine setup_central_objects(fileprefix)
        xyzmh_ptmass(1:3,nptmass)    = 0.
        xyzmh_ptmass(4,nptmass)      = m1
        xyzmh_ptmass(ihacc,nptmass)  = accr1
-       xyzmh_ptmass(ihsoft,nptmass) = accr1
+       xyzmh_ptmass(ihsoft,nptmass) = 0.
        vxyz_ptmass                  = 0.
        mcentral                     = m1
        discpos                      = 0.
@@ -956,6 +973,14 @@ subroutine setup_central_objects(fileprefix)
  star_m(1:4) = (/mcentral, m1, m2, m1+m2/)
  do i=1,maxdiscs
     if (.not.iuse_disc(i)) star_m(i) = 0.
+ enddo
+
+ do i=1,nsinks
+    if (abs(J2star(i)) > 0.) then
+       call set_sink_oblateness(i,J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
+       print "(a)",'# oblateness for object '//num(i)
+       call print_oblateness_info(i,spin_period_star(i))
+    endif
  enddo
 
 end subroutine setup_central_objects
@@ -1139,8 +1164,8 @@ subroutine setup_discs(id,fileprefix,hfact,gamma,npart,polyk,&
  character(len=100) :: dustprefix(maxdusttypes)
 
  hfact = hfact_default
- incl    = incl*(pi/180.0)
- posangl = posangl*(pi/180.0)
+ incl    = incl*deg_to_rad
+ posangl = posangl*deg_to_rad
  if (maxalpha==0) alpha = alphaSS
  npart = 0
  npartoftype(:) = 0
@@ -1714,12 +1739,10 @@ subroutine set_planets(npart,massoftype,xyzh)
  if (nplanets > 0) then
     print "(a,i2,a)",' --------- added ',nplanets,' planets ------------'
     do i=1,nplanets
-
        nptmass = nptmass + 1
        phi = 0.
-       phi = phi*pi/180.
-       cosphi = cos(phi)
-       sinphi = sin(phi)
+       cosphi = cos(phi*deg_to_rad)
+       sinphi = sin(phi*deg_to_rad)
        disc_m_within_r = 0.
 
        !--disc mass correction
@@ -1747,7 +1770,7 @@ subroutine set_planets(npart,massoftype,xyzh)
        xyzmh_ptmass(1:3,nptmass)    = (/rplanet(i)*cosphi,rplanet(i)*sinphi,0./)
        xyzmh_ptmass(4,nptmass)      = mplanet(i)*jupiterm/umass
        xyzmh_ptmass(ihacc,nptmass)  = accrplanet(i)*Hill(i)
-       xyzmh_ptmass(ihsoft,nptmass) = accrplanet(i)*Hill(i)
+       xyzmh_ptmass(ihsoft,nptmass) = 0.
        vphi                         = sqrt((mcentral + disc_m_within_r)/rplanet(i))
        if (nsinks == 2 .and. rplanet(i) < dist_bt_sinks) vphi = sqrt((m1 + disc_m_within_r)/rplanet(i))
        vxyz_ptmass(1:3,nptmass)     = (/-vphi*sinphi,vphi*cosphi,0./)
@@ -1757,15 +1780,20 @@ subroutine set_planets(npart,massoftype,xyzh)
        endif
 
        !--incline positions and velocities
-       inclplan(i) = inclplan(i)*pi/180.
+       inclplan(i) = inclplan(i)*deg_to_rad
        u = (/-sin(phi),cos(phi),0./)
        call rotatevec(xyzmh_ptmass(1:3,nptmass),u,-inclplan(i))
        call rotatevec(vxyz_ptmass(1:3,nptmass), u,-inclplan(i))
 
+       !--compute obliquity and spin angular momentum
+       if (abs(J2planet(i)) > 0.) then
+          call set_sink_oblateness(nptmass,J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
+       endif
+
        !--print planet information
        omega = vphi/rplanet(i)
        print "(a,i2,a)",             ' >>> planet ',i,' <<<'
-       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' AU'
+       print "(a,g10.3,a)",          ' orbital radius: ',rplanet(i)*udist/au,' au'
        print "(a,g10.3,a,2pf7.3,a)", '          M(<R): ',(disc_m_within_r + mcentral)*umass/solarm, &
                                      ' MSun, disc mass correction is ',disc_m_within_r/mcentral,'%'
        print "(a,g10.3,a)",          '    planet mass: ',mplanet(i),' MJup'
@@ -1773,14 +1801,15 @@ subroutine set_planets(npart,massoftype,xyzh)
        print "(a,g10.3,a)",          '    planet mass: ',mplanet(i)*jupiterm/solarm,' MSun'
        print "(a,2(g10.3,a))",       ' orbital period: ',2.*pi*rplanet(i)/vphi*utime/years,' years or ', &
                                                  2*pi*rplanet(i)/vphi,' in code units'
-       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' AU'
-       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' AU or ', &
+       print "(a,g10.3,a)",          '    Hill radius: ',Hill(i),' au'
+       print "(a,g10.3,a,i3,a)",     '   accr. radius: ',xyzmh_ptmass(ihacc,nptmass),' au or ', &
                                                  int(100*xyzmh_ptmass(ihacc,nptmass)/Hill(i)), ' % of Hill radius'
        print "(a,g10.3,a)",          '     resonances:'
-       print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' AU'
-       print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' AU'
+       print "(a,g10.3,a)",   '    3:1 : ',(sqrt(mcentral)/(3.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    4:1 : ',(sqrt(mcentral)/(4.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    5:1 : ',(sqrt(mcentral)/(5.*omega))**(2./3.)*udist/au,' au'
+       print "(a,g10.3,a)",   '    9:1 : ',(sqrt(mcentral)/(9.*omega))**(2./3.)*udist/au,' au'
+       call print_oblateness_info(nptmass,spin_period(i))
 
        !--check planet accretion radii
        if (accrplanet(i) < 0.05) then
@@ -1789,6 +1818,12 @@ subroutine set_planets(npart,massoftype,xyzh)
           call warning('setup_disc','accretion radius of planet > Hill radius: too large')
        elseif (accrplanet(i)*Hill(i) > accr1) then
           call warning('setup_disc','accretion radius of planet > accretion radius of primary star: this is unphysical')
+       endif
+       if (xyzmh_ptmass(iReff,nptmass) > 0.25*Hill(i)) then
+          call warning('setup_disc','planet size exceeds 1/4 of Hill radius: too large')
+       endif
+       if (xyzmh_ptmass(iReff,nptmass) > max(xyzmh_ptmass(ihacc,nptmass),xyzmh_ptmass(ihsoft,nptmass))) then
+          call warning('setup_disc','planet size exceeds accretion radius: too large')
        endif
        print *, ''
 
@@ -1801,6 +1836,28 @@ subroutine set_planets(npart,massoftype,xyzh)
  endif
 
 end subroutine set_planets
+
+!--------------------------------------------------------------------------
+!
+!  Set properties needed for geopotential forces from sink particles
+!
+!--------------------------------------------------------------------------
+subroutine set_sink_oblateness(isink,J2,planet_size,spin_period_hrs,kfac,obliquity)
+ use physcon, only:jupiterr
+ integer, intent(in) :: isink
+ real, intent(in) :: J2,planet_size,spin_period_hrs,kfac,obliquity
+ real :: spin_am,planet_radius,planet_spin_period
+
+ xyzmh_ptmass(iJ2,isink) = J2
+ ! compute spin angular momentum of the body
+ planet_radius = planet_size*jupiterr/udist
+ planet_spin_period = spin_period_hrs*hours/utime
+ spin_am = twopi*kfac*(xyzmh_ptmass(4,isink)*planet_radius**2)/planet_spin_period
+ xyzmh_ptmass(ispinx,isink) = spin_am*sin(obliquity*deg_to_rad)
+ xyzmh_ptmass(ispinz,isink) = spin_am*cos(obliquity*deg_to_rad)
+ xyzmh_ptmass(iReff,isink) = planet_radius
+
+end subroutine set_sink_oblateness
 
 !--------------------------------------------------------------------------
 !
@@ -2571,6 +2628,14 @@ subroutine write_setupfile(filename)
 
 
     end select
+
+    !--options for oblateness
+    write(iunit,"(/,a)") '# oblateness'
+    do i=1,nsinks
+       call write_oblateness_options(iunit,'_body'//trim(num(i)), &
+            J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
+    enddo
+
  end select
  !--multiple disc options
  if (n_possible_discs > 1) then
@@ -2716,11 +2781,13 @@ subroutine write_setupfile(filename)
  call write_inopt(nplanets,'nplanets','number of planets',iunit)
  if (nplanets > 0) then
     do i=1,nplanets
-       write(iunit,"(/,a)") '# planet:'//trim(planets(i))
-       call write_inopt(mplanet(i),'mplanet'//trim(planets(i)),'planet mass (in Jupiter mass)',iunit)
-       call write_inopt(rplanet(i),'rplanet'//trim(planets(i)),'planet distance from star',iunit)
-       call write_inopt(inclplan(i),'inclplanet'//trim(planets(i)),'planet orbital inclination (deg)',iunit)
-       call write_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),'planet accretion radius (in Hill radius)',iunit)
+       write(iunit,"(/,a)") '# planet:'//trim(num(i))
+       call write_inopt(mplanet(i),'mplanet'//trim(num(i)),'planet mass (in Jupiter mass)',iunit)
+       call write_inopt(rplanet(i),'rplanet'//trim(num(i)),'planet distance from star',iunit)
+       call write_inopt(inclplan(i),'inclplanet'//trim(num(i)),'planet orbital inclination (deg)',iunit)
+       call write_inopt(accrplanet(i),'accrplanet'//trim(num(i)),'planet accretion radius (in Hill radius)',iunit)
+       call write_oblateness_options(iunit,'_planet'//trim(num(i)), &
+            J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
     enddo
  endif
  ! stratification
@@ -2945,6 +3012,10 @@ subroutine read_setupfile(filename,ierr)
        call read_inopt(accr2b,'accr2b',db,errcount=nerr)
 
     end select
+    do i=1,nsinks
+       call read_oblateness_options(db,nerr,'_body'//trim(num(i)),&
+            J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
+    enddo
  end select
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
@@ -3111,14 +3182,16 @@ subroutine read_setupfile(filename,ierr)
        endif
     endif
  enddo
- if (maxalpha==0) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
+ if (maxalpha==0 .and. any(iuse_disc)) call read_inopt(alphaSS,'alphaSS',db,min=0.,errcount=nerr)
  !--planets
  call read_inopt(nplanets,'nplanets',db,min=0,max=maxplanets,errcount=nerr)
  do i=1,nplanets
-    call read_inopt(mplanet(i),'mplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-    call read_inopt(rplanet(i),'rplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
-    call read_inopt(inclplan(i),'inclplanet'//trim(planets(i)),db,min=0.,max=180.,errcount=nerr)
-    call read_inopt(accrplanet(i),'accrplanet'//trim(planets(i)),db,min=0.,errcount=nerr)
+    call read_inopt(mplanet(i),'mplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(rplanet(i),'rplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_inopt(inclplan(i),'inclplanet'//trim(num(i)),db,min=0.,max=180.,errcount=nerr)
+    call read_inopt(accrplanet(i),'accrplanet'//trim(num(i)),db,min=0.,errcount=nerr)
+    call read_oblateness_options(db,nerr,'_planet'//trim(num(i)),&
+         J2planet(i),planet_size(i),spin_period(i),kfac(i),obliquity(i))
  enddo
  !--timestepping
  !  following two are optional: not an error if not present
@@ -3142,6 +3215,79 @@ subroutine read_setupfile(filename,ierr)
  endif
 
 end subroutine read_setupfile
+
+!--------------------------------------------------------------------------
+!
+! write options needed for oblate sink particles
+!
+!--------------------------------------------------------------------------
+subroutine write_oblateness_options(iunit,label,J2i,sizei,spin_periodi,kfaci,obliquityi)
+ use infile_utils, only:write_inopt
+ integer,          intent(in) :: iunit
+ character(len=*), intent(in) :: label
+ real,             intent(in) :: J2i,sizei,spin_periodi,kfaci,obliquityi
+
+ call write_inopt(J2i,'J2'//trim(label),'J2 moment (oblateness)',iunit)
+ if (abs(J2i) > 0.) then
+    call write_inopt(sizei,'size'//trim(label),'radius (Jupiter radii)',iunit)
+    call write_inopt(spin_periodi,'spin_period'//trim(label),'spin period (hrs)',iunit)
+    call write_inopt(kfaci,'kfac'//trim(label),'concentration parameter',iunit)
+    call write_inopt(obliquityi,'obliquity'//trim(label),'obliquity (degrees)',iunit)
+ endif
+
+end subroutine write_oblateness_options
+
+!--------------------------------------------------------------------------
+!
+! read options needed for oblate sink particles
+!
+!--------------------------------------------------------------------------
+subroutine read_oblateness_options(db,nerr,label,J2i,sizei,spin_periodi,kfaci,obliquityi)
+ use infile_utils, only:inopts,read_inopt
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer,          intent(inout) :: nerr
+ character(len=*), intent(in)    :: label
+ real,             intent(inout) :: J2i,sizei,spin_periodi,kfaci,obliquityi
+
+ call read_inopt(J2i,'J2'//trim(label),db,min=-1.0,max=1.0) ! optional, no error if not read
+ if (abs(J2i) > 0.) then
+    call read_inopt(sizei,'size'//trim(label),db,errcount=nerr)
+    call read_inopt(spin_periodi,'spin_period'//trim(label),db,errcount=nerr)
+    call read_inopt(kfaci,'kfac'//trim(label),db,min=0.,max=1.,errcount=nerr)
+    call read_inopt(obliquityi,'obliquity'//trim(label),db,min=0.,max=180.,errcount=nerr)
+ endif
+
+end subroutine read_oblateness_options
+
+!--------------------------------------------------------------------------
+!
+! print information about oblateness on sink particles
+!
+!--------------------------------------------------------------------------
+subroutine print_oblateness_info(isink,spin_period_hrs)
+ use vectorutils, only:unitvec,mag
+ use units,       only:unit_angmom
+ use physcon,     only:earthr,jupiterr,au
+ integer, intent(in) :: isink
+ real,    intent(in) :: spin_period_hrs
+ real :: u(3)
+
+ if (abs(xyzmh_ptmass(iJ2,isink)) > 0.) then
+    print "(a,g10.3)",      '      J2 moment: ',xyzmh_ptmass(iJ2,isink)
+    print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,isink)*udist/jupiterr,' Jupiter radii'
+    print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,isink)*udist/earthr,' Earth radii'
+    print "(a,g10.3,a)",    '           size: ',xyzmh_ptmass(iReff,isink)*udist/au,' au'
+    u = unitvec(xyzmh_ptmass(ispinx:ispinz,isink))
+    print "(a,g10.3,a)",    '      obliquity: ',acos(u(3))/deg_to_rad,' degrees to z=0 plane'
+    print "(a,g10.3,a)",    '         period: ',spin_period_hrs,' hrs'
+    print "(a,3(g10.3,1x))",'       spin vec: ',u
+    print "(/,a,g10.3,a)",    '# spin angular momentum =  ',&
+           mag(xyzmh_ptmass(ispinx:ispinz,isink))*unit_angmom,' g cm^2 / s'
+    print "(/,a,'(',3(es10.2,1x),')')",' specific spin angular momentum = ',&
+                   xyzmh_ptmass(ispinx:ispinz,isink)/xyzmh_ptmass(4,isink)
+ endif
+
+end subroutine print_oblateness_info
 
 !--------------------------------------------------------------------------
 !

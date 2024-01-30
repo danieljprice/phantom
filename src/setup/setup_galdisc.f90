@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -48,13 +48,13 @@ contains
 !
 !--------------------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use dim,            only:maxp,maxvxyzu,use_dust
+ use dim,            only:maxp,maxvxyzu,use_dust,h2chemistry
  use setup_params,   only:rhozero
  use physcon,        only:Rg,pi,solarm,pc,kpc
  use units,          only:umass,udist,utime,set_units
  use mpiutils,       only:bcast_mpi
  use random,         only:ran2
- use part,           only:h2chemistry,abundance,iHI,dustfrac,istar,igas,ibulge,&
+ use part,           only:abundance,iHI,dustfrac,istar,igas,ibulge,&
                           idarkmatter,iunknown,set_particle_type,ndusttypes
  use options,        only:iexternalforce,icooling,nfulldump,use_dustfrac
  use externalforces, only:externalforce,initialise_externalforces

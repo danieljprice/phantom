@@ -775,7 +775,7 @@ ifeq ($(SETUP), dustystar)
     FPPFLAGS= -DDUST_NUCLEATION -DSTAR
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
-    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.F90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
     MAXP=10000000
     GRAVITY=yes
@@ -1036,6 +1036,25 @@ ifeq ($(SETUP), testgr)
     SETUPFILE= setup_grdisc.f90
 endif
 
+ifeq ($(SETUP), flrw)
+#   constant density FLRW cosmology with perturbations  
+ GR=yes
+ KNOWN_SETUP=yes
+ IND_TIMESTEPS=no
+ METRIC=et
+ SETUPFILE= setup_flrw.f90
+ PERIODIC=yes
+endif
+
+ifeq ($(SETUP), flrwpspec)
+#  FLRW universe using a CMB powerspectrum and the Zeldovich approximation
+ GR=yes
+ KNOWN_SETUP=yes
+ IND_TIMESTEPS=no
+ METRIC=et
+ SETUPFILE= setup_flrwpspec.f90
+ PERIODIC=yes
+endif
 ifeq ($(SETUP), default)
 #   default setup, uniform box
     KNOWN_SETUP=yes

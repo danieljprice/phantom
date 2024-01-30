@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 18
+ integer, parameter :: nsinkproperties = 19
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -241,12 +241,8 @@ module dim
 ! H2 Chemistry
 !--------------------
  integer :: maxp_h2 = 0
-#ifdef H2CHEM
- logical, parameter :: h2chemistry = .true.
-#else
- logical, parameter :: h2chemistry = .false.
-#endif
  integer, parameter :: nabundances = 5
+ logical :: h2chemistry = .false.
 
 !--------------------
 ! Self-gravity
@@ -270,6 +266,15 @@ module dim
  logical, parameter :: gr = .false.
 #endif
 
+!---------------------
+! Numerical relativity
+!---------------------
+#ifdef NR
+ logical, parameter :: nr = .true.
+#else
+ logical, parameter :: nr = .false.
+#endif
+
 !--------------------
 ! Supertimestepping
 !--------------------
@@ -278,10 +283,11 @@ module dim
 !--------------------
 ! Dust formation
 !--------------------
- logical :: do_nucleation = .false.
- integer :: itau_alloc    = 0
- integer :: itauL_alloc   = 0
- integer :: inucleation   = 0
+ logical :: do_nucleation  = .false.
+ logical :: update_muGamma = .false.
+ integer :: itau_alloc     = 0
+ integer :: itauL_alloc    = 0
+ integer :: inucleation    = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
@@ -356,9 +362,9 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
 
-#ifdef KROME
- maxp_krome = maxp
-#endif
+ if (use_krome) maxp_krome = maxp
+
+ if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION
  store_dust_temperature = .true.
@@ -405,10 +411,6 @@ subroutine update_max_sizes(n,ntot)
 #ifdef NONIDEALMHD
  maxmhdni = maxp
 #endif
-#endif
-
-#ifdef H2CHEM
- maxp_h2 = maxp
 #endif
 
 #ifdef GRAVITY

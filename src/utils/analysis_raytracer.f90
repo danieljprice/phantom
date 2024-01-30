@@ -1,31 +1,32 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine which computes neighbour lists for all particles
+! Analysis routine which computes optical depths throughout the simulation
 !
-! :References: None
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122
 !
-! :Owner: Lionel Siess
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: dump_utils, dust_formation, getneighbours, linklist,
 !   omp_lib, part, physcon, raytracer, raytracer_all
 !
- use raytracer_all,   only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
+ use raytracer_all,    only:get_all_tau_inwards, get_all_tau_outwards, get_all_tau_adaptive
  use raytracer,        only:get_all_tau
  use part,             only:rhoh,isdead_or_accreted,nsinkproperties,iReff
  use dump_utils,       only:read_array_from_file
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
-                              neighcount,neighb,neighmax
+                                 neighcount,neighb,neighmax
  use dust_formation,   only:calc_kappa_bowen
  use physcon,          only:kboltz,mass_proton_cgs,au,solarm
- use linklist, only:set_linklist,allocate_linklist,deallocate_linklist
+ use linklist,         only:set_linklist,allocate_linklist,deallocate_linklist
+ use part,             only:itauL_alloc
 
  implicit none
 
@@ -50,7 +51,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(100) :: neighbourfile
  character(100)   :: jstring, kstring
  real             :: primsec(4,2), rho(npart), kappa(npart), temp(npart), u(npart), &
-        xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
+         xyzh2(4,npart), vxyzu2(4,npart), xyzmh_ptmass(nsinkproperties,2)
  real, dimension(:), allocatable :: tau
  integer :: i,j,k,ierr,iu1,iu2,iu3,iu4, npart2!,iu
  integer :: start, finish, method, analyses, minOrder, maxOrder, order, raypolation, refineScheme
@@ -219,6 +220,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print *,'(0) all the above'
        read *,refineScheme
     endif
+ elseif (analyses == 3) then
+    print *,'Which property would you like to integrate?'
+    print *, '(1) optical depth tau'
+    print *, '(2) Lucy optical depth tauL'
+    read *, method
  endif
 
  if (analyses == 2 .and. method==1) then ! get neighbours
@@ -394,7 +400,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           close(iu4)
           totalTime = totalTime + timeTau
           open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-                   status='replace', action='write')
+                     status='replace', action='write')
           do i=1, size(tau)
              write(iu2, *) tau(i)
           enddo
@@ -429,7 +435,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              times(k+1) = timeTau
              totalTime = totalTime + timeTau
              open(newunit=iu2, file='taus_'//dumpfile//'_'//trim(jstring)//'_int_'//trim(kstring)//'.txt', &
-                      status='replace', action='write')
+                        status='replace', action='write')
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
@@ -462,7 +468,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              else
                 call system_clock(start)
                 call get_all_tau_adaptive(npart2, primsec(1:3,1), xyzh2, kappa, Rstar, j, k, refineScheme,&
-                                                                                        tau, primsec(1:3,2), Rcomp)
+                                          tau, primsec(1:3,2), Rcomp)
                 call system_clock(finish)
              endif
              timeTau = (finish-start)/1000.
@@ -470,7 +476,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              times(k-minOrder+1) = timeTau
              totalTime = totalTime + timeTau
              open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-                      '_'//trim(kstring)//'.txt', status='replace', action='write')
+                        '_'//trim(kstring)//'.txt', status='replace', action='write')
              do i=1, size(tau)
                 write(iu2, *) tau(i)
              enddo
@@ -618,7 +624,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
        print*,'Time = ',timeTau,' seconds.'
        totalTime = totalTime + timeTau
        open(newunit=iu2, file='taus_'//dumpfile//'_adapt_'//trim(jstring)// &
-               '_'//trim(kstring)//'.txt', status='replace', action='write')
+                  '_'//trim(kstring)//'.txt', status='replace', action='write')
        do i=1, size(tau)
           write(iu2, *) tau(i)
        enddo
@@ -627,6 +633,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  elseif (analyses == 3) then
     order = 5
+    if (method == 2) itauL_alloc = 1
     print*,'Start calculating optical depth'
     if (primsec(1,2) == 0. .and. primsec(2,2) == 0. .and. primsec(3,2) == 0.) then
        call system_clock(start)

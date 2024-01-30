@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -453,7 +453,6 @@ end subroutine get_opacity
 real function get_1overmu(rho,u,cv_type) result(rmu)
  use eos,               only:gmw
  use mesa_microphysics, only:get_1overmu_mesa
- use physcon,           only:Rg
  use units,             only:unit_density,unit_ergg
  real, intent(in)    :: rho,u
  integer, intent(in) :: cv_type
@@ -463,7 +462,7 @@ real function get_1overmu(rho,u,cv_type) result(rmu)
  case(1) ! mu from MESA EoS tables
     rho_cgs = rho*unit_density
     u_cgs = u*unit_ergg
-    rmu = get_1overmu_mesa(rho_cgs,u_cgs,real(Rg))
+    rmu = get_1overmu_mesa(rho_cgs,u_cgs)
  case default
     rmu = 1./gmw
  end select

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -259,8 +259,9 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 end subroutine get_kappa_mesa
 
 
-real function get_1overmu_mesa(rho,u,Rg) result(rmu)
- real, intent(in) :: rho,u,Rg
+real function get_1overmu_mesa(rho,u) result(rmu)
+ real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
+ real, intent(in) :: rho,u
  real :: temp,pgas
  integer :: ierr
 

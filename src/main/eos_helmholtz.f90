@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,17 +15,15 @@ module eos_helmholtz
 !
 ! :Owner: Terrence Tricco
 !
-! :Runtime parameters:
-!   - relaxflag : *0=evolve, 1=relaxation on (keep T const)*
+! :Runtime parameters: None
 !
-! :Dependencies: datafiles, infile_utils, io, physcon, units
+! :Dependencies: datafiles, io, physcon, units
 !
  implicit none
 
 ! subroutines to read/initialise tables, and get pressure/sound speed
  public :: eos_helmholtz_init
  public :: eos_helmholtz_write_inopt
- public :: eos_helmholtz_set_relaxflag
  public :: eos_helmholtz_pres_sound          ! performs iterations, called by eos.F90
  public :: eos_helmholtz_compute_pres_sound  ! the actual eos calculation
  public :: eos_helmholtz_cv_dpresdt
@@ -35,7 +33,6 @@ module eos_helmholtz
  public :: eos_helmholtz_get_maxtemp
  public :: eos_helmholtz_eosinfo
 
- integer, public :: relaxflag = 1
 
 
  private
@@ -124,11 +121,6 @@ subroutine eos_helmholtz_init(ierr)
  real    :: thi,tstp,dhi,dstp
 
  ierr = 0
-
- ! check that the relaxflag is sensible, set to relax if not
- if (relaxflag /= 0 .and. relaxflag /= 1) then
-    call eos_helmholtz_set_relaxflag(1)
- endif
 
  ! allocate memory
  allocate(f(imax,jmax),fd(imax,jmax),ft(imax,jmax), &
@@ -332,35 +324,13 @@ end subroutine eos_helmholtz_calc_AbarZbar
 
 !----------------------------------------------------------------
 !+
-!  write options to the input file (currently only relaxflag)
+!  write options to the input file (currently nothing)
 !+
 !----------------------------------------------------------------
 subroutine eos_helmholtz_write_inopt(iunit)
- use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(relaxflag, 'relaxflag', '0=evolve, 1=relaxation on (keep T const)', iunit)
-
 end subroutine eos_helmholtz_write_inopt
-
-
-!----------------------------------------------------------------
-!+
-!  set the relaxflag based on input file read
-!
-!  called by eos_read_inopt in eos.F90
-!+
-!----------------------------------------------------------------
-subroutine eos_helmholtz_set_relaxflag(tmp)
- use io, only:fatal
- integer, intent(in) :: tmp
- character(len=30), parameter  :: label = 'read_options_eos_helmholtz'
-
- relaxflag = tmp
-
- if (relaxflag /= 0 .and. relaxflag /= 1) call fatal(label, 'relax flag incorrect, try using 0 (evolve) or 1 (relaxation)')
-
-end subroutine eos_helmholtz_set_relaxflag
 
 
 ! return min density from table limits in code units
@@ -425,7 +395,7 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
  real, intent(in)    :: rhoi
  real, intent(out)   :: ponrhoi
  real, intent(out)   :: spsoundi
- real, intent(inout) :: eni
+ real, intent(in)    :: eni
  integer, parameter  :: maxiter = 10
  real,    parameter  :: tol = 1.0e-4  ! temperature convergence
  logical :: done
@@ -437,94 +407,72 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 
  call eos_helmholtz_compute_pres_sound(tempi, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
 
- ! relaxation:
- ! constant temperature, set internal energy of particles to result from eos
- if (relaxflag == 1) then
-    eni = cgseni_eos / unit_ergg
 
-    ! dynamical evolution:
-    ! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
- elseif (relaxflag == 0) then
-
-    cgseni = eni * unit_ergg
-
-    ! Newton-Raphson iterations
-    tprev = tempi
-    tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
-
+! dynamical evolution:
+! ue is evolved in time, iterate eos to solve for temperature when eos ue converges with particle ue
+ cgseni = eni * unit_ergg
+! Newton-Raphson iterations
+ tprev = tempi
+ tnew  = tempi - (cgseni_eos - cgseni) / cgsdendti
+! disallow large temperature changes
+ if (tnew > 2.0 * tempi) then
+    tnew = 2.0 * tempi
+ endif
+ if (tnew < 0.5 * tempi) then
+    tnew = 0.5 * tempi
+ endif
+! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
+ if (tnew > tempmax) then
+    tnew = tempmax
+ endif
+ if (tnew < tempmin) then
+    tnew = tempmin
+ endif
+ itercount = 0
+ done = .false.
+ iterations: do while (.not. done)
+    itercount = itercount + 1
+    ! store temperature of previous iteration
+    tprev = tnew
+    ! get new pressure, sound speed, energy for this temperature and density
+    call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
+    ! iterate to new temperature
+    tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
     ! disallow large temperature changes
-    if (tnew > 2.0 * tempi) then
-       tnew = 2.0 * tempi
+    if (tnew > 2.0 * tprev) then
+       tnew = 2.0 * tprev
     endif
-    if (tnew < 0.5 * tempi) then
-       tnew = 0.5 * tempi
+    if (tnew < 0.5 * tprev) then
+       tnew = 0.5 * tprev
     endif
-
+    ! exit if tolerance criterion satisfied
+    if (abs(tnew - tprev) < tempi * tol) then
+       done = .true.
+    endif
+    ! exit if gas is too cold or too hot
     ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
     if (tnew > tempmax) then
        tnew = tempmax
+       done = .true.
     endif
     if (tnew < tempmin) then
        tnew = tempmin
+       done = .true.
     endif
-
-    itercount = 0
-    done = .false.
-    iterations: do while (.not. done)
-
-       itercount = itercount + 1
-
-       ! store temperature of previous iteration
-       tprev = tnew
-
-       ! get new pressure, sound speed, energy for this temperature and density
-       call eos_helmholtz_compute_pres_sound(tnew, cgsrhoi, cgspresi, cgsspsoundi, cgseni_eos, cgsdendti)
-
-       ! iterate to new temperature
-       tnew = tnew - (cgseni_eos - cgseni) / cgsdendti
-
-       ! disallow large temperature changes
-       if (tnew > 2.0 * tprev) then
-          tnew = 2.0 * tprev
-       endif
-       if (tnew < 0.5 * tprev) then
-          tnew = 0.5 * tprev
-       endif
-
-       ! exit if tolerance criterion satisfied
-       if (abs(tnew - tprev) < tempi * tol) then
-          done = .true.
-       endif
-
-       ! exit if gas is too cold or too hot
-       ! temperature and density limits are given in section 2.3 of Timmes & Swesty (2000)
-       if (tnew > tempmax) then
-          tnew = tempmax
-          done = .true.
-       endif
-       if (tnew < tempmin) then
-          tnew = tempmin
-          done = .true.
-       endif
-
-       ! exit if reached max number of iterations (convergence failed)
-       if (itercount >= maxiter) then
-          call warning('eos','Helmholtz eos fail to converge')
-          done = .true.
-       endif
-
-    enddo iterations
-
-    ! store new temperature
-    tempi = tnew
-
-
-    ! TODO: currently we just use the final temperature from the eos and assume we have converged
-    !
-    !    Loren-Aguilar, Isern, Garcia-Berro (2010) time integrate the temperature as well as internal energy,
-    !    and if temperature is not converged here, then they use the eos internal energy overwriting
-    !    the value stored on the particles.
-    !    This does not conserve energy, but is one approach to deal with non-convergence of the temperature.
+    ! exit if reached max number of iterations (convergence failed)
+    if (itercount >= maxiter) then
+       call warning('eos','Helmholtz eos fail to converge')
+       done = .true.
+    endif
+ enddo iterations
+! store new temperature
+ tempi = tnew
+! TODO: currently we just use the final temperature from the eos and assume we have converged
+!
+!    Loren-Aguilar, Isern, Garcia-Berro (2010) time integrate the temperature as well as internal energy,
+!    and if temperature is not converged here, then they use the eos internal energy overwriting
+!    the value stored on the particles.
+!    This does not conserve energy, but is one approach to deal with non-convergence of the temperature.
 
 !       if ((itercount > maxiter) .or. (abs(tnew - tempi) < tempi * tol)) then
 !           eni = cgseni_eos / unit_ergg   ! not converged, modify energy
@@ -532,10 +480,6 @@ subroutine eos_helmholtz_pres_sound(tempi,rhoi,ponrhoi,spsoundi,eni)
 !           tempi = tnew
 !       endif
 
-
- else
-    print *, 'error in relaxflag in Helmholtz equation of state'
- endif
 
  ! convert cgs values to code units and return these values
  ponrhoi  = cgspresi / (unit_pressure * rhoi)

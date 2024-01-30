@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,23 +26,16 @@ module testeos_stratified
  ! Parameters are found using the fits from Law et al. 2021
  ! Disc order: HD 1632996, IM Lup, GM Aur, AS 209, MWC 480
  !
- real, parameter :: qfacdiscs(n) = (/0.09,0.01,0.005,0.09,0.115/)
- real, parameter :: qfacdisc2s(n) = (/0.305,-0.015,0.275,0.295,0.35/)
  real, parameter :: alpha_zs(n) = (/3.01,4.91,2.57,3.31,2.78/)
  real, parameter :: beta_zs(n) = (/0.42,2.07,0.54,0.02,-0.05/)
  real, parameter :: z0s(n) = (/1.30089579367134,2.1733078802249720E-004,1.0812929024334721, &
           4.5600541967795483,8.8124778825591701/)
- real, parameter :: polyks(n) = (/2./3.*3.222911812370378E-004,2./3.*1.6068568523984949E-004, &
-             2./3.*1.2276291046706421E-004, 2./3.*3.3571998045524743E-004, &
-             2./3.*4.5645812781352422E-004/)
- real, parameter :: polyk2s(n) = (/4.0858881228052306E-003,1.2253168963394993E-004, &
-              2.3614956983147709E-003,2.1885055156599335E-003, &
-              6.7732173498498277E-003/)
  real, parameter :: temp_mid0s(n) = (/24,25,20,25,27/)
  real, parameter :: temp_atm0s(n) = (/63,36,48,37,69/)
  real, parameter :: z0_originals(n) = (/9,3,13,5,7/)
  real, parameter :: q_mids(n) = (/-0.18,-0.02,-0.01,-0.18,-0.23/)
  real, parameter :: q_atms(n) = (/-0.61,0.03,-0.55,-0.59,-0.7/)
+ real, parameter :: r_ref = 100.
 
  private
 
@@ -72,7 +65,7 @@ end subroutine test_eos_stratified
 !----------------------------------------------------------------------------
 subroutine test_stratified_midplane(ntests, npass)
  use eos,   only:maxeos,equationofstate,eosinfo,init_eos,qfacdisc, &
-                 qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2,istrat
+                 qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2,istrat,gmw
  use units, only:unit_density
  use io,    only:id,master,stdout
  integer, intent(inout) :: ntests,npass
@@ -81,7 +74,6 @@ subroutine test_stratified_midplane(ntests, npass)
  real    :: rhoi,tempi,xi,yi,zi,ponrhoi,spsoundi,tempi_ref,temp_mid0, &
             temp_atm0,z0_original,q_atm,q_mid,spsoundi_ref
  real    :: errmax
-
 
  if (id==master) write(*,"(/,a)") '--> testing stratified disc equation of state'
 
@@ -108,7 +100,7 @@ subroutine test_stratified_midplane(ntests, npass)
  call eosinfo(ieos,stdout)
 
  do i=1,5
-    call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+    call get_disc_params(i,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                          temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
     rhoi = 1e-13/unit_density
 
@@ -141,7 +133,7 @@ end subroutine test_stratified_midplane
 !----------------------------------------------------------------------------
 subroutine test_stratified_temps(ntests, npass)
  use eos,           only:maxeos,equationofstate,eosinfo,init_eos,qfacdisc, &
-                         qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2,istrat
+                         qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2,istrat,gmw
  use units,         only:unit_density,set_units
  use physcon,       only:au,solarm
  integer, intent(inout) :: ntests,npass
@@ -173,8 +165,9 @@ subroutine test_stratified_temps(ntests, npass)
  errmax = 0.
 
  do i=1,n
-    call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+    call get_disc_params(i,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                          temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
+
     do j=1,nmax,nstep
        xi=j
        do k=1,nmax,nstep
@@ -184,9 +177,9 @@ subroutine test_stratified_temps(ntests, npass)
              rhoi = 1e-13/unit_density
              call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
              ri = sqrt(xi**2 + yi**2)
-             zq = z0_original*(ri/100)**beta_z
-             temp_mid = temp_mid0*(ri/100)**q_mid
-             temp_atm = temp_atm0*(ri/100)**q_atm
+             zq = z0_original*(ri/r_ref)**beta_z
+             temp_mid = temp_mid0*(ri/r_ref)**q_mid
+             temp_atm = temp_atm0*(ri/r_ref)**q_atm
              temp_ref = (temp_mid**4 + 0.5*(1+tanh((abs(zi) - alpha_z*zq)/zq))*temp_atm**4)**(0.25)
              call checkvalbuf(tempi,temp_ref,1e-14,'ieos=7 temp matches temp from Law et al. 2021 equation',&
              nfailed(1),ncheck(1),errmax)
@@ -206,7 +199,7 @@ end subroutine test_stratified_temps
 !----------------------------------------------------------------------------
 subroutine test_stratified_temps_dartois(ntests, npass)
  use eos,           only:maxeos,equationofstate,eosinfo,init_eos,qfacdisc, &
-                         qfacdisc2,z0,beta_z,polyk,polyk2,istrat
+                         qfacdisc2,z0,beta_z,polyk,polyk2,istrat,gmw
  use io,            only:master,stdout
  use testutils,     only:checkval,update_test_scores,checkvalbuf,checkvalbuf_end
  use units,         only:unit_density,set_units
@@ -214,8 +207,8 @@ subroutine test_stratified_temps_dartois(ntests, npass)
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(2),ncheck(2)
  integer :: ierr,ieos,j,k,l
- real    :: rhoi,tempi,xi,yi,zi,ponrhoi,spsoundi,temp_ref,temp_mid0, &
-            temp_atm0,z0_original,q_atm,q_mid,ri,temp_atm,temp_mid,zq
+ real    :: rhoi,tempi,xi,yi,zi,ponrhoi,spsoundi,temp_ref,temp_mid0
+ real    :: temp_atm0,z0_original,q_atm,q_mid,ri,temp_atm,temp_mid,zq
  real    :: errmax
  integer, parameter :: nstep=20,nmax=1000
  real,    parameter :: pi = 4.*atan(1.0)
@@ -235,18 +228,19 @@ subroutine test_stratified_temps_dartois(ntests, npass)
 
  call init_eos(ieos, ierr)
 
- qfacdisc = 0.17
- qfacdisc2 = 0.48
+ q_mid = -0.34
+ q_atm = -0.96
+ qfacdisc = -0.5*q_mid
+ qfacdisc2 = -0.5*q_atm
  beta_z = 0.07
  z0 = 43.466157604499408
- polyk = 2./3. * 7.7436597566195883E-004
- !polyk = 5.162439837746392E-004
- polyk2 = 2.7824007780848647E-002
  temp_mid0 = 27.6
  temp_atm0 = 85.6
  z0_original = 60
- q_mid = -0.34
- q_atm = -0.96
+
+ ! translate temperature into sound speed squared at r=1
+ polyk = get_polyk_from_T(temp_mid0,gmw,r_ref,q_mid)
+ polyk2 = get_polyk_from_T(temp_atm0,gmw,r_ref,q_atm)
 
  rhoi = 1e-13/unit_density
 
@@ -259,9 +253,9 @@ subroutine test_stratified_temps_dartois(ntests, npass)
           istrat = 1
           call equationofstate(ieos,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi)
           ri = sqrt(xi**2 + yi**2)
-          zq = z0_original*(ri/100)**beta_z
-          temp_mid = temp_mid0*(ri/100)**q_mid
-          temp_atm = temp_atm0*(ri/100)**q_atm
+          zq = z0_original*(ri/r_ref)**beta_z
+          temp_mid = temp_mid0*(ri/r_ref)**q_mid
+          temp_atm = temp_atm0*(ri/r_ref)**q_atm
           if (zi < zq) then
              temp_ref = temp_atm + (temp_mid - temp_atm)*(cos((pi/2)*(zi/zq)))**2
           else
@@ -287,7 +281,7 @@ end subroutine test_stratified_temps_dartois
 !----------------------------------------------------------------------------
 subroutine map_stratified_temps(ntests, npass)
  use eos,           only:maxeos,equationofstate,eosinfo,init_eos,qfacdisc, &
-                         qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2
+                         qfacdisc2,z0,alpha_z,beta_z,polyk,polyk2,gmw
  use units,         only:unit_density
  use io,            only:id,master,stdout
  integer, intent(inout) :: ntests,npass
@@ -309,8 +303,9 @@ subroutine map_stratified_temps(ntests, npass)
  open(5, file='MWC480_temps.txt', status = 'replace')
 
  do i=1,n
-    call get_disc_params(i,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
+    call get_disc_params(i,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                           temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
+
     rhoi = 1e-13/unit_density
     do j=0,210
        zi=j
@@ -336,27 +331,49 @@ end subroutine map_stratified_temps
 
 !----------------------------------------------------------------------------
 !+
+!  function to translate temperature into sound speed at r=1
+!+
+!----------------------------------------------------------------------------
+real function get_polyk_from_T(temp,gmw,rref,qfac) result(polyk)
+ use physcon, only:Rg
+ use units,   only:unit_velocity
+ real, intent(in) :: temp,gmw,rref,qfac
+ real :: cs2
+
+ ! translate temperature into sound speed at r_ref
+ cs2 = temp*Rg/gmw/unit_velocity**2
+
+ ! polyk is sound speed squared at r=1
+ polyk = cs2 * (1./rref)**qfac
+
+end function get_polyk_from_T
+
+!----------------------------------------------------------------------------
+!+
 !  extract parameters for a particular disc from the list of presets
 !+
 !----------------------------------------------------------------------------
-subroutine get_disc_params(ndisc,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk, &
-                            polyk2,temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
+subroutine get_disc_params(ndisc,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2,&
+                           temp_mid0,temp_atm0,z0_original,q_mid,q_atm)
  integer, intent(in) :: ndisc
+ real,    intent(in) :: gmw
  real, intent(out)   :: qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &
                         temp_mid0,temp_atm0,z0_original,q_mid,q_atm
 
- qfacdisc = qfacdiscs(ndisc)
- qfacdisc2 = qfacdisc2s(ndisc)
  alpha_z = alpha_zs(ndisc)
  beta_z = beta_zs(ndisc)
  z0 = z0s(ndisc)
- polyk = polyks(ndisc)
- polyk2 = polyk2s(ndisc)
  temp_mid0 = temp_mid0s(ndisc)
  temp_atm0 = temp_atm0s(ndisc)
  z0_original = z0_originals(ndisc)
  q_mid = q_mids(ndisc)
  q_atm = q_atms(ndisc)
+ qfacdisc = -0.5*q_mid
+ qfacdisc2 = -0.5*q_atm
+
+ ! translate temperature into sound speed squared at r=1
+ polyk = get_polyk_from_T(temp_mid0,gmw,r_ref,q_mid)
+ polyk2 = get_polyk_from_T(temp_atm0,gmw,r_ref,q_atm)
 
 end subroutine get_disc_params
 

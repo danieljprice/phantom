@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -30,20 +30,22 @@ contains
 !  EoS from HORMONE (Hirai et al., 2020). Note eint is internal energy per unit volume
 !+
 !-----------------------------------------------------------------------
-subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
+subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf,gamma_eff)
  use ionization_mod, only:get_erec_imurec
  use physcon,        only:radconst,Rg
  use io,             only:fatal
  real, intent(in)    :: d,eint
  real, intent(inout) :: T,imu ! imu is 1/mu, an output
  real, intent(in)    :: X,Y
- real, intent(out)   :: p,cf
- real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,gamma_eff,Tguess
+ real, intent(out)   :: p,cf,gamma_eff
+ real                :: corr,erec,derecdT,dimurecdT,Tdot,logd,dt,Tguess
  real, parameter     :: W4err=1.e-2,eoserr=1.e-13
+ integer, parameter  :: nmax = 500
  integer n
 
  corr=huge(0.); Tdot=0.; logd=log10(d); dt=0.9; Tguess=T
- do n = 1,500
+
+ do n = 1,nmax
     call get_erec_imurec(logd,T,X,Y,erec,imu,derecdT,dimurecdT)
     if (d*erec>=eint) then ! avoid negative thermal energy
        T = 0.9*T; Tdot=0.;cycle
@@ -63,7 +65,7 @@ subroutine equationofstate_gasradrec(d,eint,T,imu,X,Y,p,cf)
     if (abs(corr)<eoserr*T) exit
     if (n>50) dt=0.5
  enddo
- if (n > 500) then
+ if (n > nmax) then
     print*,'d=',d,'eint=',eint/d,'Tguess=',Tguess,'mu=',1./imu,'T=',T,'erec=',erec
     call fatal('eos_gasradrec','Failed to converge on temperature in equationofstate_gasradrec')
  endif

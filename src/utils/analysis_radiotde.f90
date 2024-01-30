@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
@@ -10,17 +10,17 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - rad_cap   : *capture shell radius*
-!   - drad_cap  : *capture shell thickness*
-!   - v_max     : *max velocity*
-!   - v_min     : *min velocity*
-!   - theta_max : *max azimuthal angle*
-!   - theta_min : *min azimuthal angle*
-!   - phi_max   : *max altitude angle*
-!   - phi_min   : *min altitude angle*
+!   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
+!   - phi_max   : *max phi (in deg)*
+!   - phi_min   : *min phi (in deg)*
+!   - rad_cap   : *capture inner radius (in cm)*
+!   - theta_max : *max theta (in deg)*
+!   - theta_min : *min theta (in deg)*
+!   - v_max     : *max velocity (in c)*
+!   - v_min     : *min velocity (in c)*
 !
 ! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
 !
@@ -107,9 +107,9 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call tde_analysis(npart,pmass,xyzh,vxyzu)
 
  if (n_cap > 0) then
- open(iunit,file=output)
- write(iunit,'("# ",es20.12,"   # TIME")') time
- write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
+    open(iunit,file=output)
+    write(iunit,'("# ",es20.12,"   # TIME")') time
+    write(iunit,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'theta',      &
        2,'thetap',  &
        3,'phi', &
@@ -117,18 +117,18 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
        5,'vtheta',   &
        6,'vphi'
 
- do i = 1,npart
-    if (cap(i)) then
-       write(iunit,'(6(es18.10,1X))') &
+    do i = 1,npart
+       if (cap(i)) then
+          write(iunit,'(6(es18.10,1X))') &
           theta(i),   &
           plot_theta(i), &
           phi(i),    &
           vr(i),   &
           vtheta(i),    &
           vphi(i)
-    endif
- enddo
- close(iunit)
+       endif
+    enddo
+    close(iunit)
  endif
 
  deallocate(theta,plot_theta,phi,vr,vtheta,vphi,cap)
@@ -151,7 +151,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     v_cap_mean, &
     e_accum*unit_energ, &
     e_cap*unit_energ
- close(iunit) 
+ close(iunit)
 
  write(*,'(I8,1X,A2,1X,I8,1X,A34)') n_cap, 'of', npart, 'particles are in the capture shell'
  write(*,'(I8,1X,A2,1X,I8,1X,A40)') n_accum, 'of', npart, 'particles are outside the capture radius'
@@ -175,7 +175,7 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
  vr_cap_add = 0.
  v_accum_add = 0.
  v_cap_add = 0.
- 
+
  do i = 1,npart
     x = xyzh(1,i)
     y = xyzh(2,i)
@@ -188,16 +188,16 @@ subroutine tde_analysis(npart,pmass,xyzh,vxyzu)
     r = sqrt(dot_product(xyz,xyz))
     v = sqrt(dot_product(vxyz,vxyz))
     if (r > rad_cap) then
-       m_accum = m_accum + pmass 
+       m_accum = m_accum + pmass
        n_accum = n_accum + 1
        e_accum = e_accum + 0.5*pmass*v**2
        vri = dot_product(vxyz,xyz)/r
        vr_accum_add = vr_accum_add + vri
        v_accum_add = v_accum_add + v
-       if (r-rad_cap < drad_cap .and. (v .ge. v_min .and. v .le. v_max)) then
+       if (r-rad_cap < drad_cap .and. (v  >=  v_min .and. v  <=  v_max)) then
           thetai = atan2d(y,x)
           phii = atan2d(z,sqrt(x**2+y**2))
-          if ((thetai .ge. theta_min .and. thetai .le. theta_max) .and. (phii .ge. phi_min .and. phii .le. phi_max)) then
+          if ((thetai  >=  theta_min .and. thetai  <=  theta_max) .and. (phii  >=  phi_min .and. phii  <=  phi_max)) then
              m_cap = m_cap + pmass
              n_cap = n_cap + 1
              cap(i) = .true.
@@ -264,7 +264,7 @@ subroutine read_tdeparams(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- 
+
  call read_inopt(rad_cap,'rad_cap',db,min=0.,errcount=nerr)
  call read_inopt(drad_cap,'drad_cap',db,errcount=nerr)
 
