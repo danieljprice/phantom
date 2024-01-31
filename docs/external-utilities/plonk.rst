@@ -10,12 +10,12 @@ hydrodynamics data. Plonk is open source.
 Examples
 --------
 
-.. figure:: _static/images/plonk_render.png
+.. figure:: ../_static/images/plonk_render.png
 
 Density projection render of a snapshot in Cartesian coordinates, and polar
 coordinates. The data comes from a single Phantom dump.
 
-.. figure:: _static/images/plonk_accretion.png
+.. figure:: ../_static/images/plonk_accretion.png
 
 Mass accretion and accretion rate onto sink particles. The data comes from the
 Phantom sink `.ev` files.
