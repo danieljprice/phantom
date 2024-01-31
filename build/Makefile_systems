@@ -195,7 +195,7 @@ ifeq ($(SYSTEM), ifortgcc)
 endif
 
 ifeq ($(SYSTEM), hydra)
-#   this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
+#   hydra cluster in Garching http://www.mpcdf.mpg.de/services/computing/hydra
     include Makefile_defaults_ifort
     FFLAGS= -O3 -xavx -ip -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
