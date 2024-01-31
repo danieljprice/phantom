@@ -153,7 +153,7 @@ For the Sedov example shown above, there’s even an exact solution included in 
 
 .. important::
    If you have v2.x or earlier of splash,
-   type ssplash instead of splash to read :doc:`the phantom native binary format<dumpfile>`.
+   type ssplash instead of splash to read :doc:`the phantom native binary format</user-guide/dumpfile>`.
 
 The .ev files, which are just ascii files containing global quantities as a function of time::
 

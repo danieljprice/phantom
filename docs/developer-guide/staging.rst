@@ -5,7 +5,7 @@ Procedure is:
 
 - set the version number in phantom/build/Makefile
 - set the version number in phantom/docs/conf.py
-- update the :doc:`release notes <releasenotes>`
+- update the :doc:`release notes <../releasenotes>`
 - use git to tag the code version for the release
 
 ::

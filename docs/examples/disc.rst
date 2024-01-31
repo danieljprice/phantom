@@ -138,7 +138,7 @@ The above procedure prints a .discparams file (in the above example would be
 called disc.discparams) that contains some of the parameters used to
 initialise the disc setup.
 
-For a circumbinary disc the equation of state is set to a vertically isothermal equation of state (ieos=3) where the radius is taken with respect to *the coordinate origin*. See :doc:`Equations of state available in Phantom <eos>`
+For a circumbinary disc the equation of state is set to a vertically isothermal equation of state (ieos=3) where the radius is taken with respect to *the coordinate origin*. See :doc:`Equations of state available in Phantom </physics/eos>`
 
 check the .in file and proceed to run phantom
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -181,7 +181,7 @@ which produces::
   secondary mass          :    1.00
   mass ratio              :    1.00
 
-For a circumprimary disc the equation of state is set to ieos=6, such that the radius is taken with respect to the first sink particle in the simulation. See :doc:`Equations of state available in Phantom <eos>`
+For a circumprimary disc the equation of state is set to ieos=6, such that the radius is taken with respect to the first sink particle in the simulation. See :doc:`Equations of state available in Phantom <physics/eos>`
 
 The Farris et al. (2014) :doc:`equation of state <eos>` (ieos=14 for a binary or ieos=13 if there are more than two stars) is also useful for a flyby simulation if one does not want to have excessively cold material around the secondary
 
