@@ -10,13 +10,13 @@ Quickstart
 
 2. Make your :doc:`first calculation <running-first-calculation>`.
 
-3. Understand how the code works (:doc:`Fortree <fortree>` may help).
+3. Understand how the code works (:doc:`Fortree </external-utilities/fortree>` may help).
 
 4. Run your simulations :doc:`on a cluster <running-clusters>` and make cool science.
 
 5. Please cite the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant papers in your publications.
 
-6. :doc:`Publish your data <data-curation>` on `Zenodo <https://zenodo.org/communities/phantom>`__ or similar
+6. :doc:`Publish your data </user-guide/data-curation>` on `Zenodo <https://zenodo.org/communities/phantom>`__ or similar
 
 Contents
 --------

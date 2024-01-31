@@ -85,13 +85,13 @@ yourself! (If you need convincing, just have a quick look at how long
 the read_data_sphNG.f90 file in splash is). The best way to read/analyse
 phantom dumps, aside from using splash to visualise them, is to use the
 built-in phantomanalysis utility (described below), or the
-:doc:`sarracen <sarracen>` python package. A full description of
+:doc:`sarracen </external-utilities/sarracen>` python package. A full description of
 the data format and how to read it can be found :doc:`here <dumpfile>`.
 
 Sarracen
 ~~~~~~~~
 
-- See :doc:`How to analyse and visualise phantom data with sarracen <sarracen>`
+- See :doc:`How to analyse and visualise phantom data with sarracen </external-utilities/sarracen>`
 
 Phantomanalysis
 ~~~~~~~~~~~~~~~

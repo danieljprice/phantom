@@ -18,7 +18,7 @@ from the code. It reads the raw data files and gives you plots and visualisation
 
 sarracen
 ~~~~~~~~
-:doc:`Sarracen <sarracen>` is a package with similar functionality to splash but done in Python::
+:doc:`Sarracen </external-utilities/sarracen>` is a package with similar functionality to splash but done in Python::
 
    import sarracen
    sdf = sarracen.read_phantom('file_00000')
@@ -88,7 +88,7 @@ Compile `showarrays <https://github.com/danieljprice/phantom/blob/master/src/uti
 Reading datafiles into Python (recommended way)
 ------------------------------------------------
 The simplest way to read the raw datafiles into Python is to use the
-:doc:`sarracen <sarracen>` package:
+:doc:`sarracen </external-utilities/sarracen>` package:
 
    - https://github.com/ttricco/sarracen
 
@@ -219,8 +219,8 @@ blocks. Each block contains a set of arrays of the same length with one
 of eight possible data types.
 
 The opening gambit
-~~~~~~~~~~~~~~~~~~
-The file is a Fortran binary file. Each `write' statement in Fortran
+~~~~~~~~~~~~~~~~~~~
+The file is a Fortran binary file. Each 'write' statement in Fortran
 writes a 4-byte tag at the beginning and end. In other languages you
 will need to read these tags and can use them to decide the length of the line.
 
@@ -250,7 +250,7 @@ Typically in dumps written by phantom this contains code version and date inform
 
   FT:Phantom:2021.0.0:63a3980 (hydro+1dust): 11/11/2021 15:52:02.3
 
-The first letter of the file id indicates if the file is a `full dump' (F) or 'small dump' (S).
+The first letter of the file id indicates if the file is a 'full dump' (F) or 'small dump' (S).
 The second letter (T) indicates the file is written in the 'tagged' format, where printed labels
 are written prior to each array being written to the file.
 

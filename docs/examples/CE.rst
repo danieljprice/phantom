@@ -1,5 +1,5 @@
 How to set up and run a common envelope binary simulation
-=========================================================
+==========================================================
 
 Polytropic star + sink companion
 --------------------------------
@@ -76,7 +76,9 @@ Use SETUP=star or SETUP=dustystar and if not specified, the default options.
       the core mass is the same as the one you have measured from MESA (0.46Mo in Jan_Star_Phantom_Profile.data).
       This produces a file called star.setup - this file has all the options so you can edit it.
   2.4 vim  star.setup, (write_rho_to_file = T)
-Relaxation
+
+
+Relaxation of the star
 
 ::
 

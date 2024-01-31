@@ -11,10 +11,12 @@ This section contains some examples of physical problems that you can solve with
    disc
    binary
    star
+   CE
    softstar
    dustsettle
    dustgrowth
    density
    hierarchicalsystems
    selfgravity_gravitationalinstability
+   phantomNR
    wind

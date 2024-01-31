@@ -1,5 +1,5 @@
 Getting started on the NCI supercomputer (Australian National Supercomputing Facility)
-======================================================================================
+=======================================================================================
 
 Apply for an account at http://nci.org.au
 
@@ -14,7 +14,7 @@ Please read the :doc:`general instructions for how to log in/out and copy files 
    ssh -Y USER@gadi.nci.org.au
 
 Configure your environment
-------------------
+---------------------------
 
 First edit your .bashrc file in your favourite text editor::
 
@@ -68,7 +68,7 @@ Finally, make a shortcut to the /g/data filesystem::
    pwd -P
 
 Get phantom
------------
+------------
 
 Clone a copy of phantom into your home directory::
 
@@ -154,7 +154,7 @@ Check the status using::
   qstat -u $USER
 
 How to keep your job running for more than 48 hours
----------------------------------------------------
+----------------------------------------------------
 
 Often you will want to keep your calculation going for longer than the 48-hour maximum queue limit.
 To achieve this you can just submit another job with the same script
@@ -190,10 +190,10 @@ and submit your script using::
 which will automagically submit 10 jobs to the queue, each depending on completion of the previous job.
 
 how to not annoy everybody else
------------------------------------
+---------------------------------
 Do not fill the disk quota! Use a mix of small and full dumps where possible and set dtmax to a reasonable value to avoid generating large numbers of unnecessary large files.
 
-For how to move the results of your calculations off gadi see :doc:`here <data-curation>`
+For how to move the results of your calculations off gadi see :doc:`here </user-guide/data-curation>`
 
 how to use splash to make movies without your job getting killed
 -----------------------------------------------------------------
@@ -220,7 +220,7 @@ If you still get prompts that need answers you can follow the procedure `here <h
 this way each process is short and your movie-making can proceed without getting killed.
 
 more info
----------
+----------
 See :doc:`general instructions for how to log in/out and copy files to/from a remote cluster <clusters>`
 
 For more information on the actual machine `read the

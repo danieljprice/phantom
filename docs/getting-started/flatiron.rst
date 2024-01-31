@@ -204,8 +204,8 @@ read the `splash userguide <https://splash-viz.readthedocs.org>`__ for more
 more interesting examples
 -------------------------
 To proceed to a more interesting calculation, just change the name of the :doc:`SETUP
-parameter <setups>` when you created the Makefile in the run directory, as per
-the :doc:`examples <examples>`::
+parameter </user-guide/setups>` when you created the Makefile in the run directory, as per
+the :doc:`examples </examples/index>`::
 
   cd ~/ceph
   mkdir disc

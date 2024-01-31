@@ -98,5 +98,5 @@ To SYNC an entire directory tree onto your google drive, DELETING files ALSO ON 
 
 Other helpful information
 --------------------------
-- :doc:`General instructions for running on a remote cluster <running-clusters>`
+- :doc:`General instructions for running on a remote cluster </getting-started/running-clusters>`
 - `rclone userguide <https://rclone.org>`_

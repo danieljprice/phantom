@@ -3,7 +3,7 @@ Initial conditions / writing your own setup routine
 
 Steps are:
 
-1. check that a :doc:`setup routine for your problem <setups>` does not already exist.
+1. check that a :doc:`setup routine for your problem </user-guide/setups>` does not already exist.
 2. copy one of the existing setups (e.g. setup_unifdis.f90) to a new
    file (e.g. setup_myproblem.f90).
 3. edit this file.
@@ -64,26 +64,26 @@ be present in the subroutine).
 Utility routines
 ~~~~~~~~~~~~~~~~
 
-There are several routines in the :doc:`libsetup </api/setup>` library to assist with setting up the
+There are several routines in the :doc:`libsetup </api/setup/index>` library to assist with setting up the
 particle positions:
 
-+---------------------------------------+-----------------------------------------------+
-| module/subroutine                     | purpose                                       |
-+=======================================+===============================================+
-| :doc:`set_unifdis <api/set_unifdis>`  | sets up a uniform particle distribution with  |
-|                                       | particles set on various lattice options      |
-+---------------------------------------+-----------------------------------------------+
-| :doc:`set_sphere <api/set_sphere>`    | sets up a uniform density sphere              |
-|                                       | (interface to set_unifdis)                    |
-+---------------------------------------+-----------------------------------------------+
-| :doc:`set_disc <api/set_disc>`        | sets up a single accretion disc with given    |
-|                                       | surface density and temperature profiles      |
-+---------------------------------------+-----------------------------------------------+
-| :doc:`set_binary <api/set_binary>`    | sets up a binary consisting of two point mass |
-|                                       | particles with all 6 orbital elements         |
-+---------------------------------------+-----------------------------------------------+
-| :doc:`set_slab <api/set_slab>`        | sets up a thin slab for 2D tests done in 3D   |
-+---------------------------------------+-----------------------------------------------+
++---------------------------------------------+-----------------------------------------------+
+| module/subroutine                           | purpose                                       |
++=============================================+===============================================+
+| :doc:`set_unifdis </api/setup/set_unifdis>` | sets up a uniform particle distribution with  |
+|                                             | particles set on various lattice options      |
++---------------------------------------------+-----------------------------------------------+
+| :doc:`set_sphere </api/setup/set_sphere>`   | sets up a uniform density sphere              |
+|                                             | (interface to set_unifdis)                    |
++---------------------------------------------+-----------------------------------------------+
+| :doc:`set_disc </api/setup/set_disc>`       | sets up a single accretion disc with given    |
+|                                             | surface density and temperature profiles      |
++---------------------------------------------+-----------------------------------------------+
+| :doc:`set_binary </api/setup/set_binary>`   | sets up a binary consisting of two point mass |
+|                                             | particles with all 6 orbital elements         |
++---------------------------------------------+-----------------------------------------------+
+| :doc:`set_slab </api/setup/set_slab>`       | sets up a thin slab for 2D tests done in 3D   |
++---------------------------------------------+-----------------------------------------------+
 
 Try to use these wherever possible. This makes the setup routines much
 simpler and means less cut-and-pasting between otherwise similar setups.

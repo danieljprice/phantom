@@ -65,7 +65,7 @@ Then use the writemake script in the phantom/scripts directory to write a local 
 
    ~/phantom/scripts/writemake.sh sedov > Makefile
 
-where “sedov” is the :doc:`name of a SETUP variable in phantom/build/Makefile_setups <setups>`
+where “sedov” is the :doc:`name of a SETUP variable in phantom/build/Makefile_setups </user-guide/setups>`
 (this argument is optional, but convenient as it means phantom when compiled in this directory will always compile for this setup). Then you should have::
 
    $ ls
@@ -94,7 +94,7 @@ The dump file (blast_00000.tmp) is a binary file that can be read by
 `splash <http://users.monash.edu.au/~dprice/splash>`__. The .tmp appended to the filename is because phantomsetup does not compute the density, so the smoothing lengths and densities in the file are at this stage just guesses.
 
 The input file (blast.in) contains all of the :doc:`runtime configuration
-options <infile>`. It’s fairly self-explanatory, but probably the main things to note are the end time and the time between dumps::
+options </user-guide/infile>`. It’s fairly self-explanatory, but probably the main things to note are the end time and the time between dumps::
 
                    tmax =      0.2000    ! end time
                   dtmax =      0.0100    ! time between dumps
@@ -169,4 +169,4 @@ The .ev files can be visualised using any standard plotting tool. For example yo
 
 where column labels should be read automatically from the header of the .ev file.
 
-For more detailed analysis of :doc:`Phantom dump files <dumpfile>`, write yourself an analysis module for the :doc:`phantomanalysis <analysis>` utility. Analysis modules exist for many common tasks, including interpolating to a 3D grid (both fixed and AMR), computing PDFs, structure functions and power spectra, getting disc surface density profiles, and converting to other formats.
+For more detailed analysis of :doc:`Phantom dump files </user-guide/dumpfile>`, write yourself an analysis module for the :doc:`phantomanalysis </user-guide/analysis>` utility. Analysis modules exist for many common tasks, including interpolating to a 3D grid (both fixed and AMR), computing PDFs, structure functions and power spectra, getting disc surface density profiles, and converting to other formats.

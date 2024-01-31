@@ -4,11 +4,11 @@ Setting up stars and tidal disruption events
 Setting up and relaxing a star
 ------------------------------
 
-First, follow the usual procedure for initiating a new simulation with
-phantom. We’ll use the “star” setup, but you can also use the
-“polytrope” or “neutronstar” configurations (the first two use self-gravity
+First, follow the :doc:`usual procedure for initiating a new simulation with
+phantom </getting-started/running-first-calculation>`. We’ll use the “:doc:`star </user-guide/setups>`” setup, but you can also use the
+“:doc:`polytrope </user-guide/setups>`” or “:doc:`neutronstar </user-guide/setups>`” configurations (the first two use self-gravity
 for the star, the last one uses an external potential). For tidal disruption
-events in general relativity use“grtde”. That is:
+events in general relativity use “:doc:`grtde </user-guide/setups>`”. That is:
 
 make a new directory and write a local Makefile
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -121,7 +121,7 @@ check the output
 Putting the star on an orbit for a tidal disruption event
 ---------------------------------------------------------
 
-If you used the “tde” or "grtde" setup then simply compile :doc:`moddump <moddump>`::
+If you used the “tde” or "grtde" setup then simply compile :doc:`moddump </user-guide/moddump>`::
 
    $ make moddump
 
@@ -162,8 +162,8 @@ compile phantommoddump
 ~~~~~~~~~~~~~~~~~~~~~~
 
 The module used to compile this utility is specified using MODFILE= in
-phantom/build/Makefile. The default for the “polytrope” setup is
-currently moddump_spheres.f90::
+`build/Makefile_setups <https://github.com/danieljprice/phantom/blob/master/build/Makefile_setups>`__. 
+The default for the “polytrope” setup is currently moddump_spheres.f90::
 
    MODFILE=moddump_spheres.f90
 
@@ -201,4 +201,4 @@ now implement something decent in src/setup/set_Bfield.f90
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 you can either use the pre-cooked magnetic field setups in this routine,
-or you can just make a new :doc:`moddump <moddump>` module that sets up the magnetic field in a custom way.
+or you can just make a new :doc:`moddump </user-guide/moddump>` module that sets up the magnetic field in a custom way.

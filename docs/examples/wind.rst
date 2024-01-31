@@ -30,8 +30,6 @@ For an isothermal wind, use SETUP=isowind
 At the end of these instructions, a wind.setup and wind.in file are created. Each file contains specific options that are described below.
 Note that you may need to run ``./phantomsetup wind`` a few times to get to the final setting. 
 
-::
-
 Content of the .setup file
 --------------------------
 
@@ -64,9 +62,6 @@ so you only need to provide 2 out of these 3 variables.
 
 - If you provide all the quantites, the radius will be recalculated
 
-::
-
-
 Content of the .in file
 -----------------------
 
@@ -87,67 +82,47 @@ Options controlling particle injection
       iboundary_spheres =           5    ! number of boundary spheres (integer)
          outer_boundary =         50.    ! delete gas particles outside this radius (au)
 
-Here’s a brief description of each of them (remember that technical details can be found in `Siess et al. (2023)`
-
-::
+Here’s a brief description of each of them (remember that technical details can be found in `Siess et al. (2023)`::
 
              sonic_type =           0    ! find transonic solution (1=yes,0=no)
 
 decide whether you set the initial wind velocity (``sonic_type = 0``) or if you let the code find the trans-sonic solution.
-In this latter case, you need a high wind temperature (coronal wind) so the pressure gradient can overcome the stellar gravity.
-
-::
+In this latter case, you need a high wind temperature (coronal wind) so the pressure gradient can overcome the stellar gravity::
 
           wind_velocity =         15.    ! injection wind velocity (km/s, if sonic_type = 0)
 
-set the launching wind velocity (if sonic_type = 0)
-
-::
+set the launching wind velocity (if sonic_type = 0)::
 
      wind_inject_radius =       1.100    ! wind injection radius (au, if 0 take Rstar)
 
-set the distance from the star's center where the wind is launched. If set to zero, the stellar surface is assumed
-
-::
+set the distance from the star's center where the wind is launched. If set to zero, the stellar surface is assumed::
 
          wind_mass_rate =   1.000E-05    ! wind mass loss rate (Msun/yr)
 
-set the mass loss rate
-
-::
+set the mass loss rate::
 
        wind_temperature =       2500.    ! wind temperature at the injection point (K)
 
-set the wind temperature. For trans-sonic solution, this value needs to be high (> 10,000 K)
-
-::
+set the wind temperature. For trans-sonic solution, this value needs to be high (> 10,000 K)::
 
        iwind_resolution =          10    ! if<>0 set number of particles on the sphere, reset particle mass
 
 set the number of particles to be launched and given the mass loss rate determines the particle's mass.
-If set to zero, the particle mass defined in the .setup file is used and the code finds the corresponding number of particles to be launched.
-
-::
+If set to zero, the particle mass defined in the .setup file is used and the code finds the corresponding number of particles to be launched::
 
            nfill_domain =           0    ! number of spheres used to set the background density profile
 
-set a background density profile. This option can limit the effect of boundary conditions. The larger nfill_domain, the bigger the domain
-
-::
+set a background density profile. This option can limit the effect of boundary conditions. The larger nfill_domain, the bigger the domain::
 
      wind_shell_spacing =       1.000    ! desired ratio of sphere spacing to particle spacing
 
 set the resolution of the simulation.
 This parameters gives the ratio between the distance of 2 particles on an ejected sphere and the distance between 2 consecutive spheres.
-Its value should be kept close to unity that
-
-::
+Its value should be kept close to unity that::
 
       iboundary_spheres =           5    ! number of boundary spheres (integer)
 
-set the number of shells that serve as inner boundary condition for the wind
-
-::
+set the number of shells that serve as inner boundary condition for the wind::
 
          outer_boundary =         50.    ! delete gas particles outside this radius (au)
 
@@ -207,22 +182,16 @@ set how radiation pressure is accounted for. The star's effective gravity is giv
               g_\mathrm{eff} = \frac{Gm}{r^2} \times (1-\alpha_\mathrm{rad}-\Gamma)
 
 alpha is an ad-hoc parameter that allows the launching of the wind in case of a cool wind for example when dust is not accounted for.
-Gamma is the Eddington factor that depends on the dust opacity. gamma is therefore <> 0 only when dust is activated (``idust_opacity > 0``)
-
-::
+Gamma is the Eddington factor that depends on the dust opacity. gamma is therefore <> 0 only when dust is activated (``idust_opacity > 0``)::
 
               alpha_rad =       1.000    ! fraction of the gravitational acceleration imparted to the gas
 
-parameter entering in the above equation for the effective gravity
-
-::
+parameter entering in the above equation for the effective gravity::
 
              iget_tdust =           1    ! dust temperature (0:Tdust=Tgas 1:T(r) 2:Flux dilution 3:Lucy 4:MCfost)
 
 defines how the dust temperature is calculated. By default one assumes Tdust = Tgas but other options are availabe as well. 
-Options 1-3 use analytical prescriptions, and option 4 uses full 3D RT using the MCfost code (under development!)
-
-::
+Options 1-3 use analytical prescriptions, and option 4 uses full 3D RT using the MCfost code (under development!)::
 
         iray_resolution =          -1    ! set the number of rays to 12*4**iray_resolution (deactivated if <0)
 

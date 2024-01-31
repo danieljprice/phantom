@@ -66,7 +66,7 @@ Write an analysis module
 
 More generally, to have full access to all of the sink particle
 information in the dump files, :doc:`write yourself a module for the
-phantomanalysis utility <analysis>`. Then you can just import the sink
+phantomanalysis utility </user-guide/analysis>`. Then you can just import the sink
 particle arrays directly and perform whatever analysis you desire.
 
 You can access the mass accreted by a sink particle by first importing

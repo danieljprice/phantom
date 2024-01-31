@@ -11,13 +11,13 @@ echo ""
 echo ".. table:: List of possible SYSTEM configurations"
 echo "   :widths: auto"
 echo ""
-printf "+"
+printf "   +"
 printf -- '-%.0s' {1..18}
 printf "+"
 printf -- '-%.0s' {1..123}
 printf "+\n"
-printf "| %-16s | %-121s | \n" "SYSTEM=" "description"
-printf "+"
+printf "   | %-16s | %-121s | \n" "SYSTEM=" "description"
+printf "   +"
 printf -- '=%.0s' {1..18}
 printf "+"
 printf -- '=%.0s' {1..123}
@@ -27,8 +27,8 @@ print_system()
   system=$1;
   descript=`grep -A 1 "ifeq (\\$(SYSTEM), $system)" $phantomdir/build/Makefile_systems | grep '#' | cut -d'#' -f 2 | tail -1 | xargs`
   #lineno=`grep -n "ifeq (\\$(SETUP), $setup)" $phantomdir/build/Makefile_setups | cut -d':' -f 1`
-  printf "| %-16s | %-121s | \n" "$system" "$descript"
-  printf "+"
+  printf "   | %-16s | %-121s | \n" "$system" "$descript"
+  printf "   +"
   printf -- '-%.0s' {1..18}
   printf "+"
   printf -- '-%.0s' {1..123}

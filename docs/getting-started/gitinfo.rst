@@ -6,7 +6,7 @@ Make sure you have the git version control system installed.
 Getting your first copy
 -----------------------
 
-Once you have a GitHub account, you must create your own :doc:`fork <fork>`.
+Once you have a GitHub account, you must create your own :doc:`fork </developer-guide/fork>`.
 This is done using the “fork” button (the big button on top right of the
 repo page).  You can then clone your fork to your computer::
 
@@ -96,4 +96,5 @@ that your changes be pulled into the master copy of Phantom. Please do
 this frequently. Many small pull requests are much better than one giant
 pull request!
 
-Automated tests will be performed on all pull requests to ensure nothing gets broken. Once these pass and the code has been reviewed, the code can be merged.
+Automated tests will be performed on all pull requests to ensure nothing gets broken. 
+Once these pass and the code has been reviewed, the code can be merged.

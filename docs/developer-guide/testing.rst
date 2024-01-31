@@ -106,7 +106,7 @@ The buildbot
 ~~~~~~~~~~~~
 
 The buildbot also runs in `an action <https://github.com/danieljprice/phantom/actions>`_ and checks that the code compiles in :doc:`all of
-the possible SETUP configurations in the Makefile <setups>`. You can run this
+the possible SETUP configurations in the Makefile </user-guide/setups>`. You can run this
 offline as follows::
 
    cd phantom/scripts
@@ -134,8 +134,8 @@ I suggest to do this *only* as a last resort. The recommended steps are as follo
 
 Running the actions locally
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-1. Install `Docker <https://docs.docker.com/desktop/install/mac-install/>`_
-2. Install `act <https://github.com/nektos/act>`_
+1. Install `Docker <https://docs.docker.com/desktop/install/mac-install/>`__
+2. Install `act <https://github.com/nektos/act>`__
 3. run the pull_request workflow
 
 ::
@@ -145,9 +145,9 @@ Running the actions locally
 Checking the phantom build that is failing manually
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 If you just want to check things manually but in the same environment
-as used in the actions, try the following::
+as used in the actions, try the following:
 
-1. Install [Docker](https://docs.docker.com/desktop/install/mac-install/)
+1. Install `Docker <https://docs.docker.com/desktop/install/mac-install/>`__
 2. Install Docker command line tools
 
 ::

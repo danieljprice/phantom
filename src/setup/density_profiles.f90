@@ -7,12 +7,13 @@
 module rho_profile
 !
 ! This computes several radial density profiles useful for stars
-! and gravitational collapse calculations, including
-!               1) uniform
-!               2) polytrope
-!               3) piecewise polytrope
-!               4) Evrard
-!               5) Bonnor-Ebert sphere
+! and gravitational collapse calculations, including:
+!
+!  1. uniform
+!  2. polytrope
+!  3. piecewise polytrope
+!  4. Evrard
+!  5. Bonnor-Ebert sphere
 !
 ! :References: Evrard (1988), MNRAS 235, 911-934
 !

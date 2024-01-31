@@ -75,9 +75,11 @@ contains
 !+
 !--------------------------------------
 subroutine setup_timers
+ !
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
+
  !               timer from array     label          parent
  call init_timer(itimer_fromstart   , 'all',         0            )
  call init_timer(itimer_lastdump    , 'last',        0            )

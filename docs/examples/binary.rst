@@ -2,11 +2,11 @@ Binary stars and common envelope evolution
 ============================================
 
 Setting up and relaxing binary stars (the easy way)
----------------------------------------------------
-The one-stop-shop to setup a binary star simulation is as follows::
+----------------------------------------------------
+The one-stop-shop to setup a binary star simulation is as follows:
 
 make a new directory and write a local Makefile
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ::
 
