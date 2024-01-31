@@ -2,3 +2,4 @@
 ./eos_options.pl > ../eos-list.rst
 ./print_setups.sh > ../setups-list.rst
 ./print_setups.sh best > ../setups-best.rst
+./print_systems.sh > ../systems-list.rst

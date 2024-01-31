@@ -52,6 +52,7 @@ can specify this by including it on the command line every time you compile the 
 A list of current options for the SYSTEM variable is given below, please contribute
 if you have configured phantom for your local cluster so that others can benefit:
 
+.. include:: systems-list.rst
 
 Running an example calculation
 ------------------------------
