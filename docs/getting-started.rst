@@ -16,6 +16,8 @@ Quickstart
 
 5. Please cite the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35...31P>`__ and other relevant papers in your publications.
 
+6. :doc:`Publish your data <data-curation>` on `Zenodo <https://zenodo.org/communities/phantom>`__ or similar
+
 Contents
 --------
 
@@ -33,4 +35,3 @@ Contents
    pawsey
    kennedy
    running-mac
-   data-curation
