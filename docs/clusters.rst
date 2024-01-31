@@ -245,7 +245,7 @@ where the *jobid* is the id for the job listed in qstat
 
 Slurm vs pbs, and configuring the phantom Makefile for your cluster
 -------------------------------------------------------------------
-Slurm is the main alternative to PBS for managing job submission. The functionality is similar but the commands are different. You can configure the "make qscript" command in phantom to use either by making your own "SYSTEM" block in build/Makefile and specifying QSYS=slurm or QSYS=pbs. For example, add the following lines to phantom/build/Makefile::
+Slurm is the main alternative to PBS for managing job submission. The functionality is similar but the commands are different. You can configure the "make qscript" command in phantom to use either by making your own "SYSTEM" block in `phantom/build/Makefile_systems <https://github.com/danieljprice/phantom/blob/master/build/Makefile_systems>`__ and specifying QSYS=slurm or QSYS=pbs. For example, add the following lines to `phantom/build/Makefile_systems <https://github.com/danieljprice/phantom/blob/master/build/Makefile_systems>`__::
 
   ifeq ($(SYSTEM), mycluster)
       include Makefile_defaults_ifort
@@ -277,7 +277,7 @@ is output to a file called "tde01.log", which is automatically updated to "tde02
 Type ctrl-c to quit the "tail -f". Obviously you can also look
 at the dump files as they arrive using splash::
 
-   $ ssplash tde_0*
+   $ splash tde_0*
 
 A common problem is to have forgotten to type "ssh -Y", which will give you the following error::
 
