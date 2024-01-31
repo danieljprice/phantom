@@ -101,7 +101,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     X1 = X
     Y1 = Y
     Ncore = 5000  ! number of grid points in softened region (hardwired for now)
-    call calc_regrid_core(Ncore,rcore*solarr,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
+    call calc_regrid_core(Ncore,rc,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
     X(:) = X(size(X))
     Y(:) = Y(size(Y))
  endif
