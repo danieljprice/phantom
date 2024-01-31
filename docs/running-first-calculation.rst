@@ -26,34 +26,32 @@ because the neighbour caches in phantom are private to each thread, and
 hence stored on the per-thread stack – this means the storage can exceed
 the default openMP stack size setting, usually causing a seg-fault.
 
-Running the testsuite
+Choosing a compiler
 ---------------------
 
-Type:
+Fortran is a compiled language, for which many compilers exist. The free
+compiler is called gfortran, but the Intel Fortran Compiler (ifort) is the main
+commercial compiler and typically runs phantom ~20% faster than gfortran.
 
-::
-
-   make test
-
-where you will need to specify a SYSTEM variable corresponding to one of
-those listed in phantom/build/Makefile. You can do this by setting an
-environment variable (e.g. in bash/sh):
+You can choose the compiler and other machine-specific configurations by specifying 
+a SYSTEM variable corresponding to one of those listed in `phantom/build/Makefile_systems <https://github.com/danieljprice/phantom/blob/master/build/Makefile_systems>`__. 
+You can do this by setting an environment variable (e.g. in bash/sh):
 
 ::
 
    export SYSTEM=ifort
 
-(the best way is to put the line above into your .profile/.bashrc so
-that it is always set for the machine that you’re using), or by
-including it on the command line:
+The best way is to put the line above into your .profile/.bashrc so
+that it is always set for the machine that you’re using. Alternatively you 
+can specify this by including it on the command line every time you compile the code:
 
 ::
 
-   make SYSTEM=ifort test
+   make SYSTEM=ifort
 
-:doc:`Click here for more details about the test suite. <testing>`
+A list of current options for the SYSTEM variable is given below, please contribute
+if you have configured phantom for your local cluster so that others can benefit:
 
-There should be *no* failures in the test suite assuming the code you are using is from the master branch.
 
 Running an example calculation
 ------------------------------
