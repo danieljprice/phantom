@@ -1084,6 +1084,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use cooling,        only:energ_cooling,cooling_in_step
  use dust_formation, only:evolve_dust,calc_muGamma
  use units,          only:unit_density
+ use boundarypart,   only:get_boundary_particle_forces
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only: update_krome
@@ -1230,9 +1231,6 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           xyzh(2,i) = xyzh(2,i) + dt*vxyzu(2,i)
           xyzh(3,i) = xyzh(3,i) + dt*vxyzu(3,i)
           !
-          ! Skip remainder of update if boundary particle; note that fext==0 for these particles
-          if (iamboundary(itype)) cycle predictor
-          !
           ! compute and add sink-gas force
           !
           fextx = 0.
@@ -1244,6 +1242,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
              fonrmax = max(fonrmax,fonrmaxi)
              dtphi2  = min(dtphi2,dtphi2i)
           endif
+          !
+          ! Skip remainder of update if boundary particle; note that fext==0 for these particles
+          !
+          if (iamboundary(itype)) cycle predictor
           !
           ! compute and add external forces
           !
@@ -1357,6 +1359,10 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
        endif
     endif
+    !
+    ! equalise sink gravitational forces on boundaryparticles
+    !
+    call get_boundary_particle_forces(npart,iphase,xyzh(1:3,:),fext)
 
     !
     ! reduction of sink-gas forces from each MPI thread
