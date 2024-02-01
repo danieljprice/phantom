@@ -27,7 +27,7 @@ contains
 subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,              only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
                              delete_dead_or_accreted_particles,mhd,rhoh,shuffle_part,&
-                             kill_particle,copy_particle
+                             kill_particle,copy_particle,iphase
  use setbinary,         only:set_binary
  use units,             only:umass,udist,utime
  use physcon,           only:au,solarm,solarr,gg,pi
@@ -45,6 +45,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
  use eos,               only:X_in,Z_in
+ use boundarypart,      only:set_boundary_particle_velocity
 
  integer, intent(inout)    :: npart
  integer, intent(inout)    :: npartoftype(:)
@@ -314,6 +315,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           xyzmh_ptmass(1:nsinkproperties,1) = xyzmh1_stash(1:nsinkproperties)
           vxyz_ptmass(1:3,1) = vxyz1_stash(1:3)
        endif
+
+       ! set all boundary particle velocities to that of their CM
+       call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu)
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 

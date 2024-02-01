@@ -18,7 +18,7 @@ module boundarypart
 !
 
  implicit none
- public :: get_boundary_particle_forces
+ public :: get_boundary_particle_forces,set_boundary_particle_velocity
 
  private
 
@@ -95,5 +95,42 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
  endif
 
 end subroutine get_boundary_particle_forces
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates centre of mass and velocity centre of mass for
+!  boundary particles
+!+
+!---------------------------------------------------------------
+subroutine set_boundary_particle_velocity(npart,iphase,xyz,vxyzu)
+ use part, only:iamboundary,iamtype
+ integer, intent(in) :: npart
+ integer(kind=1), intent(in) :: iphase(:)
+ real, intent(in)    :: xyz(:,:)
+ real, intent(inout) :: vxyzu(:,:)
+ real                :: xyz_CM(3),vxyz_CM(3)
+ integer             :: nboundary,i
+
+ nboundary = 0
+ xyz_CM = 0.
+ vxyz_CM = 0.
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) then
+       nboundary = nboundary + 1
+       xyz_CM = xyz_CM + xyz(1:3,i)
+       vxyz_CM = vxyz_CM + vxyzu(1:3,i)
+    endif
+ enddo
+ xyz_CM = xyz_CM / real(nboundary)
+ vxyz_CM = vxyz_CM / real(nboundary)
+
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) then
+       vxyzu(1:3,i) = vxyz_CM
+    endif
+ enddo
+
+end subroutine set_boundary_particle_velocity
 
 end module boundarypart
