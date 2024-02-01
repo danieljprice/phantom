@@ -10,3 +10,4 @@ are described in the `code paper <http://ui.adsabs.harvard.edu/abs/2018PASA...35
 
    sinks
    eos
+   radiation
