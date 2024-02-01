@@ -31,16 +31,14 @@ contains
 !+
 !---------------------------------------------------------------
 subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddustprop,ddustevol)
- use part, only:iamboundary,iamtype,iradxi
- use dim, only:mhd,do_radiation,use_dust,use_dustgrowth,maxvxyzu
+ use part,   only:iamboundary,iamtype,iradxi
+ use dim,    only:mhd,do_radiation,use_dust,use_dustgrowth,maxvxyzu
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
  real, intent(in)    :: xyz(:,:)
  real, intent(inout) :: fxyzu(:,:)
- real, intent(out)   :: dBevol(:,:)
- real, intent(out)   :: drad(:,:)
- real, intent(out)   :: ddustevol(:,:),ddustprop(:,:)
+ real, intent(out), optional :: dBevol(:,:),drad(:,:),ddustevol(:,:),ddustprop(:,:)
  integer             :: nboundary,i
  real, dimension(3)  :: avg_lin_accel,rot_accel_i,avg_torque,xyz_core_CM,torquei
 
@@ -61,6 +59,7 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
  !$omp end parallel do
 
  if (nboundary > 0) then
+    xyz_core_CM = xyz_core_CM / real(nboundary)
     avg_lin_accel = avg_lin_accel / real(nboundary)
 
     avg_torque = 0.
