@@ -625,16 +625,18 @@ subroutine write_options_star(star,iunit,label)
              call write_inopt(in_solarm(star%mcore),'mcore'//trim(c),&
                               'Mass of point mass stellar core [Msun]',iunit)
           endif
+          call write_inopt(in_solarl(star%lcore),'lcore'//trim(c),&
+                              'Luminosity of point mass stellar core [Lsun]',iunit)
        elseif (star%isoftcore == 2) then
           call write_inopt(in_solarr(star%rcore),'rcore'//trim(c),&
                'Radius of core softening [Rsun]',iunit)
           call write_inopt(in_solarm(star%mcore),'mcore'//trim(c),&
                'Initial guess for mass of sink particle stellar core [Msun]',iunit)
+          call write_inopt(in_solarl(star%lcore),'lcore'//trim(c),&
+                              'Luminosity of point mass stellar core [Lsun]',iunit)
        elseif (star%isoftcore == 3) then
           call write_inopt(star%rcore,'rcore','Radius of core boundary',iunit)
        endif
-       call write_inopt(in_solarl(star%lcore),'lcore'//trim(c),&
-                              'Luminosity of point mass stellar core [Lsun]',iunit)
     else
        call write_inopt(star%isinkcore,'isinkcore'//trim(c),&
                'Add a sink particle stellar core',iunit)
