@@ -1778,26 +1778,38 @@ end subroutine calculate_mdot
 
 !-----------------------------------------------------------------------
 !+
-!  calculate mass enclosed in sink softening radius
+!  calculate (weighted) sum of particle mass enclosed in sink softening radius
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
- use part,   only:imassenc,ihsoft,massoftype,igas,xyzmh_ptmass
- use kernel, only:radkern2
+ use part, only:sink_has_heating,imassenc,ihsoft,massoftype,igas,xyzmh_ptmass,isdead_or_accreted
+ use ptmass_heating, only:isink_heating,heating_kernel
+ use kernel,         only:radkern2
  integer, intent(in) :: nptmass,npart
  real,    intent(in) :: xyzh(:,:)
- integer             :: i,j,ncount
- real                :: drj2
+ integer             :: i,j
+ real                :: wi,q2,x0,y0,z0,hsoft21
 
  do i = 1,nptmass
-    ncount = 0
+    if (.not. sink_has_heating(xyzmh_ptmass(:,i))) cycle
+    wi = 0.
+    x0 = xyzmh_ptmass(1,i)
+    y0 = xyzmh_ptmass(2,i)
+    z0 = xyzmh_ptmass(3,i)
+    hsoft21 = 1./xyzmh_ptmass(ihsoft,i)**2
+
+    !$omp parallel do default (none) &
+    !$omp reduction(+:wi) &
+    !$omp shared(npart,xyzh,x0,y0,z0,i,hsoft21,isink_heating) &
+    !$omp private(j,q2)
     do j = 1,npart
-       drj2 = (xyzh(1,j)-xyzmh_ptmass(1,i))**2 + (xyzh(2,j)-xyzmh_ptmass(2,i))**2 + (xyzh(3,j)-xyzmh_ptmass(3,i))**2
-       if (drj2 < radkern2*xyzmh_ptmass(ihsoft,i)**2) then
-          ncount = ncount + 1
+       if (.not. isdead_or_accreted(xyzh(4,j))) then
+          q2 = ((xyzh(1,j)-x0)**2 + (xyzh(2,j)-y0)**2 + (xyzh(3,j)-z0)**2)*hsoft21
+          if (q2 < radkern2) wi = wi + heating_kernel(q2,isink_heating)  ! wj = 1 for uniform heating
        endif
     enddo
-    xyzmh_ptmass(imassenc,i) = ncount * massoftype(igas)
+    !$omp end parallel do
+    xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
  enddo
 
 end subroutine ptmass_calc_enclosed_mass
