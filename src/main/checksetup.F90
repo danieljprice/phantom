@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -50,18 +50,19 @@ subroutine check_setup(nerror,nwarn,restart)
  use io,              only:id,master
  use externalforces,  only:accrete_particles,update_externalforce,accradius1,iext_star,iext_corotate
  use timestep,        only:time
- use units,           only:G_is_unity,get_G_code
+ use units,           only:G_is_unity,get_G_code,set_units
  use boundary,        only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,    only:dynamic_bdy,adjust_particles_dynamic_boundary
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
+ use physcon,         only:au,solarm
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
  integer      :: ncount(maxtypes)
  real         :: xcom(ndim),vcom(ndim)
  real         :: hi,hmin,hmax
- logical      :: accreted,dorestart
+ logical      :: accreted,dorestart,fix_units
  character(len=3) :: string
 !
 !--check that setup is sensible
@@ -336,7 +337,14 @@ subroutine check_setup(nerror,nwarn,restart)
        elseif (nptmass > 0) then
           if (id==master) print*,'ERROR: sink particles used but G /= 1 in code units, got G=',get_G_code()
        endif
-       nerror = nerror + 1
+       fix_units = .true.
+       if (fix_units) then
+          print*,' WARNING: forcing code units to au, Msun and G=1'
+          call set_units(dist=au,mass=solarm,G=1.d0)
+          nwarn = nwarn +  1
+       else
+          nerror = nerror + 1
+       endif
     endif
  endif
  if (.not. gr .and. (gravity .or. mhd) .and. ien_type == ien_etotal) then

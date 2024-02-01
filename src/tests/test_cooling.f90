@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,8 @@ module testcooling
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cooling_ism, io, part, physcon, testutils, units
+! :Dependencies: chem, cooling_ism, cooling_solver, eos, io, options, part,
+!   physcon, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
