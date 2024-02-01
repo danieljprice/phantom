@@ -759,6 +759,19 @@ logical function sinks_have_heating(nptmass,xyzmh_ptmass)
 
 end function sinks_have_heating
 
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sink_has_heating(xyzmh_ptmassi)
+ real, intent(in) :: xyzmh_ptmassi(:)
+
+ sink_has_heating = xyzmh_ptmassi(iTeff) <= 0. .and. &
+                              xyzmh_ptmassi(ilum) > 0.
+
+end function sink_has_heating
+
 !----------------------------------------------------------------
 !+
 !  query function returning whether or not a particle is dead
