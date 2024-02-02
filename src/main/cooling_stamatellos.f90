@@ -36,11 +36,12 @@ subroutine init_star()
  real :: rsink2,rsink2min
 
  rsink2min = 0d0
- if (nptmass == 0 .or. ( Lstar == 0.0 .and. od_method /=4)) then
-    isink_star = 0 ! no stellar heating
+
+ isink_star = 0
+ if (od_method == 4 .and. nptmass == 0) then
+    print *, "NO central star and using od_method = 4"
+ elseif (nptmass == 0) then
     print *, "No stellar heating."
- elseif (od_method == 4 .and. nptmass == 0) then
-       print *, "NO central star."
  elseif (nptmass == 1) then
     isink_star = 1
  else
@@ -54,7 +55,7 @@ subroutine init_star()
     isink_star = imin
  endif
  if (isink_star > 0)  print *, "Using sink no. ", isink_star,&
-      "at (xyz)",xyzmh_ptmass(1:3,isink_star),"as illuminating star."
+      "at (xyz)",xyzmh_ptmass(1:3,isink_star)!"as illuminating star."
 end subroutine init_star
 
 !
