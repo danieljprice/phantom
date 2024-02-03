@@ -208,6 +208,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
+ use boundarypart,     only:get_boundary_particle_forces
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -269,7 +270,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
     if (nerr > 0)  call fatal('initial','errors in particle data from file',var='errors',ival=nerr)
 !
-!--if starting from a restart dump, rename the dumpefile to that of the previous non-restart dump
+!--if starting from a restart dump, rename the dumpfile to that of the previous non-restart dump
 !
     irestart = index(dumpfile,'.restart')
     if (irestart > 0) write(dumpfile,'(2a,I5.5)') dumpfile(:irestart-1),'_',idumpfile
@@ -509,6 +510,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
+    !
+    ! equalise sink gravitational forces on boundary particles
+    !
+    call get_boundary_particle_forces(npart,iphase,xyzh(1:3,:),fext)
     !
     ! reduction of sink-gas forces from each MPI thread
     !
