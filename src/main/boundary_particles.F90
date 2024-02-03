@@ -45,10 +45,10 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
  nboundary = 0
  avg_lin_accel = 0.
  xyz_core_CM = 0.
- !$omp parallel do default(none) &
- !$omp shared(npart,iphase,fxyzu,xyz) &
- !$omp private(i) &
- !$omp reduction(+:avg_lin_accel,nboundary,xyz_core_CM)
+ !!$omp parallel do default(none) &
+ !!$omp shared(npart,iphase,fxyzu,xyz) &
+ !!$omp private(i) &
+ !!$omp reduction(+:avg_lin_accel,nboundary,xyz_core_CM)
  do i=1,npart
     if (iamboundary(iamtype(iphase(i)))) then
        nboundary = nboundary + 1
@@ -56,33 +56,35 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
        xyz_core_CM = xyz_core_CM + xyz(1:3,i)
     endif
  enddo
- !$omp end parallel do
+ !!$omp end parallel do
 
  if (nboundary > 0) then
     xyz_core_CM = xyz_core_CM / real(nboundary)
     avg_lin_accel = avg_lin_accel / real(nboundary)
 
     avg_torque = 0.
-    !loop to calculate solid-body acceleration
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyz,fxyzu,avg_lin_accel,xyz_core_CM) &
-    !$omp reduction(+:avg_torque) &
-    !$omp private(i,torquei)
+    !!loop to calculate solid-body acceleration
+    !!$omp parallel do default(none) &
+    !!$omp shared(npart,iphase,xyz,fxyzu,avg_lin_accel,xyz_core_CM) &
+    !!$omp reduction(+:avg_torque) &
+    !!$omp private(i,torquei)
     do i=1,npart
-       call cross_product3D(xyz(1:3,i)-xyz_core_CM, fxyzu(1:3,i)-avg_lin_accel, torquei)  ! specific torque
-       avg_torque = avg_torque + torquei
+       if (iamboundary(iamtype(iphase(i)))) then
+          call cross_product3D(xyz(1:3,i)-xyz_core_CM, fxyzu(1:3,i)-avg_lin_accel, torquei)  ! specific torque
+          avg_torque = avg_torque + torquei
+       endif
     enddo
-    !$omp end parallel do
+    !!$omp end parallel do
     avg_torque = avg_torque / real(nboundary)
 
-    !$omp parallel do default(none) &
-    !$omp shared(npart,iphase,xyz,fxyzu,avg_lin_accel,avg_torque,xyz_core_CM) &
-    !$omp shared(dBevol,drad,ddustevol,ddustprop) &
-    !$omp private(i,rot_accel_i)
+    !!$omp parallel do default(none) &
+    !!$omp shared(npart,iphase,xyz,fxyzu,avg_lin_accel,avg_torque,xyz_core_CM) &
+    !!$omp shared(dBevol,drad,ddustevol,ddustprop) &
+    !!$omp private(i,rot_accel_i)
     do i=1,npart
        if (iamboundary(iamtype(iphase(i)))) then
           call cross_product3D(avg_torque, xyz(1:3,i)-xyz_core_CM, rot_accel_i)
-          fxyzu(1:3,i) = avg_lin_accel + rot_accel_i
+          fxyzu(1:3,i) = avg_lin_accel !+ rot_accel_i
           if (maxvxyzu==4) fxyzu(4,i) = 0.
           if (mhd) dBevol(:,i) = 0.
           if (do_radiation) drad(iradxi,i) = 0.
@@ -90,7 +92,7 @@ subroutine get_boundary_particle_forces(npart,iphase,xyz,fxyzu,dBevol,drad,ddust
           if (use_dustgrowth) ddustprop(1,i) = 0.
        endif
     enddo
-    !$omp end parallel do
+    !!$omp end parallel do
  endif
 
 end subroutine get_boundary_particle_forces
