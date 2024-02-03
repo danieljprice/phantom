@@ -1245,7 +1245,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           !
           ! Skip remainder of update if boundary particle; note that fext==0 for these particles
           !
-          if (iamboundary(itype)) cycle predictor
+          if (iamboundary(itype)) then
+             fext(1,i) = fextx
+             fext(2,i) = fexty
+             fext(3,i) = fextz
+             cycle predictor
+          endif
           !
           ! compute and add external forces
           !
