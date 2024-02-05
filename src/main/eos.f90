@@ -59,7 +59,7 @@ module eos
  public  :: eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  public  :: get_local_u_internal,get_temperature_from_u
  public  :: calc_rec_ene,calc_temp_and_ene,entropy,get_rho_from_p_s,get_u_from_rhoT
- public  :: get_entropy,get_p_from_rho_s
+ public  :: calc_rho_from_PT,get_entropy,get_p_from_rho_s
  public  :: init_eos,finish_eos,write_options_eos,read_options_eos
  public  :: write_headeropts_eos, read_headeropts_eos
 
@@ -450,6 +450,7 @@ subroutine init_eos(eos_type,ierr)
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
+ integer              :: ierr_mesakapp
 
  ierr = 0
  !
@@ -526,7 +527,11 @@ subroutine init_eos(eos_type,ierr)
  end select
  done_init_eos = .true.
 
- if (do_radiation .and. iopacity_type==1) call init_eos_mesa(X_in,Z_in,ierr)
+ if (do_radiation .and. iopacity_type==1) then
+    write(*,'(1x,a,f7.5,a,f7.5)') 'Using radiation with MESA opacities. Initialising MESA EoS with X = ',X_in,', Z = ',Z_in
+    call init_eos_mesa(X_in,Z_in,ierr_mesakapp)
+    ierr = max(ierr,ierr_mesakapp)
+ endif
 
 end subroutine init_eos
 
@@ -853,6 +858,48 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  end select
 
 end subroutine calc_temp_and_ene
+
+!-----------------------------------------------------------------------
+!+
+!  Calculate density from pressure and temperature. Inputs and outputs
+!  are in cgs units.
+!
+!  Note on composition:
+!  For ieos=2 and 12, mu_local is an input, X & Z are not used
+!  For ieos=10, mu_local is not used
+!  For ieos=20, mu_local is not used but available as an output
+!+
+!-----------------------------------------------------------------------
+subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local)
+ use physcon,          only:kb_on_mh
+ use eos_idealplusrad, only:get_idealplusrad_rhofrompresT
+ use eos_mesa,         only:get_eos_eT_from_rhop_mesa
+ use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
+ integer, intent(in)              :: eos_type
+ real,    intent(in)              :: pres,temp
+ real,    intent(inout)           :: rho
+ real,    intent(in),    optional :: X_local,Z_local
+ real,    intent(inout), optional :: mu_local
+ integer, intent(out)             :: ierr
+ real                             :: mu,X,Z
+
+ ierr = 0
+ mu   = gmw
+ X    = X_in
+ Z    = Z_in
+ if (present(mu_local)) mu = mu_local
+ if (present(X_local))  X  = X_local
+ if (present(Z_local))  Z  = Z_local
+ select case(eos_type)
+ case(2) ! Ideal gas
+    rho = pres / (temp * kb_on_mh) * mu
+ case(12) ! Ideal gas + radiation
+    call get_idealplusrad_rhofrompresT(pres,temp,mu,rho)
+ case default
+    ierr = 1
+ end select
+
+end subroutine calc_rho_from_PT
 
 !-----------------------------------------------------------------------
 !+

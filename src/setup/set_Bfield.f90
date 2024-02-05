@@ -8,10 +8,10 @@ module setBfield
 !
 ! Interactive setup of magnetic field on the particles
 !
-!    Can be used to add magnetic field to hydro setups, and
-!   is used by utilities like moddump to add magnetic field
-!   to purely hydrodynamic dump files before continuing the
-!   calculation
+! Can be used to add magnetic field to hydro setups, and
+! is used by utilities like moddump to add magnetic field
+! to purely hydrodynamic dump files before continuing the
+! calculation
 !
 ! :References: None
 !

@@ -2,7 +2,8 @@
 # Sensible compiler options for different compute systems
 #----------------------------------------------------------------
 
-ifeq ($(SYSTEM),cray)
+ifeq ($(SYSTEM), cray)
+#   default settings for the Cray Fortran Compiler (ftn)
     FC=ftn
     FFLAGS=-Oaggress -Ovector3 -Oipa4
     DBLFLAG= -s real64
@@ -15,7 +16,8 @@ ifeq ($(MAP),yes)
 endif
 endif
 
-ifeq ($(SYSTEM),daint)
+ifeq ($(SYSTEM), daint)
+#   piz-daint supercomputer facility https://www.cscs.ch/computers/piz-daint
     include Makefile_defaults_ifort
     FC=ftn
     FFLAGS+= -heap-arrays
@@ -25,8 +27,8 @@ ifeq ($(MPI),daint)
 endif
 endif
 
-ifeq ($(SYSTEM),xc40)
-#massively copied from the Daint system
+ifeq ($(SYSTEM), xc40)
+#   Cray XC40 machine, similar to the daint system
     include Makefile_defaults_ifort
     FC=ftn
     FFLAGS+= -heap-arrays -dynamic
@@ -37,29 +39,6 @@ ifeq ($(SYSTEM),xc40)
 ifeq ($(MPI),xc40)
     USEMPI=yes
 endif
-endif
-
-ifeq ($(SYSTEM), msg)
-    include Makefile_defaults_ifort
-    QSYS = sge
-    QSHELL = tcsh
-    ifeq ($(OPENMP),yes)
-        QPE = smp
-        NOMP = '$$NSLOTS'
-        ifndef NPAR
-            NPAR = '4-32'
-        endif
-    endif
-    ifeq ($(MPI),yes)
-        QPE = mpi
-        ifeq ($(OPENMP),yes)
-            QPE = mqu4
-            NOMP = 4
-        endif
-    endif
-    #QEXTRA='-l dpod=true -q mqu2'
-    #HDF5=yes
-#    HDF5ROOT=/opt/sw/hdf5-1.8.0/
 endif
 
 ifeq ($(SYSTEM), m2)
@@ -75,24 +54,8 @@ ifeq ($(SYSTEM), m2)
     WALLTIME='500:00:00'
 endif
 
-ifeq ($(SYSTEM), g2)
-#   gstar facility
-#   Note: gstar has nomp=12; sstar has nomp=16
-    include Makefile_defaults_ifort
-    QSYS = pbs
-    ifeq ($(OPENMP),yes)
-        NOMP='16'
-    else
-        NOMP='1'
-    endif
-    QNAME='sstar'
-    QNODES='nodes='$(NMPI)':ppn='$(NOMP)
-    WALLTIME='168:00:00'
-    MPIEXEC='mpiexec -npernode 1'
-endif
-
 ifeq ($(SYSTEM), ozstar)
-#   ozstar facility
+#   ozstar facility using ifort https://supercomputing.swin.edu.au/ozstar/
     include Makefile_defaults_ifort
     OMPFLAGS=-qopenmp
     NOMP=32
@@ -102,7 +65,7 @@ ifeq ($(SYSTEM), ozstar)
 endif
 
 ifeq ($(SYSTEM), nt)
-#   ozstar milan cluster
+#   ozstar milan cluster using aocc (Ngarru Tindebeek)
     include Makefile_defaults_aocc
     OMPFLAGS=-fopenmp
     NOMP='32'
@@ -132,18 +95,13 @@ ifeq ($(SYSTEM), ipopeyearch)
 endif
 
 ifeq ($(SYSTEM), monarch)
+#   Monarch cluster at Monash University
     include Makefile_defaults_ifort
     OMPFLAGS=-qopenmp -qopt-report
     QSYS = slurm
     QPROJECT='p01'
     WALLTIME='100:59:59'
     QPARTITION='comp'
-endif
-
-ifeq ($(SYSTEM), monarchpsxe)
-    include Makefile_defaults_ifort
-    QSYS = slurm
-    QPROJECT='p01'
 endif
 
 ifeq ($(SYSTEM), nci)
@@ -169,27 +127,8 @@ ifeq ($(SYSTEM), nci)
 endif
 
 ifeq ($(SYSTEM), gfortran)
+#   default settings for the gfortran compiler
     include Makefile_defaults_gfortran
-endif
-
-ifeq ($(SYSTEM), gfortranOSX)  # for use with mac gfortran (5.3.0, 7.3.0 tested)
-    include Makefile_defaults_gfortran
-endif
-
-ifeq ($(SYSTEM), gfortran44)
-    include Makefile_defaults_gfortran
-    FC= gfortran -gdwarf-2
-    FFLAGS= -O3 -Wall -frecord-marker=4 -finline-functions-called-once -finline-limit=1500 -funroll-loops -ftree-vectorize
-    DEBUGFLAG= -g -frange-check -ffpe-trap=invalid,denormal -finit-real=nan -finit-integer=nan -fbacktrace
-endif
-
-ifeq ($(SYSTEM), gfortran47)
-    include Makefile_defaults_gfortran
-    FC= gfortran-mp-4.7 -gdwarf-2
-    FFLAGS= -Wall -m64 -O3 -ffast-math -funroll-loops -ftree-loop-linear \
-            -finline-functions-called-once \
-            -fomit-frame-pointer -finline-limit=3000 --param min-vect-loop-bound=2
-    DEBUGFLAG= -Wextra -g -frange-check -fcheck=all -ffpe-trap=denormal -finit-real=nan -finit-integer=nan -fbacktrace
 endif
 
 ifeq ($(SYSTEM), complexity)
@@ -205,7 +144,7 @@ ifeq ($(SYSTEM), complexity)
 endif
 
 ifeq ($(SYSTEM), isca)
-    # local cluster at the University of Exeter
+#   local cluster at the University of Exeter
     include Makefile_defaults_ifort
     FFLAGS= -O3 -axAVX \
             -warn uninitialized -warn truncated_source\
@@ -217,7 +156,7 @@ ifeq ($(SYSTEM), isca)
 endif
 
 ifeq ($(SYSTEM), skylake)
-# HPCs Skylake cluster at Cambridge
+#   HPCs Skylake cluster at Cambridge
     include Makefile_defaults_ifort
     FFLAGS= -O3 -shared-intel -warn uninitialized -warn unused -warn \
             truncated_source -xCORE-AVX512 -ipo
@@ -229,17 +168,19 @@ ifeq ($(SYSTEM), skylake)
 endif
 
 ifeq ($(SYSTEM), kennedy)
-# HPCs cluster at University of St. Andrews
+#   HPC cluster at University of St. Andrews
     include Makefile_defaults_ifort
     OMPFLAGS = -qopenmp
     QSYS = slurm
 endif
 
 ifeq ($(SYSTEM), ifort)
+#   default settings for the Intel Fortran Compiler
     include Makefile_defaults_ifort
 endif
 
 ifeq ($(SYSTEM), ifortmac)
+#   default settings for the Intel Fortran Compiler on Mac OS
     include Makefile_defaults_ifort
     FFLAGS= -O3 -xhost -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source -Wl,-rpath,/opt/intel/lib
@@ -247,13 +188,14 @@ ifeq ($(SYSTEM), ifortmac)
 endif
 
 ifeq ($(SYSTEM), ifortgcc)
+#   Intel Fortran Compiler but gcc for C
     include Makefile_defaults_ifort
     CC = gcc
     CCFLAGS = -O3
 endif
 
 ifeq ($(SYSTEM), hydra)
-# this configuration works for the hydra cluster http://www.mpcdf.mpg.de/services/computing/hydra
+#   hydra cluster in Garching http://www.mpcdf.mpg.de/services/computing/hydra
     include Makefile_defaults_ifort
     FFLAGS= -O3 -xavx -ip -shared-intel -warn uninitialized \
             -warn unused -warn truncated_source
@@ -262,7 +204,7 @@ ifeq ($(SYSTEM), hydra)
 endif
 
 ifeq ($(SYSTEM), lyoccf)
-# LIO CCF cluster
+#   LIO CCF cluster
     include Makefile_defaults_ifort
     FFLAGS= -O3 -ftz -xavx -cpp -sox -fno-alias -fno-fnalias \
             -no-prec-div -no-prec-sqrt -align all -warn uninitialized \
@@ -271,5 +213,6 @@ ifeq ($(SYSTEM), lyoccf)
 endif
 
 ifeq ($(SYSTEM), aocc)
+#  default settings for the AMD optimized fortran compiler (aocc)
    include Makefile_defaults_aocc
 endif

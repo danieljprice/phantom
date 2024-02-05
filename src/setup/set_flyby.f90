@@ -7,20 +7,17 @@
 module setflyby
 !
 ! This module is contains utilities for setting up flyby.
-!   Our conventions for angles are the same as in Xiang-Gruess (2016).
-!   Eccentricity is set to unity, i.e. for a parabolic orbit.
+! Our conventions for angles are the same as in Xiang-Gruess (2016).
+! Eccentricity is set to unity, i.e. for a parabolic orbit:
 !
-!     minimum_approach = distance of minimum approach (pericentre)
-!     initial_dist     = the initial separation distance (in units of
-!                        minimum_approach)
-!     posang_ascnode   = angle counter-clockwise (East) from y-axis (North)
-!     inclination      = angle of rotation of orbital plane around axis
-!                        defined by the position angle (for
-!                        posang_ascnode==0 this is a roll angle)
+!  - minimum_approach : *distance of minimum approach (pericentre)*
+!  - initial_dist     : *the initial separation distance (in units of minimum_approach)*
+!  - posang_ascnode   : *angle counter-clockwise (East) from y-axis (North)*
+!  - inclination      : *angle of rotation of orbital plane around axis defined by the position angle (for posang_ascnode=0 this is a roll angle)*
 !
 ! :References:
-!   Xiang-Gruess (2016), MNRAS 455, 3086-3100
-!   Cuello et al. (2019), MNRAS 483, 4114-4139
+!   - Xiang-Gruess (2016), MNRAS 455, 3086-3100
+!   - Cuello et al. (2019), MNRAS 483, 4114-4139
 !
 ! :Owner: Daniel Mentiplay
 !
