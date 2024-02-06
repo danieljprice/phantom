@@ -59,7 +59,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real                      :: a1,a2,e,hsoft_default = 3.
  real                      :: hacc,hacc1,hacc2,hacc3,mcore,comp_shift=100,sink_dist,vel_shift
  real                      :: mcut,rcut,Mstar,radi,rhopart,rhomax = 0.0
- real                      :: time2,hfact2
+ real                      :: time2,hfact2,xyz_CM(3),vxyz_CM(3)
  real                      :: xyzmh1_stash(nsinkproperties),xyzmh2_stash(nsinkproperties),vxyz1_stash(3),vxyz2_stash(3)
  real, allocatable         :: r(:),den(:),pres(:),temp(:),enitab(:),Xfrac(:),Yfrac(:),m(:)
  logical                   :: use_corotating_frame,iprimary_grav_ans
@@ -317,7 +317,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        ! set all boundary particle velocities to that of their CM
-       call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu)
+       call set_boundary_particle_velocity(npart,iphase,xyzh,xyz_CM,vxyz_CM,vxyzu)
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
