@@ -49,7 +49,7 @@ are needed to compute P from u, and so the units of the simulation are no longer
 The main effect of radiation pressure is to reduce the effective adiabatic index of the gas.
 One can see this because when the gas pressure term dominates, we have
 
-   :math:`P = \frac32 \rho u`
+   :math:`P = \frac23 \rho u`
 
 implying :math:`\gamma=5/3`, whereas when the radiation pressure term dominates, we have
 
