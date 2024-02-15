@@ -413,6 +413,7 @@ subroutine set_defaults_given_profile(iprofile,filename,need_iso,ieos,mstar,poly
  integer, intent(inout) :: ieos
  real,    intent(inout) :: mstar,polyk
 
+ need_iso = 0
  select case(iprofile)
  case(ifromfile)
     ! Read the density profile from file (e.g. for neutron star)
