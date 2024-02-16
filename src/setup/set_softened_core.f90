@@ -144,7 +144,7 @@ subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,
  integer, intent(in)            :: Ncore
  real, intent(in)               :: rcore_cm
  integer, intent(inout)         :: icore
- real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1 
+ real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1
  real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
  integer                        :: npts,npts_old,i
  real                           :: dr

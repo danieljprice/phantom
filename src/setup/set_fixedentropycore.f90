@@ -8,7 +8,7 @@ module setfixedentropycore
 !
 ! This module replaces the core of a MESA stellar profile with a flat-
 ! entropy profile that is in hydrostatic equilibrium with an added sink
-! particle. 
+! particle.
 !
 ! :References:
 !
@@ -197,7 +197,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
        return
     endif
     if (rho(i-1)<rho(i)) then
-       if (iverbose > 1) then 
+       if (iverbose > 1) then
           print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,rho(i),rho(i-1),mass
        endif
