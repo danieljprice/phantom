@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,6 +40,7 @@ module setup
  use externalforces,     only:iext_densprofile
  use extern_densprofile, only:nrhotab
  use setstar,            only:ibpwpoly,ievrard,imesa,star_t,need_polyk
+ use setunits,           only:dist_unit,mass_unit
  implicit none
  !
  ! Input parameters
@@ -49,7 +50,6 @@ module setup
  real               :: maxvxyzu
  logical            :: iexist
  logical            :: relax_star_in_setup,write_rho_to_file
- character(len=20)  :: dist_unit,mass_unit
  type(star_t)       :: star
 
  public             :: setpart
@@ -290,7 +290,7 @@ subroutine write_setupfile(filename,gamma,polyk)
     endif
  case(12)
     call write_inopt(gamma,'gamma','Adiabatic index',iunit)
-    if (.not. use_var_comp) call write_inopt(gmw,'mu','mean molecular weight',iunit)
+    if ((star%isoftcore<=0) .and. (.not. use_var_comp)) call write_inopt(gmw,'mu','mean molecular weight',iunit)
  end select
 
  if (need_polyk(star%iprofile)) call write_inopt(polyk,'polyk','polytropic constant (cs^2 if isothermal)',iunit)

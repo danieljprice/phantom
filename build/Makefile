@@ -1,6 +1,6 @@
 #--------------------------------------------------------------------------!
 # The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-# Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+# Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 # See LICENCE file for usage and distribution conditions                   !
 # http://users.monash.edu.au/~dprice/phantom                               !
 #--------------------------------------------------------------------------!
@@ -14,14 +14,12 @@
 #   the SETUP variable
 #
 #  OWNER: Daniel Price
-#
-#  $Id: 2788b71b1c08e560e77dce9849c5cb24a668f4b9 $
 #+
 #--------------------------------------------------------------------------
 
 .KEEP_STATE:
 
-PHANTOM_VERSION_MAJOR=2023
+PHANTOM_VERSION_MAJOR=2024
 PHANTOM_VERSION_MINOR=0
 PHANTOM_VERSION_MICRO=0
 VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICRO)
@@ -135,6 +133,7 @@ ifeq ($(MCFOST), yes)
     else
     #--otherwise assume the source code is lying around somewhere
        MCFOST_LIBS = $(MCFOST_INSTALL)/lib/$(FC)
+       HDF5_DIR	= $(MCFOST_LIBS)
        MCFOST_INCLUDE = $(MCFOST_INSTALL)/include
        ifeq ("X$(MCFOST_LIB)","X")
           MCFOST_LIB = $(MCFOST_DIR)/src
@@ -150,7 +149,6 @@ ifeq ($(MCFOST), yes)
     LDFLAGS+= -I$(MCFOST_INCLUDE) -I$(MCFOST_INCLUDE)/voro++ -I$(MCFOST_INCLUDE)/hdf5 -I$(MCFOST_INCLUDE)/$(FC) \
 	-L$(MCFOST_LIB) -lmcfost -L$(MCFOST_LIBS) $(LIBCXX) -lcfitsio -lvoro++ -lsprng \
    -L$(HDF5_DIR) -lhdf5_fortran -lhdf5 -lz #$(LXGBOOST)
-	#-L$(HDF5_DIR)/lib/Intel -lhdf5_fortran
 endif
 
 include Makefile_systems
@@ -493,7 +491,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90 
+SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
 #
@@ -1000,7 +998,7 @@ phantom2mcfost: checkmcfost
         ANALYSISBIN=$@ ANALYSISONLY=yes LDFLAGS="-L$(MCFOST_DIR)/src -lmcfost $(LIBCXX)"
 
 analysis_mcfost.o: analysis_mcfost.f90
-	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) $< -o $@
+	$(FC) -c $(FFLAGS) -I$(MCFOST_INCLUDE) -I$(MCFOST_DIR)/src $< -o $@
 
 analysis_mcfost.o: checkmcfost
 

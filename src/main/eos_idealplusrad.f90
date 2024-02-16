@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -23,7 +23,8 @@ module eos_idealplusrad
  real, parameter :: tolerance = 1e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
-           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
+           get_idealplusrad_rhofrompresT
 
  private
 
@@ -129,5 +130,19 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  eni = 3./2.*Rg*tempi/mu + radconst*tempi**4/densi
 
 end subroutine get_idealplusrad_enfromtemp
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates density from pressure and temperature
+!+
+!----------------------------------------------------------------
+subroutine get_idealplusrad_rhofrompresT(presi,tempi,mu,densi)
+ real, intent(in)  :: presi,tempi,mu
+ real, intent(out) :: densi
+
+ densi = (presi - radconst*tempi**4 /3.) * mu / (Rg*tempi)
+
+end subroutine get_idealplusrad_rhofrompresT
 
 end module eos_idealplusrad

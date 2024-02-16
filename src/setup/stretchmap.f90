@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,6 +40,7 @@ module stretchmap
                                ierr_memory_allocation = 2, & ! error code
                                ierr_table_size_differs = 3, & ! error code
                                ierr_not_converged = -1 ! error code
+
  abstract interface
   real function rho_func(x)
    real, intent(in) :: x
@@ -78,11 +79,11 @@ subroutine set_density_profile(np,xyzh,min,max,rhofunc,massfunc,rhotab,xtab,star
 !    max_bn  : max range in the coordinate to apply transformation
 !    start   : only consider particles between start and np (optional)
 !    geom    : geometry in which stretch mapping is to be performed (optional)
-!                      1 - cartesian
-!                      2 - cylindrical
-!                      3 - spherical
-!                      4 - toroidal
-!                     (if not specified, assumed to be cartesian)
+!              1 - cartesian
+!              2 - cylindrical
+!              3 - spherical
+!              4 - toroidal
+!              (if not specified, assumed to be cartesian)
 !    coord   : coordinate direction in which stretch mapping is to be performed (optional)
 !              (if not specified, assumed to be the first coordinate)
 !    rhofunc : function containing the desired density function rho(r) or rho(x) (optional)

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -758,6 +758,19 @@ logical function sinks_have_heating(nptmass,xyzmh_ptmass)
                               xyzmh_ptmass(ilum,1:nptmass) > 0.)
 
 end function sinks_have_heating
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sink_has_heating(xyzmh_ptmassi)
+ real, intent(in) :: xyzmh_ptmassi(:)
+
+ sink_has_heating = xyzmh_ptmassi(iTeff) <= 0. .and. &
+                              xyzmh_ptmassi(ilum) > 0.
+
+end function sink_has_heating
 
 !----------------------------------------------------------------
 !+

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -75,9 +75,11 @@ contains
 !+
 !--------------------------------------
 subroutine setup_timers
+ !
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
+
  !               timer from array     label          parent
  call init_timer(itimer_fromstart   , 'all',         0            )
  call init_timer(itimer_lastdump    , 'last',        0            )

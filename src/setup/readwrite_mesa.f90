@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -198,39 +198,43 @@ subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
  real, intent(in)                :: m(:),rho(:),pres(:),r(:),ene(:),temp(:)
  real, intent(in), optional      :: Xfrac(:),Yfrac(:),csound(:),mu(:)
  character(len=120), intent(in)  :: outputpath
- character(len=200)              :: headers
- integer                         :: i,noptionalcols,j,iu
+ character(len=200)              :: headers(100)
+ integer                         :: i,ncols,noptionalcols,j,iu
  real, allocatable               :: optionalcols(:,:)
- character(len=*), parameter     :: fmtstring = "(5(es13.6,2x),es13.6)"
+ character(len=*), parameter     :: fmtstring = "(5(es24.16e3,2x),es24.16e3)"
 
- headers = '[    Mass   ]  [  Pressure ]  [Temperature]  [   Radius  ]  [  Density  ]  [   E_int   ]'
+ ncols = 6
+ headers(1:ncols) = (/'       Mass','   Pressure','Temperature','     Radius','    Density','       Eint'/)
 
  ! Add optional columns
- allocate(optionalcols(size(r),10))
  noptionalcols = 0
+ allocate(optionalcols(size(r),10))
  if (present(Xfrac)) then
     noptionalcols = noptionalcols + 1
-    headers = trim(headers) // '  [   Xfrac   ]'
+    headers(noptionalcols+ncols) = '      Xfrac'
     optionalcols(:,noptionalcols) = Xfrac
  endif
  if (present(Yfrac)) then
     noptionalcols = noptionalcols + 1
-    headers = trim(headers) // '  [   Yfrac   ]'
+    headers(noptionalcols+ncols) = '      Yfrac'
     optionalcols(:,noptionalcols) = Yfrac
  endif
  if (present(mu)) then
     noptionalcols = noptionalcols + 1
-    headers = trim(headers) // '  [    mu     ]'
+    headers(noptionalcols+ncols) = '        mu'
     optionalcols(:,noptionalcols) = mu
  endif
  if (present(csound)) then
     noptionalcols = noptionalcols + 1
-    headers = trim(headers) // '  [Sound speed]'
+    headers(noptionalcols+ncols) = 'Sound speed'
     optionalcols(:,noptionalcols) = csound
  endif
 
  open(newunit=iu, file = outputpath, status = 'replace')
- write(iu,'(a)') headers
+ do i = 1,noptionalcols+ncols-1
+    write(iu,'(a24,2x)',advance="no") trim(headers(i))
+ enddo
+ write(iu,'(a24)') trim(headers(noptionalcols+ncols))
 
  do i=1,size(r)
     if (noptionalcols <= 0) then
@@ -239,9 +243,9 @@ subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
        write(iu,fmtstring,advance="no") m(i),pres(i),temp(i),r(i),rho(i),ene(i)
        do j=1,noptionalcols
           if (j==noptionalcols) then
-             write(iu,'(2x,es13.6)') optionalcols(i,j)
+             write(iu,'(2x,es24.16e3)') optionalcols(i,j)
           else
-             write(iu,'(2x,es13.6)',advance="no") optionalcols(i,j)
+             write(iu,'(2x,es24.16e3)',advance="no") optionalcols(i,j)
           endif
        enddo
     endif

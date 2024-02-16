@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -591,11 +591,7 @@ subroutine get_column_labels(line,nlabels,labels,method,ndesired,csv)
     !
     istyle = 1
     i1 = max(index(line,'[')+1,i1)    ! strip leading square bracket
-    ! try with different number of spaces between brackets (if labels not found)
-    over_spaces1: do i=4,0,-1
-       call split(line(i1:),']'//spaces(1:i)//'[',labels,nlabels)
-       if (nlabels > 1) exit over_spaces1
-    enddo over_spaces1
+    call split(nospaces(line(i1:)),'][',labels,nlabels)
  elseif (index(line,',') > 1 .or. is_csv) then
     !
     ! format style 2: mylabel1,mylabel2,mylabel3

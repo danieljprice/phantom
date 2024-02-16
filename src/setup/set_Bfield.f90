@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -8,10 +8,10 @@ module setBfield
 !
 ! Interactive setup of magnetic field on the particles
 !
-!    Can be used to add magnetic field to hydro setups, and
-!   is used by utilities like moddump to add magnetic field
-!   to purely hydrodynamic dump files before continuing the
-!   calculation
+! Can be used to add magnetic field to hydro setups, and
+! is used by utilities like moddump to add magnetic field
+! to purely hydrodynamic dump files before continuing the
+! calculation
 !
 ! :References: None
 !
