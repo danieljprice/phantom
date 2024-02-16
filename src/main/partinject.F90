@@ -17,8 +17,8 @@ module partinject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, dim, extern_gr, io, metric_tools, options,
-!   part, timestep_ind
+! :Dependencies: cons2prim, cooling_ism, dim, eos, extern_gr, io,
+!   metric_tools, options, part, timestep_ind
 !
  implicit none
 
@@ -41,14 +41,15 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars
+ use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars,abundance
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin,imu,igamma
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry
  use timestep_ind, only:nbinmax
+ use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
  real,    intent(in), optional :: JKmuS(:)
@@ -112,6 +113,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     eos_vars(imu,particle_number) = gmw
     eos_vars(igamma,particle_number) = gamma
  endif
+ if (h2chemistry) abundance(:,particle_number) = abund_default
 
 end subroutine add_or_update_particle
 

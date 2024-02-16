@@ -42,7 +42,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 18
+ integer, parameter :: nsinkproperties = 19
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -266,6 +266,15 @@ module dim
  logical, parameter :: gr = .false.
 #endif
 
+!---------------------
+! Numerical relativity
+!---------------------
+#ifdef NR
+ logical, parameter :: nr = .true.
+#else
+ logical, parameter :: nr = .false.
+#endif
+
 !--------------------
 ! Supertimestepping
 !--------------------
@@ -353,9 +362,8 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
 
-#ifdef KROME
- maxp_krome = maxp
-#endif
+ if (use_krome) maxp_krome = maxp
+
  if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION

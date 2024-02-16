@@ -16,7 +16,7 @@ module dust_formation
 !   - bowen_Tcond   : *dust condensation temperature (K)*
 !   - bowen_delta   : *condensation temperature range (K)*
 !   - bowen_kmax    : *maximum dust opacity (cm²/g)*
-!   - idust_opacity : *compute dust opacity (0=off,1 (bowen))*
+!   - idust_opacity : *compute dust opacity (0=off, 1=bowen)*
 !   - kappa_gas     : *constant gas opacity (cm²/g)*
 !   - wind_CO_ratio : *wind initial C/O ratio (> 1)*
 !
@@ -146,7 +146,7 @@ subroutine evolve_dust(dtsph, xyzh, u, JKmuS, Tdust, rho)
  vxyzui(4) = u
  T         = get_temperature(ieos,xyzh,rho,vxyzui,gammai=JKmuS(idgamma),mui=JKmuS(idmu))
  call evolve_chem(dt_cgs, T, rho_cgs, JKmuS)
- JKmuS(idkappa) = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
+ JKmuS(idkappa)     = calc_kappa_dust(JKmuS(idK3), Tdust, rho_cgs)
 
 end subroutine evolve_dust
 
@@ -423,7 +423,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
                   mu_old,',mu=',mu,',dT/T=',abs(T-T_old)/T_old,', rho=',rho_cgs
                 call fatal(label,'cannot converge on T(mu,gamma)')
              endif
-          endif 
+          endif
        endif
     enddo
  else
@@ -718,9 +718,9 @@ subroutine write_options_dust_formation(iunit)
 
  write(iunit,"(/,a)") '# options controlling dust'
  if (nucleation) then
-    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1 (bowen), 2 (nucleation))',iunit)
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off, 1=bowen, 2=nucleation)',iunit)
  else
-    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off,1 (bowen))',iunit)
+    call write_inopt(idust_opacity,'idust_opacity','compute dust opacity (0=off, 1=bowen)',iunit)
  endif
  if (idust_opacity == 1) then
     call write_inopt(kappa_gas,'kappa_gas','constant gas opacity (cm²/g)',iunit)

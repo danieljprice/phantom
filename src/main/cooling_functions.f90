@@ -40,7 +40,7 @@ module cooling_functions
            testing_cooling_functions
 
  private
-    real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
+ real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
 
 contains
 !-----------------------------------------------------------------------
@@ -48,9 +48,9 @@ contains
 !  Piecewise cooling law for simple shock problem (Creasey et al. 2011)
 !+
 !-----------------------------------------------------------------------
-subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
+subroutine piecewise_law(T, T0, rho_cgs, ndens, Q, dlnQ)
 
- real, intent(in)  :: T, T0, ndens
+ real, intent(in)  :: T, T0, rho_cgs, ndens
  real, intent(out) :: Q, dlnQ
  real :: T1,Tmid !,dlnT,fac
 
@@ -61,12 +61,12 @@ subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
     dlnQ = 0.
  elseif (T >= T0 .and. T <= Tmid) then
     !dlnT = (T-T0)/(T0/100.)
-    Q = -lambda_shock_cgs*ndens**2*(T-T0)/T0
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T-T0)/T0
     !fac = 2./(1.d0 + exp(dlnT))
-    dlnQ = 1./(T-T0+1.d-10)
+    dlnQ = 1./(T-T0+epsilon(0.))
  elseif (T >= Tmid .and. T <= T1) then
-    Q = -lambda_shock_cgs*ndens**2*(T1-T)/T0
-    dlnQ = -1./(T1-T+1.d-10)
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T1-T)/T0
+    dlnQ = -1./(T1-T+epsilon(0.))
  else
     Q    = 0.
     dlnQ = 0.
@@ -80,14 +80,14 @@ end subroutine piecewise_law
 !  Bowen 1988 cooling prescription
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Tdust, rho, mu, gamma, Q, dlnQ_dlnT)
+subroutine cooling_Bowen_relaxation(T, Tdust, rho_cgs, mu, gamma, Q_cgs, dlnQ_dlnT)
 
  use physcon, only:Rg
 
- real, intent(in)  :: T, Tdust, rho, mu, gamma
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(in)  :: T, Tdust, rho_cgs, mu, gamma
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
- Q         = Rg/((gamma-1.)*mu)*rho*(Tdust-T)/bowen_Cprime
+ Q_cgs     = Rg/((gamma-1.)*mu)*rho_cgs*(Tdust-T)/bowen_Cprime
  dlnQ_dlnT = -T/(Tdust-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
@@ -97,22 +97,22 @@ end subroutine cooling_Bowen_relaxation
 !  collisionnal cooling
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q, dlnQ_dlnT)
+subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q_cgs, dlnQ_dlnT)
 
  use physcon, only: kboltz, mass_proton_cgs, pi
 
  real, intent(in)  :: T, Tdust, rho, K2, mu
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
  real, parameter   :: f = 0.15, a0 = 1.28e-8
  real              :: A
 
  A = 2. * f * kboltz * a0**2/(mass_proton_cgs**2*mu) &
          * (1.05/1.54) * sqrt(2.*pi*kboltz/mass_proton_cgs) * 2.*K2 * rho
- Q = A * sqrt(T) * (Tdust-T)
- if (Q  >  1.d6) then
+ Q_cgs = A * sqrt(T) * (Tdust-T)
+ if (Q_cgs  >  1.d6) then
     print *, f, kboltz, a0, mass_proton_cgs, mu
-    print *, mu, K2, rho, T, Tdust, A, Q
+    print *, mu, K2, rho, T, Tdust, A, Q_cgs
     stop 'cooling'
  else
     dlnQ_dlnT = 0.5+T/(Tdust-T+1.d-10)
@@ -125,14 +125,14 @@ end subroutine cooling_dust_collision
 !  Woitke (2006 A&A) cooling term
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q, dlnQ_dlnT)
+subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q_cgs, dlnQ_dlnT)
 
  use physcon, only: steboltz
 
  real, intent(in) :: T, Tdust, kappa
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
- Q         = 4.*steboltz*(Tdust**4-T**4)*kappa
+ Q_cgs     = 4.*steboltz*(Tdust**4-T**4)*kappa
  dlnQ_dlnT = -4.*T**4/(Tdust**4-T**4+1.d-10)
 
 end subroutine cooling_radiative_relaxation
@@ -142,12 +142,12 @@ end subroutine cooling_radiative_relaxation
 !  Cooling due to electron excitation of neutral H (Spitzer 1978)
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
+subroutine cooling_neutral_hydrogen(T, rho_cgs, Q_cgs, dlnQ_dlnT)
 
- use physcon, only: mass_proton_cgs, pi
+ use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T, rho_cgs
- real, intent(out) :: Q,dlnQ_dlnT
+ real, intent(out) :: Q_cgs,dlnQ_dlnT
 
  real, parameter   :: f = 1.0d0
  real              :: ne,nH
@@ -156,11 +156,11 @@ subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
     nH = rho_cgs/(1.4*mass_proton_cgs)
     ne = calc_eps_e(T)*nH
     !the term 1/(1+sqrt(T)) comes from Cen (1992, ApjS, 78, 341)
-    Q  = -f*7.3d-19*ne*nH*exp(-118400./T)/rho_cgs/(1.+sqrt(T/1.d5))
+    Q_cgs  = -f*7.3d-19*ne*nH*exp(-118400./T)/rho_cgs/(1.+sqrt(T/1.d5))
     dlnQ_dlnT = -118400./T+log(nH*calc_eps_e(1.001*T)/ne)/log(1.001) &
          - 0.5*sqrt(T/1.d5)/(1.+sqrt(T/1.d5))
  else
-    Q = 0.
+    Q_cgs = 0.
     dlnQ_dlnT = 0.
  endif
 
@@ -341,7 +341,7 @@ end function n_dust
 !=======================================================================
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !
-!  Cooling functions
+!  Cooling functions    **** ALL IN cgs  ****
 !
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !=======================================================================
@@ -578,10 +578,10 @@ end function cool_H_ionisation
 !-----------------------------------------------------------------------
 real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
 
-   use physcon, only:mass_proton_cgs
+ use physcon, only:mass_proton_cgs
 
-   real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-   real              :: n_gas
+ real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
+ real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992

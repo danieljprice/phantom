@@ -132,13 +132,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
  use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
- use inject,    only: init_inject
+ use inject,    only: init_inject,set_default_options_inject
  use setbinary, only: set_binary
  use sethierarchical, only: set_multiple
  use io,        only: master
  use eos,       only: gmw,ieos,isink,qfacdisc
  use spherical, only: set_sphere
- use timestep,  only: tmax,dtmax
+ use timestep,  only: tmax!,dtmax
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -154,6 +154,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
+ filename = trim(fileprefix)//'.in'
+ inquire(file=filename,exist=iexist)
+ if (.not. iexist) call set_default_options_inject
 
 !--general parameters
 !
@@ -293,7 +296,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! avoid failures in the setup by ensuring that tmax and dtmax are large enough
  !
  tmax = max(tmax,100.)
- dtmax = max(tmax/10.,dtmax)
+ !dtmax = max(tmax/10.,dtmax)
 
 end subroutine setpart
 

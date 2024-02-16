@@ -16,13 +16,14 @@ module initial
 !
 ! :Dependencies: analysis, boundary, boundary_dyn, centreofmass,
 !   checkconserved, checkoptions, checksetup, cons2prim, cooling, cpuinfo,
-!   damping, densityforce, deriv, dim, dust, dust_formation, energies, eos,
-!   evwrite, extern_gr, externalforces, fastmath, fileutils, forcing,
-!   growth, inject, io, io_summary, krome_interface, linklist,
-!   metric_tools, mf_write, mpibalance, mpidomain, mpimemory, mpitree,
-!   mpiutils, nicil, nicil_sup, omputils, options, part, partinject,
-!   ptmass, radiation_utils, readwrite_dumps, readwrite_infile, timestep,
-!   timestep_ind, timestep_sts, timing, units, writeheader
+!   damping, densityforce, deriv, dim, dust, dust_formation,
+!   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,
+!   fastmath, fileutils, forcing, growth, inject, io, io_summary,
+!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
+!   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
+!   options, part, partinject, ptmass, radiation_utils, readwrite_dumps,
+!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing,
+!   tmunu2grid, units, writeheader
 !
 
  implicit none
@@ -125,8 +126,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use readwrite_dumps,  only:read_dump,write_fulldump
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
-                            maxphase,iphase,isetphase,iamtype,igamma,imu, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
+                            maxphase,iphase,isetphase,iamtype,igas,idust,imu,igamma,massoftype, &
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
@@ -138,8 +139,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:metricderivs
  use cons2prim,        only:prim2consall
  use eos,              only:ieos
- use extern_gr,        only:get_grforce_all
+ use extern_gr,        only:get_grforce_all,get_tmunu_all,get_tmunu_all_exact
  use metric_tools,     only:init_metric,imet_minkowski,imetric
+ use einsteintk_utils
+ use tmunu2grid
 #endif
  use units,            only:utime,umass,unit_Bfield
  use eos,              only:gmw,gamma
@@ -422,7 +425,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
  endif
 #ifndef PRIM2CONS_FIRST
-! COMPUTE METRIC HERE
  call init_metric(npart,xyzh,metrics,metricderivs)
  call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
 #endif
@@ -489,7 +491,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
     ! compute initial sink-sink forces and get timestep
     call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)
@@ -503,7 +505,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
              pmassi = massoftype(iamtype(iphase(i)))
           endif
           call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo

@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: dim, fileutils, part, physcon, units
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'dustformation'

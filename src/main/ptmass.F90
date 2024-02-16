@@ -34,10 +34,12 @@ module ptmass
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
 !
 ! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
-!   externalforces, fastmath, infile_utils, io, io_summary, kdtree, kernel,
-!   linklist, mpidomain, mpiutils, options, part, units
+!   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
+!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part, units,
+!   vectorutils
 !
- use part, only:nsinkproperties,gravity,is_accretable
+ use part, only:nsinkproperties,gravity,is_accretable,&
+                ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
  use io,   only:iscfile,iskfile,id,master
  implicit none
 
@@ -119,22 +121,24 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,fonrmax,dtphi2)
+                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
 #ifdef FINVSQRT
- use fastmath, only:finvsqrt
+ use fastmath,      only:finvsqrt
 #endif
- use kernel,   only:kernel_softening,radkern
- use part,     only:ihacc,ihsoft
+ use kernel,        only:kernel_softening,radkern
+ use vectorutils,   only:unitvec
+ use extern_geopot, only:get_geopot_force
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi
- real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass)
+ real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
- real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj
+ real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
+ real                             :: fxj,fyj,fzj,dsx,dsy,dsz
  integer                          :: j
  logical                          :: tofrom
  !
@@ -159,6 +163,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     dz     = zi - xyzmh_ptmass(3,j)
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
+    J2     = xyzmh_ptmass(iJ2,j)
     if (hsoft > 0.0) hsoft = max(hsoft,hi)
     if (pmassj < 0.0) cycle
 
@@ -168,6 +173,12 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 #else
     ddr    = 1./sqrt(rr2)
 #endif
+    dsx = 0.
+    dsy = 0.
+    dsz = 0.
+    fxj = 0.
+    fyj = 0.
+    fzj = 0.
     if (rr2 < (radkern*hsoft)**2) then
        !
        ! if the sink particle is given a softening length, soften the
@@ -201,13 +212,26 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! acceleration of sink from gas
        if (tofrom) f2 = pmassi*dr3
+
+       ! additional accelerations due to oblateness
+       if (abs(J2) > 0.) then
+          shat = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
+          Rsink = xyzmh_ptmass(iReff,j)
+          call get_geopot_force(dx,dy,dz,ddr,f1,Rsink,J2,shat,ftmpxi,ftmpyi,ftmpzi,phi,dsx,dsy,dsz,fxj,fyj,fzj)
+       endif
     endif
 
     if (tofrom) then
        ! backreaction of gas onto sink
-       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2
-       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2
-       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2
+       fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*f2 + fxj*pmassi/pmassj
+       fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*f2 + fyj*pmassi/pmassj
+       fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*f2 + fzj*pmassi/pmassj
+
+       ! backreaction torque of gas onto oblate sink
+       dsdt_ptmass(1,j) = dsdt_ptmass(1,j) + pmassi*dsx
+       dsdt_ptmass(2,j) = dsdt_ptmass(2,j) + pmassi*dsy
+       dsdt_ptmass(3,j) = dsdt_ptmass(3,j) + pmassi*dsz
+
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
     endif
@@ -240,12 +264,14 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
  use externalforces, only:externalforce
+ use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
+ use vectorutils,    only:unitvec
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(out) :: fxyz_ptmass(4,nptmass)
@@ -253,18 +279,23 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: ti
  integer, intent(out) :: merge_ij(:),merge_n
+ real,    intent(out) :: dsdt_ptmass(3,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
- real    :: fterm,pterm,potensoft0
+ real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
+ real    :: J2i,rsinki,shati(3)
+ real    :: J2j,rsinkj,shatj(3)
  integer :: i,j
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
+ dsdt_ptmass(:,:) = 0.
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
+ if (nptmass <= 1) return
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -281,14 +312,14 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
- !$omp private(fxi,fyi,fzi,phii) &
+ !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(q2i,qi,psoft,fsoft) &
- !$omp private(fterm,pterm) &
+ !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do i=1,nptmass
@@ -298,10 +329,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     pmassi = xyzmh_ptmass(4,i)
     !hsofti = xyzmh_ptmass(5,i)
     if (pmassi < 0.) cycle
+    J2i    = xyzmh_ptmass(iJ2,i)
+
     fxi    = 0.
     fyi    = 0.
     fzi    = 0.
     phii   = 0.
+    dsx    = 0.
+    dsy    = 0.
+    dsz    = 0.
     do j=1,nptmass
        if (i==j) cycle
        dx     = xi - xyzmh_ptmass(1,j)
@@ -310,6 +346,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        pmassj = xyzmh_ptmass(4,j)
        !hsoftj = xyzmh_ptmass(5,j)
        if (pmassj < 0.) cycle
+       J2j = xyzmh_ptmass(iJ2,j)
 
        rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
 
@@ -347,6 +384,18 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           fzi   = fzi - dz*f1
           pterm = -ddr
           phii  = phii + pmassj*pterm    ! potential (GM/r)
+
+          ! additional acceleration due to oblateness of sink particles j and i
+          if (abs(J2j) > 0.) then
+             shatj = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
+             rsinkj = xyzmh_ptmass(iReff,j)
+             call get_geopot_force(dx,dy,dz,ddr,f1,rsinkj,J2j,shatj,fxi,fyi,fzi,phii)
+          endif
+          if (abs(J2i) > 0.) then
+             shati = unitvec(xyzmh_ptmass(ispinx:ispinz,i))
+             rsinki = xyzmh_ptmass(iReff,i)
+             call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
+          endif
        endif
        if (rr2 < r_merge2) then
           if (merge_ij(i)==0) then
@@ -361,8 +410,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              if (rr2 < rr2j) merge_ij(i) = j
           endif
        endif
-       phitot = phitot + 0.5*pmassi*pmassj*pterm  ! total potential (G M_1 M_2/r)
     enddo
+    phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
 
     !
     !--apply external forces
@@ -392,6 +441,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
     fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
     fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
+    dsdt_ptmass(1,i) = dsdt_ptmass(1,i) + pmassi*dsx
+    dsdt_ptmass(2,i) = dsdt_ptmass(2,i) + pmassi*dsy
+    dsdt_ptmass(3,i) = dsdt_ptmass(3,i) + pmassi*dsz
  enddo
  !$omp end parallel do
 
@@ -442,17 +494,17 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real    :: vxhalfi,vyhalfi,vzhalfi
  integer :: i
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass) &
+ !$omp shared(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) &
  !$omp private(i,vxhalfi,vyhalfi,vzhalfi)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
@@ -465,6 +517,9 @@ subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
        vxyz_ptmass(1,i) = vxhalfi
        vxyz_ptmass(2,i) = vyhalfi
        vxyz_ptmass(3,i) = vzhalfi
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
     endif
  enddo
  !$omp end parallel do
@@ -477,12 +532,13 @@ end subroutine ptmass_predictor
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
+subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,iexternalforce)
  use externalforces, only:update_vdependent_extforce_leapfrog,is_velocity_dependent
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dt
- real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(4,nptmass)
+ real,    intent(in)    :: dsdt_ptmass(3,nptmass)
  integer, intent(in)    :: iexternalforce
  real :: vxhalfi,vyhalfi,vzhalfi
  real :: fxi,fyi,fzi,fextv(3)
@@ -494,7 +550,7 @@ subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iext
  !
  if (is_velocity_dependent(iexternalforce)) then
     !$omp parallel do schedule(static) default(none) &
-    !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dt,nptmass,iexternalforce) &
+    !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,dt,nptmass,iexternalforce) &
     !$omp private(vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv) &
     !$omp private(i)
     do i=1,nptmass
@@ -514,18 +570,24 @@ subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iext
           vxyz_ptmass(1,i) = vxhalfi + 0.5*dt*fxi
           vxyz_ptmass(2,i) = vyhalfi + 0.5*dt*fyi
           vxyz_ptmass(3,i) = vzhalfi + 0.5*dt*fzi
+          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
+          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
+          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
        endif
     enddo
     !$omp end parallel do
  else
     !$omp parallel do schedule(static) default(none) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dt,nptmass) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,nptmass) &
     !$omp private(i)
     do i=1,nptmass
        if (xyzmh_ptmass(4,i) > 0.) then
           vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + 0.5*dt*fxyz_ptmass(1,i)
           vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + 0.5*dt*fxyz_ptmass(2,i)
           vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + 0.5*dt*fxyz_ptmass(3,i)
+          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
+          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
+          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
        endif
     enddo
     !$omp end parallel do
@@ -786,7 +848,6 @@ end subroutine ptmass_accrete
 !+
 !-----------------------------------------------------------------------
 subroutine update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
- use part,  only:ispinx,ispiny,ispinz,imacc
  real,    intent(in)    :: dptmass(:,:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(inout) :: vxyz_ptmass(:,:)
@@ -1444,7 +1505,6 @@ end subroutine ptmass_create
 !-----------------------------------------------------------------------
 subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master
- use part,  only:ispinx,ispiny,ispinz,imacc
  real,    intent(in)    :: time
  integer, intent(in)    :: nptmass,merge_ij(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
@@ -1674,7 +1734,6 @@ end subroutine pt_close_sinkev
 !+
 !-----------------------------------------------------------------------
 subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
- use part,        only:ispinx,ispiny,ispinz,imacc
  integer, intent(in) :: nptmass
  real,    intent(in) :: time, xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
  integer             :: i,iunit

@@ -106,7 +106,7 @@ module part
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
 !
-!--H2 and KROME chemistry
+!--H2 chemistry
 !
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
@@ -114,12 +114,22 @@ module part
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
  real, allocatable :: abundance(:,:)
+!
+!--KROME chemistry
+!
 #ifdef KROME
  character(len=16)  :: abundance_label(krome_nmols)
 #else
- character(len=*), parameter :: abundance_label(5) = &
-   (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+ character(len=*), parameter :: abundance_label(nabundances) = &
+   (/'h2ratio','  abHIq','  abhpq','   abeq','   abco'/)
 #endif
+ character(len=*), parameter :: abundance_meaning(nabundances) = &
+      (/'ratio of molecular to atomic Hydrogen       ',&
+        'nHI/nH:  fraction of neutral atomic Hydrogen',&
+        'nHII/nH: fraction of ionised Hydrogen (HII) ',&
+        'ne/nH:   fraction of electrons              ',&
+        'nCO/nH:  fraction of Carbon Monoxide        '/)
+
 !
 !--make a public krome_nmols variable to avoid ifdefs elsewhere
 !
@@ -166,6 +176,8 @@ module part
  real, allocatable :: dens(:) !dens(maxgr)
  real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
+ real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 !
 !--sink particles
 !
@@ -183,16 +195,18 @@ module part
  integer, parameter :: imdotav = 16 ! accretion rate average
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
+ integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real, allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    ','massenc  '/)
+    'mdotav   ','mprev    ','massenc  ','J2       '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -236,10 +250,7 @@ module part
 !
 !--KROME variables
 !
- real, allocatable :: gamma_chem(:)
- real, allocatable :: mu_chem(:)
  real, allocatable :: T_gas_cool(:)
- real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
 !
@@ -400,10 +411,14 @@ subroutine allocate_part
  call allocate_array('dens', dens, maxgr)
  call allocate_array('metrics', metrics, 4, 4, 2, maxgr)
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
+ call allocate_array('tmunus', tmunus, 4, 4, maxgr)
+ call allocate_array('sqrtgs', sqrtgs, maxgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+ call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
+ call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
  call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
@@ -445,10 +460,7 @@ subroutine allocate_part
  else
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
  endif
- call allocate_array('gamma_chem', gamma_chem, maxp_krome)
- call allocate_array('mu_chem', mu_chem, maxp_krome)
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
- call allocate_array('dudt_chem', dudt_chem, maxp_krome)
 
 
 end subroutine allocate_part
@@ -479,10 +491,14 @@ subroutine deallocate_part
  if (allocated(dens))         deallocate(dens)
  if (allocated(metrics))      deallocate(metrics)
  if (allocated(metricderivs)) deallocate(metricderivs)
+ if (allocated(tmunus))       deallocate(tmunus)
+ if (allocated(sqrtgs))       deallocate(sqrtgs)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
+ if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
+ if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
  if (allocated(nden_nimhd))   deallocate(nden_nimhd)
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
@@ -506,10 +522,7 @@ subroutine deallocate_part
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
  if (allocated(tau_lucy))     deallocate(tau_lucy)
- if (allocated(gamma_chem))   deallocate(gamma_chem)
- if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
- if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
@@ -540,6 +553,7 @@ subroutine init_part
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
+ dsdt_ptmass  = 0.
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
@@ -1242,10 +1256,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
-    gamma_chem(dst)       = gamma_chem(src)
-    mu_chem(dst)          = mu_chem(src)
     T_gas_cool(dst)       = T_gas_cool(src)
-    dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
  if (maxsts==maxp) then

@@ -1036,6 +1036,25 @@ ifeq ($(SETUP), testgr)
     SETUPFILE= setup_grdisc.f90
 endif
 
+ifeq ($(SETUP), flrw)
+#   constant density FLRW cosmology with perturbations  
+ GR=yes
+ KNOWN_SETUP=yes
+ IND_TIMESTEPS=no
+ METRIC=et
+ SETUPFILE= setup_flrw.f90
+ PERIODIC=yes
+endif
+
+ifeq ($(SETUP), flrwpspec)
+#  FLRW universe using a CMB powerspectrum and the Zeldovich approximation
+ GR=yes
+ KNOWN_SETUP=yes
+ IND_TIMESTEPS=no
+ METRIC=et
+ SETUPFILE= setup_flrwpspec.f90
+ PERIODIC=yes
+endif
 ifeq ($(SETUP), default)
 #   default setup, uniform box
     KNOWN_SETUP=yes
