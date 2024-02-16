@@ -140,7 +140,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
 
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
-                                 &central mass. m(r=0)/msoft = ',mass/msoft
+       &central mass. m(r=0)/msoft = ',mass/msoft
        write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif

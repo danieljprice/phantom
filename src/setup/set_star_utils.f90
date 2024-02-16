@@ -483,6 +483,6 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     en(i) = eni
     temp(i) = tempi
  enddo
-end subroutine
+end subroutine solve_uT_profiles
 
 end module setstar_utils
