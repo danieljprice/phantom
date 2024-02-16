@@ -180,7 +180,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! we use the estimated injection rate and the final time to set the particle mass
  massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
  hfact = hfact_default
- !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
+ !npart_old = npart
+ !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinj)
 
 !
 !-- check for silly parameter choices

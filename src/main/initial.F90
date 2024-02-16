@@ -562,7 +562,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  npart_old = npart
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                       npart,npartoftype,dtinject)
+                       npart,npart_old,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
 #endif
 !

@@ -122,7 +122,7 @@ subroutine test_wind(ntests,npass)
       nfailed(1),'no errors in setting particle mass')
  npart_old = npart
  call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                       npart,npartoftype,dtinject)
+                       npart,npart_old,npartoftype,dtinject)
  call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
  ! check 1D wind profile
@@ -146,7 +146,7 @@ subroutine test_wind(ntests,npass)
     ! injection of new particles into simulation
     !
     npart_old=npart
-    call inject_particles(t,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+    call inject_particles(t,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
     call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
     dtmaxold = dtmax
     nsteps = nsteps+1
