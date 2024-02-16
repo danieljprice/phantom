@@ -15,8 +15,8 @@ module setsoftenedcore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon, setcubiccore, setfixedentropycore,
-!   table_utils
+! :Dependencies: eos, eos_mesa, io, physcon, setcubiccore,
+!   setfixedentropycore, table_utils
 !
  implicit none
  ! rcore: Radius / Rsun below which we replace the original profile with a

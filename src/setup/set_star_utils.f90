@@ -14,9 +14,10 @@ module setstar_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, eos_piecewise, extern_densprofile, io, part, physcon,
-!   radiation_utils, readwrite_kepler, readwrite_mesa, rho_profile,
-!   setsoftenedcore, sortutils, spherical, table_utils, unifdis, units
+! :Dependencies: eos, eos_piecewise, extern_densprofile, io, kernel, part,
+!   physcon, radiation_utils, readwrite_kepler, readwrite_mesa,
+!   rho_profile, setsoftenedcore, sortutils, spherical, table_utils,
+!   unifdis, units
 !
  use extern_densprofile, only:nrhotab
  use readwrite_kepler,   only:write_kepler_comp
