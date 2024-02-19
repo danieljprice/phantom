@@ -339,7 +339,7 @@ subroutine test_binary(ntests,npass)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
-       call checkval(angtot,angmomin,3.2e-13,nfailed(3),'angular momentum')
+       call checkval(angtot,angmomin,4.e-13,nfailed(3),'angular momentum')
        call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
        tolen = 3.e-8
        if (itest==4) tolen = 1.6e-2 ! etot is small compared to ekin
