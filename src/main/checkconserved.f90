@@ -37,10 +37,10 @@ contains
 !----------------------------------------------------------------
 subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                     should_conserve_angmom,should_conserve_dustmass)
- use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
+ use options,     only:icooling,ipdv_heating,ishock_heating,&
                        iresistive_heating,use_dustfrac,iexternalforce
  use dim,         only:mhd,maxvxyzu,periodic,inject_parts
- use part,        only:iboundary,npartoftype,sinks_have_heating,xyzmh_ptmass,nptmass
+ use part,        only:iboundary,sinks_have_heating,xyzmh_ptmass,nptmass
  use boundary_dyn,only:dynamic_bdy
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
  logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
@@ -49,7 +49,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  ! should conserve energy if using adiabatic equation of state with no cooling
  ! as long as all heating terms are included
  !
- should_conserve_energy = (maxvxyzu==4 .and. ieos==2 .and. sinks_have_heating(nptmass,xyzmh_ptmass) &
+ should_conserve_energy = (maxvxyzu==4 .and. sinks_have_heating(nptmass,xyzmh_ptmass) &
                           .and. icooling==0 .and. ipdv_heating==1 .and. ishock_heating==1 &
                           .and. (.not.mhd .or. iresistive_heating==1))
  !
@@ -58,14 +58,13 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  if (iexternalforce/=0) then
     should_conserve_momentum = .false.
  else
-    should_conserve_momentum = (npartoftype(iboundary)==0)
+    should_conserve_momentum = .true.
  endif
  !
  ! code should conserve angular momentum as long as no boundaries (fixed or periodic)
  ! and as long as there are no non-radial forces (iexternalforce > 1)
  !
- should_conserve_angmom = (npartoftype(iboundary)==0 .and. .not.periodic &
-                          .and. iexternalforce <= 1)
+ should_conserve_angmom = (.not.periodic .and. iexternalforce <= 1)
  !
  ! should always conserve dust mass
  !
