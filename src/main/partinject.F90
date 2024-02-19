@@ -45,6 +45,7 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin,imu,igamma
+ use part, only:iorig,norig
  use io,   only:fatal
  use eos,  only:gamma,gmw
  use dim,  only:ind_timesteps,update_muGamma,h2chemistry
@@ -69,6 +70,9 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
        call fatal('Add particle','npart > maxp')
     endif
     npartoftype(itype) = npartoftype(itype) + 1
+    ! add particle ID
+    norig                  = norig + 1
+    iorig(particle_number) = norig
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
  elseif (particle_number <= npart) then
@@ -160,7 +164,7 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  use dim,          only:ind_timesteps
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin,ibin_old,norig,iorig,iphase,igas,iunknown
+ use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -212,12 +216,6 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     ! not updated until after the call to step.
     dt = min(dt,dtinject)
  endif
-
- ! add particle ID
- do i=npartold+1,npart
-    norig    = norig + 1
-    iorig(i) = norig
- enddo
 
  ! if a particle was updated rather than added, reset iphase & set timestep (if individual timestepping)
  if (updated_particle) then
