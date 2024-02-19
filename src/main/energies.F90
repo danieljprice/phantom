@@ -331,7 +331,7 @@ subroutine compute_energies(t)
        !
        ! the following apply ONLY to gas particles
        !
-       isgas: if (itype==igas) then
+       isgas: if ((itype==igas) .or. (itype==iboundary)) then
 
           npgas = npgas + 1
           if (use_dustfrac) then
