@@ -18,7 +18,8 @@ module boundarypart
 !
 
  implicit none
- public :: get_boundary_particle_forces,set_boundary_particle_velocity
+ public :: get_boundary_particle_forces,set_boundary_particle_velocity,&
+           calculate_boundary_core_CM
 
  private
 
@@ -100,16 +101,39 @@ end subroutine get_boundary_particle_forces
 
 !----------------------------------------------------------------
 !+
+!  Set velocity of boundary particles to be their centre of mass
+!  velocity
+!+
+!---------------------------------------------------------------
+subroutine set_boundary_particle_velocity(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
+ use part, only:iamboundary,iamtype
+ integer, intent(in) :: npart
+ integer(kind=1), intent(in)   :: iphase(:)
+ real, intent(in)              :: xyz(:,:)
+ real, intent(inout), optional :: vxyz(:,:)
+ real, intent(out), optional   :: xyz_CM(3),vxyz_CM(3)
+ integer                       :: i
+
+ call calculate_boundary_core_CM(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
+
+ do i=1,npart
+    if (iamboundary(iamtype(iphase(i)))) vxyz(1:3,i) = vxyz_CM
+ enddo
+
+end subroutine set_boundary_particle_velocity
+
+
+!----------------------------------------------------------------
+!+
 !  Calculates centre of mass and velocity centre of mass for
 !  boundary particles
 !+
 !---------------------------------------------------------------
-subroutine set_boundary_particle_velocity(npart,iphase,xyz,xyz_CM,vxyz_CM,vxyzu)
+subroutine calculate_boundary_core_CM(npart,iphase,xyz,vxyz,xyz_CM,vxyz_CM)
  use part, only:iamboundary,iamtype
  integer, intent(in) :: npart
  integer(kind=1), intent(in) :: iphase(:)
- real, intent(in)    :: xyz(:,:)
- real, intent(inout), optional :: vxyzu(:,:)
+ real, intent(in)    :: xyz(:,:),vxyz(:,:)
  real, intent(out)   :: xyz_CM(3),vxyz_CM(3)
  integer             :: nboundary,i
 
@@ -120,47 +144,12 @@ subroutine set_boundary_particle_velocity(npart,iphase,xyz,xyz_CM,vxyz_CM,vxyzu)
     if (iamboundary(iamtype(iphase(i)))) then
        nboundary = nboundary + 1
        xyz_CM = xyz_CM + xyz(1:3,i)
-       if (present(vxyzu)) vxyz_CM = vxyz_CM + vxyzu(1:3,i)
+       vxyz_CM = vxyz_CM + vxyz(1:3,i)
     endif
  enddo
  xyz_CM = xyz_CM / real(nboundary)
  vxyz_CM = vxyz_CM / real(nboundary)
 
- if (present(vxyzu)) then
-    do i=1,npart
-       if (iamboundary(iamtype(iphase(i)))) then
-          vxyzu(1:3,i) = vxyz_CM
-       endif
-    enddo
- endif
-
-end subroutine set_boundary_particle_velocity
-
-! subroutine inspect_forces(npart,iphase,fxyzu)
-!  use part, only:iamboundary,iamtype
-!  integer, intent(in) :: npart
-!  integer(kind=1), intent(in) :: iphase(:)
-!  real, intent(inout) :: fxyzu(:,:)
-!  integer :: i
-!  real, dimension(3) :: minf,maxf
-
-!  minf = huge(0.)
-!  maxf = 0.
-!  do i=1,npart
-!     if (iamboundary(iamtype(iphase(i)))) then
-!        minf(1) = min(minf(1),abs(fxyzu(1,i)))
-!        minf(2) = min(minf(2),abs(fxyzu(2,i)))
-!        minf(3) = min(minf(3),abs(fxyzu(3,i)))
-!        maxf(1) = max(maxf(1),abs(fxyzu(1,i)))
-!        maxf(2) = max(maxf(2),abs(fxyzu(2,i)))
-!        maxf(3) = max(maxf(3),abs(fxyzu(3,i)))
-!     endif
-!  enddo
-
-!  print*,'minf = ',minf
-!  print*,'maxf = ',maxf
-!  read*
-
-! end subroutine inspect_forces
+end subroutine calculate_boundary_core_CM
 
 end module boundarypart

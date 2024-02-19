@@ -317,7 +317,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        endif
 
        ! set all boundary particle velocities to that of their CM
-       call set_boundary_particle_velocity(npart,iphase,xyzh,xyz_CM,vxyz_CM,vxyzu)
+       call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu)
 
        call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 

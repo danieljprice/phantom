@@ -28,11 +28,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer                :: i,nconverted
  real                   :: rmin,rmin2,r2,boundary_com(3),xyz_CM(3),vxyz_CM(3)
 
- rmin = 5.
+ rmin = 0.
  rmin2 = rmin**2
 
  boundary_com = 0.
- call set_boundary_particle_velocity(npart,iphase,xyzh,xyz_CM,vxyz_CM)
+ call set_boundary_particle_velocity(npart,iphase,xyzh,vxyzu,xyz_CM)
 
  nconverted = 0
  do i=1,npart
