@@ -164,6 +164,7 @@ end subroutine setpart
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils,  only:write_inopt
+ use part,          only:npart
  use dim,           only:tagline
  use eos,           only:gamma
  use setunits,      only:write_options_units
@@ -179,7 +180,7 @@ subroutine write_setupfile(filename)
  call write_options_units(iunit)
 
  write(iunit,"(/,a)") '# sphere settings'
- call write_inopt(nstar,'nstar','number of particles resolving gas sphere',iunit)
+ call write_inopt(npart,'nstar','number of particles resolving gas sphere',iunit)  ! note: npart is output of set_sphere
  call write_inopt(Mstar,'Mstar','sphere mass in code units',iunit)
  call write_inopt(Rstar,'Rstar','sphere radius in code units',iunit)
  
