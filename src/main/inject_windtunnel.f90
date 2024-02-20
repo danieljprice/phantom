@@ -14,6 +14,7 @@ module inject
 ! :Runtime parameters:
 !   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
 !   - handled_layers   : *(integer) number of handled BHL wind layers*
+!   - hold_star        : *1: subtract CM velocity of star particles at each timestep*
 !   - v_inf            : *BHL wind speed*
 !   - Rstar            : *BHL star radius (in accretion radii)*
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*
@@ -42,6 +43,7 @@ module inject
  integer, public :: nstar  = 0
 
  ! Particle-related parameters
+ integer, public :: hold_star = 0
  integer, public :: lattice_type = 1
  integer, public :: handled_layers = 4
  real,    public :: wind_radius = 30.
@@ -228,6 +230,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  irrational_number_close_to_one = 3./pi
  dtinject = (irrational_number_close_to_one*time_between_layers)/utime
 
+ if ((hold_star>0) .and. (.not. windonly)) call subtract_star_vcom(nstarpart,vxyzu)
+
 end subroutine inject_particles
 
 !
@@ -258,6 +262,26 @@ subroutine inject_or_update_particles(ifirst, n, position, velocity, h, u, bound
  enddo
 
 end subroutine inject_or_update_particles
+
+
+!-----------------------------------------------------------------------
+!+
+!  Subtracts centre-of-mass motion of star particles
+!  Assumes star particles have particle IDs 1 to nbulk
+!+
+!-----------------------------------------------------------------------
+subroutine subtract_star_vcom(nbulk,vxyzu)
+ integer, intent(in) :: nbulk
+ real, intent(inout) :: vxyzu(:,:)
+ real                :: vstar(3)
+ integer             :: i
+
+ vstar = (/ sum(vxyzu(1,1:nbulk)), sum(vxyzu(2,1:nbulk)), sum(vxyzu(3,1:nbulk)) /) / real(nbulk)
+ do i=1,nbulk
+    vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
+ enddo
+
+end subroutine subtract_star_vcom
 
 
 !-----------------------------------------------------------------------
@@ -306,6 +330,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(nstar,'nstar','No. of particles making up sphere',iunit)
  call write_inopt(lattice_type,'lattice_type','0: cubic distribution, 1: closepacked distribution',iunit)
  call write_inopt(handled_layers,'handled_layers','(integer) number of handled BHL wind layers',iunit)
+ call write_inopt(hold_star,'hold_star','1: subtract CM velocity of star particles at each timestep',iunit)
  call write_inopt(wind_radius,'BHL_radius','radius of the wind cylinder (in star radii)',iunit)
  call write_inopt(wind_injection_x,'wind_injection_x','x position of the wind injection boundary (in star radii)',iunit)
  call write_inopt(wind_length,'wind_length','crude wind length (in star radii)',iunit)
@@ -368,9 +393,12 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) wind_length
     ngot = ngot + 1
     if (wind_length <= 0.) call fatal(label,'wind_length must be positive')
+ case('hold_star')
+    read(valstring,*,iostat=ierr) hold_star
+    ngot = ngot + 1
  end select
 
- igotall = (ngot >= 10)
+ igotall = (ngot >= 11)
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)
