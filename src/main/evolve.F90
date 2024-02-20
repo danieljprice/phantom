@@ -220,7 +220,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     if (.not. present(flag)) then
        npart_old=npart
-       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
     endif
 #endif
