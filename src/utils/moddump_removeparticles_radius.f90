@@ -17,7 +17,7 @@ module moddump
 ! :Dependencies: part, prompting
 !
 
- use part,         only:delete_particles_outside_sphere
+ use part,         only:delete_particles_outside_sphere,delete_particles_inside_radius
  use prompting,    only:prompt
 
  implicit none
@@ -47,13 +47,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  call prompt('Deleting particles inside a given radius ?',icutinside)
  call prompt('Deleting particles outside a given radius ?',icutoutside)
  if (icutinside) then
-    call prompt('Enter inward radius in au',inradius,0.)
+    call prompt('Enter inward radius in code units',inradius,0.)
     call prompt('Enter x coordinate of the center of that sphere',incenter(1))
     call prompt('Enter y coordinate of the center of that sphere',incenter(2))
     call prompt('Enter z coordinate of the center of that sphere',incenter(3))
  endif
  if (icutoutside) then
-    call prompt('Enter outward radius in au',outradius,0.)
+    call prompt('Enter outward radius in code units',outradius,0.)
     call prompt('Enter x coordinate of the center of that sphere',outcenter(1))
     call prompt('Enter y coordinate of the center of that sphere',outcenter(2))
     call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
@@ -62,13 +62,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    call delete_particles_outside_sphere(incenter,inradius,revert=.true.)
+    call delete_particles_inside_radius(incenter,inradius,npart,npartoftype)
  endif
 
  if (icutoutside) then
     print*,'Phantommoddump: Remove particles outside a particular radius'
     print*,'Removing particles outside radius ',outradius
-    call delete_particles_outside_sphere(outcenter,outradius)
+    call delete_particles_outside_sphere(outcenter,outradius,npart)
  endif
 
 end subroutine modify_dump
