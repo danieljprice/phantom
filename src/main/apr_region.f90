@@ -79,13 +79,13 @@ subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
   integer :: ii,kk
 
   if (ref_dir == 1) then
-    apr_regions(1) = 1000. ! this needs to be a number that encompasses the whole domain
+    apr_regions(1) = huge(apr_regions(1)) ! this needs to be a number that encompasses the whole domain
     do ii = 2,apr_max
       kk = apr_max - ii + 2
       apr_regions(kk) = apr_rad + (ii-1)*apr_drad
     enddo
   else
-    apr_regions(apr_max) = 1000. ! again this just needs to encompass the whole domain
+    apr_regions(apr_max) = huge(apr_regions(apr_max)) ! again this just needs to encompass the whole domain
     do ii = 1,apr_max-1
       apr_regions(ii) = apr_rad + (ii-1)*apr_drad
     enddo

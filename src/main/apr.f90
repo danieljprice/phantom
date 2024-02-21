@@ -29,10 +29,10 @@ module apr
   real    :: apr_centre(3),apr_rad = 1.0, apr_drad = 0.1, apr_blend
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
-  real    :: sep_factor = 0.25
+  real    :: sep_factor = 0.4
   logical :: apr_verbose = .false.
-  logical :: do_relax = .true.
-  logical :: adjusted_split = .false.
+  logical :: do_relax = .false.
+  logical :: adjusted_split = .true.
 
 contains
 
@@ -110,6 +110,7 @@ contains
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
+    use timestep,   only:time
     real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),apr_weight(:)
     integer, intent(inout) :: npart,apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
@@ -118,6 +119,9 @@ contains
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi
+
+    ! time thing
+    if (time < 0.5) return
 
     ! if the centre of the region can move, update it
     if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
@@ -260,6 +264,7 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine get_apr(pos,apri)
+    use io, only:fatal
     real, intent(in)     :: pos(3)
     integer, intent(out) :: apri
     integer :: jj, kk
@@ -283,7 +288,7 @@ contains
       endif
     enddo
 
-    print*,'get_apr did not find apri'
+    if (apri == -1) call fatal('apr_region, get_apr','could not find apr level')
 
   end subroutine get_apr
 
@@ -297,10 +302,12 @@ contains
     use part,    only:set_particle_type
     use physcon, only:pi
     use dim,          only:ind_timesteps
+    use random,  only:ran2
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,aprnew,next_door
     real :: theta,dx,dy,x_add,y_add,sep,rneigh
+    integer, save :: iseed = 4, oldseed
 
     if (adjusted_split) then
       call closest_neigh(i,next_door,rneigh)
@@ -314,7 +321,7 @@ contains
     ! we will split and then rotate the particle positions through this angle
     dx = xyzh(1,i) - apr_centre(1)
     dy = xyzh(2,i) - apr_centre(2)
-    theta = atan2(dy,dx) + 0.5*pi
+    theta = ran2(iseed)*2.*pi !atan2(dy,dx) + 0.5*pi
     x_add = sep*cos(theta)*xyzh(4,i)
     y_add = sep*sin(theta)*xyzh(4,i)
 
@@ -483,15 +490,16 @@ contains
   !-----------------------------------------------------------------------
   subroutine hacky_write(ifile)
     use part, only:igas,rhoh,aprmassoftype,Bxyz, &
-                   npart,xyzh,apr_level
+                   npart,xyzh,apr_level,fxyzu
     use dim,  only:mhd
     character(len=*), intent(in) :: ifile
     integer :: ii,iunit=24
     character(len=120) :: mydumpfile,rootname
     real :: rhoi,pmass
     real :: hfact
+    logical :: print_forces = .false.
 
-    hfact = 1.2 ! straight from the *.in file
+    hfact = 1.3 ! straight from the *.in file
 
     rootname = 'raw'
     write(mydumpfile,"(a,'.raw')") trim(ifile)
@@ -522,6 +530,17 @@ contains
     enddo
 
     close(iunit)
+
+    ! Print the forces?
+    if (print_forces) then
+      write(mydumpfile,"(a,'.force')") trim(ifile)
+      open(iunit,file=mydumpfile,status='replace',form='formatted')
+
+      do ii = 1,npart
+        write(iunit,*) xyzh(1:3,ii), fxyzu(1:3,ii)
+      enddo
+    close(iunit)
+    endif
 
   end subroutine hacky_write
 
@@ -565,4 +584,4 @@ contains
 
   end subroutine put_in_smallest_bin
 
-end module apr
+end module apr                                                                             
