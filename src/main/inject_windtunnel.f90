@@ -230,7 +230,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  irrational_number_close_to_one = 3./pi
  dtinject = (irrational_number_close_to_one*time_between_layers)/utime
 
- if ((hold_star>0) .and. (.not. windonly)) call subtract_star_vcom(nstarpart,vxyzu)
+ if ((hold_star>0) .and. (.not. windonly)) call subtract_star_vcom(nstarpart,xyzh,vxyzu)
 
 end subroutine inject_particles
 
@@ -267,19 +267,32 @@ end subroutine inject_or_update_particles
 !-----------------------------------------------------------------------
 !+
 !  Subtracts centre-of-mass motion of star particles
-!  Assumes star particles have particle IDs 1 to nbulk
+!  Assumes star particles have particle IDs 1 to nsphere
 !+
 !-----------------------------------------------------------------------
-subroutine subtract_star_vcom(nbulk,vxyzu)
- integer, intent(in) :: nbulk
+subroutine subtract_star_vcom(nsphere,xyzh,vxyzu)
+ integer, intent(in) :: nsphere
+ real, intent(in)    :: xyzh(:,:)
  real, intent(inout) :: vxyzu(:,:)
  real                :: vstar(3)
- integer             :: i
+ integer             :: i,nbulk
 
- vstar = (/ sum(vxyzu(1,1:nbulk)), sum(vxyzu(2,1:nbulk)), sum(vxyzu(3,1:nbulk)) /) / real(nbulk)
- do i=1,nbulk
-    vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
+!  vstar = (/ sum(vxyzu(1,1:nsphere)), sum(vxyzu(2,1:nsphere)), sum(vxyzu(3,1:nsphere)) /) / real(nsphere)
+ nbulk = 0
+ vstar = 0.
+ do i=1,nsphere
+    if (xyzh(1,i) < 2.*Rstar) then
+       vstar = vstar + vxyzu(1:3,i)
+       nbulk = nbulk + 1
+    endif
  enddo
+ vstar = vstar/real(nbulk)
+
+ do i=1,nsphere
+   if (xyzh(1,i) < 2.*Rstar) then
+       vxyzu(1:3,i) = vxyzu(1:3,i) - vstar
+   endif
+enddo
 
 end subroutine subtract_star_vcom
 
