@@ -40,6 +40,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,         only:ieos,gmw
  use setstar_utils,only:set_star_density
  use rho_profile, only:rho_polytrope
+ use relaxstar,   only:relax_star
  use extern_densprofile, only:nrhotab
  use physcon,     only:solarm,solarr
  use units,       only:udist,umass,utime,set_units,unit_velocity,unit_density,unit_pressure
@@ -57,9 +58,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real               :: rhocentre,rmin,pmass,densi,presi,ri
- real, allocatable  :: r(:),den(:),pres(:)
- integer            :: ierr,npts,np,i
- logical            :: use_exactN,setexists
+ real, allocatable  :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:),mu(:)
+ integer            :: ierr,ierr_relax,npts,np,i
+ logical            :: use_exactN,setexists,use_var_comp
  character(len=30)  :: lattice
  character(len=120) :: setupfile
  
@@ -140,6 +141,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,&
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
+
+    use_var_comp = .false.
+    call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr_relax)
+
     ! Set thermal energy
     do i = 1,npart
        ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
