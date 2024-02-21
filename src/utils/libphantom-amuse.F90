@@ -166,8 +166,7 @@ subroutine amuse_commit_particles()
     !integer :: nactive
     !double precision :: dt, dtnew_first
     character(len=120) :: infile,logfile,evfile,dumpfile
-    !call startrun("none.in", logfile,evfile,dumpfile, .true.)
-    call startrun(infile,logfile,evfile,dumpfile,.true.,.true.)
+    call startrun(infile,logfile,evfile,dumpfile, .true.)
     print*, "total mass in code unit: ", mtot
 
     !dtnew_first = dtmax
@@ -227,13 +226,14 @@ end subroutine amuse_get_npart
 
 ! Set default parameters
 subroutine amuse_set_defaults()
-   use options, only: set_default_options,iexternalforce
+   use options, only: set_default_options,iexternalforce,write_files
    implicit none
 
    call set_default_options()
    ! A few changes to Phantom's defaults
    call amuse_set_gamma(1.)
    call amuse_set_ieos(1)
+   write_files=.false.
 
 end subroutine amuse_set_defaults
 
@@ -531,7 +531,7 @@ subroutine amuse_evol(amuse_initialise)
     !if (.not. present(flag)) then
        npart_old=npart
        !write(*,*) "INJECTING"
-       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
     !endif
 #endif
@@ -1803,7 +1803,7 @@ end subroutine
 subroutine amuse_set_icooling(icooling_in)
     use io, only:id,master,iprint
     use options, only:icooling,iexternalforce
-    use part, only:h2chemistry
+    use dim, only:h2chemistry
     use chem, only:init_chem
     use cooling, only:init_cooling,Tfloor
     !use cooling_ism, only:init_cooling

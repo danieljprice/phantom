@@ -76,7 +76,7 @@ contains
 subroutine init_evfile(iunit,evfile,open_file)
  use io,        only:id,master,warning
  use dim,       only:maxtypes,maxalpha,maxp,maxp_hard,mhd,mhd_nonideal,lightcurve
- use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac
+ use options,   only:calc_erot,ishock_heating,ipdv_heating,use_dustfrac,write_files
  use units,     only:c_is_unity
  use part,      only:igas,idust,iboundary,istar,idarkmatter,ibulge,npartoftype,ndusttypes,maxtypes
  use nicil,     only:use_ohm,use_hall,use_ambi
@@ -234,7 +234,7 @@ subroutine init_evfile(iunit,evfile,open_file)
  !--all threads do above, but only master writes file
  !  (the open_file is to prevent an .ev file from being made during the test suite)
  !
- if (open_file .and. id == master) then
+ if (write_files .and. open_file .and. id == master) then
     !
     !--open the file for output
     !
@@ -351,7 +351,7 @@ subroutine write_evfile(t,dt)
  use energies,      only:compute_energies,ev_data_update
  use io,            only:id,master,ievfile
  use timestep,      only:dtmax_user
- use options,       only:iexternalforce
+ use options,       only:iexternalforce,write_files
  use externalforces,only:accretedmass1,accretedmass2
  real, intent(in)  :: t,dt
  integer           :: i,j
@@ -360,6 +360,7 @@ subroutine write_evfile(t,dt)
 
  call compute_energies(t)
 
+ if (.not. write_files) return
  if (id==master) then
     !--fill in additional details that are not calculated in energies.f
     ev_data(iev_sum,iev_dt)  = dt
