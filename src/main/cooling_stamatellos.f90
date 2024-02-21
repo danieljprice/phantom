@@ -22,7 +22,7 @@ module cooling_stamatellos
  implicit none
  real, public :: Lstar ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
- integer :: od_method = 1 ! default = Stamatellos+ 2007 method
+ integer :: od_method = 4 ! default = Stamatellos+ 2007 method
  integer :: fld_opt = 1 ! by default FLD is switched on
  public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
@@ -66,7 +66,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          duFLD,doFLD
+          duFLD,doFLD,ttherm_store,teqi_store,floor_energy
  use part,       only:xyzmh_ptmass
 
  real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
@@ -74,7 +74,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  real,intent(out) :: dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Q3D,Hmod2
+ real            :: cs2,Om2,Hmod2
  real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
  poti = Gpot_cool(i)
@@ -84,15 +84,6 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
     ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
          + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
          + (zi-xyzmh_ptmass(3,isink_star))**2d0  
- endif
-
-!    Tfloor is from input parameters and is background heating
-!    Stellar heating
- if (isink_star > 0 .and. Lstar > 0.d0) then
-! Tfloor + stellar heating
-    Tmini4 = Tfloor**4d0 + (Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
- else
-    Tmini4 = Tfloor**4d0
  endif
 
 ! get opacities & Ti for ui
@@ -140,6 +131,15 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
     coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
  end select
 
+!    Tfloor is from input parameters and is background heating
+!    Stellar heating
+ if (isink_star > 0 .and. Lstar > 0.d0) then
+! Tfloor + stellar heating
+    Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
+ else
+    Tmini4 = Tfloor**4d0
+ endif
+
  tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
  dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
 
@@ -154,12 +154,12 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
 
  Teqi = Teqi/4.d0/steboltz
  Teqi = Teqi + Tmini4
- if (Teqi < Tmini4) then
-    Teqi = Tmini4**(1.0/4.0)
- else
+! if (Teqi < Tmini4) then
+!    Teqi = Tmini4**(1.0/4.0)
+! else
     Teqi = Teqi**(1.0/4.0)
- endif
-
+! endif
+ teqi_store(i) = Teqi
  call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
  ueqi = ueqi/unit_ergg
         
@@ -173,6 +173,8 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  else
     tthermi = abs((ueqi - ui)/(du_tot))
  endif
+
+ ttherm_store(i) = tthermi
 
  if (tthermi == 0d0) then
     dudti_cool = 0.d0 ! condition if denominator above is zero
