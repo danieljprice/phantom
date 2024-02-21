@@ -245,6 +245,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  character(len=120)    :: blankarray
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
+ integer(kind=1)   :: tempapr(npart)
 !
 !--collect global information from MPI threads
 !
@@ -416,8 +417,10 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
 
        if (use_apr) then
-          call write_array(1,apr_level,'apr',npart,k,ipass,idump,nums,ierrs(11))
-          call write_array(1,apr_weight,'apr_weight',npart,k,ipass,idump,nums,ierrs(11))
+         do l=1,npart
+           tempapr(l) = int(apr_level(l),kind=1)
+         enddo
+          call write_array(1,tempapr,'apr_level',npart,k,ipass,idump,nums,ierrs(11),func=iamtype_int11)
        endif
 
        if (use_krome) then
@@ -507,7 +510,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
                       nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,&
                       abundance,abundance_label,mhd,dustfrac,iamtype_int11,&
                       dustprop,dustprop_label,dustfrac_label,ndusttypes,&
-                      rad,rad_label,do_radiation,maxirad,luminosity
+                      rad,rad_label,do_radiation,maxirad,luminosity,use_apr,apr_level
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
  use mpiutils,   only:reduceall_mpi
@@ -515,9 +518,10 @@ subroutine write_smalldump_fortran(t,dumpfile)
  character(len=*), intent(in) :: dumpfile
  integer(kind=8) :: ilen(4)
  integer         :: nums(ndatatypes,4)
- integer         :: ierr,ipass,k
+ integer         :: ierr,ipass,k,l
  integer         :: nblocks,nblockarrays,narraylengths
  integer(kind=8) :: nparttot
+ integer(kind=1) :: tempapr(npart)
  logical         :: write_itype
  type(dump_h)    :: hdr
 !
@@ -588,6 +592,12 @@ subroutine write_smalldump_fortran(t,dumpfile)
 
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
+       if (use_apr) then
+         do l=1,npart
+           tempapr(l) = int(apr_level(l),kind=1)
+         enddo
+          call write_array(1,tempapr,'apr_level',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
+       endif
     enddo
     !
     !--Block 2 (sinks)
