@@ -289,7 +289,7 @@ endif
 ifeq ($(KROME), krome)
     FPPFLAGS += -DKROME
 ifeq ($(SYSTEM), ifort)
-    LDFLAGS  += -mkl
+    LDFLAGS  += -llapack
 else
     # LDFLAGS  += -L/usr/lib/x86_64-linux-gnu -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64 -fopenmp
     LDFLAGS  += -llapack
@@ -555,7 +555,7 @@ OBJECTS = $(OBJECTS1:.F90=.o)
 ifeq ($(KROME), krome)
     .PHONY: all
 
-    all: checksystem krome_setup krome phantom
+    all: checksystem checkparams krome_setup krome phantom
     include MakeKrome
 else
     .PHONY: phantom
