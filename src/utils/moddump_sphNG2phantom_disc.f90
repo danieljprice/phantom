@@ -82,9 +82,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     nptmass = nptmass + npt
     do i=1,npt
        read (iunit,*) junk
-       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,nptmass),j=1,10)
+       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,i),j=1,10)
        read (iunit,*) junk
-       read (iunit,'(3E15.6)') (vxyz_ptmass(j,nptmass),j=1,3)
+       read (iunit,'(3E15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
