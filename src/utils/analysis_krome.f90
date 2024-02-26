@@ -30,13 +30,16 @@ module analysis
  real, allocatable    :: abundance(:,:), abundance_prev(:,:)
  character(len=16)    :: abundance_label(krome_nmols)
  integer, allocatable :: iorig_old(:)
+ integer, allocatable :: iprev(:)
+ logical :: done_init = .false.
 
 contains
 
 subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
- use part,       only: isdead_or_accreted, iorig, rhoh, eos_vars, igamma, imu
+ use part,       only: isdead_or_accreted, iorig, rhoh, eos_vars
  use units,      only: utime,unit_density
- use eos,        only: get_temperature, ieos
+ use eos,        only: get_temperature, ieos, gamma,gmw, init_eos
+ use io,         only: fatal
  use krome_main, only: krome_init, krome
  use krome_user, only: krome_get_names,krome_consistent_x
  character(len=*), intent(in) :: dumpfile
@@ -46,13 +49,15 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character     :: filename
  real, save    :: tprev = 0.
  integer, save :: nprev = 0
- real          :: dt_cgs, rho_cgs, T_gas, gamma, mu
+ real          :: dt_cgs, rho_cgs, T_gas, gammai, mui
  real          :: abundance_part(krome_nmols)
- integer       :: i, j, iprev(npart)
+ integer       :: i, j, ierr
 
- if (time == 0.) then
+ if (.not.done_init) then
+    done_init = .true.
     print*, "initialising KROME"
     call krome_init()
+    print*, "Initialised KROME"
     abundance_label(:) = krome_get_names()
     allocate(abundance(krome_nmols,maxp))
     abundance = 0.
@@ -60,28 +65,32 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     abundance_prev = 0.
     allocate(iorig_old(maxp))
     iorig_old = 0
-    print*, "Initialised KROME"
-    !$omp parallel do default(none) &
-    !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-    !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-    !$omp shared(eos_vars,ieos,rho_cgs,T_gas,gamma,mu,j) &
-    !$omp private(i,abundance_part)
+    allocate(iprev(maxp))
+    iprev = 0
+    print*, "setting abundances"
+   !$omp parallel do default(none) &
+   !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
+   !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
+   !$omp shared(eos_vars,ieos,rho_cgs,T_gas,j) &
+   !$omp private(i,abundance_part)
     do i=1, npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           call chem_init(abundance_part)
           abundance(:,i) = abundance_part
        endif
-     enddo
+    enddo
+    print*, "abundances set"
+    call init_eos(ieos, ierr)
+    if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
  else
     dt_cgs = (time - tprev)*utime
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
-   !$omp parallel do default(none) &
-   !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
-   !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-   !$omp shared(eos_vars,ieos) &
-   !$omp private(i,j,abundance_part,rho_cgs,T_gas,gamma,mu)
+    !$omp parallel do default(none) &
+    !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
+    !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
+    !$omp shared(eos_vars,ieos,gamma,gmw,time) &
+    !$omp private(i,j,abundance_part,rho_cgs,T_gas,gammai,mui)
     outer: do i=1,npart
-       print*,i
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           inner: do j=1,nprev
              if (iorig(i) == iorig_old(j)) then
@@ -94,26 +103,17 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           else
              call chem_init(abundance_part)
           endif
-          rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
-          !TODO: load in temperature from SPH, as gamma and mu are not available
-          gamma = 1.2   ! eos_vars(igamma,i)
-          mu    = 2.381 ! eos_vars(imu,i)
-          T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gamma,mu)
-         !  print*, "ieos", ieos
-         !  print*, "xyzh(1:3,i)",xyzh(1:3,i)
-         !  print*, "rhoh(xyzh(4,i),particlemass)",rhoh(xyzh(4,i),particlemass)
-         !  print*, "vxyzu(:,i)",vxyzu(:,i)
-         !  print*, "gamma",gamma
-         !  print*, "mu",mu
-         !  print*, "T_gas = ",T_gas
-          T_gas = max(T_gas,2000.0d0)
-          call krome_consistent_x(abundance_part)
-          print*, "calling krome", rho_cgs, T_gas, dt_cgs
-          print*, "abundance_part",abundance_part
-          call krome(abundance_part,rho_cgs,T_gas,dt_cgs)
-          abundance(:,i) = abundance_part
+             rho_cgs = rhoh(xyzh(4,i),particlemass)*unit_density
+             gammai = gamma
+             mui    = gmw
+             T_gas = get_temperature(ieos,xyzh(1:3, i),rhoh(xyzh(4,i),particlemass),vxyzu(:,i),gammai,mui)
+             T_gas = max(T_gas,20.0d0)
+             call krome_consistent_x(abundance_part)
+             call krome(abundance_part,rho_cgs,T_gas,dt_cgs)
+             abundance(:,i) = abundance_part
        endif
     enddo outer
+    stop
  endif
 
  nprev = npart
@@ -159,9 +159,6 @@ subroutine chem_init(abundance_part)
  abundance_part(krome_idx_P)  = P_init
  abundance_part(krome_idx_F)  = F_init
  abundance_part(krome_idx_H)  = H_init
-
-!  print*, He_init, C_init, N_init, O_init, S_init, Fe_init, Si_init, Mg_init&
-!          , Na_init, P_init, F_init, H_init
 
 end subroutine chem_init
 
