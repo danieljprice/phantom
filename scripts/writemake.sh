@@ -20,10 +20,12 @@ if [ $# -ge 1 ]; then
    makeflags=$makeflags' SETUP=${SETUP}';
 fi
 addflags='';
-if [ $2 == 'krome' ] || [ $2 == 'KROME' ]; then
-   echo 'KROMEPATH='${0/phantom\/scripts\/writemake.sh/krome};
-   addflags=$addflags' KROME=yes KROMEPATH=${KROMEPATH}';
-   analysisflags=' ANALYSIS=analysis_krome.f90';
+if [ $# -ge 2 ]; then
+   if [ $2 == 'krome' ] || [ $2 == 'KROME' ]; then
+      echo 'KROMEPATH='${0/phantom\/scripts\/writemake.sh/krome};
+      addflags=$addflags' KROME=yes KROMEPATH=${KROMEPATH}';
+      analysisflags=' ANALYSIS=analysis_krome.f90';
+   fi
 fi
 makeflags=$makeflags$addflags;
 echo ''
