@@ -25,12 +25,16 @@ show available software
 
    $ module avail
 
-load intel compilers, git and splash
+load intel compilers, git and splash. These might have different names
+to the below, but should be similar
+
 
 ::
 
-   $ module load ifort/2018.1.163-gcc-6.4.0
-   $ module load git/2.18.0
+   $ module load intel-compilers/2023.0.0
+   $ module load ffmpeg/5.1.2
+   $ module load gompi/2023a
+   $ module load hdf5/1.14.0
 
 Get phantom
 ~~~~~~~~~~~
@@ -64,8 +68,10 @@ contains the modules I want loaded every time I log in. For example:
 ::
 
    $ cat .modules
-   module load ifort
-   module load git
+   module load intel-compilers/2023.0.0
+   module load ffmpeg/5.1.2
+   module load gompi/2023a
+   module load hdf5/1.14.0
 
 Then, add the following lines to your ~/.bashrc
 
