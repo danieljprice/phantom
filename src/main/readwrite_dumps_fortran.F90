@@ -245,6 +245,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use part,       only:gamma_chem,mu_chem,T_gas_cool
 #endif
  use eos_stamatellos, only:gradP_cool,doFLD,urad_FLD,ttherm_store,teqi_store
+ use eos_stamatellos, only:opac_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -413,6 +414,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !         call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
          call write_array(1,teqi_store,'teqi',npart,k,ipass,idump,nums,ierrs(13))
          call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,ierrs(13))
+         call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,ierrs(13))
       endif
 
        ! smoothing length written as real*4 to save disk space

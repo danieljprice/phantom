@@ -20,7 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),teqi_store(:)
+ real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
@@ -41,6 +41,7 @@ subroutine init_S07cool()
  allocate(urad_FLD(npart))    
  allocate(ttherm_store(npart))    
  allocate(teqi_store(npart))    
+ allocate(opac_store(npart))    
  urad_FLD(:) = 0d0
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
  if (doFLD) then
@@ -59,6 +60,7 @@ subroutine finish_S07cool()
  if (allocated(urad_FLD)) deallocate(urad_FLD)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(teqi_store)) deallocate(teqi_store)
+ if (allocated(opac_store)) deallocate(opac_store)
  close(iunitst)
 end subroutine finish_S07cool
 

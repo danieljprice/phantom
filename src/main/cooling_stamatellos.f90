@@ -66,7 +66,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          duFLD,doFLD,ttherm_store,teqi_store,floor_energy
+          duFLD,doFLD,ttherm_store,teqi_store,opac_store
  use part,       only:xyzmh_ptmass
 
  real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
@@ -75,7 +75,7 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom,du_tot
  real            :: cs2,Om2,Hmod2
- real            :: tcool,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
+ real            :: opac,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
  poti = Gpot_cool(i)
  du_FLDi = duFLD(i)
@@ -140,25 +140,26 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
     Tmini4 = Tfloor**4d0
  endif
 
- tcool = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
- dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/tcool/unit_ergg*utime! code units
+ opac = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
+ opac_store(i) = opac
+ dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opac/unit_ergg*utime! code units
 
  if (doFLD) then
     ! include term from FLD
-    Teqi = (du_FLDi + dudti_sph) *tcool*unit_ergg/utime ! physical units
+    Teqi = (du_FLDi + dudti_sph) *opac*unit_ergg/utime ! physical units
     du_tot = dudti_sph + dudt_rad + du_FLDi
  else
-    Teqi = dudti_sph*tcool*unit_ergg/utime
+    Teqi = dudti_sph*opac*unit_ergg/utime
     du_tot = dudti_sph + dudt_rad 
  endif
-
+  
  Teqi = Teqi/4.d0/steboltz
  Teqi = Teqi + Tmini4
-! if (Teqi < Tmini4) then
-!    Teqi = Tmini4**(1.0/4.0)
-! else
+ if (Teqi < Tmini4) then
+    Teqi = Tmini4**(1.0/4.0)
+ else
     Teqi = Teqi**(1.0/4.0)
-! endif
+ endif
  teqi_store(i) = Teqi
  call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
  ueqi = ueqi/unit_ergg
@@ -183,11 +184,11 @@ subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
  endif
 
  if (isnan(dudti_cool)) then
-    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
+!    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
     print *, "rhoi=",rhoi, "Ti=", Ti
-    print *, "tcool=",tcool,"coldensi=",coldensi,"dudti_sph",dudti_sph
+    print *, "opac=",opac,"coldensi=",coldensi,"dudti_sph",dudti_sph
     print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-    print *, "dudt_rad=", dudt_rad 
+    print *, "dudt_rad=", dudt_rad ,"dudt_dlf=",du_fldi,"ueqi=",ueqi,"ui=",ui
     call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
     stop
  else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
