@@ -1208,6 +1208,9 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp private(fonrmaxi,dtphi2i,dtf) &
     !$omp private(vxhalfi,vyhalfi,vzhalfi) &
     !$omp firstprivate(pmassi,itype) &
+#ifdef KROME
+    !$omp shared(T_gas_cool) &
+#endif
     !$omp reduction(+:accretedmass) &
     !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
     !$omp reduction(max:fonrmax) &

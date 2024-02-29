@@ -75,11 +75,11 @@ subroutine initialise_krome()
  S_init  = 3.97e-4 ! mass fraction
  Fe_init = 1.17e-3 ! mass fraction
  Si_init = 6.54e-4 ! mass fraction
- Mg_init = 5.16e-4
+ Mg_init = 5.16e-4 ! mass fraction
 
- Na_init = 3.38e-5
- P_init  = 8.17e-6
- F_init  = 4.06e-7
+ Na_init = 3.38e-5 ! mass fraction
+ P_init  = 8.17e-6 ! mass fraction
+ F_init  = 4.06e-7 ! mass fraction
 
  H_init = 1.0 - He_init - C_init - N_init - O_init - S_init - Fe_init - &
           Si_init - Mg_init - Na_init - P_init - F_init

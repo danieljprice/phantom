@@ -319,7 +319,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
  use wind,              only:interp_wind_profile !,wind_profile
@@ -334,7 +334,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
@@ -364,11 +364,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !
     ! delete particles that exit the outer boundary
     !
-    i = npart
     inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
     if (outer_boundary_au > Rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
-    if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
+    if (npart_old /= npart .and. iverbose > 0) print *,'deleted ',npart_old-npart,'particles, remaining',npart
+    npart_old = npart
 
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.

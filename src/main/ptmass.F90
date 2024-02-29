@@ -35,8 +35,8 @@ module ptmass
 !
 ! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
 !   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
-!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part, units,
-!   vectorutils
+!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part,
+!   ptmass_heating, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
