@@ -1,7 +1,7 @@
 How to run Phantom on OzStar
 ============================
 
-See also older instructions for :doc:`gstar <g2>`.
+See also general instructions for :doc:`running phantom on a remote cluster <clusters>`.
 
 Apply for an account
 --------------------
@@ -9,27 +9,25 @@ Apply for an account
 https://supercomputing.swin.edu.au/account-management/new_account_request
 
 If you are in Daniel Price’s research group, from your account
-management page, request “join project” and select “oz015 - Price/Pinte
-research group”
+management page, request “join project”:
+
+https://supercomputing.swin.edu.au/account-management/project_join_request
+
+and select “oz015 - Price/Pinte research group”
 
 First time you log in
 ---------------------
 
-::
+Replace USERNAME below with your username::
 
    $ ssh -Y USERNAME@ozstar.swin.edu.au
 
-show available software
-
-::
+show available software::
 
    $ module avail
 
 load intel compilers, git and splash. These might have different names
-to the below, but should be similar
-
-
-::
+to the below, but should be similar::
 
    $ module load intel-compilers/2023.0.0
    $ module load ffmpeg/5.1.2
@@ -39,18 +37,14 @@ to the below, but should be similar
 Get phantom
 ~~~~~~~~~~~
 
-Clone a copy of phantom into your home directory
-
-::
+Clone a copy of phantom into your home directory::
 
    $ git clone https://github.com/danieljprice/phantom.git
 
 Set your username and email address
 -----------------------------------
 
-Ensure that your name and email address are set, as follows:
-
-::
+Ensure that your name and email address are set, as follows::
 
    cd phantom
    git config --global user.name "Joe Bloggs"
@@ -63,9 +57,7 @@ edit your .bashrc file
 ----------------------
 
 I put the “module load” commands in a file called ~/.modules which
-contains the modules I want loaded every time I log in. For example:
-
-::
+contains the modules I want loaded every time I log in. For example::
 
    $ cat .modules
    module load intel-compilers/2023.0.0
@@ -73,9 +65,7 @@ contains the modules I want loaded every time I log in. For example:
    module load gompi/2023a
    module load hdf5/1.14.0
 
-Then, add the following lines to your ~/.bashrc
-
-::
+Then, add the following lines to your ~/.bashrc::
 
    source ~/.modules
    export SYSTEM=ozstar
@@ -92,9 +82,7 @@ code and small files. Calculations should be run in the “project” area
 in /fred/PROJECT_NAME/$USER
 
 I usually make a soft link / shortcut called “runs” pointing to the
-directory where I want to run my calculations:
-
-::
+directory where I want to run my calculations::
 
    $ cd /fred/oz015
    $ mkdir $USER
@@ -105,9 +93,7 @@ directory where I want to run my calculations:
    /fred/oz015/USERNAME
 
 then make a subdirectory for the name of the calculation you want to run
-(e.g. shock)
-
-::
+(e.g. shock)::
 
    $ mkdir shock
    $ cd shock
@@ -117,15 +103,11 @@ then make a subdirectory for the name of the calculation you want to run
    $ ./phantomsetup myshock
 
 To run the code, you need to write a slurm script. You can get an
-example by typing “make qscript”:
-
-::
+example by typing “make qscript”::
 
    $ make qscript INFILE=myshock.in > run.q
 
-should produce something like
-
-::
+should produce something like::
 
    $ cat run.q
    #!/bin/bash
@@ -155,16 +137,12 @@ should produce something like
    echo "writing output to $outfile"
    ./phantom myshock.in >& $outfile
 
-You can then submit this to the queue using
-
-::
+You can then submit this to the queue using::
 
    $ sbatch run.q
    Submitted batch job 245936
 
-and check status using
-
-::
+and check status using::
 
    $ squeue -u dprice
                 JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
@@ -176,16 +154,12 @@ splash on OzStar
 There is a version of splash you can get by loading the relevant module
 (module load splash). If you want a more recent version there is a
 version that gets regularly updated in the shared project folder
-(/fred/oz015/splash):
-
-::
+(/fred/oz015/splash)::
 
    /fred/oz015/splash/bin/splash
 
 You can add this directory in your path by putting the following lines
-in your ~/.bashrc file:
-
-::
+in your ~/.bashrc file::
 
    export PATH=/fred/oz015/splash/bin:${PATH}
    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/fred/oz015/splash/giza/lib
@@ -234,4 +208,7 @@ more info
 
 For more information on the actual machine `read the
 userguide <https://supercomputing.swin.edu.au>`__
+
+See also general instructions for :doc:`running phantom on a remote cluster <clusters>`.
+
 
