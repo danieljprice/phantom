@@ -1,0 +1,53 @@
+name: krome
+
+# Trigger on pull request, but only for the master branch
+on:
+  pull_request:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
+
+env:
+  PREFIX: /usr/local/
+  PHANTOM_DIR: ${{ github.workspace }}
+  KROMEPATH: ${{ github.workspace }}/krome
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        toolchain: [{compiler: gcc}, {compiler: intel-classic}]
+        exclude:
+          - os: macos-latest
+            toolchain: {compiler: intel-classic}
+
+    steps:
+      - uses: awvwgk/setup-fortran@v1
+        with:
+          compiler: ${{ matrix.toolchain.compiler }}
+
+      - name: "Clone phantom"
+        uses: actions/checkout@v3
+
+      - name: "Clone krome"
+        run: git clone https://bitbucket.org/tgrassi/krome.git krome
+
+      - name: "make krome.setup"
+        run: echo -e "-n=networks/react_AGBwind_nucleation\n-cooling=ATOMIC,CHEM,H2,CIE,Z,CI,CII,OI,OII,CO,OH,H2O,HCN\n-heating=CHEM,CR\n-H2opacity=RIPAMONTI\n-gamma=EXACT\n-noSinkCheck\n-noRecCheck\n-noTlimits\n-useX\n-conserveLin\n-useTabs\n-unsafe\n-iRHS" > krome.setup && cat krome.setup
+
+      - name: "Compile phantom and link with krome"
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${{ github.workspace }}
+
+      - name: "Compile phantomsetup and link with krome"
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} setup
+
+      - name: "Compile phantomanalysis and link with krome"
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} analysis
+
+      - name: "Compile phantommoddump and link with krome"
+        run: make SYSTEM=${{ env.FC }} SETUP=wind KROME=krome KROMEPATH=${KROMEPATH} PREFIX=${PREFIX} RUNDIR=${PREFIX} moddump
