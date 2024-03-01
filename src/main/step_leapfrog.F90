@@ -96,7 +96,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftypetot,apr_level,apr_weight,&
+                          iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
                           aprmassoftype
@@ -261,7 +261,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(pxyzu,ppred,apr_level,apr_weight,aprmassoftype) &
+!$omp shared(pxyzu,ppred,apr_level,aprmassoftype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ialphaloc) &
@@ -277,7 +277,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (store_itype) then
           itype = iamtype(iphase(i))
           if (use_apr) then
-            pmassi = aprmassoftype(itype,apr_level(i))*apr_weight(i)
+            pmassi = aprmassoftype(itype,apr_level(i))
           else
             pmassi = massoftype(itype)
           endif
@@ -378,7 +378,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
-                ppred,dens,metrics,apr_level,apr_weight)
+                ppred,dens,metrics,apr_level)
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
@@ -653,7 +653,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,dustfrac,&
-                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level,apr_weight)
+                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred
@@ -1088,7 +1088,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
  use part,           only:maxphase,abundance,nabundances,h2chemistry,eos_vars,epot_sinksink,&
                           isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                           fxyz_ptmass_sinksink,dust_temp,tau,nucleation,idK2,idmu,idkappa,idgamma,&
-                          apr_level,apr_weight,aprmassoftype
+                          apr_level,aprmassoftype
  use chem,           only:update_abundances,get_dphot
  use cooling_ism,    only:dphot0,energ_cooling_ism,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete,summary_accrete_fail
@@ -1208,7 +1208,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac,apr_level,apr_weight,aprmassoftype) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac,apr_level,aprmassoftype) &
     !$omp shared(nptmass,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
     !$omp shared(nucleation,do_nucleation) &
@@ -1232,12 +1232,12 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           if (ntypes > 1 .and. maxphase==maxp) then
              itype  = iamtype(iphase(i))
              if (use_apr) then
-               pmassi = aprmassoftype(itype,apr_level(i))*apr_weight(i)
+               pmassi = aprmassoftype(itype,apr_level(i))
              else
                pmassi = massoftype(itype)
              endif
           elseif (use_apr) then
-             pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
 
           !
@@ -1403,7 +1403,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc,apr_level,apr_weight,aprmassoftype) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
     !$omp reduction(+:dptmass) &
@@ -1416,13 +1416,13 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
              if (use_apr) then
-               pmassi = aprmassoftype(itype,apr_level(i))*apr_weight(i)
+               pmassi = aprmassoftype(itype,apr_level(i))
              else
                pmassi = massoftype(itype)
              endif
              if (iamboundary(itype)) cycle accreteloop
           elseif (use_apr) then
-             pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
           !
           ! correct v to the full step using only the external force

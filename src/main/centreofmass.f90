@@ -76,7 +76,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  use io,       only:id,master
  use dim,      only:maxphase,maxp,use_apr
  use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
-                    aprmassoftype,apr_level,apr_weight
+                    aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: xcom(3),vcom(3)
  integer,      intent(in)  :: npart
@@ -98,7 +98,7 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
  totmass = 0.d0
  pmassi = massoftype(igas)
 !$omp parallel default(none) &
-!$omp shared(maxphase,maxp,aprmassoftype,apr_level,apr_weight) &
+!$omp shared(maxphase,maxp,aprmassoftype,apr_level) &
 !$omp shared(npart,xyzh,vxyzu,iphase,massoftype) &
 !$omp private(i,itype,xi,yi,zi,hi) &
 !$omp firstprivate(pmassi) &
@@ -114,13 +114,13 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
           itype = iamtype(iphase(i))
           if (itype > 0) then ! avoid problems if called from ICs
             if (use_apr) then
-              pmassi = aprmassoftype(itype,apr_level(i))*apr_weight(i)
+              pmassi = aprmassoftype(itype,apr_level(i))
             else
               pmassi = massoftype(itype)
             endif
           else
             if (use_apr) then
-              pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+              pmassi = aprmassoftype(igas,apr_level(i))
             else
               pmassi = massoftype(igas)
             endif
@@ -179,7 +179,7 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
  use io,       only:id,master
  use dim,      only:maxphase,maxp,use_apr
  use part,     only:massoftype,iamtype,iphase,igas,isdead_or_accreted, &
-                    apr_level,apr_weight,aprmassoftype
+                    apr_level,aprmassoftype
  use mpiutils, only:reduceall_mpi
  real,         intent(out) :: acom(3)
  integer,      intent(in)  :: npart
@@ -198,7 +198,7 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
 !$omp shared(maxphase,maxp,id) &
 !$omp shared(xyzh,fxyzu,fext,npart) &
 !$omp shared(massoftype,iphase,nptmass) &
-!$omp shared(aprmassoftype,apr_level,apr_weight) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,fxyz_ptmass) &
 !$omp private(i,pmassi,hi) &
 !$omp reduction(+:acom) &
@@ -209,13 +209,13 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))*apr_weight(i)
+           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
          else
            pmassi = massoftype(iamtype(iphase(i)))
         endif
        else
          if (use_apr) then
-           pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+           pmassi = aprmassoftype(igas,apr_level(i))
          else
            pmassi = massoftype(igas)
          endif
@@ -266,7 +266,7 @@ subroutine correct_bulk_motion()
  use dim,      only:maxp,maxphase,use_apr
  use part,     only:npart,xyzh,vxyzu,fxyzu,iamtype,igas,iphase,&
                     nptmass,xyzmh_ptmass,vxyz_ptmass,isdead_or_accreted,&
-                    massoftype,aprmassoftype,apr_level,apr_weight
+                    massoftype,aprmassoftype,apr_level
  use mpiutils, only:reduceall_mpi
  use io,       only:iprint,iverbose,id,master
  real    :: totmass,pmassi,hi,xmom,ymom,zmom
@@ -285,7 +285,7 @@ subroutine correct_bulk_motion()
 !$omp shared(maxphase,maxp) &
 !$omp shared(xyzh,vxyzu,fxyzu,npart) &
 !$omp shared(massoftype,iphase) &
-!$omp shared(aprmassoftype,apr_level,apr_weight) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,nptmass) &
 !$omp private(i,hi) &
 !$omp firstprivate(pmassi) &
@@ -297,13 +297,13 @@ subroutine correct_bulk_motion()
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
          if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))*apr_weight(i)
+           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
          else
            pmassi = massoftype(iamtype(iphase(i)))
          endif
        else
          if (use_apr) then
-           pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+           pmassi = aprmassoftype(igas,apr_level(i))
          else
            pmassi = massoftype(igas)
          endif
@@ -391,7 +391,7 @@ end subroutine correct_bulk_motion
 subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_ptmass,npart_ptmass)
  use vectorutils, only:cross_product3D
  use part,        only:iphase,iamtype,massoftype,isdead_or_accreted, &
-                       aprmassoftype,apr_level,apr_weight
+                       aprmassoftype,apr_level
  use mpiutils,    only:reduceall_mpi
  use dim,         only:use_apr
  real, intent(in)  :: xyzh(:,:),vxyz(:,:)
@@ -409,7 +409,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
 !$omp parallel default(none) &
 !$omp shared(xyzh,vxyz,npart) &
 !$omp shared(massoftype,iphase) &
-!$omp shared(aprmassoftype,apr_level,apr_weight) &
+!$omp shared(aprmassoftype,apr_level) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,npart_ptmass) &
 !$omp private(ii,itype,pmassi,temp) &
 !$omp reduction(+:L_tot)
@@ -418,7 +418,7 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
     if (.not.isdead_or_accreted(xyzh(4,ii))) then
        itype = iamtype(iphase(ii))
        if (use_apr) then
-         pmassi = aprmassoftype(itype,apr_level(ii))*apr_weight(ii)
+         pmassi = aprmassoftype(itype,apr_level(ii))
        else
          pmassi = massoftype(itype)
        endif

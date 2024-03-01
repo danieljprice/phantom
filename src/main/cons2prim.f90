@@ -121,7 +121,7 @@ end subroutine prim2consi
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma,aprmassoftype,apr_level,apr_weight
+                           itemp,igamma,aprmassoftype,apr_level
  use io,              only:fatal
  use eos,             only:ieos,gamma,done_init_eos,init_eos,get_spsound
  use dim,             only:use_apr
@@ -136,7 +136,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype,aprmassoftype) &
-!$omp shared(ieos,gamma,eos_vars,ien_type,apr_level,apr_weight) &
+!$omp shared(ieos,gamma,eos_vars,ien_type,apr_level) &
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai,pmassi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -145,7 +145,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        tempi   = eos_vars(itemp,i)
        gammai  = eos_vars(igamma,i)
        if (use_apr) then
-         pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+         pmassi = aprmassoftype(igas,apr_level(i))
        else
          pmassi = massoftype(igas)
        endif
@@ -181,7 +181,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,aprmassoftype,apr_level,apr_weight
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,aprmassoftype,apr_level
  use part,              only:nucleation,gamma_chem
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
@@ -219,7 +219,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  Z_i    = Z_in
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level,apr_weight) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level) &
 !$omp shared(ieos,gamma_chem,nucleation,nden_nimhd,eta_nimhd) &
 !$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,aprmassoftype) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
@@ -242,7 +242,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
 
        if (use_apr) then
-         pmassi = aprmassoftype(iamtypei,apr_level(i))*apr_weight(i)
+         pmassi = aprmassoftype(iamtypei,apr_level(i))
        else
          pmassi  = massoftype(iamtypei)
        endif
@@ -280,7 +280,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           uui = vxyzu(4,i)
           if (uui < 0.) then
             call warning('cons2prim','Internal energy < 0',i,'u',uui)
-            print*,'apr',apr_level(i),apr_weight(i)
+            print*,'apr',apr_level(i)
           endif
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)

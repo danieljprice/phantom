@@ -89,7 +89,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
 #ifdef APR
   use apr,             only:update_apr
-  use part,            only:apr_level,apr_weight
+  use part,            only:apr_level
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
@@ -232,7 +232,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
 #ifdef APR
  ! split or merge as required
- call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
+ call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 #endif
 
     dtmaxold    = dtmax

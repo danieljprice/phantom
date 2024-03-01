@@ -272,10 +272,8 @@ module part
 !
 !--APR - we need these arrays whether we use apr or not
 !
- integer, allocatable :: apr_level(:)
- integer, allocatable :: apr_level_soa(:)
- real,    allocatable :: apr_weight(:)
- real,    allocatable :: apr_weight_soa(:)
+ integer(kind=1), allocatable :: apr_level(:)
+ integer(kind=1), allocatable :: apr_level_soa(:)
 !
 
 !--derivatives (only needed if derivs is called)
@@ -391,6 +389,7 @@ subroutine allocate_part
    maxan = maxp_apr
    maxphase = maxp_apr
    maxindan = maxp_apr
+   maxgrav = maxp_apr
    if (mhd) then
      maxmhd = maxp_apr
      maxmhdan = maxp_apr
@@ -408,8 +407,6 @@ subroutine allocate_part
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
  call allocate_array('apr_level',apr_level,maxp_apr)
  call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
- call allocate_array('apr_weight',apr_weight,maxp_apr)
- call allocate_array('apr_weight_soa',apr_weight_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -547,8 +544,6 @@ subroutine deallocate_part
  if (allocated(ibin_sts))     deallocate(ibin_sts)
  if (allocated(apr_level))    deallocate(apr_level)
  if (allocated(apr_level_soa)) deallocate(apr_level_soa)
- if (allocated(apr_weight))   deallocate(apr_weight)
- if (allocated(apr_weight_soa)) deallocate(apr_weight_soa)
 
 end subroutine deallocate_part
 
@@ -592,7 +587,6 @@ subroutine init_part
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
  apr_level = 1 ! this is reset if the simulation is to derefine
- apr_weight = 1.0
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.
@@ -1167,7 +1161,6 @@ subroutine copy_particle(src,dst,new_part)
  endif
  if (use_apr) then
    apr_level(dst) = apr_level(src)
-   apr_weight(dst) = apr_weight(src)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
@@ -1291,8 +1284,6 @@ subroutine copy_particle_all(src,dst,new_part)
  if (use_apr) then
    apr_level(dst)      = apr_level(src)
    apr_level_soa(dst)  = apr_level_soa(src)
-   apr_weight(dst)     = apr_weight(src)
-   apr_weight_soa(dst) = apr_weight_soa(src)
  endif
 
  if (new_part) then

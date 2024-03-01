@@ -131,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             maxphase,iphase,isetphase,iamtype, &
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,igas,idust,massoftype,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
-                            nden_nimhd,dustevol,rhoh,gradh,apr_level,apr_weight,&
+                            nden_nimhd,dustevol,rhoh,gradh,apr_level,&
                             Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
@@ -350,10 +350,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  ! initialise apr if it is being used
 #ifdef APR
-  call init_apr(apr_level,apr_weight,ierr)
+  call init_apr(apr_level,ierr)
 #else
   apr_level = 1
-  apr_weight = 1.0
 #endif
 
 !
@@ -366,7 +365,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        call set_linklist(npart,npart,xyzh,vxyzu)
        fxyzu = 0.
        call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level,apr_weight)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     endif
 
     ! now convert to B/rho
@@ -434,7 +433,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     call set_linklist(npart,npart,xyzh,vxyzu)
     fxyzu = 0.
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level,apr_weight)
+                              fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  endif
 #ifndef PRIM2CONS_FIRST
 ! COMPUTE METRIC HERE
@@ -604,13 +603,13 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
                               rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
-                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level,apr_weight)
+                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level,apr_weight)
+                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics,apr_level)
 
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif

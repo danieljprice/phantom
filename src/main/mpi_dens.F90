@@ -45,8 +45,7 @@ module mpidens
                                          4 * minpart                    + & !  nneigh(minpart)
                                          4                              + & !  waiting_index
                                          1 * minpart                    + & !  iphase(minpart)
-                                         1 * minpart                    + & !  apr_level
-                                         1 * minpart                        !  apr_weights
+                                         1 * minpart                        !  apr_level
 
  type celldens
     sequence
@@ -68,8 +67,7 @@ module mpidens
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
-    integer          :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
-    real             :: apr_weights(minpart)
+    integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
  end type celldens
 
  type stackdens
@@ -209,15 +207,9 @@ subroutine get_mpitype_of_celldens(dtype)
  disp(nblock) = addr - start
 
  nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_INTEGER4
+ blens(nblock) = size(cell%apr)
+ mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
- disp(nblock) = addr - start
-
- nblock = nblock + 1
- blens(nblock) = 1
- mpitypes(nblock) = MPI_REAL8
- call MPI_GET_ADDRESS(cell%apr_weights,addr,mpierr)
  disp(nblock) = addr - start
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)

@@ -217,7 +217,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
                  VrelVf_label,dustgasprop,dustgasprop_label,dust_temp,pxyzu,pxyzu_label,dens,& !,dvdx,dvdx_label
                  rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,itemp,igasP,igamma,&
                  iorig,iX,iZ,imu,nucleation,nucleation_label,n_nucleation,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                 luminosity,eta_nimhd,eta_nimhd_label,apr_level,apr_weight
+                 luminosity,eta_nimhd,eta_nimhd_label,apr_level
  use options,    only:use_dustfrac,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
@@ -245,7 +245,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  character(len=120)    :: blankarray
  type(dump_h)          :: hdr
  real, allocatable :: temparr(:)
- integer(kind=1)   :: tempapr(npart)
 !
 !--collect global information from MPI threads
 !
@@ -417,10 +416,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
 
        if (use_apr) then
-         do l=1,npart
-           tempapr(l) = int(apr_level(l),kind=1)
-         enddo
-          call write_array(1,tempapr,'apr_level',npart,k,ipass,idump,nums,ierrs(11),func=iamtype_int11)
+          call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,ierrs(11),func=iamtype_int11)
        endif
 
        if (use_krome) then
@@ -518,10 +514,9 @@ subroutine write_smalldump_fortran(t,dumpfile)
  character(len=*), intent(in) :: dumpfile
  integer(kind=8) :: ilen(4)
  integer         :: nums(ndatatypes,4)
- integer         :: ierr,ipass,k,l
+ integer         :: ierr,ipass,k
  integer         :: nblocks,nblockarrays,narraylengths
  integer(kind=8) :: nparttot
- integer(kind=1) :: tempapr(npart)
  logical         :: write_itype
  type(dump_h)    :: hdr
 !
@@ -593,10 +588,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
        if (lightcurve) call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (do_radiation) call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierr,singleprec=.true.)
        if (use_apr) then
-         do l=1,npart
-           tempapr(l) = int(apr_level(l),kind=1)
-         enddo
-          call write_array(1,tempapr,'apr_level',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
+          call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,ierr,func=iamtype_int11)
        endif
     enddo
     !
@@ -1129,7 +1121,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,pxyzu,pxyzu_label,dust_temp, &
                       rad,rad_label,radprop,radprop_label,do_radiation,maxirad,maxradprop,ifluxx,ifluxy,ifluxz, &
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
-                      ithick,ilambda,iorig,dt_in,krome_nmols,gamma_chem,mu_chem,T_gas_cool,apr_level,apr_weight
+                      ithick,ilambda,iorig,dt_in,krome_nmols,gamma_chem,mu_chem,T_gas_cool,apr_level
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
@@ -1144,7 +1136,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_krome_mols(krome_nmols),got_krome_T,got_krome_gamma,got_krome_mu
  logical               :: got_eosvars(maxeosvars),got_nucleation(n_nucleation),got_ray_tracer
  logical               :: got_psi,got_Tdust,got_dustprop(2),got_VrelVf,got_dustgasprop(4)
- logical               :: got_apr_level,got_apr_weight
+ logical               :: got_apr_level
  logical               :: got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
@@ -1180,7 +1172,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_pxyzu       = .false.
  got_iorig       = .false.
  got_apr_level   = .false.
- got_apr_weight  = .false.
 
  ndustfraci = 0
  over_arraylengths: do iarr=1,narraylengths
@@ -1229,8 +1220,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                 call read_array(T_gas_cool,'temp',got_krome_T,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (use_apr) then
-               call read_array(apr_level,'apr',got_apr_level,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-               call read_array(apr_weight,'apr_weight',got_apr_weight,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+               call read_array(apr_level,'apr_level',got_apr_level,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              endif
              if (do_nucleation) then
                 call read_array(nucleation,nucleation_label,got_nucleation,ik,i1,i2,noffset,idisk1,tag,match,ierr)
@@ -1290,7 +1280,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                    got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
                    got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
                    got_dustgasprop,got_rad,got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig, &
-                   got_apr_level,got_apr_weight,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                   got_apr_level,iphase,xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  if (.not. phantomdump) then
     print *, "Calling set_gas_particle_mass"
     call set_gas_particle_mass(mass_sphng)

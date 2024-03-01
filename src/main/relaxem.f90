@@ -82,7 +82,7 @@ end subroutine relax_particles
 
 subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
   force_ref,nrelax,relaxlist)
-  use part,         only:xyzh,aprmassoftype,igas,apr_level,apr_weight,rhoh
+  use part,         only:xyzh,aprmassoftype,igas,apr_level,rhoh
   use dim,          only:periodic
   use kernel,       only:wkern,grkern,radkern2,cnormk
   use boundary,     only:dxbound,dybound,dzbound
@@ -98,7 +98,7 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
   ! Over the new set of particles that are to be shuffled
   !$omp parallel do schedule(guided) default (none) &
   !$omp shared(xyzh,xyzh_ref,npart,n_ref,force_ref,a_ref,relaxlist) &
-  !$omp shared(nrelax,apr_level,apr_weight,dxbound,dybound,dzbound) &
+  !$omp shared(nrelax,apr_level,dxbound,dybound,dzbound) &
   !$omp shared(mass_ref,aprmassoftype) &
   !$omp private(i,j,xi,yi,zi,rij,h21,h31,rhoj,rij2,qj2,pmassi)
 
@@ -108,14 +108,14 @@ subroutine get_reference_accelerations(npart,a_ref,n_ref,xyzh_ref,&
     xi = xyzh(1,i)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
-    pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+    pmassi = aprmassoftype(igas,apr_level(i))
 
     ! Over the reference set of particles to which we are matching the accelerations
     over_reference: do j = 1,n_ref  ! later this should only be over active particles
       rij(1) = xyzh_ref(1,j) - xi
       rij(2) = xyzh_ref(2,j) - yi
       rij(3) = xyzh_ref(3,j) - zi
-      mass_ref = aprmassoftype(igas,apr_level(j))*apr_weight(j)   ! TBD: fix this to allow for dust
+      mass_ref = aprmassoftype(igas,apr_level(j))   ! TBD: fix this to allow for dust
 
       if (periodic) then
         if (abs(rij(1)) > 0.5*dxbound) rij(1) = rij(1) - dxbound*SIGN(1.0,rij(1))
@@ -152,7 +152,7 @@ end subroutine get_reference_accelerations
 subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
   use dim,      only:periodic
   use part,     only:xyzh,vxyzu,fxyzu,igas,aprmassoftype,rhoh, &
-                     apr_level,apr_weight
+                     apr_level
   use eos,      only:get_spsound
   use options,  only:ieos
   use boundary, only:cross_boundary
@@ -173,7 +173,7 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
 
   !$omp parallel do schedule(guided) default(none) &
   !$omp shared(npart,xyzh,vxyzu,fxyzu,ieos,a_ref,maxshift) &
-  !$omp shared(apr_level,apr_weight,aprmassoftype) &
+  !$omp shared(apr_level,aprmassoftype) &
   !$omp shared(isperiodic,ncross,relaxlist,nrelax) &
   !$omp private(i,dx,dti,cs,rhoi,hi,vi,err,pri,m,pmassi) &
   !$omp reduction(+:nlargeshift,ke)
@@ -181,7 +181,7 @@ subroutine shift_particles(npart,a_ref,nrelax,relaxlist,ke,maxshift)
     if (relaxlist(j) == 0) cycle
     i = relaxlist(j)
     hi = xyzh(4,i)
-    pmassi = aprmassoftype(igas,apr_level(i))*apr_weight(i)
+    pmassi = aprmassoftype(igas,apr_level(i))
     rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs

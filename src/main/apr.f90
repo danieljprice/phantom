@@ -29,7 +29,7 @@ module apr
   real    :: apr_centre(3),apr_rad = 1.0, apr_drad = 0.1, apr_blend
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
-  real    :: sep_factor = 0.4
+  real    :: sep_factor = 0.6
   logical :: apr_verbose = .false.
   logical :: do_relax = .false.
   logical :: adjusted_split = .true.
@@ -41,12 +41,12 @@ contains
   !  Initialising all the apr arrays and properties
   !+
   !-----------------------------------------------------------------------
-  subroutine init_apr(apr_level,apr_weight,ierr)
+  subroutine init_apr(apr_level,ierr)
     use dim, only:maxp_hard
     use part, only:npart,massoftype,aprmassoftype
     use apr_region, only:set_apr_centre,set_apr_regions
-    integer, intent(inout) :: ierr,apr_level(:)
-    real, intent(inout)    :: apr_weight(:)
+    integer,         intent(inout) :: ierr
+    integer(kind=1), intent(inout) :: apr_level(:)
     logical :: previously_set
     integer :: i
 
@@ -64,9 +64,9 @@ contains
     if (.not.previously_set) then
       ! initialise the base resolution level
       if (ref_dir == 1) then
-        apr_level = 1
+        apr_level = int(1,kind=1)
       else
-        apr_level = apr_max
+        apr_level = int(apr_max,kind=1)
       endif
     endif
 
@@ -91,9 +91,6 @@ contains
       aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
     enddo
 
-    ! set the initial weightings
-    apr_weight(:) = 1.0
-
     ierr = 0
 
   end subroutine init_apr
@@ -103,25 +100,22 @@ contains
   !  Subroutine to check if particles need to be split or merged
   !+
   !-----------------------------------------------------------------------
-  subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level,apr_weight)
+  subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     use dim,      only:maxp_hard,ind_timesteps
     use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
                        shuffle_part,iphase,iactive
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
-    use timestep,   only:time
-    real, intent(inout) :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),apr_weight(:)
-    integer, intent(inout) :: npart,apr_level(:)
+    real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
+    integer, intent(inout)         :: npart
+    integer(kind=1), intent(inout) :: apr_level(:)
     integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
     integer :: n_ref,nrelax,nmerge,nkilled,apr_current
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi
-
-    ! time thing
-    if (time < 0.5) return
 
     ! if the centre of the region can move, update it
     if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
@@ -252,8 +246,6 @@ contains
     endif
     deallocate(mergelist)
 
-    !call hacky_write('phantom')
-    !call quit
 
   end subroutine update_apr
 
@@ -305,9 +297,10 @@ contains
     use random,  only:ran2
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
-    integer :: j,npartold,aprnew,next_door
+    integer :: j,npartold,next_door
     real :: theta,dx,dy,x_add,y_add,sep,rneigh
-    integer, save :: iseed = 4, oldseed
+    integer, save :: iseed = 4
+    integer(kind=1) :: aprnew
 
     if (adjusted_split) then
       call closest_neigh(i,next_door,rneigh)
@@ -328,7 +321,7 @@ contains
     npartold = npartnew
     npartnew = npartold + 1
     npartoftype(igas) = npartoftype(igas) + 1
-    aprnew = apr_level(i) + 1
+    aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
     !--create the new particle
     do j=npartold+1,npartnew
@@ -363,10 +356,11 @@ contains
     use kdtree,   only:inodeparts,inoderange
     use part,     only:kill_particle,npartoftype
     use dim,      only:ind_timesteps
-    integer, intent(inout) :: nmerge,apr_level(:),nkilled,nrelax,relaxlist(:),npartnew
-    integer, intent(in)    :: current_apr,mergelist(:)
-    real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
-    real, intent(inout)    :: xyzh_merge(:,:),vxyzu_merge(:,:)
+    integer,         intent(inout) :: nmerge,nkilled,nrelax,relaxlist(:),npartnew
+    integer(kind=1), intent(inout) :: apr_level(:)
+    integer,         intent(in)    :: current_apr,mergelist(:)
+    real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
+    real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer :: remainder,icell,i,n_cell,apri,m
     integer :: eldest,tuther
     real    :: com(3)
@@ -405,7 +399,7 @@ contains
         vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
 
         xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
-        apr_level(eldest) = apr_level(eldest) - 1
+        apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
         if (ind_timesteps) call put_in_smallest_bin(eldest)
 
         ! add it to the shuffling list if needed
@@ -490,7 +484,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine hacky_write(ifile)
     use part, only:igas,rhoh,aprmassoftype,Bxyz, &
-                   npart,xyzh,apr_level,fxyzu
+                   npart,xyzh,apr_level,fxyzu,ibin
     use dim,  only:mhd
     character(len=*), intent(in) :: ifile
     integer :: ii,iunit=24
@@ -516,14 +510,14 @@ contains
     4,'rho', &
     5,'mass',&
     6,'apri',&
-    7,'Bx',&
+    7,'tbin',&
     8,'By'
 
     do ii=1,npart
       pmass = aprmassoftype(igas,apr_level(ii))
       rhoi = rhoh(xyzh(4,ii),pmass)
       if (.not.mhd) then
-        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), 0.0, 0.
+        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), real(ibin(ii)), 0.
       else
         write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), Bxyz(1,ii), Bxyz(2,ii)
       endif
