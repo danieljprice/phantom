@@ -416,7 +416,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        endif
 
        if (use_apr) then
-          call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,ierrs(11),func=iamtype_int11)
+          call write_array(1,apr_level,'apr_level',npart,k,ipass,idump,nums,ierrs(11))
        endif
 
        if (use_krome) then

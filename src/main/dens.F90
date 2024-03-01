@@ -767,9 +767,9 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
                 dz = dxcache(7,n)
              endif
              rij1grkern = rij1*grkerni
-             runix = dx*rij1grkern
-             runiy = dy*rij1grkern
-             runiz = dz*rij1grkern
+             runix = dx*rij1grkern*pmassi
+             runiy = dy*rij1grkern*pmassi
+             runiz = dz*rij1grkern*pmassi
 
              if (getdv) then
                 !--get dv and den
@@ -1637,7 +1637,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
        !
        igotrmatrix = .false.
 
-       term = cnormk*pmassi*gradhi*rho1i*hi41
+       term = cnormk*gradhi*rho1i*hi41
        if (getdv) then
           call calculate_rmatrix_from_sums(rhosum,denom,rmatrix,igotrmatrix)
           call calculate_divcurlv_from_sums(rhosum,term,divcurlvi,ndivcurlv,denom,rmatrix)

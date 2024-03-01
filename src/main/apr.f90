@@ -22,9 +22,10 @@ module apr
   implicit none
 
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
+  integer, public :: apr_max_in = 3
 
   private
-  integer :: apr_max, apr_max_in = 3
+  integer :: apr_max
   integer :: ref_dir = 1, top_level = 1, apr_type = 1
   real    :: apr_centre(3),apr_rad = 1.0, apr_drad = 0.1, apr_blend
   real, allocatable    :: apr_regions(:)
