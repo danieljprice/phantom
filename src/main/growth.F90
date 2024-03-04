@@ -576,10 +576,10 @@ end subroutine set_dustprop
 subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use part,           only:npart,npartoftype,massoftype,ndusttypes,&
                           ndustlarge,grainsize,dustprop,graindens,&
-                          iamtype,iphase,set_particle_type,idust
+                          iamtype,iphase,set_particle_type,idust,maxdustlarge
  use units,          only:udist
  use table_utils,    only:logspace
- use io,             only:fatal
+ use io,             only:fatal,error
  use checkconserved, only:mdust_in
  integer, intent(in)    :: bins_per_dex
  real,    intent(in)    :: smax_user
@@ -601,7 +601,8 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  ndustnew     = 0
  mdustold     = 0.
  mdustnew     = 0.
- nbinmax      = 25
+ nbinmax      = maxdustlarge
+ if (nbinmax <= 1) call error('bin_to_multi','please compile with MAXDUSTLARGE > 1',var='nbinmax',ival=nbinmax)
  npartmin     = 50 !- limit to find neighbours
  init         = .false.
  graindens    = maxval(dustprop(2,:))
@@ -637,6 +638,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     !- set ndusttypes based on desired log size spacing
     nbins      = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
     ndusttypes = min(nbins, nbinmax) !- prevent memory allocation errors
+    if (ndusttypes==nbinmax) call error('bin_to_multi','need to compile with more bins, try',var='make MAXDUSTLARGE',ival=nbins)
     ndustlarge = ndusttypes !- this is written to the header
 
     !- allocate memory for a grid of ndusttypes+1 elements
