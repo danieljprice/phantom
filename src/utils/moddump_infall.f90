@@ -54,8 +54,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: in_shape,in_orbit,ipart,i,n_add,np,add_turbulence,ierr
  integer(kind=8) :: nptot
  integer, parameter :: iunit = 23
- real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,inc,big_omega
- real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc
+ real    :: r_close,in_mass,hfact,pmass,delta,r_init,r_init_min,r_in,r_a,big_omega
+ real    :: v_inf,b,b_frac,theta_def,b_crit,a,ecc,incx,incy,incz
  real    :: vp(3), xp(3), rot_axis(3), rellipsoid(3), xp2(3), rellipsoid2(3)
  real    :: dma,n0,pf,m0,x0,y0,z0,r0,vx0,vy0,vz0,mtot,tiny_number,ang,n1
  real    :: y1,x1,dx,x_prime,y_prime,theta
@@ -76,7 +76,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  in_orbit = 1
  in_shape = 1
  r_slope = 0.0
- inc = 0.
+ incx = 0.
+ incy = 0.
+ incz = 0.
  big_omega = 0.
  tiny_number = 1e-4
  lrhofunc = .false.
@@ -169,7 +171,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (call_prompt) then
    write(*,*), "Rotating the infalling gas."
    write(*,*), "Convention: clock-wise rotation in the xy-plane."
-   call prompt('Enter rotation on z axis:', inc, 0., 360.)
+   call prompt('Enter rotation on x axis:', incx, -360., 360.)
+   call prompt('Enter rotation on y axis:', incy, -360., 360.)
+   call prompt('Enter rotation on z axis:', incz, -360., 360.)
    ! call prompt('Enter position angle of ascending node:', big_omega, 0., 360.)
  endif
 
@@ -376,7 +380,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  ! Now rotate and add those new particles to existing disc
  ipart = npart ! The initial particle number (post shuffle)
- inc = inc*pi/180.
+ incx = incx*pi/180.
+ incy = incy*pi/180.
+ incz = incz*pi/180.
  rot_axis = (/1.,1.,0./)
  do i = 1,n_add
    ! Rotate particle to correct position and velocity
@@ -386,14 +392,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    call rotatevec(xyzh_add(1:3,i),(/0.,-1.,0./),pi)
    call rotatevec(vxyzu_add(1:3,i),(/0.,-1.,0./),pi)
 
-   ! Now rotate around z axis
-   ! call rotatevec(xyzh_add(1:3,i),rot_axis,inc)
-   ! call rotatevec(vxyzu_add(1:3,i),rot_axis,inc)
-   call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),inc)
-   call rotatevec(vxyzu_add(1:3,i),(/1.,0.,0./),inc)
+   ! Now rotate around x axis
+   call rotatevec(xyzh_add(1:3,i),(/1.,0.,0./),incx)
+   call rotatevec(vxyzu_add(1:3,i),(/1.,0.,0./),incx)
 
-   ! call rotatevec(xyzh_add(1:3,i),(/0.,1.,0./),inc)
-   ! call rotatevec(vxyzu_add(1:3,i),(/0.,1.,0./),inc)
+   call rotatevec(xyzh_add(1:3,i),(/0.,1.,0./),incy)
+   call rotatevec(vxyzu_add(1:3,i),(/0.,1.,0./),incy)
+
+   call rotatevec(xyzh_add(1:3,i),(/0.,0.,1./),incz)
+   call rotatevec(vxyzu_add(1:3,i),(/0.,0.,1./),incz)
 
 
    ! Add the particle
