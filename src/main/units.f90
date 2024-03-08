@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module units
 !
@@ -35,6 +35,7 @@ module units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
  public :: is_time_unit, is_length_unit
+ public :: in_solarr, in_solarm, in_solarl
 
 contains
 
@@ -99,13 +100,13 @@ subroutine set_units(dist,mass,time,G,c)
        utime = sqrt(udist**3/(gg*umass))
        if (present(time)) print "(a)",' WARNING: over-riding time unit with G=1 assumption'
     elseif (present(dist) .and. present(time)) then
-       umass = udist**2/(gg*utime**2)
+       umass = udist**3/(gg*utime**2)
        if (present(mass)) print "(a)",' WARNING: over-riding mass unit with G=1 assumption'
     elseif (present(mass) .and. present(time)) then
        udist = (utime**2*(gg*umass))**(1.d0/3.d0)
        if (present(dist)) print "(a)",' WARNING: over-riding length unit with G=1 assumption'
     elseif (present(time)) then
-       umass = udist**2/(gg*utime**2)     ! udist is 1
+       umass = udist**3/(gg*utime**2)     ! udist is 1
     else
        utime = sqrt(udist**3/(gg*umass))  ! udist and umass are 1
     endif
@@ -438,5 +439,42 @@ logical function in_geometric_units()
  in_geometric_units = c_is_unity() .and. G_is_unity()
 
 end function in_geometric_units
+
+!---------------------------------------------------------------------------
+!+
+!  function to convert a mass value from code units to solar masses
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarm(val) result(rval)
+ use physcon, only:solarm
+ real, intent(in) :: val
+
+ rval = val*(umass/solarm)
+
+end function in_solarm
+!---------------------------------------------------------------------------
+!+
+!  function to convert a distance value from code units to solar radii
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarr(val) result(rval)
+ use physcon, only:solarr
+ real, intent(in) :: val
+
+ rval = val*(udist/solarr)
+
+end function in_solarr
+!---------------------------------------------------------------------------
+!+
+!  function to convert a luminosity value from code units to solar luminosity
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarl(val) result(rval)
+ use physcon, only:solarl
+ real, intent(in) :: val
+
+ rval = val*(unit_luminosity/solarl)
+
+end function in_solarl
 
 end module units
