@@ -207,7 +207,7 @@ for edittype in $bots_to_run; do
                'shout' )
                  sed -e 's/SQRT(/sqrt(/g' \
                      -e 's/NINT(/nint(/g' \
-                     -e 's/STOP/stop/g' \
+                     -e 's/ STOP/ stop/g' \
                      -e 's/ATAN/atan/g' \
                      -e 's/ACOS(/acos(/g' \
                      -e 's/ASIN(/asin(/g' \

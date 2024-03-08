@@ -20,12 +20,12 @@ Contents
 .. toctree::
    :maxdepth: 1
 
-   getting-started
-   user-guide
-   examples
-   external-utilities
-   physics-guide
-   developer-guide
+   getting-started/index
+   user-guide/index
+   examples/index
+   external-utilities/index
+   physics/index
+   developer-guide/index
    faq
    releasenotes
 

@@ -3,7 +3,12 @@
 
 KROME_BUILD_DIR = ${KROMEPATH}/build
 
-KFLAGS="$(FFLAGS)"
+KFLAGS=$(filter-out -std=f2008, $(FFLAGS))
+ifeq ($(SYSTEM), ifort)
+    KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
+else
+    KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
+endif
 FFLAGS+= -I$(KROME_BUILD_DIR)
 PASSED=0
 
@@ -21,23 +26,22 @@ endif
 ifeq ("$(wildcard ${KROMEPATH}/build/optionsKrome.opt)","")
 	cp $(RUNDIR)/krome.setup ${KROMEPATH}/build/optionsKrome.opt
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
-	cp -f ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	cp -f ${KROMEPATH}/build/*.dat ${KROMEPATH}/build/*.gfe ${RUNDIR}
 	make clean_krome
 override PASSED:=1
 endif
 ifeq ("$(PASSED)$(wildcard ${KROMEPATH}/build/reactions_verbatim.dat)","0")
 	cd ${KROMEPATH}; ./krome -options=build/optionsKrome.opt
-	cp ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	cp -f ${KROMEPATH}/build/*.dat ${KROMEPATH}/build/*.gfe ${RUNDIR}
 endif
 
 krome: $(KROME_OBJS)
 ifeq ("$(wildcard coolCO.dat)","")
-	cp -f ${KROMEPATH}/data/coolCO.dat ${KROMEPATH}/data/coolH2O.dat ${KROMEPATH}/data/coolOH.dat ${KROMEPATH}/data/coolHCN.dat ${KROMEPATH}/build/reactions_verbatim.dat ${RUNDIR}
+	cp -f ${KROMEPATH}/build/*.dat ${KROMEPATH}/build/*.gfe ${RUNDIR}
 endif
 
-
 $(KROME_OBJS):
-	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(FC) switch=$(KFLAGS)
+	$(MAKE) -C $(KROME_BUILD_DIR) fc=$(FC) switch="$(KFLAGS)"
 
 clean_krome:
 	$(MAKE) -C $(KROME_BUILD_DIR) clean
