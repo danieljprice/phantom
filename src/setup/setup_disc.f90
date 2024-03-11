@@ -184,7 +184,7 @@ module setup
 
  real    :: R_in(maxdiscs),R_out(maxdiscs),R_ref(maxdiscs),R_c(maxdiscs)
  real    :: pindex(maxdiscs),disc_m(maxdiscs),sig_ref(maxdiscs),sig_norm(maxdiscs)
- real    :: qindex(maxdiscs),H_R(maxdiscs)
+ real    :: qindex(maxdiscs),H_R(maxdiscs),T_floor
  real    :: posangl(maxdiscs),incl(maxdiscs)
  real    :: annulus_m(maxdiscs),R_inann(maxdiscs),R_outann(maxdiscs)
  real    :: R_warp(maxdiscs),H_warp(maxdiscs)
@@ -442,6 +442,9 @@ subroutine set_default_options()!id)
  R_inann      = 1.
  R_outann     = 150.
 
+ !--floor temperature
+ T_floor      = 0.0
+
  !--dust disc
  R_indust      = 1.
  R_outdust     = 150.
@@ -612,7 +615,10 @@ end subroutine number_of_discs
 !
 !--------------------------------------------------------------------------
 subroutine equation_of_state(gamma)
- use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0
+ use eos,     only:gmw
+ use eos,     only:isink,qfacdisc,qfacdisc2,polyk2,beta_z,z0,cs_min
+ use units,          only:unit_velocity
+ use physcon,        only:mass_proton_cgs,kboltz
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  real, intent(out) :: gamma
@@ -717,6 +723,11 @@ subroutine equation_of_state(gamma)
        alphau = 0
     endif
 
+ endif
+
+ if ( any( ieos==(/3,6,7,13,14/) ) ) then
+   print "(/,a)",' Setting floor temperature to ', T_floor, ' K.'
+   cs_min =  gmw*T_floor/(mass_proton_cgs/kboltz * unit_velocity**2)
  endif
 
 end subroutine equation_of_state
@@ -2772,6 +2783,8 @@ subroutine write_setupfile(filename)
        endif
     endif
  enddo
+ write(iunit,"(/,a)") '# Minimum Temperature in the Simulation'
+ call write_inopt(T_floor,'T_floor','The minimum temperature in the simulation (for any locally isothermal EOS).',iunit)
  !--dust & growth options
  if (use_dust) then
     call write_dust_setup_options(iunit)
@@ -3017,6 +3030,8 @@ subroutine read_setupfile(filename,ierr)
             J2star(i),size_star(i),spin_period_star(i),kfac_star(i),obliquity_star(i))
     enddo
  end select
+
+ call read_inopt(T_floor,'T_floor',db,errcount=nerr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  if (discstrat==1) then
