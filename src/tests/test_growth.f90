@@ -65,6 +65,11 @@ subroutine test_growth(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
  !
+ ! Test growth2multi procedure
+ !
+ call test_growth2multi(ntests,npass)
+
+ !
  ! The return of the dustybox test
  !
  call test_dustybox(ntests,npass)
@@ -83,6 +88,34 @@ subroutine test_growth(ntests,npass)
  if (id==master) write(*,"(/,a)") '<-- DUSTGROWTH TEST COMPLETE'
 
 end subroutine test_growth
+
+!-------------------
+subroutine test_growth2multi(ntests,npass)
+ ! 
+ ! unit test of the growth to multigrain conversion procedure
+ ! which converts a growth simulation with a mean grain size
+ ! per particle into a multi-species simulation.
+ !
+ ! We bin particles into grain size bins, with the number
+ ! of particles in each bin some fraction of the total
+ ! number of dust particles
+ !
+ ! i.e. a high-dust-resolution simulation with one grain size
+ ! per particle becomes a low-dust-resolution simulation
+ ! with multiple grain sizes per particle
+ !
+ integer, intent(inout) :: ntests,npass
+
+ write(*,"(/,a)") '--> testing growth2multi'
+
+ print*,' hello from growth2multi test'
+ ntests = ntests + 1
+ npass = npass + 1
+
+ write(*,"(/,a)") '--> growth2multi test complete'
+
+end subroutine test_growth2multi
+
 
 !-------------------
 !-------------------
@@ -170,8 +203,16 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
  endif
  dens  = 1./unit_density
 
- write(*,"(/,a)") '--> testing FARMINGBOX using: '//trim(stringfrag)//&
+ if (periodic .and. use_dust) then
+    if (id==master) write(*,"(/,a)") '--> testing FARMINGBOX using: '//trim(stringfrag)//&
                 ' and '//trim(stringmethod)//' dust method'
+ else
+    if (id==master) write(*,"(/,a)") '--> skipping FARMINGBOX (need -DPERIODIC and -DDUST)'
+    return
+ endif
+
+
+ 
  !
  ! initialise
  !

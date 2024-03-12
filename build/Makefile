@@ -26,7 +26,7 @@ VERSION=$(PHANTOM_VERSION_MAJOR).$(PHANTOM_VERSION_MINOR).$(PHANTOM_VERSION_MICR
 
 KNOWN_SYSTEM=no
 SHELL = /bin/bash
-VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src
+VPATH = "${RUNDIR}" ../src/main ../src/utils ../src/setup ../src/tests ../src/lib/NICIL/src ../src/lib/get_moments
 BINDIR= ../bin
 UNAME=${shell uname}
 UNAMEP=${shell uname -p}
@@ -96,7 +96,7 @@ ifndef SRCNIMHD
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.f90 growth.F90
+    SRCDUST = fsolve.f90 integrate.f90 reconstruct_from_moments.f90 dust.f90 growth.F90
 endif
 
 ifdef SMOL

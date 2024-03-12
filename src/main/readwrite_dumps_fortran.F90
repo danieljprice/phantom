@@ -1691,6 +1691,7 @@ subroutine unfill_rheader(hdr,phantomdump,ntypesinfile,nptmass,&
 
     if (extract_eos_from_hdr) call extract('ieos',ieos,hdr,ierr)
 
+    massoftype(:) = 0.
     call extract('massoftype',massoftype(1:ntypesinfile),hdr,ierr)
     if (ierr /= 0) then
        write(*,*) '*** ERROR reading massoftype from dump header ***'

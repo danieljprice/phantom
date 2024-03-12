@@ -341,7 +341,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
        endif
     endif
 
-    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+    call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,dustfrac,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
     if (do_export) then
        call write_cell(stack_waiting,cell)
@@ -374,7 +374,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                 nrelink = nrelink + 1
              endif
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,dustfrac,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
              if (do_export) then
                 call write_cell(stack_waiting,cell)
@@ -444,7 +444,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
           call get_neighbour_list(-1,listneigh,nneigh,xyzh,xyzcache,isizecellcache,getj=.false., &
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
-          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+          call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,dustfrac,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
           remote_export = .false.
           remote_export(cell%owner+1) = .true. ! use remote_export array to send back to the owner
@@ -505,7 +505,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
-             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
+             call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,dustfrac,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
 
              call write_cell(stack_redo,cell)
           else
@@ -592,12 +592,12 @@ end subroutine densityiterate
 pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                                  listneigh,nneigh,nneighi,dxcache,xyzcache,rhosum,&
                                  ifilledcellcache,ifilledneighcache,getdv,getdB,&
-                                 realviscosity,xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
+                                 realviscosity,xyzh,vxyzu,Bevol,dustfrac,fxyzu,fext,ignoreself,rad)
 #ifdef PERIODIC
  use boundary, only:dxbound,dybound,dzbound
 #endif
  use kernel,   only:get_kernel,get_kernel_grav1
- use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi
+ use part,     only:iphase,iamgas,iamdust,iamtype,maxphase,ibasetype,igas,idust,rhoh,massoftype,iradxi,ndustlarge
  use dim,      only:ndivcurlv,gravity,maxp,nalpha,use_dust,do_radiation
  use options,  only:implicit_radiation
  integer,      intent(in)    :: i
@@ -615,12 +615,12 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
  logical,      intent(in)    :: getdv,realviscosity
  logical,      intent(in)    :: getdB
  real,         intent(in)    :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
- real,         intent(in)    :: Bevol(:,:)
+ real,         intent(in)    :: Bevol(:,:),dustfrac(:,:)
  logical,      intent(in)    :: ignoreself
  real,         intent(in)    :: rad(:,:)
  integer(kind=1)             :: iphasej
  integer                     :: iamtypej
- integer                     :: j,n,iloc
+ integer                     :: j,k,n,iloc
  real                        :: dx,dy,dz,runix,runiy,runiz
  real                        :: rij2,rij,rij1,q2i,qi,q2prev,rij1grkern
  real                        :: wabi,grkerni,dwdhi,dphidhi
@@ -840,8 +840,16 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
 
           endif
        elseif (use_dust .and. (iamgasi  .and. iamdustj)) then
-          iloc = irhodusti + iamtypej - idust
-          rhosum(iloc) = rhosum(iloc) + wabi
+          if (any(dustfrac(:,j) > 0.)) then
+             ! interpolate dust density from dust particles to gas particles
+             do k=1,ndustlarge
+                rhosum(irhodusti+k) = rhosum(irhodusti+k) + dustfrac(k,j)*wabi
+             enddo
+          else
+             ! compute density of dust particles at location of gas particle
+             iloc = irhodusti + iamtypej - idust
+             rhosum(iloc) = rhosum(iloc) + wabi
+          endif
        endif sametype
 
     elseif (n <= isizeneighcache) then
@@ -1191,8 +1199,8 @@ end subroutine reduce_and_print_neighbour_stats
 !--------------------------------------------------------------------------
 !+
 !--------------------------------------------------------------------------
-pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext, &
-                             xyzcache,rad)
+pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,dustfrac, &
+                             xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
  use part,        only:get_partinfo,iamgas,igas,maxphase
  use viscosity,   only:irealvisc
  use io,          only:id
@@ -1204,7 +1212,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
  integer,         intent(in)     :: nneigh
  logical,         intent(in)     :: getdv
  logical,         intent(in)     :: getdB
- real,            intent(in)     :: Bevol(:,:)
+ real,            intent(in)     :: Bevol(:,:),dustfrac(:,:)
  real,            intent(in)     :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:),fext(:,:)
  real,            intent(in)     :: xyzcache(isizecellcache,3)
  real,            intent(in)     :: rad(:,:)
@@ -1246,7 +1254,7 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     call get_density_sums(lli,cell%xpartvec(:,i),hi,hi1,hi21,iamtypei,iamgasi,iamdusti,&
                           listneigh,nneigh,nneighi,dxcache,xyzcache,cell%rhosums(:,i),&
                           .true.,.false.,getdv,getdB,realviscosity,&
-                          xyzh,vxyzu,Bevol,fxyzu,fext,ignoreself,rad)
+                          xyzh,vxyzu,Bevol,dustfrac,fxyzu,fext,ignoreself,rad)
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
