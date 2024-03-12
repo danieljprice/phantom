@@ -752,7 +752,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
     write (*,*) 'WARNING! readdump: MHD data not present in dumpfile'
     !ierr = 7
     !return
- elseif (narraylengths < 2 .or. narraylengths > 4) then
+ elseif (narraylengths < 1 .or. narraylengths > 4) then
     write (*,*) 'error 7 in readdump, narraylengths=',narraylengths
     ierr = 7
     return
@@ -1268,7 +1268,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-          case(4)
+          end select
+          select case(iarr)   ! MHD arrays can either be in block 1 or block 4
+          case(1,4)
              call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
              call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
           end select
