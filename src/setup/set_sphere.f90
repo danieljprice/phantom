@@ -400,7 +400,7 @@ end subroutine set_unifdis_sphereN
 !+
 !-----------------------------------------------------------------------
 
-subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,np,xyzh, &
+subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
                        rhofunc,xyz_origin,nptot,np_requested,mask,dir)
  use stretchmap, only:set_density_profile
  character(len=*), intent(in)    :: lattice

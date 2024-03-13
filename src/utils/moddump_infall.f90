@@ -61,6 +61,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real    :: y1,x1,dx,x_prime,y_prime,theta
  real    :: unit_velocity,G,potenergy,rms_mach,rms_in,vol_obj,rhoi,spsound,rms_curr,factor,my_vrms,vxi,vyi,vzi,inv_n_add
  real    :: dustfrac_tmp
+ real    :: incx,incy,incz
  logical :: lrhofunc,call_prompt
  character(len=20), parameter :: filevx = 'cube_v1.dat'
  character(len=20), parameter :: filevy = 'cube_v2.dat'
