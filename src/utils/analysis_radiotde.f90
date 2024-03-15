@@ -6,11 +6,11 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Computes the properties of shock formed in radio TDE
+! Computes the outflow profile in a TDE simulation
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
 !   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
