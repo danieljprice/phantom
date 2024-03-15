@@ -31,7 +31,8 @@ module inject
            inject_particles,     &
            write_options_inject, &
            read_options_inject,  &
-           set_default_options_inject
+           set_default_options_inject, &
+           update_injected_par
 
  !-- Runtime variables read from input file
  real,    public :: rin           = 18.1
@@ -216,6 +217,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+

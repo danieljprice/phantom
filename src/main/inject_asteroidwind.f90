@@ -29,7 +29,7 @@ module inject
  real, public :: mdot = 5.e8     ! mass injection rate in grams/second
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  private
 
@@ -148,6 +148,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  dtinject = huge(dtinject)
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+

@@ -25,7 +25,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'rochelobe'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  real, private :: Mdot = 1.0e-9
  real, private :: Mdotcode = 0.
@@ -278,6 +278,10 @@ subroutine phi_derivs(phinns,phizzs,xyzL1,xx1,xx2,theta_s,m1,m2,mu,r12,Porb)
 
 end subroutine phi_derivs
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+

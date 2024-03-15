@@ -50,7 +50,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'keplerianshear'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-           set_default_options_inject
+           set_default_options_inject,update_injected_par
  public :: set_injection_parameters
 
  type injectparams
@@ -185,6 +185,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  dtinject = huge(dtinject)
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
