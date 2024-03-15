@@ -22,7 +22,7 @@ module apr_region
   !
   implicit none
 
-  logical, public :: dynamic_apr = .false.
+  logical, public :: dynamic_apr = .false., apr_region_is_circle = .false.
   public :: set_apr_centre, set_apr_regions
 
   private
@@ -35,31 +35,26 @@ contains
   !+
   !-----------------------------------------------------------------------
 
-subroutine set_apr_centre(apr_type,apr_centre,apr_blend)
+subroutine set_apr_centre(apr_type,apr_centre)
   use part, only: xyzmh_ptmass
   integer, intent(in)  :: apr_type
-  real,    intent(out) :: apr_centre(3),apr_blend
+  real,    intent(out) :: apr_centre(3)
 
   select case (apr_type)
 
   case(1) ! a static circle
-    dynamic_apr = .false.
     apr_centre(1) = 0.0
     apr_centre(2) = 0.0
     apr_centre(3) = 0.0
-    apr_blend = 0.1
 
   case(2) ! around sink particle 2 - e.g. a planet
     dynamic_apr = .true.
     apr_centre(1) = xyzmh_ptmass(1,2)
     apr_centre(2) = xyzmh_ptmass(2,2)
     apr_centre(3) = xyzmh_ptmass(3,2)
-    apr_blend = 0.1
 
-  case default
-    dynamic_apr = .false.
+  case default ! used for the test suite
     apr_centre(:) = 0.
-    apr_blend = 0.1
 
   end select
 

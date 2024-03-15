@@ -186,7 +186,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use timestep_ind,     only:nbinmax
 #endif
 #ifdef APR
-  use apr,             only:init_apr,hacky_write
+  use apr,             only:init_apr
 #endif
 #ifdef KROME
  use krome_interface,  only:initialise_krome
@@ -783,9 +783,6 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
        dumpfile = trim(dumpfile(1:ipostmp-1))
     endif
     call write_fulldump(time,trim(dumpfile))
-#ifdef APR
-    call hacky_write(trim(dumpfile))
-#endif
     if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
     !
     !  delete temporary dump file

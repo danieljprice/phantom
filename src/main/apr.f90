@@ -22,15 +22,15 @@ module apr
   implicit none
 
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
-  integer, public :: apr_max_in = 3
+  integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
+  real,    public :: apr_rad = 0.0
 
   private
-  integer :: apr_max
-  integer :: ref_dir = 1, top_level = 1, apr_type = 1
-  real    :: apr_centre(3),apr_rad = 1.0, apr_drad = 0.1, apr_blend
+  integer :: top_level = 1
+  real    :: apr_centre(3), apr_drad = 0.1
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
-  real    :: sep_factor = 0.6
+  real    :: sep_factor = 0.2
   logical :: apr_verbose = .false.
   logical :: do_relax = .false.
   logical :: adjusted_split = .true.
@@ -57,7 +57,7 @@ contains
     ! if we're reading in a file that already has the levels set,
     ! don't override these
     previously_set = .false.
-    if (sum(apr_level(1:npart)) > npart) then
+    if (sum(int(apr_level(1:npart))) > npart) then
       previously_set = .true.
       do_relax = .false.
     endif
@@ -65,14 +65,14 @@ contains
     if (.not.previously_set) then
       ! initialise the base resolution level
       if (ref_dir == 1) then
-        apr_level = int(1,kind=1)
+        apr_level(1:npart) = int(1,kind=1)
       else
-        apr_level = int(apr_max,kind=1)
+        apr_level(1:npart) = int(apr_max,kind=1)
       endif
     endif
 
     ! initiliase the regions
-    call set_apr_centre(apr_type,apr_centre,apr_blend)
+    call set_apr_centre(apr_type,apr_centre)
     allocate(apr_regions(apr_max),npart_regions(apr_max))
     call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
     npart_regions = 0
@@ -119,7 +119,7 @@ contains
     real :: xi,yi,zi
 
     ! if the centre of the region can move, update it
-    if (dynamic_apr) call set_apr_centre(apr_type,apr_centre,apr_blend)
+    if (dynamic_apr) call set_apr_centre(apr_type,apr_centre)
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
@@ -151,6 +151,7 @@ contains
     nsplit_total = 0
     nrelax = 0
     apri = 0 ! to avoid compiler errors
+
 
     do jj = 1,apr_max-1
       npartold = npartnew ! to account for new particles as they are being made
@@ -258,6 +259,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine get_apr(pos,apri)
     use io, only:fatal
+    use apr_region, only:apr_region_is_circle
     real, intent(in)     :: pos(3)
     integer, intent(out) :: apri
     integer :: jj, kk
@@ -274,7 +276,11 @@ contains
       dx = pos(1) - apr_centre(1)
       dy = pos(2) - apr_centre(2)
       dz = pos(3) - apr_centre(3)
-      r = sqrt(dx**2 + dy**2)
+      if (apr_region_is_circle) then
+        r = sqrt(dx**2 + dy**2)
+      else
+        r = sqrt(dx**2 + dy**2 + dz**2)
+      endif
       if (r < apr_regions(kk)) then
         apri = kk
         return
@@ -291,15 +297,18 @@ contains
   !+
   !-----------------------------------------------------------------------
   subroutine splitpart(i,npartnew)
-    use part,    only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
-    use part,    only:set_particle_type
-    use physcon, only:pi
+    use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
+    use part,         only:set_particle_type
+    use physcon,      only:pi
     use dim,          only:ind_timesteps
-    use random,  only:ran2
+    use random,       only:ran2
+    use vectorutils, only:cross_product3D,rotatevec
+    use apr_region,  only:apr_region_is_circle
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
     integer :: j,npartold,next_door
-    real :: theta,dx,dy,x_add,y_add,sep,rneigh
+    real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
+    real :: v(3),u(3),w(3)
     integer, save :: iseed = 4
     integer(kind=1) :: aprnew
 
@@ -311,13 +320,38 @@ contains
       sep = sep_factor
     endif
 
-    ! calculate the angle from this particle to the centre of the region
-    ! we will split and then rotate the particle positions through this angle
+    ! Calculate the plane that the particle must be split along
+    ! to be tangential to the splitting region. Particles are split
+    ! on this plane but rotated randomly on it.
     dx = xyzh(1,i) - apr_centre(1)
     dy = xyzh(2,i) - apr_centre(2)
-    theta = ran2(iseed)*2.*pi !atan2(dy,dx) + 0.5*pi
-    x_add = sep*cos(theta)*xyzh(4,i)
-    y_add = sep*sin(theta)*xyzh(4,i)
+    if (.not.apr_region_is_circle) then
+      dz = xyzh(3,i) - apr_centre(3)
+
+      ! Calculate a vector, v, that lies on the plane
+      u = (/1.0,1.0,1.0/)
+      w = (/dx,dy,dz/)
+      call cross_product3D(u,w,v)
+
+      ! rotate it around the normal to the plane by a random amount
+      theta = ran2(iseed)*2.*pi
+      call rotatevec(v,w,theta)
+
+      v = v/sqrt(dot_product(v,v))
+    else
+      dz = 0.
+      u = 0.
+      w = 0.
+      v = 0.
+      theta = atan2(dy,dx) + 0.5*pi
+      v(1) = cos(theta)
+      v(2) = sin(theta)
+    endif
+
+    ! Now apply it
+    x_add = sep*v(1)*xyzh(4,i)
+    y_add = sep*v(2)*xyzh(4,i)
+    z_add = sep*v(3)*xyzh(4,i)
 
     npartold = npartnew
     npartnew = npartold + 1
@@ -329,6 +363,7 @@ contains
       call copy_particle_all(i,j,new_part=.true.)
       xyzh(1,j) = xyzh(1,i) + x_add
       xyzh(2,j) = xyzh(2,i) + y_add
+      xyzh(3,j) = xyzh(3,i) + z_add
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
@@ -338,6 +373,7 @@ contains
     ! Edit the old particle that was sent in and kept
     xyzh(1,i) = xyzh(1,i) - x_add
     xyzh(2,i) = xyzh(2,i) - y_add
+    xyzh(3,i) = xyzh(3,i) - z_add
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
     if (ind_timesteps) call put_in_smallest_bin(i)

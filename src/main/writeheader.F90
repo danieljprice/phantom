@@ -97,9 +97,6 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
 #ifdef GR
  use metric_tools,     only:print_metricinfo
 #endif
-#ifdef APR
- use apr,              only:apr_max_in
-#endif
  integer                      :: Nneigh,i
  integer,          intent(in) :: icall
  character(len=*), intent(in) :: infile,evfile,logfile,dumpfile
@@ -146,7 +143,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        enddo
        write(iprint,"(a)") " "
     endif
-    if (use_apr) write(iprint,"(a,i5)") ' APR is on, maximum refinement level is: apr_max = ',(apr_max_in + 1)
+    if (use_apr) write(iprint,"(1x,a)") 'Adapative particle refinement is ON'
     if (periodic) then
        write(iprint,"(1x,a)") 'Periodic boundaries: '
        if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &
