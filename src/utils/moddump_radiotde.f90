@@ -233,7 +233,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)       
     vxyzu(4,i) = uerg(rhof(r),temperature)
     vxyzu(1:3,i) = 0. ! stationary for now
-    pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/rhof(r)) + 4.*radconst*temperature**3 / (3.*rhof(r))) / kboltz/ unit_ergg
+    pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/(rhof(r)*unit_density))) / kboltz/ unit_ergg
  enddo
 
  !--Set timesteps
