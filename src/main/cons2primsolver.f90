@@ -22,6 +22,7 @@ module cons2primsolver
 !
  use eos, only:ieos,polyk
  use part, only:ien_etotal,ien_entropy,ien_entropy_s
+ use dim, only:mhd
  implicit none
 
  public :: conservative2primitive,primitive2conservative
@@ -74,14 +75,14 @@ end subroutine get_u
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
+subroutine primitive2conservative(x,metrici,v,dens,u,P,B,rho,pmom,en,Bevol,ien_type)
  use utils_gr,     only:get_u0,get_sqrtg
  use metric_tools, only:unpack_metric
  use io,           only:error
  use eos,          only:gmw,get_entropy
  real, intent(in)  :: x(1:3),metrici(:,:,:)
- real, intent(in)  :: dens,v(1:3),u,P
- real, intent(out) :: rho,pmom(1:3),en
+ real, intent(in)  :: dens,v(1:3),u,P,B(3)
+ real, intent(out) :: rho,pmom(1:3),en,Bevol(3)
  integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov
  real :: sqrtg, enth, gvv, U0, v4U(0:3)
@@ -125,6 +126,13 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type)
     endif
  endif
 
+ if (mhd) then
+    call get_sqrt_gamma(gcov,sqrt_gamma)
+    do i=1,3
+       Bevol(i) = sqrt_gamma*B(i)/rho
+    enddo
+ endif
+
 end subroutine primitive2conservative
 
 !----------------------------------------------------------------
@@ -133,7 +141,7 @@ end subroutine primitive2conservative
 !  for equations of state where gamma is constant
 !+
 !----------------------------------------------------------------
-subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type)
+subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,B,rho,pmom,en,Bevol,ierr,ien_type)
  use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
@@ -275,6 +283,12 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  enddo
 
  if (ien_type /= ien_entropy_s) call get_u(u,P,dens,gamma)
+
+ if (mhd) then
+    do i=1,3
+       B(i) = Bevol*rho/sqrt_gamma 
+    enddo
+ endif
 
 end subroutine conservative2primitive
 
