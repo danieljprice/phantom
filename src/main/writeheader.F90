@@ -80,7 +80,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
- use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac
+ use options,          only:tolh,alpha,alphau,alphaB,ieos,alphamax,use_dustfrac,use_porosity
  use part,             only:hfact,massoftype,mhd,gravity,periodic,massoftype,npartoftypetot,&
                             labeltype,maxtypes
  use mpiutils,         only:reduceall_mpi
@@ -186,6 +186,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        endif
     endif
     if (use_dustgrowth)   write(iprint,"(1x,a)") 'Dust growth is ON'
+    if (use_porosity)     write(iprint,"(1x,a)") 'Dust porosity is ON'
     if (cooling_in_step)  then
        write(iprint,"(1x,a)") 'Cooling is calculated in step'
     else

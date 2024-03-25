@@ -45,7 +45,7 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_dustfrac, use_hybrid
+ logical, public :: use_dustfrac, use_hybrid, use_porosity
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
