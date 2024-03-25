@@ -322,6 +322,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
+ use options,         only:use_porosity
  use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
 #ifdef INJECT_PARTICLES

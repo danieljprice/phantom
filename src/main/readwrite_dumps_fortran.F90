@@ -1142,6 +1142,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       nucleation,nucleation_label,n_nucleation,ikappa,tau,itau_alloc,tau_lucy,itauL_alloc,&
                       ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
+ use options,    only:use_porosity
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties

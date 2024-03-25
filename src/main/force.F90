@@ -916,7 +916,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:ndustsmall,grainsize,graindens,ndustsmall,grainsize,graindens,filfac
  use options,     only:use_porosity
  use growth,      only:get_size
-#ifdef DUSTGROWTH
  use kernel,      only:wkern,cnormk
 #ifdef IND_TIMESTEPS
  use part,        only:ibin_old,iamboundary
@@ -1877,7 +1876,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    else
                       call get_ts(idrag,1,get_size(grainmassi,graindensi),graindensi,rhoj,rhoi,spsoundj,dv2,tsijtmp,iregime)
                    endif
-#ifdef DUSTGROWTH
                    if (q2i < q2j) then
                       winter = wkern(q2i,qi)*hi21*hi1*cnormk
                    else
@@ -2550,7 +2548,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use metric_tools,   only:unpack_metric
  use utils_gr,       only:get_u0
  use io,             only:error
-#ifdef DUSTGROWTH
  use growth,         only:get_size
  use dust,           only:idrag,get_ts
  use physcon,        only:fourpi
@@ -2621,7 +2618,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  logical               :: allow_decrease,dtcheck
  character(len=16)     :: dtchar
 #endif
-#ifdef DUSTGROWTH
  real    :: tstopint,gmassi,gdensi
  integer :: ireg
  integer               :: ip,i
