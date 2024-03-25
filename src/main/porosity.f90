@@ -1,4 +1,13 @@
 module porosity
+!
+! Contains routine for porosity evolution (growth, bouncing, fragmentation, compaction, disruption)
+!
+! :References:
+!  Okuzumi et al. (1997), ApJ 752, 106
+!  Garcia, Gonzalez (2020), MNRAS 493, 1788
+!  Tatsuuma et Kataoka (2021), ApJ 913, 132
+!  Michoulier & Gonzalez (2022), Icarus 517, 3064
+!
  use units,        only:umass,udist,unit_energ,unit_pressure,unit_density
  use physcon,      only:Ro,pi,fourpi,roottwo
  implicit none
@@ -387,53 +396,6 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
  case (0)
     ! Fragmentation at constant filling factor
     filfacfrag = filfac
-! case (1)
-!     ! model Fit1ncoll
-!     sdust = get_size(mprev,dustprop(2),filfac)
-!     vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
-!     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev
-!
-!     compfactor = (3.*0.3*filfac**(-0.2))*exp(1.5*(0.3-VrelVf)) + 1.
-!     filfacfrag = filfac*compfactor**ncoll
-! case (2)
-!     ! model Fit2ncoll
-!     sdust = get_size(mprev,dustprop(2),filfac)
-!     vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
-!     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev
-!
-!     compfactor = 27.*filfac**(-0.2)*VrelVf**(1.5)/(2.*exp(4.*VrelVf)-1.) + 1.
-!     filfacfrag = filfac*compfactor**ncoll
-! case (3)
-!     ! model Garcia
-!     sdust = get_size(mprev,dustprop(2),filfac)
-!     vol = fourpi/3. * sdust**3
-!     vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
-!     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev
-!
-!     ekin = mprev*vrel*vrel/4.
-!
-!     if (filfac >= 0.01) then
-!         pdyn = Yd0*filfac**Ydpow
-!     else
-!         pdyn = Yd0*0.01**Ydpow
-!     endif
-!
-!     deltavol = ekin/pdyn
-!
-!     if (deltavol >= vol) deltavol = vol
-!
-!     filfacfrag = filfac *(1./(1.-0.5*deltavol/vol))**ncoll
-! case (4)
-!     !model Fit1 + garcia
-!     sdust = get_size(mprev,dustprop(2),filfac)
-!     vol = fourpi/3. * sdust**3
-!     vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
-!     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev
-!
-!     compfactor = (3.*0.3*filfac**(-0.2))*exp(1.5*(0.3-VrelVf)) + 1.
-!     deltavol = vol - dustprop(1)*vol/mprev/compfactor
-!     filfacfrag = filfac *(1./(1.-deltavol/vol))**ncoll
-!
  case (1)
      ! model Garcia + Kataoka mod
      sdust = get_size(mprev,dustprop(2),filfac)
