@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module extern_gwinspiral
 !
@@ -17,7 +17,7 @@ module extern_gwinspiral
 ! :Runtime parameters:
 !   - stop_ratio : *ratio of particles crossing CoM to indicate a merger*
 !
-! :Dependencies: centreofmass, dump_utils, infile_utils, io, physcon, units
+! :Dependencies: centreofmass, dump_utils, infile_utils, io, units
 !
  implicit none
  !

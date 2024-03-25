@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testexternf
 !
@@ -14,8 +14,8 @@ module testexternf
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: extern_corotate, externalforces, io, mpidomain, part,
-!   physcon, testutils, unifdis, units
+! :Dependencies: extern_corotate, extern_geopot, externalforces, io,
+!   kernel, mpidomain, part, physcon, testutils, unifdis, units
 !
  implicit none
  public :: test_externf
@@ -39,10 +39,12 @@ subroutine test_externf(ntests,npass)
                           iext_lensethirring,iext_prdrag,iext_einsteinprec,iext_spiral,&
                           iext_densprofile,iext_staticsine,iext_gwinspiral
  use extern_corotate, only:omega_corotate
+ use extern_geopot,   only:J2
  use unifdis,  only:set_unifdis
  use units,    only:set_units
  use physcon,  only:pc,solarm
  use mpidomain,only:i_belong
+ use kernel,   only:hfact_default
  integer, intent(inout) :: ntests,npass
  integer                :: i,iextf,nfail1,ierr
  logical                :: dotest1,dotest2,dotest3,accreted
@@ -65,7 +67,7 @@ subroutine test_externf(ntests,npass)
 !
  xmini(:) = -100.
  xmaxi(:) = 100.
- hfact      = 1.2
+ hfact      = hfact_default
  accradius1 = 100.  ! should be >6 for Lense-Thirring to pass
  psep  = (xmaxi(1) - xmini(1))/10.
  npart = 0
@@ -85,6 +87,7 @@ subroutine test_externf(ntests,npass)
     nfailed(:) = 0
     ncheck(:) = 0
     omega_corotate = 0.5
+    J2 = 0.01629 ! value of J2 for Saturn from Iess et al. (2019)
     do iextf=1,iexternalforce_max
        if (externalforcetype(iextf) /= 'none') then
           select case(iextf)

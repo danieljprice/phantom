@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module readwrite_infile
 !
@@ -17,7 +17,7 @@ module readwrite_infile
 !   - C_cour             : *Courant number*
 !   - C_force            : *dt_force number*
 !   - alpha              : *shock viscosity parameter*
-!   - alphaB             : *art. resistivity parameter*
+!   - alphaB             : *shock resistivity parameter*
 !   - alphamax           : *MAXIMUM shock viscosity parameter*
 !   - alphau             : *shock conductivity parameter*
 !   - avdecayconst       : *decay time constant for viscosity switches*
@@ -64,9 +64,9 @@ module readwrite_infile
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
 !
-! :Dependencies: cooling, damping, dim, dust, dust_formation, eos,
-!   externalforces, forcing, gravwaveutils, growth, infile_utils, inject,
-!   io, linklist, metric, nicil_sup, options, part, photoevap, ptmass,
+! :Dependencies: boundary_dyn, cooling, damping, dim, dust, dust_formation,
+!   eos, externalforces, forcing, gravwaveutils, growth, infile_utils,
+!   inject, io, linklist, metric, nicil_sup, options, part, ptmass,
 !   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
 !   viscosity
 !
@@ -82,7 +82,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -103,26 +103,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use externalforces,  only:write_options_externalforces
  use damping,         only:write_options_damping
  use linklist,        only:write_inopts_link
-#ifdef DUST
  use dust,            only:write_options_dust
-#ifdef DUSTGROWTH
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
-#endif
-#endif
-#ifdef PHOTO
- use photoevap,       only:write_options_photoevap
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
 #endif
  use dust_formation,  only:write_options_dust_formation
-#ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
-#endif
-#ifdef GR
  use metric,          only:write_options_metric
-#endif
  use eos,             only:write_options_eos,ieos
  use ptmass,          only:write_options_ptmass
  use ptmass_radiation,only:write_options_ptmass_radiation
@@ -131,7 +120,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
- use part,               only:h2chemistry,maxp,mhd,maxalpha,nptmass
+ use part,               only:maxp,mhd,maxalpha,nptmass
+ use boundary_dyn,       only:write_options_boundary
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -196,7 +186,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 
  call write_inopts_link(iwritein)
 
- write(iwritein,"(/,a)") '# options controlling hydrodynamics, artificial dissipation'
+ write(iwritein,"(/,a)") '# options controlling hydrodynamics, shock capturing'
  if (maxalpha==maxp .and. nalpha > 0) then
     call write_inopt(alpha,'alpha','MINIMUM shock viscosity parameter',iwritein)
     call write_inopt(alphamax,'alphamax','MAXIMUM shock viscosity parameter',iwritein)
@@ -207,7 +197,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphau,'alphau','shock conductivity parameter',iwritein)
  endif
  if (mhd) then
-    call write_inopt(alphaB,'alphaB','art. resistivity parameter',iwritein)
+    call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
     call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
@@ -225,7 +215,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==5 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -270,33 +260,26 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_forcing(iwritein)
 #endif
 
-#ifdef DUST
- call write_options_dust(iwritein)
-#ifdef DUSTGROWTH
- call write_options_growth(iwritein)
- call write_options_porosity(iwritein)
-#endif
-#endif
+ if (use_dust) call write_options_dust(iwritein)
+ if (use_dustgrowth) then
+    call write_options_growth(iwritein)
+    call write_options_porosity(iwritein)
+ endif
 
-#ifdef PHOTO
- call write_options_photoevap(iwritein)
-#endif
-
+ write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
- if (nucleation) call write_options_dust_formation(iwritein)
-
- write(iwritein,"(/,a)") '# options for injecting/removing particles'
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
+
+ if (nucleation) call write_options_dust_formation(iwritein)
 
  if (sink_radiation) then
     write(iwritein,"(/,a)") '# options controling radiation pressure from sink particles'
     call write_options_ptmass_radiation(iwritein)
  endif
-#ifdef NONIDEALMHD
- call write_options_nicil(iwritein)
-#endif
+
+ if (mhd_nonideal) call write_options_nicil(iwritein)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
@@ -311,15 +294,13 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
     endif
  endif
-#ifdef GR
- call write_options_metric(iwritein)
-#endif
+ if (gr) call write_options_metric(iwritein)
  call write_options_gravitationalwaves(iwritein)
+ call write_options_boundary(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
- return
 end subroutine write_infile
 
 !-----------------------------------------------------------------
@@ -329,7 +310,7 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,store_dust_temperature,gr
+                           itau_alloc,store_dust_temperature,gr,do_nucleation
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
@@ -339,34 +320,25 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #endif
  use externalforces,  only:read_options_externalforces
  use linklist,        only:read_inopts_link
-#ifdef DUST
  use dust,            only:read_options_dust
-#ifdef DUSTGROWTH
  use growth,          only:read_options_growth
  use porosity,        only:read_options_porosity
-#endif
-#endif
-#ifdef GR
  use metric,          only:read_options_metric
-#endif
-#ifdef PHOTO
- use photoevap,       only:read_options_photoevap
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
  use dust_formation,  only:read_options_dust_formation,idust_opacity
-#ifdef NONIDEALMHD
  use nicil_sup,       only:read_options_nicil
-#endif
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
- use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,alpha_rad
+ use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,&
+                              alpha_rad,iget_tdust,iray_resolution
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
+ use boundary_dyn,    only:read_options_boundary
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -378,8 +350,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotallphoto,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr
+ logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -395,7 +367,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalldust     = .true.
  igotallgrowth   = .true.
  igotallporosity = .true.
- igotallphoto    = .true.
  igotalllink     = .true.
  igotallextern   = .true.
  igotallinject   = .true.
@@ -411,7 +382,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalldustform = .true.
  igotallgw       = .true.
  igotallgr       = .true.
-
+ igotallbdy      = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -567,20 +538,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch) call read_options_forcing(name,valstring,imatch,igotallturb,ierr)
 #endif
        if (.not.imatch) call read_inopts_link(name,valstring,imatch,igotalllink,ierr)
-#ifdef DUST
        !--Extract if one-fluid dust is used from the fileid
-       if (.not.imatch) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
-#ifdef DUSTGROWTH
-       if (.not.imatch) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
-       if (.not.imatch) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
-#endif
-#endif
-#ifdef GR
-       if (.not.imatch) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
-#endif
-#ifdef PHOTO
-       if (.not.imatch) call read_options_photoevap(name,valstring,imatch,igotallphoto,ierr)
-#endif
+       if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
+       if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
+       if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
@@ -588,9 +550,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
-#ifdef NONIDEALMHD
-       if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
-#endif
+       if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
@@ -603,7 +563,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (nptmass==0 .and. .not.gravity) igotallptmass = .true.
        endif
        if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotallgw,ierr)
-
+       if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotallbdy,ierr)
        if (len_trim(name) /= 0 .and. .not.imatch) then
           call warn('read_infile','unknown variable '//trim(adjustl(name))// &
                      ' in input file, value = '//trim(adjustl(valstring)))
@@ -614,11 +574,11 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  enddo
  close(unit=ireadin)
 
- igotallrequired = (ngot  >=  nrequired) .and. igotalllink    .and. igotallbowen   .and. igotalldust &
-                    .and. igotalleos    .and. igotallcooling  .and. igotallextern  .and. igotallturb &
-                    .and. igotallptmass .and. igotallinject   .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallphoto  .and. igotallgrowth   .and. igotalldamping .and. igotallporosity &
-                    .and. igotallprad   .and. igotalldustform .and. igotallgw .and. igotallgr
+ igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
+                    .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
+                    .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
+                    .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
+                    .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -638,7 +598,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
           if (.not.igotallporosity) write(*,*) 'missing porosity options'
-          if (.not.igotallphoto) write(*,*) 'missing photoevaporation options'
+
           if (.not.igotallextern) then
              if (gr) then
                 write(*,*) 'missing GR quantities (eg: accretion radius)'
@@ -724,15 +684,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. &
-                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20)) &
+    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 5  .and. ieos /= 4  .and. ieos /= 10 .and. &
+             ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
-    if (icooling > 0 .and. ieos /= 2) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
+    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5)) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
@@ -740,6 +700,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
          call fatal(label,'no radiation pressure force! adapt isink_radiation/idust_opacity/alpha_rad')
     if (isink_radiation > 1 .and. idust_opacity == 0 ) &
          call fatal(label,'dust opacity not used! change isink_radiation or idust_opacity')
+    if (iget_tdust > 2 .and. iray_resolution < 0 ) &
+         call fatal(label,'To get dust temperature with Attenuation or Lucy, set iray_resolution >= 0')
+    if (do_nucleation .and. ieos == 5) call error(label,'with nucleation you must use ieos = 2')
  endif
  return
 

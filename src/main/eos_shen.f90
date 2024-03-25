@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module eos_shen
 !
@@ -242,14 +242,14 @@ subroutine Cint(val0,val1,val2,val3,u,val)
  val = 1./2.*(((-val0+3.*val1-3.*val2+val3)*u+(2.*val0-5.*val1+4.*val2-val3))*u+&
        (-val0+val2))*u+val1
 
-end subroutine CINT
+end subroutine Cint
 
 !------------------------------------------------------------------------
 !+
 !  Interpolate between values using linear interpolation in 1D
 !+
 !------------------------------------------------------------------------
-subroutine linear_interpolator_one_d(val0,val1,u,val)
+pure subroutine linear_interpolator_one_d(val0,val1,u,val)
  real, intent(out) :: val
  real, intent(in)  :: val0,val1,u
 

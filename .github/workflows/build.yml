@@ -67,6 +67,9 @@ jobs:
     - name: "Nuke the github workspace before doing anything"
       run: rm -r ${{ github.workspace }} && mkdir ${{ github.workspace }}
 
+    - name: Update package list
+      run: sudo apt-get update
+
     - name: Setup Intel repo
       if: matrix.system == 'ifort'
       id: intel-repo

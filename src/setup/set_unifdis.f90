@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module unifdis
 !
@@ -16,10 +16,10 @@ module unifdis
 !
 ! :Dependencies: random, stretchmap
 !
- use stretchmap, only:rho_func
+ use stretchmap, only:rho_func, mass_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
- public :: is_valid_lattice, is_closepacked
+ public :: is_valid_lattice, is_closepacked, latticetype
 
  ! following lines of code allow an optional mask= argument
  ! to setup only certain subsets of the particle domain (used for MPI)
@@ -28,6 +28,11 @@ module unifdis
    integer(kind=8), intent(in) :: ip
   end function mask_prototype
  end interface
+
+ integer, parameter, public :: i_cubic       = 1, &
+                               i_closepacked = 2, &
+                               i_hexagonal   = 3, &
+                               i_random      = 4
 
  public :: mask_prototype, mask_true, rho_func
 
@@ -48,7 +53,7 @@ contains
 subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        zmin,zmax,delta,hfact,np,xyzh,periodic, &
                        rmin,rmax,rcylmin,rcylmax,rellipsoid,in_ellipsoid, &
-                       nptot,npy,npz,npnew_in,rhofunc,inputiseed,verbose,centre,dir,geom,mask,err)
+                       nptot,npy,npz,npnew_in,rhofunc,massfunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
  !use mpidomain,  only:i_belong
@@ -65,6 +70,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
  integer(kind=8),  intent(inout), optional :: nptot
  integer,          intent(in),    optional :: npy,npz,npnew_in,dir,geom
  procedure(rho_func), pointer,    optional :: rhofunc
+ procedure(mass_func), pointer,   optional :: massfunc
  integer,          intent(in),    optional :: inputiseed
  logical,          intent(in),    optional :: verbose,centre,in_ellipsoid
  integer,          intent(out),   optional :: err
@@ -582,7 +588,7 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
        endif
     endif
     call set_density_profile(np,xyzh,min=xmins,max=xmaxs,rhofunc=rhofunc,&
-         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)
+         start=npin,geom=igeom,coord=icoord,verbose=(id==master .and. is_verbose),err=ierr)!,massfunc=massfunc)
     if (ierr > 0) then
        if (present(err)) err = ierr
        return
@@ -717,6 +723,29 @@ pure logical function is_valid_lattice(latticetype)
  end select
 
 end function is_valid_lattice
+
+!-------------------------------------------------------------
+!+
+!  utility function to give correct lattice string
+!  given integer lattice choice
+!+
+!-------------------------------------------------------------
+function latticetype(ilattice)
+ integer, intent(in) :: ilattice
+ character(len=11) :: latticetype
+
+ select case(ilattice)
+ case(i_random)
+    latticetype = 'random'
+ case(i_hexagonal)
+    latticetype = 'hexagonal'
+ case(i_closepacked)
+    latticetype = 'closepacked'
+ case default
+    latticetype = 'cubic'
+ end select
+
+end function latticetype
 
 !---------------------------------------------------------------
 !+

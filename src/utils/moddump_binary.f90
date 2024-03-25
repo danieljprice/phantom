@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module moddump
 !
@@ -16,9 +16,9 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dim, extern_corotate, externalforces,
+! :Dependencies: centreofmass, dim, eos, extern_corotate, externalforces,
 !   infile_utils, io, options, part, physcon, prompting, readwrite_dumps,
-!   rho_profile, setbinary, table_utils, timestep, units, vectorutils
+!   readwrite_mesa, setbinary, table_utils, timestep, units, vectorutils
 !
  implicit none
 
@@ -39,11 +39,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                              primarycore_mass,primarycore_hsoft,hsoft
  use infile_utils,      only:open_db_from_file,inopts,read_inopt,close_db
  use table_utils,       only:yinterp
- use rho_profile,       only:read_mesa
+ use readwrite_mesa,    only:read_mesa
  use dim,               only:maxptmass,maxp,nsinkproperties
  use io,                only:fatal,idisk1,iprint
  use timestep,          only:tmax,dtmax
  use readwrite_dumps,   only:read_dump
+ use eos,               only:X_in,Z_in
 
  integer, intent(inout)    :: npart
  integer, intent(inout)    :: npartoftype(:)
@@ -296,8 +297,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
           enddo
 
           if (nptmass2 == 1) then
-            xyzmh_ptmass(1:nsinkproperties,nptmass1+nptmass2) = xyzmh2_stash(1:nsinkproperties)
-            vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
+             xyzmh_ptmass(1:nsinkproperties,nptmass1+nptmass2) = xyzmh2_stash(1:nsinkproperties)
+             vxyz_ptmass(1:3,nptmass1+nptmass2) = vxyz2_stash(1:3)
           endif
 
        else
@@ -330,7 +331,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        call prompt('Enter mass of the created point mass core', mcut)
        call prompt('Enter softening length of the point mass', hsoft_default)
 
-       call read_mesa(densityfile,den,r,pres,m,enitab,temp,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
+       call read_mesa(densityfile,den,r,pres,m,enitab,temp,X_in,Z_in,Xfrac,Yfrac,Mstar,ierr,cgsunits=.false.)
        rcut = yinterp(r,m,mcut)
 
        irhomax = 1
