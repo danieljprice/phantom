@@ -6,7 +6,7 @@ module porosity
 !  Okuzumi et al. (1997), ApJ 752, 106
 !  Garcia, Gonzalez (2020), MNRAS 493, 1788
 !  Tatsuuma et Kataoka (2021), ApJ 913, 132
-!  Michoulier & Gonzalez (2022), Icarus 517, 3064
+!  Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
  use units,        only:umass,udist,unit_energ,unit_pressure,unit_density
  use physcon,      only:Ro,pi,fourpi,roottwo
