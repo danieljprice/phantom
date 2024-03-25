@@ -519,9 +519,9 @@ subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
      m5 = (9.*nu*rho/(2.*graindens*smono**2*Omega_k(i)))**1.5 / m2**(0.5*cratio)
 
      if (m4 < m5) then            !- filling factor: Epstein regime - St>1
-         filfaccol = 0.5*m1**(cratio+0.125) * m4**0.075 / mfrac**0.2
+         filfaccol = m1**(cratio+0.125) * m4**0.075 / mfrac**0.2
      else                         !- filling factor: Stokes regime - St>1
-         filfaccol = 0.5*m2**cratio * (m5/mfrac)**0.2
+         filfaccol = m2**cratio * (m5/mfrac)**0.2
      endif
  endif
 
