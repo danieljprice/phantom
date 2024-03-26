@@ -1129,3 +1129,17 @@ ifeq ($(SETUP), radiativebox)
     RADIATION=yes
     PERIODIC=yes
 endif
+
+ifeq ($(SETUP), amuse)
+    # H2CHEM=yes
+    ISOTHERMAL=no
+    GRAVITY=yes
+    IND_TIMESTEPS=yes
+    KNOWN_SETUP=yes
+    MAXPTMASS=1000
+    MAXP=10000000
+    # SETUPFILE= setup_wind.f90
+    SINK_RADIATION=yes
+    DUST_NUCLEATION=yes
+    # INJECT_PARTICLES=yes
+endif
