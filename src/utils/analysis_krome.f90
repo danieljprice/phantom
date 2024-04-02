@@ -116,11 +116,32 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     stop
  endif
 
+ call write_chem(npart, dumpfile)
  nprev = npart
  tprev = time
  iorig_old(1:npart) = iorig(1:npart)
  abundance_prev(:,1:npart) = abundance(:,1:npart)
 end subroutine do_analysis
+
+subroutine write_chem(npart, dumpfile)
+ use krome_user, only: krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
+       krome_idx_H,krome_idx_S,krome_idx_Fe,krome_idx_Si,krome_idx_Mg,&
+       krome_idx_Na,krome_idx_P,krome_idx_F
+ integer, intent(in)          :: npart
+ character(len=*), intent(in) :: dumpfile
+ integer :: i, iu
+
+ open(newunit=iu, file=dumpfile//'.comp', status='replace', action='write')
+ write(iu, *) '# H, He, C, N, O, S, Fe, Si, Mg, Na, P, F'
+ do i=1, npart
+    write(iu, *) abundance(krome_idx_H, i),  abundance(krome_idx_He, i), abundance(krome_idx_C, i),  &
+                 abundance(krome_idx_N, i),  abundance(krome_idx_O, i),  abundance(krome_idx_S, i),  &
+                 abundance(krome_idx_Fe, i), abundance(krome_idx_Si, i), abundance(krome_idx_Mg, i), &
+                 abundance(krome_idx_Na, i), abundance(krome_idx_P, i),  abundance(krome_idx_F, i)
+ enddo
+ close(iu)
+ 
+end subroutine write_chem
 
 subroutine chem_init(abundance_part)
  use krome_user, only: krome_idx_He,krome_idx_C,krome_idx_N,krome_idx_O,&
