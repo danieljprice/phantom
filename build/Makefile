@@ -275,6 +275,10 @@ ifeq ($(RADIATION), yes)
 endif
 
 ifeq ($(FOURTHORDER), yes)
+    FPPFLAGS += -DFOURTHORDER
+endif
+
+ifeq ($(NBODYREG), yes)
     FPPFLAGS += -DNBODYREG
 endif
 
