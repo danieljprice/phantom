@@ -285,7 +285,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
     if (iopacity_type == 1) then
        call write_inopt(X_in,'X','hydrogen mass fraction for MESA opacity table',iwritein)
-       call write_inopt(Z_in,'Z','metallicity  for MESA opacity table',iwritein)
+       call write_inopt(Z_in,'Z','metallicity for MESA opacity table',iwritein)
     elseif (iopacity_type == 2) then
        call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
     endif
