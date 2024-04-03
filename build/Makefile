@@ -274,10 +274,6 @@ ifeq ($(RADIATION), yes)
     FPPFLAGS += -DRADIATION
 endif
 
-ifeq ($(FOURTHORDER), yes)
-    FPPFLAGS += -DFOURTHORDER
-endif
-
 ifeq ($(SINK_RADIATION), yes)
     FPPFLAGS += -DSINK_RADIATION
 endif
