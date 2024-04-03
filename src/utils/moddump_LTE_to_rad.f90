@@ -39,7 +39,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (.not. do_radiation) call fatal("moddump_LTE_to_rad","Not compiled with radiation")
 
- mu = gmw
+ X_in=0.687
+ Z_in=0.0142
+ mu = 0.61821
+ gmw = mu
  gamma_fixed = 5/3.  ! gamma should be exactly 5/3, because that is what ieos=12 assumes
  gamma = gamma_fixed
  print*,'Assuming gmw = ',mu,' and gamma=',gamma,'X = ',X_in,'Z = ',Z_in  ! X and Z are only used for calculating opacity
@@ -52,7 +55,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call get_idealplusrad_temp(rho_cgs,vxyzu(4,i)*unit_ergg,mu,tempi,ierr)
 
     ! calculate u and xi
-    ugasi = ugas_from_Tgas(tempi,gamma,gmw)
+    ugasi = ugas_from_Tgas(tempi,gamma,mu)
     vxyzu(4,i) = ugasi
     rad(iradxi,i) = radiation_and_gas_temperature_equal(rhoi,ugasi,gamma,mu)
 
