@@ -37,10 +37,6 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     vxyzu(4,i) = vxyzu(4,i) + rad(iradxi,i)
  enddo
 
- ieos = 12
- gmw = 0.6   ! CHANGE MU HERE for writing into infile
- print*,'mu has been changed to',gmw  ! mu should not change from what was assumed with radiation
-
 end subroutine modify_dump
 
 end module moddump
