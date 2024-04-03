@@ -60,6 +60,7 @@ module options
 
 ! Regularisation method and/or higher order integrator
  logical, public :: use_fourthorder
+ logical, public :: use_regnbody
 
 
  public :: set_default_options
@@ -175,6 +176,7 @@ subroutine set_default_options
  use_var_comp = .false.
 
  use_fourthorder = .false.
+ use_regnbody = .false.
 
 end subroutine set_default_options
 
