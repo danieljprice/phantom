@@ -90,7 +90,7 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr,do_radiation
+                          use_dustgrowth,use_krome,gr,do_radiation,use_fourthorder
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
@@ -233,8 +233,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-       call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
-                        nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
+       if (use_fourthorder) then
+          call step_extern_FSI(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
+                              xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+       else
+          call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
+                          nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
+       endif
     else
        call step_extern_sph(dtsph,npart,xyzh,vxyzu)
     endif
@@ -1047,6 +1052,393 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  !$omp end parallel do
 
 end subroutine step_extern_sph
+
+!----------------------------------------------------------------
+!+
+!  This is the equivalent of the routine below with no cooling
+!  and external forces except ptmass. (4th order scheme)
+!+
+!----------------------------------------------------------------
+subroutine step_extern_PEFRL(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+ use part,           only: isdead_or_accreted,igas,massoftype
+ use io,             only:iverbose,id,master,iprint,warning,fatal
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
+ real,    intent(in)    :: dtsph,time
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(inout) :: dtextforce
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,parameter :: ck(5) = (/0.1786178958448091,-0.06626458266981849,0.77529337365001878,-0.06626458266981849,0.1786178958448091/)
+ real,parameter :: dk(4) = (/0.7123418310626054,-0.2123418310626054,-0.2123418310626054,0.7123418310626054/)
+ real    :: dt,t_end_step,dtextforce_min
+ real    :: pmassi,timei
+ logical :: done,last_step
+ integer :: nsubsteps
+ integer :: i
+
+ !
+ ! determine whether or not to use substepping
+ !
+ if (dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
+
+ timei = time
+ pmassi         = massoftype(igas)
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+
+ substeps: do while (timei <= t_end_step .and. .not.done)
+    timei = timei + dt
+    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
+    nsubsteps = nsubsteps + 1
+    do i=1,4
+       call drift_4th(ck(i),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+       call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+                         xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+       call kick_4th (dk(i),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    enddo
+    call drift_4th(ck(5),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+
+    if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"dt : ",dt
+    dtextforce_min = min(dtextforce_min,dtextforce)
+
+    if (last_step) then
+       done = .true.
+    else
+       dt = dtextforce
+       if (timei + dt > t_end_step) then
+          dt = t_end_step - timei
+          last_step = .true.
+       endif
+    endif
+ enddo substeps
+
+ if (nsubsteps > 1) then
+    if (iverbose>=1 .and. id==master) then
+       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
+          ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+    endif
+    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
+    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
+ endif
+
+
+end subroutine step_extern_PEFRL
+
+!----------------------------------------------------------------
+!+
+!  This is the equivalent of the routine below with no cooling
+!  and external forces except ptmass. (4th order scheme)
+!+
+!----------------------------------------------------------------
+subroutine step_extern_FSI(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+ use part,           only: isdead_or_accreted,igas,massoftype
+ use io,             only:iverbose,id,master,iprint,warning,fatal
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
+ real,    intent(in)    :: dtsph,time
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(inout) :: dtextforce
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,parameter    :: dk(3) = (/1./6.,2./3.,1./6./)
+ real,parameter    :: ck(2) = (/0.5,0.5/)
+ real    :: dt,t_end_step,dtextforce_min
+ real    :: pmassi,timei
+ logical :: done,last_step
+ integer :: nsubsteps
+
+ !
+ ! determine whether or not to use substepping
+ !
+ if (dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
+
+ timei = time
+ pmassi         = massoftype(igas)
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+
+ substeps: do while (timei <= t_end_step .and. .not.done)
+    timei = timei + dt
+    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
+    nsubsteps = nsubsteps + 1
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+                       xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+    call kick_4th (dk(1),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    call drift_4th(ck(1),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+                        xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) ! Direct calculation of the force and force gradient
+    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass)
+    !  call get_force_extrapol_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+    !                              xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) ! Extrapolation of the modified force using Omelyan technique
+
+    call kick_4th (dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    !print*,xyzmh_ptmass(1,1:20)
+    call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+                       xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+    call kick_4th (dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
+
+    dtextforce_min = min(dtextforce_min,dtextforce)
+
+    if (last_step) then
+       done = .true.
+    else
+       dt = dtextforce
+       if (timei + dt > t_end_step) then
+          dt = t_end_step - timei
+          last_step = .true.
+       endif
+    endif
+ enddo substeps
+
+ if (nsubsteps > 1) then
+    if (iverbose>=1 .and. id==master) then
+       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
+           ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+    endif
+    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
+    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
+ endif
+
+
+end subroutine step_extern_FSI
+
+
+!----------------------------------------------------------------
+!+
+!  drift routine for the 4th order scheme
+!+
+!----------------------------------------------------------------
+
+subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+ use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
+ real,    intent(in)    :: dt,ck
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ integer :: i
+
+ ! Drift gas particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,vxyzu,dt,ck) &
+ !$omp private(i)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       xyzh(1,i) = xyzh(1,i) + ck*dt*vxyzu(1,i)
+       xyzh(2,i) = xyzh(2,i) + ck*dt*vxyzu(2,i)
+       xyzh(3,i) = xyzh(3,i) + ck*dt*vxyzu(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+ ! Drift sink particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ck,dt) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ck*dt*vxyz_ptmass(1,i)
+       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ck*dt*vxyz_ptmass(2,i)
+       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ck*dt*vxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ck*dt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ck*dt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ck*dt*dsdt_ptmass(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+end subroutine drift_4th
+
+
+!----------------------------------------------------------------
+!+
+!  kick routine for the 4th order scheme
+!+
+!----------------------------------------------------------------
+
+subroutine kick_4th(dk,dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+ use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
+ real,    intent(in)    :: dt,dk
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: vxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ integer :: i
+
+ ! Kick gas particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(npart,fext,xyzh,vxyzu,dt,dk) &
+ !$omp private(i)
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       vxyzu(1,i) = vxyzu(1,i) + dk*dt*fext(1,i)
+       vxyzu(2,i) = vxyzu(2,i) + dk*dt*fext(2,i)
+       vxyzu(3,i) = vxyzu(3,i) + dk*dt*fext(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+ ! Kick sink particles
+
+ !$omp parallel do default(none) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,dsdt_ptmass,dk,dt) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dk*dt*fxyz_ptmass(1,i)
+       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dk*dt*fxyz_ptmass(2,i)
+       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dk*dt*fxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dk*dt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dk*dt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dk*dt*dsdt_ptmass(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+end subroutine kick_4th
+
+!----------------------------------------------------------------
+!+
+!  force routine for the 4th order scheme
+!+
+!----------------------------------------------------------------
+
+subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+ use options,        only:iexternalforce
+ use dim,            only:maxptmass
+ use io,             only:iverbose,master,iprint,warning,fatal
+ use part,           only:epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
+ use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
+ use timestep,       only:bignumber,C_force
+ integer, intent(in):: nptmass,npart,nsubsteps
+ real, intent(inout) :: xyzh(:,:),fext(:,:)
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real, intent(inout) :: dtextforce
+ real, intent(in)    :: timei,pmassi
+ integer         :: merge_ij(nptmass)
+ integer         :: merge_n
+ integer         :: i
+ real            :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
+ real            :: fextx,fexty,fextz
+ real            :: fonrmaxi,phii,dtphi2i
+
+ dtextforcenew = bignumber
+ dtsinkgas     = bignumber
+ dtphi2        = bignumber
+ fonrmax = 0
+ if (nptmass>0) then
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                            dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+    if (merge_n > 0) then
+       call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+    endif
+ else
+    fxyz_ptmass(:,:) = 0.
+    dsdt_ptmass(:,:) = 0.
+ endif
+ fxyz_ptmass_sinksink=fxyz_ptmass
+ dsdt_ptmass_sinksink=dsdt_ptmass
+ dtextforcenew = min(dtextforcenew,C_force*dtf)
+ if (iverbose >= 3 ) write(iprint,*) "dt_sink_sink",dtextforcenew
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fext) &
+ !$omp private(fextx,fexty,fextz) &
+ !$omp private(fonrmaxi,dtphi2i,phii,pmassi,dtf) &
+ !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
+ !$omp reduction(max:fonrmax) &
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
+ !$omp do
+ do i=1,npart
+    fextx = 0.
+    fexty = 0.
+    fextz = 0.
+    call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
+               fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
+    fonrmax = max(fonrmax,fonrmaxi)
+    dtphi2  = min(dtphi2,dtphi2i)
+    fext(1,i) = fextx
+    fext(2,i) = fexty
+    fext(3,i) = fextz
+ enddo
+ !$omp enddo
+ !$omp end parallel
+
+ if (fonrmax > 0.) then
+    dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+ endif
+ if (iverbose >= 3 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+ dtextforcenew = min(dtextforcenew,dtsinkgas)
+ dtextforce = dtextforcenew
+
+end subroutine get_force_4th
+
+
+!----------------------------------------------------------------
+!+
+!  grad routine for the 4th order scheme (FSI)
+!+
+!----------------------------------------------------------------
+
+
+subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass)
+ use dim,            only:maxptmass
+ use ptmass,         only:get_gradf_sink_gas,get_gradf_sink_sink
+ integer, intent(in) :: nptmass,npart
+ real, intent(inout) :: xyzh(:,:),fext(:,:)
+ real, intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(4,nptmass)
+ real, intent(inout) :: dt
+ real, intent(in)    :: pmassi
+ real            :: fextx,fexty,fextz
+ integer         :: i
+
+
+ if (nptmass>0) then
+    call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
+    !print*,fxyz_ptmass(1,1:5)
+ else
+    fxyz_ptmass(:,:) = 0.
+ endif
+
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fext,dt,pmassi) &
+ !$omp private(fextx,fexty,fextz) &
+ !$omp reduction(+:fxyz_ptmass)
+ !$omp do
+ do i=1,npart
+    fextx = 0.
+    fexty = 0.
+    fextz = 0.
+    call get_gradf_sink_gas(nptmass,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+             xyzmh_ptmass,fextx,fexty,fextz,pmassi,fxyz_ptmass)
+    fext(1,i) = fext(1,i)+ fextx
+    fext(2,i) = fext(2,i)+ fexty
+    fext(3,i) = fext(3,i)+ fextz
+ enddo
+ !$omp enddo
+ !$omp end parallel
+
+end subroutine get_gradf_4th
+
 
 !----------------------------------------------------------------
 !+

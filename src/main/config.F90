@@ -122,6 +122,13 @@ module dim
  logical, parameter :: do_radiation = .false.
 #endif
 
+ ! Regularisation method and/or higher order integrator
+#ifdef FOURTHORDER
+ logical, parameter :: use_fourthorder = .true.
+#else
+ logical, parameter :: use_fourthorder = .false.
+#endif
+
  ! rhosum
  integer, parameter :: maxrhosum = 39 + &
                                    maxdustlarge - 1 + &
