@@ -39,49 +39,59 @@ subroutine group_identify(nptmass,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
 end subroutine group_identify
 
 
-subroutine form_group(group_info,nmatrix,nptmass)
- use part, only : igid,igarg,igsize,igcum
+subroutine form_group(nmatrix,nptmass,group_info)
+ use part, only : igid,igcum
+ use dim, only : maxptmass
  integer(kind=1), intent(in) :: nmatrix(:,:)
  integer, intent(out):: group_info(:,:)
  integer, intent(in) :: nptmass
- integer :: i
- logical :: visited(nptmass)
+ integer :: i,ncg
+ logical :: visited(maxptmass)
+ integer :: stack(maxptmass)
  do i=1,nptmass
     if(.not.visited(i)) then
        n_ingroup = n_ingroup + 1
-       call dfs(i,i,visited,group_info,nmatrix,nptmass,n_ingroup)
-       if (group_info(igsize,i)>1)then
+       call dfs(i,i,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+       if (ncg>1)then
           ngroup = ngroup + 1
-          group_info(igcum,ngroup+1) = group_info(igsize,i) + group_info(igcum,ngroup)
+          group_info(igcum,ngroup+1) = ncg + group_info(igcum,ngroup)
        else
-          n_ingroup= n_ingroup - 1
-          group_info(igsize,i) = 0
+          n_ingroup = n_ingroup - 1
           group_info(igarg,nptmass-n_sing) = i
-          group_info(igid,nptmass-n_sing) = 0
           n_sing = n_sing + 1
        endif
     endif
  enddo
 end subroutine form_group
 
-recursive subroutine dfs(inode,iroot,visited,group_info,nmatrix,npt,n_ingroup)
- use part, only : igid,igarg,igsize,igcum
- integer, intent(in) :: inode,npt,iroot
+subroutine dfs(inode,iroot,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+ use part, only : igarg
+ integer, intent(in)  :: inode,nptmass,iroot
+ integer, intent(out) :: ncg
  integer(kind=1), intent(in) :: nmatrix(:,:)
  integer, intent(inout) :: group_info(:,:)
  integer, intent(inout) :: n_ingroup
+ integer, intent(out) :: stack(:)
  logical, intent(inout) :: visited(:)
- integer :: j
- !print*,nping,inode
+ integer :: j,stack_top
+
+ ncg = 1
  group_info(igarg,n_ingroup) = inode
- group_info(igid,n_ingroup) = iroot
- group_info(igsize,iroot) = group_info(igsize,iroot)+1
+ stack_top = stack_top + 1
+ stack(stack_top) = inode
  visited(inode) = .true.
- do j=1,npt
-    if (nmatrix(inode,j)==1 .and. (visited(j).eqv..false.)) then
-       n_ingroup = n_ingroup + 1
-       call dfs(j,iroot,visited,group_info,nmatrix,npt,n_ingroup)
-    endif
+ do while(stack_top>0)
+    inode = stack(stack_top)
+    stack_top = stack_top - 1
+    do j= 1,nptmass
+       if (nmatrix(inode,j)==1 .and. .not.(visited(j))) then
+          n_ingroup = n_ingroup + 1
+          stack_top = stack_top + 1
+          stack(stack_top) = j
+          visited(j) = .true.
+          group_info(igarg,n_ingroup) = j
+       endif
+    enddo
  enddo
 end subroutine dfs
 
