@@ -16,6 +16,7 @@ module sdar_group
  real, public :: t_crit   = 0.0
  real, public :: C_bin    = 0.0
  real, public :: r_search = 0.0
+ real, parameter :: eta_pert = 0.02
  private
 contains
 
@@ -97,7 +98,7 @@ end subroutine dfs
 
 
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
- use utils_kepler, only: bindE,extract_a,extract_e,extract_ea
+ use utils_kepler, only: Espec,extract_a,extract_e,extract_ea
  integer(kind=1), intent(out):: nmatrix(:,:)
  real,    intent(in) :: xyzmh_ptmass(:,:)
  real,    intent(in) :: vxyz_ptmass(:,:)
@@ -140,7 +141,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
        dvy = vyi - vxyz_ptmass(2,j)
        dvz = vzi - vxyz_ptmass(3,j)
        v2 = dvx**2+dvy**2+dvz**2
-       call bindE(v2,r,mu,B)
+       call Espec(v2,r,mu,B)
        call extract_a(r,mu,v2,aij)
        if (B<0) then
           if (aij<r_neigh) then
@@ -170,34 +171,40 @@ subroutine evolve_groups(n_group,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_
  integer, intent(in)    :: group_info(:,:)
  integer, intent(inout) :: n_group
  real,    intent(in)    :: tnext
- integer :: i,j,start_id,end_id,gsize
- real :: W,tcoord
+ integer :: i,start_id,end_id,gsize
  !$omp parallel do default(none)&
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
  !$omp shared(tnext)&
- !$omp private(i,j,start_id,end_id,gsize,W,tcoord)&
+ !$omp private(i,start_id,end_id,gsize)&
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
     gsize    = end_id - start_id
-    call integrate_to_time(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  enddo
 
 
 end subroutine evolve_groups
 
-subroutine integrate_to_time(start_id,end_id,gsize,ds_init,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                         fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in) :: start_id,end_id,gsize
- real,    intent(in) :: ds_init
+ real,    intent(in) :: tnext
  real    :: ds(2)
  real    :: timetable(ck_size)
  integer :: switch
  integer :: step_count_int,step_count_tsyn,n_step_end
- real    :: dt,dt_end,step_modif,t_old,W_old
- logical :: t_end_flag,backup_flag
+ real    :: dt,ds_init,dt_end,step_modif,t_old,W_old
+ logical :: t_end_flag,backup_flag,ismultiple
  integer :: i
+
+
+ tcoord = tnext
+
+ ismultiple = gsize > 2
+
+ call initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,om,s_id,e_id,ismultiple,ds_init)
 
  step_count_int  = 0
  step_count_tsyn = 0
@@ -480,7 +487,7 @@ subroutine oneStep_bin(gsize,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,ds,tcoo
 end subroutine oneStep_bin
 
 
-subroutine get_force_TTL(xyzmh_ptmass,om,fxyz_ptmass,gtgrad,s_id,e_id)
+subroutine get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
  real, intent(in)    :: xyzmh_ptmass(:,:)
  real, intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
  real, intent(out)   :: om
@@ -500,10 +507,10 @@ subroutine get_force_TTL(xyzmh_ptmass,om,fxyz_ptmass,gtgrad,s_id,e_id)
 
  do i=s_id,e_id
     gtki = 0.
-    xi = xyzmh_ptmass(1,j)
-    yi = xyzmh_ptmass(2,j)
-    zi = xyzmh_ptmass(3,j)
-    mi = xyzmh_ptmass(4,j)
+    xi = xyzmh_ptmass(1,i)
+    yi = xyzmh_ptmass(2,i)
+    zi = xyzmh_ptmass(3,i)
+    mi = xyzmh_ptmass(4,i)
     do j=s_id,e_id
        if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
@@ -528,34 +535,87 @@ subroutine get_force_TTL(xyzmh_ptmass,om,fxyz_ptmass,gtgrad,s_id,e_id)
 
 end subroutine get_force_TTL
 
-subroutine initial_OM(xyzmh_ptmass,om,s_id,e_id)
- real, intent(in)    :: xyzmh_ptmass(:,:)
- real, intent(out)   :: om
+subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,om,s_id,e_id,ismultiple,ds_init)
+ use utils_kepler, only :extract_a_dot,extract_a,Espec
+ real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass
+ real, intent(inout) :: fxyz_ptmass(:,:)
+ real, intent(out)   :: om,ds_init
+ logical, intent(in) :: ismultiple
  integer, intent(in) :: s_id,e_id
+ real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2
+ real    :: vxi,vyi,vzi,dvx,dvy,dvz,v,rdotv,axi,ayi,azi,gravfi
+ real    :: gravf,gtki
+ real    :: Edot,E,semi,semidot
  integer :: i,j
- real    :: gtki,dx,dy,dz,xi,yi,zi,r1
 
+ Edot = 0.
+ E = 0.
  om = 0.
+ do i=s_id,e_id
+    fxyz_ptmass(1,i) = 0.
+    fxyz_ptmass(2,i) = 0.
+    fxyz_ptmass(3,i) = 0.
+ enddo
 
  do i=s_id,e_id
     gtki = 0.
+    gravfi = 0.
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
     zi = xyzmh_ptmass(3,i)
     mi = xyzmh_ptmass(4,i)
+    vxi = vxyz_ptmass(1,i)
+    vyi = vxyz_ptmass(2,i)
+    vzi = vxyz_ptmass(3,i)
     do j=s_id,e_id
-       if (i == j) cycle
+       if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
        dy = yi - xyzmh_ptmass(2,j)
        dz = zi - xyzmh_ptmass(3,j)
-       r1 = 1./sqrt(dx**2+dy**2+dz**2)
-       gtki = gtki + xyzmh_ptmass(4,j)*r1
+       dvx = vxi - vxyz_ptmass(1,j)
+       dvy = vyi - vxyz_ptmass(2,j)
+       dvz = vzi - vxyz_ptmass(3,j)
+       r2 = dx**2+dy**2+dz**3
+       r  = sqrt(r)
+       mj = xyzmh_ptmass(4,j)
+       gravf = xyzmh_ptmass(4,j)*(1./r2*r)
+       gtki  = gtki + mj*(1./r)
+       fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + dx*gravf
+       fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + dy*gravf
+       fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + dz*gravf
+       if (ismultiple) then
+          rdotv = dx*dvx + dy*dvy + dz*dvz
+          gravfi = gravfi + gravf*rdotv
+       else
+          v2 = dvx**2 + dvy**2 + dvz**2
+          v = sqrt(v2)
+       endif
+
     enddo
     om = om + gtki*mi
+    axi = fxyz_ptmass(1,i)
+    ayi = fxyz_ptmass(2,i)
+    azi = fxyz_ptmass(3,i)
+    acc = sqrt(axi**2 + ayi**2 + azi**2)
+    if (ismultiple) then
+       vi = sqrt(vxi**2 + vyi**2 + vzi**2)
+       Edot = Edot + mi*(vi*a - gravfi)
+       E = E + 0.5*mi*vi**2 - om
+    else
+       mu = mi*mj
+       call extract_a_dot(r2,r,mu,v2,v,acc,semidot)
+       call extract_a(r,mu,v2,semi)
+    endif
  enddo
 
  om = om*0.5
 
-end subroutine initial_OM
+ if (ismultiple) then
+    ds_init = eta_pert * (Edot/E)
+ else
+    ds_init = eta_pert * (semidot/semi)
+ endif
+
+end subroutine initial_int
 
 end module sdar_group

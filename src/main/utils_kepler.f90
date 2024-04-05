@@ -3,20 +3,28 @@ module utils_kepler
  implicit none
 
 contains
-subroutine bindE(v2,r,mu,B)
+subroutine Espec(v2,r,mu,B)
  real, intent(in) :: v2,r,mu
  real, intent(out) ::  B
 
  B = 0.5*v2 - mu/r
 
-end subroutine bindE
+end subroutine Espec
 
 subroutine extract_a(r,mu,v2,aij)
  real, intent(in) :: r,mu,v2
  real, intent(out):: aij
- aij = (r*mu)/(2*mu-r*v2)
+ aij = (r*mu)/(2.*mu-r*v2)
 
 end subroutine extract_a
+
+subroutine extract_a_dot(r2,r,mu,v2,v,acc,adot)
+ real, intent(in)    :: r2,r,mu,v2,v,acc
+ real, intent(inout) :: adot
+ real :: mu2
+ mu2 = mu**2
+ adot = 2.*(mu2*v+r2*v*acc)/(2.*mu-r*v2)**2
+end subroutine extract_a_dot
 
 subroutine extract_e(x,y,z,vx,vy,vz,mu,r,eij)
  real, intent(in) :: x,y,z,vx,vy,vz,mu,r
