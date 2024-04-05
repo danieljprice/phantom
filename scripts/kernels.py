@@ -240,7 +240,7 @@ def printvariances(w,R):
 # function to print basic kernel information to the screen
 #-----------------------------------------------------------
 def printkernel(w,R):
-    dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh, psi = getkernelfuncs(w,R)
+    dw, d2w, c1D, c2D, c3D, fsoft, pot, dpotdh, gsoft = getkernelfuncs(w,R)
     print ("\n%s W:" %name)
     print (w)
     print ("\nFirst derivative:")
@@ -258,7 +258,7 @@ def printkernel(w,R):
     print (avnorm)
     printvariances(w,R)
     print ("\n gradient acceleration term:")
-    print (psi)
+    print (gsoft)
     return
 
 #-------------------------------------------------------------
@@ -813,6 +813,11 @@ def printkernel_phantom(w,R,name):
        print ("    potensoft = %s" %fmtp(pot))
        print ("    fsoft     = %s" %fmtp(fsoft))
     print ("\nend subroutine kernel_softening\n")
+
+    print ("!------------------------------------------")
+    print ("! gradient acceleration kernel needed for")
+    print ("! use in Forward symplectic integrator")
+    print ("!------------------------------------------")
     print ("pure subroutine kernel_grad_soft(q2,q,gsoft)")
     print (" real, intent(in)  :: q2,q")
     print (" real, intent(out) :: gsoft")
@@ -832,7 +837,6 @@ def printkernel_phantom(w,R,name):
     else:
        print ("    gsoft = %s" %fmtp(gsoft))
     print ("\nend subroutine kernel_grad_soft\n")
-
     print ("!------------------------------------------")
     print ("! double-humped version of the kernel for")
     print ("! use in drag force calculations")
