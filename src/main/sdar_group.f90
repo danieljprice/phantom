@@ -107,8 +107,12 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
  real :: aij,eij,B,rperi
  integer :: i,j
 
- nmatrix = 0.
-
+ !$omp parallel do default(none) &
+ !$omp shared(nptmass,r_neigh,C_bin,t_crit,nmatrix) &
+ !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
+ !$omp private(dx,dy,dz,r,r2) &
+ !$omp private(dvx,dvy,dvz,v2) &
+ !$omp private(mu,aij,eij,B,r_peri) &
  do i=1,nptmass
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
@@ -119,42 +123,39 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
     vzi = vxyz_ptmass(3,i)
     do j=1,nptmass
        if(i==j) cycle
-       if(j>i) then
-          dx = xi - xyzmh_ptmass(1,j)
-          dy = yi - xyzmh_ptmass(2,j)
-          dz = zi - xyzmh_ptmass(3,j)
-          r2 = dx**2+dy**2+dz**2
-          r = sqrt(r2)
-          if (r<r_neigh) then
+       dx = xi - xyzmh_ptmass(1,j)
+       dy = yi - xyzmh_ptmass(2,j)
+       dz = zi - xyzmh_ptmass(3,j)
+       r2 = dx**2+dy**2+dz**2
+       r = sqrt(r2)
+       if (r<r_neigh) then
+          nmatrix(i,j) = 1
+          cycle
+       else if (r>r_search) then
+          nmatrix(i,j) = 0
+          cycle
+       endif
+       mu = mi + xyzmh_ptmass(4,j)
+       dvx = vxi - vxyz_ptmass(1,j)
+       dvy = vyi - vxyz_ptmass(2,j)
+       dvz = vzi - vxyz_ptmass(3,j)
+       v2 = dvx**2+dvy**2+dvz**2
+       call bindE(v2,r,mu,B)
+       call extract_a(r,mu,v2,aij)
+       if (B<0) then
+          if (aij<r_neigh) then
              nmatrix(i,j) = 1
-             cycle
-          else if (r>r_search) then
-             nmatrix(i,j) = 0
-             cycle
-          endif
-          mu = mi + xyzmh_ptmass(4,j)
-          dvx = vxi - vxyz_ptmass(1,j)
-          dvy = vyi - vxyz_ptmass(2,j)
-          dvz = vzi - vxyz_ptmass(3,j)
-          v2 = dvx**2+dvy**2+dvz**2
-          call bindE(v2,r,mu,B)
-          call extract_a(r,mu,v2,aij)
-          if (B<0) then
-             if (aij<r_neigh) then
-                nmatrix(i,j) = 1
-             endif
-          else
-             call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
-             rperi = aij*(1-eij)
-             if (rperi<r_neigh .and. C_bin*(r2/v2)<t_crit) then
-                nmatrix(i,j) = 1
-             endif
           endif
        else
-          nmatrix(i,j) = nmatrix(j,i)
+          call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
+          rperi = aij*(1-eij)
+          if (rperi<r_neigh .and. C_bin*(r2/v2)<t_crit) then
+             nmatrix(i,j) = 1
+          endif
        endif
     enddo
  enddo
+ !$omp end parallel do
 end subroutine matrix_construction
 
 !---------------------------------------------
