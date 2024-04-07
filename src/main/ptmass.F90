@@ -111,27 +111,6 @@ module ptmass
  private
 
 contains
-
-!----------------------------------------------------------------
-!+
-!  Kernel for gradient force calculation, necessary for the FSI
-!+
-!----------------------------------------------------------------
-pure subroutine kernel_grad_soft(q2,q,gsoft)
- real, intent(in)  :: q2,q
- real, intent(out) :: gsoft
- real :: q4,q6
-
- if (q<1.) then
-    gsoft = q*(-15.*q2*q-24.*q2)/10.
- else
-    q4 = q2*q2
-    q6 = q4*q2
-    gsoft = (25.*q6-120.*q4*q+150.*q4-10.)/(50.*q2)
- endif
-
-end subroutine kernel_grad_soft
-
 !----------------------------------------------------------------
 !+
 !  if (tofrom==.true.)  Acceleration from/to gas particles due to sink particles;
@@ -499,7 +478,7 @@ end subroutine get_accel_sink_sink
 !----------------------------------------------------------------
 subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
    pmassi,fxyz_ptmass)
- use kernel,        only:kernel_softening,radkern
+ use kernel,        only:kernel_softening,kernel_gradsoftening,radkern
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi,dt
  real,              intent(inout) :: fxi,fyi,fzi
@@ -550,7 +529,7 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
        ! first grad term of sink from gas
        g21 = pmassi*fsoft*ddr
 
-       call kernel_grad_soft(q2i,qi,gsoft)
+       call kernel_gradsoftening(q2i,qi,gsoft)
 
        dr3  = ddr*ddr*ddr
 
@@ -560,9 +539,9 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
        ! Second grad term of sink from gas
        g22 = pmassi*gsoft*dr3*drdotdf
 
-       gtmpxi = gtmpxi - gpref*(dfx*g11-dx*g12)
-       gtmpyi = gtmpyi - gpref*(dfy*g11-dy*g12)
-       gtmpzi = gtmpzi - gpref*(dfz*g11-dz*g12)
+       gtmpxi = gtmpxi - gpref*(dfx*g11+dx*g12)
+       gtmpyi = gtmpyi - gpref*(dfy*g11+dy*g12)
+       gtmpzi = gtmpzi - gpref*(dfz*g11+dz*g12)
 
 
     else
@@ -578,21 +557,21 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
        g21 = pmassi*dr3
 
        ! first grad term of gas due to point mass particle
-       g12 = 3*pmassj*dr3*ddr*ddr*drdotdf
+       g12 = -3.*pmassj*dr3*ddr*ddr*drdotdf
 
        ! first grad term of sink from gas
-       g22 = 3*pmassi*dr3*ddr*ddr*drdotdf
+       g22 = -3.*pmassi*dr3*ddr*ddr*drdotdf
 
 
-       gtmpxi = gtmpxi - gpref*(dfx*g11-dx*g12)
-       gtmpyi = gtmpyi - gpref*(dfy*g11-dy*g12)
-       gtmpzi = gtmpzi - gpref*(dfz*g11-dz*g12)
+       gtmpxi = gtmpxi - gpref*(dfx*g11+dx*g12)
+       gtmpyi = gtmpyi - gpref*(dfy*g11+dy*g12)
+       gtmpzi = gtmpzi - gpref*(dfz*g11+dz*g12)
     endif
 
     ! backreaction of gas onto sink
-    fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + gpref*(dfx*g21 - dx*g22)
-    fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + gpref*(dfy*g21 - dy*g22)
-    fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + gpref*(dfz*g21 - dz*g22)
+    fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + gpref*(dfx*g21 + dx*g22)
+    fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + gpref*(dfy*g21 + dy*g22)
+    fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + gpref*(dfz*g21 + dz*g22)
  enddo
  !
  ! add temporary sums to existing force on gas particle
@@ -609,7 +588,7 @@ end subroutine get_gradf_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
- use kernel,         only:kernel_softening,radkern
+ use kernel,         only:kernel_softening,kernel_gradsoftening,radkern
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: fxyz_ptmass(4,nptmass)
@@ -680,15 +659,15 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
           ! gradf part 1 of sink1 from sink2
           g1    = fsoft*hsoft21*ddr
 
-          call kernel_grad_soft(q2i,qi,gsoft)
+          call kernel_gradsoftening(q2i,qi,gsoft)
 
           dr3   = ddr*ddr*ddr
 
           ! gradf part 2 of sink1 from sink2
           g2    = gsoft*hsoft21*dr3*drdotdf
-          gxi   = gxi - gpref*(dfx*g1 - dx*g2)
-          gyi   = gyi - gpref*(dfy*g1 - dy*g2)
-          gzi   = gzi - gpref*(dfz*g1 - dz*g2)
+          gxi   = gxi - gpref*(dfx*g1 + dx*g2)
+          gyi   = gyi - gpref*(dfy*g1 + dy*g2)
+          gzi   = gzi - gpref*(dfz*g1 + dz*g2)
 
        else
           ! no softening on the sink-sink interaction
@@ -697,10 +676,10 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
           ! gradf part 1 of sink1 from sink2
           g1    = dr3
           ! gradf part 2 of sink1 from sink2
-          g2    = 3*dr3*ddr*ddr*drdotdf
-          gxi   = gxi - gpref*(dfx*g1 - dx*g2)
-          gyi   = gyi - gpref*(dfy*g1 - dy*g2)
-          gzi   = gzi - gpref*(dfz*g1 - dz*g2)
+          g2    = -3.*dr3*ddr*ddr*drdotdf
+          gxi   = gxi - gpref*(dfx*g1 + dx*g2)
+          gyi   = gyi - gpref*(dfy*g1 + dy*g2)
+          gzi   = gzi - gpref*(dfz*g1 + dz*g2)
        endif
     enddo
     !

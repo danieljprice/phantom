@@ -622,6 +622,7 @@ def printkernel_phantom(w,R,name):
     #--double-hump kernel used in drag routines, with normalisation
     #
     wdrag = piecewise_fold(w*q*q)
+    gradf_soft = piecewise_fold(q*diff(fsoft,q)-fsoft)
     c3Ddrag = sympify(1)/(integrate(4*pi*q*q*wdrag,(q,0,R)))
     avm83, avm97, avratio = get_avdiss(w,R)
     lb = "!"+"-"*62
@@ -794,6 +795,30 @@ def printkernel_phantom(w,R,name):
        print ("    fsoft     = %s" %fmtp(fsoft))
     print ("\nend subroutine kernel_softening\n")
     print ("!------------------------------------------")
+    print ("! gradient acceleration kernel needed for")
+    print ("! use in Foward symplectic integrator")
+    print ("!------------------------------------------")
+    print ("pure real function kernel_gradsoftening(q2,q,gradf_soft)")
+    print (" real, intent(in) :: q2,q")
+    print (" real, intent(out):: gradf_soft")
+    print_decl(gradf_soft)
+    print (" !--double hump %s kernel" %name)
+    if isinstance(gradf_soft, Piecewise):
+       for i, (e, c) in enumerate(gradf_soft.args):
+           if i == 0:
+              print (" if (%s) then" %fmt(c))
+           elif i == len(gradf_soft.args)-1 and c == True:
+              print (" else")
+           else:
+              print (" elseif (%s) then" %fmt(c))
+           print_defs(4,fmtp(e))
+           print ("    gradf_soft = %s" %fmtp(e))
+       print (" endif")
+    else:
+       print_defs(4,fmtp(gradf_soft))
+       print ("    gradf_soft = %s" %fmtp(gradf_soft))
+    print ("\nend function kernel_gradsoftening\n")
+    print ("!------------------------------------------")
     print ("! double-humped version of the kernel for")
     print ("! use in drag force calculations")
     print ("!------------------------------------------")
@@ -957,7 +982,7 @@ R = sympify(2)
 # define which kernel to use
 #f, name = sinq(R,3)
 #f, name = m5(R)
-f, name = w6(R)
+f, name = m4(R)
 
 #print_avdiss(f,R)
 #printvariances(f,R)
