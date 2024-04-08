@@ -96,7 +96,7 @@ ifndef SRCNIMHD
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.F90 growth.F90 porosity.f90
+    SRCDUST = dust.f90 growth.f90 porosity.f90
 endif
 
 ifdef SMOL
@@ -110,10 +110,6 @@ else
     # is still optional in the setup block
     SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
 endif
-
-#ifndef SRCGROWTH
-#    SRCGROWTH = growth.F90
-#endif
 
 #---  live feedback from mcfost
 ifeq ($(MCFOST), yes)
@@ -685,7 +681,7 @@ else
 endif
 
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.F90 test_growth.f90 test_smol.F90 \
+         test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
