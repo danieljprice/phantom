@@ -393,9 +393,6 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
  real                      :: ekin,pdyn
 
  select case (icompact)
- case (0)
-    ! Fragmentation at constant filling factor
-    filfacfrag = filfac
  case (1)
      ! model Garcia + Kataoka mod
      sdust = get_size(mprev,dustprop(2),filfac)
@@ -411,7 +408,9 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
      if (deltavol > vol) deltavol = vol
 
      filfacfrag = filfac *(1./(1.-0.5*exp(1-VrelVf**2.)*deltavol/vol))**ncoll
-
+ case default ! (0)
+    ! Fragmentation at constant filling factor
+    filfacfrag = filfac
  end select
 
  end subroutine get_filfac_frag

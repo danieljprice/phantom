@@ -659,7 +659,7 @@ end subroutine set_dustprop
 !-----------------------------------------------------------------------
 subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use part,           only:npart,npartoftype,massoftype,ndusttypes,&
-                          ndustlarge,grainsize,dustprop,graindens,&
+                          ndustlarge,grainsize,dustprop,&
                           iamtype,iphase,set_particle_type,idust,filfac
  use options,        only:use_porosity
  use units,          only:udist
@@ -670,11 +670,11 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  real,    intent(in)    :: smax_user
  logical, intent(inout) :: force_smax
  logical, intent(in)    :: verbose
- real                   :: smaxtmp,smintmp,smax,smin,tolm,fmintmp,fmaxtmp,fmin,fmax,&
-                           mdustold,mdustnew,code_to_mum
+ real                   :: smaxtmp,smintmp,smax,smin,tolm
+ real                   :: mdustold,mdustnew,code_to_mum
  logical                :: init
  integer                :: nbinsize,nbinsizemax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
- integer                :: nbinfilfac,nbinfilfacmax,ndustsizetypes,ndustfilfactypes
+ integer                :: nbinfilfacmax,ndustsizetypes
  real, allocatable, dimension(: )  :: grid
  real, allocatable, dimension(:,:) :: dustpropmcfost  !dustpropmcfost(1=size,2=filfac)
  character(len=20)                 :: outfile = "bin_distrib.dat"
@@ -692,6 +692,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  nbinfilfacmax = 10
  npartmin      = 50 !- limit to find neighbours
  init          = .false.
+ allocate(dustpropmcfost(2,npart))
  !graindens     = maxval(dustprop(2,:))
 
  !- loop over particles, find min and max on non-accreted dust particles
@@ -713,7 +714,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  enddo
 
  !- overrule force_smax if particles are small, avoid empty bins
- if ((maxval(dustpropmcfost(1,:))*udist < smax_user) .and. force_smax) then
+ if ((maxval(dustpropmcfost(1,1:npart))*udist < smax_user) .and. force_smax) then
     force_smax = .false.
     write(*,*) "Overruled force_smax from T to F"
  endif
@@ -819,6 +820,10 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  else !- init
     grainsize(ndusttypes) = smaxtmp !- only 1 bin, all particles have same size
  endif
+
+ ! clean up
+ if (allocated(dustpropmcfost)) deallocate(dustpropmcfost)
+ if (allocated(grid)) deallocate(grid)
 
 end subroutine bin_to_multi
 
