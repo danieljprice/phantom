@@ -96,7 +96,7 @@ ifndef SRCNIMHD
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.f90 growth.F90
+    SRCDUST = dust.F90 growth.F90 porosity.f90
 endif
 
 ifdef SMOL

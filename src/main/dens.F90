@@ -99,7 +99,7 @@ module densityforce
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
  integer, parameter :: isizecellcache = 1000
  integer, parameter :: isizeneighcache = 0
- integer, parameter :: maxdensits = 50
+ integer, parameter :: maxdensits = 100
 
  !--statistics which can be queried later
  integer, private         :: maxneighact,nrelink
