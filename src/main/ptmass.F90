@@ -275,7 +275,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use vectorutils,    only:unitvec
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(out) :: fxyz_ptmass(4,nptmass)
+ real,    intent(out) :: fxyz_ptmass(4,nptmass),fxyz_ptmass(:,:)
  real,    intent(out) :: phitot,dtsinksink
  integer, intent(in)  :: iexternalforce
  real,    intent(in)  :: ti

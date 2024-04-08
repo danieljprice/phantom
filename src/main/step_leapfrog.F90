@@ -239,7 +239,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           call step_extern_FSI(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
                               xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
        else
-          call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
+          call step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
        endif
     else

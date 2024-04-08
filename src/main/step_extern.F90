@@ -770,7 +770,7 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
 
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
-    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+    !call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
  endif
 
  if(nptmass>0) then
@@ -797,6 +797,7 @@ end subroutine get_force_4th
 subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass)
  use dim,            only:maxptmass
  use ptmass,         only:get_gradf_sink_gas,get_gradf_sink_sink
+ use mpiutils,       only:reduce_in_place_mpi
  use io,             only:id,master
  integer, intent(in) :: nptmass,npart
  real, intent(inout) :: xyzh(:,:),fext(:,:)
@@ -835,7 +836,7 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
 
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
-    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+    !call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
  endif
 
 end subroutine get_gradf_4th
@@ -852,7 +853,7 @@ end subroutine get_gradf_4th
 subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                           xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc,&
-                            do_nucleation,update_muGamma,h2chemistry
+                            do_nucleation,update_muGamma,h2chemistry,ind_timesteps
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                              update_vdependent_extforce_leapfrog,is_velocity_dependent
