@@ -478,7 +478,7 @@ end subroutine get_accel_sink_sink
 !----------------------------------------------------------------
 subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
    pmassi,fxyz_ptmass)
- use kernel,        only:kernel_softening,kernel_gradsoftening,radkern
+ use kernel,        only:kernel_softening,kernel_grad_soft,radkern
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi,dt
  real,              intent(inout) :: fxi,fyi,fzi
@@ -529,7 +529,7 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
        ! first grad term of sink from gas
        g21 = pmassi*fsoft*ddr
 
-       call kernel_gradsoftening(q2i,qi,gsoft)
+       call kernel_grad_soft(q2i,qi,gsoft)
 
        dr3  = ddr*ddr*ddr
 
@@ -588,7 +588,7 @@ end subroutine get_gradf_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
- use kernel,         only:kernel_softening,kernel_gradsoftening,radkern
+ use kernel,         only:kernel_softening,kernel_grad_soft,radkern
  integer, intent(in)  :: nptmass
  real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: fxyz_ptmass(4,nptmass)
@@ -659,7 +659,7 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
           ! gradf part 1 of sink1 from sink2
           g1    = fsoft*hsoft21*ddr
 
-          call kernel_gradsoftening(q2i,qi,gsoft)
+          call kernel_grad_soft(q2i,qi,gsoft)
 
           dr3   = ddr*ddr*ddr
 
