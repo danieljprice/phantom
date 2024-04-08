@@ -17,6 +17,9 @@ module kernel
 !
 ! :Dependencies: physcon
 !
+! :Generated: 2024-04-08 15:20:46.747398
+!
+!--------------------------------------------------------------------------
  use physcon, only:pi
  implicit none
  character(len=11), public :: kernelname = 'M_6 quintic'
