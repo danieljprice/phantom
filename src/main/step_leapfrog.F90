@@ -590,7 +590,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph)
        endif
        call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
-   endif
+    endif
 
     if (gr) then
        call check_velocity_error(errmax,p2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)

@@ -595,15 +595,15 @@ subroutine check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
           sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
           tsnew = dustgasprop(3,i)*sdustprev*filfacprev(i)/sdust/filfac(i)/Omega_k(i)
           if (tsnew < tsmin) then
-            sdustmin = tsmin*sdustprev*filfacprev(i)*Omega_k(i)/filfac(i)/dustgasprop(3,i)
-            dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
+             sdustmin = tsmin*sdustprev*filfacprev(i)*Omega_k(i)/filfac(i)/dustgasprop(3,i)
+             dustprop(1,i) = dustprop(1,i) * (sdustmin/sdust)**3.
           endif
        else
           sdust = get_size(dustprop(1,i),dustprop(2,i))
           if (sdust < grainsizemin) then
              dustprop(1,i) = dustprop(1,i) * (grainsizemin/sdust)**3.   ! fragmentation at constant density and filling factor
           endif
-      endif
+       endif
     endif
  enddo
  !$omp end parallel do
@@ -699,12 +699,12 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     itype = iamtype(iphase(i))
     if (itype==idust) then
        if (use_porosity) then
-             dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
-             dustpropmcfost(2,i) = filfac(i)
-          else
-             dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i))
-             dustpropmcfost(2,i) = 1
-          endif
+          dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
+          dustpropmcfost(2,i) = filfac(i)
+       else
+          dustpropmcfost(1,i) = get_size(dustprop(1,i),dustprop(2,i))
+          dustpropmcfost(2,i) = 1
+       endif
        if (dustpropmcfost(1,i) < smintmp) smintmp = dustpropmcfost(1,i)
        if (dustpropmcfost(1,i) > smaxtmp) smaxtmp = dustpropmcfost(1,i)
        !if (dustpropmcfost(2,i) < fmintmp) fmintmp = dustpropmcfost(2,i)

@@ -130,7 +130,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
              call prompt('Enter H/R at R_ref',H_R_ref,0.)
              call prompt('Enter q index',q_index)
           else
-            call prompt('Enter initial grain size in cm',grainsizecgs,0.)
+             call prompt('Enter initial grain size in cm',grainsizecgs,0.)
           endif
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
@@ -192,7 +192,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        enddo
     endif
     if (use_dustgrowth) then
-          call set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
+       call set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
     endif
  endif
  !Delete particles if necessary

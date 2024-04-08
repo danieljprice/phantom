@@ -1768,7 +1768,7 @@ subroutine delete_particles_outside_sphere(center,radius,np,revert,mytype)
        else
           if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
        endif
-      enddo
+    enddo
  endif
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
