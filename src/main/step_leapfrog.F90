@@ -224,7 +224,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !omp end parallel do
  if (use_dustgrowth) then
     if (use_porosity) then
-       call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti) 
+       call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti)
     endif
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
@@ -365,7 +365,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp end parallel do
  if (use_dustgrowth) then
     if (use_porosity) then
-       call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti) 
+       call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti)
     endif
     call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
  endif
@@ -661,7 +661,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        if (use_dustgrowth) then
           if (use_porosity) then
-             call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph) 
+             call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph)
           endif
           call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
        endif

@@ -533,7 +533,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
        call write_cell(stack_waiting,cell)
     else
        call finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dvdx,&
-                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyz_drag,fext,dragreg,& 
+                             divBsymm,divcurlv,dBevol,ddustevol,deltav,dustgasprop,fxyz_drag,fext,dragreg,&
                              filfac,dtcourant,dtforce,dtvisc,dtohm,dthall,dtambi,dtdiff,dtmini,dtmaxi, &
 #ifdef IND_TIMESTEPS
                              nbinmaxnew,nbinmaxstsnew,ncheckbin, &
@@ -2236,7 +2236,7 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        if (use_dust .and. use_dustfrac .and. iamgasi) then
           do j=1,ndustsmall
              if (use_dustgrowth) then
-                if (use_porosity) then 
+                if (use_porosity) then
                    call get_ts(idrag,j,get_size(dustprop(1,i),dustprop(2,i),filfac(j)),&
                    dustprop(2,i)*filfac(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tstopi(j),iregime)
                 else

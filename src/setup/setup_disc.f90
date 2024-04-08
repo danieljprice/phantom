@@ -1617,7 +1617,7 @@ subroutine initialise_dustprop(npart)
     do i=1,npart
        iam = iamtype(iphase(i))
        if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
-          dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3 
+          dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
           dustprop(2,i) = graindens(1)
        else
           dustprop(:,i) = 0.

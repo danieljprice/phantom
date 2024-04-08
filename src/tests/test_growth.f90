@@ -245,7 +245,7 @@ subroutine test_farmingbox(ntests,npass,frag,onefluid)
        if (use_dust) then
           dustevol(:,i) = 0.
           dustfrac(:,i) = 0.
-          dustprop(1,i) = fourpi/3.*dens*sinit**3 
+          dustprop(1,i) = fourpi/3.*dens*sinit**3
           dustprop(2,i) = dens
           dustgasprop(:,i) = 0.
           VrelVf(i)        = 0.

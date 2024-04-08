@@ -280,7 +280,7 @@ subroutine test_dustybox(ntests,npass)
        open(unit=lu,file=filename,status='replace')
        print "(a)",' writing '//trim(filename)
     endif
-    
+
     do j=1,npart
        if (iamdust(iphase(j))) then
           call checkvalbuf(vxyzu(1,j),vd,tol,'vd',nerr(1),ncheck(1),errmax(1))
@@ -291,11 +291,11 @@ subroutine test_dustybox(ntests,npass)
        else
           call checkvalbuf(vxyzu(1,j),vg,tolvg,'vg',nerr(3),ncheck(3),errmax(3))
           call checkvalbuf(fxyzu(1,j),-fd,tolfg,'fg',nerr(4),ncheck(4),errmax(4))
-          if (write_output) write(lu,*) vxyzu(1,j),fxyzu(1,j),vg,-fd          
+          if (write_output) write(lu,*) vxyzu(1,j),fxyzu(1,j),vg,-fd
        endif
     enddo
     if (write_output) close(lu)
-    
+
     !call checkval(npart/2-1,vxyzu(1,1:npart),vg,tolvg,nerr(2),'vg')
     ekin_exact = 0.5*totmass*(vd**2 + vg**2)
     !print*,' step ',i,'t = ',t,' ekin should be ',ekin_exact, ' got ',ekin,(ekin-ekin_exact)/ekin_exact

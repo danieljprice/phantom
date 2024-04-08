@@ -48,7 +48,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer :: iremoveparttype
  real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
  logical :: icutinside,icutoutside,sizedistrib
- 
+
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
@@ -119,7 +119,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     else
        if (use_dustgrowth) then
           call prompt('Use porosity ? (0=no,1=yes)',iporosity,0,1)
-          if (iporosity == 1) then 
+          if (iporosity == 1) then
              use_porosity = .true.
           endif
           call prompt('Set dust size via size distribution ?',sizedistrib)

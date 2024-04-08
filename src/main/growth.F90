@@ -631,7 +631,7 @@ subroutine set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_i
     iam = iamtype(iphase(i))
     if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
        dustprop(2,i) = graindenscgs / unit_density
-       if (sizedistrib) then 
+       if (sizedistrib) then
           r = sqrt(xyzh(1,i)**2 + xyzh(2,i)**2)
           h = H_R_ref * R_ref * au / udist * (r * udist / au / R_ref)**(1.5-q_index)
           dustprop(1,i) = grainsizecgs/udist * (r * udist / au / R_ref)**pwl_sizedistrib * exp(-0.5*xyzh(3,i)**2/h**2)

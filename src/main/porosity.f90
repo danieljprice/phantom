@@ -30,7 +30,7 @@ module porosity
  implicit none
 
  !--Default values
-                                     
+
  integer, public        :: iporosity    = 0              !--0=Off  1=On    (-1=On for checkup, filfac is initialized but does not evolve)
  integer, public        :: icompact     = 1              !--0=off  1=on    (Compaction of dust grain during fragmentation)
  integer, public        :: ibounce      = 0              !--0=off  1=on    (Allow dust grains to bounce)
@@ -42,12 +42,12 @@ module porosity
  real, private          :: cratio       = -0.5801454844  !--common ratio for a power
  real, private          :: b_oku        = 0.15           !--parameter b (Okuzumi et al. 2012)
  real, private          :: maxpacking   = 0.74048        !--max sphere packing for hexagonal close packing
-  
+
  real, public           :: smono                         !--monomer size
  real, public           :: mmono                         !--monomer mass
  real, public           :: surfenerg
  real, public           :: youngmod
- real, private          :: eroll                         !--rolling 
+ real, private          :: eroll                         !--rolling
  real, private          :: grainmassminlog
  real, private          :: Yd0                           !test for compaction
  real, private          :: Ydpow                         !test for compaction
@@ -73,7 +73,7 @@ subroutine init_porosity(ierr)
  !--initialise variables in code units
  smono         = smonocgs / udist
  mmono         = fourpi/3 * (graindenscgs / unit_density) * smono**3
- surfenerg     = surfenergSI * udist * udist * 1000 / unit_energ 
+ surfenerg     = surfenergSI * udist * udist * 1000 / unit_energ
  youngmod      = youngmodSI * 10 / unit_pressure
  eroll         = 302.455974078*(surfenerg**5 * smono**4 / youngmod**2)**(1./3.)
 
@@ -129,15 +129,15 @@ subroutine init_filfac(npart,xyzh,vxyzu)
  real                      :: rho,rhogas,cs,cparam,coeff_gei,nu
  real                      :: sfrac,s1,s2,s3,filfacmax
 ! real                      :: mfrac,m1,m2,m3
-   
+
 
  select case (iporosity)   ! add other case for other models here
  case (1)
-     
+
      !--initialize filling factor (Garcia & Gonzalez 2020, Suyama et al. 2008, Okuzumi et al. 2012)
 
      if (all(filfac(:) == 0.)) then   ! check if filfac(i) was already initialize by init_filfac or not
-         coeff_gei = sqrt(8./(pi*gamma)) 
+         coeff_gei = sqrt(8./(pi*gamma))
          do i=1,npart
              iam = iamtype(iphase(i))
              if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
@@ -153,7 +153,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
                          cs = get_spsound(3,xyzh(:,i),rhogas,vxyzu(:,i))
                          rho = rhogas + rhoh(xyzh(4,i),massoftype(idust))
                      endif
-                 
+
                      !- molecular viscosity
                      nu = get_viscmol_nu(cs,rhogas)
 
@@ -164,15 +164,15 @@ subroutine init_filfac(npart,xyzh,vxyzu)
                      !--transition masses m1/mmono and m2/mmono between hit&stick and Epstein/Stokes regimes with St < 1
                      s1 = (cparam/(2.*(2.**0.075 - 1.)*coeff_gei))**((1.-cratio)/(1.+8.*cratio))
                      s2 = (cparam*cs*smono/(9.*nu*(2.**0.2 - 1.)))**((1.-cratio)/(9.*cratio))
-                    
+
                      !--we assume St < 1 here (grainsizecgs < 100-1000 cm)
                      if (s1 < s2) then
                          if (sfrac < s1) then      ! filling factor: hit&stick regime
-                             filfac(i) = sfrac**(3.*cratio/(1.-cratio))     
+                             filfac(i) = sfrac**(3.*cratio/(1.-cratio))
                          else
                              !- transition masses m3/mmono between Epstein and Stokes regimes with St < 1
-                             s3 = s1**((1.+8.*cratio)/(1.-cratio)) / s2**(9.*cratio/(1.-cratio)) 
- 
+                             s3 = s1**((1.+8.*cratio)/(1.-cratio)) / s2**(9.*cratio/(1.-cratio))
+
                              if (sfrac < s3) then   ! filling factor: Epstein regime - St<1
                                  filfac(i) = s1**((1.+8.*cratio)/(3.-3.*cratio))/sfrac**(1./3.)
                              else                   ! filling factor: Stokes regime - St<1
@@ -183,7 +183,7 @@ subroutine init_filfac(npart,xyzh,vxyzu)
                          if (sfrac < s2) then      ! filling factor: hit&stick regime
                              filfac(i) = sfrac**(3.*cratio/(1.-cratio))
                          else                      ! filling factor: Stokes regime - St<1
-                             filfac(i) = s2**(3.*cratio/(1.-cratio)) 
+                             filfac(i) = s2**(3.*cratio/(1.-cratio))
                          endif
                      endif
 
@@ -224,11 +224,11 @@ end subroutine init_filfac
 !+
 !  print information about porosity
 !+
-!---------------------------------------------------------- 
-subroutine print_porosity_info(iprint) 
+!----------------------------------------------------------
+subroutine print_porosity_info(iprint)
  integer, intent(in) :: iprint
- 
- if (iporosity == 1) then 
+
+ if (iporosity == 1) then
      write(iprint,"(a)")  ' Using porosity    '
      if (icompact == 1) then
          write(iprint,"(a)")  ' Using compaction during fragmentation    '
@@ -257,7 +257,7 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
  integer                   :: i,iam
  real                      :: filfacevol,filfacmin,filfacmax
  real                      :: rho,rhod
- 
+
  select case (iporosity)   ! add other cases for other models here
  case (1)
      !$omp parallel do default(none) &
@@ -267,7 +267,7 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
          do i=1,npart
              if (.not.isdead_or_accreted(xyzh(4,i))) then
              iam = iamtype(iphase(i))
-     
+
                  if (iam == idust .or. (iam == igas .and. use_dustfrac)) then
                      if (dustprop(1,i) > mmono) then
                          !- compute rho = rho_gas + rho_dust
@@ -285,7 +285,7 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
                          if (dustprop(1,i) > mprev(i)) then
                              call get_filfac_growth(mprev(i),dustprop(1,i),filfac(i),dustgasprop(:,i),filfacevol)
                              if (ibounce == 1) call get_filfac_bounce(mprev(i),dustprop(2,i),filfac(i),&
-                                                    dustgasprop(:,i),probastick(i),rhod,dt,filfacevol,filfacmin) 
+                                                    dustgasprop(:,i),probastick(i),rhod,dt,filfacevol,filfacmin)
                          !--if new mass < previous mass, compute the new filling factor due to fragmentation
                          else
                              call get_filfac_frag(mprev(i),dustprop(:,i),filfac(i),dustgasprop(:,i),rhod,VrelVf(i),dt,filfacevol)
@@ -326,18 +326,18 @@ subroutine get_filfac_growth(mprev,mass,filfac,dustgasprop,filfacgrowth)
  real                      :: j              ! Power of the filling factor dependency in mass
 
  vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
- 
+
  !- kinetic energy condition Ekin/(3*b_oku/eroll)
  ekincdt = mprev*vrel*vrel/(12.*b_oku*eroll)
 
- !-choose power according to the value of ekincdt    
+ !-choose power according to the value of ekincdt
  if (ekincdt <= 1.) then
      j = cratio
  else
      j = -0.2
  endif
 
- !- filling factor due to growth   
+ !- filling factor due to growth
  filfacgrowth = filfac*(mass/mprev)**j
 
 end subroutine get_filfac_growth
@@ -358,18 +358,18 @@ subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,
  real                      :: ekin,pdyn,coeffrest,filfacbnc
  real                      :: vstick,vyield,vend
 
- if (probastick < 1.) then 
+ if (probastick < 1.) then
      vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
      sdust = get_size(mprev,graindens,filfac)
      vstick = compute_vstick(mprev,sdust)                   !-compute vstick, i.e. max velocity before bouncing appears
-    
+
      if (vrel >= vstick) then                               !-if vrel>=vstick -> bouncing
          vyield = compute_vyield(vstick)                    !-compute vyield, i.e. max velocity before inelastic collisions appear
          vend = compute_vend(vstick)                        !-compute vend, i.e. max velocity before there is only bouncing => no growth
 
          if (vrel < vyield) then                            !-elastic collision, no compaction
              filfacbnc = filfac
-         else                                               !-inelastic collision, compaction 
+         else                                               !-inelastic collision, compaction
              vol = fourpi/3. * sdust**3
              ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev     !-number of collision in dt
              ekin = mprev*vrel*vrel/4.
@@ -419,7 +419,7 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
 
      ekin = mprev*vrel*vrel/4. - (2.*mprev - dustprop(1))*0.85697283*eroll/mmono       !0.856973 = 3* 1.8 * 48/302.46
      pdyn = eroll /((1./filfac - 1./maxpacking)*smono)**3
-     deltavol = ekin/pdyn                                                       !-ekin is kinetic energy - all energy needed to break monomers 
+     deltavol = ekin/pdyn                                                       !-ekin is kinetic energy - all energy needed to break monomers
 
      if (deltavol < 0) deltavol = 0.
      if (deltavol > vol) deltavol = vol
@@ -448,7 +448,7 @@ subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
  real,    intent(out)      :: filfaccol
  real                      :: cparam,coeff_gei,nu,kwok
  real                      :: m1,m2,m3,m4,m5
- 
+
  !--compute filling factor due to collisions (Garcia & Gonzalez 2020, Suyama et al. 2008, Okuzumi et al. 2012)
 
  !- shared parameter for the following filling factors
@@ -486,7 +486,7 @@ subroutine get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
          endif
      else
          if (mfrac < m2) then      !- filling factor: hit&stick regime
-             filfaccol = mfrac**cratio 
+             filfaccol = mfrac**cratio
          else                      !- filling factor: Stokes regime - St<1
              filfaccol = m2**cratio
          endif
@@ -517,17 +517,17 @@ subroutine get_filfac_min(i,rho,mfrac,graindens,dustgasprop,filfacmin)
  real,    intent(in)       :: dustgasprop(:)
  real,    intent(out)      :: filfacmin
  real                      :: filfaccol,filfacgas,filfacgrav
- 
+
  call get_filfac_col(i,rho,mfrac,graindens,dustgasprop,filfaccol)
- 
+
  !--compute filling factor due to gas drag compression (Garcia & Gonzalez 2020, Kataoka et al. 2013a)
- filfacgas = ((mmono*smono*dustgasprop(4)*Omega_k(i))/(pi*eroll*dustgasprop(3)))**(3./7.) * mfrac**(1./7.) 
+ filfacgas = ((mmono*smono*dustgasprop(4)*Omega_k(i))/(pi*eroll*dustgasprop(3)))**(3./7.) * mfrac**(1./7.)
 
  !--compute filling factor due to self-gravity (Garcia & Gonzalez 2020, Kataoka et al. 2013b)
  filfacgrav = (mmono*mmono/(pi*smono*eroll))**0.6 * mfrac**0.4
 
  !--return the maximum filling factor between filfaccol, filfacgas and filfacgrav
- filfacmin = max(filfaccol,filfacgas,filfacgrav) 
+ filfacmin = max(filfaccol,filfacgas,filfacgrav)
 
 end subroutine get_filfac_min
 
@@ -571,7 +571,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                      !-compute current, current/2 and min mass in log10
                      grainmasscurlog = log10(dustprop(1,i))
                      grainmassmaxlog = log10(dustprop(1,i)/(2.))
-                    
+
                      !--call random number between 2 float values to assign a random mass to dustprop(1)
                      if (grainmassmaxlog > grainmassminlog) then
                          randmass = (grainmassmaxlog - grainmassminlog) * ran2(seed) + grainmassminlog
@@ -582,7 +582,7 @@ subroutine get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
                              randmass = grainmasscurlog
                          endif
                      endif
-                     
+
                      dustprop(1,i) = 10.**randmass
 
                      !-compute filfacmin and compare it to filfac(i)
@@ -624,12 +624,12 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
          if (.not.isdead_or_accreted(xyzh(4,i))) then
              iam = iamtype(iphase(i))
              if ((iam == idust .or. (iam == igas .and. use_dustfrac))) then
-                 if (filfac(i) >= 0.3 .and. dmdt(i) >= 0.) then 
+                 if (filfac(i) >= 0.3 .and. dmdt(i) >= 0.) then
                      vrel = vrelative(dustgasprop(:,i),sqrt(roottwo*Ro*shearparam)*dustgasprop(1,i))
                      sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
                      vstick = compute_vstick(dustprop(1,i),sdust)
                      vend = compute_vend(vstick)
-                
+
                      !compute the probability of bounce depending on the velocity
                      if (vrel >= vstick) then
                          if(vrel < vend) then
@@ -661,9 +661,9 @@ end subroutine get_probastick
 subroutine write_options_porosity(iunit)
  use infile_utils,      only:write_inopt
  integer, intent(in)       :: iunit
-  
+
  write(iunit,"(/,a)") '# options controlling porosity (require idrag=1)'
- call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit) 
+ call write_inopt(iporosity,'iporosity','porosity (0=off,1=on) ',iunit)
  if (iporosity == 1 .or. iporosity == -1) then
      call write_inopt(icompact, 'icompact', 'Compaction during fragmentation (ifrag > 0) (0=off,1=on)', iunit)
      call write_inopt(ibounce, 'ibounce', 'Dust bouncing (0=off,1=on)', iunit)
@@ -673,7 +673,7 @@ subroutine write_options_porosity(iunit)
      call write_inopt(youngmodSI,'youngmodSI','Monomer young modulus in Pa',iunit)
      call write_inopt(gammaft,'gammaft','Force to torque efficient of gas flow on dust',iunit)
  endif
-  
+
 end subroutine write_options_porosity
 
 !-----------------------------------------------------------------------
@@ -686,12 +686,12 @@ subroutine read_options_porosity(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)    :: name,valstring
  logical, intent(out)            :: imatch,igotall
  integer, intent(out)            :: ierr
-  
+
  integer, save                   :: ngot = 0
-  
+
  imatch  = .true.
  igotall = .false.
-  
+
  select case(trim(name))
  case('iporosity')
      read(valstring,*,iostat=ierr) iporosity
@@ -720,11 +720,11 @@ subroutine read_options_porosity(name,valstring,imatch,igotall,ierr)
      ngot = ngot + 1
  case default
      imatch = .false.
- end select 
+ end select
 
  if ((iporosity == 0) .and. ngot == 1) igotall = .true.
- if ((iporosity /= 0) .and. ngot == 8) igotall = .true.  
-   
+ if ((iporosity /= 0) .and. ngot == 8) igotall = .true.
+
 end subroutine read_options_porosity
 
 !-----------------------------------------------------------------------
@@ -735,12 +735,12 @@ end subroutine read_options_porosity
 subroutine write_porosity_setup_options(iunit)
  use infile_utils,    only:write_inopt
  integer, intent(in)     :: iunit
-  
+
  write(iunit,"(/,a)") '# options for porosity'
  call write_inopt(iporosity,'iporosity','porosity (0=Off,1=On)',iunit)
  call write_inopt(ibounce,'ibounce','bouncing (0=Off,1=On)',iunit)
  call write_inopt(idisrupt,'idisrupt','disruption (0=Off,1=On)',iunit)
-  
+
 end subroutine write_porosity_setup_options
 
 !-----------------------------------------------------------------------
@@ -753,12 +753,12 @@ subroutine read_porosity_setup_options(db,nerr)
  use infile_utils,    only:read_inopt,inopts
  type(inopts), allocatable, intent(inout) :: db(:)
  integer, intent(inout)                   :: nerr
-  
+
  call read_inopt(iporosity,'iporosity',db,min=-1,max=1,errcount=nerr)
  if (iporosity == 1 .or. iporosity == -1) use_porosity = .true.
  call read_inopt(ibounce,'ibounce',db,min=0,max=1,errcount=nerr)
  call read_inopt(idisrupt,'idisrupt',db,min=0,max=1,errcount=nerr)
-  
+
 end subroutine read_porosity_setup_options
 
 real function get_coeffrest(vstickvrel,vyieldvrel)

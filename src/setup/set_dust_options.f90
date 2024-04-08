@@ -722,7 +722,7 @@ subroutine write_dust_setup_options(iunit)
     call write_growth_setup_options(iunit)
     call write_porosity_setup_options(iunit)
  endif
- 
+
 end subroutine write_dust_setup_options
 
 !--------------------------------------------------------------------------
