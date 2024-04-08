@@ -39,6 +39,7 @@ module step_extern
  public :: step_extern_sph
  public :: step_extern_sph_gr
  public :: step_extern_FSI
+ public :: step_extern_subsys
  public :: step_extern_PEFRL
 
 contains
@@ -509,9 +510,7 @@ subroutine step_extern_FSI(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,x
  integer, intent(in)    :: npart,nptmass
  real,    intent(inout) :: dtextforce
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real,parameter    :: dk(3) = (/1./6.,2./3.,1./6./)
- real,parameter    :: ck(2) = (/0.5,0.5/)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real    :: dt,t_end_step,dtextforce_min
  real    :: pmassi,timei
  logical :: done,last_step
@@ -585,17 +584,120 @@ end subroutine step_extern_FSI
 
  !----------------------------------------------------------------
  !+
+ !  This is the equivalent of the routine below with no cooling
+ !  and external forces except ptmass with subsystems algorithms..
+ !+
+ !----------------------------------------------------------------
+subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                              dsdt_ptmass,gtgrad,group_info,n_group,n_ingroup,n_sing)
+ use part,           only: isdead_or_accreted,igas,massoftype
+ use io,             only:iverbose,id,master,iprint,warning,fatal
+ use io_summary,     only:summary_variable,iosumextr,iosumextt
+ use sdar_group,     only:group_identify,evolve_groups
+ real,    intent(in)    :: dtsph,time
+ integer, intent(in)    :: npart,nptmass
+ real,    intent(inout) :: dtextforce
+ real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:),gtgrad(:,:)
+ integer, intent(inout) :: group_info(:,:)
+ integer, intent(inout) :: n_ingroup,n_group,n_sing
+ real,parameter    :: dk(3) = (/1./6.,2./3.,1./6./)
+ real,parameter    :: ck(2) = (/0.5,0.5/)
+ real    :: dt,t_end_step,dtextforce_min
+ real    :: pmassi,timei
+ logical :: done,last_step
+ integer :: nsubsteps
+
+ !
+ ! determine whether or not to use substepping
+ !
+ if (dtextforce < dtsph) then
+    dt = dtextforce
+    last_step = .false.
+ else
+    dt = dtsph
+    last_step = .true.
+ endif
+
+ timei = time
+ pmassi         = massoftype(igas)
+ t_end_step     = timei + dtsph
+ nsubsteps      = 0
+ dtextforce_min = huge(dt)
+ done           = .false.
+
+ substeps: do while (timei <= t_end_step .and. .not.done)
+    timei = timei + dt
+    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
+    nsubsteps = nsubsteps + 1
+    !
+    ! Group all the ptmass in the system in multiple small group for regularization
+    !
+    call group_identify(nptmass,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
+                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
+    call kick_4th (dk(1),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    call drift_4th(ck(1),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
+    call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
+                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info) ! Direct calculation of the force and force gradient
+    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,group_info)
+    call kick_4th (dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
+    call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
+                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
+    call kick_4th (dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
+
+    dtextforce_min = min(dtextforce_min,dtextforce)
+
+    if (last_step) then
+       done = .true.
+    else
+       dt = dtextforce
+       if (timei + dt > t_end_step) then
+          dt = t_end_step - timei
+          last_step = .true.
+       endif
+    endif
+ enddo substeps
+
+ if (nsubsteps > 1) then
+    if (iverbose>=1 .and. id==master) then
+       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
+                ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+    endif
+    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
+    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
+ endif
+
+
+end subroutine step_extern_subsys
+
+
+
+
+ !----------------------------------------------------------------
+ !+
  !  drift routine for the 4th order scheme
  !+
  !----------------------------------------------------------------
 
-subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
  use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
- real,    intent(in)    :: dt,ck
- integer, intent(in)    :: npart,nptmass
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),dsdt_ptmass(:,:)
- integer :: i
+ real,              intent(in)    :: dt,ck
+ integer,           intent(in)    :: npart,nptmass
+ real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ integer, optional, intent(in)    :: n_ingroup
+ integer :: i,istart_ptmass
+
+ istart_ptmass = 1
+ if (present(n_ingroup)) istart_ptmass = n_ingroup + 1
+
+
 
  ! Drift gas particles
 
@@ -616,7 +718,7 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ck,dt) &
  !$omp private(i)
- do i=1,nptmass
+ do i=istart_ptmass,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
        xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ck*dt*vxyz_ptmass(1,i)
        xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ck*dt*vxyz_ptmass(2,i)
@@ -684,18 +786,19 @@ end subroutine kick_4th
  !+
  !----------------------------------------------------------------
 
-subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
- use options,        only:iexternalforce
+subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
+ use options,        only:iexternalforce,use_regnbody
  use dim,            only:maxptmass
  use io,             only:iverbose,master,iprint,warning,fatal
  use part,           only:epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
  use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
  use timestep,       only:bignumber,C_force
- integer, intent(in):: nptmass,npart,nsubsteps
- real, intent(inout) :: xyzh(:,:),fext(:,:)
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real, intent(inout) :: dtextforce
- real, intent(in)    :: timei,pmassi
+ integer,          intent(in)    :: nptmass,npart,nsubsteps
+ real,             intent(inout) :: xyzh(:,:),fext(:,:)
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,             intent(inout) :: dtextforce
+ real,             intent(in)    :: timei,pmassi
+ integer, optional,intent(in)    :: group_info(:,:)
  integer         :: merge_ij(nptmass)
  integer         :: merge_n
  integer         :: i
@@ -708,12 +811,22 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
  dtphi2        = bignumber
  fonrmax = 0
  if (nptmass>0) then
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
-    if (merge_n > 0) then
-       call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+    if (use_regnbody) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+       if (merge_n > 0) then
+          call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+         dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+       endif
+    else
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+       if (merge_n > 0) then
+          call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+       endif
     endif
  else
     fxyz_ptmass(:,:) = 0.
@@ -763,21 +876,26 @@ end subroutine get_force_4th
  !----------------------------------------------------------------
 
 
-subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass)
+subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,group_info)
  use dim,            only:maxptmass
  use ptmass,         only:get_gradf_sink_gas,get_gradf_sink_sink
- integer, intent(in) :: nptmass,npart
- real, intent(inout) :: xyzh(:,:),fext(:,:)
- real, intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(4,nptmass)
- real, intent(inout) :: dt
- real, intent(in)    :: pmassi
+ use options,        only:use_regnbody
+ integer,           intent(in)    :: nptmass,npart
+ real,              intent(inout) :: xyzh(:,:),fext(:,:)
+ real,              intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:)
+ real,              intent(inout) :: dt
+ real,              intent(in)    :: pmassi
+ integer, optional, intent(in)    :: group_info(:,:)
  real            :: fextx,fexty,fextz
  integer         :: i
 
 
  if (nptmass>0) then
-    call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
-    !print*,fxyz_ptmass(1,1:5)
+    if(use_regnbody) then
+       call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
+    else
+       call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
+    endif
  else
     fxyz_ptmass(:,:) = 0.
  endif

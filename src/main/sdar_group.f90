@@ -25,11 +25,12 @@ contains
 ! Group identification routines
 !
 !-----------------------------------------------
-subroutine group_identify(nptmass,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
- real,    intent(in)               :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(in)               :: group_info(:,:)
- integer(kind=1), intent(inout)    :: nmatrix(:,:)
- integer, intent(in) :: nptmass
+subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+ real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in)            :: group_info(:,:)
+ integer(kind=1), intent(inout) :: nmatrix(:,:)
+ integer, intent(inout)         :: n_group,n_ingroup,n_sing
+ integer, intent(in)            :: nptmass
 
  ngroup = 0
  n_ingroup = 0
@@ -40,12 +41,13 @@ subroutine group_identify(nptmass,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
 end subroutine group_identify
 
 
-subroutine form_group(nmatrix,nptmass,group_info)
- use part, only : igid,igcum
+subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+ use part, only : igarg,igcum
  use dim, only : maxptmass
  integer(kind=1), intent(in) :: nmatrix(:,:)
- integer, intent(out):: group_info(:,:)
- integer, intent(in) :: nptmass
+ integer, intent(out)        :: group_info(:,:)
+ integer, intent(in)         :: nptmass
+ integer, intent(inout)      :: n_group,n_ingroup,n_sing
  integer :: i,ncg
  logical :: visited(maxptmass)
  integer :: stack(maxptmass)
@@ -348,7 +350,6 @@ subroutine backup_data(gsize,xyzmh_ptmass,vxyz_ptmass,bdata)
        bdata(j,i) = xyzmh_ptmass(j,i)
        bdata(j+ndim,i) =,vxyz_ptmass(j,i)
     enddo
-    !print*,bdata(1,:)
  enddo
 
 end subroutine backup_data

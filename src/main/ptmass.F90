@@ -265,7 +265,7 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -273,14 +273,16 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- integer, intent(in)  :: nptmass
- real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(out) :: fxyz_ptmass(4,nptmass)
- real,    intent(out) :: phitot,dtsinksink
- integer, intent(in)  :: iexternalforce
- real,    intent(in)  :: ti
- integer, intent(out) :: merge_ij(:),merge_n
- real,    intent(out) :: dsdt_ptmass(3,nptmass)
+ use part,           only:igarg,igcum
+ integer,           intent(in)  :: nptmass
+ real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(out) :: fxyz_ptmass(4,nptmass)
+ real,              intent(out) :: phitot,dtsinksink
+ integer,           intent(in)  :: iexternalforce
+ real,              intent(in)  :: ti
+ integer,           intent(out) :: merge_ij(:),merge_n
+ integer, optional, intent(in)  :: group_info(:,:)
+ real,              intent(out) :: dsdt_ptmass(3,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -288,7 +290,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
- integer :: i,j
+ integer :: k,l,i,j,start_id,end_id
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -313,7 +315,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
@@ -323,7 +325,14 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
- do i=1,nptmass
+ do k=1,nptmass
+    if (present(group_info)) then
+       start_id = group_info(igcum) + 1
+       end_id   = group_info(igcum)
+       i = group_info(igarg,k)
+    else
+       i = k
+    endif
     xi     = xyzmh_ptmass(1,i)
     yi     = xyzmh_ptmass(2,i)
     zi     = xyzmh_ptmass(3,i)
@@ -339,7 +348,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsx    = 0.
     dsy    = 0.
     dsz    = 0.
-    do j=1,nptmass
+    do l=1,nptmass
+       if (present(group_info)) then
+          j = group_info(igarg,l)
+          if (j>=start_id .or. j<=end_id) cycle
+       else
+          j = l
+       endif
        if (i==j) cycle
        dx     = xi - xyzmh_ptmass(1,j)
        dy     = yi - xyzmh_ptmass(2,j)
@@ -477,19 +492,19 @@ end subroutine get_accel_sink_sink
 !+
 !----------------------------------------------------------------
 subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
-   pmassi,fxyz_ptmass)
+                             pmassi,fxyz_ptmass)
  use kernel,        only:kernel_softening,kernel_gradsoftening,radkern
- integer,           intent(in)    :: nptmass
- real,              intent(in)    :: xi,yi,zi,hi,dt
- real,              intent(inout) :: fxi,fyi,fzi
- real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,              intent(in)    :: pmassi
- real,              intent(inout) :: fxyz_ptmass(4,nptmass)
- real                             :: gtmpxi,gtmpyi,gtmpzi
- real                             :: dx,dy,dz,rr2,ddr,dr3,g11,g12,g21,g22,pmassj
- real                             :: dfx,dfy,dfz,drdotdf
- real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft,gpref
- integer                          :: j
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: xi,yi,zi,hi,dt
+ real,    intent(inout) :: fxi,fyi,fzi
+ real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(in)    :: pmassi
+ real,    intent(inout) :: fxyz_ptmass(4,nptmass)
+ real    :: gtmpxi,gtmpyi,gtmpzi
+ real    :: dx,dy,dz,rr2,ddr,dr3,g11,g12,g21,g22,pmassj
+ real    :: dfx,dfy,dfz,drdotdf
+ real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft,gpref
+ integer :: j
 
  gtmpxi = 0.  ! use temporary summation variable
  gtmpyi = 0.  ! (better for round-off, plus we need this bit of
@@ -587,17 +602,18 @@ end subroutine get_gradf_sink_gas
 ! get gradient correction of the force for FSI integrator (sink-gas)
 !+
 !----------------------------------------------------------------
-subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
+subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
  use kernel,         only:kernel_softening,kernel_gradsoftening,radkern
- integer, intent(in)  :: nptmass
- real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(inout) :: fxyz_ptmass(4,nptmass)
- real,    intent(in)  :: dt
+ integer,           intent(in)    :: nptmass
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(inout) :: fxyz_ptmass(4,nptmass)
+ real,              intent(in)    :: dt
+ integer, optional, intent(in)    :: group_info(:,:)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,gxi,gyi,gzi
  real    :: ddr,dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,dr3,g1,g2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft
  real    :: gpref
- integer :: i,j
+ integer :: i,j,k,l,start_id,end_id
 
  if (nptmass <= 1) return
  if (h_soft_sinksink > 0.) then
@@ -611,13 +627,20 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
  !--compute N^2 gradf on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,group_info) &
  !$omp shared(h_soft_sinksink,hsoft21,dt) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,ddr,dr3,g1,g2) &
  !$omp private(fxi,fyi,fzi,gxi,gyi,gzi,gpref) &
  !$omp private(q2i,qi,psoft,fsoft,gsoft)
- do i=1,nptmass
+ do k=1,nptmass
+    if (present(group_info)) then
+       start_id = group_info(igcum) + 1
+       end_id   = group_info(igcum)
+       i = group_info(igarg,k)
+    else
+       i = k
+    endif
     xi     = xyzmh_ptmass(1,i)
     yi     = xyzmh_ptmass(2,i)
     zi     = xyzmh_ptmass(3,i)
@@ -629,7 +652,13 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
     gxi = 0.
     gyi = 0.
     gzi = 0.
-    do j=1,nptmass
+    do l=1,nptmass
+       if (present(group_info)) then
+          j = group_info(igarg,l)
+          if (j>=start_id .or. j<=end_id) cycle
+       else
+          j = l
+       endif
        if (i==j) cycle
        dx     = xi - xyzmh_ptmass(1,j)
        dy     = yi - xyzmh_ptmass(2,j)
