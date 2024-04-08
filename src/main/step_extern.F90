@@ -39,7 +39,6 @@ module step_extern
  public :: step_extern_sph
  public :: step_extern_sph_gr
  public :: step_extern_FSI
- public :: step_extern_PEFRL
 
  real,parameter :: dk(3) = (/1./6.,2./3.,1./6./)
  real,parameter :: ck(2) = (/0.5,0.5/)
@@ -420,85 +419,6 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  !$omp end parallel do
 
 end subroutine step_extern_sph
-
- !----------------------------------------------------------------
- !+
- !  This is the equivalent of the routine below with no cooling
- !  and external forces except ptmass. (4th order scheme)
- !+
- !----------------------------------------------------------------
-subroutine step_extern_PEFRL(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
- use part,           only: isdead_or_accreted,igas,massoftype
- use io,             only:iverbose,id,master,iprint,warning,fatal
- use io_summary,     only:summary_variable,iosumextr,iosumextt
- real,    intent(in)    :: dtsph,time
- integer, intent(in)    :: npart,nptmass
- real,    intent(inout) :: dtextforce
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
- real,parameter :: ck(5) = (/0.1786178958448091,-0.06626458266981849,0.77529337365001878,-0.06626458266981849,0.1786178958448091/)
- real,parameter :: dk(4) = (/0.7123418310626054,-0.2123418310626054,-0.2123418310626054,0.7123418310626054/)
- real    :: dt,t_end_step,dtextforce_min
- real    :: pmassi,timei
- logical :: done,last_step
- integer :: nsubsteps
- integer :: i
-
- !
- ! determine whether or not to use substepping
- !
- if (dtextforce < dtsph) then
-    dt = dtextforce
-    last_step = .false.
- else
-    dt = dtsph
-    last_step = .true.
- endif
-
- timei = time
- pmassi         = massoftype(igas)
- t_end_step     = timei + dtsph
- nsubsteps      = 0
- dtextforce_min = huge(dt)
- done           = .false.
-
- substeps: do while (timei <= t_end_step .and. .not.done)
-    timei = timei + dt
-    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
-    nsubsteps = nsubsteps + 1
-    do i=1,4
-       call drift_4th(ck(i),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
-       call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
-                            xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
-       call kick_4th (dk(i),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
-    enddo
-    call drift_4th(ck(5),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
-
-    if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"dt : ",dt
-    dtextforce_min = min(dtextforce_min,dtextforce)
-
-    if (last_step) then
-       done = .true.
-    else
-       dt = dtextforce
-       if (timei + dt > t_end_step) then
-          dt = t_end_step - timei
-          last_step = .true.
-       endif
-    endif
- enddo substeps
-
- if (nsubsteps > 1) then
-    if (iverbose>=1 .and. id==master) then
-       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
-             ' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
-    endif
-    call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
-    call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
- endif
-
-
-end subroutine step_extern_PEFRL
 
  !----------------------------------------------------------------
  !+

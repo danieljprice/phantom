@@ -121,8 +121,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use step_extern,    only:step_extern_FSI,step_extern_PEFRL,step_extern_lf, &
-                          step_extern_gr,step_extern_sph_gr,step_extern_sph
+ use step_extern,    only:step_extern_FSI,step_extern_lf,step_extern_gr, &
+                          step_extern_sph_gr,step_extern_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
