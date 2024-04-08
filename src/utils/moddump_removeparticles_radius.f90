@@ -10,7 +10,7 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Arnaud Vericel
+! :Owner: Daniel Mentiplay
 !
 ! :Runtime parameters: None
 !

@@ -1,12 +1,29 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module porosity
 !
 ! Contains routine for porosity evolution (growth, bouncing, fragmentation, compaction, disruption)
 !
-! :References:
-!  Okuzumi et al. (1997), ApJ 752, 106
-!  Garcia, Gonzalez (2020), MNRAS 493, 1788
-!  Tatsuuma et Kataoka (2021), ApJ 913, 132
-!  Michoulier & Gonzalez (2022), MNRAS 517, 3064
+! :References: None
+!
+! :Owner: Stephane Michoulier
+!
+! :Runtime parameters:
+!   - gammaft     : *Force to torque efficient of gas flow on dust*
+!   - ibounce     : *bouncing (0=Off,1=On)*
+!   - icompact    : *Compaction during fragmentation (ifrag > 0) (0=off,1=on)*
+!   - idisrupt    : *disruption (0=Off,1=On)*
+!   - iporosity   : *porosity (0=Off,1=On)*
+!   - smonocgs    : *Monomer size in cm (smaller or equal to 1.e-4 cm)*
+!   - surfenergSI : *Monomer surface energy in J/m**2*
+!   - youngmodSI  : *Monomer young modulus in Pa*
+!
+! :Dependencies: dim, dust, eos, growth, infile_utils, io, options, part,
+!   physcon, random, units, viscosity
 !
  use units,        only:umass,udist,unit_energ,unit_pressure,unit_density
  use physcon,      only:Ro,pi,fourpi,roottwo

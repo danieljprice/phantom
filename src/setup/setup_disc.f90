@@ -90,9 +90,9 @@ module setup
 ! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
 !   growth, infile_utils, io, kernel, memory, options, part, physcon,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, setflyby, sethierarchical, spherical, timestep, units,
-!   vectorutils
+!   porosity, prompting, radiation_utils, set_dust, set_dust_options,
+!   setbinary, setdisc, setflyby, sethierarchical, spherical, timestep,
+!   units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost

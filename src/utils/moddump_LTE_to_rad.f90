@@ -14,7 +14,8 @@ module moddump
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, eos, io, part
+! :Dependencies: dim, eos, eos_idealplusrad, eos_mesa, io,
+!   mesa_microphysics, part, radiation_utils, units
 !
  implicit none
 

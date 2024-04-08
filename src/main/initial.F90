@@ -21,9 +21,9 @@ module initial
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
 !   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, partinject, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing,
-!   tmunu2grid, units, writeheader
+!   options, part, partinject, porosity, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
  implicit none
