@@ -1042,7 +1042,11 @@ real function get_size(mass,dens,filfac)
     f = 1.0
  endif
 
- get_size = ( 3.*mass / (fourpi*dens*f) )**(1./3.)
+ if (dens > 0. .and. f > 0.) then
+    get_size = ( 3.*mass / (fourpi*dens*f) )**(1./3.)
+ else
+    get_size = 0.
+ endif
 
 end function get_size
 
