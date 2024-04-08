@@ -104,6 +104,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,ibin_wake
+ use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
@@ -121,8 +122,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use step_extern,    only:step_extern_FSI,step_extern_PEFRL,step_extern_lf, &
-                          step_extern_gr,step_extern_sph_gr,step_extern_sph
+ use step_extern,    only:step_extern_FSI,step_extern_PEFRL,step_extern_lf,  &
+                          step_extern_gr,step_extern_sph_gr,step_extern_sph, &
+                          step_extern_subsys
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -238,6 +240,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (use_fourthorder) then
           call step_extern_FSI(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
                               xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+       elseif(use_regnbody) then
+          call step_extern_subsys(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
+                                  xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass, &
+                                  gtgrad,group_info,n_group,n_ingroup,n_sing)
        else
           call step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)

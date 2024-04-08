@@ -638,7 +638,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
     !
     ! Group all the ptmass in the system in multiple small group for regularization
     !
-    call group_identify(nptmass,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+    call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
 
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
@@ -649,8 +649,8 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info) ! Direct calculation of the force and force gradient
     call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,group_info)
     call kick_4th (dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
-    call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
     call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
     call kick_4th (dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
@@ -690,8 +690,8 @@ end subroutine step_extern_subsys
  !+
  !----------------------------------------------------------------
 
-subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
- use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
+subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
+ use part, only: isdead_or_accreted,ispinx,ispiny,ispinz,igarg
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
  real,              intent(in)    :: dt,ck
@@ -699,7 +699,8 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),dsdt_ptmass(:,:)
  integer, optional, intent(in)    :: n_ingroup
- integer :: i,istart_ptmass
+ integer, optional, intent(in)    :: group_info(:,:)
+ integer :: i,k,istart_ptmass
 
  istart_ptmass = 1
  if (present(n_ingroup)) istart_ptmass = n_ingroup + 1
@@ -723,8 +724,13 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
     if(id==master) then
        !$omp parallel do default(none) &
        !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ck,dt) &
-       !$omp private(i)
-       do i=istart_ptmass,nptmass
+       !$omp private(i,k)
+       do k=istart_ptmass,nptmass
+          if (present(n_ingroup)) then
+             i = group_info(igarg,k)
+          else
+             i = k
+          endif
           if (xyzmh_ptmass(4,i) > 0.) then
              xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ck*dt*vxyz_ptmass(1,i)
              xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ck*dt*vxyz_ptmass(2,i)

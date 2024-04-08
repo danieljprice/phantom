@@ -36,7 +36,7 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  n_ingroup = 0
  n_sing = 0
  call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
- call form_group(group_info,nmatrix,nptmass)
+ call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
 
 end subroutine group_identify
 
@@ -109,13 +109,16 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
  real :: aij,eij,B,rperi
  integer :: i,j
+!
+!!TODO MPI Proof version of the matrix construction
+!
 
  !$omp parallel do default(none) &
  !$omp shared(nptmass,r_neigh,C_bin,t_crit,nmatrix) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
  !$omp private(dx,dy,dz,r,r2) &
  !$omp private(dvx,dvy,dvz,v2) &
- !$omp private(mu,aij,eij,B,r_peri) &
+ !$omp private(mu,aij,eij,B,r_peri)
  do i=1,nptmass
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
@@ -497,6 +500,8 @@ subroutine get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
  real    :: gravf,gtki
  integer :: i,j
  om = 0.
+
+
  do i=s_id,e_id
     fxyz_ptmass(1,i) = 0.
     fxyz_ptmass(2,i) = 0.
@@ -504,9 +509,6 @@ subroutine get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
     gtgrad(1,i) = 0.
     gtgrad(2,i) = 0.
     gtgrad(3,i) = 0.
- enddo
-
- do i=s_id,e_id
     gtki = 0.
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
