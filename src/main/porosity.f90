@@ -6,9 +6,14 @@
 !--------------------------------------------------------------------------!
 module porosity
 !
-! Contains routine for porosity evolution (growth, bouncing, fragmentation, compaction, disruption)
+! Contains routine for porosity evolution (growth, bouncing, 
+! fragmentation, compaction, disruption)
 !
-! :References: None
+! :References:
+!   Okuzumi et al. (1997), ApJ 752, 106
+!   Garcia, Gonzalez (2020), MNRAS 493, 1788
+!   Tatsuuma et Kataoka (2021), ApJ 913, 132
+!   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
 ! :Owner: Stephane Michoulier
 !
@@ -39,22 +44,25 @@ module porosity
  real, public           :: surfenergSI  = 0.20          !--surface energy of monomers in SI: J/m**2 (here for Si: Kimura et al. 2020)
  real, public           :: youngmodSI   = 72e9           !--young modulus of monomers in SI: Pa (here for Si: Yamamoto et al. 2014)
  real, public           :: gammaft      = 0.1            !--force-to-torque efficiency (Tatsuuma et al. 2021)
- real, private          :: cratio       = -0.5801454844  !--common ratio for a power
- real, private          :: b_oku        = 0.15           !--parameter b (Okuzumi et al. 2012)
- real, private          :: maxpacking   = 0.74048        !--max sphere packing for hexagonal close packing
+
+ real, parameter        :: cratio       = -0.5801454844  !--common ratio for a power
+ real, parameter        :: b_oku        = 0.15           !--parameter b (Okuzumi et al. 2012)
+ real, parameter        :: maxpacking   = 0.74048        !--max sphere packing for hexagonal close packing
 
  real, public           :: smono                         !--monomer size
  real, public           :: mmono                         !--monomer mass
  real, public           :: surfenerg
  real, public           :: youngmod
- real, private          :: eroll                         !--rolling
- real, private          :: grainmassminlog
- real, private          :: Yd0                           !test for compaction
- real, private          :: Ydpow                         !test for compaction
+ real                   :: eroll                         !--rolling
+ real                   :: grainmassminlog
+ real                   :: Yd0                           !test for compaction
+ real                   :: Ydpow                         !test for compaction
 
- public                 :: get_filfac,init_filfac,get_disruption
+ public                 :: get_filfac,init_filfac,get_disruption,get_probastick
  public                 :: init_porosity,print_porosity_info,write_options_porosity,read_options_porosity
  public                 :: write_porosity_setup_options,read_porosity_setup_options
+
+ private
 
 contains
 
@@ -262,7 +270,7 @@ subroutine get_filfac(npart,xyzh,mprev,filfac,dustprop,dt)
  case (1)
     !$omp parallel do default(none) &
     !$omp shared(xyzh,npart,iphase,massoftype,use_dustfrac,dustfrac,icompact) &
-    !$omp shared(mprev,filfac,dustprop,dustgasprop,VrelVf,probastick,mmono,maxpacking,dt,ibounce) &
+    !$omp shared(mprev,filfac,dustprop,dustgasprop,VrelVf,probastick,mmono,dt,ibounce) &
     !$omp private(i,iam,rho,rhod,filfacevol,filfacmin,filfacmax)
     do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then

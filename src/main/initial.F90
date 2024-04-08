@@ -314,7 +314,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--get total number of particles (on all processors)
 !
- ntot           = reduceall_mpi('+',npart)
+ ntot = reduceall_mpi('+',npart)
  call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
@@ -608,7 +608,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif

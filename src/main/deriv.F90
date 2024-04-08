@@ -55,8 +55,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use photoevap,      only:find_ionfront,photo_ionize
  use part,           only:massoftype
 #endif
- use dust_formation,   only:calc_kappa_bowen,idust_opacity
- use part,             only:ikappa,tau,nucleation
  use raytracer
  use growth,           only:get_growth_rate
  use porosity,         only:get_disruption,get_probastick
@@ -130,13 +128,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
-
-#ifdef DUSTGROWTH
  !
  ! compute disruption of dust particles
  !
- if (use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
-#endif
+ if (use_dustgrowth .and. use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
 !
 ! calculate density by direct summation
 !
