@@ -42,6 +42,11 @@ module step_extern
  public :: step_extern_subsys
  public :: step_extern_PEFRL
 
+ real,parameter :: dk(3) = (/1./6.,2./3.,1./6./)
+ real,parameter :: ck(2) = (/0.5,0.5/)
+
+ private
+
 contains
 
 subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
@@ -687,6 +692,8 @@ end subroutine step_extern_subsys
 
 subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
  use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
+ use io  ,     only:id,master
+ use mpiutils, only:bcast_mpi
  real,              intent(in)    :: dt,ck
  integer,           intent(in)    :: npart,nptmass
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -696,8 +703,6 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
 
  istart_ptmass = 1
  if (present(n_ingroup)) istart_ptmass = n_ingroup + 1
-
-
 
  ! Drift gas particles
 
@@ -714,21 +719,25 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
  !$omp end parallel do
 
  ! Drift sink particles
-
- !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ck,dt) &
- !$omp private(i)
- do i=istart_ptmass,nptmass
-    if (xyzmh_ptmass(4,i) > 0.) then
-       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ck*dt*vxyz_ptmass(1,i)
-       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ck*dt*vxyz_ptmass(2,i)
-       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ck*dt*vxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ck*dt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ck*dt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ck*dt*dsdt_ptmass(3,i)
+ if(nptmass>0) then
+    if(id==master) then
+       !$omp parallel do default(none) &
+       !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ck,dt) &
+       !$omp private(i)
+       do i=istart_ptmass,nptmass
+          if (xyzmh_ptmass(4,i) > 0.) then
+             xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ck*dt*vxyz_ptmass(1,i)
+             xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ck*dt*vxyz_ptmass(2,i)
+             xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ck*dt*vxyz_ptmass(3,i)
+             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ck*dt*dsdt_ptmass(1,i)
+             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ck*dt*dsdt_ptmass(2,i)
+             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ck*dt*dsdt_ptmass(3,i)
+          endif
+       enddo
+       !$omp end parallel do
     endif
- enddo
- !$omp end parallel do
+    call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
+ endif
 end subroutine drift_4th
 
 
@@ -740,6 +749,8 @@ end subroutine drift_4th
 
 subroutine kick_4th(dk,dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
  use part, only: isdead_or_accreted,ispinx,ispiny,ispinz
+ use io  ,     only:id,master
+ use mpiutils, only:bcast_mpi
  real,    intent(in)    :: dt,dk
  integer, intent(in)    :: npart,nptmass
  real,    intent(in)    :: xyzh(:,:)
@@ -762,21 +773,26 @@ subroutine kick_4th(dk,dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext
  !$omp end parallel do
 
  ! Kick sink particles
+ if (nptmass>0) then
+    if(id==master) then
+       !$omp parallel do default(none) &
+       !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,dsdt_ptmass,dk,dt) &
+       !$omp private(i)
+       do i=1,nptmass
+          if (xyzmh_ptmass(4,i) > 0.) then
+             vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dk*dt*fxyz_ptmass(1,i)
+             vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dk*dt*fxyz_ptmass(2,i)
+             vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dk*dt*fxyz_ptmass(3,i)
+             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dk*dt*dsdt_ptmass(1,i)
+             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dk*dt*dsdt_ptmass(2,i)
+             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dk*dt*dsdt_ptmass(3,i)
+          endif
+       enddo
+       !$omp end parallel do
 
- !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,dsdt_ptmass,dk,dt) &
- !$omp private(i)
- do i=1,nptmass
-    if (xyzmh_ptmass(4,i) > 0.) then
-       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dk*dt*fxyz_ptmass(1,i)
-       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dk*dt*fxyz_ptmass(2,i)
-       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dk*dt*fxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dk*dt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dk*dt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dk*dt*dsdt_ptmass(3,i)
     endif
- enddo
- !$omp end parallel do
+    call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+ endif
 
 end subroutine kick_4th
 
@@ -789,10 +805,11 @@ end subroutine kick_4th
 subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
  use options,        only:iexternalforce,use_regnbody
  use dim,            only:maxptmass
- use io,             only:iverbose,master,iprint,warning,fatal
+ use io,             only:iverbose,master,id,iprint,warning,fatal
  use part,           only:epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
  use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
  use timestep,       only:bignumber,C_force
+ use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  integer,          intent(in)    :: nptmass,npart,nsubsteps
  real,             intent(inout) :: xyzh(:,:),fext(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
@@ -811,30 +828,36 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
  dtphi2        = bignumber
  fonrmax = 0
  if (nptmass>0) then
-    if (use_regnbody) then
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
-       if (merge_n > 0) then
-          call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+    if (id==master) then
+       if (use_regnbody) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-         dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
-       endif
-    else
-       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                  dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+          if (merge_n > 0) then
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+          endif
+       else
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
-       if (merge_n > 0) then
-          call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
-          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+          if (merge_n > 0) then
+             call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+             call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+          endif
        endif
+       fxyz_ptmass_sinksink=fxyz_ptmass
+       dsdt_ptmass_sinksink=dsdt_ptmass
+       if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
+    else
+       fxyz_ptmass(:,:) = 0.
+       dsdt_ptmass(:,:) = 0.
     endif
- else
-    fxyz_ptmass(:,:) = 0.
-    dsdt_ptmass(:,:) = 0.
+    call bcast_mpi(epot_sinksink)
+    call bcast_mpi(dtf)
+    dtextforcenew = min(dtextforcenew,C_force*dtf)
  endif
- fxyz_ptmass_sinksink=fxyz_ptmass
- dsdt_ptmass_sinksink=dsdt_ptmass
- dtextforcenew = min(dtextforcenew,C_force*dtf)
+
  if (iverbose >= 3 ) write(iprint,*) "dt_sink_sink",dtextforcenew
  !$omp parallel default(none) &
  !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fext) &
@@ -859,12 +882,21 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
  !$omp enddo
  !$omp end parallel
 
- if (fonrmax > 0.) then
-    dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+ if (nptmass > 0) then
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
  endif
- if (iverbose >= 3 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
- dtextforcenew = min(dtextforcenew,dtsinkgas)
- dtextforce = dtextforcenew
+
+ if(nptmass>0) then
+    if (fonrmax > 0.) then
+       dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+    endif
+    if (iverbose >= 3 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+    dtextforcenew = min(dtextforcenew,dtsinkgas)
+    dtextforce = dtextforcenew
+ endif
+
+ dtextforcenew = reduceall_mpi('min',dtextforcenew)
 
 end subroutine get_force_4th
 
