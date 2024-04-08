@@ -632,7 +632,7 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
 
                      !compute the probability of bounce depending on the velocity
                      if (vrel >= vstick) then
-                         if(vrel < vend) then
+                         if (vrel < vend) then
                              probastick(i) = (log(vrel)-log(vend))/(log(vstick)-log(vend))
                          else
                              probastick(i) = 0.      !full bounce -> no growth
