@@ -912,6 +912,7 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
  use dim,            only:maxptmass
  use ptmass,         only:get_gradf_sink_gas,get_gradf_sink_sink
  use options,        only:use_regnbody
+ use io,             only:id,master
  integer,           intent(in)    :: nptmass,npart
  real,              intent(inout) :: xyzh(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:)
@@ -923,13 +924,15 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
 
 
  if (nptmass>0) then
-    if(use_regnbody) then
-       call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
+    if(id==master) then
+       if(use_regnbody) then
+          call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
+       else
+          call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
+       endif
     else
-       call get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt)
+       fxyz_ptmass(:,:) = 0.
     endif
- else
-    fxyz_ptmass(:,:) = 0.
  endif
 
  !$omp parallel default(none) &
@@ -949,6 +952,11 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
  enddo
  !$omp enddo
  !$omp end parallel
+
+ if (nptmass > 0) then
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+ endif
 
 end subroutine get_gradf_4th
 
