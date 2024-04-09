@@ -463,20 +463,18 @@ subroutine step_extern_FSI(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,x
     if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
     nsubsteps = nsubsteps + 1
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
-                          xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+                      xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
     call kick_4th (dk(1),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     call drift_4th(ck(1),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
-                           xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) ! Direct calculation of the force and force gradient
+                      xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) ! Direct calculation of the force and force gradient
+    !call get_gradf_extrap_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
+    !                 xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt) ! extrapolation method Omelyan
     call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass)
-    !  call get_force_extrapol_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
-    !                              xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) ! Extrapolation of the modified force using Omelyan technique
-
     call kick_4th (dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
-    !print*,xyzmh_ptmass(1,1:20)
     call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,&
-                          xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+                      xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
     call kick_4th (dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
 
@@ -628,22 +626,23 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
  use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
  use timestep,       only:bignumber,C_force
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
- integer, intent(in):: nptmass,npart,nsubsteps
- real, intent(inout) :: xyzh(:,:),fext(:,:)
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real, intent(inout) :: dtextforce
- real, intent(in)    :: timei,pmassi
+ integer,           intent(in)    :: nptmass,npart,nsubsteps
+ real,              intent(inout) :: xyzh(:,:),fext(:,:)
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,              intent(inout) :: dtextforce
+ real,              intent(in)    :: timei,pmassi
  integer         :: merge_ij(nptmass)
  integer         :: merge_n
  integer         :: i
  real            :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
  real            :: fextx,fexty,fextz
- real            :: fonrmaxi,phii,dtphi2i
+ real            :: fonrmaxi,phii,dtphi2i,extrapfac
 
  dtextforcenew = bignumber
  dtsinkgas     = bignumber
  dtphi2        = bignumber
  fonrmax = 0
+
  if (nptmass>0) then
     if (id==master) then
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -669,7 +668,7 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
  !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fext) &
  !$omp private(fextx,fexty,fextz) &
  !$omp private(fonrmaxi,dtphi2i,phii,pmassi,dtf) &
- !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
+ !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
  !$omp do
@@ -690,7 +689,7 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
 
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
-    !call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
  endif
 
  if(nptmass>0) then
@@ -760,6 +759,78 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
  endif
 
 end subroutine get_gradf_4th
+
+ !----------------------------------------------------------------
+ !+
+ !  grad routine for the 4th order scheme (FSI), extrapolation method
+ !+
+ !----------------------------------------------------------------
+
+
+subroutine get_gradf_extrap_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh, &
+                               fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt)
+ use options,        only:iexternalforce
+ use dim,            only:maxptmass
+ use part,           only:epot_sinksink
+ use io,             only:iverbose,master,id,iprint,warning,fatal
+ use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
+ use timestep,       only:bignumber
+ use mpiutils,       only:reduce_in_place_mpi
+ integer,           intent(in)    :: nptmass,npart,nsubsteps
+ real,              intent(inout) :: xyzh(:,:),fext(:,:)
+ real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,              intent(inout) :: dtextforce
+ real,              intent(in)    :: timei,pmassi,dt
+ integer         :: merge_ij(nptmass)
+ integer         :: merge_n
+ integer         :: i
+ real            :: dtf
+ real            :: fextx,fexty,fextz,xi,yi,zi
+ real            :: fonrmaxi,phii,dtphi2i,extrapfac
+
+ if (nptmass>0) then
+    if (id==master) then
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                 dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,extrapfac)
+       if (merge_n > 0) then
+          call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+          call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                                    dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,extrapfac)
+       endif
+    else
+       fxyz_ptmass(:,:) = 0.
+       dsdt_ptmass(:,:) = 0.
+    endif
+ endif
+
+
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fext,extrapfac) &
+ !$omp private(fextx,fexty,fextz,xi,yi,zi) &
+ !$omp private(fonrmaxi,dtphi2i,phii,pmassi,dtf) &
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
+ !$omp do
+ do i=1,npart
+    fextx = 0.
+    fexty = 0.
+    fextz = 0.
+    xi = xyzh(1,i) + extrapfac*fext(1,i)
+    xi = xyzh(1,i) + extrapfac*fext(1,i)
+    xi = xyzh(1,i) + extrapfac*fext(1,i)
+    call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+                    fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac)
+    fext(1,i) = fextx
+    fext(2,i) = fexty
+    fext(3,i) = fextz
+ enddo
+ !$omp enddo
+ !$omp end parallel
+
+ if (nptmass > 0) then
+    call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+    call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+ endif
+end subroutine get_gradf_extrap_4th
 
 
  !----------------------------------------------------------------

@@ -123,7 +123,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
+                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2,extrapfac)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
@@ -134,7 +134,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    optional, intent(in)    :: pmassi
+ real,    optional, intent(in)    :: pmassi,extrapfac
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
@@ -142,7 +142,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz
  integer                          :: j
- logical                          :: tofrom
+ logical                          :: tofrom,extrap
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -153,6 +153,14 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     tofrom  = .false.
  endif
 
+ ! check if it is a force computed using Omelyan extrapolation method for FSI
+ if (present(extrapfac)) then
+    extrap = .true.
+ else
+    extrap = .false.
+ endif
+
+
  ftmpxi = 0.  ! use temporary summation variable
  ftmpyi = 0.  ! (better for round-off, plus we need this bit of
  ftmpzi = 0.  ! the force to calculate the dtphi timestep)
@@ -160,9 +168,15 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  f2     = 0.
 
  do j=1,nptmass
-    dx     = xi - xyzmh_ptmass(1,j)
-    dy     = yi - xyzmh_ptmass(2,j)
-    dz     = zi - xyzmh_ptmass(3,j)
+    if (extrap)then
+       dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fxyz_ptmass(1,j))
+       dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fxyz_ptmass(2,j))
+       dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fxyz_ptmass(3,j))
+    else
+       dx     = xi - xyzmh_ptmass(1,j)
+       dy     = yi - xyzmh_ptmass(2,j)
+       dz     = zi - xyzmh_ptmass(3,j)
+    endif
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
     J2     = xyzmh_ptmass(iJ2,j)
@@ -266,7 +280,7 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -274,14 +288,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- integer, intent(in)  :: nptmass
- real,    intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(out) :: fxyz_ptmass(4,nptmass)
- real,    intent(out) :: phitot,dtsinksink
- integer, intent(in)  :: iexternalforce
- real,    intent(in)  :: ti
- integer, intent(out) :: merge_ij(:),merge_n
- real,    intent(out) :: dsdt_ptmass(3,nptmass)
+ integer,           intent(in)  :: nptmass
+ real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(out) :: fxyz_ptmass(4,nptmass)
+ real,              intent(out) :: phitot,dtsinksink
+ integer,           intent(in)  :: iexternalforce
+ real,              intent(in)  :: ti
+ integer,           intent(out) :: merge_ij(:),merge_n
+ real,              intent(out) :: dsdt_ptmass(3,nptmass)
+ real,    optional, intent(in)  :: extrapfac
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -290,6 +305,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: i,j
+ logical :: extrap
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -298,6 +314,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  merge_n  = 0
  merge_ij = 0
  if (nptmass <= 1) return
+ ! check if it is a force computed using Omelyan extrapolation method for FSI
+ if (present(extrapfac)) then
+    extrap = .true.
+ else
+    extrap = .false.
+ endif
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -316,6 +338,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
+ !$omp shared(extrapfac,extrap) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
@@ -325,9 +348,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do i=1,nptmass
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
+    if (extrap)then
+       xi     = xyzmh_ptmass(1,i) + extrapfac*fxyz_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i) + extrapfac*fxyz_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i) + extrapfac*fxyz_ptmass(3,i)
+    else
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+    endif
     pmassi = xyzmh_ptmass(4,i)
     !hsofti = xyzmh_ptmass(5,i)
     if (pmassi < 0.) cycle
@@ -342,9 +371,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsz    = 0.
     do j=1,nptmass
        if (i==j) cycle
-       dx     = xi - xyzmh_ptmass(1,j)
-       dy     = yi - xyzmh_ptmass(2,j)
-       dz     = zi - xyzmh_ptmass(3,j)
+       if (extrap)then
+          dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fxyz_ptmass(1,j))
+          dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fxyz_ptmass(2,j))
+          dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fxyz_ptmass(3,j))
+       else
+          dx     = xi - xyzmh_ptmass(1,j)
+          dy     = yi - xyzmh_ptmass(2,j)
+          dz     = zi - xyzmh_ptmass(3,j)
+       endif
        pmassj = xyzmh_ptmass(4,j)
        !hsoftj = xyzmh_ptmass(5,j)
        if (pmassj < 0.) cycle
