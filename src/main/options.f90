@@ -127,7 +127,7 @@ subroutine set_default_options
  ! artificial thermal conductivity
  alphau = 1.
  if (gr) alphau = 0.1
- ireconav = 1
+ ireconav = -1
 
  ! artificial resistivity (MHD only)
  alphaB            = 1.0
@@ -166,6 +166,7 @@ subroutine set_default_options
     implicit_radiation = .false.
  endif
  implicit_radiation_store_drad = .false.
+
 
  ! variable composition
  use_var_comp = .false.

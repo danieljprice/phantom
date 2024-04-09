@@ -78,6 +78,14 @@ ifeq ($(SETUP), asteroidwind)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), solarsystem)
+#   orbits of minor planets
+    ISOTHERMAL=yes
+    SETUPFILE=utils_ephemeris.f90 utils_mpc.f90 setup_solarsystem.f90
+    KNOWN_SETUP=yes
+    DUST=yes
+endif
+
 ifeq ($(SETUP), galdisc)
 #   galactic disc simulations
     IND_TIMESTEPS=yes
@@ -169,6 +177,7 @@ ifeq ($(SETUP), grtde)
     METRIC=kerr
     KNOWN_SETUP=yes
     GRAVITY=yes
+    IND_TIMESTEPS=yes
 #    ANALYSIS=analysis_tde.f90
     ANALYSIS= analysis_gws.f90
 endif
@@ -263,7 +272,6 @@ endif
 
 ifeq ($(SETUP), prtest)
 #   simple test of prdrag
-    FPPFLAGS=
     SETUPFILE= setup_prtest.f90
     KNOWN_SETUP=yes
 endif
@@ -294,7 +302,7 @@ ifeq ($(SETUP), planetdisc)
 endif
 
 ifeq ($(SETUP), exoALMA)
-#   exoALMA comparison project: planet disc interaction with fixed planet orbit
+#   exoALMA comparison of planet-disc interaction
     SETUPFILE=setup_disc.f90
     ISOTHERMAL=yes
     IND_TIMESTEPS=yes
@@ -317,7 +325,6 @@ endif
 
 ifeq ($(SETUP), torus)
 #   MRI torus
-    FPPFLAGS=
     SETUPFILE= setup_torus.f90
     ANALYSIS= analysis_torus.f90
     KNOWN_SETUP=yes
@@ -325,7 +332,6 @@ endif
 
 ifeq ($(SETUP), galcen)
 #   galactic centre
-    FPPFLAGS=
     SETUPFILE= setup_galcen_stars.f90
     SRCINJECT= inject_galcen_winds.f90
     KNOWN_SETUP=yes
@@ -700,7 +706,6 @@ endif
 
 ifeq ($(SETUP), cluster)
 #   star cluster formation
-    FPPFLAGS=
     SETUPFILE= velfield_fromcubes.f90 setup_cluster.f90
     MODFILE= moddump_default.f90
     ANALYSIS= phantom_pdfs.o analysis_MWpdf.f90 #analysis_sinkmass.f90
@@ -713,24 +718,30 @@ ifeq ($(SETUP), cluster)
 endif
 
 ifeq ($(SETUP), binary)
-#   binary setup
-    FPPFLAGS= -DCONST_AV
+#   binary stars
     #SRCINJECT= utils_binary.f90 set_binary.f90 inject_rochelobe.f90
     SETUPFILE= setup_binary.f90
     #SETUPFILE= setup_chinchen.f90
     KNOWN_SETUP=yes
+    GRAVITY=yes
 endif
+
+ifeq ($(SETUP), hierarchical)
+#   hierarchical system setup
+    #SRCINJECT= set_hierarchical.f90 set_binary.f90 inject_rochelobe.f90 utils_binary.f90
+    SETUPFILE= setup_hierarchical.f90
+    KNOWN_SETUP=yes
+endif
+
 
 ifeq ($(SETUP), common)
 #   binary setup
-    FPPFLAGS=
     SETUPFILE= setup_common.f90
     KNOWN_SETUP=yes
 endif
 
 ifeq ($(SETUP), star)
 #   import stellar model from 1D stellar evolution code
-    FPPFLAGS=
     SETUPFILE= setup_star.f90
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -740,10 +751,10 @@ ifeq ($(SETUP), star)
 endif
 
 ifeq ($(SETUP), grstar)
-#   import stellar model from 1D stellar evolution code in GR using Minkowski metric
+#   star in GR using Minkowski metric
     GR=yes
     METRIC=minkowski
-    FPPFLAGS=
+    IND_TIMESTEPS=yes
     SETUPFILE= setup_star.f90
     MODFILE= moddump_tidal.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.F90
@@ -784,6 +795,19 @@ ifeq ($(SETUP), wind)
 #   wind setup with dust nucleation
     FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
     ANALYSIS= analysis_cooling.F90
+    WIND=yes
+endif
+ifeq ($(SETUP), ismwind)
+#   wind setup with dust nucleation and ISM cooling
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= analysis_cooling.F90
+    H2CHEM=yes
+    WIND=yes
+endif
+ifeq ($(SETUP), radwind)
+#   wind setup with dust nucleation
+    FPPFLAGS= -DWIND -DSINK_RADIATION -DDUST_NUCLEATION
+    ANALYSIS= utils_getneighbours.f90 utils_raytracer_all.F90 analysis_raytracer.f90
     WIND=yes
 endif
 
@@ -831,6 +855,7 @@ ifeq ($(SETUP), jetnimhd)
 endif
 
 ifeq ($(SETUP), jetdusty)
+#   dust in star formation
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
     PERIODIC=yes
     GRAVITY=yes
@@ -838,6 +863,18 @@ ifeq ($(SETUP), jetdusty)
     MHD=no
     IND_TIMESTEPS=yes
     DUST=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), converging)
+#   Simulation from Wurster & Bonnell (2023)
+    SETUPFILE= velfield_fromcubes.f90 setup_collidingclouds.f90
+    PERIODIC=yes
+    GRAVITY=yes
+    ISOTHERMAL=no
+    MHD=no
+    IND_TIMESTEPS=yes
+    ANALYSIS= analysis_clumpfindWB23.F90
     KNOWN_SETUP=yes
 endif
 
@@ -977,7 +1014,6 @@ endif
 ifeq ($(SETUP), testgr)
 #   unit tests of general relativistic code
     GR=yes
-    FPPFLAGS= -DGR
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90

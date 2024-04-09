@@ -21,13 +21,11 @@ module externalforces
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !   extern_densprofile, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   fastmath, infile_utils, io, lumin_nsdisc, part, physcon, units
+!   infile_utils, io, lumin_nsdisc, part, units
 !
- use extern_binary,   only:accradius1
+ use extern_binary,   only:accradius1,mass1
  use extern_corotate, only:omega_corotate  ! so public from this module
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  private
  public :: externalforce,externalforce_vdependent
@@ -39,13 +37,14 @@ module externalforces
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
- real, public :: mass1 = 1.0
  real, public :: eps_soft = 0.d0
  real, private :: eps2_soft = 0.d0
  real, public :: Rdisc = 5.
 
  real, public :: accradius1_hard = 0.
  logical, public :: extract_iextern_from_hdr = .false.
+
+ public :: mass1
 
  !
  ! enumerated list of external forces

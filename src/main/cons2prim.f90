@@ -175,7 +175,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,igamma
  use part,              only:nucleation,gamma_chem
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma,&
                              utherm
@@ -247,6 +247,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              dustfrac(1:ndustsmall,i) = dustevol(1:ndustsmall,i)**2/(1.+dustevol(1:ndustsmall,i)**2)
           gasfrac = (1. - sum(dustfrac(1:ndustsmall,i)))  ! rhogas/rho
           rhogas  = rhoi*gasfrac       ! rhogas = (1-eps)*rho
+          if (gasfrac < 0.) call warning('cons2prim','total dust fraction > 1: try limiting dust flux',i,'eps',1.-gasfrac)
        else
           rhogas  = rhoi
        endif
@@ -279,7 +280,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation) eos_vars(imu,i) = mui
+
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. (ieos==21)) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           if (temperaturei > tiny(0.)) then
@@ -291,7 +293,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              !
              ! Get the opacity from the density and temperature if required
              !
-             if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+             if (iopacity_type == 3) then
+             	call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i),u=vxyzu(4,i))
+             elseif (iopacity_type > 0) then
+             	call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
+             endif
           endif
           !
           ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick

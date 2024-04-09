@@ -1,97 +1,128 @@
-!--------------------------------------------------------------------------
-! Script to interpolate the opacity table eos_file
-!--------------------------------------------------------------------------
-
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.bitbucket.io/                                          !
+!--------------------------------------------------------------------------!
 module eos_stamatellos
+!
+! eos_stamatellos
+!
+! :References: None
+!
+! :Owner: Alison Young
+!
+! :Runtime parameters: None
+!
+! :Dependencies: datafiles, part
+!
+
  implicit none
- real, public :: optable(260,1001,6)
- real,allocatable,public :: Gpot_cool(:), gradP_cool(:) !==gradP/rho
+ real,allocatable,public :: optable(:,:,:)
+ real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
+ logical,parameter,public :: doFLD = .True.
  integer,public :: iunitst=19
- public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep
+ integer,save :: nx,ny ! dimensions of optable read in
+
+ public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
+ public :: get_k_fld
 contains
 
- subroutine init_S07cool()
-    use part, only:npart
-    
-    print *, "Allocating S07 arrays"
-    allocate(gradP_cool(npart))
-    allocate(Gpot_cool(npart))
-    open (unit=iunitst,file='EOSinfo.dat',status='replace')
-    
-    
- end subroutine init_S07cool
+subroutine init_S07cool()
+ use part, only:npart,maxradprop 
+ print *, "Allocating cooling arrays"
+ allocate(gradP_cool(npart))
+ allocate(Gpot_cool(npart))
+ allocate(duFLD(npart))
+ allocate(lambda_fld(npart))
+ allocate(urad_FLD(npart))    
+ urad_FLD(:) = 0d0
+ open (unit=iunitst,file='EOSinfo.dat',status='replace')    
+ if (doFLD) print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
+end subroutine init_S07cool
 
- subroutine finish_S07cool()
-  if (allocated(gradP_cool)) deallocate(gradP_cool)
-  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
-  close(iunitst)
+subroutine finish_S07cool()
+ deallocate(optable)
+ if (allocated(gradP_cool)) deallocate(gradP_cool)
+ if (allocated(Gpot_cool)) deallocate(Gpot_cool)
+ if (allocated(duFLD)) deallocate(duFLD)
+ if (allocated(lambda_fld)) deallocate(lambda_fld)
+ if (allocated(urad_FLD)) deallocate(urad_FLD)
+ close(iunitst)
 end subroutine finish_S07cool
- 
+
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
  character(len=*),intent(in) :: eos_file
  integer, intent(out) :: ierr
- integer i,j,nx,ny,errread
+ integer i,j,errread
  character(len=120) :: filepath,junk
 
  ! read in data file for interpolation
  filepath=find_phantom_datafile(eos_file,'cooling')
- print *,"FILEPATH:",filepath 
+ print *,"EOS file: FILEPATH:",filepath
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
  do
- 	read(10,'(A120)') junk
- 	if (index(adjustl(junk),'::') .eq. 0) then !ignore comment lines
- 		junk = adjustl(junk)
- 		read(junk, *,iostat=errread) nx, ny
- 		exit
- 	endif
- enddo	
- do i = 1,nx
-  do j = 1,ny
-   read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
-              OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
-  enddo
+    read(10,'(A120)') junk
+    if (len(trim(adjustl(junk))) == 0) cycle ! blank line
+    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
+       junk = adjustl(junk)
+       read(junk, *,iostat=errread) nx, ny
+       exit
+    endif
  enddo
-
+! allocate array for storing opacity tables
+ allocate(optable(nx,ny,6))
+ do i = 1,nx
+    do j = 1,ny
+       read(10,*) OPTABLE(i,j,1),OPTABLE(i,j,2),OPTABLE(i,j,3),&
+              OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
+    enddo
+ enddo
+! print *, 'nx,ny=', nx, ny
 end subroutine read_optab
 
-subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
+!
+! Main subroutine for interpolating tables to get EOS values
+!
+subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  real, intent(in)  :: ui,rhoi
- real, intent(out) :: kappaBar,kappaPart,Ti,gmwi,gammai
+ real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
- integer i,j,nx,ny
+ integer i,j
  real m,c
  real kbar1,kbar2
  real kappa1,kappa2
  real Tpart1,Tpart2
  real gmw1,gmw2
- real cv
- real ui_, rhoi_
+ real ui_, rhoi_,rhomin,umin
 
+ rhomin = OPTABLE(1,1,1)
+ umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
 
- if (rhoi.lt.1.0e-24) then
-  rhoi_ = 1.0e-24
+ if (rhoi <  rhomin) then
+    rhoi_ = rhomin
  else
-  rhoi_ = rhoi
- endif  
-
- i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
-  i = i + 1
- enddo
-
- if (ui.lt.0.5302E8) then
-  ui_ = 0.5302E8 
- else
-  ui_ = ui
+    rhoi_ = rhoi
  endif
 
- j = 1
- do while ((OPTABLE(i-1,j,3).le.ui_).and.(j.lt.1000))
-  j = j + 1
+ i = 2
+ do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
+    i = i + 1
+ enddo
+
+ if (ui < umin) then
+    ui_ = umin
+ else
+    ui_ = ui
+ endif
+
+ j = 2
+ do while ((OPTABLE(i-1,j,3) <= ui_).and.(j < ny))
+    j = j + 1
  enddo
 
  m = (OPTABLE(i-1,j-1,5) - OPTABLE(i-1,j,5))/(OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))
@@ -113,10 +144,10 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = OPTABLE(i-1,j,4) - m*OPTABLE(i-1,j,3)
 
  gmw1 = m*ui_ + c
- 
- j = 1
- do while ((OPTABLE(i,j,3).le.ui).and.(j.lt.1000))
-  j = j + 1
+
+ j = 2
+ do while ((OPTABLE(i,j,3) <= ui).and.(j < ny))
+    j = j + 1
  enddo
 
  m = (OPTABLE(i,j-1,5) - OPTABLE(i,j,5))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
@@ -131,8 +162,8 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
 
  m = (OPTABLE(i,j-1,2) - OPTABLE(i,j,2))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
  c = OPTABLE(i,j,2) - m*OPTABLE(i,j,3)
-   
- Tpart2 = m*ui_ + c  
+
+ Tpart2 = m*ui_ + c
 
  m = (OPTABLE(i,j-1,4) - OPTABLE(i,j,4))/(OPTABLE(i,j-1,3) - OPTABLE(i,j,3))
  c = OPTABLE(i,j,4) - m*OPTABLE(i,j,3)
@@ -143,53 +174,48 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi,gammai)
  c = kappa2 - m*OPTABLE(i,1,1)
 
  kappaPart = m*rhoi_ + c
- !kappaPart = kappaPart*kappa_corr
 
  m = (kbar2 - kbar1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
  c = kbar2 - m*OPTABLE(i,1,1)
 
  kappaBar = m*rhoi_ + c
- !kappaBar = kappaBar*kappa_corr
 
  m = (Tpart2 - Tpart1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
  c = Tpart2 - m*OPTABLE(i,1,1)
- 
+
  Ti = m*rhoi_ + c
 
  m = (gmw2 - gmw1)/(OPTABLE(i,1,1)-OPTABLE(i-1,1,1))
  c = gmw2 - m*OPTABLE(i,1,1)
 
  gmwi = m*rhoi_ + c
-
- cv = ui_/Ti
- gammai = 1.0d0 + 1.38d-16/1.67d-24/gmwi/cv
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
 
- real u1, u2 
+ real u1, u2
  real m, c
  integer i, j
  real rhoi_
 
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 
- if (rhoi.lt.1.0e-24) then
-  rhoi_ = 1.0e-24 
+ if (rhoi < 1.0e-24) then
+    rhoi_ = 1.0e-24
  else
-  rhoi_ = rhoi
+    rhoi_ = rhoi
  endif
 
- i = 1
- do while((OPTABLE(i,1,1).le.rhoi_).and.(i.lt.260))
-  i = i + 1
+ i = 2
+ do while((OPTABLE(i,1,1) <= rhoi_).and.(i < nx))
+    i = i + 1
  enddo
 
- j = 1
- do while ((OPTABLE(i-1,j,2).le.Teqi).and.(j.lt.1000))
-  j = j + 1
+ j = 2
+ do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
+    j = j + 1
  enddo
 
  m = (OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))/(OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))
@@ -197,9 +223,9 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  u1 = m*Teqi + c
 
- j = 1
- do while ((OPTABLE(i,j,2).le.Teqi).and.(j.lt.1000))
-  j = j + 1
+ j = 2
+ do while ((OPTABLE(i,j,2) <= Teqi).and.(j < ny))
+    j = j + 1
  enddo
 
  m = (OPTABLE(i,j-1,3) - OPTABLE(i,j,3))/(OPTABLE(i,j-1,2) - OPTABLE(i,j,2))
@@ -212,6 +238,28 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
+
+subroutine get_k_fld(rhoi,eni,i,ki,Ti)
+  use physcon,  only:c,fourpi
+  use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
+  real,intent(in)    :: rhoi,eni
+  integer,intent(in) :: i
+  real               :: kappaBar,gmwi,kappaPart
+  real,intent(out)   :: ki,Ti
+
+  if (lambda_FLD(i) == 0d0) then
+     ki = 0.
+  else
+     call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+     kappaPart = kappaPart/unit_opacity
+     ! steboltz constant = 4pi/c * arad
+     ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
+     if (isnan(ki)) then
+        print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
+             lambda_FLD(i), Ti, rhoi,kappaPart
+     endif
+  endif
+end subroutine get_k_fld
 
 end module eos_stamatellos
 

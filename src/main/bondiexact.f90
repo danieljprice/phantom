@@ -24,6 +24,9 @@ module bondiexact
  real, public  :: rcrit   = 5.
  real, private :: rhocrit = 1.
 
+ logical, public :: iswind = .false.
+ integer, public :: isol   = 0
+
  private
 
 contains

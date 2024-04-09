@@ -13,7 +13,7 @@ module cooling
 !     2 = cooling library                 [explicit]
 !     3 = Gammie cooling                  [explicit]
 !     5 = Koyama & Inutuska (2002)        [explicit]
-!     6 = Koyama & Inutuska (2002)        [implicit]  
+!     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
 !     8 = Stamatellos et al. (2007)       [implicit]
 !
@@ -28,14 +28,15 @@ module cooling
 !   - icooling : *cooling function (0=off, 1=cooling library (step), 2=cooling library (force),*
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
-!   cooling_koyamainutsuka, cooling_molecular, cooling_solver, dim, eos,
-!   infile_utils, io, options, part, physcon, timestep, units
+!   cooling_koyamainutsuka, cooling_molecular, cooling_solver,
+!   cooling_stamatellos, dim, eos, eos_stamatellos, infile_utils, io,
+!   options, part, physcon, timestep, units, viscosity
 !
 
  use options,  only:icooling
  use timestep, only:C_cool
  use cooling_solver, only:T0_value ! expose to other routines
- 
+
  implicit none
  character(len=*), parameter :: label = 'cooling'
 
@@ -59,19 +60,20 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine init_cooling(id,master,iprint,ierr)
- use dim,               only:maxvxyzu,h2chemistry
+ use dim,               only:maxvxyzu,h2chemistry,do_radiation
  use units,             only:unit_ergg
  use physcon,           only:mass_proton_cgs,kboltz
- use io,                only:error,fatal
+ use io,                only:error,fatal,warning
  use eos,               only:gamma,gmw,ieos
  use cooling_ism,       only:init_cooling_ism
  use chem,              only:init_chem
  use cooling_molecular,      only:init_cooling_molec
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
- use eos_stamatellos,   only:read_optab, eos_file
- use cooling_stamatellos, only: init_star
- 
+ use eos_stamatellos,   only:read_optab,eos_file
+ use cooling_stamatellos, only: init_star,od_method
+ use viscosity,         only:irealvisc
+
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
  logical :: ex
@@ -85,11 +87,17 @@ subroutine init_cooling(id,master,iprint,ierr)
  else
     select case(icooling)
     case(8)
-       if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=8 requires ieos=21',var='ieos',ival=ieos)
+       if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=8 requires ieos=21',&
+            var='ieos',ival=ieos)
+       if (irealvisc > 0 .and. od_method == 2) call warning('cooling',&
+            'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
        inquire(file=eos_file,exist=ex)
        if (.not. ex ) call fatal('cooling','file not found',var=eos_file)
        if (ieos == 2)  call read_optab(eos_file,ierr)
        if (ierr > 0) call fatal('cooling','Failed to read EOS file',var='ierr',ival=ierr)
+	   if (do_radiation) then
+	   	    call fatal('cooling','Do radiation was switched on!')
+	   endif	
        call init_star()
     case(6)
        call init_cooling_KI02(ierr)
@@ -142,7 +150,7 @@ subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,k
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
  use cooling_stamatellos,    only:cooling_S07
- 
+
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                  ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(in), optional :: dudti_sph ! in code units

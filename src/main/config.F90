@@ -130,7 +130,7 @@ module dim
                                    radensumden
 
  ! fsum
- integer, parameter :: fsumvars = 20 ! Number of scalars in fsum
+ integer, parameter :: fsumvars = 23 ! Number of scalars in fsum
  integer, parameter :: fsumarrs = 5  ! Number of arrays  in fsum
  integer, parameter :: maxfsum  = fsumvars + &                  ! Total number of values
                                   fsumarrs*(maxdusttypes-1) + &
@@ -139,7 +139,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 57 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -282,6 +282,7 @@ module dim
 !--------------------
  logical :: do_nucleation = .false.
  integer :: itau_alloc    = 0
+ integer :: itauL_alloc   = 0
  integer :: inucleation   = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10

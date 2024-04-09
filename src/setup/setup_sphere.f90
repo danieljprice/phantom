@@ -12,7 +12,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: James Wurster
+! :Owner: Alison Young
 !
 ! :Runtime parameters:
 !   - BEfac             : *over-density factor of the BE sphere [code units]*
@@ -21,10 +21,10 @@ module setup
 !   - BErad_phys        : *physical radius of the BE sphere [code units]*
 !   - BErho_cen         : *central density of the BE sphere [code units]*
 !   - Bzero             : *Magnetic field strength in Gauss*
+!   - T_sphere          : *temperature in sphere*
 !   - ang_Bomega        : *Angle (degrees) between B and rotation axis*
 !   - angvel            : *angular velocity in rad/s*
 !   - beta_r            : *rotational-to-gravitational energy ratio*
-!   - cs_sphere_cgs     : *sound speed in sphere in cm/s*
 !   - density_contrast  : *density contrast in code units*
 !   - dist_unit         : *distance unit (e.g. au)*
 !   - dust_to_gas_ratio : *dust-to-gas ratio*
@@ -54,10 +54,9 @@ module setup
 !   - use_BE_sphere     : *centrally condense as a BE sphere*
 !
 ! :Dependencies: boundary, centreofmass, datafiles, dim, dust, eos,
-!   eos_barotropic, infile_utils, io, kernel, mpidomain, options, part,
-!   physcon, prompting, ptmass, rho_profile, set_dust, set_dust_options,
-!   setup_params, spherical, timestep, unifdis, units,
-!   utils_shuffleparticles, velfield
+!   eos_stamatellos, infile_utils, io, kernel, mpidomain, options, part,
+!   physcon, prompting, ptmass, set_dust, set_dust_options, setup_params,
+!   spherical, timestep, unifdis, units, utils_shuffleparticles, velfield
 !
  use part,             only:mhd,graindens,grainsize,ndusttypes,ndustsmall
  use dim,              only:use_dust,maxvxyzu,periodic,maxdustsmall
@@ -72,7 +71,7 @@ module setup
  private
  !--private module variables
  real :: xmini(3), xmaxi(3)
- real :: density_contrast,totmass_sphere,r_sphere,cs_sphere,cs_sphere_cgs
+ real :: density_contrast,totmass_sphere,r_sphere,T_sphere,cs_sphere
  real :: angvel,beta_r,Bzero_G,masstoflux,dtg,ang_Bomega,rms_mach
  real :: rho_pert_amp,lbox
  real :: BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac
@@ -92,18 +91,17 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_out,time,fileprefix)
- use physcon,      only:pi,solarm,hours,years,au
+ use physcon,      only:pi,solarm,hours,years,au,kboltz,kb_on_mh
  use dim,          only:maxdusttypes,use_dustgrowth,maxdustlarge
  use setup_params, only:rhozero,npart_total,rmax,ihavesetupB
  use io,           only:master,fatal,iprint
  use unifdis,      only:set_unifdis
  use spherical,    only:set_sphere
- use rho_profile,  only:rho_bonnorebert,prompt_BEparameters
  use boundary,     only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use prompting,    only:prompt
- use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity
+ use units,        only:set_units,select_unit,utime,unit_density,unit_Bfield,unit_velocity,unit_ergg
  use eos,          only:polyk2,ieos,gmw
- use eos_barotropic, only:rhocrit0cgs,drhocrit0
+ use eos_stamatellos, only:read_optab,getopac_opdep,optable,getintenerg_opdep,eos_file
  use part,         only:Bxyz,Bextx,Bexty,Bextz,igas,idust,set_particle_type,hfact,dustfrac
  use set_dust_options, only:dustbinfrac,set_dust_default_options,set_dust_interactively,dust_method
  use dust,         only:ilimitdustflux
@@ -134,7 +132,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  integer            :: iBE,ilattice
  real               :: totmass,vol_box,psep,psep_box,pmass_dusttogas
  real               :: vol_sphere,dens_sphere,dens_medium,cs_medium,angvel_code,przero
- real               :: totmass_box,t_ff,r2,area,Bzero,rmasstoflux_crit
+ real               :: u_sphere,kappaBar,kappaPart,gmwi,gammai,cs_sphere_cgs
+ real               :: t_ff,r2,area,Bzero,rmasstoflux_crit
  real               :: rxy2,rxyz2,phi,dphi,central_density,edge_density,rmsmach,v2i,turbfac,rhocritTcgs,ui
  real, allocatable  :: rtab(:),rhotab(:)
  logical            :: iexist
@@ -149,7 +148,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
 
  filename = trim(fileprefix)//'.setup'
  print "(/,1x,63('-'),1(/,a),/,1x,63('-'),/)",&
-   '  Sphere-in-box setup: Almost Archimedes'' greatest achievement.'
+   '  Sphere setup'
 
  inquire(file=filename,exist=iexist)
  if (iexist) then
@@ -227,23 +226,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        totmass_sphere = 1.0
        call prompt('Enter total mass in sphere in units of '//mass_unit,totmass_sphere,0.)
     else
-       call prompt_BEparameters(iBEparam,BErho_cen,BErad_phys,BErad_norm,BEmass,BEfac,umass,udist,au,solarm)
-       lbox     = 4.
-       call prompt('Enter the box size in units of spherical radii: ',lbox,1.)
+       print *, 'deleted'
     endif
 
-    density_contrast = 30.0
-    call prompt('Enter density contrast between sphere and box ',density_contrast,1.)
+    call prompt('Enter temperature in sphere',T_sphere,1.,100.)
 
-    binary = .false.
-    call prompt('Do you intend to form a binary system (i.e. add an m=2 perturbation)?',binary)
-
-    if (binary) then
-       cs_sphere_cgs = 18696.96 ! cm/s ~ 5K assuming mu = 2.31 & gamma = 5/3
-    else
-       cs_sphere_cgs = 21888.0  ! cm/s ~ 8K assuming mu = 2.31 & gamma = 5/3
-    endif
-    call prompt('Enter sound speed in sphere in units of cm/s',cs_sphere_cgs,0.)
+    call prompt('Enter EOS filename',eos_file)
 
     if (binary) then
        angvel = 1.006d-12
@@ -354,47 +342,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
        graindens(1) = graindenscgs/umass*udist**3
     endif
  endif
- !
- ! convert units of sound speed
- !
- if (cs_in_code) then
-    cs_sphere_cgs = cs_sphere*unit_velocity
- else
-    cs_sphere     = cs_sphere_cgs/unit_velocity
- endif
- !
- ! Bonnor-Ebert profile (if requested)
- !
- if (BEsphere) then
-    iBE = 8192
-    allocate(rtab(iBE),rhotab(iBE))
-    call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
-                         gmw,iBE,iBElast,rtab,rhotab,ierr)
-    central_density = BErho_cen
-    r_sphere        = BErad_phys
-    totmass_sphere  = BEmass
-    if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
- endif
- do i = 1,3
-    xmini(i) = -0.5*(lbox*r_sphere)
-    xmaxi(i) = -xmini(i)
- enddo
- !
- ! boundaries
- !
- call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
- !
+
+
+
  ! general parameters
  !
+
+ vol_sphere  = 4./3.*pi*r_sphere**3
+ rhozero     = totmass_sphere / vol_sphere
+ dens_sphere = rhozero
+
+ ! call EOS
+ ieos = 21
+ ierr = 0
+ call read_optab(eos_file,ierr)
+ call getintenerg_opdep(T_sphere, dens_sphere*unit_density, u_sphere)
+ call getopac_opdep(u_sphere,dens_sphere,kappaBar,kappaPart,T_sphere,gmwi)
+ u_sphere = u_sphere/unit_ergg
  time        = 0.
  if (use_dust) dust_method = 1
  hfact       = hfact_default
  hfact_out   = hfact_default
- if (maxvxyzu >=4 ) then
-    gamma    = 5./3.
- else
-    gamma    = 1.
- endif
+ print *, 'gamma =', gamma, 'u_sphere = ',u_sphere,T_sphere
+
  rmax        = r_sphere
  if (angvel_not_betar) then
     angvel_code = angvel*utime
@@ -402,65 +372,17 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     angvel_code = sqrt(3.0*totmass_sphere*beta_r/r_sphere**3)
     angvel      = angvel_code/utime
  endif
- vol_box     = dxbound*dybound*dzbound
- vol_sphere  = 4./3.*pi*r_sphere**3
- rhozero     = totmass_sphere / vol_sphere
- dens_sphere = rhozero
- if (BEsphere) then
-    dens_medium = edge_density/density_contrast
-    cs_medium   = cs_sphere*sqrt(edge_density/dens_medium)
- else
-    dens_medium = dens_sphere/density_contrast
-    cs_medium   = cs_sphere*sqrt(density_contrast)
- endif
- rhocrit0cgs = dens_medium*unit_density * density_contrast/7.5  ! end of transition region for ieos=8;for density_contrast=30, this yields a coefficient of 4
- rhocritTcgs = rhocrit0cgs*(1.0-drhocrit0)                      ! start of transition region for ieos=8
- totmass_box = (vol_box - vol_sphere)*dens_medium
- totmass     = totmass_box + totmass_sphere
+
+
+ totmass     = totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
- if (totmass_sphere > 0.9*totmass) then
-    print*, 'resetting boundaries to increase the number of background particles'
-    dxbound = (0.1*totmass_sphere/dens_medium)**(1./3.)
-    do i = 1,3
-       xmini(i) = -0.5*dxbound
-       xmaxi(i) = -xmini(i)
-    enddo
-    call set_boundary(xmini(1),xmaxi(1),xmini(2),xmaxi(2),xmini(3),xmaxi(3))
-    vol_box     = dxbound*dybound*dzbound
-    totmass_box = (vol_box - vol_sphere)*dens_medium
-    totmass     = totmass_box + totmass_sphere
- endif
- if (dens_medium*unit_density > rhocritTcgs) then
-    print*, 'Medium density = ',dens_medium*unit_density,'g/cm^3'
-    print*, 'Sphere density = ',dens_sphere*unit_density,'g/cm^3'
-    print*, 'Density at start of EOS transition = ',rhocritTcgs,'g/cm^3'
-    print*, 'Density at end   of EOS transition = ',rhocrit0cgs,'g/cm^3'
-    call fatal('setup_sphereinbox','Error setting sound-speed transition region in EOS')
- endif
- !
- ! magnetic field
- !
- rmasstoflux_crit = 2./3.*0.53*sqrt(5./pi) ! code units *see derivation at the end of the file*
- if (mhd) then
-    area = pi*r_sphere**2
-    if (mu_not_B) then
-       if (masstoflux > tiny(masstoflux)) then
-          Bzero = totmass_sphere/(area*masstoflux*rmasstoflux_crit)
-       else
-          Bzero = 0.
-       endif
-    else
-       Bzero      = Bzero_G/unit_Bfield
-       masstoflux = totmass_sphere/(area*Bzero*rmasstoflux_crit)
-    endif
-    ihavesetupB = .true.
- else
-    Bzero = 0.
- endif
- Bextx  = 0.
- Bexty  = 0.
- Bextz  = Bzero
- przero = cs_sphere**2*dens_sphere
+
+ przero = dens_sphere * kb_on_mh * T_sphere/gmwi ! code units
+ gammai = 1.d0 + (przero/u_sphere/dens_sphere)
+ cs_sphere = sqrt(gammai * przero/dens_sphere)
+ cs_sphere_cgs = cs_sphere * unit_velocity
+ polyk  = cs_sphere**2
+ gamma = 5./3. ! not used but set to keep Phantom happy.
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !
@@ -474,26 +396,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     if (trim(lattice)/='random') print "(a,es10.3)",' Particle separation in sphere = ',psep
  endif
  print "(a)",' Initialised sphere'
+ npartsphere = npart_total
 
- if (usebox) then
-    npartsphere = npart
-    if (np_in /= npartsphere) np = npartsphere
-    massoftype(igas) = totmass_sphere/npartsphere  ! note: before 5 Oct 2021, this was based upon total mass & total number, not sphere numbers
-    !
- ! setup surrounding low density medium
- !
-    if (BEsphere .or. trim(lattice)=='random') then
-       psep_box = dxbound/(vol_box*dens_medium/massoftype(igas))**(1./3.)
-    else
-       psep_box = psep*(density_contrast)**(1./3.)
-    endif
-
-    call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
-         hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
-    print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
-    print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
-    print*, ""
- endif
  !
  ! set particle properties
  !
@@ -556,11 +460,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  ! (if random or shuffling, recentering may shift particles outside of the defined range)
  !
  if (trim(lattice)/='random' .and. .not.shuffle_parts) call reset_centreofmass(npart,xyzh,vxyzu)
- !
- ! temperature set to give a pressure equilibrium
- !
- polyk  = cs_sphere**2
- polyk2 = cs_medium**2
+
  !
  !--Stretching the spatial distribution to perturb the density profile, if requested
  !
@@ -624,15 +524,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     if (r2 < r_sphere**2) then
        vxyzu(1,i) = vxyzu(1,i) - angvel_code*xyzh(2,i)
        vxyzu(2,i) = vxyzu(2,i) + angvel_code*xyzh(1,i)
-       ui = cs_sphere**2 * 0.9
+       ui = u_sphere
        if (maxvxyzu >= 4) vxyzu(4,i) = ui
     else
        if (maxvxyzu >= 4) vxyzu(4,i) = 1.5*polyk2
-    endif
-    if (mhd) then
-       Bxyz(:,i) = 0.
-       Bxyz(1,i) = Bzero*sin(ang_Bomega*pi/180.0)
-       Bxyz(3,i) = Bzero*cos(ang_Bomega*pi/180.0)
     endif
  enddo
  !
@@ -647,7 +542,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     else
        tmax      = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
     endif
-    ieos         = 8
+    ieos         = 21
     nfulldump    = 1
     calc_erot    = .true.
     dtmax_dratio = 1.258
@@ -682,22 +577,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     print fmt,' Mean rho medium  : ',dens_medium,dens_medium*unit_density,' g/cm^3'
  else
     print fmt,' Density sphere   : ',dens_sphere,dens_sphere*unit_density,' g/cm^3'
-    print fmt,' Density medium   : ',dens_medium,dens_medium*unit_density,' g/cm^3'
  endif
  print fmt,' cs in sphere     : ',cs_sphere,cs_sphere_cgs,' cm/s'
- print fmt,' cs in medium     : ',cs_medium,cs_medium*unit_velocity,' cm/s'
  print fmt,' Free fall time   : ',t_ff,t_ff*utime/years,' yrs'
  print fmt,' Angular velocity : ',angvel_code,angvel,' rad/s'
  print fmt,' Turbulent Mach no: ',rms_mach
  print fmt,' Omega*t_ff       : ',angvel_code*t_ff
- if (mhd) then
-    print fmt,' B field (z)      : ',Bzero,Bzero*unit_Bfield*1.d6,' micro-G'
-    print fmt,' Alfven speed     : ',Bzero/sqrt(dens_sphere),Bzero/sqrt(dens_sphere)*udist/utime,' cm/s'
-    if (Bzero > 0.) then
-       print fmt,' plasma beta      : ',przero/(0.5*Bzero*Bzero)
-       print fmt,' mass-to-flux     : ',totmass_sphere/(area*Bzero)/rmasstoflux_crit
-    endif
- endif
+
  if (use_dust) then
     print fmt,' dust-to-gas ratio: ',dtg,dtg,' '
  endif
@@ -761,7 +647,7 @@ subroutine write_setupfile(filename)
         call write_inopt(BEfac,'BEfac','over-density factor of the BE sphere [code units]',iunit)
  endif
  call write_inopt(density_contrast,'density_contrast','density contrast in code units',iunit)
- call write_inopt(cs_sphere_cgs,'cs_sphere_cgs','sound speed in sphere in cm/s',iunit)
+ call write_inopt(T_sphere,'T_sphere','temperature in sphere',iunit)
  if (angvel_not_betar) then
     call write_inopt(angvel,'angvel','angular velocity in rad/s',iunit)
  else
@@ -821,7 +707,7 @@ subroutine read_setupfile(filename,ierr)
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter            :: iunit = 21
- integer                       :: i,nerr,jerr,kerr
+ integer                       :: i,nerr,kerr,jerr
  type(inopts), allocatable     :: db(:)
 
  !--Read values
@@ -860,9 +746,7 @@ subroutine read_setupfile(filename,ierr)
     if (iBEparam==4 .or. iBEparam==5)                  call read_inopt(BEfac,'BEfac',db,ierr)
  endif
 
- call read_inopt(density_contrast,'density_contrast',db,ierr)
- call read_inopt(cs_sphere,'cs_sphere',db,jerr)
- call read_inopt(cs_sphere_cgs,'cs_sphere_cgs',db,kerr)
+ call read_inopt(T_sphere,'T_sphere',db,jerr)
  cs_in_code = .false.  ! for backwards compatibility
  if (jerr /= 0 .and. kerr == 0) then
     cs_in_code = .false.

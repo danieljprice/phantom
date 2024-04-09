@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc
+               inucleation,itau_alloc,itauL_alloc
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -57,7 +57,7 @@ module part
  character(len=*), parameter :: vxyzu_label(4) = (/'vx','vy','vz','u '/)
  character(len=*), parameter :: Bxyz_label(3) = (/'Bx','By','Bz'/)
  character(len=*), parameter :: Bevol_label(4) = (/'Bx/rho','By/rho','Bz/rho','psi   '/)
- 
+
 !
 !--tracking particle IDs
 !
@@ -208,6 +208,7 @@ module part
 !-- Ray tracing : optical depth
 !
  real, allocatable :: tau(:)
+ real, allocatable :: tau_lucy(:)
 !
 !--Dust formation - theory of moments
 !
@@ -268,6 +269,8 @@ module part
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
+ real, allocatable         :: fxyz_drag(:,:)
+ real, allocatable         :: fxyz_dragold(:,:)
  real, allocatable         :: dBevol(:,:)
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
@@ -344,7 +347,9 @@ module part
  +1                                   &  ! iphase
 #endif
 #ifdef DUST
- +maxdusttypes                        &  ! dustfrac
+ +3                                   &  ! fxyz_drag
+   +3                                   &  ! fxyz_dragold
+   +maxdusttypes                        &  ! dustfrac
    +maxdustsmall                        &  ! dustevol
    +maxdustsmall                        &  ! dustpred
 #ifdef DUSTGROWTH
@@ -473,6 +478,8 @@ subroutine allocate_part
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
  call allocate_array('luminosity', luminosity, maxlum)
  call allocate_array('fxyzu', fxyzu, maxvxyzu, maxan)
+ call allocate_array('fxyz_drag', fxyz_drag, 3, maxdustan)
+ call allocate_array('fxyz_dragold', fxyz_dragold, 3, maxdustan)
  call allocate_array('dBevol', dBevol, maxBevol, maxmhdan)
  call allocate_array('divBsymm', divBsymm, maxmhdan)
  call allocate_array('fext', fext, 3, maxan)
@@ -501,6 +508,7 @@ subroutine allocate_part
  call allocate_array('ibin_sts', ibin_sts, maxsts)
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
+ call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
 #ifdef KROME
  call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
 #else
@@ -547,6 +555,8 @@ subroutine deallocate_part
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
  if (allocated(luminosity))   deallocate(luminosity)
  if (allocated(fxyzu))        deallocate(fxyzu)
+ if (allocated(fxyz_drag))    deallocate(fxyz_drag)
+ if (allocated(fxyz_dragold)) deallocate(fxyz_dragold)
  if (allocated(dBevol))       deallocate(dBevol)
  if (allocated(divBsymm))     deallocate(divBsymm)
  if (allocated(fext))         deallocate(fext)
@@ -562,6 +572,7 @@ subroutine deallocate_part
  if (allocated(twas))         deallocate(twas)
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
+ if (allocated(tau_lucy))     deallocate(tau_lucy)
  if (allocated(gamma_chem))   deallocate(gamma_chem)
  if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
@@ -576,7 +587,7 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
- 
+
 end subroutine deallocate_part
 
 !----------------------------------------------------------------
@@ -1116,6 +1127,25 @@ end subroutine set_particle_type
 
 !----------------------------------------------------------------
 !+
+!  utility function to retrieve particle type
+!  This routine accesses iphase from the global arrays:
+!  hence it is NOT safe to use in parallel loops
+!+
+!----------------------------------------------------------------
+subroutine get_particle_type(i,itype)
+ integer, intent(in)  :: i
+ integer, intent(out) :: itype
+
+ if (maxphase==maxp) then
+    itype = iamtype(iphase(i))
+ else
+    itype = igas
+ endif
+
+end subroutine get_particle_type
+
+!----------------------------------------------------------------
+!+
 !  utility function to get strain tensor from dvdx array
 !+
 !----------------------------------------------------------------
@@ -1174,6 +1204,8 @@ subroutine copy_particle(src,dst,new_part)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
+ if (itau_alloc == 1) tau(dst) = tau(src)
+ if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (new_part) then
     norig      = norig + 1
@@ -1265,12 +1297,16 @@ subroutine copy_particle_all(src,dst,new_part)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
     endif
+    fxyz_drag(:,dst) = fxyz_drag(:,src)
+    fxyz_dragold(:,dst) = fxyz_dragold(:,src)
+
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
  if (do_nucleation) nucleation(:,dst) = nucleation(:,src)
  if (itau_alloc == 1) tau(dst) = tau(src)
+ if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
     gamma_chem(dst)       = gamma_chem(src)
@@ -1474,17 +1510,22 @@ subroutine fill_sendbuf(i,xtemp)
           call fill_buffer(xtemp, dustproppred(:,i),nbuf)
           call fill_buffer(xtemp, dustgasprop(:,i),nbuf)
        endif
+       call fill_buffer(xtemp,fxyz_drag(:,i),nbuf)
+       call fill_buffer(xtemp,fxyz_dragold(:,i),nbuf)
     endif
     if (maxp_h2==maxp .or. maxp_krome==maxp) then
        call fill_buffer(xtemp, abundance(:,i),nbuf)
     endif
     call fill_buffer(xtemp, eos_vars(:,i),nbuf)
-    if (do_nucleation) then
-       call fill_buffer(xtemp, nucleation(:,i),nbuf)
-    endif
     if (store_dust_temperature) then
        call fill_buffer(xtemp, dust_temp(i),nbuf)
     endif
+    if (do_nucleation) then
+       call fill_buffer(xtemp, nucleation(:,i),nbuf)
+    endif
+    if (itau_alloc == 1)  call fill_buffer(xtemp, tau(i),nbuf)
+    if (itauL_alloc == 1) call fill_buffer(xtemp, tau_lucy(i),nbuf)
+
     if (maxgrav==maxp) then
        call fill_buffer(xtemp, poten(i),nbuf)
     endif
@@ -1556,17 +1597,21 @@ subroutine unfill_buffer(ipart,xbuf)
        dustproppred(:,ipart)   = unfill_buf(xbuf,j,2)
        dustgasprop(:,ipart)    = unfill_buf(xbuf,j,4)
     endif
+    fxyz_drag(:,ipart)   = unfill_buf(xbuf,j,3)
+    fxyz_dragold(:,ipart)   = unfill_buf(xbuf,j,3)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) then
     abundance(:,ipart)  = unfill_buf(xbuf,j,nabundances)
  endif
  eos_vars(:,ipart) = unfill_buf(xbuf,j,maxeosvars)
- if (do_nucleation) then
-    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
- endif
  if (store_dust_temperature) then
     dust_temp(ipart)    = unfill_buf(xbuf,j)
  endif
+ if (do_nucleation) then
+    nucleation(:,ipart) = unfill_buf(xbuf,j,n_nucleation)
+ endif
+ if (itau_alloc == 1)  tau(ipart) = unfill_buf(xbuf,j)
+ if (itauL_alloc == 1) tau_lucy(ipart) = unfill_buf(xbuf,j)
  if (maxgrav==maxp) then
     poten(ipart)        = real(unfill_buf(xbuf,j),kind=kind(poten))
  endif

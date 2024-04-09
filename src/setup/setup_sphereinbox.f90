@@ -8,7 +8,8 @@ module setup
 !
 ! This module sets up a sphere-in-a-box: a cold, dense sphere placed in
 !   a warm medium; the two media are in pressure-equilibrium.
-!   This currently works for gas-only and two-fluid dust.
+!   This currently works for gas-only and one-fluid dust.
+!   Set density_contrast=1 to simulate decaying turbulence in a box.
 !
 ! :References: None
 !
@@ -109,7 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use dust,         only:ilimitdustflux
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump,rhofinal_cgs,hdivbbmax_max,use_dustfrac
+ use options,      only:nfulldump,rhofinal_cgs,hdivbbmax_max,use_dustfrac,icooling
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
@@ -365,7 +366,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  !
  ! Bonnor-Ebert profile (if requested)
  !
- if (BEsphere) then
+ if (BEsphere .and. density_contrast > 1.) then
     iBE = 8192
     allocate(rtab(iBE),rhotab(iBE))
     call rho_bonnorebert(iBEparam,BErho_cen,edge_density,BErad_phys,BErad_norm,BEmass,BEfac,cs_sphere, &
@@ -375,6 +376,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     totmass_sphere  = BEmass
     if (ierr > 0) call fatal('setup_sphereinbox','Error in calculating Bonnor-Ebert profile')
  endif
+ if (density_contrast < 1.+epsilon(density_contrast)) lbox = 2.
  do i = 1,3
     xmini(i) = -0.5*(lbox*r_sphere)
     xmaxi(i) = -xmini(i)
@@ -418,7 +420,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  totmass_box = (vol_box - vol_sphere)*dens_medium
  totmass     = totmass_box + totmass_sphere
  t_ff        = sqrt(3.*pi/(32.*dens_sphere))
- if (totmass_sphere > 0.9*totmass) then
+ if (totmass_sphere > 0.9*totmass .and. density_contrast > 1.) then
     print*, 'resetting boundaries to increase the number of background particles'
     dxbound = (0.1*totmass_sphere/dens_medium)**(1./3.)
     do i = 1,3
@@ -430,7 +432,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     totmass_box = (vol_box - vol_sphere)*dens_medium
     totmass     = totmass_box + totmass_sphere
  endif
- if (dens_medium*unit_density > rhocritTcgs) then
+ if (dens_medium*unit_density > rhocritTcgs .and. density_contrast > 1.0) then
     print*, 'Medium density = ',dens_medium*unit_density,'g/cm^3'
     print*, 'Sphere density = ',dens_sphere*unit_density,'g/cm^3'
     print*, 'Density at start of EOS transition = ',rhocritTcgs,'g/cm^3'
@@ -464,17 +466,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  !
  ! setup particles in the sphere; use this routine to get N_sphere as close to np as possible
  !
- if (BEsphere) then
-    call set_sphere(trim(lattice),id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
-                    rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,&
-                    exactN=.true.,np_requested=np,mask=i_belong)
+ if (density_contrast > 1.) then
+    if (BEsphere) then
+       call set_sphere(trim(lattice),id,master,0.,r_sphere,psep,hfact,npart,xyzh, &
+                       rhotab=rhotab(1:iBElast),rtab=rtab(1:iBElast),nptot=npart_total,&
+                       exactN=.true.,np_requested=np,mask=i_belong)
+    else
+       call set_sphere(trim(lattice),id,master,0.,r_sphere,psep,hfact,npart,xyzh,nptot=npart_total,&
+                       exactN=.true.,np_requested=np,mask=i_belong)
+       if (trim(lattice)/='random') print "(a,es10.3)",' Particle separation in sphere = ',psep
+    endif
+    print "(a)",' Initialised sphere'
  else
-    call set_sphere(trim(lattice),id,master,0.,r_sphere,psep,hfact,npart,xyzh,nptot=npart_total,&
-                    exactN=.true.,np_requested=np,mask=i_belong)
-    if (trim(lattice)/='random') print "(a,es10.3)",' Particle separation in sphere = ',psep
+    psep_box = dxbound/np**(1./3.)
+    print*, psep_box, dxbound, vol_box,dens_sphere,massoftype(igas)
+    call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
+                      hfact,npart,xyzh,periodic,nptot=npart_total,mask=i_belong,err=ierr)
  endif
- print "(a)",' Initialised sphere'
-
  npartsphere = npart
  if (np_in /= npartsphere) np = npartsphere
  massoftype(igas) = totmass_sphere/npartsphere  ! note: before 5 Oct 2021, this was based upon total mass & total number, not sphere numbers
@@ -487,11 +495,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     psep_box = psep*(density_contrast)**(1./3.)
  endif
 
- call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
-                   hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
- print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
- print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
- print*, ""
+ if (density_contrast > 1.0) then
+    call set_unifdis(trim(lattice),id,master,xmin,xmax,ymin,ymax,zmin,zmax,psep_box, &
+                      hfact,npart,xyzh,periodic,rmin=r_sphere,nptot=npart_total,mask=i_belong,err=ierr)
+    print "(a,es10.3)",' Particle separation in low density medium = ',psep_box
+    print "(a,i10,a)",' added ',npart-npartsphere,' particles in low-density medium'
+    print*, ""
+ endif
  !
  ! set particle properties
  !
@@ -577,6 +587,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     enddo
  endif
  !
+ ! reset values if turbulence-in-a-box
+ !
+ if (density_contrast < 1.+epsilon(density_contrast)) then
+    r_sphere = xmax
+    npartsphere = npart
+ endif
+ !
  ! Velocity: Turbulent velocity field
  !
  vxyzu = 0.
@@ -639,24 +656,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  inquire(file=filename,exist=iexist)
  dtmax = t_ff/100.  ! Since this variable can change, always reset it if running phantomsetup
  if (.not. iexist) then
-    if (binary) then
-       tmax      = 1.50*t_ff ! = 13.33 for default settings (Wurster, Price & Bate 2017)
-    else
-       tmax      = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
+    ! default values
+    tmax          = 1.21*t_ff ! = 10.75 for default settings (Wurster, Price & Bate 2016)
+    ieos          = 8
+    nfulldump     = 1
+    calc_erot     = .true.
+    icreate_sinks = icreate_sinks_setup
+    r_crit        = r_crit_setup
+    h_acc         = h_acc_setup
+    hdivbbmax_max = 1. !512.
+    ! reset defaults based upon options
+    if (density_contrast > 1.) dtmax_dratio = 1.258
+    if (density_contrast < 1.+epsilon(density_contrast) .and. maxvxyzu>=4) then
+       ieos     = 2
+       icooling = 5
     endif
-    ieos         = 8
-    nfulldump    = 1
-    calc_erot    = .true.
-    dtmax_dratio = 1.258
-    icreate_sinks   = icreate_sinks_setup
-    r_crit          = r_crit_setup
-    h_acc           = h_acc_setup
-    if (binary) h_soft_sinksink = h_soft_sinksink_setup
-    hdivbbmax_max   = 1.0 ! 512.
+    if (binary) then
+       h_soft_sinksink = h_soft_sinksink_setup
+       tmax            = 1.50*t_ff ! = 13.33 for default settings (Wurster, Price & Bate 2017)
+    endif
     if (icreate_sinks==1) then
        dtmax_min = dtmax/8.0
     else
-       dtmax_min = 0.0
+       dtmax_min    = 0.0
        rhofinal_cgs = rhofinal_setup
     endif
     ilimitdustflux = .true.

@@ -46,7 +46,7 @@ module radiation_implicit
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
- public :: do_radiation_implicit
+ public :: do_radiation_implicit,ierr_failed_to_converge,calc_lambda_hybrid
 
 contains
 
@@ -1511,5 +1511,128 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  call quarticsolve(a,uold,soln,moresweep,ierr)
 
 end subroutine solve_quartic
+ 
+!---------------------------------------------------------
+!+
+!  Calculate the radiation energy density and flux from 
+!  temperature for hybrid cooling
+!+
+!---------------------------------------------------------
+ subroutine calc_lambda_hybrid(xyzh,utherm,rho)
+ use io,              only:fatal
+ use eos_stamatellos, only:getopac_opdep,lambda_fld
+ use kernel,          only:get_kernel,cnormk,radkern
+ use units,           only:unit_density,unit_ergg,unit_opacity,udist
+ use part,            only:massoftype,igas,gradh,hfact
+ use physcon,         only:pi
+
+ real, intent(in)    :: xyzh(:,:),utherm(:),rho(:)
+ integer,allocatable :: ivar(:,:),ijvar(:)
+ integer             :: ncompact,npart,icompactmax,ierr,ncompactlocal
+ integer             :: i,j,k,n,icompact,nneigh_average
+ real                :: rhoi,rhoj
+ real                :: uradi,dradi,Ti,Tj,kappaBarj,kappaPartj,gmwj,gammaj,wkerni,grkerni
+ real                :: kappaBari,kappaParti,gmwi,dx,dy,dz,rij2,rij,rij1,Wi,dWi
+ real                :: dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,dT4
+ real                :: pmassj,hi,hi21,hi1,q,q2
+ logical             :: added_self
+
+ npart = size(xyzh(1,:))
+ nneigh_average = int(4./3.*pi*(radkern*hfact)**3) + 1
+ icompactmax = int(1.2*nneigh_average*npart)
+ allocate(ivar(3,npart),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for ivar')
+ allocate(ijvar(icompactmax),stat=ierr)
+ if (ierr/=0) call fatal('get_diffusion_term_only','cannot allocate memory for ijvar')
+ 
+ call get_compacted_neighbour_list(xyzh,ivar,ijvar,ncompact,ncompactlocal)
+ ! check for errors
+ if (ncompact <= 0 .or. ncompactlocal <= 0) then
+    call fatal('radiation_implicit','empty neighbour list - need to call set_linklist first?')
+ endif
+
+ pmassj = massoftype(igas)
+ !$omp parallel do default(none)&
+ !$omp shared(ivar,ijvar,ncompact,unit_opacity,gradh,xyzh,unit_density,unit_ergg)&
+ !$omp shared(rho,utherm,pmassj,udist,lambda_fld)&
+ !$omp private(i,j,k,n,rhoi,rhoj,icompact,uradi,dradi,Ti,Tj,wkerni,grkerni,dT4)&
+ !$omp private(kappaBarj,kappaPartj,gmwj,gammaj,dx,dy,dz,rij,rij2,rij1,Wi,dWi)&
+ !$omp private(dradxi,dradyi,dradzi,runix,runiy,runiz,R_rad,hi,hi21,hi1,q,q2)&
+ !$omp private(kappaBari,kappaParti,gmwi,added_self)
+ loop_over_compact_list: do n = 1,ncompact
+    i = ivar(3,n)
+   ! print *, n,ncompact,utherm(i)
+    uradi = 0.
+    dradi = 0.
+    dradxi = 0.
+    dradyi = 0.
+    dradzi = 0.
+    rhoi = rho(i)
+    added_self = .false.
+    hi = xyzh(4,i)
+    hi21 = 1./(hi*hi)
+    hi1 = 1./hi
+
+   call getopac_opdep(utherm(i)*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,Ti,gmwi)
+
+   loop_over_neighbours: do k = 1,ivar(1,n) 
+       icompact = ivar(2,n) + k
+    !  print *, 'icompact',icompact
+       j = ijvar(icompact)
+       if (i == j) added_self = .true.
+   !  print *,'j',j
+       rhoj = rho(j)
+   !  print *, 'rhoj',rhoj
+     !  print *, 'xyzh(1,i)', xyzh(1,i)
+     !  print *,  ' xyzh(1,j)', xyzh(1,j)
+       dx = xyzh(1,i) - xyzh(1,j)
+      ! print *, 'dx', dx
+       dy = xyzh(2,i) - xyzh(2,j)
+       dz = xyzh(3,i) - xyzh(3,j)
+       
+       rij2 = dx*dx + dy*dy + dz*dz + tiny(0.)
+       rij = sqrt(rij2)
+       rij1 = 1./rij
+       q = rij/hi
+       q2 = rij2*hi21
+       
+       call get_kernel(q2,q,wkerni,grkerni)
+       !print *, 'got kernel'
+       Wi = wkerni*cnormk*hi21*hi1
+       dWi = grkerni*cnormk*hi21*hi21*gradh(1,i)
+       
+       ! unit vector components
+       runix = dx/rij
+       runiy = dy/rij
+       runiz = dz/rij
+
+       call getopac_opdep(utherm(j)*unit_ergg,rhoj*unit_density,kappaBarj,kappaPartj,Tj,gmwj)
+!       uradi = uradi + arad*pmassj*Tj**4.0d0*Wi/(rhoj)!*udist**3) ! why udist here? kern has h^-3
+     !  print *, 'got opdep j'
+       
+       dT4 = Ti**4d0 - Tj**4d0
+ !      dradxi = dradxi + pmassj*arad*dT4*dWi*runix/rhoj
+  !     dradyi = dradyi + pmassj*arad*dT4*dWi*runiy/rhoj
+   !    dradzi = dradzi + pmassj*arad*dT4*dWi*runiz/rhoj
+    enddo loop_over_neighbours 
+
+   ! print *, 'done neighbour loop for ', i,n
+    if (.not. added_self) then
+!       print *, "Has not added self in lambda hybrid"
+!       uradi = uradi + cnormk*hi1*hi21*pmassj*arad*Ti**4d0/rhoi ! add self contribution
+    endif
+
+    dradi = sqrt(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! magnitude
+    if ( (uradi == 0d0) .or. (dradi == 0d0) ) then
+       R_rad = 0d0
+    else	
+       R_rad = dradi / (uradi*rhoi*kappaParti/unit_opacity) !code units
+    endif
+
+   lambda_fld(i) = (2d0 + R_rad) / (6d0 + 3d0*R_rad + R_rad*R_rad)
+  enddo loop_over_compact_list
+ !$omp end parallel do
+
+ end subroutine calc_lambda_hybrid
 
 end module radiation_implicit

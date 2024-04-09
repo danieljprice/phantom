@@ -17,7 +17,7 @@ module extern_gnewton
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, io, physcon, units
+! :Dependencies: io, units
 !
  implicit none
  public  :: get_gnewton_spatial_force, get_gnewton_vdependent_force

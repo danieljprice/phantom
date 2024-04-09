@@ -1,4 +1,4 @@
-!--------------------------------------------------------------------------!
+ !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
@@ -22,11 +22,11 @@ module step_lf_global
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cons2prim, cons2primsolver, cooling, cooling_ism,
-!   damping, deriv, dim, dust_formation, eos, extern_gr, externalforces,
-!   growth, io, io_summary, krome_interface, metric_tools, mpiutils,
-!   options, part, ptmass, ptmass_radiation, timestep, timestep_ind,
-!   timestep_sts, timing
+! :Dependencies: boundary_dyn, chem, cons2prim, cons2primsolver, cooling,
+!   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
+!   externalforces, growth, io, io_summary, krome_interface, metric_tools,
+!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!   timestep_ind, timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -101,13 +101,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,ndustsmall,pxyzu,dens,metrics,ics
- use options,        only:avdecayconst,alpha,ieos,alphamax
+ use options,        only:avdecayconst,alpha,ieos,alphamax,icooling
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
+ use cooling,        only:ufloor
+ use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
 #ifdef KROME
  use part,           only:gamma_chem
 #endif
@@ -172,10 +174,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
- !$omp shared(rad,drad,pxyzu,icooling) &
+ !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
- !$omp shared(ibin,ibin_old,twas,timei) &
+ !$omp shared(ibin,ibin_old,twas,timei,icooling) &
  !$omp firstprivate(itype) &
  !$omp private(i,hdti) &
  !$omp reduction(+:nvfloorp)
@@ -200,9 +202,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        elseif (icooling == 8) then
           vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
        else
-          vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          if (icooling  /=  8) then
+             vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          else
+             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+          endif
        endif
-          
+
        !--floor the thermal energy if requested and required
        if (ufloor > 0.) then
           if (vxyzu(4,i) < ufloor) then
@@ -262,7 +268,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(pxyzu,ppred) &
+!$omp shared(pxyzu,ppred,icooling) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(alphaind,ieos,alphamax,ndustsmall,ialphaloc) &
@@ -428,7 +434,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustevol,use_dustfrac) &
 !$omp shared(dustprop,ddustprop,dustproppred) &
 !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass,massoftype) &
-!$omp shared(dtsph,ieos,ufloor) &
+!$omp shared(dtsph,ieos,ufloor,icooling) &
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax,ibinnow) &
 !$omp private(dti,hdti) &
@@ -467,7 +473,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 elseif (icooling == 8) then
                    vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
                 else
-                   vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   if (icooling  /=  8) then
+                      vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   else
+                      vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+                   endif
                 endif
 
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
@@ -488,12 +498,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
+<<<<<<< HEAD
              else
 <<<<<<< Updated upstream
                 vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
 =======
                 vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
 >>>>>>> Stashed changes
+=======
+             elseif (icooling  /=  8) then
+                vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+             else
+                vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+
+>>>>>>> 725b2abbb0ecabaebbe8d8f038884c8963b7a288
              endif
 
              !--floor the thermal energy if requested and required
@@ -566,7 +584,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
-!$omp shared(rad,drad,radpred) &
+!$omp shared(rad,drad,radpred,icooling) &
 !$omp firstprivate(itype) &
 !$omp schedule(static)
        until_converged: do i=1,npart
@@ -602,7 +620,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
              else
-                vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+                if (icooling  /=  8) then
+                   vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
+                else
+                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
+                endif
              endif
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then
@@ -639,6 +661,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
  nvfloorps = int(reduceall_mpi('+', nvfloorps))
  nvfloorc  = int(reduceall_mpi('+', nvfloorc))
+
+ if (dynamic_bdy) call update_xyzminmax(dtsph)
 
  ! Summary statements & crash if velocity is not converged
  if (nwake    > 0) call summary_variable('wake', iowake,    0,real(nwake)    )

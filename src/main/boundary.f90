@@ -6,22 +6,23 @@
 !--------------------------------------------------------------------------!
 module boundary
 !
-! This module contains variables and subroutines
-!  relating to boundaries
+! This module contains variables and subroutines relating to boundaries,
+! including dynamically adjusting periodic boundaries
 !
-! :References: None
+! :References:
 !
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: dim
 !
 
+ use dim, only: maxvxyzu
  implicit none
- real, public :: xmin,xmax,ymin,ymax,zmin,zmax
- real, public :: dxbound, dybound, dzbound
- real, public :: totvol
+ real,    public :: xmin,xmax,ymin,ymax,zmin,zmax
+ real,    public :: dxbound,dybound,dzbound
+ real,    public :: totvol
 
  public :: set_boundary
  public :: cross_boundary
@@ -137,7 +138,7 @@ subroutine cross_boundary(isperiodic,xyz,ncross)
     endif
  endif
 
- return
 end subroutine cross_boundary
 
+!-----------------------------------------------------------------------
 end module boundary

@@ -1248,13 +1248,11 @@ subroutine get_optstring(nopts,optstring,string,maxlen)
 
  string = ''
  do i=1,nopts
-    temp = optstring(i)
+    temp = adjustl(optstring(i))
     if (i==nopts) then
-       write(string(len_trim(string)+1:),"(i2,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
-    elseif (i < 10) then
-       write(string(len_trim(string)+1:),"(i1,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a)",iostat=ierr) i,trim(temp(1:maxl))
     else
-       write(string(len_trim(string)+1:),"(i2,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
+       write(string(len_trim(string)+1:),"(i0,'=',a,',')",iostat=ierr) i,trim(temp(1:maxl))
     endif
  enddo
 

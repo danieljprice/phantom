@@ -6,9 +6,19 @@
 !--------------------------------------------------------------------------!
 module setup
 !
-! this module does setup
+! Setup for a rotating torus, for simulations of
+! the magnetorotational instability and/or the
+! Papaloizoi-Pringle instbaility
 !
-! :References: None
+! Originally written over a few beers in collaboration
+! with Owen Matthews and Laure Fouchet. This shows.
+!
+! Most recently used in Nealon et al. (2018)
+!
+! :References:
+!  - Papaloizoi & Pringle (1984), MNRAS 208, 721
+!  - Zurek & Benz (1986), ApJ 308, 123
+!  - Nealon et al. (2018), MNRAS 474, 1737
 !
 ! :Owner: Daniel Price
 !
@@ -23,13 +33,14 @@ module setup
 
 contains
 
-subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
+subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,&
+           gamma,hfact,time,fileprefix)
  use part,         only:Bxyz,rhoh,hrho,mhd
- use part,         only:iphase,iamtype,igas,maxphase
+ use part,         only:igas
  use dim,          only:maxp,maxvxyzu
  use setup_params, only:ihavesetupB
  use physcon,      only:pi,au,solarm,solarr
- use units,        only:set_units
+ use units,        only:set_units,get_G_code
  integer,           intent(in)  :: id
  integer,           intent(out) :: npart
  integer,           intent(out) :: npartoftype(:)
@@ -39,19 +50,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out) :: massoftype(:)
  real,              intent(in)  :: time
  character(len=20), intent(in)  :: fileprefix
- integer :: i,nrings,nlayers,iring,iz,ipart,npartphi,ii,iamtypei
- real :: Rtorus,dfac,Mstar,Mtorus,zmax,deltaz,bigG
+ integer :: i,nrings,nlayers,iring,iz,ipart,npartphi
+ real :: Rtorus,dfac,Mstar,Mtorus,zmax,deltaz
  real :: massp,r_in,r_out,deltar,polyn,np
- real :: ri,zi,rhofac,deltaphi,densi,pri
+ real :: ri,zi,rhofac,deltaphi,densi,pri,bigG
  real :: deltartemp,denstemp,rtemp,deltar0,dens0
- real :: omegai,v2onr,rcyl2,rcyl,rsph,rhosum,pmassi,pmassii
+ real :: omegai,v2onr,rcyl2,rcyl,rsph,rhosum,pmassi
  real :: beta,Bzi,dbeta,densmax,densmin
  real, parameter :: dndim = 1./3.
 
 ! call set_units(dist=au,mass=solarm,G=1.d0)
- bigG = 1.d0
- call set_units(dist=100.*solarr,mass=10.E6*solarm,G=bigG)
+ call set_units(dist=100.*solarr,mass=1.e7*solarm,G=1.d0)
 
+ bigG = get_G_code()
  Rtorus = 1.0
  dfac = 1.01
  Mstar = 1.0
@@ -61,7 +72,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma = 5./3.
 
  print*,'Setup for beer-related torus thing (Owen, Laure)'
- print*,'maxvxyzu value: ',maxvxyzu
  print*,'particles: ',npart
 
 !
@@ -219,9 +229,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  enddo
 
  npart = ipart
- npartoftype(1) = ipart
+ npartoftype(igas) = ipart
  print*,'Mtorus = ',Mtorus,massp*npart
- massoftype(1) = Mtorus/real(npart)
+ massoftype(igas) = Mtorus/real(npart)
  print*,'Number of particles used',npart
 
  !
@@ -230,10 +240,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--set magnetic field using plasma beta
  beta = 100. !1.e4
  rhosum = 0.0
- pmassii = massoftype(igas)
- do ii=1,npart
-    if (maxphase==maxp) pmassii = massoftype(iamtype(iphase(ii)))
-    rhosum = rhosum + rhoh(xyzh(4,ii),pmassii)
+ pmassi = massoftype(igas)
+ do i=1,npart
+    rhosum = rhosum + rhoh(xyzh(4,i),pmassi)
  enddo
  rhosum = rhosum/npart
 
@@ -253,13 +262,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  !--analytic velocities
  !
- pmassi   = massoftype(igas)
- iamtypei = igas
  do i=1,npart
-    if (maxphase==maxp) then
-       iamtypei = iamtype(iphase(i))
-       pmassi = massoftype(iamtypei)
-    endif
     densi = rhoh(xyzh(4,i),pmassi)
     Bzi   = sqrt(2.*polyk*densi**gamma/beta)
     rcyl2 = dot_product(xyzh(1:2,i),xyzh(1:2,i))
@@ -277,7 +280,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     vxyzu(3,i) = 0.
 
 ! Poloidal Field
-    if (mhd .and. iamtypei==igas) then
+    if (mhd) then
        Bxyz(3,i) = dbeta*(densi**2/rcyl &
                       + 2.*Mstar/(polyk*gamma)*densi**(3.-gamma) &
                       *(Rtorus/rcyl**3 - rcyl/rsph**3))
@@ -289,14 +292,16 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
  enddo
 
-! Toroidal field
-
-
+! Toroidal field (not implemented)
 
  return
 
 contains
-
+!---------------------------------------------
+!+
+!  density function needed for Torus
+!+
+!---------------------------------------------
 real function rhofunc(rr,zz,polyn,dd,Mstar,R0)
  real, intent(in) :: rr,zz,polyn,dd,Mstar,R0
  real :: term
@@ -312,10 +317,12 @@ real function rhofunc(rr,zz,polyn,dd,Mstar,R0)
 
 end function rhofunc
 
-!
-!--sets several ring of particles above and below the midplane
-!  and around in phi
-!
+!---------------------------------------------
+!+
+!  setup several rings of particles above
+!  and below the midplane and around in phi
+!+
+!---------------------------------------------
 subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi)
  integer, intent(in)    :: npartphi
  integer, intent(inout) :: ipart
@@ -387,7 +394,6 @@ subroutine setring(npartphi,ipart,ri,deltar,deltaphi,densi)
     endif
     !print*,'zi = ',ri,zi,denszi,ipart
  enddo
-
 ! print*,'set ring: r = ',ri,' npart = ',ipart
 
 end subroutine setring

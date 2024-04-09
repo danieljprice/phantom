@@ -17,7 +17,7 @@ module extern_gwinspiral
 ! :Runtime parameters:
 !   - stop_ratio : *ratio of particles crossing CoM to indicate a merger*
 !
-! :Dependencies: centreofmass, dump_utils, infile_utils, io, physcon, units
+! :Dependencies: centreofmass, dump_utils, infile_utils, io, units
 !
  implicit none
  !

@@ -1,0 +1,14 @@
+# default settings for aocc compiler
+# override these in the Makefile
+FC= flang
+FFLAGS= -O3 -flto -march=znver3 -mcmodel=medium -Qunused-arguments
+DBLFLAG= -r8
+DEBUGFLAG= -fcheck=all -g --debug
+
+CC = clang
+CCFLAGS = -O3 -flto -march=znver3 -mcmodel=medium
+LIBCXX = -cxxlib
+KNOWN_SYSTEM=yes
+
+OMPFLAGS= -fopenmp
+

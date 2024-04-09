@@ -29,10 +29,13 @@ module units
  real(kind=8), public :: unit_velocity, unit_Bfield, unit_charge
  real(kind=8), public :: unit_pressure, unit_density
  real(kind=8), public :: unit_ergg, unit_energ, unit_opacity, unit_luminosity
+ real(kind=8), public :: unit_angmom
 
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
+ public :: is_time_unit, is_length_unit
+ public :: in_solarr, in_solarm
 
 contains
 
@@ -140,6 +143,7 @@ subroutine set_units_extra()
  unit_energ      = umass*unit_ergg
  unit_opacity    = udist**2/umass
  unit_luminosity = unit_energ/utime
+ unit_angmom     = udist*umass*unit_velocity
 
 end subroutine set_units_extra
 
@@ -171,7 +175,7 @@ end subroutine print_units
 
 !------------------------------------------------------------------------------------
 !+
-!  Subroutine to recognise mass and length units from a string
+!  Subroutine to recognise mass, length and time units from a string
 !+
 !------------------------------------------------------------------------------------
 subroutine select_unit(string,unit,ierr)
@@ -210,6 +214,18 @@ subroutine select_unit(string,unit,ierr)
     unit = jupiterm
  case('g','grams')
     unit = 1.d0
+ case('days','day')
+    unit = days
+ case('Myr')
+    unit = 1.d6*years
+ case('yr','year','yrs','years')
+    unit = years
+ case('hr','hour','hrs','hours')
+    unit = hours
+ case('min','minute','mins','minutes')
+    unit = minutes
+ case('s','sec','second','seconds')
+    unit = seconds
  case default
     ierr = 1
     unit = 1.d0
@@ -218,6 +234,78 @@ subroutine select_unit(string,unit,ierr)
  unit = unit*fac
 
 end subroutine select_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  check if string is a unit of time
+!+
+!------------------------------------------------------------------------------------
+logical function is_time_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case('days','day','Myr','yr','year','yrs','years',&
+      'hr','hour','hrs','hours','min','minute','mins','minutes',&
+      's','sec','second','seconds')
+    is_time_unit = .true.
+ case default
+    is_time_unit = .false.
+ end select
+
+end function is_time_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  check if string is a unit of length
+!+
+!------------------------------------------------------------------------------------
+logical function is_length_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case('solarr','rsun','au','ly','lightyear','pc','parsec',&
+      'kpc','kiloparsec','mpc','megaparsec','km','kilometres',&
+      'kilometers','cm','centimetres','centimeters')
+    is_length_unit = .true.
+ case default
+    is_length_unit = .false.
+ end select
+
+end function is_length_unit
+
+!------------------------------------------------------------------------------------
+!+
+!  parse a string like "10.*days" or "10*au" and return the value in code units
+!  if there is no recognisable units, the value is returned unscaled
+!+
+!------------------------------------------------------------------------------------
+real function in_code_units(string,ierr) result(rval)
+ character(len=*), intent(in)  :: string
+ integer,          intent(out) :: ierr
+ real(kind=8) :: val
+
+ call select_unit(string,val,ierr)
+ if (is_time_unit(string) .and. ierr == 0) then
+    rval = real(val/utime)
+ elseif (is_length_unit(string) .and. ierr == 0) then
+    rval = real(val/udist)
+ else
+    rval = real(val)  ! no unit conversion
+ endif
+
+end function in_code_units
 
 !------------------------------------------------------------------------------------
 !+
@@ -351,5 +439,30 @@ logical function in_geometric_units()
  in_geometric_units = c_is_unity() .and. G_is_unity()
 
 end function in_geometric_units
+
+!---------------------------------------------------------------------------
+!+
+!  function to convert a mass value from code units to solar masses
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarm(val) result(rval)
+ use physcon, only:solarm
+ real, intent(in) :: val
+
+ rval = val*(umass/solarm)
+
+end function in_solarm
+!---------------------------------------------------------------------------
+!+
+!  function to convert a distance value from code units to solar radii
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarr(val) result(rval)
+ use physcon, only:solarr
+ real, intent(in) :: val
+
+ rval = val*(udist/solarr)
+
+end function in_solarr
 
 end module units

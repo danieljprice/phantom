@@ -19,7 +19,7 @@ module unifdis
  use stretchmap, only:rho_func
  implicit none
  public :: set_unifdis, get_ny_nz_closepacked, get_xyzmin_xyzmax_exact
- public :: is_valid_lattice, is_closepacked
+ public :: is_valid_lattice, is_closepacked, latticetype
 
  ! following lines of code allow an optional mask= argument
  ! to setup only certain subsets of the particle domain (used for MPI)
@@ -28,6 +28,11 @@ module unifdis
    integer(kind=8), intent(in) :: ip
   end function mask_prototype
  end interface
+
+ integer, parameter, public :: i_cubic       = 1, &
+                               i_closepacked = 2, &
+                               i_hexagonal   = 3, &
+                               i_random      = 4
 
  public :: mask_prototype, mask_true, rho_func
 
@@ -717,6 +722,29 @@ pure logical function is_valid_lattice(latticetype)
  end select
 
 end function is_valid_lattice
+
+!-------------------------------------------------------------
+!+
+!  utility function to give correct lattice string
+!  given integer lattice choice
+!+
+!-------------------------------------------------------------
+function latticetype(ilattice)
+ integer, intent(in) :: ilattice
+ character(len=11) :: latticetype
+
+ select case(ilattice)
+ case(i_random)
+    latticetype = 'random'
+ case(i_hexagonal)
+    latticetype = 'hexagonal'
+ case(i_closepacked)
+    latticetype = 'closepacked'
+ case default
+    latticetype = 'cubic'
+ end select
+
+end function latticetype
 
 !---------------------------------------------------------------
 !+
