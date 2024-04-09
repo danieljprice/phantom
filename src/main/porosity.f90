@@ -330,10 +330,11 @@ subroutine get_filfac_growth(mprev,mass,filfac,dustgasprop,filfacgrowth)
  real, intent(in)          :: mprev,mass,filfac
  real, intent(in)          :: dustgasprop(:)
  real, intent(out)         :: filfacgrowth
- real                      :: ekincdt,vrel
+ real                      :: ekincdt,vrel,vt
  real                      :: j              ! Power of the filling factor dependency in mass
 
- vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
+ vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+ vrel = vrelative(dustgasprop,vt)
 
  !- kinetic energy condition Ekin/(3*b_oku/eroll)
  ekincdt = mprev*vrel*vrel/(12.*b_oku*eroll)
@@ -364,10 +365,11 @@ subroutine get_filfac_bounce(mprev,graindens,filfac,dustgasprop,probastick,rhod,
  real, intent(inout)       :: filfacevol
  real                      :: sdust,vrel,ncoll,vol,deltavol
  real                      :: ekin,pdyn,coeffrest,filfacbnc
- real                      :: vstick,vyield,vend
+ real                      :: vstick,vyield,vend,vt
 
  if (probastick < 1.) then
-    vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
+    vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+    vrel = vrelative(dustgasprop,vt)
     sdust = get_size(mprev,graindens,filfac)
     vstick = compute_vstick(mprev,sdust)                   !-compute vstick, i.e. max velocity before bouncing appears
 
@@ -415,14 +417,15 @@ subroutine get_filfac_frag(mprev,dustprop,filfac,dustgasprop,rhod,VrelVf,dt,filf
  real, intent(in)          :: dustprop(:),dustgasprop(:)
  real, intent(out)         :: filfacfrag
  real                      :: sdust,vrel,ncoll,vol,deltavol!,compfactor
- real                      :: ekin,pdyn
+ real                      :: ekin,pdyn,vt
 
  select case (icompact)
  case (1)
     ! model Garcia + Kataoka mod
     sdust = get_size(mprev,dustprop(2),filfac)
     vol = fourpi/3. * sdust**3
-    vrel = vrelative(dustgasprop,sqrt(roottwo*Ro*shearparam)*dustgasprop(1))
+    vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1)
+    vrel = vrelative(dustgasprop,vt)
     ncoll = fourpi*sdust**2*rhod*vrel*dt/mprev                                 !number of collisions in dt
 
     ekin = mprev*vrel*vrel/4. - (2.*mprev - dustprop(1))*0.85697283*eroll/mmono       !0.856973 = 3* 1.8 * 48/302.46
@@ -621,19 +624,20 @@ subroutine get_probastick(npart,xyzh,dmdt,dustprop,dustgasprop,filfac)
  real, intent(in)          :: xyzh(:,:),dustprop(:,:),dustgasprop(:,:)
  real, intent(inout)       :: dmdt(:)
  integer                   :: i,iam
- real                      :: vrel,vstick,vend,sdust
+ real                      :: vrel,vstick,vend,sdust,vt
 
  if (ibounce == 1) then
     !$omp parallel do default(none) &
     !$omp shared(xyzh,npart,iphase,use_dustfrac) &
     !$omp shared(filfac,dmdt,dustprop,dustgasprop,probastick,shearparam) &
-    !$omp private(i,iam,vrel,vstick,vend,sdust)
+    !$omp private(i,iam,vrel,vstick,vend,sdust,vt)
     do i=1, npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           iam = iamtype(iphase(i))
           if ((iam == idust .or. (iam == igas .and. use_dustfrac))) then
              if (filfac(i) >= 0.3 .and. dmdt(i) >= 0.) then
-                vrel = vrelative(dustgasprop(:,i),sqrt(roottwo*Ro*shearparam)*dustgasprop(1,i))
+                vt = sqrt(roottwo*Ro*shearparam)*dustgasprop(1,i)
+                vrel = vrelative(dustgasprop(:,i),vt)
                 sdust = get_size(dustprop(1,i),dustprop(2,i),filfac(i))
                 vstick = compute_vstick(dustprop(1,i),sdust)
                 vend = compute_vend(vstick)
