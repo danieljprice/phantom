@@ -45,7 +45,7 @@ subroutine test_dust(ntests,npass)
  use physcon,     only:solarm,au
  use units,       only:set_units,unit_density,udist
  use eos,         only:gamma
- use dim,         only:use_dust
+ use dim,         only:use_dust,use_dustgrowth
  use mpiutils,    only:barrier_mpi
  use options,     only:use_dustfrac
  use table_utils, only:logspace
@@ -71,10 +71,10 @@ subroutine test_dust(ntests,npass)
     call init_drag(ierr)
     call checkval(ierr,0,0,nfailed(idrag),'drag initialisation')
  enddo
-#ifdef DUSTGROWTH
- call init_growth(ierr)
- call checkval(ierr,0,0,nfailed(3),'growth initialisation')
-#endif
+ if (use_dustgrowth) then
+    call init_growth(ierr)
+    call checkval(ierr,0,0,nfailed(3),'growth initialisation')
+ endif
  call update_test_scores(ntests,nfailed,npass)
 
  idrag = 1

@@ -111,7 +111,7 @@ module setup
                             iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf,,filfac,probastick,rad,radprop,ikappa,iradxi
+                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
