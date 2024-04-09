@@ -359,7 +359,7 @@ subroutine test_dustydiffuse(ntests,npass)
  !
  ! setup uniform box
  !
- nx = 16
+ nx = 32
  deltax = 1./nx
  call init_part()
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
