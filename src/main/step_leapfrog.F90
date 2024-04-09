@@ -92,7 +92,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
                           use_dustgrowth,use_krome,gr,do_radiation
  use io,             only:iprint,fatal,iverbose,id,master,warning
- use options,        only:iexternalforce,use_dustfrac,implicit_radiation,use_fourthorder
+ use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
@@ -121,8 +121,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use step_extern,    only:step_extern_FSI,step_extern_lf,step_extern_gr, &
+ use step_extern,     only:step_extern_FSI,step_extern_lf,step_extern_gr, &
                           step_extern_sph_gr,step_extern_sph
+ use ptmass,          only: use_fourthorder
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive

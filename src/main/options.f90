@@ -58,10 +58,6 @@ module options
  logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
  logical, public :: implicit_radiation_store_drad
 
-! Regularisation method and/or higher order integrator
- logical, public :: use_fourthorder
-
-
  public :: set_default_options
  public :: ieos,idamp
  public :: iopacity_type
@@ -173,8 +169,6 @@ subroutine set_default_options
 
  ! variable composition
  use_var_comp = .false.
-
- use_fourthorder = .false.
 
 end subroutine set_default_options
 

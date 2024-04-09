@@ -68,6 +68,7 @@ module ptmass
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0    ! 1000.
+ logical, public :: use_fourthorder = .false.
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -2064,6 +2065,7 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
 
 end subroutine write_options_ptmass
 
@@ -2138,6 +2140,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
+ case('use_fourthorder')
+    read(valstring,*,iostat=ierr) use_fourthorder
  case default
     imatch = .false.
  end select
