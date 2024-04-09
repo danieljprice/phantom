@@ -196,7 +196,7 @@ subroutine test_dustybox(ntests,npass)
  ! setup for dustybox problem
  !
  call init_part()
- nx = 32
+ nx = 16
  deltax = 1./nx
  dz = 2.*sqrt(6.)/nx
  call set_boundary(-0.5,0.5,-0.25,0.25,-dz,dz)
@@ -359,7 +359,7 @@ subroutine test_dustydiffuse(ntests,npass)
  !
  ! setup uniform box
  !
- nx = 32
+ nx = 16
  deltax = 1./nx
  call init_part()
  call set_boundary(-0.5,0.5,-0.5,0.5,-0.5,0.5)
@@ -529,6 +529,7 @@ subroutine test_drag(ntests,npass)
  use vectorutils, only:cross_product3D
  use units,       only:udist,unit_density
  use mpidomain,   only:i_belong
+ use physcon,     only:pi
  integer, intent(inout) :: ntests,npass
  integer(kind=8) :: npartoftypetot(maxtypes)
  integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu
@@ -543,7 +544,7 @@ subroutine test_drag(ntests,npass)
 !
 ! set up particles in random distribution
 !
- nx = 50
+ nx = 25
  psep = 1./nx
  iseed= -14255
  call init_part()
@@ -595,7 +596,7 @@ subroutine test_drag(ntests,npass)
 
  if (use_dustgrowth) then
     dustprop(:,:) = 0.
-    dustprop(1,:) = grainsize(1)
+    dustprop(1,:) = 4./3.*pi*grainsize(1)**3*graindens(1)
     dustprop(2,:) = graindens(1)
  endif
 !
