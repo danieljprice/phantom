@@ -16,8 +16,8 @@ module deriv
 !
 ! :Dependencies: cons2prim, densityforce, derivutils, dim, dust_formation,
 !   externalforces, forces, forcing, growth, io, linklist, metric_tools,
-!   options, part, photoevap, porosity, ptmass, ptmass_radiation,
-!   radiation_implicit, raytracer, timestep, timestep_ind, timing
+!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   timestep, timestep_ind, timing
 !
  implicit none
 
@@ -51,11 +51,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
-#ifdef PHOTO
- use photoevap,      only:find_ionfront,photo_ionize
- use part,           only:massoftype
-#endif
- use raytracer
  use growth,           only:get_growth_rate
  use porosity,         only:get_disruption,get_probastick
  use ptmass_radiation, only:get_dust_temperature
