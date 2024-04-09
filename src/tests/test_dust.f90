@@ -51,7 +51,7 @@ subroutine test_dust(ntests,npass)
  use table_utils, only:logspace
  use growth,      only:init_growth
  integer, intent(inout) :: ntests,npass
- integer :: nfailed(3),ierr,iregime
+ integer :: nfailed(3),ierr,iregime,j
  real    :: rhoi,rhogasi,rhodusti,spsoundi,tsi,grainsizei,graindensi
 
  if (use_dust) then
@@ -94,36 +94,23 @@ subroutine test_dust(ntests,npass)
  call test_epsteinstokes(ntests,npass)
  call barrier_mpi()
 
- if (id==master) write(*,"(/,a)") '--> testing drag with EXPLICIT scheme'
  use_dustfrac = .false.
- !
- ! Test that drag conserves momentum and energy with explicit scheme
- !
+ do j=1,2
+    drag_implicit = .false.
+    if (j==2) drag_implicit = .true.
+    !
+    ! Test that drag conserves momentum and energy with explicit/implicit scheme
+    !
+    call test_drag(ntests,npass)
+    call barrier_mpi()
+   
+    !
+    ! DUSTYBOX test with explicit/implicit scheme
+    !
+    call test_dustybox(ntests,npass)
+    call barrier_mpi()
+ enddo
  drag_implicit = .false.
- call test_drag(ntests,npass)
- call barrier_mpi()
-
- !
- ! DUSTYBOX test with explicit scheme
- !
- drag_implicit = .false.
- call test_dustybox(ntests,npass)
- call barrier_mpi()
-
- if (id==master) write(*,"(/,a)") '--> testing DRAG with IMPLICIT scheme'
- !
- ! Test that drag conserves momentum and energy with implicit scheme
- !
- drag_implicit = .true.
- call test_drag(ntests,npass)
- call barrier_mpi()
-
- !
- ! DUSTYBOX test with explicit scheme
- !
- drag_implicit = .true.
- call test_dustybox(ntests,npass)
- call barrier_mpi()
 
  !
  ! DUSTYDIFFUSE test
@@ -152,7 +139,7 @@ subroutine test_dustybox(ntests,npass)
  use energies,       only:compute_energies,ekin
  use testutils,      only:checkvalbuf,checkvalbuf_end
  use eos,            only:ieos,polyk,gamma
- use dust,           only:K_code,idrag
+ use dust,           only:K_code,idrag,drag_implicit
  use options,        only:alpha,alphamax
  use unifdis,        only:set_unifdis
  use dim,            only:periodic,mhd,use_dust,use_dustgrowth
@@ -174,7 +161,7 @@ subroutine test_dustybox(ntests,npass)
  real :: vg, vd, deltav, ekin_exact, fd
  real :: tol,tolvg,tolfg,tolfd
  logical :: write_output = .false.
- character(len=60) :: filename
+ character(len=60) :: filename,string
  integer, parameter :: lu = 36
 
  if (index(kernelname,'quintic') /= 0) then
@@ -184,19 +171,19 @@ subroutine test_dustybox(ntests,npass)
  endif
 
  if (periodic .and. use_dust) then
-    if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX'
+    string = '(explicit drag)'
+    if (drag_implicit) string = '(implicit drag)'
+    if (id==master) write(*,"(/,a)") '--> testing DUSTYBOX '//trim(string)
  else
     if (id==master) write(*,"(/,a)") '--> skipping DUSTYBOX (need -DPERIODIC and -DDUST)'
     return
  endif
 
- if (use_dustgrowth .and. id==master) write(*,"(/,a)") '--> Adding dv interpolation test'
-
  !
  ! setup for dustybox problem
  !
  call init_part()
- nx = 16
+ nx = 24
  deltax = 1./nx
  dz = 2.*sqrt(6.)/nx
  call set_boundary(-0.5,0.5,-0.25,0.25,-dz,dz)
@@ -519,7 +506,7 @@ subroutine test_drag(ntests,npass)
  use options,     only:use_dustfrac
  use eos,         only:polyk,ieos
  use kernel,      only:hfact_default
- use dust,        only:K_code,idrag
+ use dust,        only:K_code,idrag,drag_implicit
  use boundary,    only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax,set_boundary
  use io,          only:iverbose
  use unifdis,     only:set_unifdis
@@ -535,12 +522,15 @@ subroutine test_drag(ntests,npass)
  integer :: nx,i,j,nfailed(7),itype,iseed,npart_previous,iu
  real    :: da(3),dl(3),temp(3)
  real    :: psep,time,rhozero,totmass,dekin,deint
+ character(len=10) :: string
 
  real, parameter :: tol_mom = 1.e-7
  real, parameter :: tol_ang = 5.e-4
  real, parameter :: tol_enj = 1.e-6
 
- if (id==master) write(*,"(/,a)") '--> testing DUST DRAG'
+ string = '(explicit)'
+ if (drag_implicit) string = '(implicit)'
+ if (id==master) write(*,"(/,a)") '--> testing DUST DRAG '//trim(string)
 !
 ! set up particles in random distribution
 !
