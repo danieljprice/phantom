@@ -465,7 +465,7 @@ SRCPOTS= extern_gr.F90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.f90 \
-         lumin_nsdisc.F90 extern_prdrag.f90 \
+         lumin_nsdisc.f90 extern_prdrag.f90 \
          extern_Bfield.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
@@ -508,9 +508,9 @@ SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
 SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.f90
 
 ifeq ($(HDF5), yes)
-    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
@@ -534,7 +534,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
          ${SRCINJECT_DEPS} wind_equations.f90 wind.F90 ${SRCINJECT} \
-         ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
+         ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
@@ -616,7 +616,7 @@ SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 \
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
-         memory.F90 \
+         memory.f90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
          viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
