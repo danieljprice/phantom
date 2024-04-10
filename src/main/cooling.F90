@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module cooling
 !
@@ -15,7 +15,7 @@ module cooling
 !     5 = Koyama & Inutuska (2002)        [explicit]
 !     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
-!     8 = Stamatellos et al. (2007)       [implicit]
+!     9 = Stamatellos et al. (2007)       [implicit]
 !
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
@@ -89,7 +89,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     case(9)
        if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=9 requires ieos=21',&
             var='ieos',ival=ieos)
-       if (irealvisc > 0 .and. od_method == 2) call warning('cooling',&
+       if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
             'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
        inquire(file=eos_file,exist=ex)
        if (.not. ex ) call fatal('cooling','file not found',var=eos_file)
@@ -99,7 +99,6 @@ subroutine init_cooling(id,master,iprint,ierr)
 	   	    call fatal('cooling','Do radiation was switched on!')
 	   endif	
     call init_star()
-    cooling_in_step = .false.
  case(6)
     call init_cooling_KI02(ierr)
  case(5)
@@ -111,20 +110,22 @@ subroutine init_cooling(id,master,iprint,ierr)
  case(7)
     ! Gammie PL
     cooling_in_step = .false.
+ case(8)
+    cooling_in_step = .false.
  case default
     call init_cooling_solver(ierr)
  end select
 
  !--calculate the energy floor in code units
- if (Tfloor > 0.) then
+ if (icooling == 9) then
+    ufloor = 0. ! because we calculate & use umin separately
+ elseif (Tfloor > 0.) then
     if (gamma > 1.) then
        ufloor = kboltz*Tfloor/((gamma-1.)*gmw*mass_proton_cgs)/unit_ergg
     else
        ufloor = 3.0*kboltz*Tfloor/(2.0*gmw*mass_proton_cgs)/unit_ergg
     endif
     if (maxvxyzu < 4) ierr = 1
- elseif (icooling == 9) then
-    ufloor = 0. ! because we calculate & use umin separately
  else
     ufloor = 0.
  endif
@@ -136,9 +137,8 @@ end subroutine init_cooling
 !   this routine returns the effective cooling rate du/dt
 !
 !-----------------------------------------------------------------------
-! my version: subroutine energ_cooling(xi,yi,zi,ui,dudt,rho,dt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,dudti_sph,part_id)
 
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,dudti_sph,part_id)
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u

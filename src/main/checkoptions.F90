@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module checkoptions
 !
@@ -14,7 +14,7 @@ module checkoptions
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, metric_tools, part
+! :Dependencies: dim, io, metric_tools, mpiutils, part
 !
  implicit none
  public :: check_compile_time_settings
@@ -143,10 +143,16 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef DUSTGROWTH
- if (.not. use_dustgrowth) call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+ if (.not. use_dustgrowth) then
+    call error(string,'-DDUSTGROWTH but use_dustgrowth = .false.')
+    ierr = 16
+ endif
 #endif
 
- return
+ if (mpi .and. inject_parts) call error(string,'MPI currently not compatible with particle injection')
+
+ call barrier_mpi
+
 end subroutine check_compile_time_settings
 
 end module checkoptions

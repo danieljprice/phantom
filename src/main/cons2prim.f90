@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module cons2prim
 !
@@ -177,7 +177,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
                              ndustsmall,itemp,ikappa,idmu,idgamma,icv
  use part,              only:nucleation,igamma
- use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
+ use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,&
+                             gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
                              do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
@@ -271,7 +272,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        endif
        if (use_krome) gammai = eos_vars(igamma,i)
        if (maxvxyzu >= 4) then
-          uui = utherm(vxyzu(:,i),rhogas,gammai)
+          uui = vxyzu(4,i)
           if (uui < 0.) call warning('cons2prim','Internal energy < 0',i,'u',uui)
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
@@ -283,7 +284,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
        eos_vars(ics,i)    = spsound
        eos_vars(itemp,i)  = temperaturei
-       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. update_muGamma or. (ieos==21)) eos_vars(imu,i) = mui
+       if (use_var_comp .or. eos_outputs_mu(ieos) .or. do_nucleation .or. update_muGamma) eos_vars(imu,i) = mui
 
        if (do_radiation) then
           if (temperaturei > tiny(0.)) then
@@ -295,11 +296,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
              !
              ! Get the opacity from the density and temperature if required
              !
-             if (iopacity_type == 3) then
-             	call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i),u=vxyzu(4,i))
-             elseif (iopacity_type > 0) then
-             	call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
-             endif
+             if (iopacity_type > 0) call get_opacity(iopacity_type,rhogas,temperaturei,radprop(ikappa,i))
           endif
           !
           ! Get radiation pressure from the radiation energy, i.e. P = 1/3 E if optically thick
@@ -330,6 +327,10 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           !
           if (mhd_nonideal) then
              Bi = sqrt(Bxi*Bxi + Byi*Byi + Bzi*Bzi)
+             ! sanity check the temperature
+             if (temperaturei < 1.) call warning('cons2prim',&
+                'T < 1K in non-ideal MHD library',i,'T',temperaturei)
+
              call nicil_update_nimhd(0,eta_nimhd(iohm,i),eta_nimhd(ihall,i),eta_nimhd(iambi,i), &
                                      Bi,rhoi,temperaturei,nden_nimhd(:,i),ierrlist)
           endif
