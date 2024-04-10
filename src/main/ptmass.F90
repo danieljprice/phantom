@@ -65,10 +65,11 @@ module ptmass
  real,    public :: f_acc  = 0.8
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
- real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
- real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
- real,    public :: f_crit_override = 0.0    ! 1000.
- logical, public :: use_fourthorder = .false.
+ real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
+ real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
+ real,    public :: f_crit_override = 0.0     ! 1000.
+ logical, public :: use_fourthorder = .false. ! FSI switch
+ logical, public :: use_regnbody    = .false. ! subsystems switch
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -2135,6 +2136,7 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
  call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
+ call write_inopt(use_regnbody, 'use_regnboby', 'Subsystem (SD and secular and AR) integration method', iunit)
 
 end subroutine write_options_ptmass
 
@@ -2211,6 +2213,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('use_fourthorder')
     read(valstring,*,iostat=ierr) use_fourthorder
+ case('use_regnbody')
+    read(valstring,*,iostat=ierr) use_regnbody
  case default
     imatch = .false.
  end select
