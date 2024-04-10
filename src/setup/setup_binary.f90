@@ -75,6 +75,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  integer :: ierr,i,nstar,nptmass_in,iextern_prev
  logical :: iexist,write_profile,use_var_comp,add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
+ logical, parameter :: set_oblateness = .false.
 !
 !--general parameters
 !
@@ -192,7 +193,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     accradius1 = xyzmh_ptmass(ihacc,nptmass+1)
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
- else
+ elseif (set_oblateness) then
     ! set J2 for sink particle 1 to be equal to oblateness of Saturn
     xyzmh_ptmass(iJ2,1) = 0.01629
     angle = 30.*deg_to_rad
