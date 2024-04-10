@@ -2139,7 +2139,7 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
  call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
- call write_inopt(use_regnbody, 'use_regnboby', 'Subsystem (SD and secular and AR) integration method', iunit)
+ call write_inopt(use_regnbody, 'use_regnbody', 'Subsystem (SD and secular and AR) integration method', iunit)
 
 end subroutine write_options_ptmass
 
