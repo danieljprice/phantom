@@ -75,7 +75,6 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
  character(len=80) :: line
  character(len=40) :: tempfile
  real :: cachesizel2,cachesizel3
- external :: system
 !
 !--on Linux, cpu info will be located in the /proc/cpuinfo file
 !  So we look in this file first
