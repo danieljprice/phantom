@@ -28,6 +28,7 @@ contains
 !
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+ use io ,only:id,master,iverbose,iprint
  real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout)         :: group_info(:,:)
  integer(kind=1), intent(inout) :: nmatrix(:,:)
@@ -37,26 +38,31 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  n_group = 0
  n_ingroup = 0
  n_sing = 0
+
  call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
  call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+
+ if (id==master .and. iverbose>1) then
+    write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
+ endif
 
 end subroutine group_identify
 
 
 subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  use part, only : igarg,igcum
- use dim, only : maxptmass
- integer(kind=1), intent(in) :: nmatrix(:,:)
- integer, intent(out)        :: group_info(:,:)
- integer, intent(in)         :: nptmass
- integer, intent(inout)      :: n_group,n_ingroup,n_sing
+ integer,         intent(in)    :: nptmass
+ integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
+ integer,         intent(inout) :: group_info(2,nptmass)
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing
  integer :: i,ncg
- logical :: visited(maxptmass)
- integer :: stack(maxptmass)
+ logical :: visited(nptmass)
+ visited = .false.
+ group_info(igcum,1) = 1
  do i=1,nptmass
     if(.not.visited(i)) then
        n_ingroup = n_ingroup + 1
-       call dfs(i,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+       call dfs(i,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
        if (ncg>1)then
           n_group = n_group + 1
           group_info(igcum,n_group+1) = ncg + group_info(igcum,n_group)
@@ -69,15 +75,15 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  enddo
 end subroutine form_group
 
-subroutine dfs(iroot,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  use part, only : igarg
- integer, intent(in)  :: nptmass,iroot
- integer, intent(out) :: ncg
- integer(kind=1), intent(in) :: nmatrix(:,:)
- integer, intent(inout) :: group_info(:,:)
- integer, intent(inout) :: n_ingroup
- integer, intent(out) :: stack(:)
- logical, intent(inout) :: visited(:)
+ integer,         intent(in)    :: nptmass,iroot
+ integer,         intent(out)   :: ncg
+ integer(kind=1), intent(in)    :: nmatrix(nptmass,nptmass)
+ integer,         intent(inout) :: group_info(2,nptmass)
+ integer,         intent(inout) :: n_ingroup
+ logical,         intent(inout) :: visited(nptmass)
+ integer :: stack(nptmass)
  integer :: j,stack_top,inode
 
  ncg = 1
@@ -92,6 +98,7 @@ subroutine dfs(iroot,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
     do j= 1,nptmass
        if (nmatrix(inode,j)==1 .and. .not.(visited(j))) then
           n_ingroup = n_ingroup + 1
+          ncg = ncg + 1
           stack_top = stack_top + 1
           stack(stack_top) = j
           visited(j) = .true.
