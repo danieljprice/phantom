@@ -76,6 +76,7 @@ module mpiforce
     integer                   :: maxlength = 0
     integer                   :: n = 0
     integer                   :: number
+    integer                   :: ibuffer   ! to avoid ifort error
  end type stackforce
 
 contains
@@ -236,6 +237,8 @@ subroutine free_mpitype_of_cellforce(dtype)
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
+#else
+ dtype = 0
 #endif
 end subroutine free_mpitype_of_cellforce
 

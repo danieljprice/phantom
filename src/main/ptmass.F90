@@ -685,6 +685,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  integer            :: j
  real               :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
  logical            :: mostbound
+!$ external         :: omp_set_lock,omp_unset_lock
 
  accreted = .false.
  ifail    = 0

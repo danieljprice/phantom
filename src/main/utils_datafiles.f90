@@ -161,7 +161,7 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
  ierr = 0
  ! check that wget utility exists
  !call execute_command_line('type -p wget > /dev/null',wait=.true.,exitstat=ierr,cmdstat=ierr1)
- call system('type -p curl > /dev/null')
+ call execute_command_line('type -p curl > /dev/null')
 
  if (ierr /= 0) then
     print "(a)",' ERROR: curl utility does not exist'
@@ -169,11 +169,11 @@ subroutine retrieve_remote_file(url,file,dir,localfile,ierr)
     if (len_trim(dir) > 0) then
        !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file)//' -O '//trim(dir)//trim(file),wait=.true.,&
        !                          exitstat=ierr,cmdstat=ierr1)
-       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(dir)//trim(file))
+       call execute_command_line(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(dir)//trim(file))
        localfile = trim(dir)//trim(file)
     else
        !call execute_command_line(trim(cmd)//' '//trim(url)//trim(file),wait=.true.,exitstat=ierr,cmdstat=ierr1)
-       call system(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(file))
+       call execute_command_line(trim(cmd)//' '//trim(url)//trim(file)//' -o '//trim(file))
        localfile = trim(file)
     endif
  endif

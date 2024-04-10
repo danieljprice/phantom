@@ -105,7 +105,7 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
 !--On a Mac, we have to use the sysctl utility
 !
     tempfile='cpuinfo.tmp'
-    call system('sysctl -a hw machdep > '//trim(tempfile))
+    call execute_command_line('sysctl -a hw machdep > '//trim(tempfile))
     !--check to see if this file exists
     inquire(file=tempfile,exist=iexist)
     if (iexist) then
