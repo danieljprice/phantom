@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module deriv
 !
@@ -20,8 +20,6 @@ module deriv
 !   timestep, timestep_ind, timing
 !
  implicit none
- character(len=80), parameter, public :: &  ! module version
-    modid="$Id$"
 
  public :: derivs, get_derivs_global
  real, private :: stressmax
@@ -40,7 +38,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
                   dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
-                          sink_radiation,use_dustgrowth
+                          sink_radiation,use_dustgrowth,ind_timesteps
  use io,             only:iprint,fatal,error
  use linklist,       only:set_linklist
  use densityforce,   only:densityiterate
@@ -48,12 +46,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use externalforces, only:externalforce
  use part,           only:dustgasprop,dvdx,Bxyz,set_boundaries_to_active,&
                           nptmass,xyzmh_ptmass,sinks_have_heating,dust_temp,VrelVf,fxyz_drag
-#ifdef IND_TIMESTEPS
  use timestep_ind,   only:nbinmax
-#else
- use timestep,       only:dtcourant,dtforce,dtrad
-#endif
- use timestep,       only:dtmax
+ use timestep,       only:dtmax,dtcourant,dtforce,dtrad
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
@@ -149,7 +143,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     set_boundaries_to_active = .false.     ! boundary particles are no longer treated as active
     call do_timing('dens',tlast,tcpulast)
  endif
- 
+
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  else
@@ -163,8 +157,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  if (do_radiation .and. implicit_radiation .and. dt > 0.) then
     call do_radiation_implicit(dt,npart,rad,xyzh,vxyzu,radprop,drad,ierr)
     if (ierr /= 0 .and. ierr /= ierr_failed_to_converge) call fatal('radiation','Failed in radiation')
+    call do_timing('radiation',tlast,tcpulast)
  endif
- 
+
 !
 ! compute forces
 !
@@ -204,11 +199,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! set new timestep from Courant/forces condition
 !
-#ifdef IND_TIMESTEPS
- dtnew = dtmax/2**nbinmax  ! minimum timestep over all particles
-#else
- dtnew = min(dtforce,dtcourant,dtrad,dtmax)
-#endif
+ if (ind_timesteps) then
+    dtnew = dtmax/2.**nbinmax  ! minimum timestep over all particles
+ else
+    dtnew = min(dtforce,dtcourant,dtrad,dtmax)
+ endif
 
  call do_timing('total',t1,tcpu1,lunit=iprint)
 
