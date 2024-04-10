@@ -58,11 +58,6 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  ! Get density
  rho = rhoh(h,pmass)
  call get_weight(pmass,h,rho,weight)
- ! Correct for Kernel Bias, find correction factor
- ! Wrap this into it's own subroutine
- if (present(calc_cfac)) then
-    if (calc_cfac) call get_cfac(cfac,rho)
- endif
 
  weights = weight
  itype = 1
@@ -155,15 +150,6 @@ subroutine get_particle_domain(gridorigin,xmin,xmax,dxgrid,ilower,iupper)
  ! The lower boundary is in the physical
  ! domain but the upper is not; can't have both?
 end subroutine get_particle_domain
-
-subroutine get_cfac(cfac,rho)
- real, intent(in)  :: rho
- real, intent(out) :: cfac
- real              :: rhoexact
- rhoexact = 13.294563008157013D0
- cfac = rhoexact/rho
-
-end subroutine get_cfac
 
 subroutine interpolate_to_grid(gridarray,dat)
  use einsteintk_utils, only: dxgrid, gridorigin

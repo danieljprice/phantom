@@ -29,37 +29,16 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  use io,              only:id,master,nprocs,set_io_unit_numbers,die
  use mpiutils,        only:init_mpi,finalise_mpi
  use initial,         only:initialise,finalise,startrun,endrun
- !use evolve,          only:evol_init
  use tmunu2grid
  use einsteintk_utils
  use extern_gr
  use metric
- use part, only:npart!, tmunus
-
-
+ use part, only:npart
  implicit none
  character(len=*),  intent(in) :: infilestart
  real,          intent(in) :: dt_et
  integer,       intent(inout) :: nophantompart
  real,          intent(out)   :: dtout
- !character(len=500) :: logfile,evfile,dumpfile,path
- !integer :: i,j,k,pathstringlength
-
- ! For now we just hardcode the infile, to see if startrun actually works!
- ! I'm not sure what the best way to actually do this is?
- ! Do we store the phantom.in file in par and have it read from there?
- !infile = "/Users/spencer/phantomET/phantom/test/flrw.in"
- !infile = trim(infile)//'.in'
- !print*, "phantom_path: ", phantom_path
- !infile = phantom_path // "flrw.in"
- !infile = trim(path) // "flrw.in"
- !infile = 'flrw.in'
- !infile = trim(infile)
- !print*, "Phantom path is: ", path
- !print*, "Infile is: ", infile
- ! Use system call to copy phantom files to simulation directory
- ! This is a digusting temporary fix
- !call SYSTEM('cp ~/phantomET/phantom/test/flrw* ./')
 
  ! The infile from ET
  infilestor = infilestart
@@ -72,27 +51,12 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  ! setup io
  call set_io_unit_numbers
  ! routine that starts a phantom run
- print*, "Start run called!"
- ! Do we want to pass dt in here??
  call startrun(infilestor,logfilestor,evfilestor,dumpfilestor)
- print*, "Start run finished!"
- !print*, "tmunugrid: ", tmunugrid(1,1,6,6,6)
- !stop
- ! Intialises values for the evol routine: t, dt, etc..
- !call evol_init(infilestor,logfilestor,evfilestor,dumpfilestor,dt_et,nophantompart)
- !print*, "Evolve init finished!"
- nophantompart = npart
- ! Calculate the stress energy tensor for each particle
- ! Might be better to do this in evolve init
- !call get_tmunugrid_all
- ! Calculate the stress energy tensor
- call get_metricderivs_all(dtout,dt_et) ! commented out to try and fix prim2cons
- !call get_tmunu_all(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus) ! commented out to try and fix prim2cons
- !call get_tmunu_all_exact(npart,xyzh,metrics,vxyzu,metricderivs,dens,tmunus)
- ! Interpolate stress energy tensor from particles back
- ! to grid
- !call get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac=.true.) ! commented out to try and fix cons2prim
 
+ nophantompart = npart
+
+ call get_metricderivs_all(dtout,dt_et) ! commented out to try and fix prim2cons
+ 
  call get_phantom_dt(dtout)
 
 end subroutine init_et2phantom
@@ -166,7 +130,6 @@ subroutine step_et2phantom_MoL(infile,dt_et,dtout)
  ! Interpolate stress energy tensor from particles back
  ! to grid
  call get_phantom_dt(dtout)
-
 
 end subroutine step_et2phantom_MoL
 
@@ -291,9 +254,9 @@ subroutine phantom2et_rhostar()
  ! Get the conserved density on the particles
  dat = 0.
  pmass = massoftype(igas)
- ! $omp parallel do default(none) &
- ! $omp shared(npart,xyzh,dat,pmass) &
- ! $omp private(i,h,rho)
+ !$omp parallel do default(none) &
+ !$omp shared(npart,xyzh,dat,pmass) &
+ !$omp private(i,h,rho)
  do i=1, npart
     ! Get the smoothing length
     h = xyzh(4,i)
@@ -302,7 +265,7 @@ subroutine phantom2et_rhostar()
     rho = rhoh(h,pmass)
     dat(i) = rho
  enddo
- ! $omp end parallel do
+ !$omp end parallel do
  rhostargrid = 0.
  call interpolate_to_grid(rhostargrid,dat)
 
@@ -389,9 +352,6 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  use fileutils,        only:getnextfilename
  use tmunu2grid, only:check_conserved_dens
  real, intent(in)  :: time, dt_et
- !real(kind=16) :: cfac
- !logical, intent(in), optional :: checkpoint
- !integer, intent(in) :: checkpointno
  character(*),optional, intent(in) :: checkpointfile
  logical :: createcheckpoint
 
@@ -415,15 +375,6 @@ subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
  if (createcheckpoint) then
     call write_fulldump(time,checkpointfile)
  endif
-
- ! Quick and dirty write cfac to txtfile
-
- ! Density check vs particles
-!  call check_conserved_dens(rhostargrid,cfac)
-!  open(unit=777, file="cfac.txt", action='write', position='append')
-!  print*, time, cfac
-!  write(777,*) time, cfac
-!  close(unit=777)
 
 end subroutine et2phantom_dumphydro
 
@@ -495,6 +446,5 @@ subroutine get_eos_quantities(densi,en)
  en = vxyzu(4,1)
 
 end subroutine get_eos_quantities
-
 
 end module einsteintk_wrapper
