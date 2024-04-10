@@ -62,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use centreofmass,   only:reset_centreofmass
  use setunits,       only:mass_unit,dist_unit
  use physcon,        only:deg_to_rad
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -84,6 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  time = 0.
  polyk = 0.
  gamma = 1.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !  in case only sink particles are used
