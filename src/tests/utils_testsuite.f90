@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ module testutils
  end interface checkvalbuf
 
  interface checkvalbuf_end
-  module procedure checkvalbuf_end_int,checkvalbuf_end_real
+  module procedure checkvalbuf_end_int,checkvalbuf_end_real,checkvalbuf_end_logical
  end interface checkvalbuf_end
 
  interface printerr
@@ -50,7 +50,7 @@ module testutils
  end interface printerr
 
  interface printresult
-  module procedure printresult_real,printresult_int
+  module procedure printresult_real,printresult_int,printresult_logical
  end interface printresult
 
  real, parameter :: smallval = 1.e-6
@@ -711,6 +711,26 @@ end subroutine checkvalbuf_end_real
 
 !----------------------------------------------------------------
 !+
+!  end a buffered error check (logical)
+!+
+!----------------------------------------------------------------
+subroutine checkvalbuf_end_logical(label,n,ndiff,ntot)
+ character(len=*), intent(in) :: label
+ integer,          intent(in) :: n
+ integer,          intent(inout) :: ndiff
+ integer,          intent(in), optional :: ntot
+
+ call print_testinfo(trim(label))
+ if (present(ntot)) then
+    call printresult(n,ndiff,ntot)
+ else
+    call printresult(n,ndiff)
+ endif
+
+end subroutine checkvalbuf_end_logical
+
+!----------------------------------------------------------------
+!+
 !  formatting for printing errors in test results
 !+
 !----------------------------------------------------------------
@@ -922,5 +942,48 @@ subroutine printresult_int(nchecki,ndiff,ierrmax,itol,ntot)
 
  return
 end subroutine printresult_int
+
+!----------------------------------------------------------------
+!+
+!  formatting for printing test results
+!+
+!----------------------------------------------------------------
+subroutine printresult_logical(nchecki,ndiff,ntot)
+ integer, intent(in)    :: nchecki
+ integer, intent(inout) :: ndiff
+ integer, intent(in), optional :: ntot
+ integer(kind=8) :: ncheck
+
+ ncheck  = reduce_mpi('+',nchecki)
+ ndiff   = int(reduce_mpi('+',ndiff))
+
+ if (id==master) then
+    if (ndiff==0) then
+       if (ncheck > 0) then
+          if (present(ntot)) then
+             if (ntot < 1e6 .and. ncheck < 1e6) then
+                write(*,"(2(a,i5),a)")  'OK     [checked ',ncheck,' of ',ntot,' values]'
+             else
+                write(*,"(2(a,i10),a)") 'OK     [checked ',ncheck,' of ',ntot,' values]'
+             endif
+          else
+             if (ncheck < 1e6) then
+                write(*,"(a,i5,a)") 'OK     [checked ',ncheck,' values]'
+             else
+                write(*,"(a,i10,a)") 'OK     [checked ',ncheck,' values]'
+             endif
+          endif
+       else
+          write(*,"(a)") 'OK'
+       endif
+    elseif (ndiff > 0) then
+       write(*,"(2(a,i10),a)") 'FAILED [on ',ndiff,' of ',ncheck,' values',']'
+    else ! this is used for single values
+       write(*,"(1x,a)") 'FAILED'
+    endif
+ endif
+
+ return
+end subroutine printresult_logical
 
 end module testutils

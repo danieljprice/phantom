@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -64,7 +64,7 @@ subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
                           lightcurve,use_dust,maxdusttypes,do_radiation,gr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
-                          alphaind,Bevol,divcurlB,iamtype,&
+                          alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,isdeadh,&
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
@@ -105,7 +105,7 @@ subroutine compute_energies(t)
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas,tsi
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
- real    :: ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,dumx,dumy,dumz
+ real    :: ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,dumx,dumy,dumz,gammai
  real    :: divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
@@ -183,7 +183,7 @@ subroutine compute_energies(t)
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i,vi1) &
-!$omp private(ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,gammai,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(etaohm,etahall,etaambi,vhalli,vhall,vioni,vion,data_out) &
@@ -367,6 +367,7 @@ subroutine compute_energies(t)
           ! thermal energy
           ponrhoi  = eos_vars(igasP,i)/rhoi
           spsoundi = eos_vars(ics,i)
+          gammai   = eos_vars(igamma,i)
           if (maxvxyzu >= 4) then
              ethermi = pmassi*utherm(vxyzu(:,i),rhoi,gamma)*gasfrac
 #ifdef GR
@@ -377,9 +378,9 @@ subroutine compute_energies(t)
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
-             if (ieos==2 .and. gamma > 1.001) then
+             if ((ieos==2  .or. ieos == 5) .and. gammai > 1.001) then
                 !--thermal energy using polytropic equation of state
-                etherm = etherm + pmassi*ponrhoi/(gamma-1.)*gasfrac
+                etherm = etherm + pmassi*ponrhoi/(gammai-1.)*gasfrac
              elseif (ieos==9) then
                 !--thermal energy using piecewise polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
@@ -389,11 +390,7 @@ subroutine compute_energies(t)
           vsigi = spsoundi
 
           ! entropy
-#ifdef KROME
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma_chem(i)))
-#else
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gamma))
-#endif
+          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gammai))
 
           ! gas temperature
           if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
@@ -611,6 +608,7 @@ subroutine compute_energies(t)
  if (.not.gr) ekin = 0.5*ekin
  emag = 0.5*emag
  ekin = reduceall_mpi('+',ekin)
+ !LS I don't know what to do here ? gamma should be replaced by gammai ?
  if (maxvxyzu >= 4 .or. gamma >= 1.0001) etherm = reduceall_mpi('+',etherm)
  emag = reduceall_mpi('+',emag)
  epot = reduceall_mpi('+',epot)

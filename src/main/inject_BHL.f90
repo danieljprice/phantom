@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -164,12 +164,12 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use physcon,  only:gg,pi
  use units,    only:utime
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
 
@@ -183,11 +183,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  last_time = time-dtlast
- outer_layer = ceiling(last_time/time_between_layers)
- inner_layer = ceiling(time/time_between_layers)-1 + handled_layers
+ outer_layer = ceiling(last_time/time_between_layers)  ! No. of layers present at t - dt
+ inner_layer = ceiling(time/time_between_layers)-1 + handled_layers  ! No. of layers ought to be present at t
  ! Inject layers
- do i=outer_layer,inner_layer
-    local_time = time - i*time_between_layers
+ do i=outer_layer,inner_layer  ! loop over layers
+    local_time = time - i*time_between_layers  ! time at which layer was injected
     i_limited = mod(i,max_layers)
     i_part = int(i_limited/2)*(nodd+neven)+mod(i_limited,2)*neven
     if (mod(i,2) == 0) then

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -204,15 +204,15 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  v1 = -dv*m2/mtot !(/0.,-m2/mtot*vmag,0./)
  v2 =  dv*m1/mtot !(/0.,m1/mtot*vmag,0./)
 
- omega0 = v1(2)/x1(1)
+ omega0 = v2(2)/x2(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
     print "(7(2x,a,1pg14.6,/),2x,a,1pg14.6)", &
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
-        'Omega_0 (prim)   :',v1(2)/x1(1), &
-        'Omega_0 (second) :',v1(2)/x1(1), &
+        'Omega_0 (prim)   :',v2(2)/x2(1), &
+        'Omega_0 (second) :',v2(2)/x2(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
@@ -286,10 +286,14 @@ real function Rochelobe_estimate(m1,m2,sep)
  real, intent(in) :: m1,m2,sep
  real :: q,q13,q23
 
- q = m2/m1
- q13 = q**(1./3.)
- q23 = q13*q13
- Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ if (m1 > 0. .and. m2 > 0.) then
+    q = m2/m1
+    q13 = q**(1./3.)
+    q23 = q13*q13
+    Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ else
+    Rochelobe_estimate = sep
+ endif
 
 end function Rochelobe_estimate
 

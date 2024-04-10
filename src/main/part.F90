@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,7 @@ module part
  use dim, only:ndim,maxp,maxsts,ndivcurlv,ndivcurlB,maxvxyzu,maxalpha,&
                maxptmass,maxdvdx,nsinkproperties,mhd,maxmhd,maxBevol,&
                maxp_h2,maxindan,nabundances,periodic,ind_timesteps,&
-               maxgrav,ngradh,maxtypes,h2chemistry,gravity,maxp_dustfrac,&
+               maxgrav,ngradh,maxtypes,gravity,maxp_dustfrac,&
                use_dust,use_dustgrowth,lightcurve,maxlum,nalpha,maxmhdni, &
                maxp_growth,maxdusttypes,maxdustsmall,maxdustlarge, &
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
@@ -71,12 +71,20 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:) !- size and intrinsic density
+ real, allocatable :: dustprop(:,:)    !- mass and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
  real, allocatable :: VrelVf(:)
- character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+
+ !- porosity
+ integer, allocatable :: dragreg(:)    !- drag regime
+ real, allocatable    :: mprev(:)      !- previous mass
+ real, allocatable    :: filfac(:)     !- filling factor
+ real, allocatable    :: filfacprev(:) !- previous filling factor needed for minimum St condition
+ real, allocatable    :: probastick(:) !-probabily of sticking, when bounce is on
+ character(len=*), parameter :: filfac_label = 'filfac'
  !- options
  logical, public             :: this_is_a_test  = .false.
  logical, public             :: this_is_a_flyby = .false.
@@ -107,7 +115,7 @@ module part
      'dvydx','dvydy','dvydz', &
      'dvzdx','dvzdy','dvzdz'/)
 !
-!--H2 and KROME chemistry
+!--H2 chemistry
 !
  integer, parameter :: ih2ratio  = 1 ! ratio of H2 to H
  integer, parameter :: iHI       = 2 ! HI abundance
@@ -115,12 +123,22 @@ module part
  integer, parameter :: ielectron = 4 ! electron abundance
  integer, parameter :: iCO       = 5 ! CO abundance
  real, allocatable :: abundance(:,:)
+!
+!--KROME chemistry
+!
 #ifdef KROME
  character(len=16)  :: abundance_label(krome_nmols)
 #else
- character(len=*), parameter :: abundance_label(5) = &
-   (/'h2ratio','abHIq  ','abhpq  ','abeq   ','abco   '/)
+ character(len=*), parameter :: abundance_label(nabundances) = &
+   (/'h2ratio','  abHIq','  abhpq','   abeq','   abco'/)
 #endif
+ character(len=*), parameter :: abundance_meaning(nabundances) = &
+      (/'ratio of molecular to atomic Hydrogen       ',&
+        'nHI/nH:  fraction of neutral atomic Hydrogen',&
+        'nHII/nH: fraction of ionised Hydrogen (HII) ',&
+        'ne/nH:   fraction of electrons              ',&
+        'nCO/nH:  fraction of Carbon Monoxide        '/)
+
 !
 !--eos_variables
 !
@@ -160,6 +178,8 @@ module part
  real, allocatable :: dens(:) !dens(maxgr)
  real, allocatable :: metrics(:,:,:,:) !metrics(0:3,0:3,2,maxgr)
  real, allocatable :: metricderivs(:,:,:,:) !metricderivs(0:3,0:3,3,maxgr)
+ real, allocatable :: tmunus(:,:,:) !tmunus(0:3,0:3,maxgr)
+ real, allocatable :: sqrtgs(:) ! sqrtg(maxgr)
 !
 !--sink particles
 !
@@ -177,16 +197,18 @@ module part
  integer, parameter :: imdotav = 16 ! accretion rate average
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
+ integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
  real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real, allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    ','massenc  '/)
+    'mdotav   ','mprev    ','massenc  ','J2       '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -232,10 +254,7 @@ module part
 !
 !--KROME variables
 !
- real, allocatable :: gamma_chem(:)
- real, allocatable :: mu_chem(:)
  real, allocatable :: T_gas_cool(:)
- real, allocatable :: dudt_chem(:)
 !
 !--radiation hydro, evolved quantities (which have time derivatives)
 !
@@ -275,9 +294,9 @@ module part
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
- real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: ddustprop(:,:) !--grainmass is the only prop that evolves for now
  real, allocatable         :: drad(:,:)
- character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
+ character(len=*), parameter :: ddustprop_label(2) = (/' dm/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
 !
@@ -286,6 +305,7 @@ module part
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
+ real, allocatable   :: filfacpred(:)
  real, allocatable   :: radpred(:,:)
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
@@ -319,82 +339,7 @@ module part
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
- integer, parameter :: ipartbufsize = 4 &  ! xyzh
-   +maxvxyzu                            &  ! vxyzu
-   +maxvxyzu                            &  ! vpred
-#ifdef GR
-   +maxvxyzu                            &  ! pxyzu
-   +maxvxyzu                            &  ! ppred
-   +1                                   &  ! dens
-#endif
-   +maxvxyzu                            &  ! fxyzu
-   +3                                   &  ! fext
-   +usedivcurlv                         &  ! divcurlv
-#if !defined(CONST_AV) && !defined(DISC_VISCOSITY)
- +nalpha                              &  ! alphaind
-#endif
-#ifndef ANALYSIS
- +ngradh                              &  ! gradh
-#endif
-#ifdef MHD
- +maxBevol                            &  ! Bevol
-   +maxBevol                            &  ! Bpred
-#endif
-#ifdef RADIATION
- +3*maxirad + maxradprop              &  ! rad,radpred,drad,radprop
-#endif
-#ifndef ANALYSIS
- +1                                   &  ! iphase
-#endif
-#ifdef DUST
- +3                                   &  ! fxyz_drag
-   +3                                   &  ! fxyz_dragold
-   +maxdusttypes                        &  ! dustfrac
-   +maxdustsmall                        &  ! dustevol
-   +maxdustsmall                        &  ! dustpred
-#ifdef DUSTGROWTH
-   +2                                   &  ! dustprop
-   +2                                   &  ! dustproppred
-   +4                                   &  ! dustgasprop
-#endif
-#endif
-#ifdef H2CHEM
- +nabundances                         &  ! abundance
-#endif
-#ifdef DUST_NUCLEATION
- +1                                   &  ! nucleation rate
- +4                                   &  ! normalized moments \hat{K}_i = K_i/n<H>
- +1                                   &  ! mean molecular weight
- +1                                   &  ! gamma
- +1                                   &  ! super saturation ratio
- +1                                   &  ! kappa dust
- +1                                   &  ! alpha
-#endif
-#ifdef KROME
- +krome_nmols                         &  ! abundance
-   +1                                   &  ! variable gamma
-   +1                                   &  ! variable mu
-   +1                                   &  ! temperature
-   +1                                   &  ! cooling rate
-#endif
-   +maxeosvars                          &  ! eos_vars
-#ifdef SINK_RADIATION
-   +1                                   &  ! dust temperature
-   +1                                   &  ! optical depth
-#endif
-#ifdef GRAVITY
- +1                                   &  ! poten
-#endif
-#ifdef IND_TIMESTEPS
- +1                                   &  ! ibin
-   +1                                   &  ! ibin_old
-   +1                                   &  ! ibin_wake
-   +1                                   &  ! dt_in
-   +1                                   &  ! twas
-#endif
- +1                                   &  ! iorig
- +0
-
+ integer, parameter :: ipartbufsize = 129
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
  integer(kind=8) :: ntot
@@ -464,15 +409,24 @@ subroutine allocate_part
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
  call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
+ call allocate_array('dragreg', dragreg, maxp_growth)
+ call allocate_array('filfac', filfac, maxp_growth)
+ call allocate_array('mprev', mprev, maxp_growth)
+ call allocate_array('probastick', probastick, maxp_growth)
+ call allocate_array('filfacprev', filfacprev, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
  call allocate_array('dens', dens, maxgr)
  call allocate_array('metrics', metrics, 4, 4, 2, maxgr)
  call allocate_array('metricderivs', metricderivs, 4, 4, 3, maxgr)
+ call allocate_array('tmunus', tmunus, 4, 4, maxgr)
+ call allocate_array('sqrtgs', sqrtgs, maxgr)
  call allocate_array('xyzmh_ptmass', xyzmh_ptmass, nsinkproperties, maxptmass)
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+ call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
+ call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
  call allocate_array('nden_nimhd', nden_nimhd, n_nden_phantom, maxmhdni)
  call allocate_array('eta_nimhd', eta_nimhd, 4, maxmhdni)
@@ -488,6 +442,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
+ call allocate_array('filfacpred', filfacpred, maxp_growth)
  call allocate_array('dust_temp',dust_temp,maxTdust)
  call allocate_array('rad', rad, maxirad, maxprad)
  call allocate_array('radpred', radpred, maxirad, maxprad)
@@ -509,15 +464,14 @@ subroutine allocate_part
  call allocate_array('nucleation', nucleation, n_nucleation, maxp_nucleation*inucleation)
  call allocate_array('tau', tau, maxp*itau_alloc)
  call allocate_array('tau_lucy', tau_lucy, maxp*itauL_alloc)
-#ifdef KROME
- call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
-#else
- call allocate_array('abundance', abundance, nabundances, maxp_h2)
-#endif
- call allocate_array('gamma_chem', gamma_chem, maxp_krome)
- call allocate_array('mu_chem', mu_chem, maxp_krome)
+
+ if (use_krome) then
+    call allocate_array('abundance', abundance, krome_nmols, maxp_krome)
+ else
+    call allocate_array('abundance', abundance, nabundances, maxp_h2)
+ endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
- call allocate_array('dudt_chem', dudt_chem, maxp_krome)
+
 end subroutine allocate_part
 
 subroutine deallocate_part
@@ -541,15 +495,24 @@ subroutine deallocate_part
  if (allocated(dustevol))     deallocate(dustevol)
  if (allocated(ddustevol))    deallocate(ddustevol)
  if (allocated(ddustprop))    deallocate(ddustprop)
+ if (allocated(dragreg))      deallocate(dragreg)
+ if (allocated(filfac))       deallocate(filfac)
+ if (allocated(mprev))        deallocate(mprev)
+ if (allocated(filfacprev))   deallocate(filfacprev)
+ if (allocated(probastick))   deallocate(probastick)
  if (allocated(deltav))       deallocate(deltav)
  if (allocated(pxyzu))        deallocate(pxyzu)
  if (allocated(dens))         deallocate(dens)
  if (allocated(metrics))      deallocate(metrics)
  if (allocated(metricderivs)) deallocate(metricderivs)
+ if (allocated(tmunus))       deallocate(tmunus)
+ if (allocated(sqrtgs))       deallocate(sqrtgs)
  if (allocated(xyzmh_ptmass)) deallocate(xyzmh_ptmass)
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
+ if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
+ if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
  if (allocated(nden_nimhd))   deallocate(nden_nimhd)
  if (allocated(eta_nimhd))    deallocate(eta_nimhd)
@@ -565,6 +528,7 @@ subroutine deallocate_part
  if (allocated(dustpred))     deallocate(dustpred)
  if (allocated(Bpred))        deallocate(Bpred)
  if (allocated(dustproppred)) deallocate(dustproppred)
+ if (allocated(filfacpred))   deallocate(filfacpred)
  if (allocated(ibin))         deallocate(ibin)
  if (allocated(ibin_old))     deallocate(ibin_old)
  if (allocated(ibin_wake))    deallocate(ibin_wake)
@@ -573,10 +537,7 @@ subroutine deallocate_part
  if (allocated(nucleation))   deallocate(nucleation)
  if (allocated(tau))          deallocate(tau)
  if (allocated(tau_lucy))     deallocate(tau_lucy)
- if (allocated(gamma_chem))   deallocate(gamma_chem)
- if (allocated(mu_chem))      deallocate(mu_chem)
  if (allocated(T_gas_cool))   deallocate(T_gas_cool)
- if (allocated(dudt_chem))    deallocate(dudt_chem)
  if (allocated(dust_temp))    deallocate(dust_temp)
  if (allocated(rad))          deallocate(rad,radpred,drad,radprop)
  if (allocated(iphase))       deallocate(iphase)
@@ -607,6 +568,7 @@ subroutine init_part
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
+ dsdt_ptmass  = 0.
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
@@ -811,6 +773,19 @@ logical function sinks_have_heating(nptmass,xyzmh_ptmass)
                               xyzmh_ptmass(ilum,1:nptmass) > 0.)
 
 end function sinks_have_heating
+
+!------------------------------------------------------------------------
+!+
+!  Query function to see if any sink particles have heating
+!+
+!------------------------------------------------------------------------
+logical function sink_has_heating(xyzmh_ptmassi)
+ real, intent(in) :: xyzmh_ptmassi(:)
+
+ sink_has_heating = xyzmh_ptmassi(iTeff) <= 0. .and. &
+                              xyzmh_ptmassi(ilum) > 0.
+
+end function sink_has_heating
 
 !----------------------------------------------------------------
 !+
@@ -1296,6 +1271,7 @@ subroutine copy_particle_all(src,dst,new_part)
        dustgasprop(:,dst) = dustgasprop(:,src)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
+       filfacpred(dst) = filfacpred(src)
     endif
     fxyz_drag(:,dst) = fxyz_drag(:,src)
     fxyz_dragold(:,dst) = fxyz_dragold(:,src)
@@ -1309,10 +1285,7 @@ subroutine copy_particle_all(src,dst,new_part)
  if (itauL_alloc == 1) tau_lucy(dst) = tau_lucy(src)
 
  if (use_krome) then
-    gamma_chem(dst)       = gamma_chem(src)
-    mu_chem(dst)          = mu_chem(src)
     T_gas_cool(dst)       = T_gas_cool(src)
-    dudt_chem(dst)        = dudt_chem(src)
  endif
  ibelong(dst) = ibelong(src)
  if (maxsts==maxp) then
@@ -1755,18 +1728,44 @@ end subroutine delete_particles_outside_box
 !  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center,radius,np)
+subroutine delete_particles_outside_sphere(center,radius,np,revert,mytype)
  use io, only:fatal
  real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: np
+ logical, intent(in), optional :: revert
+ integer, intent(in), optional :: mytype
+
  integer :: i
- real :: r(3), radius_squared
+ real    :: r(3), radius_squared
+ logical :: use_revert
+
+ if (present(revert)) then
+    use_revert = revert
+ else
+    use_revert = .false.
+ endif
 
  radius_squared = radius**2
- do i=1,np
-    r = xyzh(1:3,i) - center
-    if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
- enddo
+
+ if (present(mytype)) then
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       endif
+    enddo
+ else
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
+       endif
+    enddo
+ endif
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 
