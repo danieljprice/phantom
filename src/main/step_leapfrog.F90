@@ -25,7 +25,7 @@ module step_lf_global
 ! :Dependencies: boundary_dyn, chem, cons2prim, cons2primsolver, cooling,
 !   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
 !   externalforces, growth, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
+!   mpiutils, options, part, porosity, ptmass, ptmass_radiation, timestep,
 !   timestep_ind, timestep_sts, timing, units
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
@@ -98,7 +98,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
-                          dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics
+                          dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
+                          filfac,filfacpred,mprev,filfacprev
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -118,6 +119,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cooling,        only:ufloor,cooling_in_step
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
+ use options,        only:use_porosity
+ use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
@@ -167,6 +170,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
  !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
+ !$omp shared(mprev,filfacprev,filfac,use_porosity) &
  !$omp shared(ibin,ibin_old,twas,timei) &
  !$omp firstprivate(itype) &
  !$omp private(i,hdti) &
@@ -200,7 +204,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              nvfloorp   = nvfloorp + 1
           endif
        endif
-
+       if (use_porosity) then
+          mprev(i) = dustprop(1,i)
+          filfacprev(i) = filfac(i)
+       endif
        if (itype==idust .and. use_dustgrowth) then
           dustprop(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
@@ -215,7 +222,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predictor
  !omp end parallel do
- if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
+ if (use_dustgrowth) then
+    if (use_porosity) then
+       call get_filfac(npart,xyzh,mprev,filfac,dustprop,hdti)
+    endif
+    call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
+ endif
 
 
 !----------------------------------------------------------------------
@@ -254,6 +266,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(pxyzu,ppred) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
+!$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(alphaind,ieos,alphamax,ialphaloc) &
 !$omp shared(eos_vars,ufloor) &
 !$omp shared(twas,timei) &
@@ -310,7 +323,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              nvfloorps  = nvfloorps + 1
           endif
        endif
-
+       if (use_porosity) filfacpred(i) = filfac(i)
        if (use_dustgrowth .and. itype==idust) then
           dustproppred(:,i) = dustprop(:,i) + hdti*ddustprop(:,i)
        endif
@@ -350,9 +363,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  enddo predict_sph
  !$omp end parallel do
-
- if (use_dustgrowth) call check_dustprop(npart,dustproppred(1,:))
-
+ if (use_dustgrowth) then
+    if (use_porosity) then
+       call get_filfac(npart,xyzh,dustprop(1,:),filfacpred,dustproppred,hdti)
+    endif
+    call check_dustprop(npart,dustproppred(:,:),filfacpred,dustprop(1,:),filfac)
+ endif
 !
 ! recalculate all SPH forces, and new timestep
 !
@@ -365,7 +381,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
-                dustpred,ddustevol,dustfrac,eos_vars,timei,dtsph,dtnew,&
+                dustpred,ddustevol,filfacpred,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
 
     if (do_radiation .and. implicit_radiation) then
@@ -569,7 +585,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     enddo corrector
 !$omp enddo
 !$omp end parallel
-    if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
+    if (use_dustgrowth) then
+       if (use_porosity) then
+          call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph)
+       endif
+       call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
+    endif
 
     if (gr) then
        call check_velocity_error(errmax,p2mean,np,its,tolv,dtsph,timei,idamp,dterr,errmaxmean,converged)
@@ -584,6 +605,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
+!$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(rad,drad,radpred) &
 !$omp firstprivate(itype) &
 !$omp schedule(static)
@@ -600,6 +622,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    vpred(:,i) = vxyzu(:,i)
                 endif
                 if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
+                if (use_porosity) filfacpred(i) = filfac(i)
                 if (mhd)          Bpred(:,i)  = Bevol(:,i)
                 if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
                 if (do_radiation) radpred(:,i) = rad(:,i)
@@ -611,6 +634,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vpred(:,i) = vxyzu(:,i)
              endif
              if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
+             if (use_porosity) filfacpred(i) = filfac(i)
              if (mhd)          Bpred(:,i)  = Bevol(:,i)
              if (use_dustfrac) dustpred(:,i) = dustevol(:,i)
              if (do_radiation) radpred(:,i) = rad(:,i)
@@ -635,15 +659,19 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        enddo until_converged
 !$omp end parallel do
 
-       if (use_dustgrowth) call check_dustprop(npart,dustprop(1,:))
-
+       if (use_dustgrowth) then
+          if (use_porosity) then
+             call get_filfac(npart,xyzh,mprev,filfac,dustprop,dtsph)
+          endif
+          call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
+       endif
 !
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
-                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,dustfrac,&
-                     eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
+                     Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
+                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred

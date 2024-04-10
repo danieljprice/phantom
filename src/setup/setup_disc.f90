@@ -90,9 +90,9 @@ module setup
 ! :Dependencies: centreofmass, dim, dust, eos, extern_binary,
 !   extern_corotate, extern_lensethirring, externalforces, fileutils,
 !   growth, infile_utils, io, kernel, memory, options, part, physcon,
-!   prompting, radiation_utils, set_dust, set_dust_options, setbinary,
-!   setdisc, setflyby, sethierarchical, spherical, timestep, units,
-!   vectorutils
+!   porosity, prompting, radiation_utils, set_dust, set_dust_options,
+!   setbinary, setdisc, setflyby, sethierarchical, spherical, timestep,
+!   units, vectorutils
 !
  use dim,              only:use_dust,maxalpha,use_dustgrowth,maxdusttypes,&
                             maxdustlarge,maxdustsmall,compiled_with_mcfost
@@ -102,15 +102,16 @@ module setup
  use extern_binary,    only:mass2,accradius1,accradius2,ramp,surface_force,eps_soft1
  use fileutils,        only:make_tags_unique
  use growth,           only:ifrag,isnow,rsnow,Tsnow,vfragSI,vfraginSI,vfragoutSI,gsizemincgs
+ use porosity,         only:iporosity
  use io,               only:master,warning,error,fatal
  use kernel,           only:hfact_default
- use options,          only:use_dustfrac,iexternalforce,use_hybrid
+ use options,          only:use_dustfrac,iexternalforce,use_hybrid,use_porosity
  use options,          only:use_mcfost,use_mcfost_stellar_parameters
  use part,             only:xyzmh_ptmass,maxvxyzu,vxyz_ptmass,ihacc,ihsoft,&
                             iJ2,ispinx,ispinz,iReff,igas,&
                             idust,iphase,dustprop,dustfrac,ndusttypes,ndustsmall,&
                             ndustlarge,grainsize,graindens,nptmass,iamtype,dustgasprop,&
-                            VrelVf,rad,radprop,ikappa,iradxi
+                            VrelVf,filfac,probastick,rad,radprop,ikappa,iradxi
  use physcon,          only:au,solarm,jupiterm,earthm,pi,twopi,years,hours,deg_to_rad
  use setdisc,          only:scaled_sigma,get_disc_mass,maxbins
  use set_dust_options, only:set_dust_default_options,dust_method,dust_to_gas,&
@@ -1607,6 +1608,7 @@ end subroutine set_planet_atm
 !
 !--------------------------------------------------------------------------
 subroutine initialise_dustprop(npart)
+ use physcon,     only:fourpi
  integer, intent(in) :: npart
 
  integer :: i,iam
@@ -1615,11 +1617,13 @@ subroutine initialise_dustprop(npart)
     do i=1,npart
        iam = iamtype(iphase(i))
        if (iam==idust .or. (use_dustfrac .and. iam==igas)) then
-          dustprop(1,i) = grainsize(1)
+          dustprop(1,i) = fourpi/3.*graindens(1)*grainsize(1)**3
           dustprop(2,i) = graindens(1)
        else
           dustprop(:,i) = 0.
        endif
+       filfac(i) = 0.
+       probastick(i) = 1.
        dustgasprop(:,i) = 0.
        VrelVf(i)        = 0.
     enddo
@@ -2372,6 +2376,8 @@ subroutine setup_interactive(id)
              call prompt('Enter outward vfragout in m/s',vfragoutSI,1.)
           endif
        endif
+       call prompt('Enter porosity switch (0=off,1=on)',iporosity,0,1)
+       if (iporosity == 1) use_porosity = .true.
     endif
  endif
 

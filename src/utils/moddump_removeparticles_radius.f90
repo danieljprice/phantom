@@ -10,14 +10,14 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Arnaud Vericel
+! :Owner: Daniel Mentiplay
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: part, prompting
 !
 
- use part,         only:delete_particles_outside_sphere
+ use part,         only:delete_particles_outside_sphere,igas,idust
  use prompting,    only:prompt
 
  implicit none
@@ -31,15 +31,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(:), intent(inout) :: massoftype
  real, dimension(:,:), intent(inout) :: xyzh,vxyzu
  real, dimension(3) :: incenter,outcenter
+ integer :: iremoveparttype
  real :: inradius,outradius
  logical :: icutinside,icutoutside
 
- icutinside   = .false.
- icutoutside  = .false.
- incenter(:)  = 0.
- outcenter(:) = 0.
- inradius     = 10.
- outradius    = 200.
 
  !
  !--set the centers and the radius
@@ -59,16 +54,37 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
  endif
 
+ call prompt('Deleting which particles (0=all, 1=gas only, 2=dust only)?', iremoveparttype)
+ ! add other types of particles here if needed
+ select case (iremoveparttype)
+ case (1)
+    iremoveparttype = igas
+ case (2)
+    iremoveparttype = idust
+ case default
+    iremoveparttype = 0
+ end select
+
  if (icutinside) then
     print*,'Phantommoddump: Remove particles inside a particular radius'
     print*,'Removing particles inside radius ',inradius
-    call delete_particles_outside_sphere(incenter,inradius,revert=.true.)
+    if (iremoveparttype > 0) then
+       print*,'Removing particles type ',iremoveparttype
+       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.,mytype=iremoveparttype)
+    else
+       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.)
+    endif
  endif
 
  if (icutoutside) then
     print*,'Phantommoddump: Remove particles outside a particular radius'
     print*,'Removing particles outside radius ',outradius
-    call delete_particles_outside_sphere(outcenter,outradius)
+    if (iremoveparttype > 0) then
+       print*,'Removing particles type ',iremoveparttype
+       call delete_particles_outside_sphere(outcenter,outradius,npart,mytype=iremoveparttype)
+    else
+       call delete_particles_outside_sphere(outcenter,outradius,npart)
+    endif
  endif
 
 end subroutine modify_dump
