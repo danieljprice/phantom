@@ -14,10 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
-!   forces, forcing, growth, io, linklist, metric_tools, options, part,
-!   ptmass, ptmass_radiation, radiation_implicit, timestep, timestep_ind,
-!   timing
+! :Dependencies: cons2prim, densityforce, derivutils, dim, dust_formation,
+!   externalforces, forces, forcing, growth, io, linklist, metric_tools,
+!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
+!   timestep, timestep_ind, timing
 !
  implicit none
 
@@ -36,7 +36,7 @@ contains
 !-------------------------------------------------------------
 subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                   Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-                  dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
+                  dustevol,ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew,pxyzu,dens,metrics)
  use dim,            only:maxvxyzu,mhd,fast_divcurlB,gr,periodic,do_radiation,&
                           sink_radiation,use_dustgrowth,ind_timesteps
  use io,             only:iprint,fatal,error
@@ -51,7 +51,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 #ifdef DRIVING
  use forcing,        only:forceit
 #endif
- use growth,         only:get_growth_rate
+ use growth,           only:get_growth_rate
+ use porosity,         only:get_disruption,get_probastick
  use ptmass_radiation, only:get_dust_temperature
  use timing,         only:get_timings
  use forces,         only:force
@@ -60,7 +61,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
- use options,        only:implicit_radiation,implicit_radiation_store_drad
+ use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -80,6 +81,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  real,         intent(inout) :: dustprop(:,:)
  real,         intent(out)   :: dustfrac(:,:)
  real,         intent(out)   :: ddustevol(:,:),ddustprop(:,:)
+ real,         intent(inout) :: filfac(:)
  real,         intent(in)    :: time,dt
  real,         intent(out)   :: dtnew
  real,         intent(inout) :: pxyzu(:,:), dens(:)
@@ -121,6 +123,10 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
  call do_timing('link',tlast,tcpulast,start=.true.)
 
+ !
+ ! compute disruption of dust particles
+ !
+ if (use_dustgrowth .and. use_porosity) call get_disruption(npart,xyzh,filfac,dustprop,dustgasprop)
 !
 ! calculate density by direct summation
 !
@@ -170,7 +176,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  call do_timing('force',tlast,tcpulast)
 
  if (use_dustgrowth) then ! compute growth rate of dust particles
-    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,ddustprop(1,:))!--we only get ds/dt (i.e 1st dimension of ddustprop)
+    call get_growth_rate(npart,xyzh,vxyzu,dustgasprop,VrelVf,dustprop,filfac,ddustprop(1,:))!--we only get dm/dt (i.e 1st dimension of ddustprop)
+    ! compute growth rate and probability of sticking/bouncing of porous dust
+    if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif
 
 !
@@ -214,7 +222,7 @@ end subroutine derivs
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new,dt)
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
                 dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
  use timing, only:printused,getused
  use io,     only:id,master
@@ -230,8 +238,8 @@ subroutine get_derivs_global(tused,dt_new,dt)
  if (present(dt)) dti = dt
  call getused(t1)
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,eos_vars,&
-             time,dti,dtnew,pxyzu,dens,metrics)
+             rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
+             eos_vars,time,dti,dtnew,pxyzu,dens,metrics)
  call getused(t2)
  if (id==master .and. present(tused)) call printused(t1)
  if (present(tused)) tused = t2 - t1
