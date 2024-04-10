@@ -29,7 +29,7 @@ module extern_prdrag
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, infile_utils, io, lumin_nsdisc, units
+! :Dependencies: eos, infile_utils, io, units
 !
  use eos, only:qfacdisc
 
@@ -41,6 +41,7 @@ module extern_prdrag
  real, private    :: k2 = 1.        ! transverse drag
  real, private    :: k0 = 1.        ! radiation pressure
  real, private    :: k1 = 1.        ! redshift
+ real, private    :: beta = 0.01
 
  public  :: get_prdrag_spatial_force, get_prdrag_vdependent_force
  public  :: update_prdrag_leapfrog
@@ -56,7 +57,6 @@ contains
 !+
 !------------------------------------------------
 subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
- use lumin_nsdisc, only:beta
  use units,        only:get_G_code
  real, intent(in)    :: xi,yi,zi,Mstar
  real, intent(inout) :: fextxi,fextyi,fextzi
@@ -66,7 +66,7 @@ subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
  gcode = get_G_code()
 
  r2 = xi*xi + yi*yi + zi*zi
- betai = beta(xi,yi,zi)
+ betai = beta
  rbetai = k0*betai
  if (r2 > epsilon(r2)) then
     dr = 1./sqrt(r2)
@@ -86,8 +86,7 @@ end subroutine get_prdrag_spatial_force
 !+
 !-----------------------------------------------------------------------
 subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
- use lumin_nsdisc, only:beta      !Change your Poynting-Robertson here.
- use units,        only:get_c_code,get_G_code
+ use units, only:get_c_code,get_G_code
  real, intent(in)  :: xyzi(3), vel(3)
  real, intent(in)  :: Mstar
  real, intent(out) :: fexti(3)
@@ -104,7 +103,7 @@ subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
  rhat = xyzi/r
  vr = dot_product(vel, rhat)
 
- betai  = beta( xyzi(1), xyzi(2), xyzi(3) )
+ betai  = beta
 
  fexti = (-betai*Mstar*gcode/ccode)* &
             ( (vr/r3)*xyzi*k1 + vel/r2*k2 )
@@ -112,7 +111,6 @@ subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
 end subroutine get_prdrag_vdependent_force
 
 subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,Mstar)
- use lumin_nsdisc,  only:beta
  use units,         only:get_c_code
  use io,            only:warn
  real, intent(in)    :: dt,xi,yi,zi, Mstar
@@ -137,7 +135,7 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
  r3     = r*r2
  vrhalf = vhalfx*xi + vhalfy*yi + vhalfz*zi
 
- betai       = beta( xi, yi, zi )
+ betai       = beta
  Q           = Mstar*betai*dt/(2.*ccode*r*r)
  twoQondt    = 2.*Q/dt
  denominator = -r2*( k2*kd*Q*Q + (kd-k2)*Q - 1 )
@@ -169,19 +167,17 @@ end subroutine update_prdrag_leapfrog
 !-----------------------------------------------------------------------
 subroutine write_options_prdrag(iunit)
  use infile_utils,         only:write_inopt
- use lumin_nsdisc,         only:write_options_lumin_nsdisc
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options relating to Poynting-Robertson drag'
 
+ call write_inopt(beta,'beta','beta parameter',iunit)
  call write_inopt(k0, 'RadiationPressure', &
                   'Radiation pressure multiplier', iunit)
  call write_inopt(k2, 'TransverseDrag', &
                   'Transverse multiplier', iunit)
  call write_inopt(k1, 'Redshift', &
                   'Redshift multiplier', iunit)
-
- call write_options_lumin_nsdisc(iunit)
 
 end subroutine write_options_prdrag
 
@@ -191,8 +187,7 @@ end subroutine write_options_prdrag
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
- use io,                   only:fatal, warning
- use lumin_nsdisc,         only:read_options_lumin_nsdisc
+ use io, only:fatal, warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -203,6 +198,9 @@ subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
  igotall = .false.
 
  select case(trim(name))
+ case('beta')
+    read(valstring,*,iostat=ierr) beta
+    ngot = ngot + 1
  case('RadiationPressure')
     read(valstring,*,iostat=ierr) k0
     ngot = ngot + 1
@@ -214,7 +212,6 @@ subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case default
     imatch = .false.
-    call read_options_lumin_nsdisc(name,valstring,imatch,igotall,ierr)
  end select
 
  igotall = (ngot >= 1)
