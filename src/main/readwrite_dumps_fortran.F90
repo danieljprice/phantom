@@ -39,144 +39,6 @@ module readwrite_dumps_fortran
  private
 
 contains
-!--------------------------------------------------------------------
-!+
-!  utility to determine whether to read a particular block
-!  in the dump file, in whole or in part.
-!  Allows limited changes to number of threads.
-!+
-!--------------------------------------------------------------------
-subroutine get_blocklimits(npartblock,nblocks,nthreads,id,iblock,noffset,npartread)
- use io, only:die,fatal
- integer(kind=8), intent(in)  :: npartblock
- integer,         intent(in)  :: nblocks,nthreads,id,iblock
- integer,         intent(out) :: noffset,npartread
- integer                      :: nblocksperthread,nthreadsperblock
- character(len=15), parameter :: tag = 'get_blocklimits'
-!
-!--check for errors in input
-!
- if (npartblock < 0) call fatal(tag,'block in dump file has npartinblock < 0')
- if (npartblock > huge(npartread)) call fatal(tag,'npart in block exceeds 32 bit limit')
-!
-!--usual situation: nblocks = nprocessors
-!  read whole block if id = iblock
-!
- if (nblocks==nthreads) then
-    if (id==iblock-1) then
-       !--read whole block
-       npartread = int(npartblock)
-       noffset   = 0
-    else
-       !--do not read block
-       npartread = 0
-       noffset   = 0
-    endif
-
- elseif (nblocks > nthreads .and. mod(nblocks,nthreads)==0) then
-!
-!--if more blocks than processes and nblocks exactly divisible by nthreads,
-!  then just read more than one block per thread
-!
-    nblocksperthread = nblocks/nthreads
-    if (id==(iblock-1)/nblocksperthread) then
-       npartread = int(npartblock)
-       noffset   = 0
-    else
-       npartread = 0
-       noffset   = 0
-    endif
-
- elseif (nthreads > nblocks .and. mod(nthreads,nblocks)==0) then
-!
-!--if more threads than blocks, and exactly divisible, read fractions of blocks only
-!
-    nthreadsperblock = nthreads/nblocks
-    if (id/nthreadsperblock==iblock-1) then
-       npartread = int((npartblock-1)/nthreadsperblock) + 1
-       noffset   = mod(id,nthreadsperblock)*npartread
-
-       if (mod(id,nthreadsperblock)==nthreadsperblock-1) then
-          !--last thread has remainder for non-exactly divisible numbers of particles
-          npartread = int(npartblock) - (nthreadsperblock-1)*npartread
-          !--die if we would need to load balance between more than the last processor.
-          if (npartread < 0) then
-             print*,' npart to read from last block =',npartread
-             call fatal(tag,'error assigning npart to last thread')
-          endif
-       endif
-    else
-       npartread = 0
-       noffset   = 0
-    endif
- else
-    noffset = 0
-    npartread = 0
-    print*,' ERROR: rearrangement of ',nblocks,' blocks to ',nthreads,' threads not implemented'
-    call die
- endif
-
-end subroutine get_blocklimits
-
-!--------------------------------------------------------------------
-!+
-!  utility for initialising each thread
-!+
-!--------------------------------------------------------------------
-subroutine start_threadwrite(id,iunit,filename)
-#ifdef MPI
- use mpi
- use mpiutils, only:status,mpierr
-#endif
- use io, only:fatal,iverbose
- implicit none
- integer, intent(in) :: id, iunit
- character(len=*), intent(in) :: filename
- integer :: nowgo,ierr
-
- if (iverbose >= 3) print *,id,' : starting write...'
- nowgo = 0
- if (id  >  0) then
-#ifdef MPI
-    call MPI_RECV(nowgo,1,MPI_INTEGER,id-1,99,MPI_COMM_WORLD,status,mpierr)
-#endif
-    open(unit=iunit,file=filename,status='old',form='unformatted',position='append',iostat=ierr)
-    if (ierr /= 0) then
-       call fatal('start_threadwrite','can''t append to dumpfile '//trim(filename))
-    else
-       if (iverbose >= 3) print*,'thread ',id,': opened file '//trim(filename)
-    endif
- endif
-
-end subroutine start_threadwrite
-
-!--------------------------------------------------------------------
-!+
-!  utility for finalising each thread
-!+
-!--------------------------------------------------------------------
-subroutine end_threadwrite(id)
- use io, only:iverbose
-#ifdef MPI
- use mpi
- use mpiutils, only:mpierr
- use io, only:nprocs
-#endif
- implicit none
- integer, intent(in) :: id
-#ifdef MPI
- integer :: nowgo
-#endif
-
- if (iverbose >= 3) print *,' thread ',id,' : finished write.'
-#ifdef MPI
- if (id  <  nprocs-1) then
-    nowgo = 1
-    call MPI_SEND(nowgo,1,MPI_INTEGER,id+1,99,MPI_COMM_WORLD,mpierr)
- endif
-#endif
-
-end subroutine end_threadwrite
 
 !--------------------------------------------------------------------
 !+
@@ -187,7 +49,7 @@ end subroutine end_threadwrite
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma
+                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -205,7 +67,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use options,    only:use_dustfrac,use_porosity,use_var_comp,icooling
  use dump_utils, only:tag,open_dumpfile_w,allocate_header,&
                  free_header,write_header,write_array,write_block_header
- use mpiutils,   only:reduce_mpi,reduceall_mpi
+ use mpiutils,   only:reduce_mpi,reduceall_mpi,start_threadwrite,end_threadwrite
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
@@ -231,21 +93,21 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !--collect global information from MPI threads
 !
 !--allow non-MPI calls to create MPI dump files
-#ifdef MPI
- nparttot = reduceall_mpi('+',npart)
- call update_npartoftypetot
-#else
- if (present(ntotal)) then
-    nparttot = ntotal
+ if (mpi) then
+    nparttot = reduceall_mpi('+',npart)
     call update_npartoftypetot
-    if (all(npartoftypetot==0)) then
-       npartoftypetot(1) = ntotal
-    endif
  else
-    nparttot = npart
-    call update_npartoftypetot
+    if (present(ntotal)) then
+       nparttot = ntotal
+       call update_npartoftypetot
+       if (all(npartoftypetot==0)) then
+          npartoftypetot(1) = ntotal
+       endif
+    else
+       nparttot = npart
+       call update_npartoftypetot
+    endif
  endif
-#endif
  nblocks = nprocs
 
  sphNGdump = .false.
@@ -504,7 +366,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
                       rad,rad_label,do_radiation,maxirad,luminosity
  use dump_utils, only:open_dumpfile_w,dump_h,allocate_header,free_header,&
                       write_header,write_array,write_block_header
- use mpiutils,   only:reduceall_mpi
+ use mpiutils,   only:reduceall_mpi,start_threadwrite,end_threadwrite
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer(kind=8) :: ilen(4)
@@ -626,7 +488,8 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
                     xyzmh_ptmass,vxyz_ptmass
  use dump_utils,   only:get_dump_size,skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
-                        open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
+                        open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header,&
+                        get_blocklimits
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
  use options,      only:use_dustfrac
@@ -646,6 +509,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  logical               :: tagged,phantomdump,smalldump
  real                  :: dumr,alphafile
  character(len=lenid)  :: fileidentr
+ character(len=12)     :: string
  type(dump_h)          :: hdr
  integer               :: i,ierrh
 
@@ -778,7 +642,11 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
 !  Can be used by non-MPI codes to read isolated blocks only.
 !
-    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
+    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','could not map blocks in dump to number of threads')
+       return
+    endif
     i1 = i2 + 1
     i2 = i1 + (npartread - 1)
     npart = npart + npartread
@@ -791,13 +659,10 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
        endif
        cycle overblocks
     elseif (npartread > 0) then
-#ifdef MPI
-       write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
-     'thread ',id,' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
-#else
-       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
-     ' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
-#endif
+       string = ''
+       if (nprocs > 1) write(string,'(a,i5)') 'thread',iblock
+       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") trim(string)//' reading particles ',noffset+1,&
+           ':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
     else
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
     endif
@@ -889,7 +754,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  use part,     only:npart,npartoftype,maxtypes,nptmass,nsinkproperties,maxptmass, &
                     massoftype
  use dump_utils,   only:skipblock,skip_arrays,check_tag,open_dumpfile_r,get_error_text,&
-                        ierr_realsize,read_header,extract,free_header,read_block_header
+                        ierr_realsize,read_header,extract,free_header,read_block_header,get_blocklimits
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use options,      only:use_dustfrac
  character(len=*),  intent(in)  :: dumpfile
@@ -907,6 +772,7 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
  logical               :: tagged,phantomdump,smalldump
  real                  :: alphafile
  character(len=lenid)  :: fileidentr
+ character(len=12)     :: string
  type(dump_h)          :: hdr
  integer               :: i
 
@@ -1023,17 +889,19 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
 !  Also handles MPI -> non-MPI dump conversion and vice-versa.
 !  Can be used by non-MPI codes to read isolated blocks only.
 !
-    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread)
+    call get_blocklimits(nhydrothisblock,nblocks,nprocs,id,iblock,noffset,npartread,ierr)
+    if (ierr /= 0) then
+       call error('read_dump','could not map blocks in dump to number of threads')
+       return
+    endif
     i1 = i2 + 1
     i2 = i1 + (npartread - 1)
     npart = npart + npartread
-#ifdef MPI
     if (npart > maxp) then
        write(*,*) 'npart > maxp in readwrite_dumps'
        ierr = 1
        return
     endif
-#endif
     if (npartread <= 0 .and. nptmass <= 0) then
        call skipblock(idisk1,nums(:,1),nums(:,2),nums(:,3),nums(:,4),tagged,ierr)
        if (ierr /= 0) then
@@ -1042,13 +910,10 @@ subroutine read_smalldump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,npro
        endif
        cycle overblocks
     elseif (npartread > 0) then
-#ifdef MPI
-       write(*,"(a,i5,2(a,i10),a,i5,a,i10,'-',i10)") &
-     'thread ',id,' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
-#else
-       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") &
-     ' reading particles ',noffset+1,':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
-#endif
+       string = ''
+       if (nprocs > 1) write(string,'(a,i5)') 'thread',iblock
+       write(*,"(2(a,i10),a,i5,a,i10,'-',i10)") trim(string)//' reading particles ',noffset+1,&
+           ':',noffset+npartread,', from block ',iblock,' lims=',i1,i2
     else
        write(*,"(a,i10,a)") ' WARNING! block contains no SPH particles, reading ',nptmass,' point mass particles only'
     endif

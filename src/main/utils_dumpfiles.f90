@@ -100,6 +100,7 @@ module dump_utils
  public :: write_header, read_header
  public :: allocate_header, free_header
  public :: print_header
+ public :: get_blocklimits
 
  ! generic interface to extract quantities from header
  interface extract
@@ -1967,6 +1968,94 @@ subroutine read_block_header(nblocks,number,nums,iunit,ierr)
  enddo
 
 end subroutine read_block_header
+
+!--------------------------------------------------------------------
+!+
+!  utility to determine whether to read a particular block
+!  in the dump file, in whole or in part.
+!  Allows limited changes to number of threads.
+!+
+!--------------------------------------------------------------------
+subroutine get_blocklimits(npartblock,nblocks,nthreads,id,iblock,noffset,npartread,ierr)
+ integer(kind=8), intent(in)  :: npartblock
+ integer,         intent(in)  :: nblocks,nthreads,id,iblock
+ integer,         intent(out) :: noffset,npartread,ierr
+ integer                      :: nblocksperthread,nthreadsperblock
+ character(len=15), parameter :: tag = 'get_blocklimits'
+!
+!--check for errors in input
+!
+ ierr = 0
+ if (npartblock < 0) then
+    write(*,*) 'get_blocklimits: block in dump file has npartinblock < 0'
+    ierr = 1
+ elseif (npartblock > huge(npartread)) then
+    write(*,*) 'get_blocklimits: number of particles in block exceeds 32 bit limit'
+    ierr = 2
+ endif
+ if (ierr /= 0) return
+!
+!--usual situation: nblocks = nprocessors
+!  read whole block if id = iblock
+!
+ if (nblocks==nthreads) then
+    if (id==iblock-1) then
+       !--read whole block
+       npartread = int(npartblock)
+       noffset   = 0
+    else
+       !--do not read block
+       npartread = 0
+       noffset   = 0
+    endif
+
+ elseif (nblocks > nthreads .and. mod(nblocks,nthreads)==0) then
+!
+!--if more blocks than processes and nblocks exactly divisible by nthreads,
+!  then just read more than one block per thread
+!
+    nblocksperthread = nblocks/nthreads
+    if (id==(iblock-1)/nblocksperthread) then
+       npartread = int(npartblock)
+       noffset   = 0
+    else
+       npartread = 0
+       noffset   = 0
+    endif
+
+ elseif (nthreads > nblocks .and. mod(nthreads,nblocks)==0) then
+!
+!--if more threads than blocks, and exactly divisible, read fractions of blocks only
+!
+    nthreadsperblock = nthreads/nblocks
+    if (id/nthreadsperblock==iblock-1) then
+       npartread = int((npartblock-1)/nthreadsperblock) + 1
+       noffset   = mod(id,nthreadsperblock)*npartread
+
+       if (mod(id,nthreadsperblock)==nthreadsperblock-1) then
+          !--last thread has remainder for non-exactly divisible numbers of particles
+          npartread = int(npartblock) - (nthreadsperblock-1)*npartread
+          !--die if we would need to load balance between more than the last processor.
+          if (npartread < 0) then
+             print*,' npart to read from last block =',npartread
+             print*,trim(tag)//' error assigning npart to last thread'
+             ierr = 3
+             return
+          endif
+       endif
+    else
+       npartread = 0
+       noffset   = 0
+    endif
+ else
+    noffset = 0
+    npartread = 0
+    ierr = 4
+    print*,' ERROR: rearrangement of ',nblocks,' blocks to ',nthreads,' threads not implemented'
+    return
+ endif
+
+end subroutine get_blocklimits
 
 !--------------------------------------------------------------------
 !+
