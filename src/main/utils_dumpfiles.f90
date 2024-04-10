@@ -24,7 +24,7 @@ module dump_utils
  public :: open_dumpfile_w, open_dumpfile_r, get_error_text
  public :: tag,check_tag,match_tag
  public :: skipblock,skip_arrays,skip_headerblock
- public :: get_dumpname
+ public :: get_dumpname,get_dump_size
  public :: add_to_header,add_to_rheader,add_to_iheader
  public :: num_in_header,reset_header,extract
  public :: read_array_from_file
@@ -173,6 +173,23 @@ function get_dumpname(filename,id)
  write(get_dumpname,"(a,a5,i3.3)") trim(filename),'_part',id+1
 
 end function get_dumpname
+
+!--------------------------------------------------------------------
+!+
+!  extract dump size (full or small) from the fileid string
+!+
+!--------------------------------------------------------------------
+subroutine get_dump_size(fileid,smalldump)
+ character(len=lenid), intent(in)  :: fileid
+ logical,              intent(out) :: smalldump
+ !
+ if (fileid(1:1)=='S') then
+    smalldump = .true.
+ else
+    smalldump = .false.
+ endif
+
+end subroutine get_dump_size
 
 !--------------------------------------------------------------------
 !+
@@ -1588,12 +1605,12 @@ end subroutine write_header
 !  Write int*1 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
+subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  integer(kind=1),  intent(in) :: iarr(:)
  character(len=*), intent(in) :: my_tag
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  !procedure(integer(kind=1)), pointer, optional :: func
  interface
   integer(kind=1) pure function func(x)
@@ -1602,7 +1619,7 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
  end interface
  optional :: func
  !integer(kind=1), optional :: func
- integer :: i
+ integer :: i,ierr
 
  ierr = 0
  ! check if kind matches
@@ -1618,6 +1635,7 @@ subroutine write_array_int1(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
        endif
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_int1
 
@@ -1626,12 +1644,12 @@ end subroutine write_array_int1
 !  Write int*4 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
+subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  integer(kind=4),  intent(in) :: iarr(:)
  character(len=*), intent(in) :: my_tag
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  !procedure(integer(kind=1)), pointer, optional :: func
  interface
   integer(kind=4) pure function func(x)
@@ -1640,7 +1658,7 @@ subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
  end interface
  optional :: func
  !integer(kind=1), optional :: func
- integer :: i
+ integer :: i,ierr
 
  ierr = 0
  ! check if kind matches
@@ -1656,6 +1674,7 @@ subroutine write_array_int4(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
        endif
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_int4
 
@@ -1664,12 +1683,12 @@ end subroutine write_array_int4
 !  Write int*4 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
+subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,nerr,func)
  integer(kind=8),  intent(in) :: iarr(:)
  character(len=*), intent(in) :: my_tag
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  !procedure(integer(kind=1)), pointer, optional :: func
  interface
   integer(kind=8) pure function func(x)
@@ -1678,7 +1697,7 @@ subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
  end interface
  optional :: func
  !integer(kind=1), optional :: func
- integer :: i
+ integer :: i,ierr
 
  ierr = 0
  ! check if kind matches
@@ -1694,6 +1713,7 @@ subroutine write_array_int8(ib,iarr,my_tag,len,ikind,ipass,iunit,nums,ierr,func)
        endif
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_int8
 
@@ -1702,12 +1722,12 @@ end subroutine write_array_int8
 !  Write real*4 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,use_kind,singleprec)
+subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,use_kind,singleprec)
  real(kind=4),     intent(in) :: arr(:)
  character(len=*), intent(in) :: my_tag
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  interface
   real(kind=4) pure function func(x)
    real(kind=4), intent(in) :: x
@@ -1717,7 +1737,7 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  !real(kind=4), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
- integer :: i,imatch
+ integer :: i,imatch,ierr
 
  ierr = 0
  ! use default real if it matches, unless kind is specified
@@ -1739,6 +1759,7 @@ subroutine write_array_real4(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
        endif
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_real4
 
@@ -1747,12 +1768,12 @@ end subroutine write_array_real4
 !  Write real*4 array to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,use_kind,singleprec)
+subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,nerr,func,use_kind,singleprec)
  real(kind=8),     intent(in) :: arr(:)
  character(len=*), intent(in) :: my_tag
  integer, intent(in)    :: ib,len,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  interface
   real(kind=8) pure function func(x)
    real(kind=8), intent(in) :: x
@@ -1762,7 +1783,7 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
  !real(kind=8), optional :: func
  integer, intent(in), optional :: use_kind
  logical, intent(in), optional :: singleprec
- integer :: i,imatch
+ integer :: i,imatch,ierr
  logical :: use_singleprec
 
  ierr = 0
@@ -1798,6 +1819,7 @@ subroutine write_array_real8(ib,arr,my_tag,len,ikind,ipass,iunit,nums,ierr,func,
        endif
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_real8
 
@@ -1807,15 +1829,15 @@ end subroutine write_array_real8
 !  to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,ierr,use_kind,index,singleprec)
+subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,nerr,use_kind,index,singleprec)
  real(kind=4),     intent(in) :: arr(:,:)
  character(len=*), intent(in) :: my_tag(:)
  integer, intent(in)    :: ib,len1,len2,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  integer, intent(in), optional :: use_kind,index
  logical, intent(in), optional :: singleprec
- integer :: j,i,imatch,istart,iend
+ integer :: j,i,imatch,istart,iend,ierr
 
  ierr = 0
  ! use default real if it matches, unless kind is specified
@@ -1843,6 +1865,7 @@ subroutine write_array_real4arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
        enddo
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_real4arr
 
@@ -1852,15 +1875,15 @@ end subroutine write_array_real4arr
 !  to block header (ipass=1) or to file (ipass=2)
 !+
 !---------------------------------------------------------------------
-subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,ierr,use_kind,index,singleprec)
+subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,nerr,use_kind,index,singleprec)
  real(kind=8),     intent(in) :: arr(:,:)
  character(len=*), intent(in) :: my_tag(:)
  integer, intent(in)    :: ib,len1,len2,ikind,ipass,iunit
  integer, intent(inout) :: nums(:,:)
- integer, intent(out)   :: ierr
+ integer, intent(inout) :: nerr
  integer, intent(in), optional :: use_kind,index
  logical, intent(in), optional :: singleprec
- integer :: j,i,imatch,istart,iend
+ integer :: j,i,imatch,istart,iend,ierr
  logical :: use_singleprec
 
  ierr = 0
@@ -1902,6 +1925,7 @@ subroutine write_array_real8arr(ib,arr,my_tag,len1,len2,ikind,ipass,iunit,nums,i
        enddo
     endif
  endif
+ if (ierr /= 0) nerr = nerr + 1
 
 end subroutine write_array_real8arr
 

@@ -180,23 +180,6 @@ end subroutine end_threadwrite
 
 !--------------------------------------------------------------------
 !+
-!  extract dump size used in Phantom from the fileid string
-!+
-!--------------------------------------------------------------------
-subroutine get_dump_size(fileid,smalldump)
- character(len=lenid), intent(in)  :: fileid
- logical,              intent(out) :: smalldump
- !
- if (fileid(1:1)=='S') then
-    smalldump = .true.
- else
-    smalldump = .false.
- endif
-
-end subroutine get_dump_size
-
-!--------------------------------------------------------------------
-!+
 !  subroutine to write output to full dump file
 !  (this is everything needed to restart a run)
 !+
@@ -225,9 +208,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use mpiutils,   only:reduce_mpi,reduceall_mpi
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
-#ifdef PRDRAG
- use lumin_nsdisc, only:beta
-#endif
  use metric_tools, only:imetric, imet_et
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
@@ -239,7 +219,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  integer(kind=8)    :: ilen(4)
  integer            :: nums(ndatatypes,4)
  integer            :: ipass,k,l,ioffset
- integer            :: ierr,ierrs(30)
+ integer            :: ierr,nerr
  integer            :: nblocks,nblockarrays,narraylengths
  integer(kind=8)    :: nparttot
  logical            :: sphNGdump,write_itype,use_gas
@@ -334,7 +314,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 
  call start_threadwrite(id,idump,dumpfile)
 
- ierrs = 0
+ nerr = 0
  nums = 0
  ilen = 0_8
  if (sphNGdump) then
@@ -344,134 +324,127 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  endif
  do ipass=1,2
     do k=1,ndatatypes
+       nerr = 0
        !
        ! Block 1 arrays (hydrodynamics)
        !
        ilen(1) = int(npart,kind=8)
-       if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,ierrs(1),func=iamtype_int11)
-       call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,ierrs(2))
+       if (write_itype) call write_array(1,iphase,'itype',npart,k,ipass,idump,nums,nerr,func=iamtype_int11)
+       call write_array(1,xyzh,xyzh_label,3,npart,k,ipass,idump,nums,nerr)
        if (use_dustgrowth) then
-          call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,ierrs(3))
-          call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,ierrs(3))
-          call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,ierrs(3))
-          if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,ierrs(3))
+          call write_array(1,dustprop,dustprop_label,2,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,VrelVf,VrelVf_label,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,dustgasprop,dustgasprop_label,4,npart,k,ipass,idump,nums,nerr)
+          if (use_porosity) call write_array(1,filfac,filfac_label,npart,k,ipass,idump,nums,nerr)
        endif
-       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,ierrs(5))
-       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,ierrs(7))
-       if (use_dust) call write_array(1,tstop,tstop_label,ndustsmall,npart,k,ipass,idump,nums,ierrs(8))
+       if (h2chemistry)  call write_array(1,abundance,abundance_label,nabundances,npart,k,ipass,idump,nums,nerr)
+       if (use_dust) call write_array(1,dustfrac,dustfrac_label,ndusttypes,npart,k,ipass,idump,nums,nerr)
+       if (use_dust) call write_array(1,tstop,tstop_label,ndustsmall,npart,k,ipass,idump,nums,nerr)
        if (use_dustfrac) then
           do l=1,ndustsmall
-             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,ierrs(10))
+             call write_array(1,deltav(:,l,:),deltav_label,3,npart,k,ipass,idump,nums,nerr)
           enddo
        endif
        if (gr) then
-          call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(8))
-          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,ierrs(8))
+          call write_array(1,pxyzu,pxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,dens,'dens prim',npart,k,ipass,idump,nums,nerr)
           if (imetric==imet_et) then
              ! Output metric if imetric=iet
-             call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metrics(1,1,1,:), 'gtt (covariant)',npart,k,ipass,idump,nums,nerr)
              !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
              !  call write_array(1,metrics(1,3,1,:), 'gty (covariant)',npart,k,ipass,idump,nums,ierrs(8))
              !  call write_array(1,metrics(1,2,1,:), 'gtz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
              !  call write_array(1,metrics(1,2,1,:), 'gtx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metrics(4,4,1,:), 'gzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metrics(2,2,1,:), 'gxx (covariant)',npart,k,ipass,idump,nums,nerr)
+             call write_array(1,metrics(3,3,1,:), 'gyy (covariant)',npart,k,ipass,idump,nums,nerr)
+             call write_array(1,metrics(4,4,1,:), 'gzz (covariant)',npart,k,ipass,idump,nums,nerr)
 
-             call write_array(1,metricderivs(1,1,1,:), 'dxgtt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metricderivs(2,2,1,:), 'dxgxx (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metricderivs(3,3,1,:), 'dxgyy (covariant)',npart,k,ipass,idump,nums,ierrs(8))
-             call write_array(1,metricderivs(4,4,1,:), 'dxgzz (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,metricderivs(1,1,1,:), 'dxgtt (covariant)',npart,k,ipass,idump,nums,nerr)
+             call write_array(1,metricderivs(2,2,1,:), 'dxgxx (covariant)',npart,k,ipass,idump,nums,nerr)
+             call write_array(1,metricderivs(3,3,1,:), 'dxgyy (covariant)',npart,k,ipass,idump,nums,nerr)
+             call write_array(1,metricderivs(4,4,1,:), 'dxgzz (covariant)',npart,k,ipass,idump,nums,nerr)
 
-             call write_array(1,tmunus(1,1,:),  'tmunutt (covariant)',npart,k,ipass,idump,nums,ierrs(8))
+             call write_array(1,tmunus(1,1,:),  'tmunutt (covariant)',npart,k,ipass,idump,nums,nerr)
           endif
        endif
        if (eos_is_non_ideal(ieos) .or. (.not.store_dust_temperature .and. icooling > 0)) then
-          call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(itemp,:),eos_vars_label(itemp),npart,k,ipass,idump,nums,nerr)
        endif
-       if (eos_is_non_ideal(ieos)) call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
+       if (eos_is_non_ideal(ieos)) call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
 
-       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,ierrs(4))
+       call write_array(1,vxyzu,vxyzu_label,maxvxyzu,npart,k,ipass,idump,nums,nerr)
        ! write pressure to file
        if ((eos_outputs_gasP(ieos) .or. eos_is_non_ideal(ieos)) .and. k==i_real) then
-          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=igasP)
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=igasP)
        endif
        ! write X, Z, mu to file
        if (eos_outputs_mu(ieos)) then
-          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=imu)
+          call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=imu)
           if (use_var_comp) then
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iX)
-             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,ierrs(13),index=iZ)
+             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iX)
+             call write_array(1,eos_vars,eos_vars_label,1,npart,k,ipass,idump,nums,nerr,index=iZ)
           endif
        endif
 
        ! smoothing length written as real*4 to save disk space
-       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,ierrs(14),use_kind=4,index=4)
-       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,ierrs(15))
+       call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)
+       if (maxalpha==maxp) call write_array(1,alphaind,(/'alpha'/),1,npart,k,ipass,idump,nums,nerr)
        !if (maxalpha==maxp) then ! (uncomment this to write alphaloc to the full dumps)
        !   call write_array(1,alphaind,(/'alpha ','alphaloc'/),2,npart,k,ipass,idump,nums,ierrs(10))
        !endif
-       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,ierrs(16))
+       if (ndivcurlv >= 1) call write_array(1,divcurlv,divcurlv_label,ndivcurlv,npart,k,ipass,idump,nums,nerr)
        !if (maxdvdx==maxp) call write_array(1,dvdx,dvdx_label,9,npart,k,ipass,idump,nums,ierrs(17))
        if (gravity .and. maxgrav==maxp) then
-          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,ierrs(17))
+          call write_array(1,poten,'poten',npart,k,ipass,idump,nums,nerr)
        endif
        if (ind_timesteps) then
           if (.not.allocated(temparr)) allocate(temparr(npart))
           temparr(1:npart) = dtmax/2.**ibin(1:npart)
-          call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,ierrs(18),use_kind=4)
+          call write_array(1,temparr,'dt',npart,k,ipass,idump,nums,nerr,use_kind=4)
        endif
-       call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,ierrs(29))
+       call write_array(1,iorig,'iorig',npart,k,ipass,idump,nums,nerr)
 
-#ifdef PRDRAG
-       if (k==i_real) then
-          if (.not.allocated(temparr)) allocate(temparr(npart))
-          do l=1,npart
-             temparr(l) = real4(beta(xyzh(1,l), xyzh(2,l), xyzh(3,l)))
-          enddo
-          call write_array(1,temparr,'beta_pr',npart,k,ipass,idump,nums,ierrs(19))
-       endif
-#endif
        if (lightcurve) then
-          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,ierrs(20))
+          call write_array(1,luminosity,'luminosity',npart,k,ipass,idump,nums,nerr)
        endif
 
        if (use_krome) then
-          call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,ierrs(21))
-          call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,ierrs(24))
+          call write_array(1,abundance,abundance_label,krome_nmols,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,T_gas_cool,'temp',npart,k,ipass,idump,nums,nerr)
        endif
        if (update_muGamma .or. use_krome) then
-          call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,ierrs(12))
-          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,ierrs(12))
+          call write_array(1,eos_vars(imu,:),eos_vars_label(imu),npart,k,ipass,idump,nums,nerr)
+          call write_array(1,eos_vars(igamma,:),eos_vars_label(igamma),npart,k,ipass,idump,nums,nerr)
        endif
        if (do_nucleation) then
-          call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,ierrs(25))
+          call write_array(1,nucleation,nucleation_label,n_nucleation,npart,k,ipass,idump,nums,nerr)
        endif
        If (itau_alloc == 1) then
-          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,ierrs(30))
+          call write_array(1,tau,'tau',npart,k,ipass,idump,nums,nerr)
        endif
        If (itauL_alloc == 1) then
-          call write_array(1,tau_lucy,'tau_lucy',npart,k,ipass,idump,nums,ierrs(30))
+          call write_array(1,tau_lucy,'tau_lucy',npart,k,ipass,idump,nums,nerr)
        endif
        if (store_dust_temperature) then
-          call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,ierrs(26))
+          call write_array(1,dust_temp,'Tdust',npart,k,ipass,idump,nums,nerr)
        endif
        if (do_radiation) then
-          call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,ierrs(27))
-          call write_array(1,radprop,radprop_label,maxradprop,npart,k,ipass,idump,nums,ierrs(28))
+          call write_array(1,rad,rad_label,maxirad,npart,k,ipass,idump,nums,nerr)
+          call write_array(1,radprop,radprop_label,maxradprop,npart,k,ipass,idump,nums,nerr)
        endif
-       if (any(ierrs(1:28) /= 0)) call error('write_dump','error writing hydro arrays')
+       if (nerr > 0) call error('write_dump','error writing hydro arrays')
     enddo
 
+    nerr = 0
     do k=1,ndatatypes
        !
        ! Block 2 arrays (sink particles)
        !
        if (.not. sphNGdump .and. nptmass > 0 .and. nptmass <= maxptmass) then
           ilen(2) = int(nptmass,kind=8)
-          call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,ierrs(1))
-          call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,ierrs(2))
-          if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing sink particle arrays')
+          call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,nerr)
+          call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,nerr)
+          if (nerr > 0) call error('write_dump','error writing sink particle arrays')
        endif
     enddo
 
@@ -480,18 +453,20 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        ! Block 4 arrays (MHD)
        !
        if (mhd) then
+          nerr = 0
           ilen(4) = int(npart,kind=8)
-          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,ierrs(1)) ! Bx,By,Bz
-          call write_array(4,Bevol,Bevol_label,1,npart,k,ipass,idump,nums,ierrs(1),index=4) ! psi
+          call write_array(4,Bxyz,Bxyz_label,3,npart,k,ipass,idump,nums,nerr) ! Bx,By,Bz
+          call write_array(4,Bevol,Bevol_label,1,npart,k,ipass,idump,nums,nerr,index=4) ! psi
           if (ndivcurlB >= 1) then
-             call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,ierrs(2))
+             call write_array(4,divcurlB,divcurlB_label,ndivcurlB,npart,k,ipass,idump,nums,nerr)
           else
-             call write_array(4,divBsymm,'divBsymm',npart,k,ipass,idump,nums,ierrs(2))
+             call write_array(4,divBsymm,'divBsymm',npart,k,ipass,idump,nums,nerr)
           endif
-          if (any(ierrs(1:2) /= 0)) call error('write_dump','error writing MHD arrays')
+          if (nerr > 0) call error('write_dump','error writing MHD arrays')
           if (mhd_nonideal) then
-             call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,ierrs(1))
-             if (ierrs(1) /= 0) call error('write_dump','error writing non-ideal MHD arrays')
+             nerr = 0
+             call write_array(4,eta_nimhd,eta_nimhd_label,4,npart,k,ipass,idump,nums,nerr)
+             if (nerr > 0) call error('write_dump','error writing non-ideal MHD arrays')
           endif
        endif
     enddo
@@ -515,7 +490,6 @@ end subroutine write_fulldump_fortran
 !  (faked to look like the default real is real*4)
 !+
 !-------------------------------------------------------------------
-
 subroutine write_smalldump_fortran(t,dumpfile)
  use dim,        only:maxp,maxtypes,use_dust,lightcurve,use_dustgrowth,h2chemistry
  use options,    only:use_porosity
@@ -559,7 +533,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
 
     call open_dumpfile_w(idump,dumpfile,fileident('ST'),ierr,singleprec=.true.)
     if (ierr /= 0) then
-       call error('write_smalldump','can''t create new dumpfile '//trim(dumpfile))
+       call error('write_smalldump','could not write new dumpfile '//trim(dumpfile))
        return
     endif
 !
@@ -587,6 +561,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
  call start_threadwrite(id,idump,dumpfile)
 
  nums = 0
+ ierr = 0
  ilen = 0_8
  write_itype = (maxphase==maxp .and. any(npartoftypetot(2:) > 0))
  do ipass=1,2
@@ -643,7 +618,6 @@ end subroutine write_smalldump_fortran
 !  and also from standard sphNG dump files
 !+
 !-------------------------------------------------------------------
-
 subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ierr,headeronly,dustydisc)
  use memory,   only:allocate_memory
  use dim,      only:maxp,maxvxyzu,gravity,lightcurve,mhd,maxp_hard,inject_parts,mpi
@@ -651,7 +625,7 @@ subroutine read_dump_fortran(dumpfile,tfile,hfactfile,idisk1,iprint,id,nprocs,ie
  use part,     only:xyzh,vxyzu,massoftype,npart,npartoftype,maxtypes,iphase, &
                     maxphase,isetphase,nptmass,nsinkproperties,maxptmass,get_pmass, &
                     xyzmh_ptmass,vxyz_ptmass
- use dump_utils,   only:skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
+ use dump_utils,   only:get_dump_size,skipblock,skip_arrays,check_tag,lenid,ndatatypes,read_header, &
                         open_dumpfile_r,get_error_text,ierr_realsize,free_header,read_block_header
  use mpiutils,     only:reduce_mpi,reduceall_mpi
  use sphNGutils,   only:convert_sinks_sphNG,mass_sphng
@@ -1228,7 +1202,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then
                    ndustfraci = ndustfraci + 1
-                   call read_array(dustfrac,dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
+                   call read_array(tmparray,dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
                    dustfrac(ndustfraci,i1:i2) = tmparray(i1:i2)
                 endif
