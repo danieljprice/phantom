@@ -75,6 +75,7 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
  character(len=80) :: line
  character(len=40) :: tempfile
  real :: cachesizel2,cachesizel3
+ external :: system
 !
 !--on Linux, cpu info will be located in the /proc/cpuinfo file
 !  So we look in this file first
@@ -105,7 +106,7 @@ subroutine get_cpuinfo(ncpu,ncpureal,cpuspeed,cpumodel,cachesize,ierr)
 !--On a Mac, we have to use the sysctl utility
 !
     tempfile='cpuinfo.tmp'
-    call execute_command_line('sysctl -a hw machdep > '//trim(tempfile))
+    call system('sysctl -a hw machdep > '//trim(tempfile))
     !--check to see if this file exists
     inquire(file=tempfile,exist=iexist)
     if (iexist) then
