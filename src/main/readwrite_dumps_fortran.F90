@@ -1159,6 +1159,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  logical               :: got_filfac,got_divcurlv(4),got_rad(maxirad),got_radprop(maxradprop),got_pxyzu(4),got_iorig
  character(len=lentag) :: tag,tagarr(64)
  integer :: k,i,iarr,ik,ndustfraci
+ real, allocatable :: tmparray(:)
 
 !
 !--read array type 1 arrays
@@ -1193,6 +1194,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  got_iorig       = .false.
 
  ndustfraci = 0
+ if (use_dust) allocate(tmparray(size(dustfrac,2)))
  over_arraylengths: do iarr=1,narraylengths
 
     do k=1,ndatatypes
@@ -1226,8 +1228,9 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              if (use_dust) then
                 if (any(tag == dustfrac_label)) then
                    ndustfraci = ndustfraci + 1
-                   call read_array(dustfrac(ndustfraci,:),dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
+                   call read_array(dustfrac,dustfrac_label(ndustfraci),got_dustfrac(ndustfraci), &
                                    ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                   dustfrac(ndustfraci,i1:i2) = tmparray(i1:i2)
                 endif
              endif
              if (h2chemistry) then
@@ -1289,6 +1292,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
     enddo
 
  enddo over_arraylengths
+ if (allocated(tmparray)) deallocate(tmparray)
  !
  ! check for errors
  !
