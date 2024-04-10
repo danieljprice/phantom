@@ -56,6 +56,7 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
+ use ptmass,          only:use_fourthorder
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -429,6 +430,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check centre of mass
 !
  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+!
+!--check Forward symplectic integration method imcompatiblity
+!
+ if (use_fourthorder) call check_setup_FSI (nerror,iexternalforce)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -998,5 +1003,16 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  call check_NaN(npart,radprop,'radiation properties',nerror)
 
 end subroutine check_setup_radiation
+
+subroutine check_setup_FSI(nerror,iexternalforce)
+ use externalforces, only: is_velocity_dependent
+ integer, intent(inout) :: nerror
+ integer, intent(in)    :: iexternalforce
+ if (is_velocity_dependent(iexternalforce)) then
+    print "(/,a,/)","ERROR in setup: velocity dependant external forces..."
+    nerror = nerror + 1
+ endif
+
+end subroutine check_setup_FSI
 
 end module checksetup

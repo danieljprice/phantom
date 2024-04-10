@@ -345,6 +345,12 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), nbody)
+#   Cluster of stars (ptmass) 
+    SETUPFILE= setup_nbody_test.f90
+    KNOWN_SETUP=yes
+endif
+
 #--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
 #   Bondi accretion flow
@@ -420,7 +426,7 @@ endif
 ifeq ($(SETUP), shock)
 #   shock tube tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     KNOWN_SETUP=yes
 endif
@@ -428,7 +434,7 @@ endif
 ifeq ($(SETUP), dustyshock)
 #   shock tube tests with dust
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     DUST=yes
     KERNEL=quintic
     KNOWN_SETUP=yes
@@ -437,7 +443,7 @@ endif
 ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     MHD=yes
     KERNEL=quintic
     KNOWN_SETUP=yes
@@ -446,7 +452,7 @@ endif
 ifeq ($(SETUP), nimhdshock)
 #   non-ideal mhd standing and C shock tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     MHD=yes
     STS_TIMESTEPS=no
     NONIDEALMHD=yes
@@ -460,7 +466,7 @@ ifeq ($(SETUP), radshock)
 #   shock tube in radiation hydrodynamics
     PERIODIC=yes
     RADIATION=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     KNOWN_SETUP=yes
 endif
@@ -468,7 +474,7 @@ endif
 ifeq ($(SETUP), srshock)
 #   special relativistic sod shock tube test
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     GR=yes
     METRIC=minkowski
@@ -479,7 +485,7 @@ endif
 
 ifeq ($(SETUP), testparticles)
 #   test particles
-    SETUPFILE= setup_testparticles.F90
+    SETUPFILE= setup_testparticles.f90
     KNOWN_SETUP=yes
     MAXP=500000
     ANALYSIS= analysis_1particle.f90
@@ -1037,7 +1043,7 @@ ifeq ($(SETUP), testgr)
 endif
 
 ifeq ($(SETUP), flrw)
-#   constant density FLRW cosmology with perturbations  
+#   constant density FLRW cosmology with perturbations
     GR=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no

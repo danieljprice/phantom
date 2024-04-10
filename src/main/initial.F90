@@ -21,9 +21,9 @@ module initial
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
 !   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, partinject, ptmass, radiation_utils, readwrite_dumps,
-!   readwrite_infile, timestep, timestep_ind, timestep_sts, timing,
-!   tmunu2grid, units, writeheader
+!   options, part, partinject, porosity, ptmass, radiation_utils,
+!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
  implicit none
@@ -130,7 +130,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,dustprop,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
+                            Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -167,6 +167,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 #endif
  use dust,             only:init_drag
  use growth,           only:init_growth
+ use porosity,         only:init_porosity,init_filfac
+ use options,          only:use_porosity
 #ifdef MFLOW
  use mf_write,         only:mflow_write,mflow_init
  use io,               only:imflow
@@ -312,7 +314,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !
 !--get total number of particles (on all processors)
 !
- ntot           = reduceall_mpi('+',npart)
+ ntot = reduceall_mpi('+',npart)
  call update_npartoftypetot
  if (id==master) write(iprint,"(a,i12)") ' npart total   = ',ntot
  if (npart > 0) then
@@ -333,6 +335,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (use_dustgrowth) then
        call init_growth(ierr)
        if (ierr /= 0) call fatal('initial','error initialising growth variables')
+       if (use_porosity) then
+          call init_porosity(ierr)
+          if (ierr /= 0) call fatal('initial','error initialising porosity variables')
+          call init_filfac(npart,xyzh,vxyzu)
+       endif
     endif
  endif
 !
@@ -594,14 +601,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  do j=1,nderivinit
     if (ntot > 0) call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,dustfrac,&
-                              eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,&
+                              dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 #ifdef LIVE_ANALYSIS
     call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
                      massoftype(igas),npart,time,ianalysis)
     call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
                 Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
-                ddustevol,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
+                ddustevol,filfac,dustfrac,eos_vars,time,0.,dtnew_first,pxyzu,dens,metrics)
 
     if (do_radiation) call set_radiation_and_gas_temperature_equal(npart,xyzh,vxyzu,massoftype,rad)
 #endif

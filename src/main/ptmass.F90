@@ -68,6 +68,7 @@ module ptmass
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0    ! 1000.
+ logical, public :: use_fourthorder = .false.
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -122,7 +123,8 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
-                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
+                                       pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax, &
+                                       dtphi2,extrapfac,fsink_old)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
@@ -133,15 +135,16 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    optional, intent(in)    :: pmassi
+ real,    optional, intent(in)    :: pmassi,extrapfac
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz
  integer                          :: j
- logical                          :: tofrom
+ logical                          :: tofrom,extrap
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -152,6 +155,14 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     tofrom  = .false.
  endif
 
+ ! check if it is a force computed using Omelyan extrapolation method for FSI
+ if (present(extrapfac)) then
+    extrap = .true.
+ else
+    extrap = .false.
+ endif
+
+
  ftmpxi = 0.  ! use temporary summation variable
  ftmpyi = 0.  ! (better for round-off, plus we need this bit of
  ftmpzi = 0.  ! the force to calculate the dtphi timestep)
@@ -159,9 +170,15 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  f2     = 0.
 
  do j=1,nptmass
-    dx     = xi - xyzmh_ptmass(1,j)
-    dy     = yi - xyzmh_ptmass(2,j)
-    dz     = zi - xyzmh_ptmass(3,j)
+    if (extrap)then
+       dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
+       dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j))
+       dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j))
+    else
+       dx     = xi - xyzmh_ptmass(1,j)
+       dy     = yi - xyzmh_ptmass(2,j)
+       dz     = zi - xyzmh_ptmass(3,j)
+    endif
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
     J2     = xyzmh_ptmass(iJ2,j)
@@ -265,7 +282,7 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,group_info)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,group_info)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -283,6 +300,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer,           intent(out) :: merge_ij(:),merge_n
  integer, optional, intent(in)  :: group_info(:,:)
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
+ real,    optional, intent(in)  :: extrapfac
+ real,    optional, intent(in)  :: fsink_old(4,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -291,6 +310,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: k,l,i,j,start_id,end_id
+ logical :: extrap
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -299,6 +319,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  merge_n  = 0
  merge_ij = 0
  if (nptmass <= 1) return
+ ! check if it is a force computed using Omelyan extrapolation method for FSI
+ if (present(extrapfac) .and. present(fsink_old)) then
+    extrap = .true.
+ else
+    extrap = .false.
+ endif
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -317,6 +343,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
+ !$omp shared(extrapfac,extrap,fsink_old) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
@@ -333,9 +360,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     else
        i = k
     endif
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
+    if (extrap)then
+       xi     = xyzmh_ptmass(1,i) + extrapfac*fsink_old(1,i)
+       yi     = xyzmh_ptmass(2,i) + extrapfac*fsink_old(2,i)
+       zi     = xyzmh_ptmass(3,i) + extrapfac*fsink_old(3,i)
+    else
+       xi     = xyzmh_ptmass(1,i)
+       yi     = xyzmh_ptmass(2,i)
+       zi     = xyzmh_ptmass(3,i)
+    endif
     pmassi = xyzmh_ptmass(4,i)
     !hsofti = xyzmh_ptmass(5,i)
     if (pmassi < 0.) cycle
@@ -356,9 +389,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           j = l
        endif
        if (i==j) cycle
-       dx     = xi - xyzmh_ptmass(1,j)
-       dy     = yi - xyzmh_ptmass(2,j)
-       dz     = zi - xyzmh_ptmass(3,j)
+       if (extrap)then
+          dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
+          dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j))
+          dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j))
+       else
+          dx     = xi - xyzmh_ptmass(1,j)
+          dy     = yi - xyzmh_ptmass(2,j)
+          dz     = zi - xyzmh_ptmass(3,j)
+       endif
        pmassj = xyzmh_ptmass(4,j)
        !hsoftj = xyzmh_ptmass(5,j)
        if (pmassj < 0.) cycle
@@ -492,19 +531,20 @@ end subroutine get_accel_sink_sink
 !+
 !----------------------------------------------------------------
 subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
-                             pmassi,fxyz_ptmass)
- use kernel,        only:kernel_softening,kernel_gradsoftening,radkern
- integer, intent(in)    :: nptmass
- real,    intent(in)    :: xi,yi,zi,hi,dt
- real,    intent(inout) :: fxi,fyi,fzi
- real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(in)    :: pmassi
- real,    intent(inout) :: fxyz_ptmass(4,nptmass)
- real    :: gtmpxi,gtmpyi,gtmpzi
- real    :: dx,dy,dz,rr2,ddr,dr3,g11,g12,g21,g22,pmassj
- real    :: dfx,dfy,dfz,drdotdf
- real    :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft,gpref
- integer :: j
+   pmassi,fxyz_ptmass,fsink_old)
+ use kernel,        only:kernel_softening,kernel_grad_soft,radkern
+ integer,           intent(in)    :: nptmass
+ real,              intent(in)    :: xi,yi,zi,hi,dt
+ real,              intent(inout) :: fxi,fyi,fzi
+ real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
+ real,              intent(in)    :: pmassi
+ real,              intent(inout) :: fxyz_ptmass(4,nptmass)
+ real,              intent(in)    :: fsink_old(4,nptmass)
+ real                             :: gtmpxi,gtmpyi,gtmpzi
+ real                             :: dx,dy,dz,rr2,ddr,dr3,g11,g12,g21,g22,pmassj
+ real                             :: dfx,dfy,dfz,drdotdf
+ real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft,gpref
+ integer                          :: j
 
  gtmpxi = 0.  ! use temporary summation variable
  gtmpyi = 0.  ! (better for round-off, plus we need this bit of
@@ -514,9 +554,9 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
     dx     = xi - xyzmh_ptmass(1,j)
     dy     = yi - xyzmh_ptmass(2,j)
     dz     = zi - xyzmh_ptmass(3,j)
-    dfx    = fxi - fxyz_ptmass(1,j)
-    dfy    = fyi - fxyz_ptmass(2,j)
-    dfz    = fzi - fxyz_ptmass(3,j)
+    dfx    = fxi - fsink_old(1,j)
+    dfy    = fyi - fsink_old(2,j)
+    dfz    = fzi - fsink_old(3,j)
     pmassj = xyzmh_ptmass(4,j)
     hsoft  = xyzmh_ptmass(ihsoft,j)
     if (hsoft > 0.0) hsoft = max(hsoft,hi)
@@ -544,7 +584,7 @@ subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
        ! first grad term of sink from gas
        g21 = pmassi*fsoft*ddr
 
-       call kernel_gradsoftening(q2i,qi,gsoft)
+       call kernel_grad_soft(q2i,qi,gsoft)
 
        dr3  = ddr*ddr*ddr
 
@@ -602,11 +642,12 @@ end subroutine get_gradf_sink_gas
 ! get gradient correction of the force for FSI integrator (sink-gas)
 !+
 !----------------------------------------------------------------
-subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
- use kernel,         only:kernel_softening,kernel_gradsoftening,radkern
+subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
+ use kernel,         only:kernel_softening,kernel_grad_soft,radkern
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(inout) :: fxyz_ptmass(4,nptmass)
+ real,              intent(in)    :: fsink_old(4,nptmass)
  real,              intent(in)    :: dt
  integer, optional, intent(in)    :: group_info(:,:)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,gxi,gyi,gzi
@@ -627,7 +668,7 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
  !--compute N^2 gradf on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,group_info) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info) &
  !$omp shared(h_soft_sinksink,hsoft21,dt) &
  !$omp private(i,xi,yi,zi,pmassi,pmassj) &
  !$omp private(dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,ddr,dr3,g1,g2) &
@@ -646,9 +687,9 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
     zi     = xyzmh_ptmass(3,i)
     pmassi = xyzmh_ptmass(4,i)
     if (pmassi < 0.) cycle
-    fxi    = fxyz_ptmass(1,i)
-    fyi    = fxyz_ptmass(2,i)
-    fzi    = fxyz_ptmass(3,i)
+    fxi    = fsink_old(1,i)
+    fyi    = fsink_old(2,i)
+    fzi    = fsink_old(3,i)
     gxi = 0.
     gyi = 0.
     gzi = 0.
@@ -663,14 +704,14 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
        dx     = xi - xyzmh_ptmass(1,j)
        dy     = yi - xyzmh_ptmass(2,j)
        dz     = zi - xyzmh_ptmass(3,j)
-       dfx    = fxi - fxyz_ptmass(1,j)
-       dfy    = fyi - fxyz_ptmass(2,j)
-       dfz    = fzi - fxyz_ptmass(3,j)
+       dfx    = fxi - fsink_old(1,j)
+       dfy    = fyi - fsink_old(2,j)
+       dfz    = fzi - fsink_old(3,j)
        pmassj = xyzmh_ptmass(4,j)
        if (pmassj < 0.) cycle
 
        rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
-       drdotdf = dx*dfx + dy*dfy + dz*dfz +epsilon(drdotdf)
+       drdotdf = dx*dfx + dy*dfy + dz*dfz
        ddr  = 1./sqrt(rr2)
 
        gpref = pmassj*((dt**2)/24.)
@@ -688,7 +729,7 @@ subroutine get_gradf_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,dt,group_info)
           ! gradf part 1 of sink1 from sink2
           g1    = fsoft*hsoft21*ddr
 
-          call kernel_gradsoftening(q2i,qi,gsoft)
+          call kernel_grad_soft(q2i,qi,gsoft)
 
           dr3   = ddr*ddr*ddr
 
@@ -2093,6 +2134,7 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
 
 end subroutine write_options_ptmass
 
@@ -2167,6 +2209,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
+ case('use_fourthorder')
+    read(valstring,*,iostat=ierr) use_fourthorder
  case default
     imatch = .false.
  end select

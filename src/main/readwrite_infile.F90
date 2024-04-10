@@ -16,6 +16,8 @@ module readwrite_infile
 ! :Runtime parameters:
 !   - C_cour             : *Courant number*
 !   - C_force            : *dt_force number*
+!   - X                  : *hydrogen mass fraction for MESA opacity table*
+!   - Z                  : *metallicity for MESA opacity table*
 !   - alpha              : *shock viscosity parameter*
 !   - alphaB             : *shock resistivity parameter*
 !   - alphamax           : *MAXIMUM shock viscosity parameter*
@@ -66,9 +68,9 @@ module readwrite_infile
 !
 ! :Dependencies: boundary_dyn, cooling, damping, dim, dust, dust_formation,
 !   eos, externalforces, forcing, gravwaveutils, growth, infile_utils,
-!   inject, io, linklist, metric, nicil_sup, options, part, ptmass,
-!   ptmass_radiation, radiation_implicit, radiation_utils, timestep,
-!   viscosity
+!   inject, io, linklist, metric, nicil_sup, options, part, porosity,
+!   ptmass, ptmass_radiation, radiation_implicit, radiation_utils,
+!   timestep, viscosity
 !
  use timestep,  only:dtmax_dratio,dtmax_max,dtmax_min
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
@@ -105,13 +107,14 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use linklist,        only:write_inopts_link
  use dust,            only:write_options_dust
  use growth,          only:write_options_growth
+ use porosity,        only:write_options_porosity
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject
 #endif
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
- use eos,             only:write_options_eos,ieos
+ use eos,             only:write_options_eos,ieos,X_in,Z_in
  use ptmass,          only:write_options_ptmass
  use ptmass_radiation,only:write_options_ptmass_radiation
  use cooling,         only:write_options_cooling
@@ -260,7 +263,10 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #endif
 
  if (use_dust) call write_options_dust(iwritein)
- if (use_dustgrowth) call write_options_growth(iwritein)
+ if (use_dustgrowth) then
+    call write_options_growth(iwritein)
+    call write_options_porosity(iwritein)
+ endif
 
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
@@ -283,7 +289,12 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(exchange_radiation_energy,'gas-rad_exchange','exchange energy between gas and radiation',iwritein)
     call write_inopt(limit_radiation_flux,'flux_limiter','limit radiation flux',iwritein)
     call write_inopt(iopacity_type,'iopacity_type','opacity method (0=inf,1=mesa,2=constant,-1=preserve)',iwritein)
-    if (iopacity_type == 2) call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
+    if (iopacity_type == 1) then
+       call write_inopt(X_in,'X','hydrogen mass fraction for MESA opacity table',iwritein)
+       call write_inopt(Z_in,'Z','metallicity for MESA opacity table',iwritein)
+    elseif (iopacity_type == 2) then
+       call write_inopt(kappa_cgs,'kappa_cgs','constant opacity value in cm2/g',iwritein)
+    endif
     if (implicit_radiation) then
        call write_inopt(tol_rad,'tol_rad','tolerance on backwards Euler implicit solve of dxi/dt',iwritein)
        call write_inopt(itsmax_rad,'itsmax_rad','max number of iterations allowed in implicit solver',iwritein)
@@ -318,6 +329,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use linklist,        only:read_inopts_link
  use dust,            only:read_options_dust
  use growth,          only:read_options_growth
+ use options,         only:use_porosity
+ use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
@@ -344,7 +357,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  integer :: ierr,ireaderr,line,idot,ngot,nlinesread
  real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
- logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth
+ logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
  integer, parameter :: nrequired = 1
@@ -361,6 +374,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallturb     = .true.
  igotalldust     = .true.
  igotallgrowth   = .true.
+ igotallporosity = .true.
  igotalllink     = .true.
  igotallextern   = .true.
  igotallinject   = .true.
@@ -535,6 +549,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        !--Extract if one-fluid dust is used from the fileid
        if (.not.imatch .and. use_dust) call read_options_dust(name,valstring,imatch,igotalldust,ierr)
        if (.not.imatch .and. use_dustgrowth) call read_options_growth(name,valstring,imatch,igotallgrowth,ierr)
+       if (.not.imatch .and. use_porosity) call read_options_porosity(name,valstring,imatch,igotallporosity,ierr)
        if (.not.imatch .and. gr) call read_options_metric(name,valstring,imatch,igotallgr,ierr)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
@@ -570,7 +585,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallgrowth  .and. igotalldamping .and. igotallprad &
+                    .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
                     .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
@@ -590,6 +605,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotalldust) write(*,*) 'missing dust options'
           if (.not.igotallgr) write(*,*) 'missing metric parameters (eg, spin, mass)'
           if (.not.igotallgrowth) write(*,*) 'missing growth options'
+          if (.not.igotallporosity) write(*,*) 'missing porosity options'
+
           if (.not.igotallextern) then
              if (gr) then
                 write(*,*) 'missing GR quantities (eg: accretion radius)'

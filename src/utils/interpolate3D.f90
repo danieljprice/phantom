@@ -17,7 +17,7 @@ module interpolations3D
 ! :Dependencies: einsteintk_utils, kernel
 !
  use einsteintk_utils,  only:exact_rendering
- use kernel,       only:radkern2,radkern,cnormk,wkern
+ use kernel,            only:radkern2,radkern,cnormk,wkern
  implicit none
  integer, parameter :: doub_prec = kind(0.d0)
  real :: cnormk3D = cnormk
@@ -990,12 +990,12 @@ pure elemental real function soft_func(x,eps) result(f)
 
 end function soft_func
 
- !--------------------------------------------------------------------------
- !
- !  utility to wrap pixel index around periodic domain
- !  indices that roll beyond the last position are re-introduced at the first
- !
- !--------------------------------------------------------------------------
+!--------------------------------------------------------------------------
+!
+!  utility to wrap pixel index around periodic domain
+!  indices that roll beyond the last position are re-introduced at the first
+!
+!--------------------------------------------------------------------------
 pure integer function iroll(i,n)
  integer, intent(in) :: i,n
 
@@ -1008,5 +1008,5 @@ pure integer function iroll(i,n)
  endif
 
 end function iroll
-end module interpolations3D
 
+end module interpolations3D

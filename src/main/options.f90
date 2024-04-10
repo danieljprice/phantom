@@ -45,7 +45,7 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_dustfrac, use_hybrid
+ logical, public :: use_dustfrac, use_hybrid, use_porosity
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
@@ -57,11 +57,6 @@ module options
  ! radiation
  logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
  logical, public :: implicit_radiation_store_drad
-
-! Regularisation method and/or higher order integrator
- logical, public :: use_fourthorder
- logical, public :: use_regnbody
-
 
  public :: set_default_options
  public :: ieos,idamp
@@ -175,9 +170,12 @@ subroutine set_default_options
  ! variable composition
  use_var_comp = .false.
 
+ <<<<<<< HEAD
  use_fourthorder = .false.
  use_regnbody = .false.
 
+ =======
+ >>>>>>> 4thorder_scheme
 end subroutine set_default_options
 
 end module options
