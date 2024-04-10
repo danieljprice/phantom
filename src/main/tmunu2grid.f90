@@ -232,8 +232,8 @@ subroutine check_conserved_dens(rhostargrid,cfac)
  use part, only:npart,massoftype,igas
  use einsteintk_utils, only: dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
- real, intent(in) :: rhostargrid(:,:,:)
- real(kind=16), intent(out) :: cfac
+ real, intent(in)  :: rhostargrid(:,:,:)
+ real, intent(out) :: cfac
  real :: totalmassgrid,totalmasspart
  integer :: i,j,k,ilower,iupper,jlower,jupper,klower,kupper
 
@@ -266,8 +266,8 @@ subroutine check_conserved_p(pgrid,cfac)
  use part, only:npart,massoftype,igas
  use einsteintk_utils, only: dxgrid, gridorigin
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
- real, intent(in) :: pgrid(:,:,:)
- real(kind=16), intent(out) :: cfac
+ real, intent(in)  :: pgrid(:,:,:)
+ real, intent(out) :: cfac
  real :: totalmomentumgrid,totalmomentumpart
  integer :: i,j,k,ilower,iupper,jlower,jupper,klower,kupper
 
