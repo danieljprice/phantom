@@ -5,18 +5,20 @@ module sdar_group
 !
 ! :References: Makino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Daniel Price
+! :Owner: Yann BERNARD
 !
  use utils_sdar
  implicit none
  public :: group_identify
  public :: evolve_groups
  ! parameters for group identification
- real, public :: r_neigh  = 0.0
- real, public :: t_crit   = 0.0
- real, public :: C_bin    = 0.0
- real, public :: r_search = 0.0
  real, parameter :: eta_pert = 0.02
+ real, parameter :: time_error = 1e-10
+ real, parameter :: max_step = 100000
+ real, parameter, public :: r_neigh  = 0.001
+ real,            public :: t_crit   = 0.0
+ real,            public :: C_bin    = 0.02
+ real,            public :: r_search = 100.*r_neigh
  private
 contains
 
@@ -27,12 +29,12 @@ contains
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
  real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(in)            :: group_info(:,:)
+ integer, intent(inout)         :: group_info(:,:)
  integer(kind=1), intent(inout) :: nmatrix(:,:)
  integer, intent(inout)         :: n_group,n_ingroup,n_sing
  integer, intent(in)            :: nptmass
 
- ngroup = 0
+ n_group = 0
  n_ingroup = 0
  n_sing = 0
  call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
@@ -54,10 +56,10 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  do i=1,nptmass
     if(.not.visited(i)) then
        n_ingroup = n_ingroup + 1
-       call dfs(i,i,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+       call dfs(i,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
        if (ncg>1)then
-          ngroup = ngroup + 1
-          group_info(igcum,ngroup+1) = ncg + group_info(igcum,ngroup)
+          n_group = n_group + 1
+          group_info(igcum,n_group+1) = ncg + group_info(igcum,n_group)
        else
           n_ingroup = n_ingroup - 1
           group_info(igarg,nptmass-n_sing) = i
@@ -67,18 +69,19 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  enddo
 end subroutine form_group
 
-subroutine dfs(inode,iroot,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
+subroutine dfs(iroot,visited,stack,group_info,nmatrix,nptmass,n_ingroup,ncg)
  use part, only : igarg
- integer, intent(in)  :: inode,nptmass,iroot
+ integer, intent(in)  :: nptmass,iroot
  integer, intent(out) :: ncg
  integer(kind=1), intent(in) :: nmatrix(:,:)
  integer, intent(inout) :: group_info(:,:)
  integer, intent(inout) :: n_ingroup
  integer, intent(out) :: stack(:)
  logical, intent(inout) :: visited(:)
- integer :: j,stack_top
+ integer :: j,stack_top,inode
 
  ncg = 1
+ inode = iroot
  group_info(igarg,n_ingroup) = inode
  stack_top = stack_top + 1
  stack(stack_top) = inode
@@ -114,11 +117,12 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
 !
 
  !$omp parallel do default(none) &
- !$omp shared(nptmass,r_neigh,C_bin,t_crit,nmatrix) &
+ !$omp shared(nptmass,C_bin,t_crit,nmatrix) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
  !$omp private(dx,dy,dz,r,r2) &
  !$omp private(dvx,dvy,dvz,v2) &
- !$omp private(mu,aij,eij,B,r_peri)
+ !$omp private(mu,aij,eij,B,rperi)
  do i=1,nptmass
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
@@ -171,7 +175,7 @@ end subroutine matrix_construction
 !---------------------------------------------
 
 subroutine evolve_groups(n_group,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- use part, only: igid,igarg,igsize,igcum
+ use part, only: igarg,igcum
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(inout) :: n_group
@@ -179,14 +183,15 @@ subroutine evolve_groups(n_group,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_
  integer :: i,start_id,end_id,gsize
  !$omp parallel do default(none)&
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
- !$omp shared(tnext)&
- !$omp private(i,start_id,end_id,gsize)&
+ !$omp shared(tnext,group_info,gtgrad)&
+ !$omp private(i,start_id,end_id,gsize)
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
     gsize    = end_id - start_id
     call integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  enddo
+ !$omp end parallel do
 
 
 end subroutine evolve_groups
@@ -196,11 +201,13 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
                         fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in) :: start_id,end_id,gsize
  real,    intent(in) :: tnext
+ real,   allocatable :: bdata(:)
  real    :: ds(2)
- real    :: timetable(ck_size)
+ real    :: time_table(ck_size)
  integer :: switch
  integer :: step_count_int,step_count_tsyn,n_step_end
  real    :: dt,ds_init,dt_end,step_modif,t_old,W_old
+ real    :: W,tcoord
  logical :: t_end_flag,backup_flag,ismultiple
  integer :: i
 
@@ -209,7 +216,9 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
 
  ismultiple = gsize > 2
 
- call initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,om,s_id,e_id,ismultiple,ds_init)
+ call initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,W,start_id,end_id,ismultiple,ds_init)
+
+ allocate(bdata(gsize*9))
 
  step_count_int  = 0
  step_count_tsyn = 0
@@ -222,23 +231,20 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
  do while (.true.)
 
     if (backup_flag) then
-       call backup_data(gsize,xyzmh_ptmass,vxyz_ptmass,bdata)
+       call backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,bdata)
     else
-       call restore_state(gsize,xyzmh_ptmass,vxyz_ptmass,tcoord,t_old,W,W_old,bdata)
+       call restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,tcoord,t_old,W,W_old,bdata)
     endif
     t_old = tcoord
     W_old = W
     if (gsize>1) then
        do i=1,ck_size
-          call drift_TTL (gsize,xyzmh_ptmass,vxyz_ptmass,ds(switch)*ck(i), &
-                          tcoord,W,start_id,end_id)
+          call drift_TTL (tcoord,W,ds(switch)*ck(i),xyzmh_ptmass,vxyz_ptmass,start_id,end_id)
           time_table(i) = tcoord
-          call kick_TTL  (gsize,xyzmh_ptmass,vxyz_ptmass,fxyz,gtgrad, &
-                          ds(switch)*dk(i),W,om,start_id,end_id)
+          call kick_TTL  (ds(switch)*dk(i),W,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,start_id,end_id)
        enddo
     else
-       call oneStep_bin(gsize,xyzmh_ptmass,vxyz_ptmass,fxyz,gtgrad, &
-                        ds(switch),tcoord,W,om,time_table,start_id,end_id)
+       call oneStep_bin(tcoord,W,ds(switch),xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,start_id,end_id)
     endif
     dt = tcoord - t_old
 
@@ -295,6 +301,8 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
     endif
  enddo
 
+ deallocate(bdata)
+
 end subroutine integrate_to_time
 
 
@@ -320,7 +328,7 @@ subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
  real,    intent(in)    :: tnext
  integer, intent(in)    :: switch
  integer :: i,k
- real :: tp,dtk,dstmp
+ real :: tp,dtc,dstmp
  do i=1,ck_size
     k = cck_sorted_id(i)
     if(tnext<time_table(k)) exit
@@ -332,47 +340,60 @@ subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
 
  else
     tp  = time_table(cck_sorted_id(i-1))
-    dtk = time_table(k)-tp
+    dtc = time_table(k)-tp
     dstmp = ds(switch)
     ds(switch) = ds(switch)*cck_sorted(i-1)
-    ds(3-switch) = dstmp*(cck_sorted(i)-cck_sorted(i-1))*min(1.0,(tnext-tp+time_error)/dtk)
+    ds(3-switch) = dstmp*(cck_sorted(i)-cck_sorted(i-1))*min(1.0,(tnext-tp+time_error)/dtc)
  endif
 
 end subroutine new_ds_sync_sup
 
 
 
-
-subroutine backup_data(gsize,xyzmh_ptmass,vxyz_ptmass,bdata)
- real, intent(in) ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,bdata)
+ real, intent(in) ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real, intent(out)::bdata(:)
- integer,intent(in) :: gsize
+ integer,intent(in) :: start_id,end_id
  integer :: i,j
- do i=1,gsize
-    do j=1,ndim
-       bdata(j,i) = xyzmh_ptmass(j,i)
-       bdata(j+ndim,i) =,vxyz_ptmass(j,i)
-    enddo
+ j=0
+ do i=start_id,end_id
+    bdata(j*9+1) = xyzmh_ptmass(1,i)
+    bdata(j*9+2) = xyzmh_ptmass(2,i)
+    bdata(j*9+3) = xyzmh_ptmass(3,i)
+    bdata(j*9+4) = vxyz_ptmass(1,i)
+    bdata(j*9+5) = vxyz_ptmass(2,i)
+    bdata(j*9+6) = vxyz_ptmass(3,i)
+    bdata(j*9+7) = fxyz_ptmass(1,i)
+    bdata(j*9+8) = fxyz_ptmass(2,i)
+    bdata(j*9+9) = fxyz_ptmass(3,i)
+    j = j + 1
  enddo
 
 end subroutine backup_data
 
 
-subroutine restore_state(gsize,xyzmh_ptmass,vxyz_ptmass,tcoord,t_old,W,W_old,bdata)
- real, intent(inout) ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real, intent(out) :: tcoord,W
- real, intent(in)  :: t_old,W_old
- real, intent(in)::bdata
- integer, intent(in) :: gsize
+subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,tcoord,t_old,W,W_old,bdata)
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real, intent(out)   :: tcoord,W
+ real, intent(in)    :: t_old,W_old
+ real, intent(in)    :: bdata(:)
+ integer, intent(in) :: start_id,end_id
  integer :: i,j
- do i=1,gsize
-    do j=1,ndim
-       xyzmh_ptmass(j,i) = bdata(j,i)
-       vxyz_ptmass(j,i) = bdata(j+ndim,i)
-    enddo
-    tcoord   = t_old
-    W = W_old
+ j = 0
+ do i=start_id,end_id
+    xyzmh_ptmass(1,i) = bdata(j*9+1)
+    xyzmh_ptmass(2,i) = bdata(j*9+2)
+    xyzmh_ptmass(3,i) = bdata(j*9+3)
+    vxyz_ptmass(1,i)  = bdata(j*9+4)
+    vxyz_ptmass(2,i)  = bdata(j*9+5)
+    vxyz_ptmass(3,i)  = bdata(j*9+6)
+    fxyz_ptmass(1,i)  = bdata(j*9+7)
+    fxyz_ptmass(2,i)  = bdata(j*9+8)
+    fxyz_ptmass(3,i)  = bdata(j*9+9)
+    j = j + 1
  enddo
+ tcoord   = t_old
+ W = W_old
 
 end subroutine restore_state
 
@@ -382,7 +403,7 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,s_id,e_id)
  real, intent(inout) :: tcoord
  real, intent(in)    :: h,W
  integer,intent(in)  :: s_id,e_id
-
+ integer :: i
  real :: dtd
 
  dtd = h/W
@@ -402,10 +423,10 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,s_id,e_id)
  real, intent(in)    :: h
  real, intent(inout) :: W
  integer,intent(in)  :: s_id,e_id
- real :: om,dw,dt
+ real :: om,dw,dtk
  integer :: i
 
- call get_force_TTL(xyzmh_ptmass,om,fxyz_ptmass,gtgrad,s_id,e_id)
+ call get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
 
 
  dtk = h/om
@@ -433,59 +454,60 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,s_id,e_id)
 
 end subroutine kick_TTL
 
-subroutine oneStep_bin(gsize,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,ds,tcoord,W,om,time_table,s_id,e_id)
- use force, only:get_force_TTL
+subroutine oneStep_bin(tcoord,W,ds,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,s_id,e_id)
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:),time_table(:)
  real, intent(in)    :: ds
- real, intent(inout) :: tcoord,W,om
- integer, intent(in) :: s_id,e_id,gsize
+ real, intent(inout) :: tcoord,W
+ integer, intent(in) :: s_id,e_id
  integer :: i
- real :: dtd,dtk,dvel1(3),dvel2(3),dw
+ real :: dtd,dtk,dvel1(3),dvel2(3),dw,om
 
- dtd = ds*ck(i)/W
- tcoord = tcoord + dtd
- time_table(i) = tcoord
+ do i = 1,ck_size
+    dtd = ds*ck(i)/W
+    tcoord = tcoord + dtd
+    time_table(i) = tcoord
 
- xyzmh_ptmass(1,s_id) = xyzmh_ptmass(1,s_id) + dtd*vxyz_ptmass(1,s_id)
- xyzmh_ptmass(2,s_id) = xyzmh_ptmass(2,s_id) + dtd*vxyz_ptmass(2,s_id)
- xyzmh_ptmass(3,s_id) = xyzmh_ptmass(3,s_id) + dtd*vxyz_ptmass(3,s_id)
- xyzmh_ptmass(1,e_id) = xyzmh_ptmass(1,e_id) + dtd*vxyz_ptmass(1,e_id)
- xyzmh_ptmass(2,e_id) = xyzmh_ptmass(2,e_id) + dtd*vxyz_ptmass(2,e_id)
- xyzmh_ptmass(3,e_id) = xyzmh_ptmass(3,e_id) + dtd*vxyz_ptmass(3,e_id)
+    xyzmh_ptmass(1,s_id) = xyzmh_ptmass(1,s_id) + dtd*vxyz_ptmass(1,s_id)
+    xyzmh_ptmass(2,s_id) = xyzmh_ptmass(2,s_id) + dtd*vxyz_ptmass(2,s_id)
+    xyzmh_ptmass(3,s_id) = xyzmh_ptmass(3,s_id) + dtd*vxyz_ptmass(3,s_id)
+    xyzmh_ptmass(1,e_id) = xyzmh_ptmass(1,e_id) + dtd*vxyz_ptmass(1,e_id)
+    xyzmh_ptmass(2,e_id) = xyzmh_ptmass(2,e_id) + dtd*vxyz_ptmass(2,e_id)
+    xyzmh_ptmass(3,e_id) = xyzmh_ptmass(3,e_id) + dtd*vxyz_ptmass(3,e_id)
 
- call get_force_TTL(fxyz_ptmass,om,gtgrad,xyzmh_ptmass,start_id,end_id)
+    call get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
 
- dtk = ds*dk(i)/om
+    dtk = ds*dk(i)/om
 
- dvel1(1) = 0.5*dtk*fxyz_ptmass(1,s_id)
- dvel1(2) = 0.5*dtk*fxyz_ptmass(2,s_id)
- dvel1(3) = 0.5*dtk*fxyz_ptmass(3,s_id)
- dvel2(1) = 0.5*dtk*fxyz_ptmass(1,e_id)
- dvel2(2) = 0.5*dtk*fxyz_ptmass(2,e_id)
- dvel2(3) = 0.5*dtk*fxyz_ptmass(3,e_id)
+    dvel1(1) = 0.5*dtk*fxyz_ptmass(1,s_id)
+    dvel1(2) = 0.5*dtk*fxyz_ptmass(2,s_id)
+    dvel1(3) = 0.5*dtk*fxyz_ptmass(3,s_id)
+    dvel2(1) = 0.5*dtk*fxyz_ptmass(1,e_id)
+    dvel2(2) = 0.5*dtk*fxyz_ptmass(2,e_id)
+    dvel2(3) = 0.5*dtk*fxyz_ptmass(3,e_id)
 
- vxyz_ptmass(1,s_id) = vxyz_ptmass(1,s_id) + dvel1(1)
- vxyz_ptmass(2,s_id) = vxyz_ptmass(2,s_id) + dvel1(2)
- vxyz_ptmass(3,s_id) = vxyz_ptmass(3,s_id) + dvel1(3)
- vxyz_ptmass(1,e_id) = vxyz_ptmass(1,e_id) + dvel2(1)
- vxyz_ptmass(2,e_id) = vxyz_ptmass(2,e_id) + dvel2(2)
- vxyz_ptmass(3,e_id) = vxyz_ptmass(3,e_id) + dvel2(3)
+    vxyz_ptmass(1,s_id) = vxyz_ptmass(1,s_id) + dvel1(1)
+    vxyz_ptmass(2,s_id) = vxyz_ptmass(2,s_id) + dvel1(2)
+    vxyz_ptmass(3,s_id) = vxyz_ptmass(3,s_id) + dvel1(3)
+    vxyz_ptmass(1,e_id) = vxyz_ptmass(1,e_id) + dvel2(1)
+    vxyz_ptmass(2,e_id) = vxyz_ptmass(2,e_id) + dvel2(2)
+    vxyz_ptmass(3,e_id) = vxyz_ptmass(3,e_id) + dvel2(3)
 
- dw = gtgrad(1,s_id)*vxyz_ptmass(1,s_id)+&
+    dw = gtgrad(1,s_id)*vxyz_ptmass(1,s_id)+&
          gtgrad(2,s_id)*vxyz_ptmass(2,s_id)+&
          gtgrad(3,s_id)*vxyz_ptmass(3,s_id)+&
          gtgrad(1,e_id)*vxyz_ptmass(1,e_id)+&
          gtgrad(2,e_id)*vxyz_ptmass(2,e_id)+&
          gtgrad(3,e_id)*vxyz_ptmass(3,e_id)
 
- W = W + dw*dtk
+    W = W + dw*dtk
 
- vxyz_ptmass(1,s_id) = vxyz_ptmass(1,s_id) + dvel1(1)
- vxyz_ptmass(2,s_id) = vxyz_ptmass(2,s_id) + dvel1(2)
- vxyz_ptmass(3,s_id) = vxyz_ptmass(3,s_id) + dvel1(3)
- vxyz_ptmass(1,e_id) = vxyz_ptmass(1,e_id) + dvel2(1)
- vxyz_ptmass(2,e_id) = vxyz_ptmass(2,e_id) + dvel2(2)
- vxyz_ptmass(3,e_id) = vxyz_ptmass(3,e_id) + dvel2(3)
+    vxyz_ptmass(1,s_id) = vxyz_ptmass(1,s_id) + dvel1(1)
+    vxyz_ptmass(2,s_id) = vxyz_ptmass(2,s_id) + dvel1(2)
+    vxyz_ptmass(3,s_id) = vxyz_ptmass(3,s_id) + dvel1(3)
+    vxyz_ptmass(1,e_id) = vxyz_ptmass(1,e_id) + dvel2(1)
+    vxyz_ptmass(2,e_id) = vxyz_ptmass(2,e_id) + dvel2(2)
+    vxyz_ptmass(3,e_id) = vxyz_ptmass(3,e_id) + dvel2(3)
+ enddo
 
 
 end subroutine oneStep_bin
@@ -496,7 +518,7 @@ subroutine get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
  real, intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
  real, intent(out)   :: om
  integer, intent(in) :: s_id,e_id
- real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2
+ real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,r
  real    :: gravf,gtki
  integer :: i,j
  om = 0.
@@ -531,7 +553,7 @@ subroutine get_force_TTL(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,s_id,e_id)
        gtgrad(2,i) = gtgrad(2,i) + dy*gravf*mi
        gtgrad(3,i) = gtgrad(3,i) + dz*gravf*mi
     enddo
-    om = om + gtki*m(i)
+    om = om + gtki*mi
  enddo
 
  om = om*0.5
@@ -540,13 +562,13 @@ end subroutine get_force_TTL
 
 subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,om,s_id,e_id,ismultiple,ds_init)
  use utils_kepler, only :extract_a_dot,extract_a,Espec
- real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass
+ real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(inout) :: fxyz_ptmass(:,:)
  real, intent(out)   :: om,ds_init
  logical, intent(in) :: ismultiple
  integer, intent(in) :: s_id,e_id
- real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2
- real    :: vxi,vyi,vzi,dvx,dvy,dvz,v,rdotv,axi,ayi,azi,gravfi
+ real    :: mi,mj,mu,xi,yi,zi,dx,dy,dz,r,r2
+ real    :: vxi,vyi,vzi,v2,vi,dvx,dvy,dvz,v,rdotv,axi,ayi,azi,acc,gravfi
  real    :: gravf,gtki
  real    :: Edot,E,semi,semidot
  integer :: i,j
@@ -602,7 +624,7 @@ subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,om,s_id,e_id,ismulti
     acc = sqrt(axi**2 + ayi**2 + azi**2)
     if (ismultiple) then
        vi = sqrt(vxi**2 + vyi**2 + vzi**2)
-       Edot = Edot + mi*(vi*a - gravfi)
+       Edot = Edot + mi*(vi*acc - gravfi)
        E = E + 0.5*mi*vi**2 - om
     else
        mu = mi*mj

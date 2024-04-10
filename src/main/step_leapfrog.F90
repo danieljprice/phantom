@@ -105,7 +105,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fsink_old,ibin_wake
- use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info
+ use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
@@ -256,7 +256,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        elseif(use_regnbody) then
           call step_extern_subsys(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
                                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass, &
-                                  fsink_old,gtgrad,group_info,n_group,n_ingroup,n_sing)
+                                  fsink_old,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
        else
           call step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)

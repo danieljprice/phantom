@@ -345,7 +345,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old) &
- !$omp private(i,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(start_id,end_id) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
@@ -355,8 +356,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
     if (present(group_info)) then
-       start_id = group_info(igcum) + 1
-       end_id   = group_info(igcum)
+       start_id = group_info(igcum,k) + 1
+       end_id   = group_info(igcum,k)
        i = group_info(igarg,k)
     else
        i = k
@@ -644,7 +645,8 @@ end subroutine get_gradf_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
- use kernel,         only:kernel_softening,kernel_grad_soft,radkern
+ use kernel, only:kernel_softening,kernel_grad_soft,radkern
+ use part,   only:igarg,igcum
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(inout) :: fxyz_ptmass(4,nptmass)
@@ -671,14 +673,15 @@ subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,gro
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info) &
  !$omp shared(h_soft_sinksink,hsoft21,dt) &
- !$omp private(i,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(start_id,end_id) &
  !$omp private(dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,ddr,dr3,g1,g2) &
  !$omp private(fxi,fyi,fzi,gxi,gyi,gzi,gpref) &
  !$omp private(q2i,qi,psoft,fsoft,gsoft)
  do k=1,nptmass
     if (present(group_info)) then
-       start_id = group_info(igcum) + 1
-       end_id   = group_info(igcum)
+       start_id = group_info(igcum,k) + 1
+       end_id   = group_info(igcum,k)
        i = group_info(igarg,k)
     else
        i = k

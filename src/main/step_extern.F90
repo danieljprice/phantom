@@ -514,20 +514,20 @@ end subroutine step_extern_FSI
  !+
  !----------------------------------------------------------------
 subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                              dsdt_ptmass,gtgrad,group_info,n_group,n_ingroup,n_sing)
+                              dsdt_ptmass,fsink_old,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
  use part,           only: isdead_or_accreted,igas,massoftype
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use sdar_group,     only:group_identify,evolve_groups
- real,    intent(in)    :: dtsph,time
- integer, intent(in)    :: npart,nptmass
- real,    intent(inout) :: dtextforce
- real,    intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:),gtgrad(:,:)
- integer, intent(inout) :: group_info(:,:)
- integer, intent(inout) :: n_ingroup,n_group,n_sing
- real,parameter    :: dk(3) = (/1./6.,2./3.,1./6./)
- real,parameter    :: ck(2) = (/0.5,0.5/)
+ real,            intent(in)    :: dtsph,time
+ integer,         intent(in)    :: npart,nptmass
+ real,            intent(inout) :: dtextforce
+ real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass)
+ real,            intent(inout) :: fsink_old(4,nptmass),dsdt_ptmass(3,nptmass),gtgrad(3,nptmass)
+ integer,         intent(inout) :: group_info(2,nptmass)
+ integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
+ integer,         intent(inout) :: n_ingroup,n_group,n_sing
  real    :: dt,t_end_step,dtextforce_min
  real    :: pmassi,timei
  logical :: done,last_step
@@ -567,7 +567,8 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
     call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
                       xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info) ! Direct calculation of the force and force gradient
-    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,group_info)
+    fsink_old = fxyz_ptmass
+    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
     call kick_4th (dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call drift_4th(ck(2),dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup)
@@ -646,6 +647,7 @@ subroutine drift_4th(ck,dt,npart,nptmass,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsd
     if(id==master) then
        !$omp parallel do default(none) &
        !$omp shared(nptmass,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,ckdt) &
+       !$omp shared(n_ingroup,group_info) &
        !$omp private(i,k)
        do k=istart_ptmass,nptmass
           if (present(n_ingroup)) then
@@ -733,14 +735,16 @@ end subroutine kick_4th
  !+
  !----------------------------------------------------------------
 
-subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
- use options,        only:iexternalforce,use_regnbody
+subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext,xyzmh_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
+ use options,        only:iexternalforce
  use dim,            only:maxptmass
  use io,             only:iverbose,master,id,iprint,warning,fatal
  use part,           only:epot_sinksink,fxyz_ptmass_sinksink,dsdt_ptmass_sinksink
  use ptmass,         only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks
  use timestep,       only:bignumber,C_force
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
+ use ptmass,         only:use_regnbody
  integer,           intent(in)    :: nptmass,npart,nsubsteps
  real,              intent(inout) :: xyzh(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
@@ -763,11 +767,11 @@ subroutine get_force_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fe
     if (id==master) then
        if (use_regnbody) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                                  dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+                                  dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info)
+                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
           endif
        else
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&

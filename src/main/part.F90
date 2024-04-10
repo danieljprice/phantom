@@ -296,7 +296,7 @@ module part
  integer, parameter :: igarg  = 1 ! idx of the particle member of a group
  integer, parameter :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
  ! needed for group identification and sorting
- integer  :: ngroup = 0
+ integer  :: n_group = 0
  integer  :: n_ingroup = 0
  integer  :: n_sing = 0
  ! Gradient of the time transformation function

@@ -170,12 +170,6 @@ subroutine set_default_options
  ! variable composition
  use_var_comp = .false.
 
- <<<<<<< HEAD
- use_fourthorder = .false.
- use_regnbody = .false.
-
- =======
- >>>>>>> 4thorder_scheme
 end subroutine set_default_options
 
 end module options
