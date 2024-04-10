@@ -206,7 +206,7 @@ module part
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  real, allocatable :: xyzmh_ptmass(:,:)
  real, allocatable :: vxyz_ptmass(:,:)
- real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
+ real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
  real, allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
@@ -431,6 +431,7 @@ subroutine allocate_part
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+ call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -517,6 +518,7 @@ subroutine deallocate_part
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
+ if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)

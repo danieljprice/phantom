@@ -104,7 +104,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,ibin_wake
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fsink_old,ibin_wake
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
  use boundary_dyn,   only:dynamic_bdy,update_xyzminmax
@@ -250,7 +250,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        if (use_fourthorder) then
           call step_extern_FSI(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
-                              xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+                              xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fsink_old,dsdt_ptmass)
        else
           call step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
                           nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
