@@ -122,29 +122,6 @@ subroutine et2phantom(rho,nx,ny,nz)
  ! send grid limits
 end subroutine et2phantom
 
- ! DONT THINK THIS IS USED ANYWHERE!!!
- ! subroutine step_et2phantom(infile,dt_et)
- !     use einsteintk_utils
- !     use evolve,          only:evol_step
- !     use tmunu2grid
- !     character(len=*),  intent(in) :: infile
- !     real,          intent(inout) :: dt_et
- !     character(len=500) :: logfile,evfile,dumpfile,path
-
-
- !     ! Print the values of logfile, evfile, dumpfile to check they are sensible
- !     !print*, "logfile, evfile, dumpfile: ", logfile, evfile, dumpfile
- !     print*, "stored values of logfile, evfile, dumpfile: ", logfilestor, evfilestor, dumpfilestor
-
- !     ! Interpolation stuff
- !     ! Call et2phantom (construct global grid, metric, metric derivs, determinant)
- !     ! Run phantom for a step
- !     call evol_step(infile,logfilestor,evfilestor,dumpfilestor,dt_et)
- !     ! Interpolation stuff back to et
- !     !call get_tmunugrid_all()
- !     ! call phantom2et (Tmunu_grid)
-
- ! end subroutine step_et2phantom
 
 subroutine phantom2et()
  ! should take in the cctk_array for tmunu??
@@ -208,7 +185,7 @@ subroutine et2phantom_tmunu()
  use linklist,     only:set_linklist
 
  real :: stressmax
- real(kind=16) :: cfac
+ real :: cfac
 
  stressmax = 0.
 
@@ -237,15 +214,13 @@ subroutine et2phantom_tmunu()
  call check_conserved_dens(rhostargrid,cfac)
 
  ! Correct Tmunu
- ! Convert to 8byte real to stop compiler warning
- tmunugrid = real(cfac)*tmunugrid
-
+ tmunugrid = cfac*tmunugrid
 
 end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
- use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,gradh
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,gradh
  use densityforce, only:densityiterate
  use metric_tools, only:init_metric
  use linklist,     only:set_linklist
@@ -253,7 +228,7 @@ subroutine phantom2et_consvar()
  use tmunu2grid, only:check_conserved_dens
 
  real :: stressmax
- real(kind=16) :: cfac
+ real :: cfac
 
  ! Init metric
  call init_metric(npart,xyzh,metrics)
@@ -276,7 +251,6 @@ subroutine phantom2et_consvar()
  ! Interpolate entropy to grid
  call phantom2et_entropy
 
-
  ! Conserved quantity checks + corrections
 
  ! Density check vs particles
@@ -285,12 +259,9 @@ subroutine phantom2et_consvar()
  ! Momentum check vs particles
 
  ! Correct momentum and Density
- ! Conversion of cfac to 8byte real to avoid
- ! compiler warning
- rhostargrid = real(cfac)*rhostargrid
- pxgrid = real(cfac)*pxgrid
- entropygrid = real(cfac)*entropygrid
-
+ rhostargrid = cfac*rhostargrid
+ pxgrid = cfac*pxgrid
+ entropygrid = cfac*entropygrid
 
 end subroutine phantom2et_consvar
 
@@ -348,7 +319,6 @@ subroutine phantom2et_entropy()
  real :: dat(npart)
  integer :: i
 
-
  ! Get new cons density from new particle positions somehow (maybe)?
  ! Set linklist to update the tree for neighbour finding
  ! Calculate the density for the new particle positions
@@ -385,7 +355,6 @@ subroutine phantom2et_momentum()
  real :: dat(3,npart)
  integer :: i
 
-
  ! Pi is directly updated at the end of each MoL add
 
  ! Interpolate from particles to grid
@@ -410,11 +379,7 @@ subroutine phantom2et_momentum()
  ! pz component
  call interpolate_to_grid(pxgrid(3,:,:,:),dat(3,:))
 
-
-
 end subroutine phantom2et_momentum
-
-
 
  ! Subroutine for performing a phantom dump from einstein toolkit
 subroutine et2phantom_dumphydro(time,dt_et,checkpointfile)
@@ -506,7 +471,7 @@ subroutine get_metricderivs_all(dtextforce_min,dt_et)
  dtextforce_min = bignumber
 
  !$omp parallel do default(none) &
- !$omp shared(npart, xyzh,metrics,metricderivs,vxyzu,dens,C_force,fext) &
+ !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,dens,C_force,fext) &
  !$omp firstprivate(pri) &
  !$omp private(i,dtf) &
  !$omp reduction(min:dtextforce_min)
@@ -517,25 +482,18 @@ subroutine get_metricderivs_all(dtextforce_min,dt_et)
     dtextforce_min = min(dtextforce_min,C_force*dtf)
  enddo
  !$omp end parallel do
- ! manually add v contribution from gr
- !    do i=1, npart
- !      !fxyzu(:,i) = fxyzu(:,i) + fext(:,i)
- !      vxyzu(1:3,i) = vxyzu(1:3,i) + fext(:,i)*dt_et
- !    enddo
+
 end subroutine get_metricderivs_all
 
 subroutine get_eos_quantities(densi,en)
  use cons2prim, only:cons2primall
- use part, only:dens,vxyzu,npart,metrics,xyzh,pxyzu,eos_vars
+ use part,      only:dens,vxyzu,npart,metrics,xyzh,pxyzu,eos_vars
  real, intent(out) :: densi,en
 
- !call h2dens(densi,xyzhi,metrici,vi) ! Compute dens from h
- densi = dens(1)                     ! Feed the newly computed dens back out of the routine
- !call cons2primall(npart,xyzh,metrics,vxyzu,dens,pxyzu,.true.)
+ densi = dens(1)  ! Feed the newly computed dens back out of the routine
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
- ! print*,"pxyzu: ",pxyzu(:,1)
- ! print*, "vxyzu: ",vxyzu(:,1)
  en = vxyzu(4,1)
+
 end subroutine get_eos_quantities
 
 
