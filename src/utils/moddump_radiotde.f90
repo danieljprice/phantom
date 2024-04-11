@@ -56,7 +56,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
  use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
-                        delete_particles_outside_sphere,kill_particle,shuffle_part
+                        delete_particles_outside_sphere,kill_particle,shuffle_part, & 
+                        eos_vars,itemp,igamma,igasP
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density,unit_ergg
  use timestep,     only:dtmax,tmax
@@ -72,7 +73,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real,              intent(inout)   :: massoftype(:)
  integer                       :: i,ierr,iunit=12,iprof
  integer                       :: np_sphere,npart_old
- real                          :: totmass,delta,r
+ real                          :: totmass,delta,r,rhofr,presi
  character(len=120)            :: fileset,fileprefix='radio'
  logical                       :: read_temp,setexists
  real, allocatable             :: masstab(:),temp_prof(:)
@@ -89,7 +90,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  !--Set default values
  temperature       = 10.           ! Temperature in Kelvin
- mu                = 2.            ! mean molecular weight
+ mu                = 1.            ! mean molecular weight
  ieos_in           = 2
  ignore_radius     = 1.e14          ! in cm
  use_func          = .true.
@@ -169,6 +170,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
  ieos = ieos_in
  gmw = mu
+ write(*,'(a,1x,i2)') ' Using eos =', ieos
 
  !--Everything to code unit
  ignore_radius = ignore_radius/udist
@@ -230,11 +232,17 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  do i = npart_old+1,npart
     call set_particle_type(i,igas)
     r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    rhofr = rhof(r)
     if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)       
-    vxyzu(4,i) = uerg(rhof(r),temperature)
+    vxyzu(4,i) = uerg(rhofr,temperature,ieos)
     vxyzu(1:3,i) = 0. ! stationary for now
-    pxyzu(4,i) = (kb_on_mh / mu * log(temperature**1.5/(rhof(r)*unit_density))) / kboltz/ unit_ergg
+    pxyzu(4,i) = entropy(rhofr,temperature,ieos)
+    pxyzu(1:3,i) = 0.
+    eos_vars(itemp,i) = temperature
+    presi = pressure(rhofr,temperature,ieos)
+    eos_vars(igamma,i) = 1. + presi/(rhofr*vxyzu(4,i))
  enddo
+ if (ieos == 12) write(*,'(a,1x,f10.4)') ' Mean gamma =', sum(eos_vars(igamma,npart_old+1:npart))/(npart - npart_old)
 
  !--Set timesteps
  tmax = 3.*years/utime
@@ -308,18 +316,59 @@ real function get_temp_r(r,rad_prof,temp_prof)
 
 end function get_temp_r
 
-real function uerg(rho,T)
+real function uerg(rho,T,ieos)
  use physcon, only:kb_on_mh,radconst
  use units,   only:unit_density,unit_ergg
  real, intent(in) :: rho,T
+ integer, intent(in) :: ieos
  real :: ucgs_gas,ucgs_rad,rhocgs
 
  rhocgs = rho*unit_density
  ucgs_gas = 1.5*kb_on_mh*T/mu
- ucgs_rad = 0. !radconst*T**4/rhocgs
+ if (ieos == 12) then
+    ucgs_rad = radconst*T**4/rhocgs
+ else
+    ucgs_rad = 0. !radconst*T**4/rhocgs
+ endif
  uerg = (ucgs_gas+ucgs_rad)/unit_ergg
 
 end function uerg
+
+real function entropy(rho,T,ieos)
+ use physcon, only:kb_on_mh,radconst,kboltz
+ use units,   only:unit_density,unit_ergg
+ real, intent(in) :: rho,T
+ integer, intent(in) :: ieos
+ real :: ent_gas,ent_rad,rhocgs
+
+ rhocgs = rho*unit_density
+ ent_gas = kb_on_mh/mu*log(T**1.5/rhocgs)
+ if (ieos == 12) then
+    ent_rad = 4.*radconst*T**3/(3.*rhocgs)
+ else
+    ent_rad = 0.
+ endif
+ entropy = (ent_gas+ent_rad)/kboltz/ unit_ergg
+
+end function entropy
+
+real function pressure(rho,T,ieos)
+ use physcon, only:kb_on_mh,radconst
+ use units,   only:unit_density,unit_pressure
+ real, intent(in) :: rho,T
+ integer, intent(in) :: ieos
+ real :: p_gas,p_rad,rhocgs
+
+ rhocgs = rho*unit_density
+ p_gas = rhocgs*kb_on_mh*T/mu
+ if (ieos == 12) then
+    p_rad = radconst*T**4/3.
+ else
+    p_rad = 0.
+ endif
+ pressure = (p_gas+p_rad)/ unit_pressure
+
+end function pressure
 
 subroutine calc_rhobreak()
  integer :: i
