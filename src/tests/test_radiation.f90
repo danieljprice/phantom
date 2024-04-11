@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module testradiation
 !
@@ -411,6 +411,7 @@ subroutine test_radiation_diffusion(ntests,npass)
  ! reset various things
  call init_part()
  limit_radiation_flux = .true.
+ drad = 0.
 
 end subroutine test_radiation_diffusion
 
@@ -451,7 +452,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  rho0 = 2.5e-24
  massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot
  pmassi = massoftype(igas)
- if (maxphase==maxp) iphase(:) = isetphase(igas,iactive=.true.)
+ if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0
  npartoftype(igas) = npart
  nactive = npart
