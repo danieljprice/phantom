@@ -461,7 +461,7 @@ end subroutine equationofstate
 subroutine init_eos(eos_type,ierr)
  use units,          only:unit_velocity
  use physcon,        only:Rg
- use io,             only:error,warning
+ use io,             only:error,warning,fatal
  use eos_mesa,       only:init_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_init
  use eos_piecewise,  only:init_eos_piecewise
@@ -547,7 +547,7 @@ subroutine init_eos(eos_type,ierr)
     endif
  case(21)
     call read_optab(eos_file,ierr)
-    if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
+    if (ierr > 0) call fatal('init_eos','Failed to read EOS file')
     call init_S07cool
 
  end select

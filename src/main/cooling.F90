@@ -84,20 +84,16 @@ subroutine init_cooling(id,master,iprint,ierr)
     if (id==master) write(iprint,*) 'initialising ISM cooling functions...'
     abund_default(iHI) = 1.
     call init_cooling_ism()
- else
-    select case(icooling)
-    case(9)
-       if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=9 requires ieos=21',&
-            var='ieos',ival=ieos)
-       if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
-            'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
-       inquire(file=eos_file,exist=ex)
-       if (.not. ex ) call fatal('cooling','file not found',var=eos_file)
-       if (ieos == 2)  call read_optab(eos_file,ierr)
-       if (ierr > 0) call fatal('cooling','Failed to read EOS file',var='ierr',ival=ierr)
-	   if (do_radiation) then
-	   	    call fatal('cooling','Do radiation was switched on!')
-	   endif	
+    if (icooling==8) cooling_in_step = .false.
+ case(9)
+    if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=9 requires ieos=21',&
+         var='ieos',ival=ieos)
+    if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
+         'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
+    inquire(file=eos_file,exist=ex)
+    if (.not. ex ) call fatal('cooling','file not found',var=eos_file)
+    if (ieos == 2)  call read_optab(eos_file,ierr)
+    if (ierr > 0) call fatal('cooling','Failed to read EOS file',var='ierr',ival=ierr)
     call init_star()
  case(6)
     call init_cooling_KI02(ierr)
@@ -109,8 +105,6 @@ subroutine init_cooling(id,master,iprint,ierr)
     cooling_in_step = .false.
  case(7)
     ! Gammie PL
-    cooling_in_step = .false.
- case(8)
     cooling_in_step = .false.
  case default
     call init_cooling_solver(ierr)

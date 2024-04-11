@@ -612,7 +612,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none)&
 !$omp private(i) &
 !$omp shared(npart,hdtsph)&
-!$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
+!$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase,icooling) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
 !$omp shared(filfac,filfacpred,use_porosity) &
@@ -1234,7 +1234,7 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
     fonrmax = 0.
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
+    !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype,fxyzu) &
     !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
     !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
@@ -1381,7 +1381,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                    endif
                 else
                    ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dudti_sph=fxyzu(4,i),part_id=i)
+                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,&
+                        divcurlv(1,i),dudtcool,dudti_sph=fxyzu(4,i),part_id=i)
                 endif
              endif
 #endif

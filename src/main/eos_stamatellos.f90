@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module eos_stamatellos
 !
@@ -20,6 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
+ real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,parameter,public :: doFLD = .True.
  integer,public :: iunitst=19

@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                          !
 !--------------------------------------------------------------------------!
 module readwrite_infile
 !
@@ -343,10 +343,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use options,         only:use_porosity
  use porosity,        only:read_options_porosity
  use metric,          only:read_options_metric
-#endif
-#ifdef PHOTO
- use photoevap,       only:read_options_photoevap
-#endif
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
@@ -711,8 +707,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
-    if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 4 .and. ieos /= 10 .and. ieos /=11 .and. &
-                             ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20 .and. ieos/=21)) &
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 5  .and. ieos /= 4  .and. ieos /= 10 .and. &
              ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20 .and. ieos/=21)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
@@ -721,7 +715,8 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
-    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos ==21)) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
+    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos ==21)) &
+         call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &
