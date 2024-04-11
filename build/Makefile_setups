@@ -256,7 +256,6 @@ ifeq ($(SETUP), gwdisc)
     DISC_VISCOSITY=yes
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
-    MAXP=2000000
     IND_TIMESTEPS=yes
     ISOTHERMAL=yes
     MULTIRUNFILE= multirun.f90
@@ -266,7 +265,6 @@ endif
 
 ifeq ($(SETUP), nshwdisc)
 #   disc around a neutron star
-    FPPFLAGS= -DPRDRAG
     SETUPFILE= setup_nsdisc.f90
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
@@ -290,7 +288,6 @@ ifeq ($(SETUP), binarydiscMFlow)
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
-    MAXP=1000000
     ISOTHERMAL=yes
     CURLV=yes
     LIVE_ANALYSIS=no
@@ -473,7 +470,6 @@ ifeq ($(SETUP), srshock)
     GR=yes
     METRIC=minkowski
     KNOWN_SETUP=yes
-    MAXP=900000
     CONST_AV=yes
 endif
 
@@ -481,7 +477,6 @@ ifeq ($(SETUP), testparticles)
 #   test particles
     SETUPFILE= setup_testparticles.f90
     KNOWN_SETUP=yes
-    MAXP=500000
     ANALYSIS= analysis_1particle.f90
 endif
 
@@ -491,7 +486,6 @@ ifeq ($(SETUP), gr_testparticles)
     GR=yes
     METRIC=kerr
     KNOWN_SETUP=yes
-    MAXP=1000
     ANALYSIS= analysis_1particle.f90
 endif
 
@@ -591,7 +585,6 @@ ifeq ($(SETUP), sedov)
     SETUPFILE= setup_sedov.f90
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
-    MAXP=2100000
 endif
 
 ifeq ($(SETUP), srblast)
@@ -688,7 +681,6 @@ ifeq ($(SETUP), mhdblast)
     PERIODIC=yes
     MHD=yes
     KNOWN_SETUP=yes
-    MAXP=3000000
 endif
 
 ifeq ($(SETUP), mhdwave)
@@ -697,7 +689,6 @@ ifeq ($(SETUP), mhdwave)
     PERIODIC=yes
     MHD=yes
     KNOWN_SETUP=yes
-    MAXP=3000000
 endif
 
 ifeq ($(SETUP), cluster)
@@ -710,7 +701,6 @@ ifeq ($(SETUP), cluster)
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     MAXPTMASS=1000
-    MAXP=3500000
 endif
 
 ifeq ($(SETUP), binary)
