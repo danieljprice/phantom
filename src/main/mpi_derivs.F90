@@ -137,7 +137,12 @@ subroutine init_celldens_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dt
  ncomplete_mpi = 0
  !$omp end master
  thread_complete(omp_thread_num()+1) = .false.
+#else
+ ncomplete_mpi = 0
+ ireq = 0
+ dtype = 0
 #endif
+
 end subroutine init_celldens_exchange
 
 subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,dtype)
@@ -177,6 +182,10 @@ subroutine init_cellforce_exchange(xbufrecv,ireq,thread_complete,ncomplete_mpi,d
  ncomplete_mpi = 0
  !$omp end master
  thread_complete(omp_thread_num()+1) = .false.
+#else
+ ncomplete_mpi = 0
+ ireq = 0
+ dtype = 0
 #endif
 end subroutine init_cellforce_exchange
 
@@ -209,6 +218,8 @@ subroutine send_celldens(cell,targets,irequestsend,xsendbuf,counters,dtype)
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
+#else
+ xsendbuf = cell
 #endif
 
 end subroutine send_celldens
@@ -237,6 +248,8 @@ subroutine send_cellforce(cell,targets,irequestsend,xsendbuf,counters,dtype)
        counters(newproc+1,isent) = counters(newproc+1,isent) + 1
     endif
  enddo
+#else
+ xsendbuf = cell
 #endif
 
 end subroutine send_cellforce
@@ -260,6 +273,8 @@ subroutine check_send_finished(irequestsend,idone)
  enddo
  !--never test self; always set to true
  idone(id+1) = .true.
+#else
+ idone = .true.
 #endif
 
 end subroutine check_send_finished
@@ -619,6 +634,8 @@ subroutine check_complete(counters,ncomplete_mpi)
        endif
     endif
  enddo
+#else
+ ncomplete_mpi = 1
 #endif
 end subroutine check_complete
 

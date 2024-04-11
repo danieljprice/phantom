@@ -465,7 +465,7 @@ SRCPOTS= extern_gr.F90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.f90 \
-         lumin_nsdisc.f90 extern_prdrag.f90 \
+         extern_prdrag.f90 \
          extern_Bfield.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \

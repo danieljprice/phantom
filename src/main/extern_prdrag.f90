@@ -27,9 +27,10 @@ module extern_prdrag
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - beta : *beta parameter*
 !
-! :Dependencies: eos, infile_utils, io, lumin_nsdisc, units
+! :Dependencies: eos, infile_utils, io, units, vectorutils
 !
  use eos, only:qfacdisc
 
@@ -41,6 +42,7 @@ module extern_prdrag
  real, private    :: k2 = 1.        ! transverse drag
  real, private    :: k0 = 1.        ! radiation pressure
  real, private    :: k1 = 1.        ! redshift
+ real, private    :: beta = 0.01
 
  public  :: get_prdrag_spatial_force, get_prdrag_vdependent_force
  public  :: update_prdrag_leapfrog
@@ -56,7 +58,6 @@ contains
 !+
 !------------------------------------------------
 subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
- use lumin_nsdisc, only:beta
  use units,        only:get_G_code
  real, intent(in)    :: xi,yi,zi,Mstar
  real, intent(inout) :: fextxi,fextyi,fextzi
@@ -66,7 +67,7 @@ subroutine get_prdrag_spatial_force(xi,yi,zi,MStar,fextxi,fextyi,fextzi,phi)
  gcode = get_G_code()
 
  r2 = xi*xi + yi*yi + zi*zi
- betai = beta(xi,yi,zi)
+ betai = beta
  rbetai = k0*betai
  if (r2 > epsilon(r2)) then
     dr = 1./sqrt(r2)
@@ -86,8 +87,7 @@ end subroutine get_prdrag_spatial_force
 !+
 !-----------------------------------------------------------------------
 subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
- use lumin_nsdisc, only:beta      !Change your Poynting-Robertson here.
- use units,        only:get_c_code,get_G_code
+ use units, only:get_c_code,get_G_code
  real, intent(in)  :: xyzi(3), vel(3)
  real, intent(in)  :: Mstar
  real, intent(out) :: fexti(3)
@@ -104,61 +104,79 @@ subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
  rhat = xyzi/r
  vr = dot_product(vel, rhat)
 
- betai  = beta( xyzi(1), xyzi(2), xyzi(3) )
+ betai  = beta
 
  fexti = (-betai*Mstar*gcode/ccode)* &
             ( (vr/r3)*xyzi*k1 + vel/r2*k2 )
 
 end subroutine get_prdrag_vdependent_force
 
+!-----------------------------------------------------------------------
+!+
+!  solve for the velocity update in the leapfrog corrector step
+!  i.e. v^n+1 = vhalf + 0.5*dt*f_sph + 0.5*dt*f_pr(x,v^n+1)
+!+
+!-----------------------------------------------------------------------
 subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,Mstar)
- use lumin_nsdisc,  only:beta
- use units,         only:get_c_code
- use io,            only:warn
- real, intent(in)    :: dt,xi,yi,zi, Mstar
+ use units,         only:get_c_code,get_G_code
+ use io,            only:warn,fatal
+ use vectorutils,   only:matrixinvert3D
+ real, intent(in)    :: dt,xi,yi,zi,Mstar
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
- real                              :: r, r2, r3, Q, betai
- real                              :: Tx, Ty, Tz, vonex, voney, vonez
- real                              :: denominator, vrhalf, vrone, twoQondt
- real                              :: xi2, yi2, zi2, ccode, kd
+ integer :: ierr
+ real :: dton2,r2,dr,rx,ry,rz
+ real :: gcode,ccode,betai,bterm,b,vr
+ real :: rhat(3),vel(3),A(3),Rmat(3,3),Rinv(3,3)
  character(len=30), parameter :: label = 'update_prdrag_leapfrog'
 
  ccode = get_c_code()
+ gcode = get_G_code()
 
- xi2    = xi*xi
- yi2    = yi*yi
- zi2    = zi*zi
- kd     = k1 - k2
+ ! we are solving half a timestep forwards in time
+ dton2 = 0.5*dt
 
- r2     = (xi2 + yi2 + zi2)
- r      = sqrt(r2)
- r3     = r*r2
- vrhalf = vhalfx*xi + vhalfy*yi + vhalfz*zi
+ r2     = xi*xi + yi*yi + zi*zi
+ dr     = 1./sqrt(r2)
+ rx     = xi*dr
+ ry     = yi*dr
+ rz     = zi*dr
+ rhat   = (/rx,ry,rz/)
 
- betai       = beta( xi, yi, zi )
- Q           = Mstar*betai*dt/(2.*ccode*r*r)
- twoQondt    = 2.*Q/dt
- denominator = -r2*( k2*kd*Q*Q + (kd-k2)*Q - 1 )
+ ! solve for v^1 using matrix inversion of [Rmat][v1] = [A]
+ A(1) = vhalfx + dton2*fxi
+ A(2) = vhalfy + dton2*fyi
+ A(3) = vhalfz + dton2*fzi
 
- Tx = vhalfx + 0.5*dt*fxi
- Ty = vhalfy + 0.5*dt*fyi
- Tz = vhalfz + 0.5*dt*fzi
+ betai = beta
+ bterm = betai*gcode*Mstar/(ccode*r2)
+ b = dton2*bterm
 
- vonex = (-(Q*k1*xi)*(Ty*yi+Tz*zi)+Q*kd*Tx*r2-Tx*(r2+Q*k1*xi2))/denominator
- voney = (-(Q*k1*yi)*(Tx*xi+Tz*zi)+Q*kd*Ty*r2-Ty*(r2+Q*k1*yi2))/denominator
- vonez = (-(Q*k1*zi)*(Tx*xi+Ty*yi)+Q*kd*Tz*r2-Tz*(r2+Q*k1*zi2))/denominator
+ ! This is the matrix from the equation for v1: [Rmat][v1] = [A]
+ Rmat = reshape((/1. + b*(k2 + k1*rx*rx), b*k1*ry*rx,             b*k1*rz*rx, &
+                  b*k1*rx*ry,             1. + b*(k2 + k1*ry*ry), b*k1*rz*ry, &
+                  b*k1*rx*rz,             b*k1*ry*rz,             1. + b*(k2 + k1*rz*rz)/),(/3,3/))
 
- vrone = (vonex*xi + voney*yi + vonez*zi)/r      ! vr = rhat dot v
+! Get the inverse matrix
+ call matrixinvert3D(Rmat,Rinv,ierr)
+ if (ierr /= 0) then
+    call fatal('extern_prdrag','Error: determinant = 0 in matrix inversion')
+ endif
 
- fexti(1) = twoQondt * (vonex*k2 + k1*vrone*xi/r)
- fexti(2) = twoQondt * (voney*k2 + k1*vrone*yi/r)
- fexti(3) = twoQondt * (vonez*k2 + k1*vrone*zi/r)
+! Compute v1 via matrix multiplication.
+ vel(:) = matmul(A,Rinv)
 
- fxi      = fxi + fexti(1)
- fyi      = fyi + fexti(2)
- fzi      = fzi + fexti(3)
+ vr = dot_product(vel,rhat)
+
+ ! velocity dependent part of the P-R drag force (e.g. equation 142 of Klacka 1992)
+ fexti(:) = -bterm*(vr*rhat*k1 + vel*k2)
+
+ !v1check(:) = A(:) + dton2*fexti(:)  ! this should match expression for v1
+
+ fxi = fxi + fexti(1)
+ fyi = fyi + fexti(2)
+ fzi = fzi + fexti(3)
 
 end subroutine update_prdrag_leapfrog
 
@@ -169,19 +187,17 @@ end subroutine update_prdrag_leapfrog
 !-----------------------------------------------------------------------
 subroutine write_options_prdrag(iunit)
  use infile_utils,         only:write_inopt
- use lumin_nsdisc,         only:write_options_lumin_nsdisc
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options relating to Poynting-Robertson drag'
 
+ call write_inopt(beta,'beta','beta parameter',iunit)
  call write_inopt(k0, 'RadiationPressure', &
                   'Radiation pressure multiplier', iunit)
  call write_inopt(k2, 'TransverseDrag', &
                   'Transverse multiplier', iunit)
  call write_inopt(k1, 'Redshift', &
                   'Redshift multiplier', iunit)
-
- call write_options_lumin_nsdisc(iunit)
 
 end subroutine write_options_prdrag
 
@@ -191,8 +207,7 @@ end subroutine write_options_prdrag
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
- use io,                   only:fatal, warning
- use lumin_nsdisc,         only:read_options_lumin_nsdisc
+ use io, only:fatal, warning
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -203,6 +218,9 @@ subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
  igotall = .false.
 
  select case(trim(name))
+ case('beta')
+    read(valstring,*,iostat=ierr) beta
+    ngot = ngot + 1
  case('RadiationPressure')
     read(valstring,*,iostat=ierr) k0
     ngot = ngot + 1
@@ -214,7 +232,6 @@ subroutine read_options_prdrag(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case default
     imatch = .false.
-    call read_options_lumin_nsdisc(name,valstring,imatch,igotall,ierr)
  end select
 
  igotall = (ngot >= 1)

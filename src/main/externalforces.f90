@@ -21,7 +21,7 @@ module externalforces
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !   extern_densprofile, extern_geopot, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   infile_utils, io, lumin_nsdisc, part, units
+!   infile_utils, io, part, units
 !
  use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
  use extern_corotate, only:omega_corotate  ! so public from this module
@@ -525,9 +525,8 @@ end subroutine update_vdependent_extforce_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
- use io,                only:iprint,iverbose,warn
- use lumin_nsdisc,      only:set_Lstar,BurstProfile,LumAcc,make_beta_grids
- use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
+ use io,                only:warn
+ use part,              only:xyzh,vxyzu,igas,npart,nptmass,&
                              xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
  use extern_binary,     only:update_binary
@@ -538,12 +537,6 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  select case(iexternalforce)
  case(iext_binary,iext_corot_binary)
     call update_binary(ti)
- case(iext_prdrag)
-    call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
-    call set_Lstar( BurstProfile, ti, dmdt, mass1 )
-    if (iverbose >= 1) then
-       write(iprint,*) 'updating prdrag at t = ',ti,' Mdot = ',dmdt,' LAcc = ',LumAcc
-    endif
  case(iext_gwinspiral)
     call gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
     call get_gw_force()
