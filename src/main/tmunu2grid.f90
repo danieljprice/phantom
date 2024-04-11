@@ -19,7 +19,7 @@ module tmunu2grid
  implicit none
 
 contains
-subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
+subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
  use einsteintk_utils, only: dxgrid, gridorigin,gridsize,tmunugrid,rhostargrid
  use interpolations3D, only: interpolate3D,interpolate3D_vecexact
  use boundary,         only: xmin,ymin,zmin,xmax,ymax,zmax
@@ -27,10 +27,8 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus,calc_cfac)
  integer, intent(in) :: npart
  real, intent(in)    ::  vxyzu(:,:), tmunus(:,:,:)
  real, intent(inout) ::  xyzh(:,:)
- logical, intent(in), optional :: calc_cfac
  real                      :: weight,h,rho,pmass
  real                      :: weights(npart)
- real, save                :: cfac
  real                      :: xmininterp(3)
  integer                   :: ngrid(3)
  real,allocatable          :: datsmooth(:,:,:,:), dat(:,:)
