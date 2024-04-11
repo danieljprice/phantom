@@ -27,9 +27,10 @@ module extern_prdrag
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - beta : *beta parameter*
 !
-! :Dependencies: eos, infile_utils, io, units
+! :Dependencies: eos, infile_utils, io, units, vectorutils
 !
  use eos, only:qfacdisc
 

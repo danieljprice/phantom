@@ -18,10 +18,9 @@ module readwrite_dumps_fortran
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
-!   dust, dust_formation, eos, externalforces, fileutils, io, lumin_nsdisc,
-!   memory, metric_tools, mpi, mpiutils, options, part,
-!   readwrite_dumps_common, setup_params, sphNGutils, timestep, units
+! :Dependencies: boundary_dyn, dim, dump_utils, eos, io, memory,
+!   metric_tools, mpiutils, options, part, readwrite_dumps_common,
+!   sphNGutils, timestep
 !
  use dump_utils, only:lenid,ndatatypes,i_int,i_int1,i_int2,i_int4,i_int8,&
                       i_real,i_real4,i_real8,int1,int2,int1o,int2o,dump_h,lentag

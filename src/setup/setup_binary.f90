@@ -23,8 +23,8 @@ module setup
 !   - w            : *argument of periapsis (deg)*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
-!   setunits, setup_params, units
+!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
+!   setstar, setunits, setup_params, units
 !
  use setstar, only:star_t
  use dim,     only:gr

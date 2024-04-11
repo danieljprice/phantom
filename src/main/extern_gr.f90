@@ -13,7 +13,7 @@ module extern_gr
 !   Liptai & Price (2019), MNRAS 485, 819
 !   Magnall, Price, Lasky & Macpherson (2023), Phys. Rev D. 108, 103534
 !
-! :Owner: Spencer Magnall
+! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !

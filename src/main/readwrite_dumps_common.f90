@@ -10,12 +10,13 @@ module readwrite_dumps_common
 !
 ! :References: None
 !
-! :Owner: Daniel Mentiplay
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dump_utils, dust_formation, eos, gitinfo, io,
-!   options, part, sphNGutils
+! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
+!   dust, dust_formation, eos, externalforces, fileutils, gitinfo, io,
+!   options, part, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid
  implicit none
