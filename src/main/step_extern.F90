@@ -1127,22 +1127,16 @@ subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,ti
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,abundance,iphase,ntypes,massoftype) &
-    !$omp shared(eos_vars,dust_temp,store_dust_temperature) &
-    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent,cooling_in_step,icooling) &
+    !$omp shared(eos_vars,dust_temp) &
+    !$omp shared(dt,hdt,timei,iexternalforce,extf_is_velocity_dependent) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,idamp,damp_fac) &
-    !$omp shared(nptmass,nsubsteps,C_force,divcurlv,dphotflag,dphot0) &
+    !$omp shared(nptmass,divcurlv,dphotflag,dphot0) &
     !$omp shared(abundc,abundo,abundsi,abunde) &
-    !$omp shared(nucleation,do_nucleation,update_muGamma,h2chemistry,unit_density) &
-    !$omp private(dphot,abundi,gmwvar,ph,ph_tot) &
-    !$omp private(ui,rhoi, mui, gammai) &
-    !$omp private(i,dudtcool,fxi,fyi,fzi,phii) &
-    !$omp private(fextx,fexty,fextz,fextxi,fextyi,fextzi,poti,fextv,accreted) &
+    !$omp shared(nucleation) &
+    !$omp private(i,phii) &
+    !$omp private(fextx,fexty,fextz) &
     !$omp private(fonrmaxi,dtphi2i,dtf) &
-    !$omp private(vxhalfi,vyhalfi,vzhalfi) &
     !$omp firstprivate(pmassi,itype) &
-#ifdef KROME
-    !$omp shared(T_gas_cool) &
-#endif
     !$omp reduction(min:dtextforcenew,dtphi2) &
     !$omp reduction(max:fonrmax) &
     !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
@@ -1192,14 +1186,15 @@ subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,ti
              call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
           endif
 
-          if (maxvxyzu >= 4 .and. itype==igas) then
-             call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                            divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,idK2,idmu,idkappa, &
-                                            idgamma,imu,igamma,nabn,dphotflag,nabundances)
-          endif
           fext(1,i) = fextx
           fext(2,i) = fexty
           fext(3,i) = fextz
+
+          if (maxvxyzu >= 4 .and. itype==igas) then
+             call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
+                                           divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,idK2,idmu,idkappa, &
+                                           idgamma,imu,igamma,nabn,dphotflag,nabundances)
+          endif
        endif
     enddo predictor
     !$omp enddo
