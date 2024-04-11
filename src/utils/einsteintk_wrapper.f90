@@ -56,7 +56,7 @@ subroutine init_et2phantom(infilestart,dt_et,nophantompart,dtout)
  nophantompart = npart
 
  call get_metricderivs_all(dtout,dt_et) ! commented out to try and fix prim2cons
- 
+
  call get_phantom_dt(dtout)
 
 end subroutine init_et2phantom

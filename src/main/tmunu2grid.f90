@@ -59,7 +59,7 @@ subroutine get_tmunugrid_all(npart,xyzh,vxyzu,tmunus)
 
  weights = weight
  itype = 1
- 
+
  ! For now we can set this to the origin, but it might need to be
  ! set to the grid origin of the CCTK_grid since we have boundary points
  ! TODO This should also be the proper phantom values and not a magic number
