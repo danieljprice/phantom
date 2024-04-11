@@ -848,6 +848,138 @@ subroutine get_gradf_extrap_4th(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,
 end subroutine get_gradf_extrap_4th
 
 
+
+! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+!       dt is *passed in* to the chemistry & cooling routines so that the
+!       output will be at the correct time of time + dt.  Since this is
+!       implicit, there is no cooling timestep.  Explicit cooling is
+!       calculated in force and requires a cooling timestep.
+
+subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
+                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,idK2,idmu,idkappa, &
+                                     idgamma,imu,igamma,nabn,dphotflag,nabundances)
+ use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
+ use options,         only:icooling
+ use chem,            only:update_abundances,get_dphot
+ use dust_formation,  only:evolve_dust
+ use cooling,         only:energ_cooling,cooling_in_step
+ use part,            only:rhoh
+#ifdef KROME
+ use part,            only: T_gas_cool
+ use krome_interface, only: update_krome
+#endif
+ real,         intent(inout) :: vxyzu(:,:),xyzh(:,:)
+ real,         intent(inout) :: eos_vars(:,:),abundance(:,:)
+ real,         intent(inout) :: nucleation(:,:),dust_temp(:)
+ real(kind=4), intent(in)    :: divcurlv(:,:)
+ real,         intent(inout) :: abundc,abunde,abundo,abundsi
+ real,         intent(in)    :: dt,dphot0,pmassi
+ integer,      intent(in)    :: idK2,idmu,idkappa,idgamma,imu,igamma
+ integer,      intent(in)    :: i,nabn,dphotflag,nabundances
+
+ real :: dudtcool,rhoi,ui,dphot
+ real :: abundi(nabn)
+
+ dudtcool = 0.
+ rhoi = rhoh(xyzh(4,i),pmassi)
+ !
+ ! CHEMISTRY
+ !
+ if (h2chemistry) then
+    !
+    ! Get updated abundances of all species, updates 'chemarrays',
+    !
+    dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
+    call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),nabundances,&
+               dphot,dt,abundi,nabn,eos_vars(imu,i),abundc,abunde,abundo,abundsi)
+ endif
+#ifdef KROME
+ ! evolve chemical composition and determine new internal energy
+ ! Krome also computes cooling function but only associated with chemical processes
+ ui = vxyzu(4,i)
+ call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),eos_vars(igamma,i),eos_vars(imu,i),T_gas_cool(i))
+ dudtcool = (ui-vxyzu(4,i))/dt
+#else
+ !evolve dust chemistry and compute dust cooling
+ if (do_nucleation) then
+    call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
+    eos_vars(imu,i)    = nucleation(idmu,i)
+    eos_vars(igamma,i) = nucleation(idgamma,i)
+ endif
+ !
+ ! COOLING
+ !
+ if (icooling > 0 .and. cooling_in_step) then
+    if (h2chemistry) then
+       !
+       ! Call cooling routine, requiring total density, some distance measure and
+       ! abundances in the 'abund' format
+       !
+       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                 dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abund_in=abundi)
+    elseif (store_dust_temperature) then
+       ! cooling with stored dust temperature
+       if (do_nucleation) then
+          call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                    dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
+       elseif (update_muGamma) then
+          call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
+                    dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
+       else
+          call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
+       endif
+    else
+       ! cooling without stored dust temperature
+       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
+    endif
+ endif
+#endif
+ ! update internal energy
+ if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
+
+
+end subroutine cooling_abundances_update
+
+
+
+subroutine external_force_update(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dt, &
+                                 fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
+ use timestep,       only:C_force
+ use externalforces, only: externalforce,update_vdependent_extforce_leapfrog
+ real,    intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dt
+ real, intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
+ integer, intent(in) :: iexternalforce,i
+ logical, intent(in) :: extf_is_velocity_dependent
+ real :: fextxi,fextyi,fextzi,poti
+ real :: fextv(3)
+
+ call externalforce(iexternalforce,xi,yi,zi,hi, &
+   timei,fextxi,fextyi,fextzi,poti,dtf,i)
+ dtextforcenew = min(dtextforcenew,C_force*dtf)
+
+ fextx = fextx + fextxi
+ fexty = fexty + fextyi
+ fextz = fextz + fextzi
+!
+!  Velocity-dependent external forces require special handling
+!  in leapfrog (corrector is implicit)
+!
+ if (extf_is_velocity_dependent) then
+    fextxi = fextx
+    fextyi = fexty
+    fextzi = fextz
+    call update_vdependent_extforce_leapfrog(iexternalforce,vxi,vyi,vzi, &
+                                             fextxi,fextyi,fextzi,fextv,dt,xi,yi,zi)
+    fextx = fextx + fextv(1)
+    fexty = fexty + fextv(2)
+    fextz = fextz + fextv(3)
+ endif
+
+
+end subroutine external_force_update
+
+
+
  !----------------------------------------------------------------
  !+
  !  Substepping of external and sink particle forces.
@@ -869,7 +1001,7 @@ subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,ti
                              idvxmsi,idvymsi,idvzmsi,idfxmsi,idfymsi,idfzmsi, &
                              ndptmass,update_ptmass
  use options,        only:iexternalforce,icooling
- use part,           only:maxphase,abundance,nabundances,eos_vars,epot_sinksink,eos_vars,&
+ use part,           only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                              isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,rhoh,divcurlv, &
                              fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
                              nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
@@ -1011,8 +1143,7 @@ subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,ti
 #ifdef KROME
     !$omp shared(T_gas_cool) &
 #endif
-    !$omp reduction(+:accretedmass) &
-    !$omp reduction(min:dtextforcenew,dtsinkgas,dtphi2) &
+    !$omp reduction(min:dtextforcenew,dtphi2) &
     !$omp reduction(max:fonrmax) &
     !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
     !$omp do
@@ -1051,103 +1182,24 @@ subroutine step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,ti
           ! compute and add external forces
           !
           if (iexternalforce > 0) then
-             call externalforce(iexternalforce,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i), &
-                                   timei,fextxi,fextyi,fextzi,poti,dtf,i)
-             dtextforcenew = min(dtextforcenew,C_force*dtf)
-
-             fextx = fextx + fextxi
-             fexty = fexty + fextyi
-             fextz = fextz + fextzi
-             !
-             !  Velocity-dependent external forces require special handling
-             !  in leapfrog (corrector is implicit)
-             !
-             if (extf_is_velocity_dependent) then
-                vxhalfi = vxyzu(1,i)
-                vyhalfi = vxyzu(2,i)
-                vzhalfi = vxyzu(3,i)
-                fxi = fextx
-                fyi = fexty
-                fzi = fextz
-                call update_vdependent_extforce_leapfrog(iexternalforce,&
-                        vxhalfi,vyhalfi,vzhalfi, &
-                        fxi,fyi,fzi,fextv,dt,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                fextx = fextx + fextv(1)
-                fexty = fexty + fextv(2)
-                fextz = fextz + fextv(3)
-             endif
+             call external_force_update(xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i), &
+                                    vxyzu(1,i),vxyzu(1,i),vxyzu(1,i),timei,i, &
+                                    dtextforcenew,dtf,dt,fextx,fexty,fextz, &
+                                    extf_is_velocity_dependent,iexternalforce)
           endif
+
           if (idamp > 0) then
              call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), xyzh(1:3,i), damp_fac)
+          endif
+
+          if (maxvxyzu >= 4 .and. itype==igas) then
+             call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
+                                            divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,idK2,idmu,idkappa, &
+                                            idgamma,imu,igamma,nabn,dphotflag,nabundances)
           endif
           fext(1,i) = fextx
           fext(2,i) = fexty
           fext(3,i) = fextz
-
-          if (maxvxyzu >= 4 .and. itype==igas) then
-             ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
-             !       dt is *passed in* to the chemistry & cooling routines so that the
-             !       output will be at the correct time of time + dt.  Since this is
-             !       implicit, there is no cooling timestep.  Explicit cooling is
-             !       calculated in force and requires a cooling timestep.
-
-             dudtcool = 0.
-             rhoi = rhoh(xyzh(4,i),pmassi)
-             !
-             ! CHEMISTRY
-             !
-             if (h2chemistry) then
-                !
-                ! Get updated abundances of all species, updates 'chemarrays',
-                !
-                dphot = get_dphot(dphotflag,dphot0,xyzh(1,i),xyzh(2,i),xyzh(3,i))
-                call update_abundances(vxyzu(4,i),rhoi,abundance(:,i),nabundances,&
-                         dphot,dt,abundi,nabn,eos_vars(imu,i),abundc,abunde,abundo,abundsi)
-             endif
-#ifdef KROME
-             ! evolve chemical composition and determine new internal energy
-             ! Krome also computes cooling function but only associated with chemical processes
-             ui = vxyzu(4,i)
-             call update_krome(dt,xyzh(:,i),ui,rhoi,abundance(:,i),eos_vars(igamma,i),eos_vars(imu,i),T_gas_cool(i))
-             dudtcool = (ui-vxyzu(4,i))/dt
-#else
-             !evolve dust chemistry and compute dust cooling
-             if (do_nucleation) then
-                call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
-                eos_vars(imu,i)    = nucleation(idmu,i)
-                eos_vars(igamma,i) = nucleation(idgamma,i)
-             endif
-             !
-             ! COOLING
-             !
-             if (icooling > 0 .and. cooling_in_step) then
-                if (h2chemistry) then
-                   !
-                   ! Call cooling routine, requiring total density, some distance measure and
-                   ! abundances in the 'abund' format
-                   !
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
-                           dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i),abund_in=abundi)
-                elseif (store_dust_temperature) then
-                   ! cooling with stored dust temperature
-                   if (do_nucleation) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
-                              dust_temp(i),nucleation(idmu,i),nucleation(idgamma,i),nucleation(idK2,i),nucleation(idkappa,i))
-                   elseif (update_muGamma) then
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,&
-                              dust_temp(i),eos_vars(imu,i), eos_vars(igamma,i))
-                   else
-                      call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
-                   endif
-                else
-                   ! cooling without stored dust temperature
-                   call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
-                endif
-             endif
-#endif
-             ! update internal energy
-             if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
-          endif
        endif
     enddo predictor
     !$omp enddo
