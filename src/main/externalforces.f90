@@ -526,7 +526,7 @@ end subroutine update_vdependent_extforce_leapfrog
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
  use io,                only:warn
- use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
+ use part,              only:xyzh,vxyzu,igas,npart,nptmass,&
                              xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
  use extern_binary,     only:update_binary
