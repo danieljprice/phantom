@@ -996,7 +996,7 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 
  call check_NaN(npart,rad,'radiation_energy',nerror)
  call check_NaN(npart,radprop,'radiation properties',nerror)
- 
+
 end subroutine check_setup_radiation
 
 end module checksetup
