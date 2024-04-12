@@ -93,7 +93,6 @@ module ptmass
  character(len=50), private  :: pt_prefix = 'Sink'
  character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
 
- integer, public, parameter :: ndptmass = 13
  integer, public, parameter :: &
        idxmsi           =  1, &
        idymsi           =  2, &
@@ -757,106 +756,97 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass)
  integer, intent(in)    :: nptmass
- real,    intent(in)    :: dt
+ real,    intent(in)    :: ckdt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real    :: vxhalfi,vyhalfi,vzhalfi
+ real,    intent(in)    :: dsdt_ptmass(3,nptmass)
  integer :: i
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) &
- !$omp private(i,vxhalfi,vyhalfi,vzhalfi)
+ !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass) &
+ !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
-       vxhalfi = vxyz_ptmass(1,i) + 0.5*dt*fxyz_ptmass(1,i)
-       vyhalfi = vxyz_ptmass(2,i) + 0.5*dt*fxyz_ptmass(2,i)
-       vzhalfi = vxyz_ptmass(3,i) + 0.5*dt*fxyz_ptmass(3,i)
-       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dt*vxhalfi
-       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + dt*vyhalfi
-       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + dt*vzhalfi
-       vxyz_ptmass(1,i) = vxhalfi
-       vxyz_ptmass(2,i) = vyhalfi
-       vxyz_ptmass(3,i) = vzhalfi
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
+       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ckdt*vxyz_ptmass(1,i)
+       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ckdt*vxyz_ptmass(2,i)
+       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ckdt*vxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ckdt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ckdt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ckdt*dsdt_ptmass(3,i)
     endif
  enddo
  !$omp end parallel do
 
-end subroutine ptmass_predictor
+end subroutine ptmass_drift
 
 !----------------------------------------------------------------
 !+
-!  corrector step for the point masses
-!  (called from inside a parallel section)
+!  kick step for the point masses
 !+
 !----------------------------------------------------------------
-subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,iexternalforce)
- use externalforces, only:update_vdependent_extforce_leapfrog,is_velocity_dependent
+subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
  integer, intent(in)    :: nptmass
- real,    intent(in)    :: dt
+ real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(in)    :: fxyz_ptmass(4,nptmass)
  real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+ integer :: i
+
+
+ !$omp parallel do schedule(static) default(none) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,nptmass) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
+       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
+       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+
+end subroutine ptmass_kick
+
+!----------------------------------------------------------------
+!+
+!  force correction due to vdep force.
+!+
+!----------------------------------------------------------------
+subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: dkdt
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(in)    :: fxyz_ptmass(4,nptmass)
  integer, intent(in)    :: iexternalforce
- real :: vxhalfi,vyhalfi,vzhalfi
  real :: fxi,fyi,fzi,fextv(3)
  integer :: i
 
- !
- ! handle special case of velocity-dependent external forces
- ! in the leapfrog integrator
- !
- if (is_velocity_dependent(iexternalforce)) then
-    !$omp parallel do schedule(static) default(none) &
-    !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,dt,nptmass,iexternalforce) &
-    !$omp private(vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv) &
-    !$omp private(i)
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
-          vxhalfi = vxyz_ptmass(1,i)
-          vyhalfi = vxyz_ptmass(2,i)
-          vzhalfi = vxyz_ptmass(3,i)
-          fxi = fxyz_ptmass(1,i)
-          fyi = fxyz_ptmass(2,i)
-          fzi = fxyz_ptmass(3,i)
-          call update_vdependent_extforce_leapfrog(iexternalforce,&
-               vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv,dt,&
-               xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
-          fxi = fxi + fextv(1)
-          fyi = fyi + fextv(2)
-          fzi = fzi + fextv(3)
-          vxyz_ptmass(1,i) = vxhalfi + 0.5*dt*fxi
-          vxyz_ptmass(2,i) = vyhalfi + 0.5*dt*fyi
-          vxyz_ptmass(3,i) = vzhalfi + 0.5*dt*fzi
-          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
-       endif
-    enddo
-    !$omp end parallel do
- else
-    !$omp parallel do schedule(static) default(none) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,nptmass) &
-    !$omp private(i)
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
-          vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + 0.5*dt*fxyz_ptmass(1,i)
-          vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + 0.5*dt*fxyz_ptmass(2,i)
-          vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + 0.5*dt*fxyz_ptmass(3,i)
-          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
-       endif
-    enddo
-    !$omp end parallel do
- endif
-
-end subroutine ptmass_corrector
+ !$omp parallel do schedule(static) default(none) &
+ !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dkdt,nptmass,iexternalforce) &
+ !$omp private(fxi,fyi,fzi,fextv) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       fxi = fxyz_ptmass(1,i)
+       fyi = fxyz_ptmass(2,i)
+       fzi = fxyz_ptmass(3,i)
+       call update_vdependent_extforce_leapfrog(iexternalforce,&
+              vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i), &
+              fxi,fyi,fzi,fextv,dkdt,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
+              xyzmh_ptmass(3,i))
+       fxyz_ptmass(1,i) = fxi + fextv(1)
+       fxyz_ptmass(2,i) = fyi + fextv(2)
+       fxyz_ptmass(3,i) = fzi + fextv(3)
+    endif
+ enddo
+ !$omp end parallel do
+end subroutine ptmass_vdependent_correction
 
 !----------------------------------------------------------------
 !+
