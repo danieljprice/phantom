@@ -432,7 +432,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:use_fourthorder,ck,dk
+ use ptmass,         only:use_fourthorder,ck,dk,ck2,ck4,dk2,dk4,n_force_order
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -455,6 +455,18 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
     dt = dtsph
     last_step = .true.
  endif
+
+ if(use_fourthorder) then
+    n_force_order = 3
+    ck = ck4
+    dk = dk2
+ else
+    n_force_order = 1
+    ck = ck2
+    dk = dk2
+ endif
+
+
  timei = time
  time_par = time
  extf_vdep_flag = is_velocity_dependent(iexternalforce)
@@ -827,6 +839,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  if (nptmass>0) then
     if (id==master) then
        if (extrap) then
+          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                    dtf,iexternalforce,timei,merge_ij,merge_n, &
                                    dsdt_ptmass,extrapfac,fsink_old)
@@ -837,6 +850,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                       dsdt_ptmass,extrapfac,fsink_old)
           endif
        else
+          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           if (merge_n > 0) then
@@ -906,7 +920,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     ! compute and add external forces
     !
     if (iexternalforce > 0) then
-       call external_force_update_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
+       call get_external_force_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
                              vxyzu(2,i),vxyzu(3,i),timei,i, &
                              dtextforcenew,dtf,dkdt,fextx,fexty,fextz, &
                              extf_vdep_flag,iexternalforce)
@@ -1054,7 +1068,7 @@ end subroutine cooling_abundances_update
 
 
 
-subroutine external_force_update_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
+subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
  use timestep,       only:C_force
  use externalforces, only: externalforce,update_vdependent_extforce
@@ -1088,7 +1102,7 @@ subroutine external_force_update_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcen
  endif
 
 
-end subroutine external_force_update_gas
+end subroutine get_external_force_gas
 
 
 end module step_extern

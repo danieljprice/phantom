@@ -1962,16 +1962,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('use_fourthorder')
     read(valstring,*,iostat=ierr) use_fourthorder
-    if (use_fourthorder) then
-       n_force_order = 3
-       ck = ck4
-       dk = dk4
-    else
-       ck = ck2
-       dk = dk2
-    endif
-
-
  case default
     imatch = .false.
  end select
