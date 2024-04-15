@@ -103,7 +103,7 @@ subroutine test_dust(ntests,npass)
     !
     call test_drag(ntests,npass)
     call barrier_mpi()
-   
+
     !
     ! DUSTYBOX test with explicit/implicit scheme
     !

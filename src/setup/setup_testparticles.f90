@@ -100,7 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  period        = 0.
 
  if (gr) call prompt('black hole spin',spin,-1.,1.)
- call prompt('select orbit type (1=cirlce, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
+ call prompt('select orbit type (1=circle, 2=precession, 3=epicycle, 4=vertical-oscillation, 0=custom)',orbtype,0,4)
  select case(orbtype)
 
  case(1) ! circular
