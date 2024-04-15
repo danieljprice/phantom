@@ -97,24 +97,177 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     use damping,          only:read_options_damping
     use gravwaveutils,    only:read_options_gravitationalwaves
     use boundary_dyn,     only:read_options_boundary
+    use timestep, only:tmax,dtmax,C_cour,C_force,C_ent,xtol,tolv,ptol,nout,nmax,&
+            dtwallmax,dtmax_min,dtmax_max,dtmax_dratio
+    use options,  only:alpha,alphaB,alphamax,alphau,twallmax,tolh,rkill,rhofinal_cgs,&
+            psidecayfac,overcleanfac,nmaxdumps,nfulldump,limit_radiation_flux,&
+            ishock_heating,iresistive_heating,ireconav,ipdv_heating,iopacity_type,&
+            implicit_radiation,hdivbbmax_max,exchange_radiation_energy,calc_erot,&
+            beta,avdecayconst
+    use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
+    use radiation_utils,    only:kappa_cgs
+    use dim, only:store_dust_temperature
+    use viscosity, only:shearparam,irealvisc,bulkvisc
+    use io,        only:iverbose
+    use part,      only:hfact,ien_type
     implicit none
     character(*), intent(inout):: name, valstring
     logical:: imatch, igotall
     integer:: ierr
-    imatch = .false.
-    if (.not.imatch) call read_options_inject(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_dust(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_growth(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_metric(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_eos(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_cooling(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_damping(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
-    if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotall,ierr)
+    real :: ratio
+    logical :: incl_runtime2 = .false.
+    imatch = .true.
+    select case(trim(name))
+    case('logfile')
+       ! ignored
+    case('dumpfile')
+       ! ignored
+    case('tmax')
+       read(valstring,*,iostat=ierr) tmax
+    case('dtmax')
+       read(valstring,*,iostat=ierr) dtmax
+    case('nmax')
+       read(valstring,*,iostat=ierr) nmax
+    case('nout')
+       read(valstring,*,iostat=ierr) nout
+    case('nmaxdumps')
+       read(valstring,*,iostat=ierr) nmaxdumps
+    case('twallmax')
+       read(valstring,*,iostat=ierr) twallmax
+    case('dtwallmax')
+       read(valstring,*,iostat=ierr) dtwallmax
+    case('iverbose')
+       read(valstring,*,iostat=ierr) iverbose
+    case('rhofinal_cgs')
+       read(valstring,*,iostat=ierr) rhofinal_cgs
+       incl_runtime2 = .true.
+    case('calc_erot')
+       read(valstring,*,iostat=ierr) calc_erot
+       incl_runtime2 = .true.
+    case('dtmax_dratio')
+       read(valstring,*,iostat=ierr) dtmax_dratio
+       incl_runtime2 = .true.
+    case('dtmax_max')
+       read(valstring,*,iostat=ierr) dtmax_max
+       if (dtmax_max <= 0.0) dtmax_max = dtmax
+       ! to prevent comparison errors from round-off
+       ratio = dtmax_max/dtmax
+       ratio = int(ratio+0.5)+0.0001
+       dtmax_max = dtmax*ratio
+    case('dtmax_min')
+       read(valstring,*,iostat=ierr) dtmax_min
+       ! to prevent comparison errors from round-off
+       if (dtmax_min > epsilon(dtmax_min)) then
+          ratio = dtmax/dtmax_min
+          ratio = int(ratio+0.5)+0.0001
+          dtmax_min = dtmax/ratio
+       endif
+    case('C_cour')
+       read(valstring,*,iostat=ierr) C_cour
+    case('C_force')
+       read(valstring,*,iostat=ierr) C_force
+    case('tolv')
+       read(valstring,*,iostat=ierr) tolv
+    case('C_ent')
+       read(valstring,*,iostat=ierr) C_ent
+    case('xtol')
+       read(valstring,*,iostat=ierr) xtol
+    case('ptol')
+       read(valstring,*,iostat=ierr) ptol
+    case('hfact')
+       read(valstring,*,iostat=ierr) hfact
+    case('tolh')
+       read(valstring,*,iostat=ierr) tolh
+    case('rkill')
+       read(valstring,*,iostat=ierr) rkill
+    case('nfulldump')
+       read(valstring,*,iostat=ierr) nfulldump
+    case('alpha')
+       read(valstring,*,iostat=ierr) alpha
+    case('alphamax')
+       read(valstring,*,iostat=ierr) alphamax
+    case('alphau')
+       read(valstring,*,iostat=ierr) alphau
+    case('alphaB')
+       read(valstring,*,iostat=ierr) alphaB
+    case('psidecayfac')
+       read(valstring,*,iostat=ierr) psidecayfac
+    case('overcleanfac')
+       read(valstring,*,iostat=ierr) overcleanfac
+    case('hdivbbmax_max')
+       read(valstring,*,iostat=ierr) hdivbbmax_max
+    case('beta')
+       read(valstring,*,iostat=ierr) beta
+    case('ireconav')
+       read(valstring,*,iostat=ierr) ireconav
+    case('avdecayconst')
+       read(valstring,*,iostat=ierr) avdecayconst
+    case('ipdv_heating')
+       read(valstring,*,iostat=ierr) ipdv_heating
+    case('ishock_heating')
+       read(valstring,*,iostat=ierr) ishock_heating
+    case('iresistive_heating')
+       read(valstring,*,iostat=ierr) iresistive_heating
+    case('ien_type')
+       read(valstring,*,iostat=ierr) ien_type
+    case('irealvisc')
+       read(valstring,*,iostat=ierr) irealvisc
+    case('shearparam')
+       read(valstring,*,iostat=ierr) shearparam
+    case('bulkvisc')
+       read(valstring,*,iostat=ierr) bulkvisc
+#ifdef MCFOST
+    case('use_mcfost')
+       read(valstring,*,iostat=ierr) use_mcfost
+    case('Voronoi_limits_file')
+       read(valstring,*,iostat=ierr) Voronoi_limits_file
+       use_Voronoi_limits_file = .true.
+    case('use_mcfost_stars')
+       read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
+    case('mcfost_computes_Lacc')
+       read(valstring,*,iostat=ierr) mcfost_computes_Lacc
+    case('mcfost_uses_PdV')
+       read(valstring,*,iostat=ierr) mcfost_uses_PdV
+    case('mcfost_keep_part')
+       read(valstring,*,iostat=ierr) mcfost_keep_part
+    case('ISM')
+       read(valstring,*,iostat=ierr) ISM
+    case('mcfost_dust_subl')
+       read(valstring,*,iostat=ierr) mcfost_dust_subl
+#endif
+    case('implicit_radiation')
+       read(valstring,*,iostat=ierr) implicit_radiation
+       if (implicit_radiation) store_dust_temperature = .true.
+    case('gas-rad_exchange')
+       read(valstring,*,iostat=ierr) exchange_radiation_energy
+    case('flux_limiter')
+       read(valstring,*,iostat=ierr) limit_radiation_flux
+    case('iopacity_type')
+       read(valstring,*,iostat=ierr) iopacity_type
+    case('cv_type')
+       read(valstring,*,iostat=ierr) cv_type
+    case('kappa_cgs')
+       read(valstring,*,iostat=ierr) kappa_cgs
+    case('tol_rad')
+       read(valstring,*,iostat=ierr) tol_rad
+    case('itsmax_rad')
+       read(valstring,*,iostat=ierr) itsmax_rad
+    case default
+        imatch = .false.
+        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_dust_formation(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_ptmass_radiation(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_dust(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_growth(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_metric(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_cooling(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_ptmass(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
+        if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotall,ierr)
+    end select
     if (.not.imatch) write(*,*) "Could not set option ", name
 end subroutine amuse_set_phantom_option
 
@@ -243,7 +396,7 @@ subroutine amuse_evol(amuse_initialise)
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
-                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
+                            idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next,dtlast
  use evwrite,          only:write_evfile,write_evlog
  use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa,&
                             compute_energies
@@ -320,7 +473,7 @@ subroutine amuse_evol(amuse_initialise)
  character(len=256)    :: infile
  character(len=256)    :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
- real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
+ real            :: dtnew,timecheck,rhomaxold,dtmax_log_dratio
  real            :: tprint,tzero,dtmaxold,dtinject
  real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
  real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
@@ -333,13 +486,14 @@ subroutine amuse_evol(amuse_initialise)
  real(kind=4)    :: timeperbin(0:maxbins)
  logical         :: dt_changed
 #else
+ real            :: tlast
  real            :: dtprint
  integer         :: nactive,istepfrac
  integer(kind=1) :: nbinmax
  logical, parameter :: dt_changed = .false.
 #endif
- integer         :: npart_old
 #ifdef INJECT_PARTICLES
+ integer         :: npart_old
 #endif
  logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
@@ -350,6 +504,9 @@ subroutine amuse_evol(amuse_initialise)
 
  tzero     = time
  tlast         = time
+ write(*,*) "AMUSE_EVOL called, amuse_initialise=", amuse_initialise
+ write(*,*) "dtlast", dtlast
+ write(*,*) "tzero, tmax: ", tzero, dtmax, tmax
  if (amuse_initialise) then
  tprint    = 0.
  nsteps    = 0
@@ -363,6 +520,7 @@ subroutine amuse_evol(amuse_initialise)
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass)
+
  noutput          = 1
  noutput_dtmax    = 1
  ncount_fulldumps = 0
@@ -378,7 +536,9 @@ subroutine amuse_evol(amuse_initialise)
  use_global_dt = .false.
  istepfrac     = 0
  tlast         = time
- write(*,*) "\n\n\n***********tlast: ", tlast, "\n\n\n"
+ write(*,*)
+ write(*,*) "***********tlast: ", tlast
+ write(*,*)
  dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
  nmovedtot     = 0
  tall          = 0.
@@ -422,107 +582,13 @@ subroutine amuse_evol(amuse_initialise)
 
  call flush(iprint)
 
- endif !(amuse_initialise)
 !end subroutine amuse_init_evol
-
- if (.not.amuse_initialise) then
-!subroutine amuse_new_step(tlast)
-! use io,               only:iprint,iwritein,id,master,iverbose,flush_warnings,nprocs,fatal,warning
-! use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
-!                            dtmax_ifactor,dtmax_dratio,check_dtmax_for_decrease
-! use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0
-! use dim,              only:maxvxyzu,mhd,periodic
-! use fileutils,        only:getnextfilename
-! use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,use_dustfrac,iexternalforce,&
-!                            icooling,ieos,ipdv_heating,ishock_heating,iresistive_heating
-! use step_lf_global,   only:step
-! use timing,           only:get_timings,print_time,timer,reset_timer,increment_timer,&
-!                            setup_timers,timers,reduce_timers,ntimers,&
-!                            itimer_fromstart,itimer_lastdump,itimer_step,itimer_io,itimer_ev
-! use mpiutils,         only:reduce_mpi,reduceall_mpi,barrier_mpi,bcast_mpi
-!#ifdef SORT
-! use sort_particles,   only:sort_part
-!#endif
-!#ifdef IND_TIMESTEPS
-! use dim,              only:maxp
-! use part,             only:maxphase,ibin,iphase
-! use timestep_ind,     only:istepfrac,nbinmax,set_active_particles,update_time_per_bin,&
-!                            write_binsummary,change_nbinmax,nactive,nactivetot,maxbins,&
-!                            print_dtlog_ind,get_newbin
-! use timestep,         only:dtdiff,C_cool
-! use timestep_sts,     only:sts_get_dtau_next,sts_init_step
-! use step_lf_global,   only:init_step
-!#else
-! use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
-!#endif
-! use timestep_sts,     only: use_sts
-! use supertimestep,    only: step_sts
-!#ifdef DRIVING
-! use forcing,          only:write_forcingdump
-!#endif
-!#ifdef CORRECT_BULK_MOTION
-! use centreofmass,     only:correct_bulk_motion
-!#endif
-!#ifdef MPI
-! use part,             only:ideadhead,shuffle_part
-!#endif
-!#ifdef IND_TIMESTEPS
-! use part,             only:twas
-! use timestep_ind,     only:get_dt
-!#endif
-! use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-!                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary,npartoftype, &
-!                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall
-! use quitdump,         only:quit
-! use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev
-! use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
-! use externalforces,   only:iext_spiral
-!#ifdef MFLOW
-! use mf_write,         only:mflow_write
-!#endif
-!#ifdef VMFLOW
-! use mf_write,         only:vmflow_write
-!#endif
-!#ifdef BINPOS
-! use mf_write,         only:binpos_write
-!#endif
-!
-! implicit none
-!
-! real            :: dtnew,dtlast,timecheck,rhomaxold,dtmax_log_dratio
-! real            :: tprint,dtmaxold,dtinject
-! real(kind=4)    :: t1,t2,tcpu1,tcpu2,tstart,tcpustart
-! real(kind=4)    :: twalllast,tcpulast,twallperdump,twallused
-!#ifdef IND_TIMESTEPS
-! integer         :: i,nalive,inbin,iamtypei
-! integer(kind=1) :: nbinmaxprev
-! integer(kind=8) :: nmovedtot,nalivetot
-! real            :: fracactive,speedup,tcheck,dtau,efficiency,tbegin
-! real, intent(in) :: tlast
-! real(kind=4)    :: tall
-! real(kind=4)    :: timeperbin(0:maxbins)
-! logical         :: dt_changed
-! integer         :: iloop,npart_old
-!#else
-! real            :: dtprint
-! integer         :: nactive
-! logical, parameter :: dt_changed = .false.
-!#endif
-! logical         :: use_global_dt
-! integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
-! logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
-!
-!
-! --------------------- main loop ----------------------------------------
-!
- !tbegin = time
- tcheck = time
- npart_old = npart
-
- !timestepping: do while ((time < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
- !write(*,*) "is istepfrac (",istepfrac,") smaller than 2**nbinmax (",2**nbinmax, ")?"
- timesubstepping: do while (istepfrac < 2**nbinmax)
- !write(*,*) "istepfrac (",istepfrac,") is smaller than 2**nbinmax (",2**nbinmax, "), continuing"
+ else ! i.e.: .not. amuse_initialise
+ !tcheck = time
+ !npart_old = npart
+ timesubstepping: do while ((time + 0.01 * dtmax < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
+    !dtmax = min(dtmax, tmax-time)  ! tried this, doesn't work.
+ !timesubstepping: do while (istepfrac < 2**nbinmax)
  
 #ifdef INJECT_PARTICLES
     !
@@ -608,7 +674,6 @@ subroutine amuse_evol(amuse_initialise)
     endif
 
     dtlast = dt
-    write(*,*) "dtlast: ", dtlast
 
     !--timings for step call
     call get_timings(t2,tcpu2)
@@ -620,7 +685,6 @@ subroutine amuse_evol(amuse_initialise)
 
     !--update time in way that is free of round-off errors
     time = tlast + istepfrac/real(2**nbinmaxprev)*dtmaxold
-    write(*,*) "new time: ", time, tlast, istepfrac, nbinmaxprev, dtmaxold
 
     !--print efficiency of partial timestep
     if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nactivetot,tall,t2-t1,1)
@@ -733,7 +797,9 @@ subroutine amuse_evol(amuse_initialise)
 #ifdef IND_TIMESTEPS
        dt_changed = .false.
 #endif
- write(*,*) "\n\n\n***********tlast: ", tlast, "\n\n\n"
+ write(*,*)
+ write(*,*) "***********tlast, dtlast: ", tlast, dtlast
+ write(*,*)
     endif
 !
 !--write to data file if time is right
@@ -1649,7 +1715,7 @@ subroutine amuse_set_internal_energy(i, u)
 end subroutine
 
 subroutine amuse_evolve_model(tmax_in)
-    use timestep, only:tmax, time, dt, dtmax, rhomaxnow
+    use timestep, only:tmax, time, dt, dtmax, rhomaxnow, dtlast
     ! use evolvesplit, only:init_step, finalize_step
 #ifdef IND_TIMESTEPS
     use timestep_ind, only:istepfrac
@@ -1670,7 +1736,7 @@ subroutine amuse_evolve_model(tmax_in)
     double precision, intent(in) :: tmax_in
     logical :: maximum_density_reached
     real :: tlast
-    real :: dtinject,dtlast
+    real :: dtinject
     integer(kind=1) :: nbinmax
 #ifdef INJECT_PARTICLES
     integer         :: npart_old
@@ -1680,7 +1746,7 @@ subroutine amuse_evolve_model(tmax_in)
     istepfrac = 0 ! dummy values
 #endif
     dtinject  = huge(dtinject)
-    dtlast = 0
+    ! dtlast = 0
     nbinmax = 0
     
     tmax = tmax_in ! - epsilon(tmax_in)
@@ -1688,7 +1754,7 @@ subroutine amuse_evolve_model(tmax_in)
     
     tlast = time
     write(*,*) "TIMESTEPPING: evolve from ", time, " to ", tmax
-    timestepping: do while (time < tmax)
+    timestepping: do while (time+0.01 * dtmax < tmax)
 
 #ifdef IND_TIMESTEPS
         istepfrac = 0
@@ -2176,33 +2242,33 @@ end subroutine
 
 ! End of Getters
 
-subroutine amuse_inject()
-    use timestep, only:time
-    use part, only:xyzh,vxyzu,npart,npartoftype
-    use ptmass, only:xyzmh_ptmass,vxyz_ptmass,
-    use inject, only:inject_particles
-    implicit none
-    real :: dtinject, dtlast
-    dtlast = 0
-    dtinject = huge(dtinject)
-    
-    ! if npart > 0, this will also delete 'too far away particles'
-    ! also used to determine number of already released shells
-    ! time and dtlast are used together to determine 'time passed'
-    ! 
-    call inject_particles(&
-        time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject&
-    )
-end subroutine
-
-subroutine amuse_update_injected()
-    use partinject, only:update_injected_particles
-    use part, only:npart
-    use timestep_ind, only:istepfrac,nbinmax
-    use timestep, only:time,dtmax,dt
-    implicit none
-    integer :: npart_old
-    call update_injected_particles(&
-        npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject&
-    )
-end subroutine
+!subroutine amuse_inject()
+!    use timestep, only:time
+!    use part, only:xyzh,vxyzu,npart,npartoftype
+!    use ptmass, only:xyzmh_ptmass,vxyz_ptmass,
+!    use inject, only:inject_particles
+!    implicit none
+!    real :: dtinject, dtlast
+!    dtlast = 0
+!    dtinject = huge(dtinject)
+!    
+!    ! if npart > 0, this will also delete 'too far away particles'
+!    ! also used to determine number of already released shells
+!    ! time and dtlast are used together to determine 'time passed'
+!    ! 
+!    call inject_particles(&
+!        time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject&
+!    )
+!end subroutine
+!
+!subroutine amuse_update_injected()
+!    use partinject, only:update_injected_particles
+!    use part, only:npart
+!    use timestep_ind, only:istepfrac,nbinmax
+!    use timestep, only:time,dtmax,dt
+!    implicit none
+!    integer :: npart_old
+!    call update_injected_particles(&
+!        npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject&
+!    )
+!end subroutine
