@@ -205,7 +205,8 @@ subroutine write_options_cooling_stamatellos(iunit)
 
  !N.B. Tfloor handled in cooling.F90
  call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
- call write_inopt(od_method,'OD method','Method for estimating optical depth: (1) Stamatellos (2) Lombardi (3) combined (4) modified Lombardi',iunit)
+ call write_inopt(od_method,'OD method','Method for estimating optical depth: (1)'&
+  'Stamatellos (2) Lombardi (3) combined (4) modified Lombardi',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
  call write_inopt(FLD_opt,'do FLD','Do FLD? (1) yes (0) no',iunit)
 
@@ -229,7 +230,8 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
  case('OD method')
     read(valstring,*,iostat=ierr) od_method
     if (od_method < 1 .or. od_method > 4) then
-       call fatal('cooling options','od_method must be 1, 2, 3 or 4',var='od_method',ival=od_method)
+       call fatal('cooling options','od_method must be 1, 2, 3 or 4', &
+       var='od_method',ival=od_method)
     endif
     ngot = ngot + 1
  case('EOS_file')
