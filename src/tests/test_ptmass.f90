@@ -32,9 +32,10 @@ subroutine test_ptmass(ntests,npass)
  use eos,     only:polyk,gamma
  use part,    only:nptmass
  use options, only:iexternalforce,alpha
+ use ptmass,  only:use_fourthorder
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
- integer :: itmp,ierr
+ integer :: itmp,ierr,itest
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -51,14 +52,21 @@ subroutine test_ptmass(ntests,npass)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
- !
- !  Tests of a sink particle binary
- !
- if (do_test_binary) call test_binary(ntests,npass)
- !
- !  Test of softening between sinks
- !
- if (do_test_softening) call test_softening(ntests,npass)
+ do itest=1,2
+    if (itest == 2) use_fourthorder = .true.
+    !
+    !  Tests of a sink particle binary
+    !
+    if (do_test_binary) call test_binary(ntests,npass)
+    !
+    !  Test of softening between sinks
+    !
+    if (do_test_softening) call test_softening(ntests,npass)
+    !
+    !  Test sink particle mergers
+    !
+    if (do_test_merger) call test_merger(ntests,npass)
+ enddo
  !
  !  Tests of accrete_particle routine
  !
@@ -67,10 +75,6 @@ subroutine test_ptmass(ntests,npass)
  !  Test sink particle creation
  !
  if (do_test_createsink) call test_createsink(ntests,npass)
- !
- !  Test sink particle mergers
- !
- if (do_test_merger) call test_merger(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
