@@ -471,8 +471,8 @@ subroutine test_accretion(ntests,npass)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type
- use ptmass,    only:ndptmass,ptmass_accrete,update_ptmass
+                     isdead_or_accreted,set_particle_type,ndptmass
+ use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
  use testutils, only:checkval,update_test_scores
@@ -592,8 +592,9 @@ subroutine test_createsink(ntests,npass)
  use io,         only:id,master,iverbose
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
- use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
+                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
+                      dptmass
+ use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
@@ -712,7 +713,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,0.)
     !
     ! check that creation succeeded
     !

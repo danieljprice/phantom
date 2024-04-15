@@ -126,7 +126,7 @@ subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Ms
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
  integer :: ierr
- real :: dton2,r2,dr,rx,ry,rz
+ real :: r2,dr,rx,ry,rz
  real :: gcode,ccode,betai,bterm,b,vr
  real :: rhat(3),vel(3),A(3),Rmat(3,3),Rinv(3,3)
  character(len=30), parameter :: label = 'update_prdrag'

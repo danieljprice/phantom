@@ -907,7 +907,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     !
     if (iexternalforce > 0) then
        call external_force_update_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
-                             vxyzu(1,i),vxyzu(1,i),timei,i, &
+                             vxyzu(2,i),vxyzu(3,i),timei,i, &
                              dtextforcenew,dtf,dkdt,fextx,fexty,fextz, &
                              extf_vdep_flag,iexternalforce)
     endif
@@ -978,6 +978,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
 #ifdef KROME
  use part,            only: T_gas_cool
  use krome_interface, only: update_krome
+ real                       :: ui
 #endif
  real,         intent(inout) :: vxyzu(:,:),xyzh(:,:)
  real,         intent(inout) :: eos_vars(:,:),abundance(:,:)
@@ -988,7 +989,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  integer,      intent(in)    :: idK2,idmu,idkappa,idgamma,imu,igamma
  integer,      intent(in)    :: i,nabn,dphotflag,nabundances
 
- real :: dudtcool,rhoi,ui,dphot
+ real :: dudtcool,rhoi,dphot
  real :: abundi(nabn)
 
  dudtcool = 0.
