@@ -299,7 +299,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igcum
+ use part,           only:igarg,igid
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -307,7 +307,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  integer,           intent(in)  :: iexternalforce
  real,              intent(in)  :: ti
  integer,           intent(out) :: merge_ij(:),merge_n
- integer, optional, intent(in)  :: group_info(:,:)
+ integer, optional, intent(in)  :: group_info(3,nptmass)
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
@@ -318,8 +318,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
- integer :: k,l,i,j,start_id,end_id
- logical :: extrap,wsub
+ integer :: k,l,i,j,gidi,gidj
+ logical :: extrap,subsys
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -335,11 +335,11 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     extrap = .false.
  endif
 
- if(present(group_info)) then
-    wsub = .true.
-    extrap = .false.
+ if (present(group_info)) then
+    subsys = .true.
+ else
+    subsys = .false.
  endif
-
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -356,11 +356,11 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info,subsys) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
- !$omp private(start_id,end_id) &
+ !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
@@ -369,10 +369,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
-    if (wsub) then
-       start_id = group_info(igcum,k) + 1
-       end_id   = group_info(igcum,k)
+    if (subsys) then
        i = group_info(igarg,k)
+       gidi = group_info(igid,k)
     else
        i = k
     endif
@@ -398,9 +397,10 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsy    = 0.
     dsz    = 0.
     do l=1,nptmass
-       if (present(group_info)) then
+       if (subsys) then
           j = group_info(igarg,l)
-          if (j>=start_id .or. j<=end_id) cycle
+          gidj = group_info(igid,l)
+          if (gidi==gidj) cycle
        else
           j = l
        endif
@@ -660,7 +660,7 @@ end subroutine get_gradf_sink_gas
 !----------------------------------------------------------------
 subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
  use kernel, only:kernel_softening,kernel_grad_soft,radkern
- use part,   only:igarg,igcum
+ use part,   only:igarg,igid
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(inout) :: fxyz_ptmass(4,nptmass)
@@ -671,7 +671,14 @@ subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,gro
  real    :: ddr,dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,dr3,g1,g2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft
  real    :: gpref
- integer :: i,j,k,l,start_id,end_id
+ integer :: i,j,k,l,gidi,gidj
+ logical :: subsys
+
+ if (present(group_info)) then
+    subsys = .true.
+ else
+    subsys=.false.
+ endif
 
  if (nptmass <= 1) return
  if (h_soft_sinksink > 0.) then
@@ -686,17 +693,16 @@ subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,gro
  !
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info) &
- !$omp shared(h_soft_sinksink,hsoft21,dt) &
+ !$omp shared(h_soft_sinksink,hsoft21,dt,subsys) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
- !$omp private(start_id,end_id) &
+ !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,ddr,dr3,g1,g2) &
  !$omp private(fxi,fyi,fzi,gxi,gyi,gzi,gpref) &
  !$omp private(q2i,qi,psoft,fsoft,gsoft)
  do k=1,nptmass
-    if (present(group_info)) then
-       start_id = group_info(igcum,k) + 1
-       end_id   = group_info(igcum,k)
+    if (subsys) then
        i = group_info(igarg,k)
+       gidi = group_info(igid,k)
     else
        i = k
     endif
@@ -712,9 +718,10 @@ subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old,gro
     gyi = 0.
     gzi = 0.
     do l=1,nptmass
-       if (present(group_info)) then
+       if (subsys) then
           j = group_info(igarg,l)
-          if (j>=start_id .or. j<=end_id) cycle
+          gidj = group_info(igid,l)
+          if (gidi==gidj) cycle
        else
           j = l
        endif

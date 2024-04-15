@@ -550,7 +550,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass)
  real,            intent(inout) :: fsink_old(4,nptmass),dsdt_ptmass(3,nptmass),gtgrad(3,nptmass)
- integer,         intent(inout) :: group_info(2,nptmass)
+ integer,         intent(inout) :: group_info(3,nptmass)
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  integer,         intent(inout) :: n_ingroup,n_group,n_sing
  real    :: dt,t_end_step,dtextforce_min
@@ -613,6 +613,8 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
        endif
     endif
  enddo substeps
+
+ print*,fxyz_ptmass(2,1:nptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then

@@ -20,10 +20,10 @@ end subroutine extract_a
 
 subroutine extract_a_dot(r2,r,mu,v2,v,acc,adot)
  real, intent(in)    :: r2,r,mu,v2,v,acc
- real, intent(inout) :: adot
+ real, intent(out)   :: adot
  real :: mu2
  mu2 = mu**2
- adot = 2.*(mu2*v+r2*v*acc)/(2.*mu-r*v2)**2
+ adot = 2.*(mu2*v+r2*v*acc)/((2.*mu-r*v2)**2)
 end subroutine extract_a_dot
 
 subroutine extract_e(x,y,z,vx,vy,vz,mu,r,eij)
