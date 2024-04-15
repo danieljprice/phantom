@@ -117,7 +117,7 @@ end subroutine get_prdrag_vdependent_force
 !  i.e. v^n+1 = vhalf + 0.5*dt*f_sph + 0.5*dt*f_pr(x,v^n+1)
 !+
 !-----------------------------------------------------------------------
-subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Mstar)
+subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Mstar)
  use units,         only:get_c_code,get_G_code
  use io,            only:warn,fatal
  use vectorutils,   only:matrixinvert3D
@@ -129,7 +129,7 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi
  real :: dton2,r2,dr,rx,ry,rz
  real :: gcode,ccode,betai,bterm,b,vr
  real :: rhat(3),vel(3),A(3),Rmat(3,3),Rinv(3,3)
- character(len=30), parameter :: label = 'update_prdrag_leapfrog'
+ character(len=30), parameter :: label = 'update_prdrag'
 
  ccode = get_c_code()
  gcode = get_G_code()
@@ -176,7 +176,7 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi
  fyi = fyi + fexti(2)
  fzi = fzi + fexti(3)
 
-end subroutine update_prdrag_leapfrog
+end subroutine update_prdrag
 
 !-----------------------------------------------------------------------
 !+
