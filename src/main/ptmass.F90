@@ -46,7 +46,6 @@ module ptmass
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
- public :: get_gradf_sink_gas, get_gradf_sink_sink
  public :: merge_sinks
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
@@ -77,6 +76,9 @@ module ptmass
  real, public, parameter :: ck2(2)  = (/1.,0.0/)
  real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
  real, public, parameter :: ck4(2) = (/0.5,0.5/)
+
+ real, public :: dk(3)
+ real, public :: ck(2)
 
 
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
@@ -2181,7 +2183,6 @@ end subroutine write_options_ptmass
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
- use step_extern,only:ck,dk
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr

@@ -40,9 +40,6 @@ module step_extern
  public :: step_extern_pattern
  public :: step_extern_subsys
 
- real, public :: dk(3)
- real, public :: ck(2)
-
  private
 
 contains
@@ -436,7 +433,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:use_fourthorder
+ use ptmass,         only:use_fourthorder,ck,dk
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
