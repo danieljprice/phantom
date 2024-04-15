@@ -489,7 +489,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
 !
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
-    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
@@ -505,7 +505,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
 
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
-       call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+       call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
@@ -546,7 +546,7 @@ end subroutine step_extern_pattern
  !+
  !----------------------------------------------------------------
 
-subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
  use part,     only:isdead_or_accreted,ispinx,ispiny,ispinz
  use ptmass,   only:ptmass_drift
  use io  ,     only:id,master
@@ -555,7 +555,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vx
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),dsdt_ptmass(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real    :: ckdt
  integer :: i
 
@@ -576,9 +576,9 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vx
  !$omp end parallel do
 
  ! Drift sink particles
- if(nptmass>0) then
-    if(id==master) then
-       call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass)
+ if (nptmass>0) then
+    if (id==master) then
+       call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
     endif
     call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  endif
@@ -887,57 +887,59 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
  !$omp do
  do i=1,npart
-    if (ntypes > 1 .and. maxphase==maxp) then
-       itype  = iamtype(iphase(i))
-       pmassi = massoftype(itype)
-    endif
-    fextx = 0.
-    fexty = 0.
-    fextz = 0.
-    if(extrap) then
-       xi = xyzh(1,i) + extrapfac*fext(1,i)
-       yi = xyzh(2,i) + extrapfac*fext(2,i)
-       zi = xyzh(3,i) + extrapfac*fext(3,i)
-    else
-       xi = xyzh(1,i)
-       yi = xyzh(2,i)
-       zi = xyzh(3,i)
-    endif
-    if (nptmass>0) then
-       if(extrap) then
-          call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (ntypes > 1 .and. maxphase==maxp) then
+          itype  = iamtype(iphase(i))
+          pmassi = massoftype(itype)
+       endif
+       fextx = 0.
+       fexty = 0.
+       fextz = 0.
+       if (extrap) then
+          xi = xyzh(1,i) + extrapfac*fext(1,i)
+          yi = xyzh(2,i) + extrapfac*fext(2,i)
+          zi = xyzh(3,i) + extrapfac*fext(3,i)
+       else
+          xi = xyzh(1,i)
+          yi = xyzh(2,i)
+          zi = xyzh(3,i)
+       endif
+       if (nptmass>0) then
+          if(extrap) then
+             call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
          fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
          dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
-       else
-          call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+          else
+             call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                   fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
-          fonrmax = max(fonrmax,fonrmaxi)
-          dtphi2  = min(dtphi2,dtphi2i)
+             fonrmax = max(fonrmax,fonrmaxi)
+             dtphi2  = min(dtphi2,dtphi2i)
+          endif
        endif
-    endif
 
-    !
-    ! compute and add external forces
-    !
-    if (iexternalforce > 0) then
-       call get_external_force_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
+       !
+       ! compute and add external forces
+       !
+       if (iexternalforce > 0) then
+          call get_external_force_gas(xi,yi,zi,xyzh(4,i),vxyzu(1,i), &
                              vxyzu(2,i),vxyzu(3,i),timei,i, &
                              dtextforcenew,dtf,dkdt,fextx,fexty,fextz, &
                              extf_vdep_flag,iexternalforce)
-    endif
+       endif
 
-    if (idamp > 0) then
-       call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
-    endif
+       if (idamp > 0) then
+          call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
+       endif
 
-    fext(1,i) = fextx
-    fext(2,i) = fexty
-    fext(3,i) = fextz
+       fext(1,i) = fextx
+       fext(2,i) = fexty
+       fext(3,i) = fextz
 
-    if (maxvxyzu >= 4 .and. itype==igas .and. last) then
-       call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
+       if (maxvxyzu >= 4 .and. itype==igas .and. last) then
+          call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                     divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0,idK2,idmu,idkappa, &
                                     idgamma,imu,igamma,nabn,dphotflag,nabundances)
+       endif
     endif
  enddo
  !$omp enddo

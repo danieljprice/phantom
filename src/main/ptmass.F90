@@ -545,25 +545,21 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass)
+subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: ckdt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: dsdt_ptmass(3,nptmass)
  integer :: i
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass) &
+ !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
        xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ckdt*vxyz_ptmass(1,i)
        xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ckdt*vxyz_ptmass(2,i)
        xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ckdt*vxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ckdt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ckdt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ckdt*dsdt_ptmass(3,i)
     endif
  enddo
  !$omp end parallel do
