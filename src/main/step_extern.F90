@@ -544,6 +544,8 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use sdar_group,     only:group_identify,evolve_groups
+ use options,        only:iexternalforce
+ use externalforces, only:is_velocity_dependent
  real,            intent(in)    :: dtsph,time
  integer,         intent(in)    :: npart,nptmass
  real,            intent(inout) :: dtextforce
@@ -553,10 +555,10 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  integer,         intent(inout) :: group_info(3,nptmass)
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  integer,         intent(inout) :: n_ingroup,n_group,n_sing
- real    :: dt,t_end_step,dtextforce_min
- real    :: pmassi,timei
- logical :: done,last_step
- integer :: nsubsteps
+ logical :: extf_vdep_flag,done,last_step
+ integer :: force_count,nsubsteps
+ real    :: timei,time_par,dt,t_end_step
+ real    :: dtextforce_min
 
  !
  ! determine whether or not to use substepping
@@ -570,6 +572,8 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  endif
 
  timei = time
+ time_par = time
+ extf_vdep_flag = is_velocity_dependent(iexternalforce)
  pmassi         = massoftype(igas)
  t_end_step     = timei + dtsph
  nsubsteps      = 0
@@ -579,6 +583,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  substeps: do while (timei <= t_end_step .and. .not.done)
     timei = timei + dt
     if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
+    force_count = 0
     nsubsteps = nsubsteps + 1
     !
     ! Group all the ptmass in the system in multiple small group for regularization
@@ -589,15 +594,15 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
 
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
     call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
-    call get_force(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
-                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info) ! Direct calculation of the force and force gradient
+    call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
     fsink_old = fxyz_ptmass
-    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
+    call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,force_count,group_info)
     call kick(dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
-    call get_force(nptmass,npart,nsubsteps,pmassi,timei,dtextforce,xyzh,fext, &
-                      xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,group_info)
+    call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
     call kick(dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
 
@@ -871,12 +876,13 @@ end subroutine kick
  !----------------------------------------------------------------
 
 
-subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,group_info)
+subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,force_count,group_info)
  use dim,            only:maxptmass
  use ptmass,         only:get_gradf_sink_gas,get_gradf_sink_sink,use_regnbody
  use mpiutils,       only:reduce_in_place_mpi
  use io,             only:id,master
  integer,           intent(in)    :: nptmass,npart
+ integer,           intent(inout) :: force_count
  real,              intent(inout) :: xyzh(:,:),fext(3,npart)
  real,              intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(4,nptmass)
  real,              intent(in)    :: fsink_old(4,nptmass)
@@ -886,6 +892,7 @@ subroutine get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptm
  real            :: fextx,fexty,fextz
  integer         :: i
 
+ force_count = force_count + 1
 
  if (nptmass>0) then
     if(id==master) then
