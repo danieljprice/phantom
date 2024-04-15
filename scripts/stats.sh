@@ -59,12 +59,12 @@ get_lines_of_code()
 }
 get_setup_count()
 {
-  nsetup=`cd $phantomdir; grep 'ifeq ($(SETUP)' build/Makefile | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
+  nsetup=`cd $phantomdir; grep 'ifeq ($(SETUP)' build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
   echo "$nsetup";
 }
 get_system_count()
 {
-  nsystem=`cd $phantomdir; grep 'ifeq ($(SYSTEM)' build/Makefile | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
+  nsystem=`cd $phantomdir; grep 'ifeq ($(SYSTEM)' build/Makefile_systems | cut -d, -f 2 | cut -d')' -f 1 | wc -l`;
   echo $nsystem;
 }
 #
@@ -129,7 +129,8 @@ nifdef="$(count_unique_matches '#ifdef')";
 subcount="$(get_subroutine_count)";
 nsetup="$(get_setup_count)";
 nsystem="$(get_system_count)";
-echo "Lines of code: $ncode";
+echo "Lines of code: main     setup    tests    utils";
+echo "            $ncode";
 echo "Number of modules, subroutines, functions: $subcount";
 echo "Number of #ifdef statements : $nifdef";
 echo "Number of authors           : $nauthors";

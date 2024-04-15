@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module porosity
 !
-! Contains routine for porosity evolution (growth, bouncing, 
+! Contains routine for porosity evolution (growth, bouncing,
 ! fragmentation, compaction, disruption)
 !
 ! :References:

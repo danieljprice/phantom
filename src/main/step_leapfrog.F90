@@ -104,7 +104,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fsink_old,ibin_wake
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
@@ -125,10 +126,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use step_extern,     only:step_extern_FSI,step_extern_lf,step_extern_gr,  &
-                          step_extern_sph_gr,step_extern_sph, &
-                          step_extern_subsys
- use ptmass,          only: use_fourthorder,use_regnbody
+ use step_extern,     only:step_extern_pattern,step_extern_gr, &
+                          step_extern_sph_gr,step_extern_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -250,17 +249,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-       if (use_fourthorder) then
-          call step_extern_FSI(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
-                              xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fsink_old,dsdt_ptmass)
-       elseif(use_regnbody) then
-          call step_extern_subsys(dtextforce,dtsph,t,npart,nptmass,xyzh,vxyzu,fext, &
-                                  xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass, &
-                                  fsink_old,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
-       else
-          call step_extern_lf(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,t, &
-                          nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
-       endif
+       call step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
+                                 fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                                 dptmass,fsink_old,nbinmax,ibin_wake)
     else
        call step_extern_sph(dtsph,npart,xyzh,vxyzu)
     endif

@@ -48,7 +48,7 @@ module ptmass
  public :: get_accel_sink_gas, get_accel_sink_sink
  public :: get_gradf_sink_gas, get_gradf_sink_sink
  public :: merge_sinks
- public :: ptmass_predictor, ptmass_corrector
+ public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
  public :: write_options_ptmass, read_options_ptmass
@@ -68,8 +68,17 @@ module ptmass
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0     ! 1000.
+
+
  logical, public :: use_fourthorder = .false. ! FSI switch
  logical, public :: use_regnbody    = .false. ! subsystems switch
+ integer, public :: n_force_order   = 1
+ real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
+ real, public, parameter :: ck2(2)  = (/1.,0.0/)
+ real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
+ real, public, parameter :: ck4(2) = (/0.5,0.5/)
+
+
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -94,7 +103,6 @@ module ptmass
  character(len=50), private  :: pt_prefix = 'Sink'
  character(len=50), private  :: pt_suffix = '00.sink'      ! will be overwritten to .ev for write_one_ptfile = .false.
 
- integer, public, parameter :: ndptmass = 13
  integer, public, parameter :: &
        idxmsi           =  1, &
        idymsi           =  2, &
@@ -311,7 +319,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
  integer :: k,l,i,j,start_id,end_id
- logical :: extrap
+ logical :: extrap,wsub
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -326,6 +334,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  else
     extrap = .false.
  endif
+
+ if(present(group_info)) then
+    wsub = .true.
+    extrap = .false.
+ endif
+
  !
  !--get self-contribution to the potential if sink-sink softening is used
  !
@@ -355,7 +369,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
-    if (present(group_info)) then
+    if (wsub) then
        start_id = group_info(igcum,k) + 1
        end_id   = group_info(igcum,k)
        i = group_info(igarg,k)
@@ -790,106 +804,116 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_predictor(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass)
+subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_info,n_ingroup)
+ use part,only:igarg
  integer, intent(in)    :: nptmass
- real,    intent(in)    :: dt
+ real,    intent(in)    :: ckdt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real    :: vxhalfi,vyhalfi,vzhalfi
- integer :: i
+ real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+ integer, optional, intent(in)    :: n_ingroup
+ integer, optional, intent(in)    :: group_info(:,:)
+ integer :: i,k,istart_ptmass
+ logical :: woutsub
+
+ if (present(n_ingroup)) then
+    istart_ptmass = n_ingroup + 1
+    woutsub = .true.
+ else
+    istart_ptmass = 1
+    woutsub = .false.
+ endif
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(nptmass,dt,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass) &
- !$omp private(i,vxhalfi,vyhalfi,vzhalfi)
- do i=1,nptmass
+ !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass) &
+ !$omp shared(n_ingroup,group_info,woutsub) &
+ !$omp private(i,k)
+ do k=istart_ptmass,nptmass
+    if (woutsub) then
+       i = group_info(igarg,k)
+    else
+       i = k
+    endif
     if (xyzmh_ptmass(4,i) > 0.) then
-       vxhalfi = vxyz_ptmass(1,i) + 0.5*dt*fxyz_ptmass(1,i)
-       vyhalfi = vxyz_ptmass(2,i) + 0.5*dt*fxyz_ptmass(2,i)
-       vzhalfi = vxyz_ptmass(3,i) + 0.5*dt*fxyz_ptmass(3,i)
-       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dt*vxhalfi
-       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + dt*vyhalfi
-       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + dt*vzhalfi
-       vxyz_ptmass(1,i) = vxhalfi
-       vxyz_ptmass(2,i) = vyhalfi
-       vxyz_ptmass(3,i) = vzhalfi
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
+       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ckdt*vxyz_ptmass(1,i)
+       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ckdt*vxyz_ptmass(2,i)
+       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ckdt*vxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ckdt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ckdt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ckdt*dsdt_ptmass(3,i)
     endif
  enddo
  !$omp end parallel do
 
-end subroutine ptmass_predictor
+end subroutine ptmass_drift
 
 !----------------------------------------------------------------
 !+
-!  corrector step for the point masses
-!  (called from inside a parallel section)
+!  kick step for the point masses
 !+
 !----------------------------------------------------------------
-subroutine ptmass_corrector(nptmass,dt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,iexternalforce)
- use externalforces, only:update_vdependent_extforce_leapfrog,is_velocity_dependent
+subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
  integer, intent(in)    :: nptmass
- real,    intent(in)    :: dt
+ real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(in)    :: fxyz_ptmass(4,nptmass)
  real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+ integer :: i
+
+
+ !$omp parallel do schedule(static) default(none) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
+       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
+       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
+       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
+       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
+       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+    endif
+ enddo
+ !$omp end parallel do
+
+
+end subroutine ptmass_kick
+
+!----------------------------------------------------------------
+!+
+!  force correction due to vdep force.
+!+
+!----------------------------------------------------------------
+subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
+ use externalforces, only:update_vdependent_extforce
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: dkdt
+ real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
+ real,    intent(inout)    :: fxyz_ptmass(4,nptmass)
  integer, intent(in)    :: iexternalforce
- real :: vxhalfi,vyhalfi,vzhalfi
  real :: fxi,fyi,fzi,fextv(3)
  integer :: i
 
- !
- ! handle special case of velocity-dependent external forces
- ! in the leapfrog integrator
- !
- if (is_velocity_dependent(iexternalforce)) then
-    !$omp parallel do schedule(static) default(none) &
-    !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass,dt,nptmass,iexternalforce) &
-    !$omp private(vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv) &
-    !$omp private(i)
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
-          vxhalfi = vxyz_ptmass(1,i)
-          vyhalfi = vxyz_ptmass(2,i)
-          vzhalfi = vxyz_ptmass(3,i)
-          fxi = fxyz_ptmass(1,i)
-          fyi = fxyz_ptmass(2,i)
-          fzi = fxyz_ptmass(3,i)
-          call update_vdependent_extforce_leapfrog(iexternalforce,&
-               vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv,dt,&
-               xyzmh_ptmass(1,i),xyzmh_ptmass(2,i),xyzmh_ptmass(3,i))
-          fxi = fxi + fextv(1)
-          fyi = fyi + fextv(2)
-          fzi = fzi + fextv(3)
-          vxyz_ptmass(1,i) = vxhalfi + 0.5*dt*fxi
-          vxyz_ptmass(2,i) = vyhalfi + 0.5*dt*fyi
-          vxyz_ptmass(3,i) = vzhalfi + 0.5*dt*fzi
-          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
-       endif
-    enddo
-    !$omp end parallel do
- else
-    !$omp parallel do schedule(static) default(none) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,nptmass) &
-    !$omp private(i)
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
-          vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + 0.5*dt*fxyz_ptmass(1,i)
-          vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + 0.5*dt*fxyz_ptmass(2,i)
-          vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + 0.5*dt*fxyz_ptmass(3,i)
-          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + 0.5*dt*dsdt_ptmass(1,i)
-          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + 0.5*dt*dsdt_ptmass(2,i)
-          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + 0.5*dt*dsdt_ptmass(3,i)
-       endif
-    enddo
-    !$omp end parallel do
- endif
-
-end subroutine ptmass_corrector
+ !$omp parallel do schedule(static) default(none) &
+ !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dkdt,nptmass,iexternalforce) &
+ !$omp private(fxi,fyi,fzi,fextv) &
+ !$omp private(i)
+ do i=1,nptmass
+    if (xyzmh_ptmass(4,i) > 0.) then
+       fxi = fxyz_ptmass(1,i)
+       fyi = fxyz_ptmass(2,i)
+       fzi = fxyz_ptmass(3,i)
+       call update_vdependent_extforce(iexternalforce,&
+              vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i), &
+              fxi,fyi,fzi,fextv,dkdt,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
+              xyzmh_ptmass(3,i))
+       fxyz_ptmass(1,i) = fxi + fextv(1)
+       fxyz_ptmass(2,i) = fyi + fextv(2)
+       fxyz_ptmass(3,i) = fzi + fextv(3)
+    endif
+ enddo
+ !$omp end parallel do
+end subroutine ptmass_vdependent_correction
 
 !----------------------------------------------------------------
 !+
@@ -981,6 +1005,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  integer            :: j
  real               :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
  logical            :: mostbound
+!$ external         :: omp_set_lock,omp_unset_lock
 
  accreted = .false.
  ifail    = 0
@@ -1204,9 +1229,9 @@ end subroutine update_ptmass
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma
+                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma,ndptmass
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
@@ -1231,14 +1256,13 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:)
- real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:),dptmass(ndptmass,nptmass+1)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
  integer, parameter :: maxcache      = 12000
  integer, parameter :: nneigh_thresh = 1024 ! approximate epot if neigh>neigh_thresh; (-ve for off)
  real, save :: xyzcache(maxcache,3)
- real    :: dptmass(ndptmass,nptmass+1)
  real    :: xi,yi,zi,hi,hi1,hi21,xj,yj,zj,hj1,hj21,xk,yk,zk,hk1
  real    :: rij2,rik2,rjk2,dx,dy,dz
  real    :: vxi,vyi,vzi,dv2,dvx,dvy,dvz,rhomax
@@ -2150,6 +2174,7 @@ end subroutine write_options_ptmass
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
+ use step_extern,only:ck,dk
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2216,6 +2241,14 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('use_fourthorder')
     read(valstring,*,iostat=ierr) use_fourthorder
+    if (use_fourthorder) then
+       n_force_order = 3
+       ck = ck4
+       dk = dk4
+    else
+       ck = ck2
+       dk = dk2
+    endif
  case('use_regnbody')
     read(valstring,*,iostat=ierr) use_regnbody
  case default
