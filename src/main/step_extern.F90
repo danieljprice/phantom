@@ -39,8 +39,8 @@ module step_extern
  public :: step_extern_sph_gr
  public :: step_extern_pattern
 
- real,parameter :: dk(3) = (/1./6.,2./3.,1./6./)
- real,parameter :: ck(2) = (/0.5,0.5/)
+ real, public :: dk(3)
+ real, public :: ck(2)
 
  private
 
@@ -537,12 +537,12 @@ end subroutine step_extern_pattern
  !+
  !----------------------------------------------------------------
 
-subroutine drift(ck,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
+subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass)
  use part,     only:isdead_or_accreted,ispinx,ispiny,ispinz
  use ptmass,   only:ptmass_drift
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
- real,    intent(in)    :: dt,ck
+ real,    intent(in)    :: dt,cki
  integer, intent(in)    :: npart,nptmass,ntypes
  real,    intent(inout) :: time_par
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -550,7 +550,7 @@ subroutine drift(ck,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxy
  real    :: ckdt
  integer :: i
 
- ckdt = ck*dt
+ ckdt = cki*dt
 
  ! Drift gas particles
 
@@ -585,7 +585,7 @@ end subroutine drift
  !+
  !----------------------------------------------------------------
 
-subroutine kick(dk,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
+subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
                 fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
@@ -596,7 +596,7 @@ subroutine kick(dk,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, 
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use dim,            only:ind_timesteps,maxp,maxphase
  use timestep_sts,   only:sts_it_n
- real,                      intent(in)    :: dt,dk
+ real,                      intent(in)    :: dt,dki
  integer,                   intent(in)    :: npart,nptmass,ntypes
  real,                      intent(inout) :: xyzh(:,:)
  real,                      intent(inout) :: vxyzu(:,:),fext(:,:)
@@ -620,7 +620,7 @@ subroutine kick(dk,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, 
  itype = iphase(igas)
  pmassi = massoftype(igas)
 
- dkdt = dk*dt
+ dkdt = dki*dt
 
  ! Kick sink particles
  if (nptmass>0) then
@@ -765,7 +765,7 @@ end subroutine kick
  !----------------------------------------------------------------
 
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
-                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck,dk, &
+                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,cki,dki, &
                      force_count,extf_vdep_flag,fsink_old)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
@@ -787,7 +787,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,              intent(inout) :: dtextforce
- real,              intent(in)    :: timei,ck,dk,dt
+ real,              intent(in)    :: timei,cki,dki,dt
  logical,           intent(in)    :: extf_vdep_flag
  real, optional,    intent(inout) :: fsink_old(4,nptmass)
  integer         :: merge_ij(nptmass)
@@ -809,8 +809,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
  force_count   = force_count + 1
  extrapfac     = (1./24.)*dt**2
- dkdt          = dk*dt
- ckdt          = ck*dt
+ dkdt          = dki*dt
+ ckdt          = cki*dt
  itype         = igas
  pmassi        = massoftype(igas)
  dtextforcenew = bignumber
@@ -1059,7 +1059,7 @@ end subroutine cooling_abundances_update
 subroutine external_force_update_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
  use timestep,       only:C_force
- use externalforces, only: externalforce,update_vdependent_extforce_leapfrog
+ use externalforces, only: externalforce,update_vdependent_extforce
  real,    intent(in) :: xi,yi,zi,hi,vxi,vyi,vzi,timei,dkdt
  real, intent(inout) :: dtextforcenew,dtf,fextx,fexty,fextz
  integer, intent(in) :: iexternalforce,i
@@ -1082,7 +1082,7 @@ subroutine external_force_update_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcen
     fextxi = fextx
     fextyi = fexty
     fextzi = fextz
-    call update_vdependent_extforce_leapfrog(iexternalforce,vxi,vyi,vzi, &
+    call update_vdependent_extforce(iexternalforce,vxi,vyi,vzi, &
                                              fextxi,fextyi,fextzi,fextv,dkdt,xi,yi,zi)
     fextx = fextx + fextv(1)
     fexty = fexty + fextv(2)

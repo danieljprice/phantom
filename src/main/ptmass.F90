@@ -68,8 +68,16 @@ module ptmass
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0    ! 1000.
+
+
  logical, public :: use_fourthorder = .false.
  integer, public :: n_force_order   = 1
+ real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
+ real, public, parameter :: ck2(2)  = (/1.,0.0/)
+ real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
+ real, public, parameter :: ck4(2) = (/0.5,0.5/)
+
+
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
  ! This is a dangerous parameter since failure to form a sink might be indicative of another problem.
  ! This is a hard-coded parameter due to this danger, but will appear in the .in file if set > 0.
@@ -512,228 +520,6 @@ end subroutine get_accel_sink_sink
 
 !----------------------------------------------------------------
 !+
-! get gradient correction of the force for FSI integrator (sink-gas)
-!+
-!----------------------------------------------------------------
-subroutine get_gradf_sink_gas(nptmass,dt,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi, &
-   pmassi,fxyz_ptmass,fsink_old)
- use kernel,        only:kernel_softening,kernel_grad_soft,radkern
- integer,           intent(in)    :: nptmass
- real,              intent(in)    :: xi,yi,zi,hi,dt
- real,              intent(inout) :: fxi,fyi,fzi
- real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,              intent(in)    :: pmassi
- real,              intent(inout) :: fxyz_ptmass(4,nptmass)
- real,              intent(in)    :: fsink_old(4,nptmass)
- real                             :: gtmpxi,gtmpyi,gtmpzi
- real                             :: dx,dy,dz,rr2,ddr,dr3,g11,g12,g21,g22,pmassj
- real                             :: dfx,dfy,dfz,drdotdf
- real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft,gpref
- integer                          :: j
-
- gtmpxi = 0.  ! use temporary summation variable
- gtmpyi = 0.  ! (better for round-off, plus we need this bit of
- gtmpzi = 0.
-
- do j=1,nptmass
-    dx     = xi - xyzmh_ptmass(1,j)
-    dy     = yi - xyzmh_ptmass(2,j)
-    dz     = zi - xyzmh_ptmass(3,j)
-    dfx    = fxi - fsink_old(1,j)
-    dfy    = fyi - fsink_old(2,j)
-    dfz    = fzi - fsink_old(3,j)
-    pmassj = xyzmh_ptmass(4,j)
-    hsoft  = xyzmh_ptmass(ihsoft,j)
-    if (hsoft > 0.0) hsoft = max(hsoft,hi)
-    if (pmassj < 0.0) cycle
-
-    rr2     = dx*dx + dy*dy + dz*dz + epsilon(rr2)
-    drdotdf = dx*dfx + dy*dfy + dz*dfz + epsilon(drdotdf)
-    ddr     = 1./sqrt(rr2)
-    if (rr2 < (radkern*hsoft)**2) then
-       !
-       ! if the sink particle is given a softening length, soften the
-       ! force and potential if r < radkern*hsoft
-       !
-       hsoft1 = 1.0/hsoft
-       hsoft21= hsoft1**2
-       q2i    = rr2*hsoft21
-       qi     = sqrt(q2i)
-       call kernel_softening(q2i,qi,psoft,fsoft)
-
-       gpref = ((dt**2)/24.)*hsoft21
-
-       ! first grad term of gas due to point mass particle
-       g11 = pmassj*fsoft*ddr
-
-       ! first grad term of sink from gas
-       g21 = pmassi*fsoft*ddr
-
-       call kernel_grad_soft(q2i,qi,gsoft)
-
-       dr3  = ddr*ddr*ddr
-
-       ! Second grad term of gas due to point mass particle
-       g12 = pmassj*gsoft*dr3*drdotdf
-
-       ! Second grad term of sink from gas
-       g22 = pmassi*gsoft*dr3*drdotdf
-
-       gtmpxi = gtmpxi - gpref*(dfx*g11+dx*g12)
-       gtmpyi = gtmpyi - gpref*(dfy*g11+dy*g12)
-       gtmpzi = gtmpzi - gpref*(dfz*g11+dz*g12)
-
-
-    else
-       ! no softening on the sink-gas interaction
-       dr3  = ddr*ddr*ddr
-
-       gpref = ((dt**2)/24.)
-
-       ! first grad term of gas due to point mass particle
-       g11 = pmassj*dr3
-
-       ! first grad term of sink from gas
-       g21 = pmassi*dr3
-
-       ! first grad term of gas due to point mass particle
-       g12 = -3.*pmassj*dr3*ddr*ddr*drdotdf
-
-       ! first grad term of sink from gas
-       g22 = -3.*pmassi*dr3*ddr*ddr*drdotdf
-
-
-       gtmpxi = gtmpxi - gpref*(dfx*g11+dx*g12)
-       gtmpyi = gtmpyi - gpref*(dfy*g11+dy*g12)
-       gtmpzi = gtmpzi - gpref*(dfz*g11+dz*g12)
-    endif
-
-    ! backreaction of gas onto sink
-    fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + gpref*(dfx*g21 + dx*g22)
-    fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + gpref*(dfy*g21 + dy*g22)
-    fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + gpref*(dfz*g21 + dz*g22)
- enddo
- !
- ! add temporary sums to existing force on gas particle
- !
- fxi = fxi + gtmpxi
- fyi = fyi + gtmpyi
- fzi = fzi + gtmpzi
-
-end subroutine get_gradf_sink_gas
-
-!----------------------------------------------------------------
-!+
-! get gradient correction of the force for FSI integrator (sink-gas)
-!+
-!----------------------------------------------------------------
-subroutine get_gradf_sink_sink(nptmass,dt,xyzmh_ptmass,fxyz_ptmass,fsink_old)
- use kernel,         only:kernel_softening,kernel_grad_soft,radkern
- integer, intent(in)    :: nptmass
- real,    intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
- real,    intent(inout) :: fxyz_ptmass(4,nptmass)
- real,    intent(in)    :: fsink_old(4,nptmass)
- real,    intent(in)    :: dt
- real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,gxi,gyi,gzi
- real    :: ddr,dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,dr3,g1,g2
- real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft,gsoft
- real    :: gpref
- integer :: i,j
-
- if (nptmass <= 1) return
- if (h_soft_sinksink > 0.) then
-    hsoft1 = 1.0/h_soft_sinksink
-    hsoft21= hsoft1**2
- else
-    hsoft1 = 0.  ! to avoid compiler warnings
-    hsoft21 = 0.
- endif
- !
- !--compute N^2 gradf on point mass particles due to each other
- !
- !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,fsink_old) &
- !$omp shared(h_soft_sinksink,hsoft21,dt) &
- !$omp private(i,xi,yi,zi,pmassi,pmassj) &
- !$omp private(dx,dy,dz,dfx,dfy,dfz,drdotdf,rr2,ddr,dr3,g1,g2) &
- !$omp private(fxi,fyi,fzi,gxi,gyi,gzi,gpref) &
- !$omp private(q2i,qi,psoft,fsoft,gsoft)
- do i=1,nptmass
-    xi     = xyzmh_ptmass(1,i)
-    yi     = xyzmh_ptmass(2,i)
-    zi     = xyzmh_ptmass(3,i)
-    pmassi = xyzmh_ptmass(4,i)
-    if (pmassi < 0.) cycle
-    fxi    = fsink_old(1,i)
-    fyi    = fsink_old(2,i)
-    fzi    = fsink_old(3,i)
-    gxi = 0.
-    gyi = 0.
-    gzi = 0.
-    do j=1,nptmass
-       if (i==j) cycle
-       dx     = xi - xyzmh_ptmass(1,j)
-       dy     = yi - xyzmh_ptmass(2,j)
-       dz     = zi - xyzmh_ptmass(3,j)
-       dfx    = fxi - fsink_old(1,j)
-       dfy    = fyi - fsink_old(2,j)
-       dfz    = fzi - fsink_old(3,j)
-       pmassj = xyzmh_ptmass(4,j)
-       if (pmassj < 0.) cycle
-
-       rr2  = dx*dx + dy*dy + dz*dz + epsilon(rr2)
-       drdotdf = dx*dfx + dy*dfy + dz*dfz
-       ddr  = 1./sqrt(rr2)
-
-       gpref = pmassj*((dt**2)/24.)
-
-       if (rr2 < (radkern*h_soft_sinksink)**2) then
-          !
-          ! if the sink particle is given a softening length, soften the
-          ! force and potential if r < radkern*h_soft_sinksink
-          !
-          q2i    = rr2*hsoft21
-          qi     = sqrt(q2i)
-          call kernel_softening(q2i,qi,psoft,fsoft)  ! Note: psoft < 0
-
-
-          ! gradf part 1 of sink1 from sink2
-          g1    = fsoft*hsoft21*ddr
-
-          call kernel_grad_soft(q2i,qi,gsoft)
-
-          dr3   = ddr*ddr*ddr
-
-          ! gradf part 2 of sink1 from sink2
-          g2    = gsoft*hsoft21*dr3*drdotdf
-          gxi   = gxi - gpref*(dfx*g1 + dx*g2)
-          gyi   = gyi - gpref*(dfy*g1 + dy*g2)
-          gzi   = gzi - gpref*(dfz*g1 + dz*g2)
-
-       else
-          ! no softening on the sink-sink interaction
-          dr3   = ddr*ddr*ddr
-
-          ! gradf part 1 of sink1 from sink2
-          g1    = dr3
-          ! gradf part 2 of sink1 from sink2
-          g2    = -3.*dr3*ddr*ddr*drdotdf
-          gxi   = gxi - gpref*(dfx*g1 + dx*g2)
-          gyi   = gyi - gpref*(dfy*g1 + dy*g2)
-          gzi   = gzi - gpref*(dfz*g1 + dz*g2)
-       endif
-    enddo
-    !
-    !--store sink-sink forces (only)
-    !
-    fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + gxi
-    fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + gyi
-    fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + gzi
- enddo
-!$omp end parallel do
-end subroutine get_gradf_sink_sink
-!----------------------------------------------------------------
-!+
 !  Update position of sink particles if they cross the periodic boundary
 !+
 !----------------------------------------------------------------
@@ -820,7 +606,7 @@ end subroutine ptmass_kick
 !+
 !----------------------------------------------------------------
 subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
- use externalforces, only:update_vdependent_extforce_leapfrog
+ use externalforces, only:update_vdependent_extforce
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
@@ -838,7 +624,7 @@ subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyz
        fxi = fxyz_ptmass(1,i)
        fyi = fxyz_ptmass(2,i)
        fzi = fxyz_ptmass(3,i)
-       call update_vdependent_extforce_leapfrog(iexternalforce,&
+       call update_vdependent_extforce(iexternalforce,&
               vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i), &
               fxi,fyi,fzi,fextv,dkdt,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
               xyzmh_ptmass(3,i))
@@ -2107,6 +1893,7 @@ end subroutine write_options_ptmass
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
+ use step_extern,only:ck,dk
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2173,7 +1960,16 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('use_fourthorder')
     read(valstring,*,iostat=ierr) use_fourthorder
-    if (use_fourthorder) n_force_order = 3
+    if (use_fourthorder) then
+       n_force_order = 3
+       ck = ck4
+       dk = dk4
+    else
+       ck = ck2
+       dk = dk2
+    endif
+
+
  case default
     imatch = .false.
  end select

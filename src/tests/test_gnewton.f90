@@ -157,7 +157,7 @@ end subroutine test_gnewton
 !+
 !-----------------------------------------------------------------------
 subroutine step_lf(t,dt,dtnew)
- use externalforces, only:externalforce,update_vdependent_extforce_leapfrog,externalforce_vdependent
+ use externalforces, only:externalforce,update_vdependent_extforce,externalforce_vdependent
  use timestep,       only:C_force
  use part,           only:xyzh,vxyzu
  use options,        only:iexternalforce
@@ -191,9 +191,9 @@ subroutine step_lf(t,dt,dtnew)
  fy = fexty
  fz = fextz
 
- call update_vdependent_extforce_leapfrog(iexternalforce,&
+ call update_vdependent_extforce(iexternalforce,&
         vxhalf,vyhalf,vzhalf, &
-        fx,fy,fz,fextv,dt,xyzh(1,1),xyzh(2,1),xyzh(3,1))
+        fx,fy,fz,fextv,hdt,xyzh(1,1),xyzh(2,1),xyzh(3,1))
 
  vxyzu(1,1) = vxhalf + hdt*fx
  vxyzu(2,1) = vyhalf + hdt*fy

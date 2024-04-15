@@ -166,7 +166,7 @@ end subroutine test_inccirc
 subroutine integrate_geodesic(tmax,dt,xyz,vxyz,angmom0,angmom)
  use io,             only:iverbose
  use part,           only:igas,npartoftype,massoftype,set_particle_type,get_ntypes,ien_type
- use step_lf_global, only:step_extern_gr
+ use step_extern,    only:step_extern_gr
  use eos,            only:ieos
  use cons2prim,      only:prim2consall
  use metric_tools,   only:init_metric,unpack_metric

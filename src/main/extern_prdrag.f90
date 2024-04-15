@@ -19,7 +19,7 @@ module extern_prdrag
 !
 ! subroutine get_prdrag_spatial_force-- use beta_module, only:beta
 ! subroutine get_prdrag_vdependent_force-- use beta_module, only:beta
-! subroutine update_prdrag_leapfrog-- use beta_module, only:beta
+! subroutine update_prdrag-- use beta_module, only:beta
 ! subroutine write_options_prdrag-- use beta_module, only:write_options_beta
 ! subroutine read_options_prdrag-- use beta_module, only:read_options_beta
 !
@@ -43,7 +43,7 @@ module extern_prdrag
  real, private    :: k1 = 1.        ! redshift
 
  public  :: get_prdrag_spatial_force, get_prdrag_vdependent_force
- public  :: update_prdrag_leapfrog
+ public  :: update_prdrag
  public  :: read_options_prdrag, write_options_prdrag
 
  private
@@ -111,19 +111,19 @@ subroutine get_prdrag_vdependent_force(xyzi,vel,Mstar,fexti)
 
 end subroutine get_prdrag_vdependent_force
 
-subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,Mstar)
+subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Mstar)
  use lumin_nsdisc,  only:beta
  use units,         only:get_c_code
  use io,            only:warn
- real, intent(in)    :: dt,xi,yi,zi, Mstar
+ real, intent(in)    :: dkdt,xi,yi,zi, Mstar
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
  real                              :: r, r2, r3, Q, betai
  real                              :: Tx, Ty, Tz, vonex, voney, vonez
- real                              :: denominator, vrhalf, vrone, twoQondt
+ real                              :: denominator, vrhalf, vrone, Qondkdt
  real                              :: xi2, yi2, zi2, ccode, kd
- character(len=30), parameter :: label = 'update_prdrag_leapfrog'
+ character(len=30), parameter :: label = 'update_prdrag'
 
  ccode = get_c_code()
 
@@ -139,12 +139,12 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
 
  betai       = beta( xi, yi, zi )
  Q           = Mstar*betai*dt/(2.*ccode*r*r)
- twoQondt    = 2.*Q/dt
+ Qondkdt    = Q/dkdt
  denominator = -r2*( k2*kd*Q*Q + (kd-k2)*Q - 1 )
 
- Tx = vhalfx + 0.5*dt*fxi
- Ty = vhalfy + 0.5*dt*fyi
- Tz = vhalfz + 0.5*dt*fzi
+ Tx = vhalfx + dkdt*fxi
+ Ty = vhalfy + dkdt*fyi
+ Tz = vhalfz + dkdt*fzi
 
  vonex = (-(Q*k1*xi)*(Ty*yi+Tz*zi)+Q*kd*Tx*r2-Tx*(r2+Q*k1*xi2))/denominator
  voney = (-(Q*k1*yi)*(Tx*xi+Tz*zi)+Q*kd*Ty*r2-Ty*(r2+Q*k1*yi2))/denominator
@@ -152,15 +152,15 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
 
  vrone = (vonex*xi + voney*yi + vonez*zi)/r      ! vr = rhat dot v
 
- fexti(1) = twoQondt * (vonex*k2 + k1*vrone*xi/r)
- fexti(2) = twoQondt * (voney*k2 + k1*vrone*yi/r)
- fexti(3) = twoQondt * (vonez*k2 + k1*vrone*zi/r)
+ fexti(1) = Qondkdt * (vonex*k2 + k1*vrone*xi/r)
+ fexti(2) = Qondkdt * (voney*k2 + k1*vrone*yi/r)
+ fexti(3) = Qondkdt * (vonez*k2 + k1*vrone*zi/r)
 
  fxi      = fxi + fexti(1)
  fyi      = fyi + fexti(2)
  fzi      = fzi + fexti(3)
 
-end subroutine update_prdrag_leapfrog
+end subroutine update_prdrag
 
 !-----------------------------------------------------------------------
 !+
