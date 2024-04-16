@@ -242,7 +242,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        if (tofrom) f2 = pmassi*dr3
 
        ! additional accelerations due to oblateness
-       if (abs(J2) > 0.) then
+       if (abs(J2) > 0. .and. .not. extrap) then
           shat = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
           Rsink = xyzmh_ptmass(iReff,j)
           call get_geopot_force(dx,dy,dz,ddr,f1,Rsink,J2,shat,ftmpxi,ftmpyi,ftmpzi,phi,dsx,dsy,dsz,fxj,fyj,fzj)
@@ -321,8 +321,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  logical :: extrap
 
  dtsinksink = huge(dtsinksink)
- fxyz_ptmass(:,:) = 0.
- dsdt_ptmass(:,:) = 0.
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
@@ -436,12 +434,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           phii  = phii + pmassj*pterm    ! potential (GM/r)
 
           ! additional acceleration due to oblateness of sink particles j and i
-          if (abs(J2j) > 0.) then
+          if (abs(J2j) > 0. .and. .not. extrap) then
              shatj = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
              rsinkj = xyzmh_ptmass(iReff,j)
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinkj,J2j,shatj,fxi,fyi,fzi,phii)
           endif
-          if (abs(J2i) > 0.) then
+          if (abs(J2i) > 0. .and. .not. extrap) then
              shati = unitvec(xyzmh_ptmass(ispinx:ispinz,i))
              rsinki = xyzmh_ptmass(iReff,i)
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
@@ -487,13 +485,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
-    fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
-    fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
-    dsdt_ptmass(1,i) = dsdt_ptmass(1,i) + pmassi*dsx
-    dsdt_ptmass(2,i) = dsdt_ptmass(2,i) + pmassi*dsy
-    dsdt_ptmass(3,i) = dsdt_ptmass(3,i) + pmassi*dsz
+    fxyz_ptmass(1,i) = fxi
+    fxyz_ptmass(2,i) = fyi
+    fxyz_ptmass(3,i) = fzi
+    fxyz_ptmass(4,i) = phii
+    dsdt_ptmass(1,i) = pmassi*dsx
+    dsdt_ptmass(2,i) = pmassi*dsy
+    dsdt_ptmass(3,i) = pmassi*dsz
  enddo
  !$omp end parallel do
 
@@ -1881,7 +1879,6 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
- call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
 
 end subroutine write_options_ptmass
 
@@ -1956,8 +1953,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
- case('use_fourthorder')
-    read(valstring,*,iostat=ierr) use_fourthorder
  case default
     imatch = .false.
  end select

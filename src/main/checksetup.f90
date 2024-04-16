@@ -56,7 +56,6 @@ subroutine check_setup(nerror,nwarn,restart)
  use nicil,           only:n_nden
  use metric_tools,    only:imetric,imet_minkowski
  use physcon,         only:au,solarm
- use ptmass,          only:use_fourthorder
  integer, intent(out) :: nerror,nwarn
  logical, intent(in), optional :: restart
  integer      :: i,nbad,itype,iu,ndead
@@ -433,7 +432,7 @@ subroutine check_setup(nerror,nwarn,restart)
 !
 !--check Forward symplectic integration method imcompatiblity
 !
- if (use_fourthorder) call check_setup_FSI (nerror,iexternalforce)
+ call check_vdep_extf (nwarn,iexternalforce)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -527,11 +526,15 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
                 ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
+ use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink,hsoft,J2
+ logical :: isoblate
+
+ isoblate = .false.
 
  if (gr .and. nptmass > 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
@@ -620,6 +623,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     ! in order to specify the rotation direction
     !
     if (J2 > 0.) then
+       isoblate = .true.
        if (dot_product(xyzmh_ptmass(ispinx:ispinz,i),xyzmh_ptmass(ispinx:ispinz,i)) < tiny(0.)) then
           nerror = nerror + 1
           print*,'ERROR! non-zero J2 requires non-zero spin on sink particle ',i
@@ -630,6 +634,13 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        endif
     endif
  enddo
+
+ if (isoblate) then
+    nwarn = nwarn + 1
+    print*, 'WARNING: Substepping integration switched back to leapfrog due to oblateness'
+    use_fourthorder = .false.
+ endif
+
  !
  !  check that radiation properties are sensible
  !
@@ -1004,15 +1015,17 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 
 end subroutine check_setup_radiation
 
-subroutine check_setup_FSI(nerror,iexternalforce)
+subroutine check_vdep_extf(nwarn,iexternalforce)
  use externalforces, only: is_velocity_dependent
- integer, intent(inout) :: nerror
+ use ptmass, only : use_fourthorder
+ integer, intent(inout) :: nwarn
  integer, intent(in)    :: iexternalforce
  if (is_velocity_dependent(iexternalforce)) then
-    print "(/,a,/)","ERROR in setup: velocity dependant external forces..."
-    nerror = nerror + 1
+    print "(/,a,/)","Warning: velocity dependant external forces are not compatible with FSI switch back to Leapfrog..."
+    nwarn = nwarn + 1
+    use_fourthorder = .false.
  endif
 
-end subroutine check_setup_FSI
+end subroutine check_vdep_extf
 
 end module checksetup

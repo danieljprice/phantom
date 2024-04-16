@@ -459,7 +459,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  if(use_fourthorder) then
     n_force_order = 3
     ck = ck4
-    dk = dk2
+    dk = dk4
  else
     n_force_order = 1
     ck = ck2
@@ -494,12 +494,8 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
 
-    if (.not.use_fourthorder) then !! standard leapfrog scheme
-! the last kick phase of the scheme will perform the accretion loop after velocity update
-       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
-    else !! FSI 4th order scheme
-! FSFI extrapolation method (Omelyan 2006)
+    if (use_fourthorder) then !! FSI 4th order scheme
+       ! FSFI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,fsink_old)
 
@@ -508,10 +504,14 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
-! the last kick phase of the scheme will perform the accretion loop after velocity update
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(2),dk(3),force_count,extf_vdep_flag)
+       ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
                  fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+    else  !! standard leapfrog scheme
+       ! the last kick phase of the scheme will perform the accretion loop after velocity update
+       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
+                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
     endif
 
 
@@ -547,7 +547,7 @@ end subroutine step_extern_pattern
  !----------------------------------------------------------------
 
 subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
- use part,     only:isdead_or_accreted,ispinx,ispiny,ispinz
+ use part,     only:isdead_or_accreted
  use ptmass,   only:ptmass_drift
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
@@ -839,7 +839,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  if (nptmass>0) then
     if (id==master) then
        if (extrap) then
-          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                    dtf,iexternalforce,timei,merge_ij,merge_n, &
                                    dsdt_ptmass,extrapfac,fsink_old)
@@ -850,7 +849,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                       dsdt_ptmass,extrapfac,fsink_old)
           endif
        else
-          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           if (merge_n > 0) then

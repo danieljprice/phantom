@@ -101,7 +101,7 @@ subroutine test_binary(ntests,npass)
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
-                      get_accel_sink_gas,f_acc
+                      get_accel_sink_gas,f_acc,use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
@@ -145,10 +145,18 @@ subroutine test_binary(ntests,npass)
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)
     case(4)
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+       if (use_fourthorder) then
+          if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with FSI'
+          cycle binary_tests
+       else
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+       endif
     case(2,3,5)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
+          cycle binary_tests
+       elseif(use_fourthorder .and. itest==5) then
+          if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with FSI'
           cycle binary_tests
        else
           if (itest==5) then
