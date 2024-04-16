@@ -127,7 +127,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
  use step_extern,     only:step_extern_pattern,step_extern_gr, &
-                          step_extern_sph_gr,step_extern_sph
+                          step_extern_sph_gr,step_extern_sph,step_extern_subsys
+ use ptmass,         only:use_regnbody
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -249,9 +250,15 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-       call step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
+       if (use_regnbody) then
+          call step_extern_subsys(dtextforce,dtsph,t,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                                 vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fsink_old,gtgrad,group_info,nmatrix, &
+                                 n_group,n_ingroup,n_sing)
+       else
+          call step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                                  fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                                  dptmass,fsink_old,nbinmax,ibin_wake)
+       endif
     else
        call step_extern_sph(dtsph,npart,xyzh,vxyzu)
     endif

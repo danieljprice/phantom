@@ -188,9 +188,9 @@ subroutine evolve_groups(n_group,nptmass,tnext,group_info,xyzmh_ptmass,vxyz_ptma
  use part, only: igarg,igcum
  use io, only: id,master
  use mpiutils,only:bcast_mpi
+ integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
- integer, intent(in)    :: n_group,nptmass
  real,    intent(in)    :: tnext
  integer :: i,start_id,end_id,gsize
  if (n_group>0) then

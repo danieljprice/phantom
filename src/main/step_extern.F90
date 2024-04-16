@@ -535,7 +535,7 @@ end subroutine step_extern_pattern
  !  and external forces except ptmass with subsystems algorithms..
  !+
  !----------------------------------------------------------------
-subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                               dsdt_ptmass,fsink_old,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
  use part,           only: isdead_or_accreted,igas,massoftype
  use io,             only:iverbose,id,master,iprint,warning,fatal
@@ -543,8 +543,9 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  use sdar_group,     only:group_identify,evolve_groups
  use options,        only:iexternalforce
  use externalforces, only:is_velocity_dependent
+ use ptmass,         only:ck,dk
  real,            intent(in)    :: dtsph,time
- integer,         intent(in)    :: npart,nptmass
+ integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: dtextforce
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass)
@@ -555,7 +556,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
  logical :: extf_vdep_flag,done,last_step
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
- real    :: dtextforce_min
+ real    :: dtextforce_min,pmassi
 
  !
  ! determine whether or not to use substepping
@@ -586,21 +587,22 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
     ! Group all the ptmass in the system in multiple small group for regularization
     !
     call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
-
+    !call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+    !               vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
-    call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call evolve_groups(n_group,nptmass,time_par,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
     fsink_old = fxyz_ptmass
     call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,force_count,group_info)
-    call kick(dk(2),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
-    call evolve_groups(n_group,timei,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
-    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
+    call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+    call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
+    call evolve_groups(n_group,nptmass,time_par,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
-    call kick(dk(3),dt,npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
+    call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
     if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
 
     dtextforce_min = min(dtextforce_min,dtextforce)
@@ -616,7 +618,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,nptmass,xyzh,vxyzu,fex
     endif
  enddo substeps
 
- print*,fxyz_ptmass(2,1:nptmass)
+ !print*,fxyz_ptmass(2,1:nptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
@@ -674,7 +676,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vx
  if(nptmass>0) then
     if(id==master) then
        if(present(n_ingroup)) then
-          call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
+          call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_info,n_ingroup)
        else
           call ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass)
        endif
@@ -969,7 +971,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real            :: fonrmaxi,phii,dtphi2i
  real            :: dkdt,ckdt,extrapfac
- logical         :: extrap,last
+ logical         :: extrap,last,wsub
 
  if(present(fsink_old)) then
     fsink_old = fxyz_ptmass

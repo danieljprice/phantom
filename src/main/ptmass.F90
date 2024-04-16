@@ -46,6 +46,7 @@ module ptmass
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
+ public :: get_gradf_sink_gas, get_gradf_sink_sink
  public :: merge_sinks
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
@@ -835,7 +836,7 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_
 
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass) &
- !$omp shared(n_ingroup,group_info,woutsub) &
+ !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
  !$omp private(i,k)
  do k=istart_ptmass,nptmass
     if (woutsub) then
