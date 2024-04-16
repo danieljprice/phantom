@@ -32,7 +32,7 @@ subroutine test_ptmass(ntests,npass)
  use eos,     only:polyk,gamma
  use part,    only:nptmass
  use options, only:iexternalforce,alpha
- use ptmass,  only:use_fourthorder
+ use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest
@@ -53,7 +53,11 @@ subroutine test_ptmass(ntests,npass)
  iexternalforce = 0
  alpha = 0.01
  do itest=1,2
+    !
+    !  select order of integration
+    !
     if (itest == 2) use_fourthorder = .true.
+    call set_integration_precision
     !
     !  Tests of a sink particle binary
     !

@@ -432,7 +432,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:use_fourthorder,ck,dk,ck2,ck4,dk2,dk4,n_force_order
+ use ptmass,         only:use_fourthorder,ck,dk
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -454,16 +454,6 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  else
     dt = dtsph
     last_step = .true.
- endif
-
- if(use_fourthorder) then
-    n_force_order = 3
-    ck = ck4
-    dk = dk4
- else
-    n_force_order = 1
-    ck = ck2
-    dk = dk2
  endif
 
 
