@@ -56,6 +56,7 @@ module ptmass
  public :: calculate_mdot
  public :: ptmass_calc_enclosed_mass
  public :: ptmass_boundary_crossing
+ public :: set_integration_precision
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -70,9 +71,9 @@ module ptmass
  real,    public :: f_crit_override = 0.0     ! 1000.
 
 
- logical, public :: use_fourthorder = .false. ! FSI switch
  logical, public :: use_regnbody    = .false. ! subsystems switch
- integer, public :: n_force_order   = 1
+ logical, public :: use_fourthorder = .true.
+ integer, public :: n_force_order   = 3
  real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
  real, public, parameter :: ck2(2)  = (/1.,0.0/)
  real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
@@ -96,8 +97,14 @@ module ptmass
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
  ! just means that with the default setting of C_force the orbits are accurate
- real, parameter :: dtfacphi  = 0.05
- real, parameter :: dtfacphi2 = dtfacphi*dtfacphi
+ real, parameter :: dtfacphilf  = 0.05
+ real, parameter :: dtfacphi2lf = dtfacphilf**2
+ real, parameter :: dtfacphifsi = 0.2
+ real, parameter :: dtfacphi2fsi = dtfacphifsi**2
+
+ real :: dtfacphi = dtfacphifsi
+ real :: dtfacphi2 = dtfacphifsi
+
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
@@ -244,7 +251,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        if (tofrom) f2 = pmassi*dr3
 
        ! additional accelerations due to oblateness
-       if (abs(J2) > 0.) then
+       if (abs(J2) > 0. .and. .not. extrap) then
           shat = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
           Rsink = xyzmh_ptmass(iReff,j)
           call get_geopot_force(dx,dy,dz,ddr,f1,Rsink,J2,shat,ftmpxi,ftmpyi,ftmpzi,phi,dsx,dsy,dsz,fxj,fyj,fzj)
@@ -325,8 +332,6 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  logical :: extrap,subsys
 
  dtsinksink = huge(dtsinksink)
- fxyz_ptmass(:,:) = 0.
- dsdt_ptmass(:,:) = 0.
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
@@ -460,12 +465,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           phii  = phii + pmassj*pterm    ! potential (GM/r)
 
           ! additional acceleration due to oblateness of sink particles j and i
-          if (abs(J2j) > 0.) then
+          if (abs(J2j) > 0. .and. .not. extrap) then
              shatj = unitvec(xyzmh_ptmass(ispinx:ispinz,j))
              rsinkj = xyzmh_ptmass(iReff,j)
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinkj,J2j,shatj,fxi,fyi,fzi,phii)
           endif
-          if (abs(J2i) > 0.) then
+          if (abs(J2i) > 0. .and. .not. extrap) then
              shati = unitvec(xyzmh_ptmass(ispinx:ispinz,i))
              rsinki = xyzmh_ptmass(iReff,i)
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
@@ -511,13 +516,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
-    fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
-    fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
-    dsdt_ptmass(1,i) = dsdt_ptmass(1,i) + pmassi*dsx
-    dsdt_ptmass(2,i) = dsdt_ptmass(2,i) + pmassi*dsy
-    dsdt_ptmass(3,i) = dsdt_ptmass(3,i) + pmassi*dsz
+    fxyz_ptmass(1,i) = fxi
+    fxyz_ptmass(2,i) = fyi
+    fxyz_ptmass(3,i) = fzi
+    fxyz_ptmass(4,i) = phii
+    dsdt_ptmass(1,i) = pmassi*dsx
+    dsdt_ptmass(2,i) = pmassi*dsy
+    dsdt_ptmass(3,i) = pmassi*dsz
  enddo
  !$omp end parallel do
 
@@ -814,13 +819,12 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_info,n_ingroup)
+subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
  use part,only:igarg
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: ckdt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- real,    intent(in)    :: dsdt_ptmass(3,nptmass)
  integer, optional, intent(in)    :: n_ingroup
  integer, optional, intent(in)    :: group_info(:,:)
  integer :: i,k,istart_ptmass
@@ -835,7 +839,7 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_
  endif
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass) &
+ !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass) &
  !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
  !$omp private(i,k)
  do k=istart_ptmass,nptmass
@@ -848,9 +852,6 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,dsdt_ptmass,group_
        xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ckdt*vxyz_ptmass(1,i)
        xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ckdt*vxyz_ptmass(2,i)
        xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + ckdt*vxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + ckdt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + ckdt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + ckdt*dsdt_ptmass(3,i)
     endif
  enddo
  !$omp end parallel do
@@ -1915,6 +1916,22 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
 
 end subroutine merge_sinks
 
+subroutine set_integration_precision
+ if(use_fourthorder) then
+    n_force_order = 3
+    ck = ck4
+    dk = dk4
+    dtfacphi = dtfacphifsi
+    dtfacphi2 = dtfacphi2fsi
+ else
+    n_force_order = 1
+    ck = ck2
+    dk = dk2
+    dtfacphi = dtfacphilf
+    dtfacphi2 = dtfacphi2lf
+ endif
+end subroutine set_integration_precision
+
 !-----------------------------------------------------------------------
 !+
 !  Open files to track sink particle data
@@ -2172,7 +2189,6 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
- call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
  call write_inopt(use_regnbody, 'use_regnbody', 'Subsystem (SD and secular and AR) integration method', iunit)
 
 end subroutine write_options_ptmass
@@ -2248,16 +2264,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
- case('use_fourthorder')
-    read(valstring,*,iostat=ierr) use_fourthorder
-    if (use_fourthorder) then
-       n_force_order = 3
-       ck = ck4
-       dk = dk4
-    else
-       ck = ck2
-       dk = dk2
-    endif
  case('use_regnbody')
     read(valstring,*,iostat=ierr) use_regnbody
  case default

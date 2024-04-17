@@ -32,9 +32,10 @@ subroutine test_ptmass(ntests,npass)
  use eos,     only:polyk,gamma
  use part,    only:nptmass
  use options, only:iexternalforce,alpha
+ use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
- integer :: itmp,ierr
+ integer :: itmp,ierr,itest
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -51,14 +52,25 @@ subroutine test_ptmass(ntests,npass)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
- !
- !  Tests of a sink particle binary
- !
- if (do_test_binary) call test_binary(ntests,npass)
- !
- !  Test of softening between sinks
- !
- if (do_test_softening) call test_softening(ntests,npass)
+ do itest=1,2
+    !
+    !  select order of integration
+    !
+    if (itest == 2) use_fourthorder = .true.
+    call set_integration_precision
+    !
+    !  Tests of a sink particle binary
+    !
+    if (do_test_binary) call test_binary(ntests,npass)
+    !
+    !  Test of softening between sinks
+    !
+    if (do_test_softening) call test_softening(ntests,npass)
+    !
+    !  Test sink particle mergers
+    !
+    if (do_test_merger) call test_merger(ntests,npass)
+ enddo
  !
  !  Tests of accrete_particle routine
  !
@@ -67,10 +79,6 @@ subroutine test_ptmass(ntests,npass)
  !  Test sink particle creation
  !
  if (do_test_createsink) call test_createsink(ntests,npass)
- !
- !  Test sink particle mergers
- !
- if (do_test_merger) call test_merger(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -97,7 +105,7 @@ subroutine test_binary(ntests,npass)
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
-                      get_accel_sink_gas,f_acc
+                      get_accel_sink_gas,f_acc,use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
@@ -141,10 +149,18 @@ subroutine test_binary(ntests,npass)
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)
     case(4)
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+       if (use_fourthorder) then
+          if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with FSI'
+          cycle binary_tests
+       else
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+       endif
     case(2,3,5)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
+          cycle binary_tests
+       elseif(use_fourthorder .and. itest==5) then
+          if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with FSI'
           cycle binary_tests
        else
           if (itest==5) then
@@ -471,8 +487,8 @@ subroutine test_accretion(ntests,npass)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type
- use ptmass,    only:ndptmass,ptmass_accrete,update_ptmass
+                     isdead_or_accreted,set_particle_type,ndptmass
+ use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
  use testutils, only:checkval,update_test_scores
@@ -592,8 +608,9 @@ subroutine test_createsink(ntests,npass)
  use io,         only:id,master,iverbose
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
- use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
+                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
+                      dptmass
+ use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
@@ -712,7 +729,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,0.)
     !
     ! check that creation succeeded
     !

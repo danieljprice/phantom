@@ -42,7 +42,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
- use units,     only:set_units,umass,unit_velocity !,udist
+ use units,     only:set_units,umass !,udist
  use physcon,   only:solarm,kpc,pi,au,years,pc
  use io,        only:fatal,iprint,master
  use eos,       only:gmw
