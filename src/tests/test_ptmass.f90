@@ -28,11 +28,11 @@ module testptmass
 contains
 
 subroutine test_ptmass(ntests,npass)
- use io,      only:id,master,iskfile
- use eos,     only:polyk,gamma
- use part,    only:nptmass
- use options, only:iexternalforce,alpha
- use ptmass,  only:use_fourthorder,set_integration_precision
+ use io,           only:id,master,iskfile
+ use eos,          only:polyk,gamma
+ use part,         only:nptmass
+ use options,      only:iexternalforce,alpha
+ use substepping,  only:use_fourthorder,set_integration_precision
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest
@@ -106,7 +106,8 @@ subroutine test_binary(ntests,npass)
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
-                      get_accel_sink_gas,f_acc,use_fourthorder
+                      get_accel_sink_gas,f_acc
+ use substepping,only:use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
