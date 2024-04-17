@@ -27,9 +27,9 @@ module setup
  !
  ! setup options and default values for these
  !
- character(len=120) :: datafile = 'ic01.txt'
+ character(len=120) :: datafile = 'clusterbin.txt'
  real :: m_gas = 1.e-6 ! gas mass resolution in Msun
- real :: h_sink = 0.0 ! sink particle radii in arcsec at 8kpc
+ real :: h_sink = 1.e-14 ! sink particle radii in arcsec at 8kpc
 
  private
 
@@ -105,7 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! Read positions, masses and velocities of stars from file
 !
- filename = datafile
+ filename = find_phantom_datafile(datafile,"starcluster")
  call read_ptmass_data(filename,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
 
  mtot = sum(xyzmh_ptmass(4,:))

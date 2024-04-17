@@ -342,9 +342,9 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
-ifeq ($(SETUP), nbody)
+ifeq ($(SETUP), starcluster)
 #   Cluster of stars (ptmass) 
-    SETUPFILE= setup_nbody_test.f90
+    SETUPFILE= setup_starcluster.f90
     KNOWN_SETUP=yes
 endif
 

@@ -989,7 +989,8 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(inout) :: nucleation(:,:),dust_temp(:)
  real(kind=4), intent(in)    :: divcurlv(:,:)
  real,         intent(inout) :: abundc,abunde,abundo,abundsi
- real,         intent(in)    :: dt,dphot0,pmassi
+ real(kind=8), intent(in)    :: dphot0
+ real,         intent(in)    :: dt,pmassi
  integer,      intent(in)    :: idK2,idmu,idkappa,idgamma,imu,igamma
  integer,      intent(in)    :: i,nabn,dphotflag,nabundances
 

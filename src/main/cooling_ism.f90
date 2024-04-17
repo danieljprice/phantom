@@ -126,9 +126,9 @@ module cooling_ism
 
 ! Distance measurements needed for chemistry
 
- real, public :: dlq = 3.086d19
- real, public :: dphot0 = 1.0801d20
- real, public :: dchem = 3.086d20
+ real(kind=8), public :: dlq = 3.086d19
+ real(kind=8), public :: dphot0 = 1.0801d20
+ real(kind=8), public :: dchem = 3.086d20
  integer, public      :: dphotflag = 0
  private
 
