@@ -52,6 +52,7 @@ subroutine test_ptmass(ntests,npass)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
+ use_fourthorder = .false.
  do itest=1,2
     !
     !  select order of integration
