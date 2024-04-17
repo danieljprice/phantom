@@ -538,8 +538,8 @@ end subroutine step_extern_pattern
  !+
  !----------------------------------------------------------------
 subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                              dsdt_ptmass,fsink_old,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
- use part,           only: isdead_or_accreted,igas,massoftype
+                              dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
+ use part,           only:isdead_or_accreted,igas,massoftype,fxyz_ptmass_sinksink
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use sdar_group,     only:group_identify,evolve_groups
@@ -551,9 +551,12 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
  real,            intent(inout) :: dtextforce
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass)
+ real,            intent(inout) :: dptmass(:,:)
  real,            intent(inout) :: fsink_old(4,nptmass),dsdt_ptmass(3,nptmass),gtgrad(3,nptmass)
  integer,         intent(inout) :: group_info(3,nptmass)
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
+ integer(kind=1), intent(in)    :: nbinmax
+ integer(kind=1), intent(inout) :: ibin_wake(:)
  integer,         intent(inout) :: n_ingroup,n_group,n_sing
  logical :: extf_vdep_flag,done,last_step
  integer :: force_count,nsubsteps
@@ -593,18 +596,24 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
     !               vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
-    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
-    call evolve_groups(n_group,nptmass,time_par,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call evolve_groups(n_group,nptmass,time_par,time_par+ck(1)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+    call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
     fsink_old = fxyz_ptmass
     call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,force_count,group_info)
+
     call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
-    call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,dsdt_ptmass,n_ingroup,group_info)
-    call evolve_groups(n_group,nptmass,time_par,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+
+    call evolve_groups(n_group,nptmass,time_par,time_par+ck(2)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+
+    call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
+
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
-    call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
+
+    call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass, &
+              dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
     if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
 
     dtextforce_min = min(dtextforce_min,dtextforce)
@@ -620,7 +629,6 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
     endif
  enddo substeps
 
- !print*,fxyz_ptmass(2,1:nptmass)
 
  if (nsubsteps > 1) then
     if (iverbose>=1 .and. id==master) then
@@ -655,7 +663,7 @@ subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vx
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, optional, intent(in)    :: n_ingroup
  integer, optional, intent(in)    :: group_info(:,:)
- integer :: i,k
+ integer :: i
  real    :: ckdt
 
  ckdt = cki*dt
@@ -862,7 +870,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        call summary_accrete_fail(nfail)
        call summary_accrete(nptmass)
        ! only write to .ev during substeps if no gas particles present
-       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
+       if (npart==-1) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
                                        fxyz_ptmass,fxyz_ptmass_sinksink)
     endif
  endif
@@ -1027,6 +1035,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
+             fxyz_ptmass_sinksink=fxyz_ptmass
+             dsdt_ptmass_sinksink=dsdt_ptmass
           endif
        else
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&

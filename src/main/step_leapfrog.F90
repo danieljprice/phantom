@@ -252,8 +252,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        if (use_regnbody) then
           call step_extern_subsys(dtextforce,dtsph,t,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                                 vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fsink_old,gtgrad,group_info,nmatrix, &
-                                 n_group,n_ingroup,n_sing)
+                                 vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake, &
+                                 gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
        else
           call step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                                  fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&

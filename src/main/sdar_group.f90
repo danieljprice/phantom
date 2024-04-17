@@ -3,7 +3,7 @@ module sdar_group
 ! this module contains everything to identify
 ! and integrate regularized groups...
 !
-! :References: Makino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
+! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
 ! :Owner: Yann BERNARD
 !
@@ -12,11 +12,11 @@ module sdar_group
  public :: group_identify
  public :: evolve_groups
  ! parameters for group identification
- real, parameter :: eta_pert = 0.0002
- real, parameter :: time_error = 1e-10
- real, parameter :: max_step = 100000
- real, parameter, public :: r_neigh  = 0.001
- real,            public :: t_crit   = 0.0
+ real, parameter :: eta_pert = 20
+ real, parameter :: time_error = 2.5e-14
+ real, parameter :: max_step = 100000000
+ real, parameter, public :: r_neigh  = 0.0001
+ real,            public :: t_crit   = 1.e-9
  real,            public :: C_bin    = 0.02
  real,            public :: r_search = 100.*r_neigh
  private
@@ -29,11 +29,11 @@ contains
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
  use io ,only:id,master,iverbose,iprint
- real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout)         :: group_info(:,:)
- integer(kind=1), intent(inout) :: nmatrix(:,:)
- integer, intent(inout)         :: n_group,n_ingroup,n_sing
  integer, intent(in)            :: nptmass
+ real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout)         :: group_info(3,nptmass)
+ integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
+ integer, intent(inout)         :: n_group,n_ingroup,n_sing
 
  n_group = 0
  n_ingroup = 0
@@ -87,6 +87,7 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  integer :: stack(nptmass)
  integer :: j,stack_top,inode
 
+ stack_top = 0
  ncg = 1
  inode = iroot
  group_info(igarg,n_ingroup) = inode
@@ -114,10 +115,10 @@ end subroutine dfs
 
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
  use utils_kepler, only: Espec,extract_a,extract_e,extract_ea
- integer(kind=1), intent(out):: nmatrix(:,:)
+ integer, intent(in) :: nptmass
+ integer(kind=1), intent(out):: nmatrix(nptmass,nptmass)
  real,    intent(in) :: xyzmh_ptmass(:,:)
  real,    intent(in) :: vxyz_ptmass(:,:)
- integer, intent(in) :: nptmass
  real :: xi,yi,zi,vxi,vyi,vzi,mi
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
  real :: aij,eij,B,rperi
@@ -169,7 +170,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
        else
           call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
           rperi = aij*(1-eij)
-          if (rperi<r_neigh .and. C_bin*(r2/v2)<t_crit) then
+          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<t_crit) then
              nmatrix(i,j) = 1
           endif
        endif
@@ -184,26 +185,26 @@ end subroutine matrix_construction
 !
 !---------------------------------------------
 
-subroutine evolve_groups(n_group,nptmass,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  use part, only: igarg,igcum
  use io, only: id,master
  use mpiutils,only:bcast_mpi
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
- real,    intent(in)    :: tnext
+ real,    intent(in)    :: tnext,time
  integer :: i,start_id,end_id,gsize
  if (n_group>0) then
     if(id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
-       !$omp shared(tnext,group_info,gtgrad)&
+       !$omp shared(tnext,time,group_info,gtgrad)&
        !$omp private(i,start_id,end_id,gsize)
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
-          gsize    = end_id - start_id
-          call integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad)
+          gsize    = (end_id - start_id) + 1
+          call integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad)
        enddo
        !$omp end parallel do
     endif
@@ -215,14 +216,14 @@ subroutine evolve_groups(n_group,nptmass,tnext,group_info,xyzmh_ptmass,vxyz_ptma
 
 end subroutine evolve_groups
 
-subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad)
+subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad)
  use part, only: igarg
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:), &
                         fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in) :: group_info(:,:)
  integer, intent(in) :: start_id,end_id,gsize
- real,    intent(in) :: tnext
- real,   allocatable :: bdata(:)
+ real,    intent(in) :: tnext,time
+ real, allocatable   :: bdata(:)
  real    :: ds(2)
  real    :: time_table(ck_size)
  integer :: switch
@@ -233,7 +234,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
  integer :: i,prim,sec
 
 
- tcoord = tnext
+ tcoord = time
 
  ismultiple = gsize > 2
 
@@ -246,8 +247,10 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
  n_step_end = 0
  t_end_flag = .false.
  backup_flag = .true.
- ds = ds_init
+ ds(:) = ds_init
  switch = 1
+
+ !print*,ds_init, tcoord,tnext,W
 
  do while (.true.)
 
@@ -258,11 +261,11 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
     endif
     t_old = tcoord
     W_old = W
-    if (gsize>1) then
+    if (gsize>2) then
        do i=1,ck_size
-          call drift_TTL (tcoord,W,ds(switch)*ck(i),xyzmh_ptmass,vxyz_ptmass,group_info,start_id,end_id)
+          call drift_TTL (tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,start_id,end_id)
           time_table(i) = tcoord
-          call kick_TTL  (ds(switch)*dk(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad,start_id,end_id)
+          call kick_TTL  (ds(switch)*dks(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,gtgrad,start_id,end_id)
        enddo
     else
        prim = group_info(igarg,start_id)
@@ -323,6 +326,8 @@ subroutine integrate_to_time(start_id,end_id,gsize,tnext,xyzmh_ptmass,vxyz_ptmas
        exit
     endif
  enddo
+
+ print*,step_count_int,tcoord,tnext,ds_init
 
  deallocate(bdata)
 
@@ -494,8 +499,9 @@ subroutine oneStep_bin(tcoord,W,ds,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,t
  real :: dtd,dtk,dvel1(3),dvel2(3),dw,om
 
  do k = 1,ck_size
-    dtd = ds*ck(k)/W
+    dtd = ds*cks(k)/W
     tcoord = tcoord + dtd
+    !if (i == 1) print*, fxyz_ptmass(1,i),i,j
     time_table(k) = tcoord
 
     xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dtd*vxyz_ptmass(1,i)
@@ -507,7 +513,7 @@ subroutine oneStep_bin(tcoord,W,ds,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,t
 
     call get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j)
 
-    dtk = ds*dk(k)/om
+    dtk = ds*dks(k)/om
 
     dvel1(1) = 0.5*dtk*fxyz_ptmass(1,i)
     dvel1(2) = 0.5*dtk*fxyz_ptmass(2,i)
@@ -600,34 +606,37 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j)
  real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: i,j
  real,    intent(out)   :: om
- real :: dx,dy,dz,r2,r,mi,mj
- real :: gravf,gtk
+ real :: dx,dy,dz,r2,r,ddr3,mi,mj
+ real :: gravfi,gtki,gravfj,gtkj
 
  mi = xyzmh_ptmass(4,i)
  mj = xyzmh_ptmass(4,j)
- dx = xyzmh_ptmass(1,i)-xyzmh_ptmass(1,j)
- dy = xyzmh_ptmass(2,i)-xyzmh_ptmass(2,j)
- dz = xyzmh_ptmass(3,i)-xyzmh_ptmass(3,j)
+ dx = xyzmh_ptmass(1,i) - xyzmh_ptmass(1,j)
+ dy = xyzmh_ptmass(2,i) - xyzmh_ptmass(2,j)
+ dz = xyzmh_ptmass(3,i) - xyzmh_ptmass(3,j)
  r2 = dx**2+dy**2+dz**2
  r  = sqrt(r2)
- gravf = mj*(1./r2*r)
- gtk   = mj*(1./r)
+ ddr3 = (1./(r2*r))
+ gravfi = mj*ddr3
+ gravfj = mi*ddr3
+ gtki  = mj*(1./r)
+ gtkj  = mi*(1./r)
 
- fxyz_ptmass(1,i) = dx*gravf
- fxyz_ptmass(2,i) = dy*gravf
- fxyz_ptmass(3,i) = dz*gravf
- fxyz_ptmass(1,j) = -dx*gravf
- fxyz_ptmass(2,j) = -dy*gravf
- fxyz_ptmass(3,j) = -dz*gravf
+ fxyz_ptmass(1,i) = -dx*gravfi
+ fxyz_ptmass(2,i) = -dy*gravfi
+ fxyz_ptmass(3,i) = -dz*gravfi
+ fxyz_ptmass(1,j) = dx*gravfj
+ fxyz_ptmass(2,j) = dy*gravfj
+ fxyz_ptmass(3,j) = dz*gravfj
 
- gtgrad(1,i) = dx*gravf*mi
- gtgrad(2,i) = dy*gravf*mi
- gtgrad(3,i) = dz*gravf*mi
- gtgrad(1,j) = -dx*gravf*mi
- gtgrad(2,j) = -dy*gravf*mi
- gtgrad(3,j) = -dz*gravf*mi
+ gtgrad(1,i) = -dx*gravfi*mi
+ gtgrad(2,i) = -dy*gravfi*mi
+ gtgrad(3,i) = -dz*gravfi*mi
+ gtgrad(1,j) = dx*gravfj*mj
+ gtgrad(2,j) = dy*gravfj*mj
+ gtgrad(3,j) = dz*gravfj*mj
 
- om = gtk*mi
+ om = gtki*mi
 
 end subroutine get_force_TTL_bin
 
@@ -709,9 +718,9 @@ subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,s_id,e
  om = om*0.5
 
  if (ismultiple) then
-    ds_init = eta_pert * (E/Edot)
+    ds_init = eta_pert * abs(E/Edot)
  else
-    ds_init = eta_pert * (semi/semidot)
+    ds_init = eta_pert * abs(semi/semidot)
  endif
 
 end subroutine initial_int
