@@ -125,8 +125,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use step_extern,     only:step_extern_pattern,step_extern_gr, &
-                          step_extern_sph_gr,step_extern_sph
+ use substepping,     only:substep,substep_gr, &
+                          substep_sph_gr,substep_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -242,17 +242,17 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if ((iexternalforce > 0 .and. imetric /= imet_minkowski) .or. idamp > 0) then
        call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
        call get_grforce_all(npart,xyzh,metrics,metricderivs,vxyzu,dens,fext,dtextforce)
-       call step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
+       call substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,t)
     else
-       call step_extern_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+       call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-       call step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
+       call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                                  fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                                  dptmass,fsink_old,nbinmax,ibin_wake)
     else
-       call step_extern_sph(dtsph,npart,xyzh,vxyzu)
+       call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
  endif
  call get_timings(t2,tcpu2)

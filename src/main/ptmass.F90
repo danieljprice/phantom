@@ -56,6 +56,7 @@ module ptmass
  public :: ptmass_calc_enclosed_mass
  public :: ptmass_boundary_crossing
 
+
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
  real,    public :: rho_crit_cgs  = 1.e-10
@@ -69,15 +70,7 @@ module ptmass
  real,    public :: f_crit_override = 0.0    ! 1000.
 
 
- logical, public :: use_fourthorder = .false.
- integer, public :: n_force_order   = 1
- real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
- real, public, parameter :: ck2(2)  = (/1.,0.0/)
- real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
- real, public, parameter :: ck4(2) = (/0.5,0.5/)
 
- real, public :: dk(3)
- real, public :: ck(2)
 
 
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
@@ -94,8 +87,14 @@ module ptmass
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
  ! just means that with the default setting of C_force the orbits are accurate
- real, parameter :: dtfacphi  = 0.05
- real, parameter :: dtfacphi2 = dtfacphi*dtfacphi
+ real, public, parameter :: dtfacphilf  = 0.05
+ real, public, parameter :: dtfacphi2lf = dtfacphilf**2
+ real, public, parameter :: dtfacphifsi = 0.05
+ real, public, parameter :: dtfacphi2fsi = dtfacphifsi**2
+
+ real, public :: dtfacphi = dtfacphifsi
+ real, public :: dtfacphi2 = dtfacphifsi
+
 
  ! parameters to control output regarding sink particles
  logical, private, parameter :: record_created   = .false. ! verbose tracking of why sinks are not created
@@ -487,13 +486,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !
     !--store sink-sink forces (only)
     !
-    fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + fxi
-    fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + fyi
-    fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + fzi
-    fxyz_ptmass(4,i) = fxyz_ptmass(4,i) + phii
-    dsdt_ptmass(1,i) = dsdt_ptmass(1,i) + pmassi*dsx
-    dsdt_ptmass(2,i) = dsdt_ptmass(2,i) + pmassi*dsy
-    dsdt_ptmass(3,i) = dsdt_ptmass(3,i) + pmassi*dsz
+    fxyz_ptmass(1,i) = fxi
+    fxyz_ptmass(2,i) = fyi
+    fxyz_ptmass(3,i) = fzi
+    fxyz_ptmass(4,i) = phii
+    dsdt_ptmass(1,i) = pmassi*dsx
+    dsdt_ptmass(2,i) = pmassi*dsy
+    dsdt_ptmass(3,i) = pmassi*dsz
  enddo
  !$omp end parallel do
 
@@ -541,8 +540,7 @@ end subroutine ptmass_boundary_crossing
 
 !----------------------------------------------------------------
 !+
-!  predictor step for the point masses
-!  (called from inside a parallel section)
+!  drift phase for the point masses. (just a position update)
 !+
 !----------------------------------------------------------------
 subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
@@ -568,7 +566,7 @@ end subroutine ptmass_drift
 
 !----------------------------------------------------------------
 !+
-!  kick step for the point masses
+!  kick phase for the point masses (velocity and spin update)
 !+
 !----------------------------------------------------------------
 subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
@@ -600,7 +598,7 @@ end subroutine ptmass_kick
 
 !----------------------------------------------------------------
 !+
-!  force correction due to vdep force.
+!  force correction due to vdep force for point masses.
 !+
 !----------------------------------------------------------------
 subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
@@ -1881,7 +1879,6 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
- call write_inopt(use_fourthorder, 'use_fourthorder', 'FSI integration method (4th order)', iunit)
 
 end subroutine write_options_ptmass
 
@@ -1956,8 +1953,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
- case('use_fourthorder')
-    read(valstring,*,iostat=ierr) use_fourthorder
  case default
     imatch = .false.
  end select

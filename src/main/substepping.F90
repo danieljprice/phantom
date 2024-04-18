@@ -4,25 +4,24 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-module step_extern
+module substepping
 !
 ! Computes sub-steps in the RESPA algorithm
 !
 !   Multiple option of sub stepping can be choosed depending on
 !   the physics and the precision needed
 !
-!   Only Hydro : step_extern_sph
-!   Hydro + GR : step_extern_sph_gr step_extern_gr
-!   2nd order with all fast physics implemented : step extern
-!   4th order (Work in progress, only gravitionnal interaction
-!   sink-sink and sink-gas) : step_extern_FSI step_extern_PEFRL
+!   Only Hydro : substep_sph
+!   Hydro + GR : substep_sph_gr substep_gr
+!   2nd order with all fast physics implemented  : substep (use_fourthorder = false)
+!   4th order without vdep forces and oblateness : substep (not yet implemented)
 !
 ! :References:
 !     Verlet (1967), Phys. Rev. 159, 98-103
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Daniel Price
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !
@@ -34,16 +33,30 @@ module step_extern
 !
  implicit none
 
- public :: step_extern_gr
- public :: step_extern_sph
- public :: step_extern_sph_gr
- public :: step_extern_pattern
+ public :: substep_gr
+ public :: substep_sph
+ public :: substep_sph_gr
+ public :: substep
+ public :: set_integration_precision
+
+ !
+ !-- Parameters for switching between FSI or leapfrog (FSI is use by default)
+ !
+ logical, public :: use_fourthorder = .true.
+ integer, public :: n_force_order   = 3
+ real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
+ real, public, parameter :: ck2(2)  = (/1.,0.0/)
+ real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
+ real, public, parameter :: ck4(2) = (/0.5,0.5/)
+
+ real, public :: dk(3)
+ real, public :: ck(2)
 
  private
 
 contains
 
-subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
+subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  use part,            only:isdead_or_accreted,igas,massoftype,rhoh,eos_vars,igasP,&
                               ien_type,eos_vars,igamma,itemp
  use cons2primsolver, only:conservative2primitive
@@ -78,7 +91,7 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
                                       pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
-       if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (a)]','enthalpy did not converge',i=i)
+       if (ierr > 0) call warning('cons2primsolver [in substep_sph_gr (a)]','enthalpy did not converge',i=i)
        !
        ! main position update
        !
@@ -90,14 +103,14 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
           niter = niter + 1
           call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),&
                                          pri,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
-          if (ierr > 0) call warning('cons2primsolver [in step_extern_sph_gr (b)]','enthalpy did not converge',i=i)
+          if (ierr > 0) call warning('cons2primsolver [in substep_sph_gr (b)]','enthalpy did not converge',i=i)
           xyzh(1:3,i) = xpred + 0.5*dt*(vxyzu(1:3,i)-vold)
           diff = maxval(abs(xyzh(1:3,i)-xpred)/xpred)
           if (diff < xtol) converged = .true.
           ! UPDATE METRIC HERE
           call pack_metric(xyzh(1:3,i),metrics(:,:,:,i))
        enddo
-       if (niter > nitermax) call warning('step_extern_sph_gr','Reached max number of x iterations. x_err ',val=diff)
+       if (niter > nitermax) call warning('substep_sph_gr','Reached max number of x iterations. x_err ',val=diff)
 
        ! repack values
        eos_vars(igasP,i)  = pri
@@ -107,9 +120,9 @@ subroutine step_extern_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
  enddo
  !$omp end parallel do
 
-end subroutine step_extern_sph_gr
+end subroutine substep_sph_gr
 
-subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
+subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
  use dim,            only:maxptmass,maxp,maxvxyzu
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
@@ -229,21 +242,21 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              pprev = pxyz
              call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,&
                                             tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
-             if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (a)]','enthalpy did not converge',i=i)
+             if (ierr > 0) call warning('cons2primsolver [in substep_gr (a)]','enthalpy did not converge',i=i)
              call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyz,densi,uui,pri,fstar)
              pxyz = pprev + hdt*(fstar - fexti)
              pmom_err = maxval(abs(pxyz - pprev))
              if (pmom_err < ptol) converged = .true.
              fexti = fstar
           enddo pmom_iterations
-          if (its > itsmax ) call warning('step_extern_gr',&
+          if (its > itsmax ) call warning('substep_gr',&
                                     'max # of pmom iterations',var='pmom_err',val=pmom_err)
           pitsmax = max(its,pitsmax)
           perrmax = max(pmom_err,perrmax)
 
           call conservative2primitive(xyz,metrics(:,:,:,i),vxyz,densi,uui,pri,tempi,&
                                          gammai,rhoi,pxyz,eni,ierr,ien_type)
-          if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (b)]','enthalpy did not converge',i=i)
+          if (ierr > 0) call warning('cons2primsolver [in substep_gr (b)]','enthalpy did not converge',i=i)
           xyz = xyz + dt*vxyz
           call pack_metric(xyz,metrics(:,:,:,i))
 
@@ -260,7 +273,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              xyz_prev    = xyz
              call conservative2primitive(xyz,metrics(:,:,:,i),vxyz_star,densi,uui,&
                                             pri,tempi,gammai,rhoi,pxyz,eni,ierr,ien_type)
-             if (ierr > 0) call warning('cons2primsolver [in step_extern_gr (c)]','enthalpy did not converge',i=i)
+             if (ierr > 0) call warning('cons2primsolver [in substep_gr (c)]','enthalpy did not converge',i=i)
              xyz  = xyz_prev + hdt*(vxyz_star - vxyz)
              x_err = maxval(abs(xyz-xyz_prev))
              if (x_err < xtol) converged = .true.
@@ -269,7 +282,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
              call pack_metric(xyz,metrics(:,:,:,i))
           enddo xyz_iterations
           call pack_metricderivs(xyz,metricderivs(:,:,:,i))
-          if (its > itsmax ) call warning('step_extern_gr','Reached max number of x iterations. x_err ',val=x_err)
+          if (its > itsmax ) call warning('substep_gr','Reached max number of x iterations. x_err ',val=x_err)
           xitsmax = max(its,xitsmax)
           xerrmax = max(x_err,xerrmax)
 
@@ -383,7 +396,7 @@ subroutine step_extern_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,me
     call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
  endif
 
-end subroutine step_extern_gr
+end subroutine substep_gr
 
  !----------------------------------------------------------------
  !+
@@ -391,7 +404,7 @@ end subroutine step_extern_gr
  !  forces, sink particles or cooling are used
  !+
  !----------------------------------------------------------------
-subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
+subroutine substep_sph(dt,npart,xyzh,vxyzu)
  use part, only:isdead_or_accreted
  real,    intent(in)    :: dt
  integer, intent(in)    :: npart
@@ -414,7 +427,7 @@ subroutine step_extern_sph(dt,npart,xyzh,vxyzu)
  enddo
  !$omp end parallel do
 
-end subroutine step_extern_sph
+end subroutine substep_sph
 
 !----------------------------------------------------------------
  !+
@@ -422,9 +435,10 @@ end subroutine step_extern_sph
  !  Also updates position of all particles even if no external
  !  forces applied. This is the internal loop of the RESPA
  !  algorithm over the "fast" forces.
+ !  (Here it can be FSI or Leapfrog)
  !+
  !----------------------------------------------------------------
-subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
+subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                                xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
                                fsink_old,nbinmax,ibin_wake)
  use io,             only:iverbose,id,master,iprint,fatal
@@ -432,7 +446,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:use_fourthorder,ck,dk,ck2,ck4,dk2,dk4,n_force_order
+
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -456,16 +470,6 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
     last_step = .true.
  endif
 
- if(use_fourthorder) then
-    n_force_order = 3
-    ck = ck4
-    dk = dk2
- else
-    n_force_order = 1
-    ck = ck2
-    dk = dk2
- endif
-
 
  timei = time
  time_par = time
@@ -478,7 +482,7 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
  substeps: do while (timei <= t_end_step .and. .not.done)
     force_count = 0
     timei = timei + dt
-    if (abs(dt) < tiny(0.)) call fatal('step_extern','dt <= 0 in sink-gas substepping',var='dt',val=dt)
+    if (abs(dt) < tiny(0.)) call fatal('substepping','dt <= 0 in sink-gas substepping',var='dt',val=dt)
     nsubsteps     = nsubsteps + 1
 
     if (.not.last_step .and. iverbose > 1 .and. id==master) then
@@ -494,12 +498,9 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
 
-    if (.not.use_fourthorder) then !! standard leapfrog scheme
-! the last kick phase of the scheme will perform the accretion loop after velocity update
-       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
-    else !! FSI 4th order scheme
-! FSFI extrapolation method (Omelyan 2006)
+    if (use_fourthorder) then !! FSI 4th order scheme
+
+       ! FSFI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,fsink_old)
 
@@ -508,10 +509,17 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
-! the last kick phase of the scheme will perform the accretion loop after velocity update
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(2),dk(3),force_count,extf_vdep_flag)
+       ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
                  fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+
+    else  !! standard leapfrog scheme
+
+       ! the last kick phase of the scheme will perform the accretion loop after velocity update
+       call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
+                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+
     endif
 
 
@@ -537,17 +545,17 @@ subroutine step_extern_pattern(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,v
     call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
  endif
 
-end subroutine step_extern_pattern
+end subroutine substep
 
 
  !----------------------------------------------------------------
  !+
- !  drift routine for the 4th order scheme
+ !  drift routine for the whole system (part and ptmass)
  !+
  !----------------------------------------------------------------
 
 subroutine drift(cki,dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
- use part,     only:isdead_or_accreted,ispinx,ispiny,ispinz
+ use part,     only:isdead_or_accreted
  use ptmass,   only:ptmass_drift
  use io  ,     only:id,master
  use mpiutils, only:bcast_mpi
@@ -590,7 +598,7 @@ end subroutine drift
 
  !----------------------------------------------------------------
  !+
- !  kick routine for the 4th order scheme
+ !  kick routine for the whole system (part and ptmass)
  !+
  !----------------------------------------------------------------
 
@@ -769,7 +777,11 @@ end subroutine kick
 
  !----------------------------------------------------------------
  !+
- !  force routine for the 4th order scheme
+ !  force routine for the whole system. First is computed the
+ !  sink/sink interaction and extf on sink, then comes forces
+ !  on gas. sink/gas, extf and dampening. Finally there is an
+ !  update of abundances and temp depending on cooling method
+ !  during the last force calculation of the substep.
  !+
  !----------------------------------------------------------------
 
@@ -779,7 +791,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
-                           ptmass_vdependent_correction,n_force_order
+                           ptmass_vdependent_correction
  use options,         only:iexternalforce
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
@@ -835,11 +847,12 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
  call update_externalforce(iexternalforce,timei,dmdt)
 
-
+ !
+ !-- Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
+ !
  if (nptmass>0) then
     if (id==master) then
        if (extrap) then
-          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                    dtf,iexternalforce,timei,merge_ij,merge_n, &
                                    dsdt_ptmass,extrapfac,fsink_old)
@@ -850,7 +863,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                       dsdt_ptmass,extrapfac,fsink_old)
           endif
        else
-          if (iexternalforce==14) call update_externalforce(iexternalforce,timei,dmdt)
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           if (merge_n > 0) then
@@ -871,6 +883,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     dtextforcenew = min(dtextforcenew,C_force*dtf)
  endif
 
+ !
+ !-- Forces on gas particles (Sink/gas,extf,damp,cooling)
+ !
 
  !$omp parallel default(none) &
  !$omp shared(maxp,maxphase) &
@@ -927,6 +942,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                              extf_vdep_flag,iexternalforce)
        endif
 
+       !
+       ! dampening
+       !
        if (idamp > 0) then
           call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
        endif
@@ -934,11 +952,12 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        fext(1,i) = fextx
        fext(2,i) = fexty
        fext(3,i) = fextz
-
+       !
+       ! temperature and abundances update (only done during the last force calculation of the substep)
+       !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                    divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0,idK2,idmu,idkappa, &
-                                    idgamma,imu,igamma,nabn,dphotflag,nabundances)
+                                    divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0)
        endif
     endif
  enddo
@@ -976,16 +995,22 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
 end subroutine get_force
 
-! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
-!       dt is *passed in* to the chemistry & cooling routines so that the
-!       output will be at the correct time of time + dt.  Since this is
-!       implicit, there is no cooling timestep.  Explicit cooling is
-!       calculated in force and requires a cooling timestep.
 
+ !-----------------------------------------------------------------------------------
+ !+
+ ! Update of abundances and internal energy using cooling method (see cooling module)
+ ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+ !       dt is *passed in* to the chemistry & cooling routines so that the
+ !       output will be at the correct time of time + dt.  Since this is
+ !       implicit, there is no cooling timestep.  Explicit cooling is
+ !       calculated in force and requires a cooling timestep.
+ !+
+ !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,idK2,idmu,idkappa, &
-                                     idgamma,imu,igamma,nabn,dphotflag,nabundances)
+                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
+ use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances
+ use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
  use dust_formation,  only:evolve_dust
@@ -1001,9 +1026,9 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(inout) :: nucleation(:,:),dust_temp(:)
  real(kind=4), intent(in)    :: divcurlv(:,:)
  real,         intent(inout) :: abundc,abunde,abundo,abundsi
- real,         intent(in)    :: dt,dphot0,pmassi
- integer,      intent(in)    :: idK2,idmu,idkappa,idgamma,imu,igamma
- integer,      intent(in)    :: i,nabn,dphotflag,nabundances
+ real(kind=8), intent(in)    :: dphot0
+ real,         intent(in)    :: dt,pmassi
+ integer,      intent(in)    :: i
 
  real :: dudtcool,rhoi,dphot
  real :: abundi(nabn)
@@ -1068,7 +1093,11 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
 
 end subroutine cooling_abundances_update
 
-
+ !----------------------------------------------------------------
+ !+
+ !  routine for external force applied on gas particle
+ !+
+ !----------------------------------------------------------------
 
 subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
@@ -1106,5 +1135,29 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
 
 end subroutine get_external_force_gas
 
+ !----------------------------------------------------------------
+ !+
+ !  precision switcher routine. FSI or Leapfrog (use_fourthorder)
+ !+
+ !----------------------------------------------------------------
 
-end module step_extern
+subroutine set_integration_precision
+ use ptmass, only:dtfacphi,dtfacphi2,dtfacphilf, &
+                  dtfacphifsi,dtfacphi2lf,dtfacphi2fsi
+ if(use_fourthorder) then
+    n_force_order = 3
+    ck = ck4
+    dk = dk4
+    dtfacphi = dtfacphifsi
+    dtfacphi2 = dtfacphi2fsi
+ else
+    n_force_order = 1
+    ck = ck2
+    dk = dk2
+    dtfacphi = dtfacphilf
+    dtfacphi2 = dtfacphi2lf
+ endif
+end subroutine set_integration_precision
+
+
+end module substepping

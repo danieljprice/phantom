@@ -27,9 +27,9 @@ module setup
  !
  ! setup options and default values for these
  !
- character(len=120) :: datafile = 'ic01.txt'
+ character(len=120) :: datafile = 'clusterbin.txt'
  real :: m_gas = 1.e-6 ! gas mass resolution in Msun
- real :: h_sink = 0.0 ! sink particle radii in arcsec at 8kpc
+ real :: h_sink = 1.e-14 ! sink particle radii in arcsec at 8kpc
 
  private
 
@@ -41,15 +41,15 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
- use units,     only:set_units,umass,unit_velocity !,udist
- use physcon,   only:solarm,kpc,pi,au,years,pc
- use io,        only:fatal,iprint,master
- use eos,       only:gmw
- use timestep,  only:dtmax
- use spherical, only:set_sphere
- use datafiles, only:find_phantom_datafile
- use ptmass,    only:use_fourthorder
+ use part,        only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
+ use units,       only:set_units,umass !,udist
+ use physcon,     only:solarm,kpc,pi,au,years,pc
+ use io,          only:fatal,iprint,master
+ use eos,         only:gmw
+ use timestep,    only:dtmax
+ use spherical,   only:set_sphere
+ use datafiles,   only:find_phantom_datafile
+ use substepping, only:use_fourthorder
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -105,7 +105,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! Read positions, masses and velocities of stars from file
 !
- filename = datafile
+ filename = find_phantom_datafile(datafile,"starcluster")
  call read_ptmass_data(filename,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr)
 
  mtot = sum(xyzmh_ptmass(4,:))
@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('cubic',id,master,0.,0.002,psep,hfact,npart,xyzh)
+ call set_sphere('cubic',id,master,0.,10.0,psep,hfact,npart,xyzh)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 
