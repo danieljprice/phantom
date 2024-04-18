@@ -526,7 +526,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
                 ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
- use ptmass, only:use_fourthorder
+ use substepping, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
@@ -635,7 +635,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     endif
  enddo
 
- if (isoblate) then
+ if (isoblate .and. use_fourthorder) then
     nwarn = nwarn + 1
     print*, 'WARNING: Substepping integration switched back to leapfrog due to oblateness'
     use_fourthorder = .false.
@@ -1017,10 +1017,10 @@ end subroutine check_setup_radiation
 
 subroutine check_vdep_extf(nwarn,iexternalforce)
  use externalforces, only: is_velocity_dependent
- use ptmass, only : use_fourthorder
+ use substepping, only : use_fourthorder
  integer, intent(inout) :: nwarn
  integer, intent(in)    :: iexternalforce
- if (is_velocity_dependent(iexternalforce)) then
+ if (is_velocity_dependent(iexternalforce) .and. use_fourthorder) then
     print "(/,a,/)","Warning: velocity dependant external forces are not compatible with FSI switch back to Leapfrog..."
     nwarn = nwarn + 1
     use_fourthorder = .false.
