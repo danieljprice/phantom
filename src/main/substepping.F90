@@ -21,7 +21,7 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Daniel Price
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !
@@ -39,6 +39,9 @@ module substepping
  public :: substep
  public :: set_integration_precision
 
+ !
+ !-- Parameters for switching between FSI or leapfrog (FSI is use by default)
+ !
  logical, public :: use_fourthorder = .true.
  integer, public :: n_force_order   = 3
  real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
@@ -432,6 +435,7 @@ end subroutine substep_sph
  !  Also updates position of all particles even if no external
  !  forces applied. This is the internal loop of the RESPA
  !  algorithm over the "fast" forces.
+ !  (Here it can be FSI or Leapfrog)
  !+
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
@@ -495,6 +499,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
 
     if (use_fourthorder) then !! FSI 4th order scheme
+
        ! FSFI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,fsink_old)
@@ -508,10 +513,13 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
                  fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+
     else  !! standard leapfrog scheme
+
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+
     endif
 
 
@@ -542,7 +550,7 @@ end subroutine substep
 
  !----------------------------------------------------------------
  !+
- !  drift routine for the 4th order scheme
+ !  drift routine for the whole system (part and ptmass)
  !+
  !----------------------------------------------------------------
 
@@ -590,7 +598,7 @@ end subroutine drift
 
  !----------------------------------------------------------------
  !+
- !  kick routine for the 4th order scheme
+ !  kick routine for the whole system (part and ptmass)
  !+
  !----------------------------------------------------------------
 
@@ -769,7 +777,11 @@ end subroutine kick
 
  !----------------------------------------------------------------
  !+
- !  force routine for the 4th order scheme
+ !  force routine for the whole system. First is computed the
+ !  sink/sink interaction and extf on sink, then comes forces
+ !  on gas. sink/gas, extf and dampening. Finally there is an
+ !  update of abundances and temp depending on cooling method
+ !  during the last force calculation of the substep.
  !+
  !----------------------------------------------------------------
 
@@ -835,7 +847,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
  call update_externalforce(iexternalforce,timei,dmdt)
 
-
+ !
+ !-- Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
+ !
  if (nptmass>0) then
     if (id==master) then
        if (extrap) then
@@ -869,6 +883,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     dtextforcenew = min(dtextforcenew,C_force*dtf)
  endif
 
+ !
+ !-- Forces on gas particles (Sink/gas,extf,damp,cooling)
+ !
 
  !$omp parallel default(none) &
  !$omp shared(maxp,maxphase) &
@@ -925,6 +942,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                              extf_vdep_flag,iexternalforce)
        endif
 
+       !
+       ! dampening
+       !
        if (idamp > 0) then
           call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
        endif
@@ -932,7 +952,9 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        fext(1,i) = fextx
        fext(2,i) = fexty
        fext(3,i) = fextz
-
+       !
+       ! temperature and abundances update (only done during the last force calculation of the substep)
+       !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                     divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0)
@@ -973,12 +995,17 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 
 end subroutine get_force
 
-! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
-!       dt is *passed in* to the chemistry & cooling routines so that the
-!       output will be at the correct time of time + dt.  Since this is
-!       implicit, there is no cooling timestep.  Explicit cooling is
-!       calculated in force and requires a cooling timestep.
 
+ !-----------------------------------------------------------------------------------
+ !+
+ ! Update of abundances and internal energy using cooling method (see cooling module)
+ ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+ !       dt is *passed in* to the chemistry & cooling routines so that the
+ !       output will be at the correct time of time + dt.  Since this is
+ !       implicit, there is no cooling timestep.  Explicit cooling is
+ !       calculated in force and requires a cooling timestep.
+ !+
+ !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
@@ -1066,7 +1093,11 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
 
 end subroutine cooling_abundances_update
 
-
+ !----------------------------------------------------------------
+ !+
+ !  routine for external force applied on gas particle
+ !+
+ !----------------------------------------------------------------
 
 subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,dtf,dkdt, &
                                  fextx,fexty,fextz,extf_is_velocity_dependent,iexternalforce)
@@ -1103,6 +1134,12 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
 
 
 end subroutine get_external_force_gas
+
+ !----------------------------------------------------------------
+ !+
+ !  precision switcher routine. FSI or Leapfrog (use_fourthorder)
+ !+
+ !----------------------------------------------------------------
 
 subroutine set_integration_precision
  use ptmass, only:dtfacphi,dtfacphi2,dtfacphilf, &

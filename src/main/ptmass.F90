@@ -540,8 +540,7 @@ end subroutine ptmass_boundary_crossing
 
 !----------------------------------------------------------------
 !+
-!  predictor step for the point masses
-!  (called from inside a parallel section)
+!  drift phase for the point masses. (just a position update)
 !+
 !----------------------------------------------------------------
 subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
@@ -567,7 +566,7 @@ end subroutine ptmass_drift
 
 !----------------------------------------------------------------
 !+
-!  kick step for the point masses
+!  kick phase for the point masses (velocity and spin update)
 !+
 !----------------------------------------------------------------
 subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
@@ -599,7 +598,7 @@ end subroutine ptmass_kick
 
 !----------------------------------------------------------------
 !+
-!  force correction due to vdep force.
+!  force correction due to vdep force for point masses.
 !+
 !----------------------------------------------------------------
 subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
