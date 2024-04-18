@@ -185,7 +185,7 @@ subroutine test_derivs(ntests,npass,string)
 !--calculate pure hydro derivatives with velocity and
 !  pressure distributions (no viscosity)
 !
-    if (id==master) write(*,"(/,a)") '--> testing Hydro derivatives '
+    if (id==master) write(*,"(/,a)") '--> testing Hydro derivatives (derivshydro)'
     call set_velocity_and_energy
     call reset_mhd_to_zero
     if (maxvxyzu < 4) polyk = 3.
@@ -284,12 +284,12 @@ subroutine test_derivs(ntests,npass,string)
 !
        if (id==master) then
 #ifdef DISC_VISCOSITY
-          write(*,"(/,a)") '--> testing artificial viscosity terms (disc viscosity)'
+          write(*,"(/,a)") '--> testing artificial viscosity terms w/disc viscosity (derivsav)'
 #else
           if (maxalpha==maxp) then
-             write(*,"(/,a)") '--> testing artificial viscosity terms (individual alpha)'
+             write(*,"(/,a)") '--> testing artificial viscosity terms w/individual alpha (derivsav)'
           else
-             write(*,"(/,a)") '--> testing artificial viscosity terms (constant alpha)'
+             write(*,"(/,a)") '--> testing artificial viscosity terms w/constant alpha (derivsav)'
           endif
 #endif
           if (nactive /= npart) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
@@ -323,7 +323,7 @@ subroutine test_derivs(ntests,npass,string)
 !
  testcdswitch: if (testcullendehnen .or. testall) then
     if (maxalpha==maxp .and. nalpha > 1) then
-       if (id==master) write(*,"(/,a)") '--> testing ddivv/dt in Cullen & Dehnen switch'
+       if (id==master) write(*,"(/,a)") '--> testing ddivv/dt in Cullen & Dehnen switch (derivscd)'
 
        call set_velocity_only
        do i=1,npart
@@ -365,9 +365,9 @@ subroutine test_derivs(ntests,npass,string)
 !
     if (id==master) then
        if (maxdvdx==maxp) then
-          write(*,"(/,a)") '--> testing physical viscosity terms (two first derivatives)'
+          write(*,"(/,a)") '--> testing physical viscosity terms w/two first derivatives (derivsvisc)'
        else
-          write(*,"(/,a)") '--> testing physical viscosity terms (direct second derivatives)'
+          write(*,"(/,a)") '--> testing physical viscosity terms w/direct second derivatives (derivsvisc)'
        endif
     endif
     polyk = 0.
@@ -450,7 +450,7 @@ subroutine test_derivs(ntests,npass,string)
 !
     if (use_dust) use_dustfrac=.true.
     if (use_dustfrac) then
-       if (id==master) write(*,"(/,a)") '--> testing dust evolution terms'
+       if (id==master) write(*,"(/,a)") '--> testing dust evolution terms (derivsdust)'
        if (use_dust) then
           idrag   = 2
           gamma   = 5./3.
@@ -543,160 +543,151 @@ subroutine test_derivs(ntests,npass,string)
 !
 !--calculate derivatives with MHD forces ON, zero pressure
 !
- testmhd: if (testmhdderivs .or. testall) then
+ testmhd: if ((testmhdderivs .or. testall) .and. mhd) then
     if (.not.testall) call get_derivs_global()    ! obtain smoothing lengths
     do itest=nstart,nend,nstep
        if (ind_timesteps) nactive = 10**itest
        polyk = 0.
        call reset_mhd_to_zero
        call reset_dissipation_to_zero
-       if (mhd) then
-          if (id==master) then
-             write(*,"(/,a)") '--> testing MHD derivatives (using B/rho directly)'
-             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-          endif
-          Bextx = 2.0e-1
-          Bexty = 3.0e-1
-          Bextz = 0.5
-          call set_velocity_only
-          call set_magnetic_field
-          do i=1,npart
-             Bevol(4,i) = 0.
-          enddo
-          call set_active(npart,nactive/nprocs,igas)
-          call get_derivs_global()
-          call rcut_mask(rcut,xyzh,npart,mask)
-
-          !
-          !--check that various quantities come out as they should do
-          !
-          nfailed(:) = 0
-          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
-
-          call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-3,nfailed(2),'divB (symm)',mask)
-          call checkvalf(np,xyzh,dBevol(1,:),dBxdt,2.e-3,nfailed(3),'dBx/dt',mask)
-          call checkvalf(np,xyzh,dBevol(2,:),dBydt,2.e-3,nfailed(4),'dBy/dt',mask)
-          call checkvalf(np,xyzh,dBevol(3,:),dBzdt,2.e-2,nfailed(5),'dBz/dt',mask)
-
-          call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,2.5e-2,nfailed(9),'mhd force(x)',mask)
-          call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,2.5e-2,nfailed(10),'mhd force(y)',mask)
-          call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,2.5e-2,nfailed(11),'mhd force(z)',mask)
-          if (ndivcurlB >= 1) then
-             call checkvalf(np,xyzh,divcurlB(idivB,:),divBfunc,1.e-3,nfailed(12),'div B (diff)',mask)
-          endif
-          if (ndivcurlB >= 4) then
-             call checkvalf(np,xyzh,divcurlB(icurlBx,:),curlBfuncx,1.e-3,nfailed(13),'curlB(x)',mask)
-             call checkvalf(np,xyzh,divcurlB(icurlBy,:),curlBfuncy,1.e-3,nfailed(14),'curlB(y)',mask)
-             call checkvalf(np,xyzh,divcurlB(icurlBz,:),curlBfuncz,1.e-3,nfailed(15),'curlB(z)',mask)
-          endif
-          call update_test_scores(ntests,nfailed,npass)
+       if (id==master) then
+          write(*,"(/,a)") '--> testing MHD derivatives (derivsmhd)'
+          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
        endif
+       Bextx = 2.0e-1
+       Bexty = 3.0e-1
+       Bextz = 0.5
+       call set_velocity_only
+       call set_magnetic_field
+       do i=1,npart
+          Bevol(4,i) = 0.
+       enddo
+       call set_active(npart,nactive/nprocs,igas)
+       call get_derivs_global()
+       call rcut_mask(rcut,xyzh,npart,mask)
+
+       !
+       !--check that various quantities come out as they should do
+       !
+       nfailed(:) = 0
+       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
+
+       call checkvalf(np,xyzh,divBsymm(:),divBfunc,2.e-3,nfailed(2),'divB (symm)',mask)
+       call checkvalf(np,xyzh,dBevol(1,:),dBxdt,2.e-3,nfailed(3),'dBx/dt',mask)
+       call checkvalf(np,xyzh,dBevol(2,:),dBydt,2.e-3,nfailed(4),'dBy/dt',mask)
+       call checkvalf(np,xyzh,dBevol(3,:),dBzdt,2.e-2,nfailed(5),'dBz/dt',mask)
+
+       call checkvalf(np,xyzh,fxyzu(1,:),forcemhdx,2.5e-2,nfailed(9),'mhd force(x)',mask)
+       call checkvalf(np,xyzh,fxyzu(2,:),forcemhdy,2.5e-2,nfailed(10),'mhd force(y)',mask)
+       call checkvalf(np,xyzh,fxyzu(3,:),forcemhdz,2.5e-2,nfailed(11),'mhd force(z)',mask)
+       if (ndivcurlB >= 1) then
+          call checkvalf(np,xyzh,divcurlB(idivB,:),divBfunc,1.e-3,nfailed(12),'div B (diff)',mask)
+       endif
+       if (ndivcurlB >= 4) then
+          call checkvalf(np,xyzh,divcurlB(icurlBx,:),curlBfuncx,1.e-3,nfailed(13),'curlB(x)',mask)
+          call checkvalf(np,xyzh,divcurlB(icurlBy,:),curlBfuncy,1.e-3,nfailed(14),'curlB(y)',mask)
+          call checkvalf(np,xyzh,divcurlB(icurlBz,:),curlBfuncz,1.e-3,nfailed(15),'curlB(z)',mask)
+       endif
+       call update_test_scores(ntests,nfailed,npass)
        if (ind_timesteps) call reset_allactive()
     enddo
     do itest=nstart,nend,nstep
        if (ind_timesteps) nactive = 10**itest
-       if (mhd) then
-          if (id==master) then
-             write(*,"(/,a)") '--> testing artificial resistivity terms'
-             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-          endif
-          call reset_mhd_to_zero
-          call reset_dissipation_to_zero
-          alphaB = 0.214
-          polyk = 0.
-          ieosprev = ieos
-          ieos  = 1  ! isothermal eos, so that the PdV term is zero
-          call set_magnetic_field
-          do i=1,npart
-             vxyzu(:,i) = 0.     ! v=0 for this test
-             Bevol(4,i) = 0.     ! psi=0 for this test
-          enddo
-          call set_active(npart,nactive,igas)
-          call get_derivs_global()
-          call rcut_mask(rcut,xyzh,npart,mask)
-          !
-          !--check that various quantities come out as they should do
-          !
-          nfailed(:) = 0
-          !
-          !--resistivity test is very approximate
-          !  To do a proper test, multiply by h/rij in densityforce
-          !
-          call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)',mask)
-          call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)',mask)
-          call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)',mask)
-          call update_test_scores(ntests,nfailed,npass)
-          !
-          !--check that \sum m (du/dt + B/rho.dB/dt) = 0.
-          !  only applies if all particles active - with individual timesteps
-          !  we just hope that du/dt has not changed all that much on non-active particles
-          !
-          if (maxvxyzu==4 .and. nactive==npart) then
-             deint = 0.
-             demag = 0.
-             do i=1,npart
-                rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
-                deint = deint + fxyzu(iu,i)
-                demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
-             enddo
-             nfailed(:) = 0
-             call checkval(deint + demag,0.,2.7e-3,nfailed(1),'\sum du/dt + B.dB/dt = 0')
-             call update_test_scores(ntests,nfailed(1:1),npass)
-          endif
-
-          !--restore ieos
-          ieos = ieosprev
-
+       if (id==master) then
+          write(*,"(/,a)") '--> testing artificial resistivity terms (derivsmhd)'
+          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
        endif
+       call reset_mhd_to_zero
+       call reset_dissipation_to_zero
+       alphaB = 0.214
+       polyk = 0.
+       ieosprev = ieos
+       ieos  = 1  ! isothermal eos, so that the PdV term is zero
+       call set_magnetic_field
+       do i=1,npart
+          vxyzu(:,i) = 0.     ! v=0 for this test
+          Bevol(4,i) = 0.     ! psi=0 for this test
+       enddo
+       call set_active(npart,nactive,igas)
+       call get_derivs_global()
+       call rcut_mask(rcut,xyzh,npart,mask)
+       !
+       !--check that various quantities come out as they should do
+       !
+       nfailed(:) = 0
+       !
+       !--resistivity test is very approximate
+       !  To do a proper test, multiply by h/rij in densityforce
+       !
+       call checkvalf(np,xyzh,dBevol(1,:),dBxdtresist,3.7e-2,nfailed(1),'dBx/dt (resist)',mask)
+       call checkvalf(np,xyzh,dBevol(2,:),dBydtresist,3.4e-2,nfailed(2),'dBy/dt (resist)',mask)
+       call checkvalf(np,xyzh,dBevol(3,:),dBzdtresist,2.2e-1,nfailed(3),'dBz/dt (resist)',mask)
+       call update_test_scores(ntests,nfailed,npass)
+       !
+       !--check that \sum m (du/dt + B/rho.dB/dt) = 0.
+       !  only applies if all particles active - with individual timesteps
+       !  we just hope that du/dt has not changed all that much on non-active particles
+       !
+       if (maxvxyzu==4 .and. nactive==npart) then
+          deint = 0.
+          demag = 0.
+          do i=1,npart
+             rho1i = 1./rhoh(xyzh(4,i),massoftype(1))
+             deint = deint + fxyzu(iu,i)
+             demag = demag + dot_product(Bevol(1:3,i),dBevol(1:3,i))*rho1i
+          enddo
+          nfailed(:) = 0
+          call checkval(deint + demag,0.,2.7e-3,nfailed(1),'\sum du/dt + B.dB/dt = 0')
+          call update_test_scores(ntests,nfailed(1:1),npass)
+       endif
+
+       !--restore ieos
+       ieos = ieosprev
        if (ind_timesteps) call reset_allactive()
     enddo
-    if (ind_timesteps) then
-       tolh_old = tolh
-       tolh = 1.e-7
-    endif
+    tolh_old = tolh
+    if (ind_timesteps) tolh = 1.e-7
     do itest=nstart,nend,nstep
        if (ind_timesteps) nactive = 10**itest
-       if (mhd) then
-          if (id==master) then
-             write(*,"(/,a)") '--> testing div B cleaning terms'
-             if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
-          endif
-          call reset_mhd_to_zero
-          call reset_dissipation_to_zero
-          psidecayfac = 0.8
-          polyk = 2.
-          ieosprev = ieos
-          ieos  = 1  ! isothermal eos
-          call set_velocity_only
-          call set_magnetic_field
-          call set_active(npart,nactive,igas)
-          call get_derivs_global()
-          call rcut_mask(rcut,xyzh,npart,mask)
-
-          !
-          !--check that various quantities come out as they should do
-          !
-          nfailed(:) = 0
-          call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
-          call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB',mask)
-          call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x',mask)
-          call checkvalf(np,xyzh,dBevol(2,:),dpsidy,9.3e-4,nfailed(4),'gradpsi_y',mask)
-          call checkvalf(np,xyzh,dBevol(3,:),dpsidz,2.e-3,nfailed(5),'gradpsi_z',mask)
-          !--can't do dpsi/dt check because we use vsigdtc = max over neighbours
-          !call checkvalf(np,xyzh,dBevol(4,:),dpsidt,6.e-3,nfailed(6),'dpsi/dt')
-          call update_test_scores(ntests,nfailed,npass)
-
-          !--restore ieos
-          ieos = ieosprev
+       if (id==master) then
+          write(*,"(/,a)") '--> testing div B cleaning terms (derivsmhd)'
+          if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
        endif
+       call reset_mhd_to_zero
+       call reset_dissipation_to_zero
+       psidecayfac = 0.8
+       polyk = 2.
+       ieosprev = ieos
+       ieos  = 1  ! isothermal eos
+       call set_velocity_only
+       call set_magnetic_field
+       call set_active(npart,nactive,igas)
+       call get_derivs_global()
+       call rcut_mask(rcut,xyzh,npart,mask)
+
+       !
+       !--check that various quantities come out as they should do
+       !
+       nfailed(:) = 0
+       call checkval(np,xyzh(4,:),hzero,3.e-4,nfailed(1),'h (density)',mask)
+       call checkvalf(np,xyzh,divBsymm(:),divBfunc,1.e-3,nfailed(2),'divB',mask)
+       call checkvalf(np,xyzh,dBevol(1,:),dpsidx,8.5e-4,nfailed(3),'gradpsi_x',mask)
+       call checkvalf(np,xyzh,dBevol(2,:),dpsidy,9.3e-4,nfailed(4),'gradpsi_y',mask)
+       call checkvalf(np,xyzh,dBevol(3,:),dpsidz,2.e-3,nfailed(5),'gradpsi_z',mask)
+       !--can't do dpsi/dt check because we use vsigdtc = max over neighbours
+       !call checkvalf(np,xyzh,dBevol(4,:),dpsidt,6.e-3,nfailed(6),'dpsi/dt')
+       call update_test_scores(ntests,nfailed,npass)
+
+       !--restore ieos
+       ieos = ieosprev
        if (ind_timesteps) call reset_allactive()
     enddo
     tolh = tolh_old
     do itest=nstart,nend,nstep
        if (ind_timesteps) nactive = 10**itest
-       if (mhd .and. use_ambi .and. testambipolar) then
+       if (use_ambi .and. testambipolar) then
           if (id==master) then
-             write(*,"(/,a)") '--> testing Ambipolar diffusion terms'
+             write(*,"(/,a)") '--> testing Ambipolar diffusion term (derivsambi)'
              if (nactive /= np) write(*,"(a,i10,a)") '    (on ',nactive,' active particles)'
           endif
           call reset_mhd_to_zero
@@ -728,7 +719,8 @@ subroutine test_derivs(ntests,npass,string)
        endif
        if (ind_timesteps) call reset_allactive()
     enddo
-
+ else
+    if (id==master) write(*,"(/,a)") '--> SKIPPING mhd terms (need -DMHD)'
  endif testmhd
 
 !
@@ -739,7 +731,7 @@ subroutine test_derivs(ntests,npass,string)
 !         and the 'test' particles cannot be identified using the current method
 !
  testdenscontrast: if ((testdensitycontrast .or. testall) .and. (nprocs == 1)) then
-    if (id==master) write(*,"(/,a)") '--> testing Hydro derivs in setup with density contrast '
+    if (id==master) write(*,"(/,a)") '--> testing Hydro derivs in setup with density contrast (derivscontrast)'
 
     npart = 0
     psep = dxbound/50.
@@ -804,8 +796,6 @@ subroutine test_derivs(ntests,npass,string)
        !
        !-- this test does not always give the same results: depends on how the tree is built
        !
-       !  nexact = 1382952  ! got this from a reference calculation
-       !  call checkval(nrhocalc,nexact,0,nfailed(12),'n density calcs')
        nexact = 37263216
        call checkval(nactual,nexact,0,nfailed(m+3),'total nneigh')
     endif
@@ -849,7 +839,7 @@ subroutine test_derivs(ntests,npass,string)
 !--test force evaluation for individual timesteps when particles have very different smoothing lengths/ranges
 !
  testinddts: if (ind_timesteps .and. (testindtimesteps .or. testall)) then
-    if (id==master) write(*,"(/,a,i6,a)") '--> testing force evaluation with ind_timesteps'
+    if (id==master) write(*,"(/,a,i6,a)") '--> testing force evaluation with ind_timesteps (derivsind)'
     polyk = 0.
     tolh  = 1.e-9
     call reset_mhd_to_zero
