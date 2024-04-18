@@ -327,7 +327,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     endif
  enddo
 
- print*,step_count_int,tcoord,tnext,ds_init
+ !print*,step_count_int,tcoord,tnext,ds_init
 
  deallocate(bdata)
 
@@ -585,7 +585,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
        r2 = dx**2+dy**2+dz**2
        r  = sqrt(r2)
        mj = xyzmh_ptmass(4,j)
-       gravf = mj*(1./r2*r)
+       gravf = mj*(1./(r2*r))
        gtki  = gtki + mj*(1./r)
        fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + dx*gravf
        fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + dy*gravf

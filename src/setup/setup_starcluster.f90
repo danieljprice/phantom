@@ -132,7 +132,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('cubic',id,master,0.,10.0,psep,hfact,npart,xyzh)
+ call set_sphere('cubic',id,master,0.,0.01,psep,hfact,npart,xyzh)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 

@@ -564,7 +564,6 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
  use sdar_group,     only:group_identify,evolve_groups
  use options,        only:iexternalforce
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:ck,dk
  real,            intent(in)    :: dtsph,time
  integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: dtextforce
