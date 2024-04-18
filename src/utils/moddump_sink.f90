@@ -35,7 +35,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  print*,'Sink particles in dump:'
  do i=1,nptmass
     print "(a,1x,i4,a)",'Sink',i,':'
-    print "(7(a5,1x,a,1x,f13.7,/))",&
+    print "(7(a5,1x,a,1x,es24.16e3,/))",&
              'x','=',xyzmh_ptmass(1,i),&
              'y','=',xyzmh_ptmass(2,i),&
              'z','=',xyzmh_ptmass(3,i),&
