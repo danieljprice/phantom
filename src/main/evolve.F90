@@ -91,8 +91,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
- use substepping,      only:set_integration_precision
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+                            set_integration_precision
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
