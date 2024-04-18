@@ -188,6 +188,7 @@ subroutine test_derivs(ntests,npass,string)
     if (id==master) write(*,"(/,a)") '--> testing Hydro derivatives '
     call set_velocity_and_energy
     call reset_mhd_to_zero
+    if (maxvxyzu < 4) polyk = 3.
     !
     !--calculate derivatives
     !
@@ -216,8 +217,6 @@ subroutine test_derivs(ntests,npass,string)
     !
     !--check that the timestep bin has been set
     !
-
-    print*,' COUNT=',count(ibin(1:npart) > 0)
     if (ind_timesteps) call checkval(all(ibin(1:npart) > 0),.true.,nfailed(15),'ibin > 0')
 
     call update_test_scores(ntests,nfailed,npass)
