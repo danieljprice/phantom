@@ -482,20 +482,20 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
 
     if (use_fourthorder) then !! FSI 4th order scheme
 
        ! FSFI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,fsink_old)
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old)
 
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(2),dk(3),force_count,extf_vdep_flag)
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
                  fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
@@ -772,7 +772,7 @@ end subroutine kick
  !----------------------------------------------------------------
 
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
-                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,cki,dki, &
+                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
                      force_count,extf_vdep_flag,fsink_old)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
@@ -794,7 +794,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,              intent(inout) :: dtextforce
- real,              intent(in)    :: timei,cki,dki,dt
+ real,              intent(in)    :: timei,dki,dt
  logical,           intent(in)    :: extf_vdep_flag
  real, optional,    intent(inout) :: fsink_old(4,nptmass)
  integer         :: merge_ij(nptmass)
@@ -804,7 +804,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
  real            :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real            :: fonrmaxi,phii,dtphi2i
- real            :: dkdt,ckdt,extrapfac
+ real            :: dkdt,extrapfac
  logical         :: extrap,last
 
  if(present(fsink_old)) then
@@ -817,7 +817,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  force_count   = force_count + 1
  extrapfac     = (1./24.)*dt**2
  dkdt          = dki*dt
- ckdt          = cki*dt
  itype         = igas
  pmassi        = massoftype(igas)
  dtextforcenew = bignumber
@@ -877,7 +876,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
- !$omp shared(dkdt,ckdt,timei,iexternalforce,extf_vdep_flag,last) &
+ !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
@@ -943,7 +942,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                    divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0)
+                                    divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
        endif
     endif
  enddo
