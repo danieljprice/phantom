@@ -87,7 +87,7 @@ jobs:
         printenv >> $GITHUB_ENV
 
     - name: "Clone phantom"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: "Compile phantom"
       run: make SETUP=${{ matrix.input[0] }} DEBUG=${{ matrix.debug }} phantomtest
