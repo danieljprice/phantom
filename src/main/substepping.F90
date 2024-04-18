@@ -37,20 +37,6 @@ module substepping
  public :: substep_sph
  public :: substep_sph_gr
  public :: substep
- public :: set_integration_precision
-
- !
- !-- Parameters for switching between FSI or leapfrog (FSI is use by default)
- !
- logical, public :: use_fourthorder = .true.
- integer, public :: n_force_order   = 3
- real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
- real, public, parameter :: ck2(2)  = (/1.,0.0/)
- real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
- real, public, parameter :: ck4(2) = (/0.5,0.5/)
-
- real, public :: dk(3)
- real, public :: ck(2)
 
  private
 
@@ -446,7 +432,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
-
+ use ptmass,         only:use_fourthorder,ck,dk
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -791,7 +777,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
-                           ptmass_vdependent_correction
+                           ptmass_vdependent_correction,n_force_order
  use options,         only:iexternalforce
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
@@ -942,8 +928,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                              extf_vdep_flag,iexternalforce)
        endif
 
-       !
-       ! dampening
+!
+       ! damping
        !
        if (idamp > 0) then
           call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
@@ -996,16 +982,16 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 end subroutine get_force
 
 
- !-----------------------------------------------------------------------------------
- !+
- ! Update of abundances and internal energy using cooling method (see cooling module)
- ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
- !       dt is *passed in* to the chemistry & cooling routines so that the
- !       output will be at the correct time of time + dt.  Since this is
- !       implicit, there is no cooling timestep.  Explicit cooling is
- !       calculated in force and requires a cooling timestep.
- !+
- !------------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------------
+!+
+! Update of abundances and internal energy using cooling method (see cooling module)
+! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+!       dt is *passed in* to the chemistry & cooling routines so that the
+!       output will be at the correct time of time + dt.  Since this is
+!       implicit, there is no cooling timestep.  Explicit cooling is
+!       calculated in force and requires a cooling timestep.
+!+
+!------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
@@ -1134,30 +1120,6 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
 
 
 end subroutine get_external_force_gas
-
- !----------------------------------------------------------------
- !+
- !  precision switcher routine. FSI or Leapfrog (use_fourthorder)
- !+
- !----------------------------------------------------------------
-
-subroutine set_integration_precision
- use ptmass, only:dtfacphi,dtfacphi2,dtfacphilf, &
-                  dtfacphifsi,dtfacphi2lf,dtfacphi2fsi
- if(use_fourthorder) then
-    n_force_order = 3
-    ck = ck4
-    dk = dk4
-    dtfacphi = dtfacphifsi
-    dtfacphi2 = dtfacphi2fsi
- else
-    n_force_order = 1
-    ck = ck2
-    dk = dk2
-    dtfacphi = dtfacphilf
-    dtfacphi2 = dtfacphi2lf
- endif
-end subroutine set_integration_precision
 
 
 end module substepping
