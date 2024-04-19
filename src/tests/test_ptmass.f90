@@ -27,24 +27,41 @@ module testptmass
 
 contains
 
-subroutine test_ptmass(ntests,npass)
+subroutine test_ptmass(ntests,npass,string)
  use io,           only:id,master,iskfile
  use eos,          only:polyk,gamma
  use part,         only:nptmass
  use options,      only:iexternalforce,alpha
  use ptmass,       only:use_fourthorder,set_integration_precision
+ character(len=*), intent(in) :: string
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
+ logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
- do_test_binary = .true.
- do_test_accretion = .true.
- do_test_createsink = .true.
- do_test_softening = .true.
- do_test_merger = .true.
+ do_test_binary = .false.
+ do_test_accretion = .false.
+ do_test_createsink = .false.
+ do_test_softening = .false.
+ do_test_merger = .false.
+ testall = .false.
+ select case(trim(string))
+ case('ptmassbinary')
+    do_test_binary = .true.
+ case('ptmassaccrete')
+    do_test_accretion = .true.
+ case('ptmasscreatesink')
+    do_test_createsink = .true.
+ case('ptmasssoftening')
+    do_test_softening = .true.
+ case('ptmassmerger')
+    do_test_merger = .true.
+ case default
+    testall = .true.
+ end select
  !
  !--general settings
  !
@@ -62,24 +79,28 @@ subroutine test_ptmass(ntests,npass)
     !
     !  Tests of a sink particle binary
     !
-    if (do_test_binary) call test_binary(ntests,npass)
+    if (do_test_binary .or. testall) call test_binary(ntests,npass)
     !
     !  Test of softening between sinks
     !
-    if (do_test_softening) call test_softening(ntests,npass)
+    if (do_test_softening .or. testall) call test_softening(ntests,npass)
     !
     !  Test sink particle mergers
     !
-    if (do_test_merger) call test_merger(ntests,npass)
+    if (do_test_merger .or. testall) call test_merger(ntests,npass)
  enddo
  !
  !  Tests of accrete_particle routine
  !
- if (do_test_accretion) call test_accretion(ntests,npass)
+ if (do_test_accretion .or. testall) then
+    do itest=1,2
+       call test_accretion(ntests,npass,itest)
+    enddo
+ endif
  !
  !  Test sink particle creation
  !
- if (do_test_createsink) call test_createsink(ntests,npass)
+ if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -210,7 +231,7 @@ subroutine test_binary(ntests,npass)
        !  add a circumbinary gas disc around it
        nparttot = 1000
        call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=rin,rmax=rout,p_index=1.0,q_index=0.75,&
-                     HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
+                     HoverR=0.1,disc_mass=0.1*m1,star_mass=m1+m2,gamma=gamma,&
                      particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                      polyk=polyk,verbose=.false.)
        npartoftype(igas) = npart
@@ -484,29 +505,35 @@ end subroutine test_softening
 !  Test accretion of gas particles onto sink particles
 !+
 !-----------------------------------------------------------------------
-subroutine test_accretion(ntests,npass)
+subroutine test_accretion(ntests,npass,itest)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type,ndptmass
+                     isdead_or_accreted,set_particle_type,ndptmass,hfact
  use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
  use testutils, only:checkval,update_test_scores
+ use kernel,    only:hfact_default
+ use eos,       only:polyk
+ use setdisc,   only:set_disc
  integer, intent(inout) :: ntests,npass
- integer :: i,nfailed(11)
+ integer, intent(in)    :: itest
+ integer :: i,nfailed(11),np_disc
  integer(kind=1) :: ibin_wakei
+ character(len=20) :: string
  logical :: accreted
- real :: dr,t
+ real :: t
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
- real :: xyzm_ptmass_old(4,1),vxyz_ptmass_old(3,1)
  real :: angmomin,etotin,totmomin
 
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
- if (id==master) write(*,"(/,a)") '--> testing accretion onto sink particles'
+ string = 'of two particles'
+ if (itest==2) string = 'of a whole disc'
+ if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
  !--setup 1 point mass at (-5,-5,-5)
  xyzmh_ptmass(1:3,1)   = 1.
@@ -514,23 +541,35 @@ subroutine test_accretion(ntests,npass)
  xyzmh_ptmass(ihacc,1) = 20. ! accretion radius
  vxyz_ptmass(1:3,1)    = -40.
  fxyz_ptmass(1:3,1)    = 40.
- massoftype(1)   = 10.
- !--setup 1 SPH particle at (5,5,5)
- if (id==master) then
-    call set_particle_type(1,igas)
-    npartoftype(igas) = 1
-    npart        = 1
-    xyzh(1:3,1)  = 5.
-    xyzh(4,1)    = 0.01
-    vxyzu(1:3,1) = 80.
-    fxyzu(1:3,1) = 20.
+ hfact = hfact_default
+
+ if (itest==1) then
+    !--setup 2 SPH particles at (5,5,5)
+    if (id==master) then
+       call set_particle_type(1,igas)
+       call set_particle_type(2,igas)
+       npartoftype(igas) = 2
+       npart        = 2
+       xyzh(1:3,1:2)  = 5.
+       xyzh(4,1:2)    = 0.01
+       vxyzu(1:3,1) = [40.,40.,-10.]
+       vxyzu(1:3,2) = [120.,120.,-30.]
+       fxyzu(1:3,1:2) = 20.
+       massoftype(1)  = 5.
+    else
+       npartoftype(igas) = 0
+       npart        = 0
+    endif
  else
-    npartoftype(igas) = 0
-    npart        = 0
+    ! eat a large portion of a disc
+    np_disc = 1000
+    call set_disc(id,master,nparttot=np_disc,npart=npart,rmin=1.,rmax=2.*xyzmh_ptmass(ihacc,1),p_index=1.0,q_index=0.75,&
+                  HoverR=0.1,disc_mass=0.5*xyzmh_ptmass(4,1),star_mass=xyzmh_ptmass(4,1),gamma=1.,&
+                  particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                  polyk=polyk,verbose=.false.)
+    npartoftype(igas) = npart
  endif
- xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
- vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
- dr = sqrt(dot_product(xyzh(1:3,1) - xyzmh_ptmass(1:3,1),xyzh(1:3,1) - xyzmh_ptmass(1:3,1)))
+
  !--perform a test of the accretion of the SPH particle by the point mass
  nfailed(:)  = 0
  !--check energies before accretion event
@@ -546,10 +585,12 @@ subroutine test_accretion(ntests,npass)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
-    call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                        vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                        igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                        accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                           vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+    endif
  enddo
  !$omp enddo
  !$omp critical(dptmassadd)
@@ -565,30 +606,33 @@ subroutine test_accretion(ntests,npass)
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
- if (id==master) then
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
-    !--check that h has been changed to indicate particle has been accreted
-    call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+ if (itest==1) then
+    if (id==master) then
+       call checkval(accreted,.true.,nfailed(1),'accretion flag')
+       !--check that h has been changed to indicate particle has been accreted
+       call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
+       call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
+    endif
+    call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
+    call checkval(vxyz_ptmass(1,1),20.,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
+    call checkval(vxyz_ptmass(2,1),20.,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
+    call checkval(vxyz_ptmass(3,1),-30.,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
+    call checkval(fxyz_ptmass(1,1),30.,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
+    call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
+    call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
+
+    call update_test_scores(ntests,nfailed(1:2),npass)
+    call update_test_scores(ntests,nfailed(3:5),npass)
+    call update_test_scores(ntests,nfailed(6:8),npass)
+    call update_test_scores(ntests,nfailed(9:11),npass)
  endif
- call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
- call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
- call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
- call checkval(vxyz_ptmass(1,1),20.,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
- call checkval(vxyz_ptmass(2,1),20.,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
- call checkval(vxyz_ptmass(3,1),20.,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
- call checkval(fxyz_ptmass(1,1),30.,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
- call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
- call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
 
- call update_test_scores(ntests,nfailed(1:2),npass)
- call update_test_scores(ntests,nfailed(3:5),npass)
- call update_test_scores(ntests,nfailed(6:8),npass)
- call update_test_scores(ntests,nfailed(9:11),npass)
-
- !--compute energies after accretion event
+ !--compute conserved quantities after accretion event
  nfailed(:) = 0
  call compute_energies(t)
- call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+ call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
  call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
