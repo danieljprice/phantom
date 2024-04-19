@@ -238,7 +238,13 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
  ismultiple = gsize > 2
 
- call initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,W,start_id,end_id,ismultiple,ds_init)
+ if(ismultiple) then
+    call initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,W,start_id,end_id,ds_init)
+ else
+    prim = group_info(igarg,start_id)
+    sec  = group_info(igarg,end_id)
+    call initial_int_bin(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,W,prim,sec,ds_init)
+ endif
 
  allocate(bdata(gsize*6))
 
@@ -261,7 +267,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     endif
     t_old = tcoord
     W_old = W
-    if (gsize>2) then
+    if (ismultiple) then
        do i=1,ck_size
           call drift_TTL (tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,start_id,end_id)
           time_table(i) = tcoord
@@ -558,19 +564,19 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  real, intent(out)   :: om
  integer, intent(in) :: s_id,e_id
  real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,r
- real    :: gravf,gtki
+ real    :: gravf,gtki,gravfi(3),gtgradi(3)
  integer :: i,j,k,l
  om = 0.
 
 
  do k=s_id,e_id
     i = group_info(igarg,k)
-    fxyz_ptmass(1,i) = 0.
-    fxyz_ptmass(2,i) = 0.
-    fxyz_ptmass(3,i) = 0.
-    gtgrad(1,i) = 0.
-    gtgrad(2,i) = 0.
-    gtgrad(3,i) = 0.
+    gravfi(1) = 0.
+    gravfi(2) = 0.
+    gravfi(3) = 0.
+    gtgradi(1) = 0.
+    gtgradi(2) = 0.
+    gtgradi(3) = 0.
     gtki = 0.
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
@@ -587,13 +593,20 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
        mj = xyzmh_ptmass(4,j)
        gravf = mj*(1./(r2*r))
        gtki  = gtki + mj*(1./r)
-       fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + dx*gravf
-       fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + dy*gravf
-       fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + dz*gravf
-       gtgrad(1,i) = gtgrad(1,i) + dx*gravf*mi
-       gtgrad(2,i) = gtgrad(2,i) + dy*gravf*mi
-       gtgrad(3,i) = gtgrad(3,i) + dz*gravf*mi
+       gravfi(1) = gravfi(1) + dx*gravf
+       gravfi(2) = gravfi(2) + dy*gravf
+       gravfi(3) = gravfi(3) + dz*gravf
+       gtgradi(1) = gtgradi(1) + dx*gravf*mi
+       gtgradi(2) = gtgradi(2) + dy*gravf*mi
+       gtgradi(3) = gtgradi(3) + dz*gravf*mi
     enddo
+    fxyz_ptmass(1,i) = gravfi(1)
+    fxyz_ptmass(2,i) = gravfi(2)
+    fxyz_ptmass(3,i) = gravfi(3)
+    gtgrad(1,i) = gtgradi(1)
+    gtgrad(2,i) = gtgradi(2)
+    gtgrad(3,i) = gtgradi(3)
+
     om = om + gtki*mi
  enddo
 
@@ -607,7 +620,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j)
  integer, intent(in)    :: i,j
  real,    intent(out)   :: om
  real :: dx,dy,dz,r2,r,ddr3,mi,mj
- real :: gravfi,gtki,gravfj,gtkj
+ real :: gravfi,gtki,gravfj
 
  mi = xyzmh_ptmass(4,i)
  mj = xyzmh_ptmass(4,j)
@@ -620,7 +633,6 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j)
  gravfi = mj*ddr3
  gravfj = mi*ddr3
  gtki  = mj*(1./r)
- gtkj  = mi*(1./r)
 
  fxyz_ptmass(1,i) = -dx*gravfi
  fxyz_ptmass(2,i) = -dy*gravfi
@@ -640,24 +652,24 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j)
 
 end subroutine get_force_TTL_bin
 
-subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,s_id,e_id,ismultiple,ds_init)
+subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,s_id,e_id,ds_init)
  use utils_kepler, only :extract_a_dot,extract_a,Espec
  use part, only:igarg
  real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real, intent(inout) :: fxyz_ptmass(:,:)
  integer,intent(in)  :: group_info(:,:)
  real, intent(out)   :: om,ds_init
- logical, intent(in) :: ismultiple
  integer, intent(in) :: s_id,e_id
- real    :: mi,mj,mu,xi,yi,zi,dx,dy,dz,r,r2
- real    :: vxi,vyi,vzi,v2,vi,dvx,dvy,dvz,v,rdotv,axi,ayi,azi,acc,gravfi
- real    :: gravf,gtki
- real    :: Edot,E,semi,semidot
+ real    :: mi,mj,xi,yi,zi,dx,dy,dz,r,r2
+ real    :: vxi,vyi,vzi,v,dvx,dvy,dvz,rdotv,axi,ayi,azi,acc,gravrdotv
+ real    :: gravf,gravfi(3),gtki
+ real    :: Edot,E
  integer :: k,l,i,j
 
  Edot = 0.
  E = 0.
  om = 0.
+ gravrdotv = 0.
 
  do k=s_id,e_id
     i = group_info(igarg,k)
@@ -670,9 +682,12 @@ subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,s_id,e
     vxi = vxyz_ptmass(1,i)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
-    fxyz_ptmass(1,i) = 0.
-    fxyz_ptmass(2,i) = 0.
-    fxyz_ptmass(3,i) = 0.
+    axi = fxyz_ptmass(1,i)
+    ayi = fxyz_ptmass(2,i)
+    azi = fxyz_ptmass(3,i)
+    gravfi(1) = 0.
+    gravfi(2) = 0.
+    gravfi(3) = 0.
     do l=s_id,e_id
        if (k==l) cycle
        j = group_info(igarg,l)
@@ -685,44 +700,88 @@ subroutine initial_int(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,s_id,e
        r2 = dx**2+dy**2+dz**2
        r  = sqrt(r2)
        mj = xyzmh_ptmass(4,j)
-       gravf = xyzmh_ptmass(4,j)*(1./r2*r)
+       gravf = mj*(1./(r2*r))
        gtki  = gtki + mj*(1./r)
-       fxyz_ptmass(1,i) = fxyz_ptmass(1,i) + dx*gravf
-       fxyz_ptmass(2,i) = fxyz_ptmass(2,i) + dy*gravf
-       fxyz_ptmass(3,i) = fxyz_ptmass(3,i) + dz*gravf
-       if (ismultiple) then
-          rdotv = dx*dvx + dy*dvy + dz*dvz
-          gravfi = gravfi + gravf*rdotv
-       else
-          v2 = dvx**2 + dvy**2 + dvz**2
-          v = sqrt(v2)
-       endif
-
+       gravfi(1) = gravfi(1) + dx*gravf
+       gravfi(2) = gravfi(2) + dy*gravf
+       gravfi(3) = gravfi(3) + dz*gravf
+       rdotv = dx*dvx + dy*dvy + dz*dvz
+       gravrdotv = gravrdotv + gravf*rdotv
     enddo
     om = om + gtki*mi
-    axi = fxyz_ptmass(1,i)
-    ayi = fxyz_ptmass(2,i)
-    azi = fxyz_ptmass(3,i)
+    axi = axi + gravfi(1)
+    ayi = ayi + gravfi(2)
+    azi = azi + gravfi(3)
     acc = sqrt(axi**2 + ayi**2 + azi**2)
-    if (ismultiple) then
-       vi = sqrt(vxi**2 + vyi**2 + vzi**2)
-       Edot = Edot + mi*(vi*acc - gravfi)
-       E = E + 0.5*mi*vi**2 - gtki
-    else
-       mu = mi*mj
-       call extract_a_dot(r2,r,mu,v2,v,acc,semidot)
-       call extract_a(r,mu,v2,semi)
-    endif
+    v = sqrt(vxi**2 + vyi**2 + vzi**2)
+    Edot = Edot + mi*(v*acc - gravrdotv)
+    E = E + 0.5*mi*v**2 - gtki
  enddo
 
- om = om*0.5
-
- if (ismultiple) then
-    ds_init = eta_pert * abs(E/Edot)
- else
-    ds_init = eta_pert * abs(semi/semidot)
- endif
+ ds_init = eta_pert * abs(E/Edot)
+ om      = om*0.5
 
 end subroutine initial_int
+
+subroutine initial_int_bin(xyzmh_ptmass,fxyz_ptmass,vxyz_ptmass,group_info,om,i,j,ds_init)
+ use utils_kepler, only :extract_a_dot,extract_a,Espec
+ use part, only:igarg
+ real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, intent(inout) :: fxyz_ptmass(:,:)
+ integer,intent(in)  :: group_info(:,:)
+ real, intent(out)   :: om,ds_init
+ integer, intent(in) :: i,j
+ real    :: mi,mj,mu,dx,dy,dz,r,r2,ddr3
+ real    :: v,v2,dvx,dvy,dvz
+ real    :: dax,day,daz,acc
+ real    :: gravfi,gravfj,gtki
+ real    :: semi,semidot
+
+ om = 0.
+
+
+
+ mi = xyzmh_ptmass(4,i)
+ mj = xyzmh_ptmass(4,j)
+ dx = xyzmh_ptmass(1,i) - xyzmh_ptmass(1,j)
+ dy = xyzmh_ptmass(2,i) - xyzmh_ptmass(2,j)
+ dz = xyzmh_ptmass(3,i) - xyzmh_ptmass(3,j)
+ dvx = vxyz_ptmass(1,i) - vxyz_ptmass(1,j)
+ dvy = vxyz_ptmass(2,i) - vxyz_ptmass(2,j)
+ dvz = vxyz_ptmass(3,i) - vxyz_ptmass(3,j)
+
+ r2 = dx**2+dy**2+dz**2
+ r  = sqrt(r2)
+ v2 = dvx**2 + dvy**2 + dvz**2
+ v = sqrt(v2)
+
+ ddr3 = (1./(r2*r))
+ gravfi = mj*ddr3
+ gravfj = mi*ddr3
+ gtki  = mj*(1./r)
+
+ fxyz_ptmass(1,i) = fxyz_ptmass(1,i) - dx*gravfi
+ fxyz_ptmass(2,i) = fxyz_ptmass(2,i) - dy*gravfi
+ fxyz_ptmass(3,i) = fxyz_ptmass(3,i) - dz*gravfi
+ fxyz_ptmass(1,j) = fxyz_ptmass(1,j) + dx*gravfj
+ fxyz_ptmass(2,j) = fxyz_ptmass(2,j) + dy*gravfj
+ fxyz_ptmass(3,j) = fxyz_ptmass(3,j) + dz*gravfj
+
+ dax = fxyz_ptmass(1,i) - fxyz_ptmass(1,j)
+ day = fxyz_ptmass(2,i) - fxyz_ptmass(2,j)
+ daz = fxyz_ptmass(3,i) - fxyz_ptmass(3,j)
+
+ acc = sqrt(dax**2 + day**2 + daz**2)
+ mu = mi*mj
+
+ call extract_a_dot(r2,r,mu,v2,v,acc,semidot)
+ call extract_a(r,mu,v2,semi)
+
+ ds_init = eta_pert * abs(semi/semidot)
+ om      = gtki*mi
+
+ print*,abs(semidot/semi),5.e-5/(r2*acc/(mi+mj)),ds_init
+
+end subroutine initial_int_bin
 
 end module sdar_group
