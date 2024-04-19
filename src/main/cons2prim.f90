@@ -135,7 +135,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,gamma,eos_vars,ien_type) &
+!$omp shared(ieos,eos_vars,ien_type) &
 !$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
