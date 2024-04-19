@@ -34,7 +34,7 @@ subroutine test_kdtree(ntests,npass)
  use dim,       only:maxp,periodic
  use io,        only:id,master,iverbose
  use linklist,  only:ifirstincell,ncells,node
- use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase
+ use part,      only:npart,xyzh,hfact,massoftype,igas,maxphase,iphase,isetphase,apr_level
  use kernel,    only:hfact_default
  use kdtree,    only:maketree,revtree,kdnode,empty_tree
  use unifdis,   only:set_unifdis
@@ -72,7 +72,7 @@ subroutine test_kdtree(ntests,npass)
     !
     call empty_tree(node)
     call cpu_time(t1)
-    call maketree(node,xyzh,npart,3,ifirstincell,ncells)
+    call maketree(node,xyzh,npart,3,ifirstincell,ncells,apr_tree=.false.)
     call cpu_time(t2)
     call print_time(t2-t1,'maketree completed in')
     !

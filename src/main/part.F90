@@ -394,6 +394,10 @@ subroutine allocate_part
      maxmhd = maxp_apr
      maxmhdan = maxp_apr
    endif
+   maxprad = maxp_apr
+   maxp_dustfrac = maxp_apr
+   maxdustan = maxp_apr
+   maxTdust = maxp_apr
    if (maxalpha > 0) maxalpha = maxp_apr
  endif
 

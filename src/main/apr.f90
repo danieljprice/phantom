@@ -32,8 +32,10 @@ module apr
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
   logical :: apr_verbose = .false.
-  logical :: do_relax = .false.
+  logical :: do_relax = .true.
   logical :: adjusted_split = .true.
+  logical :: first_split = .true.
+  logical :: directional = .false.
 
 contains
 
@@ -108,6 +110,7 @@ contains
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
+    use timestep, only:time
     real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout)         :: npart
     integer(kind=1), intent(inout) :: apr_level(:)
@@ -116,7 +119,11 @@ contains
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
-    real :: xi,yi,zi
+    real :: xi,yi,zi,radi,radi_max
+    logical :: do_this_part
+
+    ! time lag
+    if (time < 0.5) return
 
     ! if the centre of the region can move, update it
     if (dynamic_apr) call set_apr_centre(apr_type,apr_centre)
@@ -176,7 +183,10 @@ contains
           call splitpart(ii,npartnew)
           ! encompasses particles that have just split into the highest
           ! refinement level
-          if (do_relax .and. (apri == top_level)) then
+          do_this_part = .false.
+          if (apri == top_level .and. first_split) do_this_part = .true.
+          if (.not.first_split) do_this_part = .true.
+          if (do_relax .and. (do_this_part)) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
@@ -204,6 +214,7 @@ contains
       nkilled = 0
       xyzh_merge = 0.
       vxyzu_merge = 0.
+      radi_max = 0.
 
       merge_over_active: do ii = 1,npart
         ! note that here we only do this process for particles that are not already counted in the blending region
@@ -217,6 +228,8 @@ contains
           vxyzu_merge(1:3,nmerge) = vxyzu(1:3,ii)
           npart_regions(kk) = npart_regions(kk) + 1
         endif
+        radi = sqrt(dot_product(xyzh(1:3,ii),xyzh(1:3,ii)))
+        if (radi > radi_max) radi_max = radi
       enddo merge_over_active
 
       ! Now send them to be merged
@@ -237,7 +250,8 @@ contains
     ! If we need to relax, do it here
     if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     ! Turn it off now because we only want to do this on first splits
-    do_relax = .false.
+    !do_relax = .false.
+    first_split = .false. !turn it off
 
     ! As we may have killed particles, time to do an array shuffle
     call shuffle_part(npart)
@@ -248,6 +262,7 @@ contains
     endif
     deallocate(mergelist)
 
+    if (apr_verbose) print*,'total particles at end of apr: ',npart
 
   end subroutine update_apr
 
@@ -308,7 +323,7 @@ contains
     integer, intent(inout) :: npartnew
     integer :: j,npartold,next_door
     real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
-    real :: v(3),u(3),w(3)
+    real :: v(3),u(3),w(3),a,b,c
     integer, save :: iseed = 4
     integer(kind=1) :: aprnew
 
@@ -336,6 +351,14 @@ contains
       ! rotate it around the normal to the plane by a random amount
       theta = ran2(iseed)*2.*pi
       call rotatevec(v,w,theta)
+
+      if (.not.directional) then
+        ! No directional splitting, so just create a unit vector in a random direction
+        a = ran2(iseed) - 0.5
+        b = ran2(iseed) - 0.5
+        c = ran2(iseed) - 0.5
+        v = (/a, b, c/)
+      endif
 
       v = v/sqrt(dot_product(v,v))
     else
@@ -409,7 +432,6 @@ contains
 
     call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
                       for_apr=.true.)
-
     ! Now use the centre of mass of each cell to check whether it should
     ! be merged or not
     com = 0.
