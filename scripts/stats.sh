@@ -42,6 +42,11 @@ count_unique_matches()
   n=`cd $phantomdir; grep "$1" src/*/*.*90 | cut -d':' -f 2 | sort -u | wc -l`;
   echo "$n";
 }
+count_files_ending_in()
+{
+  n=`cd $phantomdir; ls src/*/*$1 | wc -l`;
+  echo "$n";
+}
 get_subroutine_count()
 {
   nsub=$(count_matches 'end subroutine');
@@ -126,13 +131,21 @@ get_build_status_from_git_tags()
 nauthors=$(get_author_count);
 ncode="$(get_lines_of_code)";
 nifdef="$(count_unique_matches '#ifdef')";
+nifdefall="$(count_matches '#ifdef')";
+nfiles="$(count_files_ending_in '.*90')";
+nf90="$(count_files_ending_in '.f90')";
+nF90="$(count_files_ending_in '.F90')";
 subcount="$(get_subroutine_count)";
 nsetup="$(get_setup_count)";
 nsystem="$(get_system_count)";
 echo "Lines of code: main     setup    tests    utils";
 echo "            $ncode";
 echo "Number of modules, subroutines, functions: $subcount";
-echo "Number of #ifdef statements : $nifdef";
+echo "Number of source files (.f90, .F90): $nfiles";
+echo "Number of .f90 files               : $nf90";
+echo "Number of .F90 files               : $nF90";
+echo "Number of unique #ifdef statements : $nifdef";
+echo "Number of total  #ifdef statements : $nifdefall";
 echo "Number of authors           : $nauthors";
 echo "Number of SETUP= options    : $nsetup";
 echo "Number of SYSTEM= options   : $nsystem";
