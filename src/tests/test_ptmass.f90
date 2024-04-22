@@ -327,7 +327,7 @@ subroutine test_binary(ntests,npass)
     if (itest==2 .or. itest==3 .or. itest==5) then
        norbits = 10
     else
-       norbits = 10
+       norbits = 100
     endif
     if (id==master) print*,'steps/orbit = ',nsteps,' norbits = ',norbits,' dt = ',dt
     nsteps = nsteps*norbits
@@ -360,8 +360,8 @@ subroutine test_binary(ntests,npass)
     call compute_energies(t)
     if (id==master) call printused(t1)
     nfailed(:) = 0
-    tolmom = 5.e-15
-    tolang = 1.e-14
+    tolmom = 2.e-14
+    tolang = 2.e-14
     select case(itest)
     case(5)
        tolen = 9.e-1
@@ -369,19 +369,13 @@ subroutine test_binary(ntests,npass)
        tolmom = 1.e-14
        tolen = 1.6e-2
     case(3)
-       if (ind_timesteps) then
-          tolang = 2.1e-6
-       endif
+       tolang = 2.1e-6
        tolen = 1.2e-2
-       if (use_fourthorder) then
-          tolen = 5.5e-4
-       endif
     case(2)
-       tolen = 2.e-3
+       tolen = 1.2e-3
        if (gravity) tolen = 3.1e-3
 
        if (use_fourthorder) then
-          tolen = 5.5e-4
           tolang = 2.e-11
        endif
     case default
