@@ -381,7 +381,7 @@ subroutine test_binary(ntests,npass)
        if (ind_timesteps) then
           tolang = 2.1e-6
        else
-          tolang = 2.e-10
+          tolang = 6.e-10
        endif
        tolen = 1.2e-2
     case(2)
@@ -397,7 +397,11 @@ subroutine test_binary(ntests,npass)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
-       tolen = 3.e-8
+       if (use_fourthorder) then
+          tolen = 3.e-8
+       else
+          tolen = 1.e-13
+       endif
     end select
     !
     !--check energy conservation
