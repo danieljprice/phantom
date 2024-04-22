@@ -537,7 +537,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS}  \
          quitdump.f90 ptmass.F90 \
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
-         utils_shuffleparticles.F90 evwrite.f90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
 
@@ -679,6 +679,7 @@ else
     SRCTESTMPI =
 endif
 
+# 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
@@ -689,7 +690,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
-         testsuite.F90 phantomtest.f90
+         testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}

@@ -17,6 +17,9 @@ module kernel
 !
 ! :Dependencies: physcon
 !
+! :Generated: 2024-04-08 15:21:39.886138
+!
+!--------------------------------------------------------------------------
  use physcon, only:pi
  implicit none
  character(len=17), public :: kernelname = 'Wendland 2/3D C^4'
@@ -37,8 +40,9 @@ pure subroutine get_kernel(q2,q,wkern,grkern)
 
  !--Wendland 2/3D C^4
  if (q < 2.) then
-    wkern  = (-q/2. + 1.)**6*(35.*q2/12. + 3.*q + 1.)
-    grkern = 11.6666666666667*q2*(0.5*q - 1.)**5 + 4.66666666666667*q*(0.5*q - 1.)**5
+    wkern  = (1 - q/2.)**6*(35.*q2/12. + 3.*q + 1.)
+    grkern = (1 - q/2.)**6*(35.*q/6. + 3.) - 3.*(1. - q/2.)**5*(35.*q2/12. + 3.*q + &
+                 1.)
  else
     wkern  = 0.
     grkern = 0.
@@ -50,7 +54,7 @@ pure elemental real function wkern(q2,q)
  real, intent(in) :: q2,q
 
  if (q < 2.) then
-    wkern = (-q/2. + 1.)**6*(35.*q2/12. + 3.*q + 1.)
+    wkern = (1 - q/2.)**6*(35.*q2/12. + 3.*q + 1.)
  else
     wkern = 0.
  endif
@@ -61,7 +65,8 @@ pure elemental real function grkern(q2,q)
  real, intent(in) :: q2,q
 
  if (q < 2.) then
-    grkern = 11.6666666666667*q2*(0.5*q - 1.)**5 + 4.66666666666667*q*(0.5*q - 1.)**5
+    grkern = (1 - q/2.)**6*(35.*q/6. + 3.) - 3.*(1. - q/2.)**5*(35.*q2/12. + 3.*q + &
+                 1.)
  else
     grkern = 0.
  endif
@@ -77,8 +82,9 @@ pure subroutine get_kernel_grav1(q2,q,wkern,grkern,dphidh)
     q4 = q2*q2
     q6 = q4*q2
     q8 = q6*q2
-    wkern  = (-q/2. + 1.)**6*(35.*q2/12. + 3.*q + 1.)
-    grkern = 11.6666666666667*q2*(0.5*q - 1.)**5 + 4.66666666666667*q*(0.5*q - 1.)**5
+    wkern  = (1 - q/2.)**6*(35.*q2/12. + 3.*q + 1.)
+    grkern = (1 - q/2.)**6*(35.*q/6. + 3.) - 3.*(1. - q/2.)**5*(35.*q2/12. + 3.*q + &
+                 1.)
     dphidh = -1155.*q6*q4/32768. + 55.*q8*q/128. - 17325.*q8/8192. + 165.*q6*q/32. - &
                  5775.*q6/1024. + 1155.*q4/256. - 495.*q2/128. + 55./32.
  else
@@ -110,6 +116,26 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
 end subroutine kernel_softening
 
 !------------------------------------------
+! gradient acceleration kernel needed for
+! use in Forward symplectic integrator
+!------------------------------------------
+pure subroutine kernel_grad_soft(q2,q,gsoft)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: gsoft
+ real :: q4, q6
+
+ if (q < 2.) then
+    q4 = q2*q2
+    q6 = q4*q2
+    gsoft = 3.*q2*q*(175.*q6 - 1848.*q4*q + 7700.*q4 - 15400.*q2*q + 13200.*q2 - &
+                 4928.)/2048.
+ else
+    gsoft = -3./q2
+ endif
+
+end subroutine kernel_grad_soft
+
+!------------------------------------------
 ! double-humped version of the kernel for
 ! use in drag force calculations
 !------------------------------------------
@@ -118,7 +144,7 @@ pure elemental real function wkern_drag(q2,q)
 
  !--double hump Wendland 2/3D C^4 kernel
  if (q < 2.) then
-    wkern_drag = q2*(-q/2. + 1.)**6*(35.*q2/12. + 3.*q + 1.)
+    wkern_drag = q2*(1. - q/2.)**6*(35.*q2/12. + 3.*q + 1.)
  else
     wkern_drag = 0.
  endif

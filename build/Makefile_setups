@@ -342,6 +342,12 @@ ifeq ($(SETUP), galcen)
     KNOWN_SETUP=yes
 endif
 
+ifeq ($(SETUP), starcluster)
+#   Cluster of stars (ptmass) 
+    SETUPFILE= setup_starcluster.f90
+    KNOWN_SETUP=yes
+endif
+
 #--- Bondi accretion/wind ---------------------------
 ifeq ($(SETUP), bondi)
 #   Bondi accretion flow
