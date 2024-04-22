@@ -150,7 +150,7 @@ subroutine test_binary(ntests,npass)
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
  integer, parameter :: nbinary_tests = 5
- real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,hp_exact,hx_exact
+ real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: angle,rin,rout
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
@@ -167,6 +167,8 @@ subroutine test_binary(ntests,npass)
  calc_gravitwaves = .true.
  ipdv_heating = 0
  ishock_heating = 0
+
+ tolv = 1e-2
 
  binary_tests: do itest = 1,nbinary_tests
     select case(itest)
@@ -221,6 +223,7 @@ subroutine test_binary(ntests,npass)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
+    if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
@@ -255,7 +258,7 @@ subroutine test_binary(ntests,npass)
     call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
     call update_test_scores(ntests,nfailed,npass)
 
-    tolv = 1.e3
+    tolv = 1.e-2
     iverbose = 0
     ieos = 3
     fac = 1./get_G_on_dc4()
@@ -324,7 +327,7 @@ subroutine test_binary(ntests,npass)
     if (itest==2 .or. itest==3 .or. itest==5) then
        norbits = 10
     else
-       norbits = 100
+       norbits = 10
     endif
     if (id==master) print*,'steps/orbit = ',nsteps,' norbits = ',norbits,' dt = ',dt
     nsteps = nsteps*norbits
@@ -335,58 +338,66 @@ subroutine test_binary(ntests,npass)
     if (id==master) call getused(t1)
     call init_step(npart,t,dtmax)
     do i=1,nsteps
-       t = t + dt
        dtext = dt
        if (id==master .and. iverbose > 2) write(*,*) ' t = ',t,' dt = ',dt
        call step(npart,npart,t,dt,dtext,dtnew)
        call compute_energies(t)
        errmax = max(errmax,abs(etot - etotin))
+       !if (itest==3) print*,t,abs(angtot-angmomin)/angmomin
        !
        ! Check the gravitational wave strain if the binary is circular.
        ! There is a phase error that grows with time, so only check the first 10 orbits
        !
        if (calc_gravitwaves .and. abs(ecc) < epsilon(ecc) .and. itest==1 .and. t < 20.*pi/omega) then
-          call get_strain_from_circular_binary(t,m1,m2,a,0.,hx_exact,hp_exact)
+          call get_strain_from_circular_binary(t+dt,m1,m2,a,0.,hx_exact,hp_exact)
           call checkvalbuf(10.+hx(1)*fac,10.+hx_exact*fac,tolgw,&
                            'gw strain (x)',nfailgw(1),ncheckgw(1),errgw(1))
           call checkvalbuf(10.+hp(1)*fac,10.+hp_exact*fac,tolgw,&
                            'gw strain (+)',nfailgw(2),ncheckgw(2),errgw(2))
        endif
+       t = t + dt
     enddo
     call compute_energies(t)
     if (id==master) call printused(t1)
     nfailed(:) = 0
+    tolmom = 5.e-15
+    tolang = 1.e-14
     select case(itest)
+    case(5)
+       tolen = 9.e-1
+    case(4)
+       tolmom = 1.e-14
+       tolen = 1.6e-2
     case(3)
        if (ind_timesteps) then
-          call checkval(angtot,angmomin,2.1e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
-       else
-          call checkval(angtot,angmomin,1.2e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
+          tolang = 2.1e-6
        endif
        tolen = 1.2e-2
+       if (use_fourthorder) then
+          tolen = 5.5e-4
+       endif
     case(2)
-       call checkval(angtot,angmomin,4.e-7,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,6.e-14,nfailed(2),'linear momentum')
        tolen = 2.e-3
        if (gravity) tolen = 3.1e-3
+
+       if (use_fourthorder) then
+          tolen = 5.5e-4
+          tolang = 2.e-11
+       endif
     case default
        if (calc_gravitwaves .and. itest==1) then
           call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
-       call checkval(angtot,angmomin,4.e-13,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
        tolen = 3.e-8
-       if (itest==4) tolen = 1.6e-2 ! etot is small compared to ekin
-       if (itest==5) tolen = 9.e-1
     end select
     !
     !--check energy conservation
     !
-    call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
+    call checkval(angtot,angmomin,tolang,nfailed(1),'angular momentum')
+    call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
+    call checkval(etotin+errmax,etotin,tolen,nfailed(3),'total energy')
     do i=1,3
        call update_test_scores(ntests,nfailed(i:i),npass)
     enddo

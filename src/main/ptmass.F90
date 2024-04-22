@@ -97,7 +97,7 @@ module ptmass
  ! just means that with the default setting of C_force the orbits are accurate
  real, parameter :: dtfacphilf  = 0.05
  real, parameter :: dtfacphi2lf = dtfacphilf**2
- real, parameter :: dtfacphifsi = 0.05
+ real, parameter :: dtfacphifsi = 0.15
  real, parameter :: dtfacphi2fsi = dtfacphifsi**2
 
  real :: dtfacphi = dtfacphifsi
