@@ -231,7 +231,7 @@ subroutine test_binary(ntests,npass)
        !  add a circumbinary gas disc around it
        nparttot = 1000
        call set_disc(id,master,nparttot=nparttot,npart=npart,rmin=rin,rmax=rout,p_index=1.0,q_index=0.75,&
-                     HoverR=0.1,disc_mass=0.1*m1,star_mass=m1+m2,gamma=gamma,&
+                     HoverR=0.1,disc_mass=0.01*m1,star_mass=m1+m2,gamma=gamma,&
                      particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
                      polyk=polyk,verbose=.false.)
        npartoftype(igas) = npart
