@@ -19,7 +19,7 @@ module extern_prdrag
 !
 ! subroutine get_prdrag_spatial_force-- use beta_module, only:beta
 ! subroutine get_prdrag_vdependent_force-- use beta_module, only:beta
-! subroutine update_prdrag_leapfrog-- use beta_module, only:beta
+! subroutine update_prdrag-- use beta_module, only:beta
 ! subroutine write_options_prdrag-- use beta_module, only:write_options_beta
 ! subroutine read_options_prdrag-- use beta_module, only:read_options_beta
 !
@@ -45,7 +45,7 @@ module extern_prdrag
  real, private    :: beta = 0.01
 
  public  :: get_prdrag_spatial_force, get_prdrag_vdependent_force
- public  :: update_prdrag_leapfrog
+ public  :: update_prdrag
  public  :: read_options_prdrag, write_options_prdrag
 
  private
@@ -117,25 +117,23 @@ end subroutine get_prdrag_vdependent_force
 !  i.e. v^n+1 = vhalf + 0.5*dt*f_sph + 0.5*dt*f_pr(x,v^n+1)
 !+
 !-----------------------------------------------------------------------
-subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,Mstar)
+subroutine update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,Mstar)
  use units,         only:get_c_code,get_G_code
  use io,            only:warn,fatal
  use vectorutils,   only:matrixinvert3D
- real, intent(in)    :: dt,xi,yi,zi,Mstar
+ real, intent(in)    :: dkdt,xi,yi,zi,Mstar
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
  integer :: ierr
- real :: dton2,r2,dr,rx,ry,rz
+ real :: r2,dr,rx,ry,rz
  real :: gcode,ccode,betai,bterm,b,vr
  real :: rhat(3),vel(3),A(3),Rmat(3,3),Rinv(3,3)
- character(len=30), parameter :: label = 'update_prdrag_leapfrog'
+ character(len=30), parameter :: label = 'update_prdrag'
 
  ccode = get_c_code()
  gcode = get_G_code()
 
- ! we are solving half a timestep forwards in time
- dton2 = 0.5*dt
 
  r2     = xi*xi + yi*yi + zi*zi
  dr     = 1./sqrt(r2)
@@ -145,13 +143,13 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
  rhat   = (/rx,ry,rz/)
 
  ! solve for v^1 using matrix inversion of [Rmat][v1] = [A]
- A(1) = vhalfx + dton2*fxi
- A(2) = vhalfy + dton2*fyi
- A(3) = vhalfz + dton2*fzi
+ A(1) = vhalfx + dkdt*fxi
+ A(2) = vhalfy + dkdt*fyi
+ A(3) = vhalfz + dkdt*fzi
 
  betai = beta
  bterm = betai*gcode*Mstar/(ccode*r2)
- b = dton2*bterm
+ b = dkdt*bterm
 
  ! This is the matrix from the equation for v1: [Rmat][v1] = [A]
  Rmat = reshape((/1. + b*(k2 + k1*rx*rx), b*k1*ry*rx,             b*k1*rz*rx, &
@@ -178,7 +176,7 @@ subroutine update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,y
  fyi = fyi + fexti(2)
  fzi = fzi + fexti(3)
 
-end subroutine update_prdrag_leapfrog
+end subroutine update_prdrag
 
 !-----------------------------------------------------------------------
 !+

@@ -31,7 +31,7 @@ module extern_lensethirring
  real, public :: blackhole_spin_angle = 0.
  real, public :: cos_spinangle = 1., sin_spinangle = 0.
 
- public :: update_ltforce_leapfrog
+ public :: update_ltforce
  public :: get_lense_thirring_force,check_lense_thirring_settings
  public :: write_options_ltforce, read_options_ltforce
  private
@@ -111,25 +111,22 @@ end subroutine get_lense_thirring_force
 ! returning the forces plust the Lense-Thirring force.
 !+
 !---------------------------------------------------------------
-subroutine update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
-                                   vcrossomega,dt,xi,yi,zi,bh_mass)
+subroutine update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
+                                   vcrossomega,dkdt,xi,yi,zi,bh_mass)
 
  use vectorutils, only : cross_product3D,matrixinvert3D
  use io,          only : fatal,warning
 
- real, intent(in)    :: dt,xi,yi,zi,bh_mass
+ real, intent(in)    :: dkdt,xi,yi,zi,bh_mass
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(out)   :: vcrossomega(3)
 
  integer :: ierr
- real :: dton2,dton2sq !,f2,flt2
  real :: A(3),v1(3),Omegap(3) !,v1check
  real :: Rmat(3,3),Rinv(3,3)
 
 ! Half the timestep and compute its square
- dton2   = 0.5*dt
- dton2sq = dton2**2
 
 ! Equation we are solving is: v1 = v0 + 0.5dt*(f0 + f1_sph + v1 cross Omega)
 ! vhalf = v0 + 0.5*dt*f0
@@ -142,14 +139,14 @@ subroutine update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
 !----------------------------------------------------------------------
 ! Third attempt with matrix inversion.
 !----------------------------------------------------------------------
- A(1)    = vhalfx + dton2*fxi
- A(2)    = vhalfy + dton2*fyi
- A(3)    = vhalfz + dton2*fzi
+ A(1)    = vhalfx + dkdt*fxi
+ A(2)    = vhalfy + dkdt*fyi
+ A(3)    = vhalfz + dkdt*fzi
 
 ! This is the matrix from the equation for v1: [Rmat][v1] = [A]
- Rmat = reshape((/1.,             -dton2*Omegap(3),  dton2*Omegap(2), &
-                  dton2*Omegap(3), 1.,              -dton2*Omegap(1), &
-                 -dton2*Omegap(2), dton2*Omegap(1), 1.              /),(/3,3/))
+ Rmat = reshape((/1.,             -dkdt*Omegap(3),  dkdt*Omegap(2), &
+                  dkdt*Omegap(3), 1.,              -dkdt*Omegap(1), &
+                 -dkdt*Omegap(2), dkdt*Omegap(1), 1.              /),(/3,3/))
 
 ! Get the inverse matrix
  call matrixinvert3D(Rmat,Rinv,ierr)
@@ -189,7 +186,7 @@ subroutine update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
 !    call warning('extern_lensethirring',' lense-thirring force > 10% of total force')
 ! endif
 
-end subroutine update_ltforce_leapfrog
+end subroutine update_ltforce
 
 !---------------------------------------------------------------
 !+

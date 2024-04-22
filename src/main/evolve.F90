@@ -88,10 +88,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+                            set_integration_precision
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
@@ -161,6 +162,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  else
     dtmax_log_dratio = 0.0
  endif
+
+ !
+ ! Set substepping integration precision depending on the system (default is FSI)
+ !
+ call set_integration_precision
 
 #ifdef IND_TIMESTEPS
  use_global_dt = .false.
@@ -270,7 +276,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,time)
     endif
     !
     ! Strang splitting: implicit update for half step

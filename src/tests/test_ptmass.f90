@@ -27,23 +27,47 @@ module testptmass
 
 contains
 
-subroutine test_ptmass(ntests,npass)
- use io,      only:id,master,iskfile
- use eos,     only:polyk,gamma
- use part,    only:nptmass
- use options, only:iexternalforce,alpha
+subroutine test_ptmass(ntests,npass,string)
+ use io,           only:id,master,iskfile
+ use eos,          only:polyk,gamma
+ use part,         only:nptmass
+ use options,      only:iexternalforce,alpha
+ use ptmass,       only:use_fourthorder,set_integration_precision
+ character(len=*), intent(in) :: string
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
- integer :: itmp,ierr
+ integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
+ logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
 
- do_test_binary = .true.
- do_test_accretion = .true.
- do_test_createsink = .true.
- do_test_softening = .true.
- do_test_merger = .true.
+ do_test_binary = .false.
+ do_test_accretion = .false.
+ do_test_createsink = .false.
+ do_test_softening = .false.
+ do_test_merger = .false.
+ testall = .false.
+ istart = 1
+ select case(trim(string))
+ case('ptmassbinary')
+    do_test_binary = .true.
+ case('ptmassaccrete')
+    do_test_accretion = .true.
+ case('ptmasscreatesink')
+    do_test_createsink = .true.
+ case('ptmasssoftening')
+    do_test_softening = .true.
+ case('ptmassmerger')
+    do_test_merger = .true.
+ case('ptmassfsi')
+    istart = 2
+    do_test_binary = .true.
+    do_test_softening = .true.
+    do_test_merger = .true.
+ case default
+    testall = .true.
+ end select
  !
  !--general settings
  !
@@ -51,26 +75,38 @@ subroutine test_ptmass(ntests,npass)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
- !
- !  Tests of a sink particle binary
- !
- if (do_test_binary) call test_binary(ntests,npass)
- !
- !  Test of softening between sinks
- !
- if (do_test_softening) call test_softening(ntests,npass)
+ use_fourthorder = .false.
+ do itest=istart,2
+    !
+    !  select order of integration
+    !
+    if (itest == 2) use_fourthorder = .true.
+    call set_integration_precision
+    !
+    !  Tests of a sink particle binary
+    !
+    if (do_test_binary .or. testall) call test_binary(ntests,npass)
+    !
+    !  Test of softening between sinks
+    !
+    if (do_test_softening .or. testall) call test_softening(ntests,npass)
+    !
+    !  Test sink particle mergers
+    !
+    if (do_test_merger .or. testall) call test_merger(ntests,npass)
+ enddo
  !
  !  Tests of accrete_particle routine
  !
- if (do_test_accretion) call test_accretion(ntests,npass)
+ if (do_test_accretion .or. testall) then
+    do itest=1,2
+       call test_accretion(ntests,npass,itest)
+    enddo
+ endif
  !
  !  Test sink particle creation
  !
- if (do_test_createsink) call test_createsink(ntests,npass)
- !
- !  Test sink particle mergers
- !
- if (do_test_merger) call test_merger(ntests,npass)
+ if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -97,7 +133,7 @@ subroutine test_binary(ntests,npass)
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
-                      get_accel_sink_gas,f_acc
+                      get_accel_sink_gas,f_acc,use_fourthorder
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                       npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
                       hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
@@ -120,12 +156,13 @@ subroutine test_binary(ntests,npass)
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
  integer, parameter :: nbinary_tests = 5
- real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,hp_exact,hx_exact
+ real :: m1,m2,a,ecc,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,hp_exact,hx_exact
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,fac,errgw(2)
  real :: angle,rin,rout
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real(kind=4) :: t1
  character(len=20) :: dumpfile
+ character(len=40) :: string
  real, parameter :: tolgw = 1.2e-2
  !
  !--no gas particles
@@ -138,25 +175,37 @@ subroutine test_binary(ntests,npass)
  ipdv_heating = 0
  ishock_heating = 0
 
+ tolv = 1e-2
+
  binary_tests: do itest = 1,nbinary_tests
+    string = ''
+    if (use_fourthorder) string = ' with Forward Symplectic Integrator'
     select case(itest)
     case(4)
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+       if (use_fourthorder) then
+          if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with FSI'
+          cycle binary_tests
+       else
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'//trim(string)
+       endif
     case(2,3,5)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
           cycle binary_tests
+       elseif (use_fourthorder .and. itest==5) then
+          if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with FSI'
+          cycle binary_tests
        else
           if (itest==5) then
-             if (id==master) write(*,"(/,a)") '--> testing integration of disc around oblate star'
+             if (id==master) write(*,"(/,a)") '--> testing integration of disc around oblate star'//trim(string)
           elseif (itest==3) then
-             if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
+             if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'//trim(string)
           else
-             if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'
+             if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'//trim(string)
           endif
        endif
     case default
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'
+       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'//trim(string)
     end select
     !
     !--setup sink-sink binary (no gas particles)
@@ -183,6 +232,7 @@ subroutine test_binary(ntests,npass)
     hacc1  = 0.35
     hacc2  = 0.35
     C_force = 0.25
+    if (itest==3) C_force = 0.25
     omega = sqrt((m1+m2)/a**3)
     t = 0.
     call set_units(mass=1.d0,dist=1.d0,G=1.d0)
@@ -217,7 +267,7 @@ subroutine test_binary(ntests,npass)
     call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
     call update_test_scores(ntests,nfailed,npass)
 
-    tolv = 1.e3
+    tolv = 1.e-2
     iverbose = 0
     ieos = 3
     fac = 1./get_G_on_dc4()
@@ -297,58 +347,68 @@ subroutine test_binary(ntests,npass)
     if (id==master) call getused(t1)
     call init_step(npart,t,dtmax)
     do i=1,nsteps
-       t = t + dt
        dtext = dt
        if (id==master .and. iverbose > 2) write(*,*) ' t = ',t,' dt = ',dt
        call step(npart,npart,t,dt,dtext,dtnew)
        call compute_energies(t)
        errmax = max(errmax,abs(etot - etotin))
+       !if (itest==3) print*,t,abs(angtot-angmomin)/angmomin
        !
        ! Check the gravitational wave strain if the binary is circular.
        ! There is a phase error that grows with time, so only check the first 10 orbits
        !
        if (calc_gravitwaves .and. abs(ecc) < epsilon(ecc) .and. itest==1 .and. t < 20.*pi/omega) then
-          call get_strain_from_circular_binary(t,m1,m2,a,0.,hx_exact,hp_exact)
+          call get_strain_from_circular_binary(t+dt,m1,m2,a,0.,hx_exact,hp_exact)
           call checkvalbuf(10.+hx(1)*fac,10.+hx_exact*fac,tolgw,&
                            'gw strain (x)',nfailgw(1),ncheckgw(1),errgw(1))
           call checkvalbuf(10.+hp(1)*fac,10.+hp_exact*fac,tolgw,&
                            'gw strain (+)',nfailgw(2),ncheckgw(2),errgw(2))
        endif
+       t = t + dt
     enddo
     call compute_energies(t)
     if (id==master) call printused(t1)
     nfailed(:) = 0
+    tolmom = 2.e-14
+    tolang = 2.e-14
     select case(itest)
+    case(5)
+       tolen = 9.e-1
+    case(4)
+       tolmom = 1.e-14
+       tolen = 1.6e-2
     case(3)
        if (ind_timesteps) then
-          call checkval(angtot,angmomin,2.1e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,5.e-6,nfailed(2),'linear momentum')
+          tolang = 2.1e-6
        else
-          call checkval(angtot,angmomin,1.2e-6,nfailed(3),'angular momentum')
-          call checkval(totmom,totmomin,4.e-14,nfailed(2),'linear momentum')
+          tolang = 6.e-10
        endif
        tolen = 1.2e-2
     case(2)
-       call checkval(angtot,angmomin,4.e-7,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,6.e-14,nfailed(2),'linear momentum')
-       tolen = 2.e-3
+       tolen = 1.2e-3
        if (gravity) tolen = 3.1e-3
+
+       if (use_fourthorder) then
+          tolang = 2.e-11
+       endif
     case default
        if (calc_gravitwaves .and. itest==1) then
           call checkvalbuf_end('grav. wave strain (x)',ncheckgw(1),nfailgw(1),errgw(1),tolgw)
           call checkvalbuf_end('grav. wave strain (+)',ncheckgw(2),nfailgw(2),errgw(2),tolgw)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
-       call checkval(angtot,angmomin,4.e-13,nfailed(3),'angular momentum')
-       call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
-       tolen = 3.e-8
-       if (itest==4) tolen = 1.6e-2 ! etot is small compared to ekin
-       if (itest==5) tolen = 9.e-1
+       if (use_fourthorder) then
+          tolen = 1.e-13
+       else
+          tolen = 3.e-8
+       endif
     end select
     !
     !--check energy conservation
     !
-    call checkval(etotin+errmax,etotin,tolen,nfailed(1),'total energy')
+    call checkval(angtot,angmomin,tolang,nfailed(1),'angular momentum')
+    call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
+    call checkval(etotin+errmax,etotin,tolen,nfailed(3),'total energy')
     do i=1,3
        call update_test_scores(ntests,nfailed(i:i),npass)
     enddo
@@ -467,29 +527,35 @@ end subroutine test_softening
 !  Test accretion of gas particles onto sink particles
 !+
 !-----------------------------------------------------------------------
-subroutine test_accretion(ntests,npass)
+subroutine test_accretion(ntests,npass,itest)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type
- use ptmass,    only:ndptmass,ptmass_accrete,update_ptmass
+                     isdead_or_accreted,set_particle_type,ndptmass,hfact
+ use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
  use testutils, only:checkval,update_test_scores
+ use kernel,    only:hfact_default
+ use eos,       only:polyk
+ use setdisc,   only:set_disc
  integer, intent(inout) :: ntests,npass
- integer :: i,nfailed(11)
+ integer, intent(in)    :: itest
+ integer :: i,nfailed(11),np_disc
  integer(kind=1) :: ibin_wakei
+ character(len=20) :: string
  logical :: accreted
- real :: dr,t
+ real :: t
  real :: dptmass(ndptmass,1)
  real :: dptmass_thread(ndptmass,1)
- real :: xyzm_ptmass_old(4,1),vxyz_ptmass_old(3,1)
  real :: angmomin,etotin,totmomin
 
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
 
- if (id==master) write(*,"(/,a)") '--> testing accretion onto sink particles'
+ string = 'of two particles'
+ if (itest==2) string = 'of a whole disc'
+ if (id==master) write(*,"(/,a)") '--> testing accretion '//trim(string)//' onto sink particles'
  nptmass = 1
  !--setup 1 point mass at (-5,-5,-5)
  xyzmh_ptmass(1:3,1)   = 1.
@@ -497,23 +563,35 @@ subroutine test_accretion(ntests,npass)
  xyzmh_ptmass(ihacc,1) = 20. ! accretion radius
  vxyz_ptmass(1:3,1)    = -40.
  fxyz_ptmass(1:3,1)    = 40.
- massoftype(1)   = 10.
- !--setup 1 SPH particle at (5,5,5)
- if (id==master) then
-    call set_particle_type(1,igas)
-    npartoftype(igas) = 1
-    npart        = 1
-    xyzh(1:3,1)  = 5.
-    xyzh(4,1)    = 0.01
-    vxyzu(1:3,1) = 80.
-    fxyzu(1:3,1) = 20.
+ hfact = hfact_default
+
+ if (itest==1) then
+    !--setup 2 SPH particles at (5,5,5)
+    if (id==master) then
+       call set_particle_type(1,igas)
+       call set_particle_type(2,igas)
+       npartoftype(igas) = 2
+       npart        = 2
+       xyzh(1:3,1:2)  = 5.
+       xyzh(4,1:2)    = 0.01
+       vxyzu(1:3,1) = [40.,40.,-10.]
+       vxyzu(1:3,2) = [120.,120.,-30.]
+       fxyzu(1:3,1:2) = 20.
+       massoftype(1)  = 5.
+    else
+       npartoftype(igas) = 0
+       npart        = 0
+    endif
  else
-    npartoftype(igas) = 0
-    npart        = 0
+    ! eat a large portion of a disc
+    np_disc = 1000
+    call set_disc(id,master,nparttot=np_disc,npart=npart,rmin=1.,rmax=2.*xyzmh_ptmass(ihacc,1),p_index=1.0,q_index=0.75,&
+                  HoverR=0.1,disc_mass=0.5*xyzmh_ptmass(4,1),star_mass=xyzmh_ptmass(4,1),gamma=1.,&
+                  particle_mass=massoftype(igas),hfact=hfact,xyzh=xyzh,vxyzu=vxyzu,&
+                  polyk=polyk,verbose=.false.)
+    npartoftype(igas) = npart
  endif
- xyzm_ptmass_old = xyzmh_ptmass(1:4,1:nptmass)
- vxyz_ptmass_old = vxyz_ptmass (1:3,1:nptmass)
- dr = sqrt(dot_product(xyzh(1:3,1) - xyzmh_ptmass(1:3,1),xyzh(1:3,1) - xyzmh_ptmass(1:3,1)))
+
  !--perform a test of the accretion of the SPH particle by the point mass
  nfailed(:)  = 0
  !--check energies before accretion event
@@ -529,10 +607,12 @@ subroutine test_accretion(ntests,npass)
  dptmass_thread(:,1:nptmass) = 0.
  !$omp do
  do i=1,npart
-    call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
-                        vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
-                        igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                        accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
+                           vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
+                           igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
+                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+    endif
  enddo
  !$omp enddo
  !$omp critical(dptmassadd)
@@ -548,30 +628,33 @@ subroutine test_accretion(ntests,npass)
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
  call bcast_mpi(fxyz_ptmass(:,1:nptmass))
 
- if (id==master) then
-    call checkval(accreted,.true.,nfailed(1),'accretion flag')
-    !--check that h has been changed to indicate particle has been accreted
-    call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag')
+ if (itest==1) then
+    if (id==master) then
+       call checkval(accreted,.true.,nfailed(1),'accretion flag')
+       !--check that h has been changed to indicate particle has been accreted
+       call checkval(isdead_or_accreted(xyzh(4,1)),.true.,nfailed(2),'isdead_or_accreted flag(1)')
+       call checkval(isdead_or_accreted(xyzh(4,2)),.true.,nfailed(2),'isdead_or_accreted flag(2)')
+    endif
+    call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
+    call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
+    call checkval(vxyz_ptmass(1,1),20.,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
+    call checkval(vxyz_ptmass(2,1),20.,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
+    call checkval(vxyz_ptmass(3,1),-30.,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
+    call checkval(fxyz_ptmass(1,1),30.,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
+    call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
+    call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
+
+    call update_test_scores(ntests,nfailed(1:2),npass)
+    call update_test_scores(ntests,nfailed(3:5),npass)
+    call update_test_scores(ntests,nfailed(6:8),npass)
+    call update_test_scores(ntests,nfailed(9:11),npass)
  endif
- call checkval(xyzmh_ptmass(1,1),3.,tiny(0.),nfailed(3),'x(ptmass) after accretion')
- call checkval(xyzmh_ptmass(2,1),3.,tiny(0.),nfailed(4),'y(ptmass) after accretion')
- call checkval(xyzmh_ptmass(3,1),3.,tiny(0.),nfailed(5),'z(ptmass) after accretion')
- call checkval(vxyz_ptmass(1,1),20.,tiny(0.),nfailed(6),'vx(ptmass) after accretion')
- call checkval(vxyz_ptmass(2,1),20.,tiny(0.),nfailed(7),'vy(ptmass) after accretion')
- call checkval(vxyz_ptmass(3,1),20.,tiny(0.),nfailed(8),'vz(ptmass) after accretion')
- call checkval(fxyz_ptmass(1,1),30.,tiny(0.),nfailed(9), 'fx(ptmass) after accretion')
- call checkval(fxyz_ptmass(2,1),30.,tiny(0.),nfailed(10),'fy(ptmass) after accretion')
- call checkval(fxyz_ptmass(3,1),30.,tiny(0.),nfailed(11),'fz(ptmass) after accretion')
 
- call update_test_scores(ntests,nfailed(1:2),npass)
- call update_test_scores(ntests,nfailed(3:5),npass)
- call update_test_scores(ntests,nfailed(6:8),npass)
- call update_test_scores(ntests,nfailed(9:11),npass)
-
- !--compute energies after accretion event
+ !--compute conserved quantities after accretion event
  nfailed(:) = 0
  call compute_energies(t)
- call checkval(angtot,angmomin,1.e-10,nfailed(3),'angular momentum')
+ call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
  call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
@@ -592,8 +675,9 @@ subroutine test_createsink(ntests,npass)
  use io,         only:id,master,iverbose
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
-                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
- use ptmass,     only:ndptmass,ptmass_accrete,update_ptmass,icreate_sinks,&
+                      nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
+                      dptmass
+ use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
@@ -712,7 +796,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,0.)
     !
     ! check that creation succeeded
     !

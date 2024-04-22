@@ -17,6 +17,9 @@ module kernel
 !
 ! :Dependencies: physcon
 !
+! :Generated: 2024-04-22 14:12:57.936556
+!
+!--------------------------------------------------------------------------
  use physcon, only:pi
  implicit none
  character(len=11), public :: kernelname = 'M_6 quintic'
@@ -151,6 +154,35 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  endif
 
 end subroutine kernel_softening
+
+!------------------------------------------
+! gradient acceleration kernel needed for
+! use in Forward symplectic integrator
+!------------------------------------------
+pure subroutine kernel_grad_soft(q2,q,gsoft)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: gsoft
+ real :: q4, q6, q8
+
+ if (q < 1.) then
+    gsoft = q2*q*(-175.*q2*q + 480.*q2 - 672.)/840.
+ elseif (q < 2.) then
+    q4 = q2*q2
+    q6 = q4*q2
+    q8 = q6*q2
+    gsoft = (175.*q8 - 1440.*q6*q + 4200.*q6 - 4704.*q4*q + 1050.*q4 - &
+                 15.)/(1680.*q2)
+ elseif (q < 3.) then
+    q4 = q2*q2
+    q6 = q4*q2
+    q8 = q6*q2
+    gsoft = (-35.*q8 + 480.*q6*q - 2520.*q6 + 6048.*q4*q - 5670.*q4 + &
+                 1521.)/(1680.*q2)
+ else
+    gsoft = -3./q2
+ endif
+
+end subroutine kernel_grad_soft
 
 !------------------------------------------
 ! double-humped version of the kernel for

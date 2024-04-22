@@ -121,7 +121,6 @@ module dim
 #else
  logical, parameter :: do_radiation = .false.
 #endif
-
  ! rhosum
  integer, parameter :: maxrhosum = 39 + &
                                    maxdustlarge - 1 + &

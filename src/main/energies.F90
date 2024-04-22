@@ -96,11 +96,11 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  integer :: iregime,idusttype,ierr
  real    :: ev_data_thread(4,0:inumev)
- real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,vi1,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
+ real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
  real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
  real    :: epoti,pmassi,dnptot,dnpgas,tsi
  real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
- real    :: ponrhoi,spsoundi,spsound2i,va2cs2,rho1cs2,dumx,dumy,dumz,gammai
+ real    :: ponrhoi,spsoundi,dumx,dumy,dumz,gammai
  real    :: divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
  real    :: gasfrac,rhogasi,dustfracisum,dustfraci(maxdusttypes),dust_to_gas(maxdusttypes)
@@ -175,8 +175,8 @@ subroutine compute_energies(t)
 !$omp shared(iev_etaa,iev_vel,iev_vhall,iev_vion,iev_n) &
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics) &
-!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i,vi1) &
-!$omp private(ponrhoi,spsoundi,gammai,spsound2i,va2cs2,rho1cs2,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
+!$omp private(ponrhoi,spsoundi,gammai,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(etaohm,etahall,etaambi,vhalli,vhall,vioni,vion,data_out) &

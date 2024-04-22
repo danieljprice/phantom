@@ -32,7 +32,7 @@ jobs:
           compiler: ${{ matrix.toolchain.compiler }}
 
       - name: "Clone phantom"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: "Clone krome"
         run: git clone https://bitbucket.org/tgrassi/krome.git krome

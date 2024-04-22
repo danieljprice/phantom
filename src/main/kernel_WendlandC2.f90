@@ -17,6 +17,9 @@ module kernel
 !
 ! :Dependencies: physcon
 !
+! :Generated: 2024-04-08 15:21:28.635699
+!
+!--------------------------------------------------------------------------
  use physcon, only:pi
  implicit none
  character(len=17), public :: kernelname = 'Wendland 2/3D C^2'
@@ -90,7 +93,7 @@ end subroutine get_kernel_grav1
 pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  real, intent(in)  :: q2,q
  real, intent(out) :: potensoft,fsoft
- real :: q4, q6
+ real :: q4
 
  if (q < 2.) then
     q4 = q2*q2
@@ -103,6 +106,22 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  endif
 
 end subroutine kernel_softening
+
+!------------------------------------------
+! gradient acceleration kernel needed for
+! use in Forward symplectic integrator
+!------------------------------------------
+pure subroutine kernel_grad_soft(q2,q,gsoft)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: gsoft
+
+ if (q < 2.) then
+    gsoft = 3.*q2*q*(35.*q2*q - 240.*q2 + 560.*q - 448.)/256.
+ else
+    gsoft = -3./q2
+ endif
+
+end subroutine kernel_grad_soft
 
 !------------------------------------------
 ! double-humped version of the kernel for
