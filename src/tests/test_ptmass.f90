@@ -398,9 +398,9 @@ subroutine test_binary(ntests,npass)
           call update_test_scores(ntests,nfailgw(1:2),npass)
        endif
        if (use_fourthorder) then
-          tolen = 3.e-8
-       else
           tolen = 1.e-13
+       else
+          tolen = 3.e-8
        endif
     end select
     !
