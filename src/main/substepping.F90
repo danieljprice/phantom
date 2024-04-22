@@ -441,7 +441,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: dptmass(:,:),fsink_old(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- logical :: extf_vdep_flag,done,last_step
+ logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
@@ -486,10 +486,9 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
     if (use_fourthorder) then !! FSI 4th order scheme
 
-       ! FSFI extrapolation method (Omelyan 2006)
+       ! FSI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old)
-
+                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old)
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
@@ -498,13 +497,21 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+       if (accreted) then
+          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
+       endif
 
     else  !! standard leapfrog scheme
 
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+       if (accreted) then
+          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
+       endif
 
     endif
 
@@ -589,7 +596,7 @@ end subroutine drift
  !----------------------------------------------------------------
 
 subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
  use externalforces, only:accrete_particles
@@ -608,8 +615,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real,            optional, intent(in)    :: timei
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
  integer(kind=1), optional, intent(in)    :: nbinmax
+ logical        , optional, intent(inout)   :: accreted
  integer(kind=1) :: ibin_wakei
- logical         :: is_accretion,accreted
+ logical         :: is_accretion
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive
  real            :: dkdt,pmassi,fxi,fyi,fzi,accretedmass
@@ -733,11 +741,13 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 !
 ! reduction of sink particle changes across MPI
 !
+    accreted = .false.
     if (nptmass > 0) then
        call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
        naccreted = int(reduceall_mpi('+',naccreted))
        nfail = int(reduceall_mpi('+',nfail))
+       if (naccreted > 0) accreted = .true.
 
        if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
@@ -907,8 +917,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (nptmass>0) then
           if(extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
-         fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
-         dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
+                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
+                                     dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
           else
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                   fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
@@ -926,8 +936,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                              dtextforcenew,dtf,dkdt,fextx,fexty,fextz, &
                              extf_vdep_flag,iexternalforce)
        endif
-
-!
+       !
        ! damping
        !
        if (idamp > 0) then
@@ -970,7 +979,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (fonrmax > 0.) then
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
-       if (iverbose >= 3 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+       if (iverbose >= 2 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
        dtextforcenew = min(dtextforcenew,dtsinkgas)
     endif
 
@@ -979,6 +988,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  endif
 
 end subroutine get_force
+
+
 
 
 !-----------------------------------------------------------------------------------
