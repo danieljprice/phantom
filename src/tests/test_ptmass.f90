@@ -36,7 +36,7 @@ subroutine test_ptmass(ntests,npass,string)
  character(len=*), intent(in) :: string
  character(len=20) :: filename
  integer, intent(inout) :: ntests,npass
- integer :: itmp,ierr,itest
+ integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
  logical :: testall
 
@@ -48,6 +48,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_softening = .false.
  do_test_merger = .false.
  testall = .false.
+ istart = 1
  select case(trim(string))
  case('ptmassbinary')
     do_test_binary = .true.
@@ -58,6 +59,11 @@ subroutine test_ptmass(ntests,npass,string)
  case('ptmasssoftening')
     do_test_softening = .true.
  case('ptmassmerger')
+    do_test_merger = .true.
+ case('ptmassfsi')
+    istart = 2
+    do_test_binary = .true.
+    do_test_softening = .true.
     do_test_merger = .true.
  case default
     testall = .true.
@@ -70,7 +76,7 @@ subroutine test_ptmass(ntests,npass,string)
  iexternalforce = 0
  alpha = 0.01
  use_fourthorder = .false.
- do itest=1,2
+ do itest=istart,2
     !
     !  select order of integration
     !
@@ -156,6 +162,7 @@ subroutine test_binary(ntests,npass)
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real(kind=4) :: t1
  character(len=20) :: dumpfile
+ character(len=40) :: string
  real, parameter :: tolgw = 1.2e-2
  !
  !--no gas particles
@@ -171,32 +178,34 @@ subroutine test_binary(ntests,npass)
  tolv = 1e-2
 
  binary_tests: do itest = 1,nbinary_tests
+    string = ''
+    if (use_fourthorder) string = ' with Forward Symplectic Integrator'
     select case(itest)
     case(4)
        if (use_fourthorder) then
           if (id==master) write(*,"(/,a)") '--> skipping integration of binary orbit with oblateness with FSI'
           cycle binary_tests
        else
-          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'
+          if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit with oblateness'//trim(string)
        endif
     case(2,3,5)
        if (periodic) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc test (-DPERIODIC is set)'
           cycle binary_tests
-       elseif(use_fourthorder .and. itest==5) then
+       elseif (use_fourthorder .and. itest==5) then
           if (id==master) write(*,"(/,a)") '--> skipping circumbinary disc around oblate star test with FSI'
           cycle binary_tests
        else
           if (itest==5) then
-             if (id==master) write(*,"(/,a)") '--> testing integration of disc around oblate star'
+             if (id==master) write(*,"(/,a)") '--> testing integration of disc around oblate star'//trim(string)
           elseif (itest==3) then
-             if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'
+             if (id==master) write(*,"(/,a)") '--> testing integration of disc around eccentric binary'//trim(string)
           else
-             if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'
+             if (id==master) write(*,"(/,a)") '--> testing integration of circumbinary disc'//trim(string)
           endif
        endif
     case default
-       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'
+       if (id==master) write(*,"(/,a)") '--> testing integration of binary orbit'//trim(string)
     end select
     !
     !--setup sink-sink binary (no gas particles)
