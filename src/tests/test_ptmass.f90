@@ -369,7 +369,11 @@ subroutine test_binary(ntests,npass)
        tolmom = 1.e-14
        tolen = 1.6e-2
     case(3)
-       tolang = 2.1e-6
+       if (ind_timesteps) then
+          tolang = 2.1e-6
+       else
+          tolang = 2.e-10
+       endif
        tolen = 1.2e-2
     case(2)
        tolen = 1.2e-3
