@@ -295,7 +295,7 @@ for edittype in $bots_to_run; do
                      -e 's/, action=/,action=/g' \
                      -e 's/, iomsg = /,iomsg=/g' \
                      -e 's/, iomsg=/,iomsg=/g' \
-                     -e 's/(unit =/,(unit=/g' \
+                     -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
                'header' )
