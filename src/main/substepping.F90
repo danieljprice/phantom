@@ -558,10 +558,10 @@ end subroutine substep
  !----------------------------------------------------------------
 subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                               dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
- use part,           only:isdead_or_accreted,igas,massoftype,fxyz_ptmass_sinksink
+ use part,           only:isdead_or_accreted,igas,massoftype,fxyz_ptmass_sinksink,epot_sinksink
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use io_summary,     only:summary_variable,iosumextr,iosumextt
- use sdar_group,     only:group_identify,evolve_groups
+ use sdar_group,     only:group_identify,evolve_groups,get_pot_subsys
  use options,        only:iexternalforce
  use externalforces, only:is_velocity_dependent
  real,            intent(in)    :: dtsph,time
