@@ -606,6 +606,7 @@ subroutine test_chinese_coin(ntests,npass,string)
 
  call update_test_scores(ntests,nfailed(1:2),npass)
  iverbose = 0  ! reset verbosity
+ iexternalforce = 0
 
 end subroutine test_chinese_coin
 
