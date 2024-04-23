@@ -88,7 +88,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Write angular momentum information
  if (first) then
     first = .false.
-    open(newunit=iu, file='angmom.ev',status='replace')
+    open(newunit=iu,file='angmom.ev',status='replace')
     write(iu,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',&
           2,'L_{gas}',  &
@@ -96,7 +96,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           4,'L_{spin}',  &
           5,'L_{total}'
  else
-    open(newunit=iu, file='angmom.ev',position='append')
+    open(newunit=iu,file='angmom.ev',position='append')
  endif
  write(iu,'(6(es18.10,1X))') time*utime/years,Ltot_mag*unit_angmom,Lsink_mag*unit_angmom,&
        Lspin_mag*unit_angmom,L_total_mag*unit_angmom

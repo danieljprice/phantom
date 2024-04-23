@@ -517,7 +517,7 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
 
 ! Write eigenvalues to file
  print*, 'Writing eigenvalues to file ', trim(valuefile)
- open(27,file=trim(valuefile), status='unknown',form='unformatted')
+ open(27,file=trim(valuefile),status='unknown',form='unformatted')
  write(27) ngas
  write(27) (eigenpart(i),i=1,ngas)
  write(27) (xbin(i), i=1,ngas)
@@ -530,7 +530,7 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
 
 ! Now write the eigenvectors to file
  print*, 'Writing eigenvectors to file ', trim(vectorfile)
- open(27,file=trim(vectorfile),status='unknown', form='unformatted')
+ open(27,file=trim(vectorfile),status='unknown',form='unformatted')
  write(27) ngas
  write(27) (eigenpart(i),i=1,ngas)
  write(27) (eigenvectors(1,1:3,i),i=1,ngas)

@@ -90,7 +90,7 @@ subroutine write_kdtree_file(dumpfile)
  print '(a,a,I7)', 'This file does not contains masses: ', filetag, ncells
 #endif
 
- open(10,file=treefile, form='unformatted')
+ open(10,file=treefile,form='unformatted')
 
 ! Write header data
  write(10) filetag, ncells
@@ -134,7 +134,7 @@ subroutine read_kdtree_file(dumpfile)
  treefile = 'kdtree_'//trim(dumpfile)
  print'(a,a)', 'Reading kdtree from binary file ', trim(treefile)
 
- open(10,file=treefile, form='unformatted')
+ open(10,file=treefile,form='unformatted')
 ! Read header
  read(10) filetag, ncells
 

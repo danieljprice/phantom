@@ -251,7 +251,7 @@ subroutine read_neighbours(neighbourfile,npart)
  neighb(:,:)   = 0
 
  print*, 'Reading neighbour file ', trim(neighbourfile)
- open(2, file= neighbourfile,  form = 'UNFORMATTED')
+ open(2,file= neighbourfile,  form = 'UNFORMATTED')
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
  if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
  read(2) (neighcount(i), i=1,npart)
@@ -290,7 +290,7 @@ subroutine write_neighbours(neighbourfile,npart)
  neighbourfile  = trim(neighbourfile)
  print*, 'Writing neighbours to file ', neighbourfile
 
- open (2, file=neighbourfile, form='unformatted')
+ open(2,file=neighbourfile,form='unformatted')
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart

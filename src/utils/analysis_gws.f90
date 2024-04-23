@@ -87,7 +87,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
 ! Write a file where I append all the values of the strain wrt time
  if (first) then
     first = .false.
-    open(unit=iu, file='strain.gw',status='replace')
+    open(unit=iu,file='strain.gw',status='replace')
     write(iu,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
           1, 'time',  &
           2, 'hx_0',  &
@@ -99,7 +99,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
           8, 'hx_{90}', &
           9, 'hx_{90}'
  else
-    open(unit=iu, file='strain.gw',position='append')
+    open(unit=iu,file='strain.gw',position='append')
  endif
 
  print*, 'time', time
@@ -125,7 +125,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
 ! Write a file where I append all the values of the strain wrt time
  if (firstdump) then
     firstdump = .false.
-    open(unit=iuu, file='quadrupole.txt',status='replace')
+    open(unit=iuu,file='quadrupole.txt',status='replace')
     write(iuu,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
           1, 'q11', &
           2, 'q12', &
@@ -134,14 +134,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
           5, 'q23', &
           6, 'q33'
  else
-    open(unit=iuu, file='quadrupole.txt',position='append')
+    open(unit=iuu,file='quadrupole.txt',position='append')
  endif
 
  write(iuu,'(6(es18.10,1X))') q(1), q(2), q(3), q(4), q(5), q(6)
 
  if (firstdumpa) then
     firstdumpa = .false.
-    open(unit=iuuu, file='second_time_quadrupole.txt',status='replace')
+    open(unit=iuuu,file='second_time_quadrupole.txt',status='replace')
     write(iuuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
           1, 'time',&
           2, 'ddq_xy(1,1)', &
@@ -151,7 +151,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunitone)
           6, 'ddq_xy(2,3)', &
           7, 'ddq_xy(3,3)'
  else
-    open(unit=iuuu, file='second_time_quadrupole.txt',position='append')
+    open(unit=iuuu,file='second_time_quadrupole.txt',position='append')
  endif
 
  write(iuuu,'(7(es18.10,1X))') time,ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)

@@ -420,7 +420,7 @@ subroutine initialise_spiral(ierr)
  case(1)
     potfilename = 'pot3D.bin'
     if (id==master) print*,'Reading in potential from an external file (BINARY): ',potfilename
-    open (unit =1, file = trim(potfilename), status='old', form='UNFORMATTED', access='SEQUENTIAL', iostat=ios)
+    open,(unit=1,file=trim(potfilename),status='old',form='UNFORMATTED',access='SEQUENTIAL',iostat=ios)
     if (ios /= 0 .and. id==master) then
        print*, 'Error opening file:', trim(potfilename)
     endif
