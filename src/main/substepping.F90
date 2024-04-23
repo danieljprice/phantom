@@ -557,6 +557,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
  use sdar_group,     only:group_identify,evolve_groups,get_pot_subsys
  use options,        only:iexternalforce
  use externalforces, only:is_velocity_dependent
+ use ptmass,         only:dk,ck
  real,            intent(in)    :: dtsph,time
  integer,         intent(in)    :: npart,nptmass,ntypes
  real,            intent(inout) :: dtextforce
@@ -569,7 +570,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
  integer,         intent(inout) :: n_ingroup,n_group,n_sing
- logical :: extf_vdep_flag,done,last_step
+ logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min,pmassi
@@ -610,7 +611,7 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
     call evolve_groups(n_group,nptmass,time_par,time_par+ck(1)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,group_info=group_info)
     fsink_old = fxyz_ptmass
     call get_gradf_4th(nptmass,npart,pmassi,dt,xyzh,fext,xyzmh_ptmass,fxyz_ptmass,fsink_old,force_count,group_info)
 
@@ -621,10 +622,10 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
     call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,group_info=group_info)
 
     call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass, &
-              dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+              dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
     if (iverbose >= 2 ) write(iprint,*) "nsubsteps : ",nsubsteps,"time,dt : ",timei,dt
 
     dtextforce_min = min(dtextforce_min,dtextforce)
@@ -999,7 +1000,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real            :: fonrmaxi,phii,dtphi2i
  real            :: dkdt,extrapfac
- logical         :: extrap,last
+ logical         :: extrap,last,wsub
 
  if(present(fsink_old)) then
     fsink_old = fxyz_ptmass
