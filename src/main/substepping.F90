@@ -817,7 +817,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: dkdt,extrapfac
  logical         :: extrap,last
 
- if(present(fsink_old)) then
+ if (present(fsink_old)) then
     fsink_old = fxyz_ptmass
     extrap  = .true.
  else
@@ -845,7 +845,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !
  !-- Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
  !
- if (nptmass>0) then
+ if (nptmass > 0) then
     if (id==master) then
        if (extrap) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -914,8 +914,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           yi = xyzh(2,i)
           zi = xyzh(3,i)
        endif
-       if (nptmass>0) then
-          if(extrap) then
+       if (nptmass > 0) then
+          if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
                                      dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
@@ -975,7 +975,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  endif
 
  if (last) then
-    if(nptmass>0) then
+    if (nptmass > 0) then
        if (fonrmax > 0.) then
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
@@ -988,9 +988,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  endif
 
 end subroutine get_force
-
-
-
 
 !-----------------------------------------------------------------------------------
 !+
