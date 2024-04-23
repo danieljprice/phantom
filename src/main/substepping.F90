@@ -529,8 +529,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
-       write(iprint,"(a,i6,a,f9.2,a,es10.3,a,es10.3)") &
-' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+       write(iprint,"(a,i6,3(a,es10.3))") ' using ',nsubsteps,' substeps '//&
+             '(dthydro/dtextf =',dtsph/dtextforce_min,'), dt =',dtextforce_min,' dtsph =',dtsph
     endif
     call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
     call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)

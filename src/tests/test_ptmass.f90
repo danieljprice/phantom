@@ -28,11 +28,11 @@ module testptmass
 contains
 
 subroutine test_ptmass(ntests,npass,string)
- use io,           only:id,master,iskfile
- use eos,          only:polyk,gamma
- use part,         only:nptmass
- use options,      only:iexternalforce,alpha
- use ptmass,       only:use_fourthorder,set_integration_precision
+ use io,      only:id,master,iskfile
+ use eos,     only:polyk,gamma
+ use part,    only:nptmass
+ use options, only:iexternalforce,alpha
+ use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=*), intent(in) :: string
  character(len=20) :: filename
  character(len=40) :: stringf
@@ -89,7 +89,7 @@ subroutine test_ptmass(ntests,npass,string)
        stringf = ' with Forward Symplectic Integrator'
     else
        use_fourthorder = .false.
-       stringf = ' with Leapfrog Integrator'
+       stringf = ' with Leapfrog integrator'
     endif
     call set_integration_precision
     !
@@ -544,7 +544,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,fxyz_ptmass,dsdt_ptmass
  use extern_binary,  only:mass1,mass2
  use options,        only:iexternalforce
- use externalforces, only:iext_binary
+ use externalforces, only:iext_binary,update_externalforce
  use physcon,        only:pi
  use step_lf_global, only:step
  use ptmass,         only:use_fourthorder,get_accel_sink_sink
@@ -555,7 +555,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  real :: t,dtorb,dtnew,dtext,tmax,epot_sinksink,y0,v0
  real :: tol_per_orbit_y,tol_per_orbit_v
 
- if (id==master) write(*,"(/,a)") '--> testing Chinese coin problem'//trim(string)
+ if (id==master) write(*,"(/,a)") '--> testing Chinese coin problem'//trim(string)//' (coin)'
 
  ! no gas
  npart = 0
@@ -581,6 +581,7 @@ subroutine test_chinese_coin(ntests,npass,string)
  t = 0.
  dtext = 1.e-15
  iverbose = 1
+ call update_externalforce(iexternalforce,t,0.)
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                           dtext,iexternalforce,t,merge_ij,merge_n,dsdt_ptmass)
 

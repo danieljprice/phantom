@@ -1632,7 +1632,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
 end subroutine merge_sinks
 
 subroutine set_integration_precision
- if(use_fourthorder) then
+
+ if (use_fourthorder) then
     n_force_order = 3
     ck = ck4
     dk = dk4
@@ -1645,6 +1646,7 @@ subroutine set_integration_precision
     dtfacphi = dtfacphilf
     dtfacphi2 = dtfacphi2lf
  endif
+
 end subroutine set_integration_precision
 
 !-----------------------------------------------------------------------
