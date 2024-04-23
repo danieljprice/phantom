@@ -31,7 +31,7 @@ module apr
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
-  logical :: apr_verbose = .false.
+  logical :: apr_verbose = .true.
   logical :: do_relax = .true.
   logical :: adjusted_split = .true.
   logical :: first_split = .true.
@@ -83,7 +83,7 @@ contains
     ! massoftype(igas) is associated with the
     ! largest particle
     if (ref_dir == -1) then
-      massoftype(:) = massoftype(:) * 4.**(apr_max -1)
+      massoftype(:) = massoftype(:) * 8.**(apr_max -1)
       top_level = 1
     else
       top_level = apr_max
@@ -91,7 +91,7 @@ contains
 
     ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
     do i = 1,apr_max
-      aprmassoftype(:,i) = massoftype(:)/(4.**(i-1))
+      aprmassoftype(:,i) = massoftype(:)/(8.**(i-1))
     enddo
 
     ierr = 0
@@ -189,13 +189,17 @@ contains
           if (apri == top_level .and. first_split) do_this_part = .true.
           if (.not.first_split) do_this_part = .true.
           if (do_relax .and. (do_this_part)) then
-            nrelax = nrelax + 4
-            relaxlist(nrelax-3) = ii
+            nrelax = nrelax + 8
+            relaxlist(nrelax-7) = ii
+            relaxlist(nrelax-6) = npartnew-6
+            relaxlist(nrelax-5) = npartnew-5
+            relaxlist(nrelax-4) = npartnew-4
+            relaxlist(nrelax-3) = npartnew-3
             relaxlist(nrelax-2) = npartnew-2
             relaxlist(nrelax-1) = npartnew-1
             relaxlist(nrelax)   = npartnew
           endif
-          nsplit_total = nsplit_total + 3
+          nsplit_total = nsplit_total + 7
         endif
       enddo split_over_active
     enddo
@@ -208,6 +212,8 @@ contains
       print*,'npart: ',npart
       print*,'counter called',counter
     endif
+
+      call hacky_write('pretest')
 
     ! Do any particles need to be merged?
     allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(4,npart))
@@ -330,8 +336,8 @@ contains
     integer, intent(inout) :: npartnew
     integer :: j,npartold,next_door, k
     real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
-    real :: v(3),u(3),w(3),a,b,c
-    real :: x_extras(2),y_extras(2),z_extras(2)
+    real :: v(3),u(3),w(3),a,b,c,what(3)
+    real :: x_extras(6),y_extras(6),z_extras(6)
     integer, save :: iseed = 4
     integer(kind=1) :: aprnew
 
@@ -380,21 +386,38 @@ contains
     endif
 
     ! Now apply it
+    what = w/sqrt(dot_product(w,w)) * sep * 0.01 ! this scaling factor is so the squares are offset but not by too much
+
     x_add = sep*v(1)*xyzh(4,i)
     y_add = sep*v(2)*xyzh(4,i)
     z_add = sep*v(3)*xyzh(4,i)
 
+    x_extras(3) = sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
+    y_extras(3) = sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
+    z_extras(3) = sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
+    x_extras(4) = -sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
+    y_extras(4) = -sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
+    z_extras(4) = -sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
+
+
     ! if nchild > 2:
     call rotatevec(v,w,pi)
-    x_extras(1) = sep*v(1)*xyzh(4,i)
-    y_extras(1) = sep*v(2)*xyzh(4,i)
-    z_extras(1) = sep*v(3)*xyzh(4,i)
-    x_extras(2) = -sep*v(1)*xyzh(4,i)
-    y_extras(2) = -sep*v(2)*xyzh(4,i)
-    z_extras(2) = -sep*v(3)*xyzh(4,i)
+    x_extras(1) = sep*v(1)*xyzh(4,i) - sqrt(2.)*what(1)
+    y_extras(1) = sep*v(2)*xyzh(4,i) - sqrt(2.)*what(2)
+    z_extras(1) = sep*v(3)*xyzh(4,i) - sqrt(2.)*what(3)
+    x_extras(2) = -sep*v(1)*xyzh(4,i) - sqrt(2.)*what(1)
+    y_extras(2) = -sep*v(2)*xyzh(4,i) - sqrt(2.)*what(2)
+    z_extras(2) = -sep*v(3)*xyzh(4,i) - sqrt(2.)*what(3)
+
+    x_extras(5) = sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
+    y_extras(5) = sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
+    z_extras(5) = sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
+    x_extras(6) = -sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
+    y_extras(6) = -sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
+    z_extras(6) = -sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
 
     npartold = npartnew
-    npartnew = npartold + 3
+    npartnew = npartold + 7
     npartoftype(igas) = npartoftype(igas) + 1
     aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
@@ -403,9 +426,9 @@ contains
     do j=npartold+1,npartnew
       call copy_particle_all(i,j,new_part=.true.)
       if (j==npartold+1) then
-        xyzh(1,j) = xyzh(1,i) + x_add
-        xyzh(2,j) = xyzh(2,i) + y_add
-        xyzh(3,j) = xyzh(3,i) + z_add
+        xyzh(1,j) = xyzh(1,i) + x_add - sqrt(2.)*what(1)
+        xyzh(2,j) = xyzh(2,i) + y_add - sqrt(2.)*what(2)
+        xyzh(3,j) = xyzh(3,i) + z_add - sqrt(2.)*what(3)
       else
         xyzh(1,j) = xyzh(1,i) + x_extras(k)
         xyzh(2,j) = xyzh(2,i) + y_extras(k)
@@ -414,14 +437,14 @@ contains
       endif
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
-      xyzh(4,j) = xyzh(4,i)*(0.25**(1./3.))
+      xyzh(4,j) = xyzh(4,i)*(0.125**(1./3.))
       if (ind_timesteps) call put_in_smallest_bin(j)
     enddo
 
     ! Edit the old particle that was sent in and kept
-    xyzh(1,i) = xyzh(1,i) - x_add
-    xyzh(2,i) = xyzh(2,i) - y_add
-    xyzh(3,i) = xyzh(3,i) - z_add
+    xyzh(1,i) = xyzh(1,i) - x_add - sqrt(2.)*what(1)
+    xyzh(2,i) = xyzh(2,i) - y_add - sqrt(2.)*what(2)
+    xyzh(3,i) = xyzh(3,i) - z_add - sqrt(2.)*what(3)
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
     if (ind_timesteps) call put_in_smallest_bin(i)
@@ -447,12 +470,12 @@ contains
     real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
     real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer :: remainder,icell,i,n_cell,apri,m
-    integer :: eldest,tuther,extras(2)
+    integer :: eldest,tuther,extras(6)
     real    :: com(3)
     type(cellforce)        :: cell
 
     ! First ensure that we're only sending in a multiple of 2 to the tree
-    remainder = modulo(nmerge,4)
+    remainder = modulo(nmerge,8)
     nmerge = nmerge - remainder
 
     call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
@@ -470,6 +493,7 @@ contains
       com(2) = cell%xpos(2)
       com(3) = cell%xpos(3)
       call get_apr(com(1:3),apri)
+
       ! If the apr level based on the com is lower than the current level,
       ! we merge!
       if (apri < current_apr) then
@@ -477,15 +501,21 @@ contains
         tuther = mergelist(inodeparts(inoderange(1,icell) + 1))
         extras(1) = mergelist(inodeparts(inoderange(1,icell) + 2))
         extras(2) = mergelist(inodeparts(inoderange(1,icell) + 3))
+        extras(3) = mergelist(inodeparts(inoderange(1,icell) + 4))
+        extras(4) = mergelist(inodeparts(inoderange(1,icell) + 5))
+        extras(5) = mergelist(inodeparts(inoderange(1,icell) + 6))
+        extras(6) = mergelist(inodeparts(inoderange(1,icell) + 7))
 
         ! keep eldest, reassign it to have the com properties
         xyzh(1,eldest) = cell%xpos(1)
         xyzh(2,eldest) = cell%xpos(2)
         xyzh(3,eldest) = cell%xpos(3)
-        vxyzu(1:3,eldest) = 0.25*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther) + &
-                              vxyzu(1:3,extras(1)) + vxyzu(1:3,extras(2)))
+        vxyzu(1:3,eldest) = 0.125*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther) + &
+                              vxyzu(1:3,extras(1)) + vxyzu(1:3,extras(2)) + &
+                              vxyzu(1:3,extras(3)) + vxyzu(1:3,extras(4)) + &
+                              vxyzu(1:3,extras(5)) + vxyzu(1:3,extras(6)))
 
-        xyzh(4,eldest) = xyzh(4,eldest)*(4.0**(1./3.))
+        xyzh(4,eldest) = xyzh(4,eldest)*(8.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
         if (ind_timesteps) call put_in_smallest_bin(eldest)
 
@@ -499,12 +529,20 @@ contains
         call kill_particle(tuther,npartoftype)
         call kill_particle(extras(1),npartoftype)
         call kill_particle(extras(2),npartoftype)
-        nkilled = nkilled + 4 ! this refers to the number of children killed
+        call kill_particle(extras(3),npartoftype)
+        call kill_particle(extras(4),npartoftype)
+        call kill_particle(extras(5),npartoftype)
+        call kill_particle(extras(6),npartoftype)
+        nkilled = nkilled + 8 ! this refers to the number of children killed
         ! If this particle was on the shuffle list previously, take it off
         do m = 1,nrelax
           if (relaxlist(m) == tuther) relaxlist(m) = 0
           if (relaxlist(m) == extras(1)) relaxlist(m) = 0
           if (relaxlist(m) == extras(2))  relaxlist(m) = 0
+          if (relaxlist(m) == extras(3)) relaxlist(m) = 0
+          if (relaxlist(m) == extras(4))  relaxlist(m) = 0
+          if (relaxlist(m) == extras(5)) relaxlist(m) = 0
+          if (relaxlist(m) == extras(6))  relaxlist(m) = 0
         enddo
       endif
 
