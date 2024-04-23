@@ -171,7 +171,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink')
+ case('ptmass','sink','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
