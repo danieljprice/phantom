@@ -49,7 +49,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,    only:dtmax
  use spherical,   only:set_sphere
  use datafiles,   only:find_phantom_datafile
- use substepping, only:use_fourthorder
+ use ptmass,      only:use_fourthorder
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)

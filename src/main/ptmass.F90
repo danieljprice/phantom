@@ -56,7 +56,7 @@ module ptmass
  public :: calculate_mdot
  public :: ptmass_calc_enclosed_mass
  public :: ptmass_boundary_crossing
-
+ public :: set_integration_precision
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
@@ -72,7 +72,15 @@ module ptmass
 
 
  logical, public :: use_regnbody    = .false. ! subsystems switch
+ logical, public :: use_fourthorder = .true.
+ integer, public :: n_force_order   = 3
+ real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
+ real, public, parameter :: ck2(2)  = (/1.,0.0/)
+ real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
+ real, public, parameter :: ck4(2) = (/0.5,0.5/)
 
+ real, public :: dk(3)
+ real, public :: ck(2)
 
 
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
@@ -89,13 +97,13 @@ module ptmass
  ! calibration of timestep control on sink-sink and sink-gas orbital integration
  ! this is hardwired because can be adjusted by changing C_force
  ! just means that with the default setting of C_force the orbits are accurate
- real, public, parameter :: dtfacphilf  = 0.05
- real, public, parameter :: dtfacphi2lf = dtfacphilf**2
- real, public, parameter :: dtfacphifsi = 0.05
- real, public, parameter :: dtfacphi2fsi = dtfacphifsi**2
+ real, parameter :: dtfacphilf  = 0.05
+ real, parameter :: dtfacphi2lf = dtfacphilf**2
+ real, parameter :: dtfacphifsi = 0.15
+ real, parameter :: dtfacphi2fsi = dtfacphifsi**2
 
- real, public :: dtfacphi = dtfacphifsi
- real, public :: dtfacphi2 = dtfacphifsi
+ real :: dtfacphi = dtfacphifsi
+ real :: dtfacphi2 = dtfacphifsi
 
 
  ! parameters to control output regarding sink particles
@@ -809,7 +817,8 @@ end subroutine ptmass_boundary_crossing
 
 !----------------------------------------------------------------
 !+
-!  drift phase for the point masses. (just a position update)
+!  predictor step for the point masses
+!  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
 subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
@@ -853,7 +862,7 @@ end subroutine ptmass_drift
 
 !----------------------------------------------------------------
 !+
-!  kick phase for the point masses (velocity and spin update)
+!  kick step for the point masses
 !+
 !----------------------------------------------------------------
 subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
@@ -885,7 +894,7 @@ end subroutine ptmass_kick
 
 !----------------------------------------------------------------
 !+
-!  force correction due to vdep force for point masses.
+!  force correction due to vdep force.
 !+
 !----------------------------------------------------------------
 subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
@@ -1908,6 +1917,22 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
  enddo
 
 end subroutine merge_sinks
+
+subroutine set_integration_precision
+ if(use_fourthorder) then
+    n_force_order = 3
+    ck = ck4
+    dk = dk4
+    dtfacphi = dtfacphifsi
+    dtfacphi2 = dtfacphi2fsi
+ else
+    n_force_order = 1
+    ck = ck2
+    dk = dk2
+    dtfacphi = dtfacphilf
+    dtfacphi2 = dtfacphi2lf
+ endif
+end subroutine set_integration_precision
 
 !-----------------------------------------------------------------------
 !+

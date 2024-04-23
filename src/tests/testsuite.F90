@@ -156,6 +156,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'damp')      /= 0) dodamp    = .true.
  if (index(string,'wind')      /= 0) dowind    = .true.
  if (index(string,'iorig')     /= 0) doiorig   = .true.
+ if (index(string,'ptmass')    /= 0) doptmass  = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
@@ -327,7 +328,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of ptmass module
 !
  if (doptmass.or.testall) then
-    call test_ptmass(ntests,npass)
+    call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 

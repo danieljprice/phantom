@@ -680,6 +680,7 @@ else
     SRCTESTMPI =
 endif
 
+# 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
@@ -690,7 +691,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
-         testsuite.F90 phantomtest.f90
+         testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}

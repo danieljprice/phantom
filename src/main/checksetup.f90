@@ -526,7 +526,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
                 ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
- use substepping, only:use_fourthorder
+ use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
@@ -1017,7 +1017,7 @@ end subroutine check_setup_radiation
 
 subroutine check_vdep_extf(nwarn,iexternalforce)
  use externalforces, only: is_velocity_dependent
- use substepping, only : use_fourthorder
+ use ptmass, only : use_fourthorder
  integer, intent(inout) :: nwarn
  integer, intent(in)    :: iexternalforce
  if (is_velocity_dependent(iexternalforce) .and. use_fourthorder) then

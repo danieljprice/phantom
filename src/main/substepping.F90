@@ -39,20 +39,6 @@ module substepping
  public :: substep_sph
  public :: substep_sph_gr
  public :: substep
- public :: set_integration_precision
-
- !
- !-- Parameters for switching between FSI or leapfrog (FSI is use by default)
- !
- logical, public :: use_fourthorder = .true.
- integer, public :: n_force_order   = 3
- real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
- real, public, parameter :: ck2(2)  = (/1.,0.0/)
- real, public, parameter :: dk4(3) = (/1./6.,2./3.,1./6./)
- real, public, parameter :: ck4(2) = (/0.5,0.5/)
-
- real, public :: dk(3)
- real, public :: ck(2)
 
  private
 
@@ -448,7 +434,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use part,           only:fxyz_ptmass_sinksink
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
-
+ use ptmass,         only:use_fourthorder,ck,dk
  integer,         intent(in)    :: npart,ntypes,nptmass
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -457,7 +443,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: dptmass(:,:),fsink_old(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:)
- logical :: extf_vdep_flag,done,last_step
+ logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
  real    :: dtextforce_min
@@ -498,29 +484,36 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
 
     if (use_fourthorder) then !! FSI 4th order scheme
 
-       ! FSFI extrapolation method (Omelyan 2006)
+       ! FSI extrapolation method (Omelyan 2006)
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,fsink_old)
-
+                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old)
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
        call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(2),dk(3),force_count,extf_vdep_flag)
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+       if (accreted) then
+          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
+       endif
 
     else  !! standard leapfrog scheme
 
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+       if (accreted) then
+          call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
+       endif
 
     endif
 
@@ -724,7 +717,7 @@ end subroutine drift
  !----------------------------------------------------------------
 
 subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink)
+                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
  use externalforces, only:accrete_particles
@@ -743,8 +736,9 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real,            optional, intent(in)    :: timei
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
  integer(kind=1), optional, intent(in)    :: nbinmax
+ logical        , optional, intent(inout)   :: accreted
  integer(kind=1) :: ibin_wakei
- logical         :: is_accretion,accreted
+ logical         :: is_accretion
  integer         :: i,itype,nfaili
  integer         :: naccreted,nfail,nlive
  real            :: dkdt,pmassi,fxi,fyi,fzi,accretedmass
@@ -868,11 +862,13 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 !
 ! reduction of sink particle changes across MPI
 !
+    accreted = .false.
     if (nptmass > 0) then
        call reduce_in_place_mpi('+',dptmass(:,1:nptmass))
 
        naccreted = int(reduceall_mpi('+',naccreted))
        nfail = int(reduceall_mpi('+',nfail))
+       if (naccreted > 0) accreted = .true.
 
        if (id==master) call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
@@ -969,12 +965,12 @@ end subroutine get_gradf_4th
  !----------------------------------------------------------------
 
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
-                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,cki,dki, &
+                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
                      force_count,extf_vdep_flag,fsink_old,group_info)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
-                           ptmass_vdependent_correction
+                           ptmass_vdependent_correction,n_force_order
  use options,         only:iexternalforce
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
@@ -991,7 +987,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,              intent(inout) :: dtextforce
- real,              intent(in)    :: timei,cki,dki,dt
+ real,              intent(in)    :: timei,dki,dt
  logical,           intent(in)    :: extf_vdep_flag
  real, optional,    intent(inout) :: fsink_old(4,nptmass)
  integer, optional, intent(in)    :: group_info(:,:)
@@ -1002,8 +998,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: dtf,dtextforcenew,dtsinkgas,dtphi2,fonrmax
  real            :: fextx,fexty,fextz,xi,yi,zi,pmassi,damp_fac
  real            :: fonrmaxi,phii,dtphi2i
- real            :: dkdt,ckdt,extrapfac
- logical         :: extrap,last,wsub
+ real            :: dkdt,extrapfac
+ logical         :: extrap,last
 
  if(present(fsink_old)) then
     fsink_old = fxyz_ptmass
@@ -1021,7 +1017,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  force_count   = force_count + 1
  extrapfac     = (1./24.)*dt**2
  dkdt          = dki*dt
- ckdt          = cki*dt
  itype         = igas
  pmassi        = massoftype(igas)
  dtextforcenew = bignumber
@@ -1091,7 +1086,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(maxp,maxphase) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
- !$omp shared(dkdt,ckdt,timei,iexternalforce,extf_vdep_flag,last) &
+ !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
@@ -1122,8 +1117,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (nptmass>0) then
           if(extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
-         fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
-         dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
+                                     fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
+                                     dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
           else
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                   fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
@@ -1141,9 +1136,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                              dtextforcenew,dtf,dkdt,fextx,fexty,fextz, &
                              extf_vdep_flag,iexternalforce)
        endif
-
        !
-       ! dampening
+       ! damping
        !
        if (idamp > 0) then
           call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
@@ -1157,7 +1151,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                    divcurlv,abundc,abunde,abundo,abundsi,ckdt,dphot0)
+                                    divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
        endif
     endif
  enddo
@@ -1185,7 +1179,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (fonrmax > 0.) then
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
-       if (iverbose >= 3 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+       if (iverbose >= 2 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
        dtextforcenew = min(dtextforcenew,dtsinkgas)
     endif
 
@@ -1196,16 +1190,18 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
 end subroutine get_force
 
 
- !-----------------------------------------------------------------------------------
- !+
- ! Update of abundances and internal energy using cooling method (see cooling module)
- ! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
- !       dt is *passed in* to the chemistry & cooling routines so that the
- !       output will be at the correct time of time + dt.  Since this is
- !       implicit, there is no cooling timestep.  Explicit cooling is
- !       calculated in force and requires a cooling timestep.
- !+
- !------------------------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------------------
+!+
+! Update of abundances and internal energy using cooling method (see cooling module)
+! NOTE: The chemistry and cooling here is implicitly calculated.  That is,
+!       dt is *passed in* to the chemistry & cooling routines so that the
+!       output will be at the correct time of time + dt.  Since this is
+!       implicit, there is no cooling timestep.  Explicit cooling is
+!       calculated in force and requires a cooling timestep.
+!+
+!------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                      divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
@@ -1334,30 +1330,6 @@ subroutine get_external_force_gas(xi,yi,zi,hi,vxi,vyi,vzi,timei,i,dtextforcenew,
 
 
 end subroutine get_external_force_gas
-
- !----------------------------------------------------------------
- !+
- !  precision switcher routine. FSI or Leapfrog (use_fourthorder)
- !+
- !----------------------------------------------------------------
-
-subroutine set_integration_precision
- use ptmass, only:dtfacphi,dtfacphi2,dtfacphilf, &
-                  dtfacphifsi,dtfacphi2lf,dtfacphi2fsi
- if(use_fourthorder) then
-    n_force_order = 3
-    ck = ck4
-    dk = dk4
-    dtfacphi = dtfacphifsi
-    dtfacphi2 = dtfacphi2fsi
- else
-    n_force_order = 1
-    ck = ck2
-    dk = dk2
-    dtfacphi = dtfacphilf
-    dtfacphi2 = dtfacphi2lf
- endif
-end subroutine set_integration_precision
 
 
 end module substepping
