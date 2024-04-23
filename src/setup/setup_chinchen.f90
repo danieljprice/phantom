@@ -34,7 +34,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use physcon,        only:solarm,au,pi
  use options,        only:iexternalforce
  use externalforces, only:iext_binary
- use extern_binary,  only:mass2
+ use extern_binary,  only:mass2,mass1
  use io,             only:master
  use timestep,       only:dtmax
  integer,           intent(in)    :: id
@@ -79,7 +79,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyz_ptmass(1,1) = 0.489765446
 
  iexternalforce = iext_binary
- mass2 = m1
+ mass1 = 0.5
+ mass2 = mass1
  dtmax = 0.1*(9.*pi)
 
 end subroutine setpart
