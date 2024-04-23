@@ -210,7 +210,7 @@ subroutine loadCoolingTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('radcool_all.dat','cooling')
- OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
+ open(unit=iunit, file=trim(filename),status="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
  ! Begin loading in data
@@ -275,7 +275,7 @@ subroutine loadCDTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('table_cd.dat','cooling')
- open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
+ open(unit=iunit, file=filename,status="OLD", iostat=istat, IOMSG=imsg)
 
  ! Begin loading in data
  openif: if (istat == 0) then

@@ -44,7 +44,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  ! Initialise values & Open file
  !
- write(fileout,'(2a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_MassEvolution.dat'
+ write(fileout,'(2a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_MassEvolution.dat'
  if ( firstcall ) then
     firstcall = .false.
     dthresh_cgs(1) = 1.0d-23

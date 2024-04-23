@@ -121,11 +121,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Check if a neighbour file is present
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
  else
     ! If there is no neighbour file, generate the list
@@ -146,7 +146,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(dpoten(npart)) ! Holding array for potential (real*8)
 
 
- dpoten = DBLE(poten)
+ dpoten = dble(poten)
 
 ! Add potential contribution from all sinks first
 
@@ -219,7 +219,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  over_parts: do l = 1,npart
 
-    percent = 100.0*REAL(l)/REAL(npart)
+    percent = 100.0*real(l)/real(npart)
 
     if (percent > percentcount) then
        write(*,'(I3," % complete")') int(percentcount)

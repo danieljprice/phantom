@@ -229,10 +229,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  if (analyses == 2 .and. method==1) then ! get neighbours
     if (SPH) then
-       neighbourfile = 'neigh_'//TRIM(dumpfile)
+       neighbourfile = 'neigh_'//trim(dumpfile)
        inquire(file=neighbourfile,exist = existneigh)
        if (existneigh) then
-          print*, 'SPH neighbour file ', TRIM(neighbourfile), ' found'
+          print*, 'SPH neighbour file ', trim(neighbourfile), ' found'
           call read_neighbours(neighbourfile,npart2)
        else
           ! If there is no neighbour file, generate the list
@@ -243,7 +243,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           totalTime = (finish-start)/1000.
           print*,'Time = ',totalTime,' seconds.'
           call write_neighbours(neighbourfile, npart2)
-          print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+          print*, 'Neighbour finding complete for file ', trim(dumpfile)
        endif
     else
        allocate(neighb(npart2+2,100))
@@ -266,10 +266,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
     ! INWARD INTEGRATION ANALYSIS
     if (method == 1) then
-       neighbourfile = 'neigh_'//TRIM(dumpfile)
+       neighbourfile = 'neigh_'//trim(dumpfile)
        inquire(file=neighbourfile,exist = existneigh)
        if (existneigh) then
-          print*, 'SPH neighbour file ', TRIM(neighbourfile), ' found'
+          print*, 'SPH neighbour file ', trim(neighbourfile), ' found'
           call read_neighbours(neighbourfile,npart2)
        else
           ! If there is no neighbour file, generate the list
@@ -280,7 +280,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           totalTime = (finish-start)/1000.
           print*,'Time = ',totalTime,' seconds.'
           call write_neighbours(neighbourfile, npart2)
-          print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+          print*, 'Neighbour finding complete for file ', trim(dumpfile)
        endif
        print*,''
        print*, 'Start calculating optical depth inward SPH'

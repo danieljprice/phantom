@@ -222,7 +222,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo
  close(iunit)
 
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_AM.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_AM.dat'
  inquire(file=fileout,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.

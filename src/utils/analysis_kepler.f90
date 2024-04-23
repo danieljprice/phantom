@@ -673,7 +673,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  real,allocatable               :: A_array(:), Z_array(:)
  integer                        :: size_to_allocate, i
 
- if ( ANY( comp_label=="nt1" ) ) then
+ if ( any( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
 
  else
