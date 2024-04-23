@@ -632,7 +632,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
  ! Kick sink particles
  if (nptmass>0) then
-    if(id==master) then
+    if (id==master) then
        call ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
     endif
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
@@ -963,7 +963,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
-    if(id==master .and. extf_vdep_flag) then
+    if (id==master .and. extf_vdep_flag) then
        call ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
     endif
  endif
