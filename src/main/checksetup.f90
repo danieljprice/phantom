@@ -1035,7 +1035,7 @@ end subroutine check_vdep_extf
 subroutine check_regnbody (nerror)
  use ptmass, only:use_regnbody,use_fourthorder
  integer, intent(inout) :: nerror
- if (.not.(use_fourthorder .and. use_regnbody)) then
+ if (use_regnbody .and. .not.(use_fourthorder)) then
     print "(/,a,/)","Error: TTL integration and regularization tools are not available without FSI. Turn off TTL..."
     nerror = nerror + 1
  endif
