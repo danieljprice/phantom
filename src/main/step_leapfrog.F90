@@ -126,9 +126,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
- use ptmass,         only:use_regnbody
  use substepping,     only:substep,substep_gr, &
-                          substep_sph_gr,substep_sph,step_extern_subsys
+                          substep_sph_gr,substep_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -250,15 +249,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-       if (use_regnbody) then
-          call step_extern_subsys(dtextforce,dtsph,t,npart,ntypes,nptmass,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                                 vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass,fsink_old,nbinmax,ibin_wake, &
-                                 gtgrad,group_info,nmatrix,n_group,n_ingroup,n_sing)
-       else
-          call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                                 fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                                 dptmass,fsink_old,nbinmax,ibin_wake)
-       endif
+
+       call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                    nmatrix,n_group,n_ingroup,n_sing)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
