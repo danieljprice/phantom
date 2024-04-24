@@ -26,7 +26,8 @@ module energies
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3),hdivBB_xa(2)
+ real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
+ real,            public    :: hdivBonB_ave,hdivBonB_max
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
  real,            public    :: xmom,ymom,zmom
  real,            public    :: totlum
@@ -730,8 +731,8 @@ subroutine compute_energies(t)
  endif
 
  if (mhd) then
-    hdivBB_xa(1) = ev_data(iev_max,iev_hdivB)
-    hdivBB_xa(2) = ev_data(iev_ave,iev_hdivB)
+    hdivBonB_max = ev_data(iev_max,iev_hdivB)
+    hdivBonB_ave = ev_data(iev_ave,iev_hdivB)
  endif
 
  if (maxp==maxp_hard) then
