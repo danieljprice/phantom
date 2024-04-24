@@ -1,4 +1,4 @@
-module utils_sdar
+module utils_subgroup
  implicit none
  integer, parameter :: ck_size = 8
  real,dimension(8),parameter :: cks=(/0.3922568052387800,0.5100434119184585,-0.4710533854097566,&
@@ -15,4 +15,4 @@ module utils_sdar
 
 contains
 
-end module utils_sdar
+end module utils_subgroup

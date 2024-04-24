@@ -1,4 +1,4 @@
-module sdar_group
+module subgroup
 !
 ! this module contains everything to identify
 ! and integrate regularized groups...
@@ -7,7 +7,7 @@ module sdar_group
 !
 ! :Owner: Yann BERNARD
 !
- use utils_sdar
+ use utils_subgroup
  implicit none
  public :: group_identify
  public :: evolve_groups
@@ -743,4 +743,4 @@ subroutine get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epo
 end subroutine get_pot_subsys
 
 
-end module sdar_group
+end module subgroup

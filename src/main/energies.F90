@@ -81,7 +81,7 @@ subroutine compute_energies(t)
  use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
  use ptmass,         only:get_accel_sink_gas,use_regnbody
- use sdar_group,     only:get_pot_subsys
+ use subgroup,     only:get_pot_subsys
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn,eta_constant
