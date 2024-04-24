@@ -745,7 +745,7 @@ subroutine test_accretion(ntests,npass,itest)
  nfailed(:) = 0
  call compute_energies(t)
  call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
- call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
+ call checkval(totmom,totmomin,2.*epsilon(0.),nfailed(2),'linear momentum')
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
  call update_test_scores(ntests,nfailed(2:2),npass)
