@@ -137,13 +137,13 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
  endif
 
  ! First line: # K gamma rhoc
- read(iunit, *, iostat=ierr) hash,polyk, gamma, rhoc
+ read(iunit, *,iostat=ierr) hash,polyk, gamma, rhoc
  if (ierr /= 0) then
     call error('extern_densityprofile','Error reading first line of header from '//trim(filename))
     return
  endif
  ! Second line: # nentries  (number of r density entries in file)
- read(iunit,*, iostat=ierr) hash,nread
+ read(iunit,*,iostat=ierr) hash,nread
  if (ierr /= 0) then
     call error('extern_densityprofile','Error reading second line of header from '//trim(filename))
     return
@@ -155,7 +155,7 @@ subroutine read_rhotab(filename, rsize, rtab, rhotab, nread, polyk, gamma, rhoc,
  endif
  ! Loop over 'n' lines: r and density separated by space
  do i = 1,nread
-    read(iunit,*, iostat=ierr) rtab(i), rhotab(i)
+    read(iunit,*,iostat=ierr) rtab(i), rhotab(i)
     if (ierr /= 0) then
        call error('extern_densityprofile','Error reading data from '//trim(filename))
        return

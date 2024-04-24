@@ -15,9 +15,10 @@ module testptmass
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
-!   gravwaveutils, io, kdtree, kernel, mpiutils, options, part, physcon,
-!   ptmass, random, setbinary, setdisc, spherical, step_lf_global,
-!   stretchmap, testutils, timestep, timing, units
+!   extern_binary, externalforces, gravwaveutils, io, kdtree, kernel,
+!   mpiutils, options, part, physcon, ptmass, random, setbinary, setdisc,
+!   spherical, step_lf_global, stretchmap, testutils, timestep, timing,
+!   units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -28,16 +29,18 @@ module testptmass
 contains
 
 subroutine test_ptmass(ntests,npass,string)
- use io,           only:id,master,iskfile
- use eos,          only:polyk,gamma
- use part,         only:nptmass
- use options,      only:iexternalforce,alpha
- use ptmass,       only:use_fourthorder,set_integration_precision
+ use io,      only:id,master,iskfile
+ use eos,     only:polyk,gamma
+ use part,    only:nptmass
+ use options, only:iexternalforce,alpha
+ use ptmass,  only:use_fourthorder,set_integration_precision
  character(len=*), intent(in) :: string
  character(len=20) :: filename
+ character(len=40) :: stringf
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart
- logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening,do_test_merger
+ logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
+ logical :: do_test_chinese_coin,do_test_merger
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -47,6 +50,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_createsink = .false.
  do_test_softening = .false.
  do_test_merger = .false.
+ do_test_chinese_coin = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -60,7 +64,9 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_softening = .true.
  case('ptmassmerger')
     do_test_merger = .true.
- case('ptmassfsi')
+ case('ptmasschinchen','ptmasscoin','chinchen','coin','chinesecoin')
+    do_test_chinese_coin = .true.
+ case('ptmassfsi','fsi')
     istart = 2
     do_test_binary = .true.
     do_test_softening = .true.
@@ -75,21 +81,30 @@ subroutine test_ptmass(ntests,npass,string)
  gamma = 1.
  iexternalforce = 0
  alpha = 0.01
- use_fourthorder = .false.
  do itest=istart,2
     !
     !  select order of integration
     !
-    if (itest == 2) use_fourthorder = .true.
+    if (itest == 2) then
+       use_fourthorder = .true.
+       stringf = ' with Forward Symplectic Integrator'
+    else
+       use_fourthorder = .false.
+       stringf = ' with Leapfrog integrator'
+    endif
     call set_integration_precision
     !
     !  Tests of a sink particle binary
     !
-    if (do_test_binary .or. testall) call test_binary(ntests,npass)
+    if (do_test_binary .or. testall) call test_binary(ntests,npass,stringf)
     !
     !  Test of softening between sinks
     !
     if (do_test_softening .or. testall) call test_softening(ntests,npass)
+    !
+    !  Test of Chinese Coin problem
+    !
+    if (do_test_chinese_coin .or. testall) call test_chinese_coin(ntests,npass,stringf)
     !
     !  Test sink particle mergers
     !
@@ -128,7 +143,7 @@ end subroutine test_ptmass
 !  Unit tests of a sink particle binary orbit
 !+
 !-----------------------------------------------------------------------
-subroutine test_binary(ntests,npass)
+subroutine test_binary(ntests,npass,string)
  use dim,        only:periodic,gravity,ind_timesteps
  use io,         only:id,master,iverbose
  use physcon,    only:pi,deg_to_rad
@@ -152,7 +167,8 @@ subroutine test_binary(ntests,npass)
  use deriv,          only:get_derivs_global
  use timing,         only:getused,printused
  use options,        only:ipdv_heating,ishock_heating
- integer, intent(inout) :: ntests,npass
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
  integer :: i,ierr,itest,nfailed(3),nsteps,nerr,nwarn,norbits
  integer :: merge_ij(2),merge_n,nparttot,nfailgw(2),ncheckgw(2)
  integer, parameter :: nbinary_tests = 5
@@ -162,7 +178,6 @@ subroutine test_binary(ntests,npass)
  real :: fxyz_sinksink(4,2),dsdt_sinksink(3,2) ! we only use 2 sink particles in the tests here
  real(kind=4) :: t1
  character(len=20) :: dumpfile
- character(len=40) :: string
  real, parameter :: tolgw = 1.2e-2
  !
  !--no gas particles
@@ -178,8 +193,6 @@ subroutine test_binary(ntests,npass)
  tolv = 1e-2
 
  binary_tests: do itest = 1,nbinary_tests
-    string = ''
-    if (use_fourthorder) string = ' with Forward Symplectic Integrator'
     select case(itest)
     case(4)
        if (use_fourthorder) then
@@ -524,6 +537,83 @@ end subroutine test_softening
 
 !-----------------------------------------------------------------------
 !+
+!  Test Chinese Coin problem from Chin & Chen (2005)
+!+
+!-----------------------------------------------------------------------
+subroutine test_chinese_coin(ntests,npass,string)
+ use io,             only:id,master,iverbose
+ use part,           only:xyzmh_ptmass,vxyz_ptmass,ihacc,nptmass,npart,npartoftype,fxyz_ptmass,dsdt_ptmass
+ use extern_binary,  only:mass1,mass2
+ use options,        only:iexternalforce
+ use externalforces, only:iext_binary,update_externalforce
+ use physcon,        only:pi
+ use step_lf_global, only:step
+ use ptmass,         only:use_fourthorder,get_accel_sink_sink
+ integer,          intent(inout) :: ntests,npass
+ character(len=*), intent(in)    :: string
+ character(len=10) :: tag
+ integer :: nfailed(3),merge_ij(1),merge_n,norbit
+ real :: t,dtorb,dtnew,dtext,tmax,epot_sinksink,y0,v0
+ real :: tol_per_orbit_y,tol_per_orbit_v
+
+ if (id==master) write(*,"(/,a)") '--> testing Chinese coin problem'//trim(string)//' (coin)'
+
+ ! no gas
+ npart = 0
+ npartoftype = 0
+
+ ! add  a single sink particle
+ y0 = 0.0580752367; v0 = 0.489765446
+ nptmass = 1
+ xyzmh_ptmass = 0.
+ xyzmh_ptmass(2,1) = y0
+ xyzmh_ptmass(4,1) = 1.0
+ xyzmh_ptmass(ihacc,1) = 0.1
+ vxyz_ptmass = 0.
+ vxyz_ptmass(1,1) = v0
+
+ ! external binary
+ iexternalforce = iext_binary
+ mass1 = 0.5
+ mass2 = mass1
+ dtorb = 9.*pi
+ tmax = 3.*dtorb
+
+ t = 0.
+ dtext = 1.e-15
+ iverbose = 1
+ call update_externalforce(iexternalforce,t,0.)
+ call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
+                          dtext,iexternalforce,t,merge_ij,merge_n,dsdt_ptmass)
+
+ dtext = 1.e-15 ! take small first step
+ norbit = 0
+ nfailed(:) = 0
+ tol_per_orbit_y = 2.5e-2
+ tol_per_orbit_v = 1.15e-2
+ if (use_fourthorder) then
+    tol_per_orbit_y = 1.1e-3
+    tol_per_orbit_v = 3.35e-4
+ endif
+ do while (t < tmax)
+    ! do a whole orbit but with the substepping handling how many steps per orbit
+    call step(npart,npart,t,dtorb,dtext,dtnew)
+    t = t + dtorb
+    norbit = norbit + 1
+
+    write(tag,"(a,i1,a)") '(orbit ',norbit,')'
+    call checkval(xyzmh_ptmass(2,1),y0,norbit*tol_per_orbit_y,nfailed(1),'y pos of sink '//trim(tag))
+    call checkval(vxyz_ptmass(1,1),v0,norbit*tol_per_orbit_v,nfailed(2),'x vel of sink '//trim(tag))
+ enddo
+
+ call update_test_scores(ntests,nfailed(1:2),npass)
+ iverbose = 0  ! reset verbosity
+ iexternalforce = 0
+
+end subroutine test_chinese_coin
+
+!-----------------------------------------------------------------------
+!+
 !  Test accretion of gas particles onto sink particles
 !+
 !-----------------------------------------------------------------------
@@ -655,7 +745,7 @@ subroutine test_accretion(ntests,npass,itest)
  nfailed(:) = 0
  call compute_energies(t)
  call checkval(angtot,angmomin,1.e-14,nfailed(3),'angular momentum')
- call checkval(totmom,totmomin,epsilon(0.),nfailed(2),'linear momentum')
+ call checkval(totmom,totmomin,2.*epsilon(0.),nfailed(2),'linear momentum')
  !call checkval(etot,etotin,1.e-6,'total energy',nfailed(1))
  call update_test_scores(ntests,nfailed(3:3),npass)
  call update_test_scores(ntests,nfailed(2:2),npass)

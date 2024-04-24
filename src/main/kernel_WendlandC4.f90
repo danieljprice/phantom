@@ -17,9 +17,6 @@ module kernel
 !
 ! :Dependencies: physcon
 !
-! :Generated: 2024-04-08 15:21:39.886138
-!
-!--------------------------------------------------------------------------
  use physcon, only:pi
  implicit none
  character(len=17), public :: kernelname = 'Wendland 2/3D C^4'

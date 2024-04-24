@@ -16,7 +16,7 @@ module checksetup
 !
 ! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
 !   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   ptmass_radiation, sortutils, timestep, units, utils_gr
+!   ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
