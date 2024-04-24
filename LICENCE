@@ -1,22 +1,19 @@
 !------------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code                             !
-! Copyright (c) 2007-2019 Daniel Price and contributors (see AUTHORS file)     !
+! Copyright (c) 2007-2024 Daniel Price and contributors (see AUTHORS file)     !
 !------------------------------------------------------------------------------!
 !
 !  Phantom is free software; you can redistribute it and/or modify
 !  it under the terms of the GNU General Public License as published by
 !  the Free Software Foundation; either version 3 of the License, or
 !  (at your option) any later version, supplemented by the
-!  following two conditions under section 7c of GPLv3:
+!  following condition under section 7c of GPLv3:
 !
-!  1) The Phantom code paper should be cited in scientific
-!     publications using the code (Price et al. 2018; PASA 35, e031)
-!
-!  2) Any redistribution of substantial fractions of the code as a
-!     different project should preserve the word "Phantom" in the name
-!     of the code (in addition to the GPLv3 condition that this copyright
-!     notice be retained both here and in the source file headers) to
-!     prohibit misrepresentation of a redistribution as entirely new work
+!  * Any redistribution of substantial fractions of the code as a
+!    different project should preserve the word "Phantom" in the name
+!    of the code (in addition to the GPLv3 condition that this copyright
+!    notice be retained both here and in the source file headers) to
+!    prohibit misrepresentation of a redistribution as entirely new work
 !
 !  Phantom is distributed in the hope that it will be useful,
 !  but WITHOUT ANY WARRANTY; without even the implied warranty of
