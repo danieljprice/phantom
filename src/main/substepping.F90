@@ -795,7 +795,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        call summary_accrete_fail(nfail)
        call summary_accrete(nptmass)
        ! only write to .ev during substeps if no gas particles present
-       if (npart==-1) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
+       if (npart==0) call pt_write_sinkev(nptmass,timei,xyzmh_ptmass,vxyz_ptmass, &
                                        fxyz_ptmass,fxyz_ptmass_sinksink)
     endif
  endif
