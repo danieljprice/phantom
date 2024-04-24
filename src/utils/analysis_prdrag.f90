@@ -48,7 +48,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real :: r1, r2
 
  print*,' Hello Hauke, time in file = ',time
- open( unit=106, file='radial.out', status='replace',  iostat=ierr)
+ open( unit=106,file='radial.out',status='replace',  iostat=ierr)
  if ( ierr /= 0 ) stop 'error opening radial.out'
 
  call make_beta_grids( xyzh, particlemass, npart )
@@ -67,7 +67,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  enddo
 
  close( 106 )
- open( unit=106, file='radialinterp.out', status='replace',  iostat=ierr)
+ open( unit=106,file='radialinterp.out',status='replace',  iostat=ierr)
  if ( ierr /= 0 ) stop 'error opening radialinterp.out'
 
  write(106,*), "#r_rad rbin theta thetabin r_cyl z rho tau beta"
@@ -93,7 +93,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  close(106)
 
- open( unit=106, file='applied.out', status='replace',  iostat=ierr)
+ open( unit=106,file='applied.out',status='replace',  iostat=ierr)
  if ( ierr /= 0 ) stop 'error opening applied.out'
 
  write(106,*), "#x y z r_cyl beta r_bin th_bin"

@@ -169,7 +169,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
 !  repeated nblocks times (once for each MPI process)
 !
     nblockarrays = narraylengths*nblocks
-    write (idump, iostat=ierr) nblockarrays
+    write (idump,iostat=ierr) nblockarrays
 
  endif masterthread
 
@@ -414,7 +414,7 @@ subroutine write_smalldump_fortran(t,dumpfile)
 !--arrays: number of array lengths
 !
     nblockarrays = narraylengths*nblocks
-    write (idump, iostat=ierr) nblockarrays
+    write (idump,iostat=ierr) nblockarrays
     if (ierr /= 0) call error('write_smalldump','error writing nblockarrays')
 
  endif masterthread

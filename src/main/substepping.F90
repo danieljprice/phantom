@@ -21,15 +21,14 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Yann BERNARD
+! :Owner: Yrisch
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary_dyn, chem, cons2prim, cons2primsolver, cooling,
-!   cooling_ism, damping, deriv, dim, dust_formation, eos, extern_gr,
-!   externalforces, growth, io, io_summary, krome_interface, metric_tools,
-!   mpiutils, options, part, ptmass, ptmass_radiation, timestep,
-!   timestep_ind, timestep_sts, timing, units
+! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
+!   dust_formation, eos, extern_gr, externalforces, io, io_summary,
+!   krome_interface, metric_tools, mpiutils, options, part, ptmass,
+!   ptmass_radiation, timestep, timestep_sts
 !
  implicit none
 
@@ -425,8 +424,8 @@ end subroutine substep_sph
  !+
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
-                               xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
-                               fsink_old,nbinmax,ibin_wake)
+                   xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
+                   fsink_old,nbinmax,ibin_wake)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
  use part,           only:fxyz_ptmass_sinksink
@@ -455,7 +454,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     dt = dtsph
     last_step = .true.
  endif
-
 
  timei = time
  time_par = time
@@ -515,7 +513,6 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
     endif
 
-
     dtextforce_min = min(dtextforce_min,dtextforce)
 
     if (last_step) then
@@ -530,9 +527,9 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  enddo substeps
 
  if (nsubsteps > 1) then
-    if (iverbose>=1 .and. id==master) then
-       write(iprint,"(a,i6,a,f8.2,a,es10.3,a,es10.3)") &
-' using ',nsubsteps,' substeps (dthydro/dtextf = ',dtsph/dtextforce_min,'), dt = ',dtextforce_min,' dtsph = ',dtsph
+    if (iverbose >=1 .and. id==master) then
+       write(iprint,"(a,i6,3(a,es10.3))") ' using ',nsubsteps,' substeps '//&
+             '(dthydro/dtextf =',dtsph/dtextforce_min,'), dt =',dtextforce_min,' dtsph =',dtsph
     endif
     call summary_variable('ext',iosumextr ,nsubsteps,dtsph/dtextforce_min)
     call summary_variable('ext',iosumextt ,nsubsteps,dtextforce_min,1.0/dtextforce_min)
@@ -635,7 +632,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
  ! Kick sink particles
  if (nptmass>0) then
-    if(id==master) then
+    if (id==master) then
        call ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
     endif
     call bcast_mpi(vxyz_ptmass(:,1:nptmass))
@@ -771,16 +768,15 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
 end subroutine kick
 
- !----------------------------------------------------------------
- !+
- !  force routine for the whole system. First is computed the
- !  sink/sink interaction and extf on sink, then comes forces
- !  on gas. sink/gas, extf and dampening. Finally there is an
- !  update of abundances and temp depending on cooling method
- !  during the last force calculation of the substep.
- !+
- !----------------------------------------------------------------
-
+!----------------------------------------------------------------
+!+
+!  force routine for the whole system. First is computed the
+!  sink/sink interaction and extf on sink, then comes forces
+!  on gas. sink/gas, extf and dampening. Finally there is an
+!  update of abundances and temp depending on cooling method
+!  during the last force calculation of the substep.
+!+
+!----------------------------------------------------------------
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
                      force_count,extf_vdep_flag,fsink_old)
@@ -817,7 +813,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  real            :: dkdt,extrapfac
  logical         :: extrap,last
 
- if(present(fsink_old)) then
+ if (present(fsink_old)) then
     fsink_old = fxyz_ptmass
     extrap  = .true.
  else
@@ -835,17 +831,15 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  fonrmax       = 0
  last          = (force_count == n_force_order)
 
-!
-! update time-dependent external forces
-!
+ !
+ ! update time-dependent external forces
+ !
  call calc_damp(timei, damp_fac)
-
  call update_externalforce(iexternalforce,timei,dmdt)
-
  !
- !-- Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
+ ! Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
  !
- if (nptmass>0) then
+ if (nptmass > 0) then
     if (id==master) then
        if (extrap) then
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -859,11 +853,11 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           endif
        else
           call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                               dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
           if (merge_n > 0) then
              call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
-                                  dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
+                                      dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
              fxyz_ptmass_sinksink=fxyz_ptmass
              dsdt_ptmass_sinksink=dsdt_ptmass
              if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
@@ -914,8 +908,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           yi = xyzh(2,i)
           zi = xyzh(3,i)
        endif
-       if (nptmass>0) then
-          if(extrap) then
+       if (nptmass > 0) then
+          if (extrap) then
              call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
                                      dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
@@ -969,17 +963,17 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
     call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
-    if(id==master .and. extf_vdep_flag) then
+    if (id==master .and. extf_vdep_flag) then
        call ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,iexternalforce)
     endif
  endif
 
  if (last) then
-    if(nptmass>0) then
+    if (nptmass > 0) then
        if (fonrmax > 0.) then
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
-       if (iverbose >= 2 ) write(iprint,*) nsubsteps,'dt,(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
+       if (iverbose >= 2) write(iprint,*) nsubsteps,'dt(ext/sink-sink) = ',dtextforcenew,', dt(sink-gas) = ',dtsinkgas
        dtextforcenew = min(dtextforcenew,dtsinkgas)
     endif
 
@@ -988,9 +982,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  endif
 
 end subroutine get_force
-
-
-
 
 !-----------------------------------------------------------------------------------
 !+

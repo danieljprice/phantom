@@ -187,7 +187,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  f2     = 0.
 
  do j=1,nptmass
-    if (extrap)then
+    if (extrap) then
        dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
        dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j))
        dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j))
@@ -333,7 +333,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  phitot   = 0.
  merge_n  = 0
  merge_ij = 0
- if (nptmass <= 1) return
+ if (nptmass <= 0) return
  ! check if it is a force computed using Omelyan extrapolation method for FSI
  if (present(extrapfac) .and. present(fsink_old)) then
     extrap = .true.
@@ -368,7 +368,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do i=1,nptmass
-    if (extrap)then
+    if (extrap) then
        xi     = xyzmh_ptmass(1,i) + extrapfac*fsink_old(1,i)
        yi     = xyzmh_ptmass(2,i) + extrapfac*fsink_old(2,i)
        zi     = xyzmh_ptmass(3,i) + extrapfac*fsink_old(3,i)
@@ -391,7 +391,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsz    = 0.
     do j=1,nptmass
        if (i==j) cycle
-       if (extrap)then
+       if (extrap) then
           dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
           dy     = yi - (xyzmh_ptmass(2,j) + extrapfac*fsink_old(2,j))
           dz     = zi - (xyzmh_ptmass(3,j) + extrapfac*fsink_old(3,j))
@@ -520,7 +520,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     !  so that with the default C_force of ~0.25 we get a few
     !  hundred steps per orbit
     !
-    if (f2 > 0. .and. nptmass > 1) then
+    if (f2 > 0. .and. (nptmass > 1 .or. iexternalforce > 0)) then
        dtsinksink = min(dtsinksink,dtfacphi*sqrt(abs(phii)/f2))
     endif
  enddo
@@ -1632,7 +1632,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
 end subroutine merge_sinks
 
 subroutine set_integration_precision
- if(use_fourthorder) then
+
+ if (use_fourthorder) then
     n_force_order = 3
     ck = ck4
     dk = dk4
@@ -1645,6 +1646,7 @@ subroutine set_integration_precision
     dtfacphi = dtfacphilf
     dtfacphi2 = dtfacphi2lf
  endif
+
 end subroutine set_integration_precision
 
 !-----------------------------------------------------------------------

@@ -78,8 +78,8 @@ subroutine write_kdtree_file(dumpfile)
  character(100) :: treefile
  integer :: icell
 
- treefile = 'kdtree_'//TRIM(dumpfile)
- print'(a,a)', 'Writing kdtree to binary file ', TRIM(treefile)
+ treefile = 'kdtree_'//trim(dumpfile)
+ print'(a,a)', 'Writing kdtree to binary file ', trim(treefile)
 
  ! Write tag indicating if this is from a run with or without gravity
 #ifdef GRAVITY
@@ -90,7 +90,7 @@ subroutine write_kdtree_file(dumpfile)
  print '(a,a,I7)', 'This file does not contains masses: ', filetag, ncells
 #endif
 
- open(10,file=treefile, form='unformatted')
+ open(10,file=treefile,form='unformatted')
 
 ! Write header data
  write(10) filetag, ncells
@@ -131,10 +131,10 @@ subroutine read_kdtree_file(dumpfile)
  character(7) :: filetag
  character(100) :: treefile
 
- treefile = 'kdtree_'//TRIM(dumpfile)
- print'(a,a)', 'Reading kdtree from binary file ', TRIM(treefile)
+ treefile = 'kdtree_'//trim(dumpfile)
+ print'(a,a)', 'Reading kdtree from binary file ', trim(treefile)
 
- open(10,file=treefile, form='unformatted')
+ open(10,file=treefile,form='unformatted')
 ! Read header
  read(10) filetag, ncells
 

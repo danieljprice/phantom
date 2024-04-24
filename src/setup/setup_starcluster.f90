@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -11,15 +11,15 @@ module setup
 !
 ! :References: Paumard et al. (2006)
 !
-! :Owner: Daniel Price
+! :Owner: Yrisch
 !
 ! :Runtime parameters:
 !   - datafile : *filename for star data (m,x,y,z,vx,vy,vz)*
-!   - h_sink   : *sink particle radii in arcsec at 8kpc*
+!   - h_sink   : *sink particle radii in parsec*
 !   - m_gas    : *gas mass resolution in solar masses*
 !
 ! :Dependencies: datafiles, dim, eos, infile_utils, io, part, physcon,
-!   prompting, spherical, timestep, units
+!   prompting, ptmass, spherical, timestep, units
 !
  implicit none
  public :: setpart

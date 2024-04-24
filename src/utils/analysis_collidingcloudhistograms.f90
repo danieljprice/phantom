@@ -63,8 +63,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  !
  ! Initialise values & Open file
  !
- fileoutSV = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_SinkVel.dat'
- fileoutSA = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_SinkAverages.dat'
+ fileoutSV = trim(dumpfile(1:index(dumpfile,'_')-1))//'_SinkVel.dat'
+ fileoutSA = trim(dumpfile(1:index(dumpfile,'_')-1))//'_SinkAverages.dat'
  inquire(file=fileoutSV,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.
@@ -117,7 +117,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           7,'vy',      &
           8,'vz'
     do k = 1,nres
-       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
+       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
        open(iunit+(2*k+1),file=fileoutSH,status='replace')
        write(iunit+(2*k+1),"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'idump',   &
@@ -130,7 +130,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
           8,'N velx',  &
           9,'N vely',  &
          10,'N velz'
-       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
+       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
        open(iunit+(2*k+2),file=fileoutGH,status='replace')
        write(iunit+(2*k+2),"('#',10(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'idump',      &
@@ -162,8 +162,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     open(iunit   ,file=fileoutSV,position='append')
     open(iunit+20,file=fileoutSA,position='append')
     do k = 1,nres
-       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
-       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
+       write(fileoutSH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_SinkHisto',nbins(k),'.dat'
+       write(fileoutGH,'(2a,I3.3,a)') trim(dumpfile(1:index(dumpfile,'_')-1)),'_GasHisto',nbins(k),'.dat'
        open(iunit+(2*k+1),file=fileoutSH,position='append')
        open(iunit+(2*k+2),file=fileoutGH,position='append')
     enddo

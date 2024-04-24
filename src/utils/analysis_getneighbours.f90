@@ -44,10 +44,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  ! Output neighbour lists to file
  !**************************************
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  call write_neighbours(neighbourfile, npart)
 
- print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+ print*, 'Neighbour finding complete for file ', trim(dumpfile)
 
 end subroutine do_analysis
 !--------------------------------------------------------------------------
