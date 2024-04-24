@@ -16,7 +16,7 @@ module sdar_group
  real, parameter :: eta_pert = 20
  real, parameter :: time_error = 2.5e-14
  real, parameter :: max_step = 100000000
- real, parameter, public :: r_neigh  = 0.0001
+ real, parameter, public :: r_neigh  = 0.001
  real,            public :: t_crit   = 1.e-9
  real,            public :: C_bin    = 0.02
  real,            public :: r_search = 100.*r_neigh
@@ -700,26 +700,27 @@ subroutine get_pot_subsys(n_group,nptmass,group_info,xyzmh_ptmass,fxyz_ptmass,gt
  integer, intent(in)    :: group_info(:,:)
  real,    intent(inout) :: epot_sinksink
  integer :: i,start_id,end_id,gsize,prim,sec
- real :: phitot
+ real :: phitot,phigroup
  phitot = 0.
  if (n_group>0) then
     if(id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad)&
-       !$omp private(i,start_id,end_id,gsize,prim,sec)&
+       !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup)&
        !$omp reduction(+:phitot)
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
           gsize    = (end_id - start_id) + 1
           if (gsize>2) then
-             call get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,phitot,start_id,end_id,.true.)
+             call get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,phigroup,start_id,end_id,.true.)
           else
              prim = group_info(igarg,start_id)
              sec = group_info(igarg,end_id)
-             call get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,phitot,prim,sec,.true.)
+             call get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,phigroup,prim,sec,.true.)
           endif
+          phitot = phitot + phigroup
        enddo
        !$omp end parallel do
     endif

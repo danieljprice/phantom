@@ -604,12 +604,13 @@ subroutine step_extern_subsys(dtextforce,dtsph,time,npart,ntypes,nptmass,xyzh,vx
     ! Group all the ptmass in the system in multiple small group for regularization
     !
     call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
-    !call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-    !               vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,ck(1),dk(2),force_count,extf_vdep_flag,group_info=group_info)
+
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass)
 
     call evolve_groups(n_group,nptmass,time_par,time_par+ck(1)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
+
     call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
+
     call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                    vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,group_info=group_info)
     fsink_old = fxyz_ptmass
