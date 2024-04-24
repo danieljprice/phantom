@@ -603,7 +603,7 @@ subroutine compute_energies(t)
  erad = reduceall_mpi('+',erad)
  if (nptmass > 1) then
     if (use_regnbody) then
-       call get_pot_subsys(n_group,nptmass,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
+       call get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
     endif
     epot = epot + epot_sinksink
  endif

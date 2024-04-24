@@ -199,7 +199,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
     if(id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
-       !$omp shared(tnext,time,group_info,gtgrad)&
+       !$omp shared(tnext,time,group_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize)
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
@@ -263,9 +263,9 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
  do while (.true.)
 
     if (backup_flag) then
-       call backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,bdata)
+       call backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bdata)
     else
-       call restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,group_info,tcoord,t_old,W,W_old,bdata)
+       call restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,tcoord,t_old,W,W_old,bdata)
     endif
     t_old = tcoord
     W_old = W
@@ -386,9 +386,9 @@ end subroutine new_ds_sync_sup
 
 
 
-subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_ptmass,bdata)
+subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,bdata)
  use part, only: igarg
- real, intent(in)   ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real, intent(in)   ::xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,intent(in) :: group_info(:,:)
  real, intent(out)  ::bdata(:)
  integer,intent(in) :: start_id,end_id
@@ -408,9 +408,9 @@ subroutine backup_data(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,fxyz_
 end subroutine backup_data
 
 
-subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,group_info,tcoord,t_old,W,W_old,bdata)
+subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,tcoord,t_old,W,W_old,bdata)
  use part, only: igarg
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,intent(in)  :: group_info(:,:)
  real, intent(out)   :: tcoord,W
  real, intent(in)    :: t_old,W_old
@@ -567,10 +567,20 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  integer,           intent(in)    :: s_id,e_id
  logical, optional, intent(in)    :: potonly
  real,    optional, intent(out)   :: ds_init
- real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,ddr,ddr3
+ real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,ddr,ddr3,dt_init
  real    :: gravf,gtki,gravfi(3),gtgradi(3),f2
  integer :: i,j,k,l
+ logical :: init
  om = 0.
+ dt_init = 0.
+
+
+ if(present(ds_init)) then
+    init = .true.
+    ds_init = 0.
+ else
+    init = .false.
+ endif
 
 
  do k=s_id,e_id
@@ -617,17 +627,17 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
        gtgrad(3,i) = gtgradi(3)
     endif
 
-    if (present(ds_init)) then
+    if (init) then
        f2 = gravfi(1)**2+gravfi(2)**2+gravfi(3)**2
        if (f2 > 0.) then
-          ds_init = min(ds_init,0.00002*sqrt(abs(gtki)/f2))
+          dt_init = min(dt_init,0.00002*sqrt(abs(gtki)/f2))
        endif
     endif
     om = om + gtki*mi
  enddo
 
  om = om*0.5
- if(present(ds_init)) ds_init = ds_init/om
+ if(init) ds_init = dt_init/om
 
 end subroutine get_force_TTL
 
@@ -692,10 +702,10 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j,potonly,ds_i
 end subroutine get_force_TTL_bin
 
 
-subroutine get_pot_subsys(n_group,nptmass,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
+subroutine get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
  use part, only: igarg,igcum
  use io, only: id,master
- integer, intent(in)    :: n_group,nptmass
+ integer, intent(in)    :: n_group
  real,    intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(inout) :: epot_sinksink

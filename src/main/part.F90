@@ -579,6 +579,7 @@ subroutine deallocate_part
  if (allocated(ibin_sts))     deallocate(ibin_sts)
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(gtgrad))       deallocate(gtgrad)
 
 end subroutine deallocate_part
 
