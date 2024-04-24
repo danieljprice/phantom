@@ -110,7 +110,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
  use dust,         only:ilimitdustflux
  use timestep,     only:dtmax,tmax,dtmax_dratio,dtmax_min
  use centreofmass, only:reset_centreofmass
- use options,      only:nfulldump,rhofinal_cgs,hdivbbmax_max,use_dustfrac,icooling
+ use options,      only:nfulldump,rhofinal_cgs,use_dustfrac,icooling
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use ptmass,       only:icreate_sinks,r_crit,h_acc,h_soft_sinksink
@@ -664,7 +664,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact_
     icreate_sinks = icreate_sinks_setup
     r_crit        = r_crit_setup
     h_acc         = h_acc_setup
-    hdivbbmax_max = 1. !512.
     ! reset defaults based upon options
     if (density_contrast > 1.) dtmax_dratio = 1.258
     if (density_contrast < 1.+epsilon(density_contrast) .and. maxvxyzu>=4) then

@@ -34,7 +34,6 @@ module readwrite_infile
 !   - dtwallmax          : *maximum wall time between dumps (hhh:mm, 000:00=ignore)*
 !   - dumpfile           : *dump file to start from*
 !   - flux_limiter       : *limit radiation flux*
-!   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
 !   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
@@ -76,7 +75,7 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
-                     icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
+                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
                      mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
@@ -202,7 +201,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
-    call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  if (maxalpha==maxp .and. maxp > 0) then
@@ -481,8 +479,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('hdivbbmax_max')
-       read(valstring,*,iostat=ierr) hdivbbmax_max
     case('beta')
        read(valstring,*,iostat=ierr) beta
     case('ireconav')
@@ -684,10 +680,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
-       if (hdivbbmax_max < overcleanfac) then
-          call warn(label,'Resetting hdivbbmax_max = overcleanfac')
-          hdivbbmax_max = overcleanfac
-       endif
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')

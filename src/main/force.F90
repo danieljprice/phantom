@@ -150,27 +150,26 @@ module forces
        idBevolyi      = 10, &
        idBevolzi      = 11, &
        idivBdiffi     = 12, &
-       ihdivBBmax     = 13, &
  !--dust array indexing
-       ifdragxi       = 14, &
-       ifdragyi       = 15, &
-       ifdragzi       = 16, &
-       iddustevoli    = 17, &
-       iddustevoliend = 17 +   (maxdustsmall-1), &
-       idudtdusti     = 18 +   (maxdustsmall-1), &
-       idudtdustiend  = 18 + 2*(maxdustsmall-1), &
-       ideltavxi      = 19 + 2*(maxdustsmall-1), &
-       ideltavxiend   = 19 + 3*(maxdustsmall-1), &
-       ideltavyi      = 20 + 3*(maxdustsmall-1), &
-       ideltavyiend   = 20 + 4*(maxdustsmall-1), &
-       ideltavzi      = 21 + 4*(maxdustsmall-1), &
-       ideltavziend   = 21 + 5*(maxdustsmall-1), &
-       idvix          = 22 + 5*(maxdustsmall-1), &
-       idviy          = 23 + 5*(maxdustsmall-1), &
-       idviz          = 24 + 5*(maxdustsmall-1), &
-       idensgasi      = 25 + 5*(maxdustsmall-1), &
-       icsi           = 26 + 5*(maxdustsmall-1), &
-       idradi         = 26 + 5*(maxdustsmall-1) + 1
+       ifdragxi       = 13, &
+       ifdragyi       = 14, &
+       ifdragzi       = 15, &
+       iddustevoli    = 16, &
+       iddustevoliend = 16 +   (maxdustsmall-1), &
+       idudtdusti     = 17 +   (maxdustsmall-1), &
+       idudtdustiend  = 17 + 2*(maxdustsmall-1), &
+       ideltavxi      = 18 + 2*(maxdustsmall-1), &
+       ideltavxiend   = 18 + 3*(maxdustsmall-1), &
+       ideltavyi      = 19 + 3*(maxdustsmall-1), &
+       ideltavyiend   = 19 + 4*(maxdustsmall-1), &
+       ideltavzi      = 20 + 4*(maxdustsmall-1), &
+       ideltavziend   = 20 + 5*(maxdustsmall-1), &
+       idvix          = 21 + 5*(maxdustsmall-1), &
+       idviy          = 22 + 5*(maxdustsmall-1), &
+       idviz          = 23 + 5*(maxdustsmall-1), &
+       idensgasi      = 24 + 5*(maxdustsmall-1), &
+       icsi           = 25 + 5*(maxdustsmall-1), &
+       idradi         = 25 + 5*(maxdustsmall-1) + 1
 
  private
 
@@ -1621,7 +1620,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              else
                 Bj1 = 0.0
              endif
-             fsum(ihdivBBmax) = max( hj*abs(divcurlB(1,j))*Bj1, fsum(ihdivBBmax))
              !
              ! non-ideal MHD terms
              !
@@ -2522,7 +2520,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use dim,            only:mhd,mhd_nonideal,lightcurve,use_dust,maxdvdx,use_dustgrowth,gr,use_krome,&
                           store_dust_temperature,do_nucleation,update_muGamma,h2chemistry
  use eos,            only:ieos,iopacity_type
- use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac,hdivbbmax_max, &
+ use options,        only:alpha,ipdv_heating,ishock_heating,psidecayfac,overcleanfac, &
                           use_dustfrac,damp,icooling,implicit_radiation
  use part,           only:rhoanddhdrho,iboundary,igas,maxphase,maxvxyzu,nptmass,xyzmh_ptmass,eos_vars, &
                           massoftype,get_partinfo,tstop,strain_from_dvdx,ithick,iradP,sinks_have_heating,&
@@ -2598,7 +2596,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  real    :: Bxyzi(3),curlBi(3),dvdxi(9),straini(6)
  real    :: xi,yi,zi,B2i,f2i,divBsymmi,betai,frac_divB,divBi,vcleani
  real    :: pri,spsoundi,drhodti,divvi,shearvisc,fac,pdv_work
- real    :: psii,dtau,hdivbbmax
+ real    :: psii,dtau
  real    :: eni,dudtnonideal
  real    :: dustfraci(maxdusttypes),dustfracisum
  real    :: tstopi(maxdusttypes),tseff,dtdustdenom
@@ -2965,21 +2963,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              ! new cleaning evolving d/dt (psi/c_h)
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
 
-             ! timestep from cleaning
-             !   1. the factor of 10 in hdivbbmax is empirical from checking how much
-             !      spurious B-fields are decreased in colliding flows
-             !   2. if overcleaning is on (i.e. hdivbbmax > 1.0), then factor of 2 is
-             !      from empirical tests to ensure that overcleaning with individual
-             !      timesteps is stable
-             if (B2i > 0.) then
-                hdivbbmax = hi*abs(divBi)/sqrt(B2i)
-             else
-                hdivbbmax = 0.0
-             endif
-             hdivbbmax = max( overcleanfac, 10.*hdivbbmax, 10.*fsum(ihdivBBmax) )
-             hdivbbmax = min( hdivbbmax, hdivbbmax_max )
-             if (hdivbbmax > 1.0) hdivbbmax = 2.0*hdivbbmax
-             dtclean   = C_cour*hi/(hdivbbmax * vwavei + tiny(0.))
+             dtclean   = C_cour*hi/(vcleani + tiny(0.))
           endif
        endif
 
