@@ -716,7 +716,7 @@ subroutine get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epo
     if(id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
-       !$omp shared(group_info,gtgrad)&
+       !$omp shared(group_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup)&
        !$omp reduction(+:phitot)
        do i=1,n_group
