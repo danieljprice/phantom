@@ -303,10 +303,10 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
  T = T0
  mu = mu0
  gamma = gamma0
- if (idust_opacity == 2) then
+ if (update_muGamma .or. idust_opacity == 2) then
     rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
+    call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  endif
- if (update_muGamma .or. idust_opacity == 2) call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 
 !Temperature law
  if (ieos == 6) then
