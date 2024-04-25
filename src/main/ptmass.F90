@@ -59,10 +59,12 @@ module ptmass
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
+ integer, public :: icreate_stars = 0
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
+ real,    public :: tmax_acc = 0.0
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
@@ -711,7 +713,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
- use part,       only: ihacc
+ use part,       only: ihacc,itbirth
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
@@ -729,7 +731,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real               :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter :: iofailreason=.false.
  integer            :: j
- real               :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
+ real               :: mpt,age,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
  logical            :: mostbound
 !$ external         :: omp_set_lock,omp_unset_lock
 
@@ -747,7 +749,9 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  sinkloop : do i=is,nptmass
     hacc = xyzmh_ptmass(ihacc,i)
     mpt  = xyzmh_ptmass(4,i)
+    age  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
+    if (age > tmax_acc) cycle
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
@@ -956,7 +960,7 @@ end subroutine update_ptmass
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,time)
- use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
+ use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma,ndptmass
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
@@ -1461,6 +1465,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     xyzmh_ptmass(4,n)      = 0.              ! zero mass
     xyzmh_ptmass(ihacc,n)  = h_acc
     xyzmh_ptmass(ihsoft,n) = h_soft_sinkgas
+    xyzmh_ptmass(itbirth,n)   = time
     vxyz_ptmass(:,n)       = 0.              ! zero velocity, get this by accreting
     itypej = igas                            ! default particle type to be accreted
     pmassj = massoftype(igas)                ! default particle mass to be accreted
@@ -1496,6 +1501,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     fxyz_ptmass_sinksink(:,nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
+    if (icreate_stars > 0) call ptmass_create_stars(nptmass,xyzmh_ptmass,time)
+
     if (id==id_rhomax) then
        write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
        ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
@@ -1526,6 +1533,57 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 end subroutine ptmass_create
 
+subroutine ptmass_create_seed(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+ use part, only:itbirth
+ integer, intent(inout) :: nptmass
+ integer, intent(in)    :: linklist_ptmass(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: time
+ integer :: i, nseed
+!
+!-- Draw the number of star seeds in the core
+!
+ nseed = floor(5*rand())
+ do i=1,nseed
+    nptmass = nptmass + 1
+    xyzmh_ptmass(itbirth,nptmass) = time
+    xyzmh_ptmass(4,nptmass) = -1.
+    if (i==nseed)then
+       linklist_ptmass(nptmass) = -1 !! null pointer
+    else
+       linklist_ptmass(nptmass) = nptmass + 1 !! link this new seed to the next one
+    endif
+ enddo
+end subroutine ptmass_create_seed
+
+subroutine ptmass_create_star(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
+ use part, only:itbirth
+ integer, intent(in)    :: nptmass
+ integer, intent(in)    :: linklist_ptmass(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(in)    :: time
+ integer :: i,k,nseed
+ real :: tbirthi,mi
+
+ do i=1,nptmass
+    mi      = xyzmh_ptmass(4,i)
+    tbirthi = xyzmh_ptmass(itbirth,i)
+    if (mi<0.) cycle
+    if (time>tbirthi+tmax_acc) then
+       call ptmass_size_lklist(i,n,linklist_ptmass)
+
+       !! do some clever stuff to divide the mass
+       k=i
+       do while(k>0)
+          !! do some clever stuff
+          k = linklist_ptmass(k)
+       enddo
+    endif
+ enddo
+
+
+end subroutine ptmass_create_star
+
 !-----------------------------------------------------------------------
 !+
 !  Merge sinks
@@ -1555,7 +1613,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
  integer, intent(in)    :: nptmass,merge_ij(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
- integer :: i,j
+ integer :: i,j,k
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1
  logical :: lmerge
@@ -1566,6 +1624,13 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
        j = merge_ij(i)
        if (merge_ij(j) == i .and. xyzmh_ptmass(4,j) > 0.) then
           lmerge = .false.
+          agei = xyzmh_ptmass(itbirth,i)
+          agej = xyzmh_ptmass(itbirth,j)
+          if (agej<agei) then
+             k=j !
+             j=i !-- Inverse index to be sure that it's always the oldest sink that survive
+             i=k !
+          endif
           xi  = xyzmh_ptmass(1,i)
           yi  = xyzmh_ptmass(2,i)
           zi  = xyzmh_ptmass(3,i)
@@ -1616,6 +1681,11 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
                                     - mij*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
+             if(icreate_stars) then
+                ! Connect linked list of the merged sink to the survivor
+                call ptmass_end_lklist(i,k,linklist_ptmass)
+                linklist_ptmass(k) = j
+             endif
              ! print success
              write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
@@ -1630,6 +1700,31 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
  enddo
 
 end subroutine merge_sinks
+
+subroutine ptmass_end_lklist(i,k,linklist_ptmass)
+ integer, intent(in)  :: linklist_ptmass
+ integer, intent(in)  :: i
+ integer, intent(out) :: k
+ integer :: l
+ l=i
+ do while (l>0)
+    l = linklist_ptmass(l)
+ enddo
+ k=l
+end subroutine ptmass_end_lklist
+
+subroutine ptmass_size_lklist(i,n,linklist_ptmass)
+ integer, intent(in)  :: linklist_ptmass
+ integer, intent(in)  :: i
+ integer, intent(out) :: n
+ integer :: l
+ l=i
+ n = 0
+ do while (l>0)
+    l = linklist_ptmass(l)
+    n = n + 1
+ enddo
+end subroutine ptmass_size_lklist
 
 subroutine set_integration_precision
 
