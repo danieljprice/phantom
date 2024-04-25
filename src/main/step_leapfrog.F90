@@ -1087,7 +1087,7 @@ end subroutine step_extern_sph
 subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,nptmass, &
                        xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,nbinmax,ibin_wake)
  use dim,            only:maxptmass,maxp,maxvxyzu,store_dust_temperature,use_krome,itau_alloc,&
-                         do_nucleation,update_muGamma,h2chemistry
+                         do_nucleation,update_muGamma,h2chemistry,update_muGamma
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce, &
                           update_vdependent_extforce_leapfrog,is_velocity_dependent
@@ -1344,6 +1344,8 @@ subroutine step_extern(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,fext,fxyzu,time,
                 call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
                 eos_vars(imu,i)    = nucleation(idmu,i)
                 eos_vars(igamma,i) = nucleation(idgamma,i)
+             elseif (update_muGamma) then
+                call calc_muGamma(rhoi, dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i), pH, pH_tot)
              endif
              !
              ! COOLING
