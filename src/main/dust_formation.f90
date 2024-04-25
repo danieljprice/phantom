@@ -413,7 +413,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
           mu_old = mu
           gamma_old = gamma
        else
-          T = 2.*T_old*mu/mu_old/(gamma_old-1.)*(x-eps(iHe))/(x+4.-eps(iHe))
+          T = T_old*mu/mu_old/(gamma_old-1.)*2.*x/(x+4.+4.*eps(iHe))
           if (i>=itermax .and. .not.converged) then
              if (isolve==0) then
                 isolve = isolve+1
