@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,icreate_stars
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -177,6 +177,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     h_acc         = Rsink_au*au/udist
     r_crit        = 2.*h_acc
     icreate_sinks = 1
+    icreate_stars = 0
     rho_crit_cgs  = 1.d-10
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used
