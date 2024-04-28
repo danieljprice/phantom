@@ -751,7 +751,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     mpt  = xyzmh_ptmass(4,i)
     age  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
-    if (age > tmax_acc) cycle
+    if (age + tmax_acc < time ) cycle
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
