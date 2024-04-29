@@ -706,6 +706,11 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     nlive        = 0
     ibin_wakei   = 0
     dptmass(:,1:nptmass) = 0.
+    fxi = 0.
+    fyi = 0.
+    fzi = 0.
+    pmassi = 0.
+    itype = 0
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
