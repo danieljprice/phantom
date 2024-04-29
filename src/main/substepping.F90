@@ -662,7 +662,6 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
  itype = iphase(igas)
  pmassi = massoftype(igas)
- accreted = .false.
 
  dkdt = dki*dt
 
