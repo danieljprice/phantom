@@ -662,6 +662,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
 
  itype = iphase(igas)
  pmassi = massoftype(igas)
+ accreted = .false.
 
  dkdt = dki*dt
 
@@ -706,21 +707,17 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     nlive        = 0
     ibin_wakei   = 0
     dptmass(:,1:nptmass) = 0.
-    fxi = 0.
-    fyi = 0.
-    fzi = 0.
-    itype = iphase(igas)
-    pmassi = massoftype(igas)
     !$omp parallel default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
     !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
-    !$omp reduction(+:dptmass) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
     !$omp firstprivate(itype,pmassi,ibin_wakei) &
-    !$omp reduction(+:accretedmass,nfail,naccreted,nlive)
+    !$omp reduction(+:dptmass) &
+    !$omp reduction(+:accretedmass) &
+    !$omp reduction(+:nfail,naccreted,nlive)
     !$omp do
     accreteloop: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
