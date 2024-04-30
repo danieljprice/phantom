@@ -20,24 +20,26 @@ module analysis
 !   sortutils, table_utils, units, vectorutils
 !
 
- use part,         only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
-                        rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
- use units,        only:print_units,umass,utime,udist,unit_ergg,unit_density,&
-                        unit_pressure,unit_velocity,unit_Bfield,unit_energ
- use physcon,      only:gg,pi,c,Rg
- use io,           only:fatal
- use prompting,    only:prompt
- use centreofmass, only:get_centreofmass, reset_centreofmass
- use energies,     only:compute_energies,ekin,etherm,epot,etot
- use ptmass,       only:get_accel_sink_gas,get_accel_sink_sink
- use kernel,       only:kernel_softening,radkern,wkern,cnormk
- use eos,          only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos
- use eos_gasradrec,only:irecomb
- use eos_mesa,     only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
-                        get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
- use setbinary,    only:Rochelobe_estimate,L1_point
- use sortutils,    only:set_r2func_origin,r2func_origin,indexxfunc
- use table_utils,  only:logspace
+ use part,          only:xyzmh_ptmass,vxyz_ptmass,nptmass,poten,ihsoft,ihacc,&
+                         rhoh,nsinkproperties,maxvxyzu,maxptmass,isdead_or_accreted
+ use dim,           only:do_radiation
+ use units,         only:print_units,umass,utime,udist,unit_ergg,unit_density,&
+                         unit_pressure,unit_velocity,unit_Bfield,unit_energ
+ use physcon,       only:gg,pi,c,Rg
+ use io,            only:fatal
+ use prompting,     only:prompt
+ use centreofmass,  only:get_centreofmass, reset_centreofmass
+ use energies,      only:compute_energies,ekin,etherm,epot,etot
+ use ptmass,        only:get_accel_sink_gas,get_accel_sink_sink
+ use kernel,        only:kernel_softening,radkern,wkern,cnormk
+ use ionization_mod,only:calc_thermal_energy
+ use eos,           only:equationofstate,ieos,init_eos,X_in,Z_in,gmw,get_spsound,done_init_eos
+ use eos_gasradrec, only:irecomb
+ use eos_mesa,      only:get_eos_kappa_mesa,get_eos_pressure_temp_mesa,&
+                         get_eos_various_mesa,get_eos_pressure_temp_gamma1_mesa
+ use setbinary,     only:Rochelobe_estimate,L1_point
+ use sortutils,     only:set_r2func_origin,r2func_origin,indexxfunc
+ use table_utils,   only:logspace
  implicit none
  character(len=20), parameter, public :: analysistype = 'common_envelope'
  integer                              :: analysis_to_perform
@@ -623,9 +625,8 @@ end subroutine m_vs_t
 !+
 !----------------------------------------------------------------
 subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
- use part,           only:eos_vars,itemp
+ use part,           only:eos_vars,itemp,radprop
  use ptmass,         only:get_accel_sink_gas
- use ionization_mod, only:calc_thermal_energy
  use vectorutils,    only:cross_product3D
  integer, intent(in)            :: npart
  real, intent(in)               :: time,particlemass
@@ -702,7 +703,7 @@ subroutine bound_mass(time,npart,particlemass,xyzh,vxyzu)
        tempi = eos_vars(itemp,i)
        call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        call cross_product3D(xyzh(1:3,i), particlemass * vxyzu(1:3,i), rcrossmv)  ! Angular momentum w.r.t. CoM
-       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,gamma,ethi)
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,gamma,ethi,radprop)
        etoti = ekini + epoti + ethi ! Overwrite etoti outputted by calc_gas_energies to use ethi instead of einti
     else
        ! Output 0 for quantities pertaining to accreted particles
@@ -1382,7 +1383,7 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use eos_mesa,          only:get_eos_kappa_mesa
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
- use ionization_mod,    only:calc_thermal_energy,ionisation_fraction
+ use ionization_mod,    only:ionisation_fraction
  use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H, chemical_equilibrium_light, calc_nucleation!, Scrit
  !use dim,     only:nElements
  integer, intent(in)          :: npart
@@ -1663,7 +1664,7 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
  use eos,  only:entropy
  use mesa_microphysics, only:getvalue_mesa
- use ionization_mod, only:calc_thermal_energy,ionisation_fraction
+ use ionization_mod, only:ionisation_fraction
  real, intent(in)        :: time,particlemass
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:)
  integer, parameter      :: nparttotrack=10,ncols=17
@@ -1888,7 +1889,7 @@ end subroutine tconv_profile
 !----------------------------------------------------------------
 subroutine recombination_tau(time,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy,ionisation_fraction
+ use ionization_mod, only:ionisation_fraction
  integer, intent(in)    :: npart
  real,    intent(in)    :: time,particlemass
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -1979,7 +1980,6 @@ end subroutine recombination_tau
 !----------------------------------------------------------------
 subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy
  integer, intent(in)            :: npart
  real, intent(in)               :: time,particlemass
  real, intent(inout)            :: xyzh(:,:),vxyzu(:,:)
@@ -2044,7 +2044,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp
  use eos,               only:entropy
  use mesa_microphysics, only:getvalue_mesa
- use ionization_mod,    only:calc_thermal_energy,ionisation_fraction
+ use ionization_mod,    only:ionisation_fraction
  integer, intent(in)    :: npart
  real, intent(in)       :: time,particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -2288,7 +2288,6 @@ end subroutine rotation_profile
 !----------------------------------------------------------------
 subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  use part,           only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy
  real, intent(in)    :: time,particlemass
  integer, intent(in) :: npart,num
  real, intent(inout) :: xyzh(:,:),vxyzu(:,:)
@@ -2571,7 +2570,6 @@ end subroutine planet_profile
 !+
 !----------------------------------------------------------------
 subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
- use ionization_mod, only:calc_thermal_energy
  integer, intent(in)                          :: npart,num
  real,    intent(in)                          :: time,particlemass
  real,    intent(inout)                       :: xyzh(:,:),vxyzu(:,:)
@@ -2690,7 +2688,7 @@ end subroutine unbound_profiles
 !+
 !----------------------------------------------------------------
 subroutine unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
- use ionization_mod, only:calc_thermal_energy,get_xion,ionisation_fraction
+ use ionization_mod, only:get_xion,ionisation_fraction
  integer, intent(in)       :: npart
  real,    intent(in)       :: time,particlemass
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -2766,7 +2764,7 @@ end subroutine unbound_ionfrac
 !----------------------------------------------------------------
 subroutine unbound_temp(time,npart,particlemass,xyzh,vxyzu)
  use part,           only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy,get_xion
+ use ionization_mod, only:get_xion
  integer, intent(in)        :: npart
  real,    intent(in)        :: time,particlemass
  real,    intent(inout)     :: xyzh(:,:),vxyzu(:,:)
@@ -2840,7 +2838,7 @@ end subroutine unbound_temp
 !----------------------------------------------------------------
 subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy,ionisation_fraction
+ use ionization_mod, only:ionisation_fraction
  integer, intent(in)       :: npart,num
  real,    intent(in)       :: time,particlemass
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -3038,7 +3036,6 @@ end subroutine sink_properties
 
 subroutine env_binding_ene(npart,particlemass,xyzh,vxyzu)
  use part, only:eos_vars,itemp
- use ionization_mod, only:calc_thermal_energy
  integer, intent(in)    :: npart
  real, intent(in)       :: particlemass
  real, intent(inout)    :: xyzh(:,:),vxyzu(:,:)
@@ -3724,7 +3721,6 @@ end subroutine print_dump_numbers
 subroutine analyse_disk(num,npart,particlemass,xyzh,vxyzu)
  use part,            only:eos_vars,itemp
  use extern_corotate, only:get_companion_force
- use ionization_mod,  only:calc_thermal_energy
  use vectorutils,     only:cross_product3D
  integer, intent(in)             :: num,npart
  real, intent(in)                :: particlemass
@@ -3855,14 +3851,14 @@ end subroutine get_gas_omega
 !  and internal energy of a gas particle.
 !+
 !----------------------------------------------------------------
-subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
+subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,radprop,xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
  ! Warning: Do not sum epoti or etoti as it is to obtain a total energy; this would not give the correct
  !          total energy due to complications related to double-counting.
  use ptmass, only:get_accel_sink_gas
- use part,   only:nptmass
+ use part,   only:nptmass,iradxi
  real, intent(in)                       :: particlemass
  real(4), intent(in)                    :: poten
- real, dimension(4), intent(in)         :: xyzh,vxyzu
+ real, intent(in)                       :: xyzh(:),vxyzu(:),radprop(:)
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,einti,etoti
  real                                   :: fxi,fyi,fzi
@@ -3874,6 +3870,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,xyzmh_ptmass,phii,epo
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
+ if (do_radiation) einti = einti + particlemass * radprop(iradxi)
  etoti = epoti + ekini + einti
 end subroutine calc_gas_energies
 
