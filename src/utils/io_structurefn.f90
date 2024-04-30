@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -242,7 +242,7 @@ subroutine openw_sf (file,origin,n_lag,lag,n_order,n_rho_power)
  real,                 intent(in) :: lag(n_lag)
  namelist /structurefn/n_lag,n_order,n_rho_power,origin
 !
- open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
+ open(power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
  write (power_unit,structurefn)                                                ! dimensions info
  write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
 end subroutine openw_sf

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -112,10 +112,10 @@ end subroutine get_eos_kappa_mesa
 !  density, temperature and composition
 !+
 !----------------------------------------------------------------
-real function get_eos_1overmu_mesa(den,u,Rg) result(rmu)
- real, intent(in) :: den,u,Rg
+real function get_eos_1overmu_mesa(den,u) result(rmu)
+ real, intent(in) :: den,u
 
- rmu = get_1overmu_mesa(den,u,Rg)
+ rmu = get_1overmu_mesa(den,u)
 
 end function get_eos_1overmu_mesa
 

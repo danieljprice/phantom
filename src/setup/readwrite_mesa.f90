@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -230,7 +230,7 @@ subroutine write_mesa(outputpath,m,pres,temp,r,rho,ene,Xfrac,Yfrac,csound,mu)
     optionalcols(:,noptionalcols) = csound
  endif
 
- open(newunit=iu, file = outputpath, status = 'replace')
+ open(newunit=iu,file=outputpath,status='replace')
  do i = 1,noptionalcols+ncols-1
     write(iu,'(a24,2x)',advance="no") trim(headers(i))
  enddo

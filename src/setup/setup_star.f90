@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -194,7 +194,7 @@ end subroutine setpart
 subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  use prompting,     only:prompt
  use units,         only:select_unit
- use eos,           only:X_in,Z_in,gmw,iopacity_type
+ use eos,           only:X_in,Z_in,gmw
  use eos_gasradrec, only:irecomb
  use setstar,       only:set_star_interactive
  use setunits,      only:set_units_interactive
@@ -209,7 +209,7 @@ subroutine setup_interactive(polyk,gamma,iexist,id,master,ierr)
  call set_units_interactive(gr)
 
  ! star
- call set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk,iopacity_type)
+ call set_star_interactive(id,master,star,need_iso,use_var_comp,ieos,polyk)
 
  ! equation of state
  call prompt('Enter the desired EoS (1=isothermal,2=adiabatic,10=MESA,12=idealplusrad)',ieos)

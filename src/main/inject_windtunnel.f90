@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -9,14 +9,19 @@ module inject
 ! Handles injection for gas sphere in wind tunnel
 !
 !
+! :References: None
+!
 ! :Owner: Mike Lau
 !
 ! :Runtime parameters:
-!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
-!   - handled_layers   : *(integer) number of handled BHL wind layers*
-!   - v_inf            : *BHL wind speed*
-!   - Rstar            : *BHL star radius (in accretion radii)*
 !   - BHL_radius       : *radius of the wind cylinder (in star radii)*
+!   - Rstar            : *sphere radius (code units)*
+!   - handled_layers   : *(integer) number of handled BHL wind layers*
+!   - lattice_type     : *0: cubic distribution, 1: closepacked distribution*
+!   - nstar            : *No. of particles making up sphere*
+!   - pres_inf         : *ambient pressure (code units)*
+!   - rho_inf          : *ambient density (code units)*
+!   - v_inf            : *wind speed (code units)*
 !   - wind_injection_x : *x position of the wind injection boundary (in star radii)*
 !   - wind_length      : *crude wind length (in star radii)*
 !
@@ -84,7 +89,7 @@ subroutine init_inject(ierr)
  if (lattice_type == 1) then
     psep = (sqrt(2.)*element_volume)**(1./3.)
  elseif (lattice_type == 0) then
-    psep = element_volume**(1./3.) 
+    psep = element_volume**(1./3.)
  else
     call fatal("init_inject",'unknown lattice_type (must be 0 or 1)')
  endif
@@ -159,12 +164,12 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use physcon,  only:gg,pi
  use units,    only:utime
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
 
@@ -263,16 +268,16 @@ subroutine print_summary(v_inf,cs_inf,rho_inf,pres_inf,mach,pmass,distance_betwe
  integer, intent(in) :: max_layers,nstar,max_particles
 
  print*, 'wind speed: ',v_inf * unit_velocity / 1e5," km s^-1"
- print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1" 
- print*, 'wind density: ',rho_inf * unit_density," g cm^-3" 
- print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2" 
+ print*, 'wind cs: ',cs_inf * unit_velocity / 1e5," km s^-1"
+ print*, 'wind density: ',rho_inf * unit_density," g cm^-3"
+ print*, 'wind pressure: ',pres_inf * unit_pressure," dyn cm^-2"
  print*, 'wind mach number: ', mach
 
  print*, 'maximum wind layers: ', max_layers
  print*, 'pmass: ',pmass
  print*, 'nstar: ',nstar
  print*, 'nstar + max. wind particles: ', max_particles
- print*, 'distance_between_layers: ',distance_between_layers  
+ print*, 'distance_between_layers: ',distance_between_layers
  print*, 'time_between_layers: ',time_between_layers
 
  print*, 'planet crossing time: ',2*Rstar/v_inf

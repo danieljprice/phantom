@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -91,6 +91,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  elseif (iget_tdust == 4) then
     call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
  else
+    call set_abundances
     call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  endif
 
@@ -201,15 +202,16 @@ subroutine wind_step(state)
  use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity
+      calc_Eddington_factor,idust_opacity,calc_muGamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
  use dim,              only:itau_alloc
+ use eos,              only:ieos
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH, pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, mu_old, dt_old
 
  rvT(1) = state%r
@@ -241,6 +243,7 @@ subroutine wind_step(state)
     state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
  elseif (idust_opacity == 1) then
     state%kappa = calc_kappa_bowen(state%Tdust)
+    if (ieos == 5) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then
@@ -342,15 +345,16 @@ subroutine wind_step(state)
  use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity
+      calc_Eddington_factor,idust_opacity, calc_mugamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
  use dim,              only:itau_alloc
+ use eos,              only:ieos
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH,pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded
 
  kappa_old  = state%kappa
@@ -363,6 +367,7 @@ subroutine wind_step(state)
     state%kappa     = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
  elseif (idust_opacity == 1) then
     state%kappa     = calc_kappa_bowen(state%Tdust)
+    if (ieos == 5 ) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then

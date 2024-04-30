@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,9 +14,9 @@ module raytracer
 !
 ! WARNING: This module has only been tested on phantom wind setup
 !
-! :References: Esseldeurs M., Siess L. et al, 2023, A&A, in press
+! :References: Esseldeurs M., Siess L. et al, 2023, A&A, 674, A122
 !
-! :Owner: Lionel Siess
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
@@ -57,10 +57,10 @@ subroutine get_all_tau(npart, nptmass, xyzmh_ptmass, xyzh, kappa_cgs, order, tau
  Rinject = xyzmh_ptmass(iReff,1)
  if (nptmass == 2 ) then
     call get_all_tau_companion(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh, kappa_cgs, &
-         Rinject, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
+            Rinject, xyzmh_ptmass(1:3,2), xyzmh_ptmass(iReff,2), order, tau)
  else
     call get_all_tau_single(npart, xyzmh_ptmass(1:3,1), xyzmh_ptmass(iReff,1), xyzh,&
-        kappa_cgs, Rinject, order, tau)
+         kappa_cgs, Rinject, order, tau)
  endif
 end subroutine get_all_tau
 
@@ -106,18 +106,18 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  ! and determine the optical depth along them
  !-------------------------------------------
 
-!$omp parallel default(none) &
-!$omp private(ray_dir) &
-!$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,rays_dist,rays_tau,rays_dim)
-!$omp do
+ !$omp parallel default(none) &
+ !$omp private(ray_dir) &
+ !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,rays_dist,rays_tau,rays_dim)
+ !$omp do
  do i = 1, nrays
     !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
     call pix2vec_nest(nsides, i-1, ray_dir)
     !calculate the properties along the ray (tau, distance, number of points)
     call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
  enddo
-!$omp enddo
-!$omp end parallel
+ !$omp enddo
+ !$omp end parallel
 
 
  !_----------------------------------------------
@@ -125,10 +125,10 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
  ! using the values available on the HEALPix rays
  !-----------------------------------------------
 
-!$omp parallel default(none) &
-!$omp private(part_dir) &
-!$omp shared(npart,primary,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
-!$omp do
+ !$omp parallel default(none) &
+ !$omp private(part_dir) &
+ !$omp shared(npart,primary,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
+ !$omp do
  do i = 1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        part_dir = xyzh(1:3,i)-primary
@@ -137,8 +137,8 @@ subroutine get_all_tau_single(npart, primary, Rstar, xyzh, kappa, Rinject, order
        tau(i) = -99.
     endif
  enddo
-!$omp enddo
-!$omp end parallel
+ !$omp enddo
+ !$omp end parallel
 
 end subroutine get_all_tau_single
 
@@ -195,11 +195,11 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
  ! and determine the optical depth along them
  !-------------------------------------------
 
-!$omp parallel default(none) &
-!$omp private(ray_dir,theta,root,sep) &
-!$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,Rcomp,rays_dist,rays_tau,rays_dim) &
-!$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0)
-!$omp do
+ !$omp parallel default(none) &
+ !$omp private(ray_dir,theta,root,sep) &
+ !$omp shared(nrays,nsides,primary,kappa,xyzh,Rstar,Rinject,Rcomp,rays_dist,rays_tau,rays_dim) &
+ !$omp shared(uvecCompanion,normCompanion,cosphi,sinphi,theta0)
+ !$omp do
  do i = 1, nrays
     !returns ray_dir, the unit vector identifying a ray (index i-1 because healpix starts counting from index 0)
     call pix2vec_nest(nsides, i-1, ray_dir)
@@ -216,18 +216,18 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
        call ray_tracer(primary,ray_dir,xyzh,kappa,Rstar,Rinject,rays_tau(:,i),rays_dist(:,i),rays_dim(i))
     endif
  enddo
-!$omp enddo
-!$omp end parallel
+ !$omp enddo
+ !$omp end parallel
 
  !-----------------------------------------------
  ! DETERMINE the optical depth for each particle
  ! using the values available on the HEALPix rays
  !-----------------------------------------------
 
-!$omp parallel default(none) &
-!$omp private(part_dir) &
-!$omp shared(npart,primary,cosphi,sinphi,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
-!$omp do
+ !$omp parallel default(none) &
+ !$omp private(part_dir) &
+ !$omp shared(npart,primary,cosphi,sinphi,nsides,xyzh,ray_dir,rays_dist,rays_tau,rays_dim,tau)
+ !$omp do
  do i = 1, npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        !vector joining the source to the particle
@@ -238,8 +238,8 @@ subroutine get_all_tau_companion(npart, primary, Rstar, xyzh, kappa, Rinject, co
        tau(i) = -99.
     endif
  enddo
-!$omp enddo
-!$omp end parallel
+ !$omp enddo
+ !$omp end parallel
 end subroutine get_all_tau_companion
 
  !--------------------------------------------------------------------------
@@ -306,7 +306,7 @@ subroutine interpolate_tau(nsides, vec, rays_tau, rays_dist, rays_dim, tau)
     k       = minloc(tempdist,1,mask)
     mask(k) = .false.
     call get_tau_on_ray(vec_norm2, rays_tau(:,neighbours(k)), &
-                rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
+                  rays_dist(:,neighbours(k)), rays_dim(neighbours(k)), tautemp)
     tau    = tau + tautemp/tempdist(k)
     weight = weight + 1./tempdist(k)
  enddo
@@ -353,7 +353,7 @@ subroutine get_tau_on_ray(distance, tau_along_ray, dist_along_ray, len, tau)
     enddo
     !linear interpolation of the optical depth at the the point's location
     tau = tau_along_ray(L-1)+(tau_along_ray(L)-tau_along_ray(L-1))/ &
-                  (dist_along_ray(L)-dist_along_ray(L-1))*(distance-dist_along_ray(L-1))
+                     (dist_along_ray(L)-dist_along_ray(L-1))*(distance-dist_along_ray(L-1))
  endif
 end subroutine get_tau_on_ray
 

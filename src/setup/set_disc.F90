@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -53,7 +53,7 @@ module setdisc
  use mpiutils, only:reduceall_mpi
  use part,     only:igas,labeltype
  use physcon,  only:c,gg,pi
- use units,    only:umass,udist,utime
+ use units,    only:umass,udist,utime,unit_angmom
  implicit none
  public :: set_disc,set_incline_or_warp,get_disc_mass,scaled_sigma
 
@@ -451,7 +451,7 @@ subroutine set_disc(id,master,mixture,nparttot,npart,npart_start,rmin,rmax, &
  endif
  ! Calculate the total angular momentum of the disc only
  call get_total_angular_momentum(xyzh,vxyzu,npart,L_tot)
- L_tot_mag = sqrt(dot_product(L_tot,L_tot))*umass*udist**2/utime
+ L_tot_mag = sqrt(dot_product(L_tot,L_tot))*unit_angmom
  !
  !--print out disc parameters, to file and to the screen
  !

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,13 +22,15 @@ module setup
 !   - ipot          : *wd modelled by 0=sink or 1=externalforce*
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
+!   - mdot          : *mass injection rate (g/s)*
 !   - norbits       : *number of orbits*
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   io, options, part, physcon, setbinary, spherical, timestep, units
+!   inject, io, kernel, options, part, physcon, setbinary, spherical,
+!   timestep, units
 !
  use inject, only:mdot
  implicit none
@@ -180,7 +182,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! we use the estimated injection rate and the final time to set the particle mass
  massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
  hfact = hfact_default
- !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
+ !npart_old = npart
+ !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinj)
 
 !
 !-- check for silly parameter choices

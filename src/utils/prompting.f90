@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -104,7 +104,7 @@ module prompting
 ! 06/05/11: D. Price:
 ! Added prompt for integer arrays
 !
-
+ implicit none
  private
 
  !
@@ -492,7 +492,7 @@ recursive subroutine string_prompt(text, string, length, case, noblank, list)
  integer, optional, intent(out)   :: length
  integer, optional, intent(in)    :: case
  logical, optional, intent(in)    :: noblank
- integer                         :: is, ia
+ integer                         :: is,ia,i
  integer, parameter              :: aoffset = 32
  logical                         :: allowblank,inlist
  character(len=*),  intent(in), optional :: list(:)

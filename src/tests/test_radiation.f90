@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -9,9 +9,9 @@ module testradiation
 ! Unit tests for radiation hydro
 !
 ! :References:
-!    Whitehouse & Bate (2004), 353, 1078
-!    Whitehouse, Bate & Monaghan (2005), 364, 1367
-!    Biriukov (2019), PhD thesis, Monash Univ.
+!   - Whitehouse & Bate (2004), 353, 1078
+!   - Whitehouse, Bate & Monaghan (2005), 364, 1367
+!   - Biriukov (2019), PhD thesis, Monash Univ.
 !
 ! :Owner: Daniel Price
 !
@@ -450,7 +450,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  nptot = reduceall_mpi('+',npart)
 
  rho0 = 2.5e-24
- massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot  !*1e-25
+ massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0

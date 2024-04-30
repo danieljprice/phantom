@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -8,7 +8,7 @@ module setfixedentropycore
 !
 ! This module replaces the core of a MESA stellar profile with a flat-
 ! entropy profile that is in hydrostatic equilibrium with an added sink
-! particle. 
+! particle.
 !
 ! :References:
 !
@@ -140,7 +140,7 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
 
     if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
        write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
-                                 &central mass. m(r=0)/msoft = ',mass/msoft
+       &central mass. m(r=0)/msoft = ',mass/msoft
        write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif
@@ -197,7 +197,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
        return
     endif
     if (rho(i-1)<rho(i)) then
-       if (iverbose > 1) then 
+       if (iverbose > 1) then
           print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
           write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,rho(i),rho(i-1),mass
        endif

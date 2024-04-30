@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,8 @@ module testcooling
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: chem, cooling_ism, io, part, physcon, testutils, units
+! :Dependencies: chem, cooling_ism, cooling_solver, eos, io, options, part,
+!   physcon, testutils, units
 !
  use testutils, only:checkval,update_test_scores
  use io,        only:id,master
@@ -54,10 +55,14 @@ end subroutine test_cooling
 subroutine test_cooling_rate(ntests,npass)
  use cooling_ism, only:nrates,dphot0,init_cooling_ism,energ_cooling_ism,dphotflag,&
        abundsi,abundo,abunde,abundc,nabn
+ !use cooling,     only:energ_cooling
+ use cooling_solver, only:excitation_HI,icool_method
  use chem,        only:update_abundances,init_chem,get_dphot
  use part,        only:nabundances,iHI
  use physcon,     only:Rg,mass_proton_cgs
  use units,       only:unit_ergg,unit_density,udist,utime
+ use options,     only:icooling
+ use eos,         only:gamma,gmw
  real :: abundance(nabundances)
  !real :: ratesq(nrates)
  integer, intent(inout) :: ntests,npass
@@ -83,10 +88,16 @@ subroutine test_cooling_rate(ntests,npass)
  rhoi = 2.3e-24/unit_density
  h2ratio = 0.
  gmwvar=1.4/1.1
+ gmw = gmwvar
+ gamma = 5./3.
  ndens = rhoi*unit_density/(gmwvar*mass_proton_cgs)
  print*,' rho = ',rhoi, ' ndens = ',ndens
  call init_chem()
  call init_cooling_ism()
+
+ icooling = 1      ! use cooling solver
+ excitation_HI = 1 ! H1 cooling
+ icool_method = 1  ! explicit
 
  open(newunit=iunit,file='cooltable.txt',status='replace')
  write(iunit,"(a)") '#   T   \Lambda_E(T) erg s^{-1} cm^3   \Lambda erg s^{-1} cm^{-3}'
@@ -100,6 +111,9 @@ subroutine test_cooling_rate(ntests,npass)
     dphot = get_dphot(dphotflag,dphot0,xi,yi,zi)
     call update_abundances(ui,rhoi,abundance,nabundances,dphot,dt,abundi,nabn,gmwvar,abundc,abunde,abundo,abundsi)
     call energ_cooling_ism(ui,rhoi,divv_cgs,gmwvar,abundi,dudti)
+    !print*,'t = ',t,' u = ',ui
+    !call energ_cooling(xi,yi,zi,ui,dudti,rhoi,0.)
+
 !call cool_func(tempiso,ndens,dlq,divv_cgs,abund,crate,ratesq)
     ndens = (rhoi*unit_density/mass_proton_cgs)*5.d0/7.d0
     crate = dudti*udist**2/utime**3*(rhoi*unit_density)

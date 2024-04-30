@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -25,7 +25,7 @@ module chem
 !
 
  implicit none
- public :: init_chem,update_abundances,get_dphot
+ public :: init_chem,update_abundances,get_dphot,get_extra_abundances
 !
 !--some variables needed for CO chemistry, Nelson+Langer97
 !
@@ -134,9 +134,9 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  real :: tstep10,totH2rate,tempiso,np1
  integer :: i,j,nstep,nstep2
 
-!---------------------------------------------------------------------
-! Setup chemistry, read in ab., calulate temp, densities and constants
-!---------------------------------------------------------------------
+!----------------------------------------------------------------------
+! Setup chemistry, read in ab., calculate temp, densities and constants
+!----------------------------------------------------------------------
  h2ratio = chemarrays(ih2ratio)
  abHIq   = chemarrays(iHI)
  abhpq   = chemarrays(iproton)
@@ -165,7 +165,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
 ! nh1 =number density of HI inclusive of protons
 ! nh21=number density of H2
 
- np1=(rhoi*udens/mp)*5.d0/7.d0     ! n = (5/7)*(rho/mp), gamma=7/5?
+ np1=(rhoi*udens/mp)*5.d0/7.d0   ! n = (5/7)*(rho/mp), gamma=7/5?
  dnp1  = 1.d0/np1                !Inverse for calculations
 
 
@@ -191,7 +191,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
  k0_np1sq    = k0*np1*np1
 
 !---------------------------------------------------------------------
-!H2 timsetpping set-up for formation/destruction
+!H2 time stepping set-up for formation/destruction
 !---------------------------------------------------------------------
  th2=10000.d0    !Timestep for H2 initially
  nstep = 5000
@@ -294,7 +294,7 @@ subroutine evolve_abundances(ui,rhoi,chemarrays,nchem,dphot,dt)
 ! End of updating H2/CO ratio. Now to update HI/HII/e- ratio.
 !------------------------------------------------------------------------------------
 !--If were not including H2, could set h2ratio to a small value (e.g. 1.e-7) and just
-!--have this part to calculate heating and cooloing (need nh1 and np1 though).
+!--have this part to calculate heating and cooling (need nh1 and np1 though).
 !
 ! column density of HI excluding protons
 !

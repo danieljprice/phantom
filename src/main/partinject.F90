@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -17,8 +17,8 @@ module partinject
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, dim, extern_gr, io, metric_tools, options,
-!   part, timestep_ind
+! :Dependencies: cons2prim, cooling_ism, dim, eos, extern_gr, io,
+!   metric_tools, options, part, timestep_ind
 !
  implicit none
 
@@ -41,13 +41,16 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
- use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
+ use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars,abundance
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
  use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
- use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin
+ use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin,imu,igamma
+ use part, only:iorig,norig
  use io,   only:fatal
- use dim,  only:ind_timesteps
+ use eos,  only:gamma,gmw
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry
  use timestep_ind, only:nbinmax
+ use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
  real,    intent(in), optional :: JKmuS(:)
@@ -67,6 +70,9 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
        call fatal('Add particle','npart > maxp')
     endif
     npartoftype(itype) = npartoftype(itype) + 1
+    ! add particle ID
+    norig                  = norig + 1
+    iorig(particle_number) = norig
  elseif (particle_number  >  npart + 1) then
     call fatal('Add particle', 'Incorrect particle number (> npart + 1).')
  elseif (particle_number <= npart) then
@@ -107,6 +113,11 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 
  if (ind_timesteps) ibin(particle_number) = nbinmax
  if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
+ if (update_muGamma) then
+    eos_vars(imu,particle_number) = gmw
+    eos_vars(igamma,particle_number) = gamma
+ endif
+ if (h2chemistry) abundance(:,particle_number) = abund_default
 
 end subroutine add_or_update_particle
 
@@ -153,7 +164,7 @@ end subroutine add_or_update_sink
 subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
  use dim,          only:ind_timesteps
  use timestep_ind, only:get_newbin,change_nbinmax,get_dt
- use part,         only:twas,ibin,ibin_old,norig,iorig,iphase,igas,iunknown
+ use part,         only:twas,ibin,ibin_old,iphase,igas,iunknown
 #ifdef GR
  use part,         only:xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext
  use cons2prim,    only:prim2consall
@@ -205,12 +216,6 @@ subroutine update_injected_particles(npartold,npart,istepfrac,nbinmax,time,dtmax
     ! not updated until after the call to step.
     dt = min(dt,dtinject)
  endif
-
- ! add particle ID
- do i=npartold+1,npart
-    norig    = norig + 1
-    iorig(i) = norig
- enddo
 
  ! if a particle was updated rather than added, reset iphase & set timestep (if individual timestepping)
  if (updated_particle) then

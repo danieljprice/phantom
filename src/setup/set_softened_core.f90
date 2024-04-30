@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -15,8 +15,8 @@ module setsoftenedcore
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos, io, physcon, setcubiccore, setfixedentropycore,
-!   table_utils
+! :Dependencies: eos, eos_mesa, io, physcon, setcubiccore,
+!   setfixedentropycore, table_utils
 !
  implicit none
  ! rcore: Radius / Rsun below which we replace the original profile with a
@@ -30,24 +30,21 @@ contains
 !  Main subroutine that sets a softened core profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,Lstar,r,den,pres,m,X,Y,ierr)
- use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight,iopacity_type
+subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,mcore,r,den,pres,m,X,Y,ierr)
+ use eos,                 only:X_in,Z_in,init_eos,gmw,get_mean_molecular_weight
  use eos_mesa,            only:init_eos_mesa
  use io,                  only:fatal
  use table_utils,         only:interpolator,yinterp,flip_array
  use setcubiccore,        only:set_cubic_core,find_mcore_given_rcore,&
                                find_rcore_given_mcore,check_rcore_and_mcore
  use setfixedentropycore, only:set_fixedS_softened_core
- use setfixedlumcore,     only:set_fixedlum_softened_core
  use physcon,             only:solarr,solarm
- use units,               only:unit_luminosity
  integer, intent(in) :: eos_type,isoftcore,isofteningopt
- real, intent(in)    :: Lstar
  logical, intent(in) :: regrid_core
  real, intent(inout) :: rcore,mcore
  real, intent(inout), allocatable :: r(:),den(:),m(:),pres(:),X(:),Y(:)
  integer             :: core_index,ierr,npts,Ncore
- real                :: Xcore,Zcore,rc,Lstar_cgs
+ real                :: Xcore,Zcore,rc
  logical             :: isort_decreasing,iexclude_core_mass
  real, allocatable   :: r1(:),den1(:),pres1(:),m1(:),X1(:),Y1(:)
 
@@ -104,7 +101,7 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     X1 = X
     Y1 = Y
     Ncore = 5000  ! number of grid points in softened region (hardwired for now)
-    call calc_regrid_core(Ncore,rcore*solarr,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
+    call calc_regrid_core(Ncore,rc,core_index,r1,den1,pres1,m1,X1,Y1,r,den,pres,m,X,Y)
     X(:) = X(size(X))
     Y(:) = Y(size(Y))
  endif
@@ -115,13 +112,6 @@ subroutine set_softened_core(eos_type,isoftcore,isofteningopt,regrid_core,rcore,
     call set_cubic_core(mcore,rcore,den,r,pres,m)
  case(2)
     call set_fixedS_softened_core(eos_type,mcore,rcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
-    if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
- case(3)
-    if (iopacity_type < 1) then
-       call fatal('set_softened_core','Cannot use zero opacity (iopacity_type<1) with a fixed-luminosity core')
-    endif 
-    Lstar_cgs = Lstar * unit_luminosity
-    call set_fixedlum_softened_core(eos_type,rcore,Lstar_cgs,mcore,den,r,pres,m,Xcore,1.-Xcore-Zcore,ierr)
     if (ierr /= 0) call fatal('setup','could not set fixed entropy softened core')
  end select
 
@@ -154,7 +144,7 @@ subroutine calc_regrid_core(Ncore,rcore_cm,icore,r1,den1,pres1,m1,X1,Y1,r2,den2,
  integer, intent(in)            :: Ncore
  real, intent(in)               :: rcore_cm
  integer, intent(inout)         :: icore
- real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1 
+ real, intent(in), dimension(:) :: r1,den1,pres1,m1,X1,Y1
  real, intent(out), dimension(:), allocatable :: r2,den2,pres2,m2,X2,Y2
  integer                        :: npts,npts_old,i
  real                           :: dr

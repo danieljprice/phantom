@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,6 +26,7 @@ module physcon
  real, parameter :: piontwo  =  1.5707963268d0
  real, parameter :: rpiontwo =  1.2533141373d0          !square root of (Pi/2)
  real, parameter :: roottwo  =  1.4142135624d0
+ real, parameter :: deg_to_rad = pi/180.
 !
 !--Physical constants
 !
@@ -66,6 +67,7 @@ module physcon
  real(kind=8), parameter :: earthm = 5.979d27                   !Mass of the Earth         g
  real(kind=8), parameter :: earthr = 6.371315d8                 !Radius of the Earth       cm
  real(kind=8), parameter :: jupiterm = 1.89813d30               !Mass of Jupiter           g
+ real(kind=8), parameter :: jupiterr = 7.1492e9                 !Equatorial radius Jupiter cm
  real(kind=8), parameter :: ceresm = 8.958d23                   !Mass of Ceres             g
  real(kind=8), parameter :: gram = 1.d0
 !

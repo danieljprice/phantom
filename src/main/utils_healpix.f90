@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -8,7 +8,6 @@ module healpix
 !
 ! This module sets the types used in the Fortran 90 modules (healpix_types.f90)
 ! of the HEALPIX distribution and follows the example of Numerical Recipes
-!
 ! Benjamin D. Wandelt October 1997
 ! Eric Hivon June 1998
 ! Eric Hivon Oct  2001, edited to be compatible with 'F' compiler
@@ -19,9 +18,9 @@ module healpix
 !            Mars 2008: i8b same as i4b on machines not supporting 64 bits (NO64BITS flag set)
 !            Feb  2009: introduce healpix_version
 !
-! :References: None
+! :References: K. M. Górski et al, 2005, ApJ, 622, 759
 !
-! :Owner: Lionel Siess
+! :Owner: Mats Esseldeurs
 !
 ! :Runtime parameters: None
 !
@@ -91,7 +90,7 @@ module healpix
 
 contains
 
-!! Returns i with even and odd bit positions interchanged.
+ !! Returns i with even and odd bit positions interchanged.
 function swapLSBMSB(i)
  integer(i4b) :: swapLSBMSB
  integer(i4b), intent(in) :: i
@@ -123,15 +122,15 @@ function invMSB(i)
  invMSB = ieor(i,evenbits)
 end function invMSB
 
-!=======================================================================
-!     vec2pix_nest
-!
-!     renders the pixel number ipix (NESTED scheme) for a pixel which contains
-!     a point on a sphere at coordinate vector (=x,y,z), given the map
-!     resolution parameter nside
-!
-! 2009-03-10: calculations done directly at nside rather than ns_max
-!=======================================================================
+ !=======================================================================
+ !     vec2pix_nest
+ !
+ !     renders the pixel number ipix (NESTED scheme) for a pixel which contains
+ !     a point on a sphere at coordinate vector (=x,y,z), given the map
+ !     resolution parameter nside
+ !
+ ! 2009-03-10: calculations done directly at nside rather than ns_max
+ !=======================================================================
 subroutine vec2pix_nest  (nside, vector, ipix)
  integer(i4b), parameter :: MKD = I4B
  integer(kind=I4B), intent(in)                :: nside
@@ -229,15 +228,15 @@ subroutine vec2pix_nest  (nside, vector, ipix)
 
 end subroutine vec2pix_nest
 
-!=======================================================================
-!     pix2vec_nest
-!
-!     renders vector (x,y,z) coordinates of the nominal pixel center
-!     for the pixel number ipix (NESTED scheme)
-!     given the map resolution parameter nside
-!     also returns the (x,y,z) position of the 4 pixel vertices (=corners)
-!     in the order N,W,S,E
-!=======================================================================
+ !=======================================================================
+ !     pix2vec_nest
+ !
+ !     renders vector (x,y,z) coordinates of the nominal pixel center
+ !     for the pixel number ipix (NESTED scheme)
+ !     given the map resolution parameter nside
+ !     also returns the (x,y,z) position of the 4 pixel vertices (=corners)
+ !     in the order N,W,S,E
+ !=======================================================================
 subroutine pix2vec_nest  (nside, ipix, vector, vertex)
  integer(i4b), parameter :: MKD = i4b
  integer(kind=I4B), intent(in) :: nside
@@ -435,15 +434,15 @@ subroutine pix2vec_nest  (nside, ipix, vector, vertex)
 
 end subroutine pix2vec_nest
 
-!=======================================================================
-!   npix2nside
-!
-! given npix, returns nside such that npix = 12*nside^2
-!  nside should be a power of 2 smaller than ns_max
-!  if not, -1 is returned
-! EH, Feb-2000
-! 2009-03-05, edited, accepts 8-byte npix
-!=======================================================================
+ !=======================================================================
+ !   npix2nside
+ !
+ ! given npix, returns nside such that npix = 12*nside^2
+ !  nside should be a power of 2 smaller than ns_max
+ !  if not, -1 is returned
+ ! EH, Feb-2000
+ ! 2009-03-05, edited, accepts 8-byte npix
+ !=======================================================================
 function npix2nside  (npix) result(nside_result)
  integer(i4b), parameter :: MKD = I4B
  integer(kind=MKD), parameter  :: npix_max = (12_MKD*ns_max4)*ns_max4
@@ -507,14 +506,14 @@ function nside2npix(nside) result(npix_result)
 
 end function nside2npix
 
-!=======================================================================
-! CHEAP_ISQRT
-!       Returns exact Floor(sqrt(x)) where x is a (64 bit) integer.
-!             y^2 <= x < (y+1)^2         (1)
-!       The double precision floating point operation is not accurate enough
-!        when dealing with 64 bit integers, especially in the vicinity of
-!       perfect squares.
-!=======================================================================
+ !=======================================================================
+ ! CHEAP_ISQRT
+ !       Returns exact Floor(sqrt(x)) where x is a (64 bit) integer.
+ !             y^2 <= x < (y+1)^2         (1)
+ !       The double precision floating point operation is not accurate enough
+ !        when dealing with 64 bit integers, especially in the vicinity of
+ !       perfect squares.
+ !=======================================================================
 function cheap_isqrt(lin) result (lout)
  integer(i4b), intent(in) :: lin
  integer(i4b) :: lout
@@ -522,7 +521,7 @@ function cheap_isqrt(lin) result (lout)
  return
 end function cheap_isqrt
 
-!=======================================================================
+ !=======================================================================
 subroutine mk_pix2xy()
  !=======================================================================
  !     constructs the array giving x and y in the face from pixel number
@@ -541,7 +540,7 @@ subroutine mk_pix2xy()
     IX = 0
     IY = 0
     IP = 1               ! bit position (in x and y)
-!        do while (jpix/=0) ! go through all the bits
+    !        do while (jpix/=0) ! go through all the bits
     do
        if (jpix == 0) exit ! go through all the bits
        ID = modulo(jpix,2)  ! bit value (in kpix), goes in ix
@@ -607,7 +606,7 @@ subroutine fatal_error (msg)
 
 end subroutine fatal_error
 
-! ===========================================================
+ ! ===========================================================
 subroutine exit_with_status (code, msg)
  integer(i4b), intent(in) :: code
  character (len=*), intent(in), optional :: msg
@@ -618,30 +617,30 @@ subroutine exit_with_status (code, msg)
 
 end subroutine exit_with_status
 
-!====================================================================
-! The following is a routine which finds the 7 or 8 neighbours of
-! any pixel in the nested scheme of the HEALPIX pixelisation.
-!====================================================================
-!  neighbours_nest
-!
-!   Returns list n(8) of neighbours of pixel ipix (in NESTED scheme)
-!   the neighbours are ordered in the following way:
-!   First pixel is the one to the south (the one west of the south
-! direction is taken
-! for the pixels which don't have a southern neighbour). From
-! then on the neighbours are ordered in the clockwise direction
-! about the pixel with number ipix.
-!
-!   nneigh is the number of neighbours (mostly 8, 8 pixels have 7 neighbours)
-!
-!   Benjamin D. Wandelt October 1997
-!   Added to pix_tools in March 1999
-!   added 'return' for case nside=1, EH, Oct 2005
-!   corrected bugs in case nside=1 and ipix=7, 9 or 11, EH, June 2006
-!   2009-06-16: deals with Nside > 8192
-!====================================================================
+ !====================================================================
+ ! The following is a routine which finds the 7 or 8 neighbours of
+ ! any pixel in the nested scheme of the HEALPIX pixelisation.
+ !====================================================================
+ !  neighbours_nest
+ !
+ !   Returns list n(8) of neighbours of pixel ipix (in NESTED scheme)
+ !   the neighbours are ordered in the following way:
+ !   First pixel is the one to the south (the one west of the south
+ ! direction is taken
+ ! for the pixels which don't have a southern neighbour). From
+ ! then on the neighbours are ordered in the clockwise direction
+ ! about the pixel with number ipix.
+ !
+ !   nneigh is the number of neighbours (mostly 8, 8 pixels have 7 neighbours)
+ !
+ !   Benjamin D. Wandelt October 1997
+ !   Added to pix_tools in March 1999
+ !   added 'return' for case nside=1, EH, Oct 2005
+ !   corrected bugs in case nside=1 and ipix=7, 9 or 11, EH, June 2006
+ !   2009-06-16: deals with Nside > 8192
+ !====================================================================
 subroutine neighbours_nest(nside, ipix, n, nneigh)
-!   use bit_manipulation
+ !   use bit_manipulation
  integer(kind=i4b), parameter  ::   MKD = I4B
  !====================================================================
  integer(kind=i4b), intent(in)::  nside
@@ -656,7 +655,7 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
  integer(kind=MKD) :: local_magic1,local_magic2,nsidesq
  character(len=*), parameter :: code = "neighbours_nest"
 
-!     integer(kind=i4b), intrinsic :: IAND
+ !     integer(kind=i4b), intrinsic :: IAND
 
  !--------------------------------------------------------------------
  if (nside <1 .or. nside > ns_max4) call fatal_error(code//"> nside out of range")
@@ -1052,18 +1051,18 @@ subroutine neighbours_nest(nside, ipix, n, nneigh)
 end subroutine neighbours_nest
 
 
-!=======================================================================
-!  pix2xy_nest
-!     gives the x, y coords in a face from pixel number within the face (NESTED)
-!
-!     Benjamin D. Wandelt 13/10/97
-!
-!     using code from HEALPIX toolkit by K.Gorski and E. Hivon
-!     2009-06-15: deals with Nside > 8192
-!     2012-03-02: test validity of ipf_in instead of undefined ipf
-!                 define ipf as MKD
-!     2012-08-27:  corrected bug on (ix,iy) for Nside > 8192 (MARK)
-!=======================================================================
+ !=======================================================================
+ !  pix2xy_nest
+ !     gives the x, y coords in a face from pixel number within the face (NESTED)
+ !
+ !     Benjamin D. Wandelt 13/10/97
+ !
+ !     using code from HEALPIX toolkit by K.Gorski and E. Hivon
+ !     2009-06-15: deals with Nside > 8192
+ !     2012-03-02: test validity of ipf_in instead of undefined ipf
+ !                 define ipf as MKD
+ !     2012-08-27:  corrected bug on (ix,iy) for Nside > 8192 (MARK)
+ !=======================================================================
 subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
  integer(kind=i4b), parameter  ::   MKD = I4B
  integer(kind=I4B), intent(in)  :: nside
@@ -1107,15 +1106,15 @@ subroutine pix2xy_nest  (nside, ipf_in, ix, iy)
 
 end subroutine pix2xy_nest
 
-!=======================================================================
-!     gives the pixel number ipix (NESTED)
-!     corresponding to ix, iy and face_num
-!
-!     Benjamin D. Wandelt 13/10/97
-!     using code from HEALPIX toolkit by K.Gorski and E. Hivon
-!     2009-06-15: deals with Nside > 8192
-!     2012-03-02: test validity of ix_in and iy_in instead of undefined ix and iy
-!=======================================================================
+ !=======================================================================
+ !     gives the pixel number ipix (NESTED)
+ !     corresponding to ix, iy and face_num
+ !
+ !     Benjamin D. Wandelt 13/10/97
+ !     using code from HEALPIX toolkit by K.Gorski and E. Hivon
+ !     2009-06-15: deals with Nside > 8192
+ !     2012-03-02: test validity of ix_in and iy_in instead of undefined ix and iy
+ !=======================================================================
 subroutine xy2pix_nest(nside, ix_in, iy_in, face_num, ipix)
  integer(kind=i4b), parameter  ::   MKD = I4B
  !=======================================================================

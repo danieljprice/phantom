@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -202,8 +202,9 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
 
- ! imatch  = .true.
- ! igotall = .true.
+ imatch  = .true.
+ igotall = .true.
+ ierr = 0
 
 end subroutine read_options_metric
 

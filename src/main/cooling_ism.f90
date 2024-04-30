@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,13 +26,15 @@ module cooling_ism
 !   - dphot             : *photodissociation distance used for CO/H2*
 !   - dphotflag         : *photodissociation distance static or radially adaptive (0/1)*
 !   - dust_to_gas_ratio : *dust to gas ratio*
+!   - h2chemistry       : *Calculate H2 chemistry*
 !   - iflag_atom        : *Which atomic cooling (1:Gal ISM, 2:Z=0 gas)*
 !   - iphoto            : *Photoelectric heating treatment (0=optically thin, 1=w/extinction)*
 !
-! :Dependencies: fs_data, infile_utils, io, mol_data, part, physcon,
+! :Dependencies: dim, fs_data, infile_utils, io, mol_data, part, physcon,
 !   splineutils, units
 !
  use physcon, only:kboltz
+ use dim,     only:nabundances
  implicit none
 !
 ! only publicly visible entries are the
@@ -59,7 +61,7 @@ module cooling_ism
 ! Number of different quantities stored in cooling look-up table
  integer, parameter :: ncltab = 54
 
-! These varables are initialised in init_cooling_ism
+! These variables are initialised in init_cooling_ism
  real :: temptab(nmd)
  real :: cltab(ncltab, nmd),dtcltab(ncltab, nmd)
  real :: dtlog, tmax, tmin
@@ -80,6 +82,8 @@ module cooling_ism
 ! These variables must be initialised during problem setup
 ! (in Phantom these appear in the input file when cooling is set,
 !  here we give them sensible default values)
+ real, public :: abund_default(nabundances) = (/0.,1.,0.,0.,0./)
+
 !
 ! Total abundances of C, O, Si: Sembach et al. (2000)
  real, public :: abundc  = 1.4d-4
@@ -168,12 +172,21 @@ end subroutine energ_cooling_ism
 !-----------------------------------------------------------------------
 subroutine write_options_cooling_ism(iunit)
  use infile_utils, only:write_inopt
+ use dim,          only:nabundances,h2chemistry
+ use part,         only:abundance_meaning,abundance_label
  integer, intent(in) :: iunit
+ integer :: i
 
+ call write_inopt(h2chemistry,'h2chemistry','Calculate H2 chemistry',iunit)
  call write_inopt(dlq,'dlq','distance for column density in cooling function',iunit)
  call write_inopt(dphot0,'dphot','photodissociation distance used for CO/H2',iunit)
  call write_inopt(dphotflag,'dphotflag','photodissociation distance static or radially adaptive (0/1)',iunit)
  call write_inopt(dchem,'dchem','distance for chemistry of HI',iunit)
+ if (.not.h2chemistry) then
+    do i=1,nabundances
+       call write_inopt(abund_default(i),abundance_label(i),abundance_meaning(i),iunit)
+    enddo
+ endif
  call write_inopt(abundc,'abundc','Carbon abundance',iunit)
  call write_inopt(abundo,'abundo','Oxygen abundance',iunit)
  call write_inopt(abundsi,'abundsi','Silicon abundance',iunit)
@@ -196,14 +209,18 @@ end subroutine write_options_cooling_ism
 !+
 !-----------------------------------------------------------------------
 subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
- use part, only:h2chemistry
+ use part,         only:abundance_label
+ use dim,          only:h2chemistry
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
+ integer :: i
 
  imatch  = .true.
  igotall = .true. ! none of the cooling options are compulsory
  select case(trim(name))
+ case('h2chemistry')
+    read(valstring,*,iostat=ierr) h2chemistry
  case('dlq')
     read(valstring,*,iostat=ierr) dlq
  case('dphot')
@@ -235,6 +252,15 @@ subroutine read_options_cooling_ism(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+
+ if (.not.h2chemistry .and. .not. imatch) then
+    do i=1,nabundances
+       if (trim(name)==trim(abundance_label(i))) then
+          read(valstring,*,iostat=ierr) abund_default(i)
+          imatch = .true.
+       endif
+    enddo
+ endif
 
 end subroutine read_options_cooling_ism
 
@@ -360,7 +386,7 @@ subroutine cool_func(temp, yn, dl, divv, abundances, ylam, rates)
           , dtcl41    , dtcl42  , dtcl43  , dtcl44  , dtcl45  &
           , dtcl46    , dtcl47  , dtcl48  , dtcl49  , dtcl50  &
           , dtcl51    , dtcl52  , dtcl53  , dtcl54
- !
+!
 ! ---------------------------------------------------------------------
 !
 ! Read out tables.

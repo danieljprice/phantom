@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,13 +29,14 @@ module options
  real, public :: avdecayconst
  integer, public :: nfulldump,nmaxdumps,iexternalforce
  real, public :: tolh,damp,rkill
- real(kind=4), public :: twallmax
+ integer, parameter :: sp = 4 ! single precision
+ real(kind=sp), public :: twallmax
 
 ! artificial viscosity, thermal conductivity, resistivity
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
+ real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
  integer, public :: ireconav
 
@@ -45,13 +46,13 @@ module options
  real,    public :: rhofinal_cgs,rhofinal1
 
 ! dust method
- logical, public :: use_dustfrac, use_hybrid
+ logical, public :: use_dustfrac, use_hybrid, use_porosity
 
 ! mcfost
  logical, public :: use_mcfost, use_Voronoi_limits_file, use_mcfost_stellar_parameters, mcfost_computes_Lacc
  logical, public :: mcfost_uses_PdV, mcfost_dust_subl
  integer, public :: ISM
- real(kind=4), public :: mcfost_keep_part
+ real(kind=sp), public :: mcfost_keep_part
  character(len=80), public :: Voronoi_limits_file
 
  ! radiation
@@ -133,8 +134,6 @@ subroutine set_default_options
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
- hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
- !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
@@ -150,7 +149,7 @@ subroutine set_default_options
  mcfost_computes_Lacc = .false.
  mcfost_dust_subl = .false.
  mcfost_uses_PdV = .true.
- mcfost_keep_part = real(0.999,kind=4)
+ mcfost_keep_part = 0.999_sp
  ISM = 0
 
  ! radiation

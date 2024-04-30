@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -62,7 +62,7 @@ subroutine test_nonidealmhd(ntests,npass,string)
  testshock  = .false.
  testeta = .false.
  testall    = .false.
- select case(string)
+ select case(trim(string))
  case('nimhddamp','wavedamp')
     testdamp = .true.
  case('nimhdshock')
@@ -572,14 +572,14 @@ subroutine test_etaval(ntests,npass)
  call set_units(mass=solarm,dist=1.0d16,G=1.d0)
  rho0(1)      =  7.420d-18 /unit_density   ! [g/cm^3]
  Bz0(1)       =  8.130d-5  /unit_Bfield    ! [G]
- eta_act(1,1) =  9.5267772328d10           ! [cm^2/s] expected eta_ohm
- eta_act(2,1) = -1.1642052571d17           ! [cm^2/s] expected eta_hall
- eta_act(3,1) =  3.2301843483d18           ! [cm^2/s] expected eta_ambi
+ eta_act(1,1) =  9.5262674506e10           ! [cm^2/s] expected eta_ohm
+ eta_act(2,1) = -1.17385344587d17           ! [cm^2/s] expected eta_hall
+ eta_act(3,1) =  3.24221785540d18           ! [cm^2/s] expected eta_ambi
  rho0(2)      =  4.6d-3    /unit_density   ! [g/cm^3]
  Bz0(2)       =  1.92d2    /unit_Bfield    ! [G]
- eta_act(1,2) =  1.9073987505d9            ! [cm^2/s] expected eta_ohm
- eta_act(2,2) =  2.3797926640d5            ! [cm^2/s] expected eta_hall
- eta_act(3,2) =  1.1443044356d-2           ! [cm^2/s] expected eta_ambi
+ eta_act(1,2) =  2.051448843995e9            ! [cm^2/s] expected eta_ohm
+ eta_act(2,2) =  1.369211024952e6               ! [cm^2/s] expected eta_hall
+ eta_act(3,2) =  1.2374308216e-2           ! [cm^2/s] expected eta_ambi
  !
  ! initialise values for grid
  !

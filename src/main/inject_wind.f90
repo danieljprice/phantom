@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,7 +40,7 @@ module inject
 !--runtime settings for this module
 !
 ! Read from input file
- integer:: sonic_type = -1
+ integer:: sonic_type = 0
  integer:: iboundary_spheres = 5
  integer:: iwind_resolution = 5
  integer:: nfill_domain = 0
@@ -319,7 +319,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
  use wind,              only:interp_wind_profile !,wind_profile
@@ -334,7 +334,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
@@ -364,11 +364,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !
     ! delete particles that exit the outer boundary
     !
-    i = npart
     inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
     if (outer_boundary_au > Rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
-    if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
+    if (npart_old /= npart .and. iverbose > 0) print *,'deleted ',npart_old-npart,'particles, remaining',npart
+    npart_old = npart
 
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
@@ -664,7 +664,6 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- if (sonic_type < 0) call set_default_options_inject
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
@@ -695,9 +694,13 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
- logical :: isowind = .true.
+ logical :: isowind = .true., init_opt = .false.
  character(len=30), parameter :: label = 'read_options_inject'
 
+ if (.not.init_opt) then
+    init_opt = .true.
+    call set_default_options_inject()
+ endif
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
