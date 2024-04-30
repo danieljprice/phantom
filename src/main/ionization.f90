@@ -346,7 +346,7 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,et
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
  integer, intent(in) :: ieos
  real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
- real, intent(in), optional :: radprop
+ real, intent(in), optional :: radprop(:)
  real, intent(out)   :: ethi
  real                :: hi,densi_cgs,mui
 
