@@ -405,7 +405,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
        x         = 2.*(1.+4.*eps(iHe))/mu
-       gamma     = (3.*x+4.-3.*eps(iHe))/(x+4.+eps(iHe))
+       gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
        if (i == 1) then
           mu_old = mu

@@ -123,7 +123,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
                            itemp,igamma
  use io,              only:fatal
- use eos,             only:ieos,gamma,done_init_eos,init_eos,get_spsound
+ use eos,             only:ieos,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
@@ -135,7 +135,7 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 !$omp parallel do default (none) &
 !$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,gamma,eos_vars,ien_type) &
+!$omp shared(ieos,eos_vars,ien_type) &
 !$omp private(i,ierr,spsound,pondens,p_guess,rhoi,tempi,gammai)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then

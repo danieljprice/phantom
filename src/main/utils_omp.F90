@@ -33,7 +33,7 @@ contains
 !----------------------------------------------------------------
 subroutine info_omp
 #ifdef _OPENMP
- integer omp_get_num_threads
+ integer, external :: omp_get_num_threads
 
 !$omp parallel
 !$omp master
@@ -57,7 +57,8 @@ end subroutine info_omp
 subroutine init_omp
 #ifdef _OPENMP
 !$ integer :: i
- integer :: omp_get_num_threads
+!$ external :: omp_init_lock
+ integer, external :: omp_get_num_threads
 
 !$ do i = 0, nlocks
 !$  call omp_init_lock(ipart_omp_lock(i))
@@ -83,8 +84,8 @@ subroutine limits_omp (n1,n2,i1,i2)
  integer, intent(in)  :: n1,n2
  integer, intent(out) :: i1,i2
 #ifdef _OPENMP
- integer :: omp_get_num_threads, omp_get_thread_num
- logical :: omp_in_parallel
+ integer, external :: omp_get_num_threads, omp_get_thread_num
+ logical, external :: omp_in_parallel
 
  if (omp_in_parallel()) then
     i1 = n1 + ((omp_get_thread_num()  )*n2)/omp_get_num_threads()
@@ -112,7 +113,8 @@ subroutine limits_omp_work (n1,n2,i1,i2,work,mask,iskip)
  integer, intent(in) :: mask(n2)
 
 #ifdef _OPENMP
- integer :: omp_get_num_threads, omp_get_thread_num, num_threads,id
+ integer, external :: omp_get_num_threads, omp_get_thread_num
+ integer :: num_threads,id
  real :: chunk,my_chunk
  integer :: my_thread,i
 
@@ -158,7 +160,7 @@ end subroutine limits_omp_work
 
 integer function omp_thread_num()
 #ifdef _OPENMP
- integer :: omp_get_thread_num
+ integer, external :: omp_get_thread_num
  omp_thread_num = omp_get_thread_num()
 #else
  omp_thread_num = 0
