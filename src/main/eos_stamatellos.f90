@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,12 +22,13 @@ module eos_stamatellos
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
  real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
- logical,parameter,public :: doFLD = .True.
+ logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
  public :: get_k_fld
+
 contains
 
 subroutine init_S07cool()
@@ -38,9 +39,16 @@ subroutine init_S07cool()
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
  allocate(urad_FLD(npart))    
+ allocate(ttherm_store(npart))    
+ allocate(teqi_store(npart))    
+ allocate(opac_store(npart))    
  urad_FLD(:) = 0d0
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
- if (doFLD) print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
+ if (doFLD) then
+    print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
+ else
+    print *, "NOT using FLD. Using cooling only"
+ endif
 end subroutine init_S07cool
 
 subroutine finish_S07cool()
@@ -50,6 +58,9 @@ subroutine finish_S07cool()
  if (allocated(duFLD)) deallocate(duFLD)
  if (allocated(lambda_fld)) deallocate(lambda_fld)
  if (allocated(urad_FLD)) deallocate(urad_FLD)
+ if (allocated(ttherm_store)) deallocate(ttherm_store)
+ if (allocated(teqi_store)) deallocate(teqi_store)
+ if (allocated(opac_store)) deallocate(opac_store)
  close(iunitst)
 end subroutine finish_S07cool
 
