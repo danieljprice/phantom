@@ -34,7 +34,6 @@ module readwrite_infile
 !   - dtwallmax          : *maximum wall time between dumps (hhh:mm, 000:00=ignore)*
 !   - dumpfile           : *dump file to start from*
 !   - flux_limiter       : *limit radiation flux*
-!   - hdivbbmax_max      : *max factor to decrease cleaning timestep propto B/(h|divB|)*
 !   - hfact              : *h in units of particle spacing [h = hfact(m/rho)^(1/3)]*
 !   - ien_type           : *energy variable (0=auto, 1=entropy, 2=energy, 3=entropy_s)*
 !   - implicit_radiation : *use implicit integration (Whitehouse, Bate & Monaghan 2005)*
@@ -76,7 +75,7 @@ module readwrite_infile
  use options,   only:nfulldump,nmaxdumps,twallmax,iexternalforce,tolh, &
                      alpha,alphau,alphaB,beta,avdecayconst,damp,rkill, &
                      ipdv_heating,ishock_heating,iresistive_heating,ireconav, &
-                     icooling,psidecayfac,overcleanfac,hdivbbmax_max,alphamax,calc_erot,rhofinal_cgs, &
+                     icooling,psidecayfac,overcleanfac,alphamax,calc_erot,rhofinal_cgs, &
                      use_mcfost,use_Voronoi_limits_file,Voronoi_limits_file,use_mcfost_stellar_parameters,&
                      exchange_radiation_energy,limit_radiation_flux,iopacity_type,mcfost_computes_Lacc,&
                      mcfost_uses_PdV,implicit_radiation,mcfost_keep_part,ISM, mcfost_dust_subl
@@ -84,7 +83,7 @@ module readwrite_infile
  use viscosity, only:irealvisc,shearparam,bulkvisc
  use part,      only:hfact,ien_type
  use io,        only:iverbose
- use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth
+ use dim,       only:do_radiation,nucleation,use_dust,use_dustgrowth,mhd_nonideal
  implicit none
  logical :: incl_runtime2 = .false.
 
@@ -112,12 +111,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use inject,          only:write_options_inject
 #endif
  use dust_formation,  only:write_options_dust_formation
-#ifdef NONIDEALMHD
  use nicil_sup,       only:write_options_nicil
-#endif
-#ifdef GR
  use metric,          only:write_options_metric
-#endif
  use eos,             only:write_options_eos,ieos,X_in,Z_in
  use ptmass,          only:write_options_ptmass
  use ptmass_radiation,only:write_options_ptmass_radiation
@@ -206,7 +201,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_inopt(alphaB,'alphaB','shock resistivity parameter',iwritein)
     call write_inopt(psidecayfac,'psidecayfac','div B diffusion parameter',iwritein)
     call write_inopt(overcleanfac,'overcleanfac','factor to increase cleaning speed (decreases time step)',iwritein)
-    call write_inopt(hdivbbmax_max,'hdivbbmax_max','max factor to decrease cleaning timestep propto B/(h|divB|)',iwritein)
  endif
  call write_inopt(beta,'beta','beta viscosity',iwritein)
  if (maxalpha==maxp .and. maxp > 0) then
@@ -272,10 +266,6 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     call write_options_porosity(iwritein)
  endif
 
-#ifdef PHOTO
- call write_options_photoevap(iwritein)
-#endif
-
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
@@ -287,9 +277,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
     write(iwritein,"(/,a)") '# options controling radiation pressure from sink particles'
     call write_options_ptmass_radiation(iwritein)
  endif
-#ifdef NONIDEALMHD
- call write_options_nicil(iwritein)
-#endif
+
+ if (mhd_nonideal) call write_options_nicil(iwritein)
 
  if (do_radiation) then
     write(iwritein,"(/,a)") '# options for radiation'
@@ -309,16 +298,15 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
     endif
  endif
-#ifdef GR
- call write_options_metric(iwritein)
-#endif
+
+ if (gr) call write_options_metric(iwritein)
+
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 
- return
 end subroutine write_infile
 
 !-----------------------------------------------------------------
@@ -347,9 +335,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use inject,          only:read_options_inject
 #endif
  use dust_formation,  only:read_options_dust_formation,idust_opacity
-#ifdef NONIDEALMHD
  use nicil_sup,       only:read_options_nicil
-#endif
  use part,            only:mhd,nptmass
  use cooling,         only:read_options_cooling
  use ptmass,          only:read_options_ptmass
@@ -494,8 +480,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
        read(valstring,*,iostat=ierr) overcleanfac
-    case('hdivbbmax_max')
-       read(valstring,*,iostat=ierr) hdivbbmax_max
     case('beta')
        read(valstring,*,iostat=ierr) beta
     case('ireconav')
@@ -571,9 +555,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
-#ifdef NONIDEALMHD
        if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
-#endif
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)

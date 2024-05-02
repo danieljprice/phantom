@@ -39,7 +39,7 @@ module extern_corotate
  real, public    :: primarycore_xpos = 1., primarycore_mass = 1.
  integer, public :: icompanion_grav = 0
 
- public          :: update_coriolis_leapfrog
+ public          :: update_coriolis
  public          :: get_coriolis_force,get_centrifugal_force,get_companion_force
  public          :: write_options_corotate, read_options_corotate
  private
@@ -132,17 +132,16 @@ end subroutine get_coriolis_force
 ! returning the forces plus the Coriolis force.
 !+
 !---------------------------------------------------------------
-subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
-                                    vcrossomega,dt)
+subroutine update_coriolis(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
+                                    vcrossomega,dkdt)
  use vectorutils, only:cross_product3D,matrixinvert3D
  use io,          only:fatal
- real, intent(in)    :: dt
+ real, intent(in)    :: dkdt
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(out)   :: vcrossomega(3)
 
  integer :: ierr
- real :: dton2
  real :: A(3),v1(3),Omegap(3)
  real :: Rmat(3,3),Rinv(3,3)
 
@@ -161,15 +160,14 @@ subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
 !
 ! and fxi,fyi,fzi are the components of f1_sph
 !--------------------------------------------------
- dton2   = 0.5*dt
- A(1)    = vhalfx + dton2*fxi
- A(2)    = vhalfy + dton2*fyi
- A(3)    = vhalfz + dton2*fzi
+ A(1)    = vhalfx + dkdt*fxi
+ A(2)    = vhalfy + dkdt*fyi
+ A(3)    = vhalfz + dkdt*fzi
 
 ! This is the matrix from the equation for v1: [Rmat][v1] = [A]
- Rmat = reshape((/1.,             -dton2*Omegap(3),  dton2*Omegap(2), &
-                  dton2*Omegap(3), 1.,              -dton2*Omegap(1), &
-                 -dton2*Omegap(2), dton2*Omegap(1), 1.              /),(/3,3/))
+ Rmat = reshape((/1.,             -dkdt*Omegap(3),  dkdt*Omegap(2), &
+                  dkdt*Omegap(3), 1.,              -dkdt*Omegap(1), &
+                 -dkdt*Omegap(2), dkdt*Omegap(1), 1.              /),(/3,3/))
 
 ! Get the inverse matrix
  call matrixinvert3D(Rmat,Rinv,ierr)
@@ -188,7 +186,7 @@ subroutine update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,&
  fyi = fyi + vcrossomega(2)
  fzi = fzi + vcrossomega(3)
 
-end subroutine update_coriolis_leapfrog
+end subroutine update_coriolis
 
 !-----------------------------------------------------------------------
 !+
