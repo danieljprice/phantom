@@ -1024,7 +1024,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,kfldi,kfldj,Ti,Tj,diffterm,gmwi
+ real    :: radPj,fgravxi,fgravyi,fgravzi,kfldi,kfldj,Ti,Tj,diffterm
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack

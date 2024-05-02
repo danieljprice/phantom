@@ -2,7 +2,7 @@
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
 ! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.github.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module readwrite_infile
 !
@@ -270,8 +270,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
 #endif
- if (nucleation) call write_options_dust_formation(iwritein)
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
+
+ if (nucleation) call write_options_dust_formation(iwritein)
 
  if (sink_radiation) then
     write(iwritein,"(/,a)") '# options controling radiation pressure from sink particles'
@@ -298,9 +299,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
        call write_inopt(cv_type,'cv_type','how to get cv and mean mol weight (0=constant,1=mesa)',iwritein)
     endif
  endif
-
  if (gr) call write_options_metric(iwritein)
-
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
@@ -555,7 +554,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
-       if (.not.imatch) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
+       if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
@@ -681,10 +680,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        if (psidecayfac < 0.) call fatal(label,'stupid value for psidecayfac')
        if (psidecayfac > 2.) call warn(label,'psidecayfac set outside recommended range (0.1-2.0)')
        if (overcleanfac < 1.0) call warn(label,'overcleanfac less than 1')
-       if (hdivbbmax_max < overcleanfac) then
-          call warn(label,'Resetting hdivbbmax_max = overcleanfac')
-          hdivbbmax_max = overcleanfac
-       endif
     endif
     if (beta < 0.)     call fatal(label,'beta < 0')
     if (beta > 4.)     call warn(label,'very high beta viscosity set')

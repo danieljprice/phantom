@@ -37,7 +37,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,hdivBonB_max
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
@@ -88,10 +88,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+                            set_integration_precision
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
@@ -161,6 +162,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  else
     dtmax_log_dratio = 0.0
  endif
+
+ !
+ ! Set substepping integration precision depending on the system (default is FSI)
+ !
+ call set_integration_precision
 
 #ifdef IND_TIMESTEPS
  use_global_dt = .false.
@@ -270,7 +276,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,time)
     endif
     !
     ! Strang splitting: implicit update for half step
@@ -390,7 +396,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
-       if (mhd) call check_magnetic_stability(hdivBB_xa)
+       if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
