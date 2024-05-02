@@ -183,9 +183,9 @@ subroutine generate_neighbour_lists(xyzh,vxyzu,npart,dumpfile,write_neighbour_li
  ! 3. Output neighbour lists to file (if requested; these files can become very big)
  !**************************************
  if (write_neighbour_list) then
-    neighbourfile = 'neigh_'//TRIM(dumpfile)
+    neighbourfile = 'neigh_'//trim(dumpfile)
     call write_neighbours(neighbourfile, npart)
-    print*, 'Neighbour finding complete for file ', TRIM(dumpfile)
+    print*, 'Neighbour finding complete for file ', trim(dumpfile)
  endif
 
  deallocate(dumxyzh)
@@ -214,7 +214,7 @@ subroutine neighbours_stats(npart)
     stop
  endif
 
- meanneigh = sum(neighcount)/REAL(npart)
+ meanneigh = sum(neighcount)/real(npart)
  sdneigh   = 0.0
 
 !$omp parallel default(none) &
@@ -228,7 +228,7 @@ subroutine neighbours_stats(npart)
  !$omp enddo
  !$omp end parallel
 
- sdneigh = sqrt(sdneigh/REAL(npart))
+ sdneigh = sqrt(sdneigh/real(npart))
 
  print*, 'Mean neighbour number is ', meanneigh
  print*, 'Standard Deviation: ', sdneigh
@@ -250,8 +250,8 @@ subroutine read_neighbours(neighbourfile,npart)
  neighcount(:) = 0
  neighb(:,:)   = 0
 
- print*, 'Reading neighbour file ', TRIM(neighbourfile)
- open(2, file= neighbourfile,  form = 'UNFORMATTED')
+ print*, 'Reading neighbour file ', trim(neighbourfile)
+ open(2,file= neighbourfile,  form = 'UNFORMATTED')
  read(2)  neighcheck, tolcheck, meanneigh,sdneigh,neighcrit
  if (neighcheck/=neighmax) print*, 'WARNING: mismatch in neighmax: ', neighmax, neighcheck
  read(2) (neighcount(i), i=1,npart)
@@ -287,10 +287,10 @@ subroutine write_neighbours(neighbourfile,npart)
  real, parameter     :: tolerance = 2.0e0  ! A dummy parameter used to keep file format similar to other codes (Probably delete later)
 
  neigh_overload = .false.
- neighbourfile  = TRIM(neighbourfile)
+ neighbourfile  = trim(neighbourfile)
  print*, 'Writing neighbours to file ', neighbourfile
 
- open (2, file=neighbourfile, form='unformatted')
+ open(2,file=neighbourfile,form='unformatted')
  write(2)  neighmax, tolerance, meanneigh,sdneigh,neighcrit
  write(2) (neighcount(i), i=1,npart)
  do i=1,npart

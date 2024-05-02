@@ -35,7 +35,7 @@ jobs:
       nbatch: ${{ steps.set-sequence.outputs.nbatch }}
     steps:
     - name: Check out repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Generate sequence of batch numbers for normal tests, or run sequentially for scheduled tests
       id: set-sequence
       run: |
