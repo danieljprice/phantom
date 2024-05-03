@@ -2528,19 +2528,11 @@ subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block,iprin
                 if (i==i_real4) then
                    read(iunit,iostat=ierr) mytag
                    if (trim(mytag)==trim(tag)) then
-<<<<<<< HEAD
-                      read(iunit, iostat=ierr) array(1:min(int(number8(j)),size(array)))
+                      read(iunit,iostat=ierr) array(1:min(int(number8(j)),size(array)))
                       if (iprint) print*,'->',mytag
                    else
                       if (iprint) print*,'  ',mytag
-                      read(iunit, iostat=ierr)
-=======
-                      read(iunit,iostat=ierr) array(1:min(int(number8(j)),size(array)))
-                      print*,'->',mytag
-                   else
-                      print*,'  ',mytag
                       read(iunit,iostat=ierr)
->>>>>>> daniel/master
                    endif
                 else
                    read(iunit,iostat=ierr) mytag ! tag
