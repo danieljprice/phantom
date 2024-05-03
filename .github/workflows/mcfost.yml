@@ -9,7 +9,7 @@ on:
       - 'README.md'
 
 env:
-  PREFIX: /usr/local/
+  PREFIX: /opt/homebrew
   MCFOST_GIT: 1
   SYSTEM: gfortran
   HOMEBREW_NO_INSTALL_CLEANUP: 1
