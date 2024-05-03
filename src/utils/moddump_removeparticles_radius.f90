@@ -17,8 +17,9 @@ module moddump
 ! :Dependencies: part, prompting
 !
 
- use part,         only:delete_particles_outside_sphere,igas,idust
+ use part,         only:delete_particles_outside_sphere,delete_particles_with_large_h,igas,idust
  use prompting,    only:prompt
+ use units,        only:unit_density
 
  implicit none
 
@@ -33,7 +34,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(3) :: incenter,outcenter
  integer :: iremoveparttype
  real :: inradius,outradius
- logical :: icutinside,icutoutside
+ real :: h_on_r_min,rmax,rho_max
+ logical :: icutinside,icutoutside,irmlargeh
 
 
  !
@@ -52,6 +54,10 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Enter x coordinate of the center of that sphere',outcenter(1))
     call prompt('Enter y coordinate of the center of that sphere',outcenter(2))
     call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
+ endif
+ irmlargeh = .false.
+ if (.not. icutinside .and. .not. icutoutside) then
+    call prompt('Deleting particles with large h?',irmlargeh)
  endif
 
  call prompt('Deleting which particles (0=all, 1=gas only, 2=dust only)?', iremoveparttype)
@@ -85,6 +91,16 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     else
        call delete_particles_outside_sphere(outcenter,outradius,npart)
     endif
+ endif
+
+ if (irmlargeh) then
+    h_on_r_min = 0.3
+    rho_max = 1.e-14/unit_density
+    rmax = 1000.
+    outcenter = 0.
+    print*,'Phantommoddump: Removing particles with large h, satisfying all of'
+    print*,'h/r >',h_on_r_min,', rho [code] <',rho_max,', r [code] >',rmax
+    call delete_particles_with_large_h(outcenter,npart,h_on_r_min,rho_max,rmax)
  endif
 
 end subroutine modify_dump

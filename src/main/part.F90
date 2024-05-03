@@ -1848,6 +1848,30 @@ subroutine delete_particles_inside_radius(center,radius,npart,npoftype)
 end subroutine delete_particles_inside_radius
 
 !----------------------------------------------------------------
+!+
+!  Delete particles with large ratio of h/r
+!+
+!----------------------------------------------------------------
+subroutine delete_particles_with_large_h(center,npart,h_on_r_min,rho_max,rmax)
+ real, intent(in) :: center(3),h_on_r_min,rho_max,rmax
+ integer, intent(inout) :: npart
+ integer :: i
+ real :: r,pmass,rho_part,h_on_r
+
+ do i=1,npart
+    r = sqrt(dot_product(xyzh(1:3,i)-center,xyzh(1:3,i)-center))
+    pmass = massoftype(iamtype(iphase(i)))
+    rho_part = rhoh(xyzh(4,i),pmass)
+    h_on_r = xyzh(4,i)/r
+    if (r > rmax .and. rho_part < rho_max .and. h_on_r > h_on_r_min) then
+       call kill_particle(i,npartoftype)
+    endif
+ enddo
+ call shuffle_part(npart)
+
+end subroutine delete_particles_with_large_h
+
+!----------------------------------------------------------------
  !+
  ! Accrete particles outside a given radius
  !+
