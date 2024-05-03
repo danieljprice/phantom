@@ -58,8 +58,7 @@ module ptmass
  public :: set_integration_precision
 
  ! settings affecting routines in module (read from/written to input file)
- integer, public :: icreate_sinks = 0
- integer, public :: icreate_stars = 0
+ integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
@@ -1502,7 +1501,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     fxyz_ptmass_sinksink(:,nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
-    if (icreate_stars > 0) call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+    if (icreate_sinks > 1) call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
 
     if (id==id_rhomax) then
        write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
@@ -1725,7 +1724,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
                                     - mij*(xyzmh_ptmass(1,k)*vxyz_ptmass(2,k) - xyzmh_ptmass(2,k)*vxyz_ptmass(1,k))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
-             if(icreate_stars>0) then
+             if(icreate_sinks>1) then
                 ! Connect linked list of the merged sink to the survivor
                 call ptmass_end_lklist(k,l,linklist_ptmass)
                 linklist_ptmass(l) = j

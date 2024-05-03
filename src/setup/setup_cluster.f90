@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,icreate_stars,tmax_acc
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -112,9 +112,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
  endif
 
- !--Set units
- call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
-
  if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
  !--Read values from .setup
@@ -131,6 +128,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call write_setupfile(fileset)
  endif
 
+ !--Set units
+ call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
+
  !--Define remaining variables using the inputs
  polyk         = kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
  rmax          = Rcloud_pc*(pc/udist)
@@ -141,7 +141,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  t_ff          = sqrt(3.*pi/(32.*rhozero))  ! free-fall time (the characteristic timescale)
  epotgrav      = 3./5.*totmass**2/rmax      ! Gravitational potential energy
  lattice       = 'random'
- icreate_stars = 1
  tmax_acc    = (0.5*myr)/utime
 
  !--Set positions
