@@ -495,10 +495,10 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  inquire(file=trim(filename), exist=iexist)
  if (present(subst) .and. subst>10) then
     if (iexist) then
-       open(1, file = trim(filename), status = 'old')
+       open(1,file=trim(filename),status='old')
        lines=0
        do
-          read(1, *, iostat=io) data(lines+1,:)
+          read(1, *,iostat=io) data(lines+1,:)
           if (io/=0) exit
           lines = lines + 1
        enddo
@@ -510,14 +510,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  else
     if (iexist) then
        print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
-       open(1, file=trim(filename), status='old')
-       close(1, status='delete')
+       open(1,file=trim(filename),status='old')
+       close(1,status='delete')
     endif
 
     mtot = m1 + m2
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
 
-    open(1, file = trim(filename), status = 'new')
+    open(1,file=trim(filename),status='new')
     if (present(incl)) then
        if (present(posang_ascnode) .and. present(arg_peri)) then
           write(1,*) 1, 11, m1, m2, semimajoraxis, eccentricity, period, incl, arg_peri, posang_ascnode
@@ -716,7 +716,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
 
     ! Write updated HIERARCHY file with the two new stars and the substituted one
-    open(1, file = trim(filename), status = 'old')
+    open(1,file=trim(filename),status='old')
     do i=1,lines
        write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
     enddo

@@ -257,7 +257,6 @@ ifeq ($(SETUP), gwdisc)
     DISC_VISCOSITY=yes
     SETUPFILE= setup_gwdisc.f90
     ANALYSIS= analysis_disc.f90
-    MAXP=2000000
     IND_TIMESTEPS=yes
     ISOTHERMAL=yes
     MULTIRUNFILE= multirun.f90
@@ -267,7 +266,6 @@ endif
 
 ifeq ($(SETUP), nshwdisc)
 #   disc around a neutron star
-    FPPFLAGS= -DPRDRAG
     SETUPFILE= setup_nsdisc.f90
     ANALYSIS= analysis_disc.f90
     MODFILE= moddump_changemass.f90
@@ -291,7 +289,6 @@ ifeq ($(SETUP), binarydiscMFlow)
     SETUPFILE= setup_disc.f90
     ANALYSIS= analysis_disc_MFlow.f90
 #    ANALYSIS= analysis_binarydisc.f90
-    MAXP=1000000
     ISOTHERMAL=yes
     CURLV=yes
     LIVE_ANALYSIS=no
@@ -343,6 +340,12 @@ ifeq ($(SETUP), galcen)
 #   galactic centre
     SETUPFILE= setup_galcen_stars.f90
     SRCINJECT= inject_galcen_winds.f90
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), starcluster)
+#   Cluster of stars (ptmass) 
+    SETUPFILE= setup_starcluster.f90
     KNOWN_SETUP=yes
 endif
 
@@ -421,7 +424,7 @@ endif
 ifeq ($(SETUP), shock)
 #   shock tube tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     KNOWN_SETUP=yes
 endif
@@ -429,7 +432,7 @@ endif
 ifeq ($(SETUP), dustyshock)
 #   shock tube tests with dust
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     DUST=yes
     KERNEL=quintic
     KNOWN_SETUP=yes
@@ -438,7 +441,7 @@ endif
 ifeq ($(SETUP), mhdshock)
 #   Ryu & Brio-Wu shock tube tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     MHD=yes
     KERNEL=quintic
     KNOWN_SETUP=yes
@@ -447,7 +450,7 @@ endif
 ifeq ($(SETUP), nimhdshock)
 #   non-ideal mhd standing and C shock tests
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     MHD=yes
     STS_TIMESTEPS=no
     NONIDEALMHD=yes
@@ -461,7 +464,7 @@ ifeq ($(SETUP), radshock)
 #   shock tube in radiation hydrodynamics
     PERIODIC=yes
     RADIATION=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     KNOWN_SETUP=yes
 endif
@@ -469,20 +472,18 @@ endif
 ifeq ($(SETUP), srshock)
 #   special relativistic sod shock tube test
     PERIODIC=yes
-    SETUPFILE= setup_shock.F90
+    SETUPFILE= setup_shock.f90
     KERNEL=quintic
     GR=yes
     METRIC=minkowski
     KNOWN_SETUP=yes
-    MAXP=900000
     CONST_AV=yes
 endif
 
 ifeq ($(SETUP), testparticles)
 #   test particles
-    SETUPFILE= setup_testparticles.F90
+    SETUPFILE= setup_testparticles.f90
     KNOWN_SETUP=yes
-    MAXP=500000
     ANALYSIS= analysis_1particle.f90
 endif
 
@@ -492,7 +493,6 @@ ifeq ($(SETUP), gr_testparticles)
     GR=yes
     METRIC=kerr
     KNOWN_SETUP=yes
-    MAXP=1000
     ANALYSIS= analysis_1particle.f90
 endif
 
@@ -592,7 +592,6 @@ ifeq ($(SETUP), sedov)
     SETUPFILE= setup_sedov.f90
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
-    MAXP=2100000
 endif
 
 ifeq ($(SETUP), srblast)
@@ -689,7 +688,6 @@ ifeq ($(SETUP), mhdblast)
     PERIODIC=yes
     MHD=yes
     KNOWN_SETUP=yes
-    MAXP=3000000
 endif
 
 ifeq ($(SETUP), mhdwave)
@@ -698,7 +696,6 @@ ifeq ($(SETUP), mhdwave)
     PERIODIC=yes
     MHD=yes
     KNOWN_SETUP=yes
-    MAXP=3000000
 endif
 
 ifeq ($(SETUP), cluster)
@@ -711,7 +708,6 @@ ifeq ($(SETUP), cluster)
     IND_TIMESTEPS=yes
     KNOWN_SETUP=yes
     MAXPTMASS=1000
-    MAXP=3500000
 endif
 
 ifeq ($(SETUP), binary)
@@ -1038,7 +1034,7 @@ ifeq ($(SETUP), testgr)
 endif
 
 ifeq ($(SETUP), flrw)
-#   constant density FLRW cosmology with perturbations  
+#   constant density FLRW cosmology with perturbations
     GR=yes
     KNOWN_SETUP=yes
     IND_TIMESTEPS=no

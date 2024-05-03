@@ -106,7 +106,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
- use physcon,       only:kb_on_mh,radconst
+ use physcon,       only:Rg,radconst
  use eos_mesa,      only:get_eos_pressure_temp_gamma1_mesa,get_eos_1overmu_mesa
  use eos_helmholtz, only:eos_helmholtz_pres_sound
  use eos_shen,      only:eos_shen_NL3
@@ -414,7 +414,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (tempi > 0.) then
        temperaturei = tempi
     else
-       temperaturei = min(0.67 * cgseni * mui / kb_on_mh, (cgseni*cgsrhoi/radconst)**0.25)
+       temperaturei = min(0.67 * cgseni * mui / Rg, (cgseni*cgsrhoi/radconst)**0.25)
     endif
     call equationofstate_gasradrec(cgsrhoi,cgseni*cgsrhoi,temperaturei,imui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi,gammai)
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))

@@ -47,7 +47,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=200)           :: fileout
  !
  !--Open file (appendif exists)
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_stellarCoM.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_stellarCoM.dat'
  inquire(file=fileout,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.

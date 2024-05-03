@@ -119,7 +119,7 @@ subroutine read_analysis_options
 
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
 
-    open(10,file=inputfile, form='formatted')
+    open(10,file=inputfile,form='formatted')
     read(10,*) nbins
     read(10,*) rin
     read(10,*) rout
@@ -135,7 +135,7 @@ subroutine read_analysis_options
 
 ! Write choices to new inputfile
 
-    open(10,file=inputfile, status='new', form='formatted')
+    open(10,file=inputfile,status='new',form='formatted')
     write(10,*) nbins, "      Number of radial bins"
     write(10,*) rin,  "      Inner Disc Radius"
     write(10,*) rout, "      Outer Disc Radius"
@@ -184,11 +184,11 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
 ! Construct neighbour lists for derivative calculations
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else

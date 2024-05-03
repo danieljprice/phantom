@@ -570,12 +570,12 @@ subroutine planet_mass_distribution(time,num,npart,xyzh)
 
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
-    open(newunit=iu, file=trim(adjustl(filename)), status='replace')
+    open(newunit=iu,file=trim(adjustl(filename)),status='replace')
     write(headerline, "(a,i5,a,f5.2,a,f5.2)") "# Planet mass distribution, nbins = ", nbins,", min a = ", mina, ", max a = ", maxa
     write(iu, "(a)") headerline
     close(unit=iu)
  endif
- open(newunit=iu, file=trim(adjustl(filename)), position='append')
+ open(newunit=iu,file=trim(adjustl(filename)), position='append')
  write(iu,data_formatter) time,hist_var(:)
  close(unit=iu)
 
@@ -1629,7 +1629,7 @@ subroutine eos_surfaces
     enddo
  enddo
 
- open(unit=1000, file='mesa_eos_pressure.out', status='replace')
+ open(unit=1000,file='mesa_eos_pressure.out',status='replace')
 
  !Write data to file
  do i=1,1000
@@ -1638,7 +1638,7 @@ subroutine eos_surfaces
 
  close(unit=1000)
 
- open(unit=1002, file='mesa_eos_gamma.out', status='replace')
+ open(unit=1002,file='mesa_eos_gamma.out',status='replace')
 
  !Write data to file
  do i=1,1000
@@ -1647,7 +1647,7 @@ subroutine eos_surfaces
 
  close(unit=1002)
 
- open(unit=1001, file='mesa_eos_kappa.out', status='replace')
+ open(unit=1001,file='mesa_eos_kappa.out',status='replace')
 
  !Write data to file
  do i=1,1000
@@ -1801,12 +1801,12 @@ subroutine tau_profile(time,num,npart,particlemass,xyzh)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
     unitnum = 1000
-    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    open(unit=unitnum,file=trim(adjustl(filename)),status='replace')
     write(unitnum, "(a)") '# Optical depth profile'
     close(unit=unitnum)
  endif
  unitnum=1002
- open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ open(unit=unitnum,file=trim(adjustl(filename)), position='append')
  write(unitnum,data_formatter) time,tau_r
  close(unit=unitnum)
  deallocate(rad_part,kappa_part,rho_part)
@@ -1872,12 +1872,12 @@ subroutine tconv_profile(time,num,npart,particlemass,xyzh,vxyzu)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
     unitnum = 1000
-    open(unit=unitnum, file=trim(adjustl(filename)), status='replace')
+    open(unit=unitnum,file=trim(adjustl(filename)),status='replace')
     write(unitnum, "(a)") '# Sound crossing time profile'
     close(unit=unitnum)
  endif
  unitnum=1002
- open(unit=unitnum, file=trim(adjustl(filename)), position='append')
+ open(unit=unitnum,file=trim(adjustl(filename)), position='append')
  write(unitnum,data_formatter) time,tconv
  close(unit=unitnum)
 
@@ -2027,11 +2027,11 @@ subroutine energy_hist(time,npart,particlemass,xyzh,vxyzu)
     call histogram_setup(coord(:,i),quant,hist,npart,Emax(i),Emin(i),nbins,.false.,ilogbins)
     if (dump_number == 0) then
        unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(filename(i))), status='replace')
+       open(unit=unitnum,file=trim(adjustl(filename(i))),status='replace')
        close(unit=unitnum)
     endif
     unitnum=1001+i
-    open(unit=unitnum, file=trim(adjustl(filename(i))), status='old', position='append')
+    open(unit=unitnum,file=trim(adjustl(filename(i))),status='old', position='append')
     write(unitnum,data_formatter) time,hist
     close(unit=unitnum)
  enddo
@@ -2189,12 +2189,12 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
     call histogram_setup(coord,quant(:,i),hist,npart,maxcoord,mincoord,nbins,.true.,ilogbins)
     if (dump_number == 0) then
        unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(filename(i))), status='replace')
+       open(unit=unitnum,file=trim(adjustl(filename(i))),status='replace')
        write(unitnum, "(a)") trim(headerline(i))
        close(unit=unitnum)
     endif
     unitnum=1001+i
-    open(unit=unitnum, file=trim(adjustl(filename(i))), status='old', position='append')
+    open(unit=unitnum,file=trim(adjustl(filename(i))),status='old', position='append')
     write(unitnum,data_formatter) time,hist
     close(unit=unitnum)
  enddo
@@ -2266,12 +2266,12 @@ subroutine rotation_profile(time,num,npart,xyzh,vxyzu)
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
     if (num == 0) then
        unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+       open(unit=unitnum,file=trim(adjustl(grid_file(i))),status='replace')
        write(unitnum, "(a)") '# z-component of angular velocity'
        close(unit=unitnum)
     endif
     unitnum=1001+i
-    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+    open(unit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
     write(unitnum,data_formatter) time,hist_var(:)
     close(unit=unitnum)
  enddo
@@ -2320,11 +2320,11 @@ subroutine velocity_histogram(time,num,npart,particlemass,xyzh,vxyzu)
  file_name2 = "vel_unbound.ev"
 
  if (dump_number == 0) then
-    open(newunit=iu1, file=file_name1, status='replace')
-    open(newunit=iu2, file=file_name2, status='replace')
+    open(newunit=iu1,file=file_name1,status='replace')
+    open(newunit=iu2,file=file_name2,status='replace')
  else
-    open(newunit=iu1, file=file_name1, position='append')
-    open(newunit=iu2, file=file_name2, position='append')
+    open(newunit=iu1,file=file_name1, position='append')
+    open(newunit=iu2,file=file_name2, position='append')
  endif
 
  write(iu1,data_formatter) time,vbound
@@ -2387,11 +2387,11 @@ subroutine velocity_profile(time,num,npart,particlemass,xyzh,vxyzu)
  call histogram_setup(rad_part,dist_part,hist,count,rmax,rmin,nbins,.true.,.false.)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
-    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    open(newunit=iu,file=trim(adjustl(file_name)),status='replace')
     write(iu, "(a)") '# Azimuthal velocity profile'
     close(unit=iu)
  endif
- open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ open(newunit=iu,file=trim(adjustl(file_name)), position='append')
  write(iu,data_formatter) time,hist
  close(unit=iu)
  deallocate(hist,dist_part,rad_part)
@@ -2449,11 +2449,11 @@ subroutine angular_momentum_profile(time,num,npart,particlemass,xyzh,vxyzu)
  call histogram_setup(rad_part,dist_part,hist,count,rmax,rmin,nbins,.true.,.false.)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
-    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    open(newunit=iu,file=trim(adjustl(file_name)),status='replace')
     write(iu, "(a)") '# z-angular momentum profile'
     close(unit=iu)
  endif
- open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ open(newunit=iu,file=trim(adjustl(file_name)), position='append')
  write(iu,data_formatter) time,hist
  close(unit=iu)
 
@@ -2497,11 +2497,11 @@ subroutine vkep_profile(time,num,npart,particlemass,xyzh,vxyzu)
  call histogram_setup(rad_part,dist_part,hist,npart,rmax,rmin,nbins,.true.,.false.)
  write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))"
  if (num == 0) then
-    open(newunit=iu, file=trim(adjustl(file_name)), status='replace')
+    open(newunit=iu,file=trim(adjustl(file_name)),status='replace')
     write(iu, "(a)") '# Keplerian velocity profile'
     close(unit=iu)
  endif
- open(newunit=iu, file=trim(adjustl(file_name)), position='append')
+ open(newunit=iu,file=trim(adjustl(file_name)), position='append')
  write(iu,data_formatter) time,hist
  close(unit=iu)
  deallocate(hist,dist_part,rad_part)
@@ -2546,7 +2546,7 @@ subroutine planet_profile(num,dumpfile,particlemass,xyzh,vxyzu)
 
  ! Write to file
  file_name = trim(dumpfile)//".planetpart"
- open(newunit=iu, file=file_name, status='replace')
+ open(newunit=iu,file=file_name,status='replace')
 
  ! Record R and z cylindrical coordinates w.r.t. planet_com
  do i = 1,nplanet
@@ -2664,14 +2664,14 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
 
     if (num == 0) then ! Write header line
        unitnum = 1000
-       open(unit=unitnum, file=trim(adjustl(grid_file(i))), status='replace')
+       open(unit=unitnum,file=trim(adjustl(grid_file(i))),status='replace')
        write(unitnum, "(a)") '# Newly bound/unbound particles'
        close(unit=unitnum)
     endif
 
     unitnum=1001+i
 
-    open(unit=unitnum, file=trim(adjustl(grid_file(i))), position='append')
+    open(unit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
 
     write(unitnum,"()")
     write(unitnum,data_formatter) time,hist_var(:)
@@ -2897,26 +2897,26 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  write(logical_format, "(a,I5,a)") "(es18.10e3,", npart, "(1x,L))" ! Time column plus npart columns
 
  if (num == 0) then ! Write header line
-    open(unit=1000, file="H_state.ev", status='replace')
+    open(unit=1000,file="H_state.ev",status='replace')
     write(1000, "(a)") '# Ion fraction statistics'
     close(unit=1000)
-    open(unit=1001, file="He_state.ev", status='replace')
+    open(unit=1001,file="He_state.ev",status='replace')
     write(1001, "(a)") '# Ion fraction statistics'
     close(unit=1001)
-    open(unit=1002, file="isbound.ev", status='replace')
+    open(unit=1002,file="isbound.ev",status='replace')
     write(1002, "(a)") '# Ion fraction statistics'
     close(unit=1002)
  endif
 
- open(unit=1000, file="H_state.ev", position='append')
+ open(unit=1000,file="H_state.ev", position='append')
  write(1000,data_formatter) time,H_state(:)
  close(unit=1000)
 
- open(unit=1000, file="He_state.ev", position='append')
+ open(unit=1000,file="He_state.ev", position='append')
  write(1000,data_formatter) time,He_state(:)
  close(unit=1000)
 
- open(unit=1000, file="isbound.ev", position='append')
+ open(unit=1000,file="isbound.ev", position='append')
  write(1000,logical_format) time,isbound(:)
  close(unit=1000)
 
@@ -4314,7 +4314,7 @@ subroutine write_file(name_in, dir_in, cols, data_in, npart, ncols, num)
 
  write(file_name, "(2a,i5.5,a)") trim(name_in), "_", num, ".ev"
 
- open(unit=unitnum, file='./'//dir_in//'/'//file_name, status='replace')
+ open(unit=unitnum,file='./'//dir_in//'/'//file_name,status='replace')
 
  write(column_formatter, "(a,I2.2,a)") "('#',2x,", ncols, "('[',a15,']',3x))"
  write(data_formatter, "(a,I2.2,a)") "(", ncols, "(2x,es19.11e3))"
@@ -4354,7 +4354,7 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
  if (num == 0) then
     unitnum = 1000
 
-    open(unit=unitnum, file=file_name, status='replace')
+    open(unit=unitnum,file=file_name,status='replace')
     do i=1,ncols
        write(columns(i), "(I2,a)") i+1, cols(i)
     enddo
@@ -4366,7 +4366,7 @@ subroutine write_time_file(name_in, cols, time, data_in, ncols, num)
 
  unitnum=1001+num
 
- open(unit=unitnum, file=file_name, position='append')
+ open(unit=unitnum,file=file_name, position='append')
 
  write(unitnum,data_formatter) time, data_in(:ncols)
 

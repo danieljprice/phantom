@@ -95,7 +95,6 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
  character(len=*), intent(in) :: label
  logical, intent(in), optional :: decrease
  real :: err
- character(len=20) :: string
 
  if (abs(ref) > 1.e-3) then
     err = (val - ref)/abs(ref)
@@ -113,12 +112,7 @@ subroutine check_conservation_error(val,ref,tol,label,decrease)
        call error('evolve',trim(label)//' is not being conserved due to corotating frame',var='err',val=err)
     else
        call error('evolve','Large error in '//trim(label)//' conservation ',var='err',val=err)
-       call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
-       if (.not. (trim(string)=='yes')) then
-          print "(2(/,a))",' You can ignore this error and continue by setting the ',&
-                           ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
-          call fatal('evolve',' Conservation errors too large to continue simulation')
-       endif
+       call do_not_publish_crap('evolve','Conservation errors too large to continue simulation')
     endif
  else
     if (iverbose >= 2) print "(a,es10.3)",trim(label)//' error is ',err
@@ -133,24 +127,31 @@ end subroutine check_conservation_error
 !  so is related to the checks performed here
 !+
 !----------------------------------------------------------------
-subroutine check_magnetic_stability(hdivBB_xa)
- use options, only:hdivbbmax_max
+subroutine check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
  use io,      only:fatal
- real, intent(in) :: hdivBB_xa(:)
+ real, intent(in) :: hdivBonB_ave,hdivBonB_max
 
- if (hdivbbmax_max < 1.1) then
-    ! In this regime, we assume the user has not modified this value,
-    ! either by choice or by being unaware of this.  This warning will
-    ! appear in this case.
-    if (hdivBB_xa(1) > 100 .or. hdivBB_xa(2) > 0.1) then
-       ! Tricco, Price & Bate (2016) suggest the average should remain lower than 0.01,
-       ! but we will increase it here due to the nature of the exiting the code
-       ! The suggestion of 512 was empirically determined in Dobbs & Wurster (2021)
-       call fatal('evolve','h|divb|/b is too large; recommend hdivbbmax_max = 512; set >1.2 to suppress this message.')
-    endif
+ if (hdivBonB_max > 100 .or. hdivBonB_ave > 0.1) then
+   ! Tricco, Price & Bate (2016) suggest the average should remain lower than 0.01,
+   ! but we will increase it here due to the nature of the exiting the code
+   ! The suggestion of 512 was empirically determined in Dobbs & Wurster (2021)
+   call do_not_publish_crap('evolve','h|divb|/b is too large; recommend to increase the overcleanfac')
  endif
 
 end subroutine check_magnetic_stability
 
+subroutine do_not_publish_crap(subr,msg)
+ use io, only:fatal
+ character(len=*), intent(in) :: subr,msg
+ character(len=20) :: string
+
+ call get_environment_variable('I_WILL_NOT_PUBLISH_CRAP',string)
+ if (.not. (trim(string)=='yes')) then
+    print "(2(/,a))",' You can ignore this error and continue by setting the ',&
+                     ' environment variable I_WILL_NOT_PUBLISH_CRAP=yes to continue'
+    call fatal(subr,msg)
+ endif
+
+end subroutine do_not_publish_crap
 !----------------------------------------------------------------
 end module checkconserved

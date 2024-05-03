@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module memory
 !
-! None
+! Wrapper routines for memory allocation
 !
 ! :References: None
 !

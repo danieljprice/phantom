@@ -42,7 +42,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  ! Write angular momentum vector information
  if (first) then
     first = .false.
-    open(unit=iu, file='angmomvec.ev',status='replace')
+    open(unit=iu,file='angmomvec.ev',status='replace')
     write(iu,"('#',6(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',&
           2,'Lx',  &
@@ -51,7 +51,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
           5,'inc', &
           6,'rot'
  else
-    open(unit=iu, file='angmomvec.ev',position='append')
+    open(unit=iu,file='angmomvec.ev',position='append')
  endif
  write(iu,'(6(es18.10,1X))') time,Lhat,inc,rot
  close(iu)

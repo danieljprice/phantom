@@ -100,11 +100,11 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !--This is used as a test for saving composition.
  !
  ierr = 0
- open(newunit=iu, file=trim(fullfilepath))
+ open(newunit=iu,file=trim(fullfilepath))
  !The row with the information about column headings is at nheaderlines-1.
  !we skip the first nheaderlines-2 rows and then read the nheaderlines-1 to find the substrings
  call skip_header(iu,nheaderlines-2,ierr)
- read(iu, '(a)', iostat=ierr) line
+ read(iu, '(a)',iostat=ierr) line
 
  !read the column labels and store them in an array.
  allocate(all_label(n_cols))
@@ -125,7 +125,7 @@ subroutine read_kepler_file(filepath,ng_max,n_rows,rtab,rhotab,ptab,temperature,
  !
  !--Read the file again and save the data in stardata tensor.
  !
- open(newunit=iu, file=trim(fullfilepath))
+ open(newunit=iu,file=trim(fullfilepath))
  call skip_header(iu,nheaderlines,ierr)
  do k=1,n_rows
     read(iu,*,iostat=ierr) stardata(k,:)
