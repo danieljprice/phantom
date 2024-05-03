@@ -98,13 +98,13 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart,npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
- integer           :: npart_old,ierr
+ integer           :: ierr
  real :: tfac
 
  !
@@ -356,6 +356,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('final_dump')
     read(valstring,*,iostat=ierr) final_dump
     ngot = ngot + 1
+ case default
+    imatch = .false.
  end select
 
  igotall = (ngot >= 3)
