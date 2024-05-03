@@ -32,12 +32,12 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  real, dimension(:), intent(inout) :: massoftype
  real, dimension(:,:), intent(inout) :: xyzh,vxyzu
  real, dimension(3) :: incenter,outcenter
- integer :: iremoveparttype
+ integer :: iremoveparttype,npart_old
  real :: inradius,outradius
  real :: h_on_r_min,rmax,rho_max
  logical :: icutinside,icutoutside,irmlargeh
 
-
+ npart_old = npart
  !
  !--set the centers and the radius
  !
@@ -102,6 +102,8 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     print*,'h/r >',h_on_r_min,', rho [code] <',rho_max,', r [code] >',rmax
     call delete_particles_with_large_h(outcenter,npart,h_on_r_min,rho_max,rmax)
  endif
+
+ print*,'Removed a total of ',npart-npart_old,' particles'
 
 end subroutine modify_dump
 
