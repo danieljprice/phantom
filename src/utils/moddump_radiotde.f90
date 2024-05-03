@@ -59,7 +59,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
                         delete_particles_outside_sphere,kill_particle,shuffle_part, & 
                         eos_vars,itemp,igamma,igasP
  use io,           only:fatal,master,id
- use units,        only:umass,udist,utime,set_units,unit_density,unit_ergg
+ use units,        only:umass,udist,utime,set_units,unit_density
  use timestep,     only:dtmax,tmax
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
