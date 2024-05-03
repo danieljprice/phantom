@@ -1049,7 +1049,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  !
  ! COOLING
  !
- if (icooling > 0 .and. cooling_in_step) then
+ if (icooling > 0 .and. cooling_in_step .and. icooling /= 9) then
     if (h2chemistry) then
        !
        ! Call cooling routine, requiring total density, some distance measure and

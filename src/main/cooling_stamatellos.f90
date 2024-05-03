@@ -61,139 +61,160 @@ end subroutine init_star
 !
 ! Do cooling calculation
 !
-subroutine cooling_S07(rhoi,ui,dudti_cool,xi,yi,zi,Tfloor,dudti_sph,dt,i)
+! edit this to make a loop and update energy to return evolved energy array.
+subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           duFLD,doFLD,ttherm_store,teqi_store,opac_store
- use part,       only:xyzmh_ptmass
+ use part,       only:xyzmh_ptmass,rhoh,massoftype,igas
 
- real,intent(in) :: rhoi,ui,dudti_sph,xi,yi,zi,Tfloor,dt
- integer,intent(in) :: i
- real,intent(out) :: dudti_cool
+ integer,intent(in) :: npart
+ real,intent(in) :: dudt_sph(:),xyzh(:,:),Tfloor,dt
+ real,intent(inout) :: energ(:)
+ real            :: dudti_cool,ui,rhoi
  real            :: coldensi,kappaBari,kappaParti,ri2
- real            :: gmwi,Tmini4,Ti,dudt_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Hmod2
- real            :: opac,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
+ real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
+ real            :: cs2,Om2,Hmod2,xi,yi,zi
+ real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
+ integer         :: i
 
- poti = Gpot_cool(i)
- du_FLDi = duFLD(i)
-
- if (isink_star > 0) then
-    ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
-         + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
-         + (zi-xyzmh_ptmass(3,isink_star))**2d0  
- endif
-
-! get opacities & Ti for ui
- call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
-           Ti,gmwi)
- presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
- presi = presi/unit_pressure !code units
-
- if (isnan(kappaBari)) then
-   print *, "kappaBari is NaN\n", " ui(erg) = ", ui*unit_ergg, "rhoi=", rhoi*unit_density, "Ti=", Ti, &
-        "i=", i
-   stop
- endif
-
- select case (od_method)
- case (1)
-! Stamatellos+ 2007 method
-    coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
-    coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-    coldensi = coldensi*umass/udist/udist ! physical units
- case (2)
-! Lombardi+ 2015 method of estimating the mean column density
-    coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho)
-    coldensi = coldensi *umass/udist/udist ! physical units
- case (3)
-! Combined method
-    HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
-    HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
-    Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
-    coldensi = Hcomb*rhoi
-    coldensi = coldensi*umass/udist/udist ! physical units
- case (4) 
-! Modified Lombardi method
-    HLom  = presi/abs(gradP_cool(i))/rhoi
-    cs2 = presi/rhoi
-    if (isink_star > 0 .and. ri2 > 0d0) then
-       Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
-    else
-       Om2 = 0d0
+ !omp parallel do default(none) &
+ !omp shared(npart,duFLD,xyzh,energ,rhoh,massoftype,igas,xyzmh_ptmass) &
+ !omp shared(isink_star,pi,steboltz,solarl,Rg,doFLD,ttherm_store,teqi_store) &
+ !omp shared(opac_store,Tfloor,dt,dudt_sph)
+ !omp private(i,poti,du_FLDi,xi,yi,zi,ui,rhoi,ri2,coldensi,kappaBari) &
+ !omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
+ !omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,poti,presi,Hcomb)
+ overpart: do i=1,npart
+    poti = Gpot_cool(i)
+    du_FLDi = duFLD(i)
+    xi = xyzh(1,i)
+    yi = xyzh(2,i)
+    zi = xyzh(3,i)
+    ui = energ(i)
+    rhoi =  rhoh(xyzh(4,i),massoftype(igas))
+    
+    if (isink_star > 0) then
+       ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+            + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
+            + (zi-xyzmh_ptmass(3,isink_star))**2d0  
     endif
-    Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
-    !Q3D = Om2/(4.d0*pi*rhoi)
+
+    ! get opacities & Ti for ui
+    call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+           Ti,gmwi)
+    presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
+    presi = presi/unit_pressure !code units
+
+    if (isnan(kappaBari)) then
+       print *, "kappaBari is NaN\n", " ui(erg) = ", ui*unit_ergg, "rhoi=", rhoi*unit_density, "Ti=", Ti, &
+            "i=", i
+       stop
+    endif
+
+    select case (od_method)
+    case (1)
+       ! Stamatellos+ 2007 method
+       coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
+       coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
+       coldensi = coldensi*umass/udist/udist ! physical units
+    case (2)
+       ! Lombardi+ 2015 method of estimating the mean column density
+       coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho)
+       coldensi = coldensi *umass/udist/udist ! physical units
+    case (3)
+       ! Combined method
+       HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
+       HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
+       Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
+       coldensi = Hcomb*rhoi
+       coldensi = coldensi*umass/udist/udist ! physical units
+    case (4) 
+       ! Modified Lombardi method
+       HLom  = presi/abs(gradP_cool(i))/rhoi
+       cs2 = presi/rhoi
+       if (isink_star > 0 .and. ri2 > 0d0) then
+          Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
+       else
+          Om2 = 0d0
+       endif
+       Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
+       !Q3D = Om2/(4.d0*pi*rhoi)
     !Hmod2 = (cs2/Om2) * piontwo /(1d0 + (1d0/(rpiontwo*Q3D)))
-    Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
-    coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
- end select
+       Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
+       coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
+    end select
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
- if (isink_star > 0 .and. Lstar > 0.d0) then
-! Tfloor + stellar heating
-    Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
- else
-    Tmini4 = Tfloor**4d0
- endif
+    if (isink_star > 0 .and. Lstar > 0.d0) then
+       ! Tfloor + stellar heating
+       Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
+    else
+       Tmini4 = Tfloor**4d0
+    endif
 
- opac = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
- opac_store(i) = opac
- dudt_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opac/unit_ergg*utime! code units
+    opaci = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
+    opac_store(i) = opaci
+    dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
- if (doFLD) then
-    ! include term from FLD
-    Teqi = (du_FLDi + dudti_sph) *opac*unit_ergg/utime ! physical units
-    du_tot = dudti_sph + dudt_rad + du_FLDi
- else
-    Teqi = dudti_sph*opac*unit_ergg/utime
-    du_tot = dudti_sph + dudt_rad 
- endif
+    if (doFLD) then
+       ! include term from FLD
+       Teqi = (du_FLDi + dudt_sph(i)) *opaci*unit_ergg/utime ! physical units
+       du_tot = dudt_sph(i) + dudti_rad + du_FLDi
+    else
+       Teqi = dudt_sph(i)*opaci*unit_ergg/utime
+       du_tot = dudt_sph(i) + dudti_rad 
+    endif
   
- Teqi = Teqi/4.d0/steboltz
- Teqi = Teqi + Tmini4
- if (Teqi < Tmini4) then
-    Teqi = Tmini4**(1.0/4.0)
- else
-    Teqi = Teqi**(1.0/4.0)
- endif
- teqi_store(i) = Teqi
- call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
- ueqi = ueqi/unit_ergg
+    Teqi = Teqi/4.d0/steboltz
+    Teqi = Teqi + Tmini4
+    if (Teqi < Tmini4) then
+       Teqi = Tmini4**(1.0/4.0)
+    else
+       Teqi = Teqi**(1.0/4.0)
+    endif
+    teqi_store(i) = Teqi
+    call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+    ueqi = ueqi/unit_ergg
         
- call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
- umini = umini/unit_ergg
+    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+    umini = umini/unit_ergg
 
-! calculate thermalization timescale and
-! internal energy update -> in form where it'll work as dudtcool
- if ((du_tot) == 0.d0) then
-    tthermi = 0d0
- else
-    tthermi = abs((ueqi - ui)/(du_tot))
- endif
+    ! calculate thermalization timescale and
+    ! internal energy update -> in form where it'll work as dudtcool
+    if ((du_tot) == 0.d0) then
+       tthermi = 0d0
+    else
+       tthermi = abs((ueqi - ui)/(du_tot))
+    endif
 
- ttherm_store(i) = tthermi
+    ttherm_store(i) = tthermi
 
- if (tthermi == 0d0) then
-    dudti_cool = 0.d0 ! condition if denominator above is zero
- else
-    dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
- endif
+    if (tthermi == 0d0) then
+       dudti_cool = 0.d0 ! condition if denominator above is zero
+    else
+       dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
+    endif
 
- if (isnan(dudti_cool)) then
-!    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-    print *, "rhoi=",rhoi, "Ti=", Ti
-    print *, "opac=",opac,"coldensi=",coldensi,"dudti_sph",dudti_sph
-    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-    print *, "dudt_rad=", dudt_rad ,"dudt_dlf=",du_fldi,"ueqi=",ueqi,"ui=",ui
-    call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
-    stop
- else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
-    dudti_cool = (umini - ui)/dt
- endif
+    if (isnan(dudti_cool)) then
+       !    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
+       print *, "rhoi=",rhoi, "Ti=", Ti
+       print *, "opaci=",opaci,"coldensi=",coldensi,"dudt_sphi",dudt_sph(i)
+       print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+       print *, "dudti_rad=", dudti_rad ,"dudt_dlf=",du_fldi,"ueqi=",ueqi,"ui=",ui
+       call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
+       stop
+    else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+       dudti_cool = (umini - ui)/dt
+    endif
+
+    ! evolve energy
+    energ(i) = energ(i) + dudti_cool * dt
+
+ enddo overpart
 
 end subroutine cooling_S07
 

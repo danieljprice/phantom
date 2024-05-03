@@ -143,7 +143,6 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
- use cooling_stamatellos,    only:cooling_S07
 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
@@ -178,7 +177,8 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
 
  select case (icooling)
  case (9)
-    call cooling_S07(rho,ui,dudt,xi,yi,zi,Tfloor,dudti_sph,dt,part_id)
+    ! should not occur!
+    call fatal('energ_cooling','cooling_S07 called from cooling.f90')
  case (6)
     call cooling_KoyamaInutsuka_implicit(ui,rho,dt,dudt)
  case (5)

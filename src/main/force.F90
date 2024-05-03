@@ -1605,7 +1605,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                    if (rhoj == 0d0) then
                       diffterm = 0d0
                       print *, "setting diffterm = 0", i, j, rhoj
-                   elseif ((kfldj + kfldi) == 0.) then
+                   elseif ((kfldj + kfldi) < tiny(0.)) then
                       diffterm = 0d0                  
                    else
                       diffterm = 4d0*pmassj/rhoi/rhoj

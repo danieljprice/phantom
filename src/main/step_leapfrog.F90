@@ -126,7 +126,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
-
+ use cooling_stamatellos, only:cooling_S07
+ use cooling,        only:Tfloor
+ 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -254,6 +256,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                                  fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                                  dptmass,fsink_old,nbinmax,ibin_wake)
+       if (icooling == 9) call cooling_S07(npart,xyzh,vxyzu(4,:),Tfloor,fxyzu(4,:),dtsph)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
