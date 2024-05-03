@@ -873,7 +873,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  endif
 
  !
- !-- Forces on gas particles (Sink/gas,extf,damp,cooling)
+ !-- Forces on gas particles (Sink/gas,extf,damp,cooling,rad pressure)
  !
 
  !$omp parallel default(none) &
@@ -883,6 +883,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
+ !$omp shared(isink_radiation,itau_alloc,tau) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
  !$omp firstprivate(pmassi,itype) &
@@ -936,6 +937,26 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        if (idamp > 0) then
           call apply_damp(fextx, fexty, fextz, vxyzu(1:3,i), (/xi,yi,zi/), damp_fac)
        endif
+       !
+       ! Radiation pressure force with isink_radiation
+       !
+       if (nptmass > 0 .and. isink_radiation > 0) then
+          if(extrap) then
+             if (itau_alloc == 1) then
+                call get_rad_accel_from_ptmass(nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz, &
+                                              tau=tau,fsink_old=fsink_old,extrapfac=extrapfac)
+             else
+                call get_rad_accel_from_ptmass(nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz, &
+                                              fsink_old=fsink_old,extrapfac=extrapfac)
+             endif
+          else
+             if (itau_alloc == 1) then
+                call get_rad_accel_from_ptmass(nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz,tau)
+             else
+                call get_rad_accel_from_ptmass(nptmass,npart,i,xi,yi,zi,xyzmh_ptmass,fextx,fexty,fextz)
+             endif
+          endif
+       endif
 
        fext(1,i) = fextx
        fext(2,i) = fexty
@@ -952,13 +973,6 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp enddo
  !$omp end parallel
 
- if (nptmass > 0 .and. isink_radiation > 0 .and. .not.extrap) then
-    if (itau_alloc == 1) then
-       call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext,tau)
-    else
-       call get_rad_accel_from_ptmass(nptmass,npart,xyzh,xyzmh_ptmass,fext)
-    endif
- endif
 
  if (nptmass > 0) then
     call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
