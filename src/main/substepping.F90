@@ -1059,6 +1059,8 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     call evolve_dust(dt, xyzh(:,i), vxyzu(4,i), nucleation(:,i), dust_temp(i), rhoi)
     eos_vars(imu,i)    = nucleation(idmu,i)
     eos_vars(igamma,i) = nucleation(idgamma,i)
+ elseif (update_muGamma) then
+    call calc_muGamma(rhoi, dust_temp(i),eos_vars(imu,i),eos_vars(igamma,i), pH, pH_tot)
  endif
  !
  ! COOLING
