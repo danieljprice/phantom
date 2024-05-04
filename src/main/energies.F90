@@ -364,7 +364,7 @@ subroutine compute_energies(t)
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
-             if ((ieos==2  .or. ieos == 5) .and. gammai > 1.001) then
+             if ((ieos==2 .or. ieos == 5 .or. ieos == 17) .and. gammai > 1.001) then
                 !--thermal energy using polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gammai-1.)*gasfrac
              elseif (ieos==9) then
