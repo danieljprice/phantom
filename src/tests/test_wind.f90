@@ -68,7 +68,7 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ !print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987894518367E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
@@ -86,7 +86,7 @@ subroutine test_wind(ntests,npass)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ !print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
@@ -203,7 +203,7 @@ if (icase == 1) then
 
     ! check 1D wind profile
    i = size(trvurho_1D(1,:))
-   print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+   !print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
    call checkval(massoftype(igas),1.490822861042279E-9,epsilon(0.),nfailed(1),'setting particle mass')
    call checkval(trvurho_1D(2,i),7.058624412798283E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
    call checkval(trvurho_1D(3,i),1.112160584479353E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
@@ -218,9 +218,9 @@ if (icase == 1) then
    call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
-    ! check 1D wind profile
+   ! check 1D wind profile
    i = size(trvurho_1D(1,:))
-   print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+   !print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
    call checkval(massoftype(igas),6.820748526700016E-10,epsilon(0.),nfailed(1),'setting particle mass')
    call checkval(trvurho_1D(2,i), 1.546371444697654E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
    call checkval(trvurho_1D(3,i), 4.298693548460183E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')

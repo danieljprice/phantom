@@ -1014,7 +1014,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  use cooling_ism,     only:nabn,dphotflag
  use options,         only:icooling
  use chem,            only:update_abundances,get_dphot
- use dust_formation,  only:evolve_dust
+ use dust_formation,  only:evolve_dust,calc_muGamma
  use cooling,         only:energ_cooling,cooling_in_step
  use part,            only:rhoh
 #ifdef KROME
@@ -1031,7 +1031,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(in)    :: dt,pmassi
  integer,      intent(in)    :: i
 
- real :: dudtcool,rhoi,dphot
+ real :: dudtcool,rhoi,dphot,pH,pH_tot
  real :: abundi(nabn)
 
  dudtcool = 0.
