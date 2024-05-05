@@ -22,19 +22,20 @@ module apr
   implicit none
 
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
+  public :: create_or_update_apr_clump
   integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
   real,    public :: apr_rad = 0.0
 
   private
-  integer :: top_level = 1
+  integer :: top_level = 1, ntrack = 0, track_part
   real    :: apr_centre(3), apr_drad = 0.1
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
-  logical :: apr_verbose = .true.
-  logical :: do_relax = .true.
+  logical :: apr_verbose = .false.
+  logical :: do_relax = .false.
   logical :: adjusted_split = .true.
-  logical :: first_split = .true.
+  logical :: first_split = .false.
   logical :: directional = .true.
 
 contains
@@ -83,7 +84,7 @@ contains
     ! massoftype(igas) is associated with the
     ! largest particle
     if (ref_dir == -1) then
-      massoftype(:) = massoftype(:) * 8.**(apr_max -1)
+      massoftype(:) = massoftype(:) * 2.**(apr_max -1)
       top_level = 1
     else
       top_level = apr_max
@@ -91,7 +92,7 @@ contains
 
     ! now set the aprmassoftype array, this stores all the masses for the different resolution levels
     do i = 1,apr_max
-      aprmassoftype(:,i) = massoftype(:)/(8.**(i-1))
+      aprmassoftype(:,i) = massoftype(:)/(2.**(i-1))
     enddo
 
     ierr = 0
@@ -106,7 +107,7 @@ contains
   subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     use dim,      only:maxp_hard,ind_timesteps
     use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
-                       shuffle_part,iphase,iactive
+                       shuffle_part,iphase,iactive,poten,xyzmh_ptmass
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
@@ -114,7 +115,7 @@ contains
     real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout)         :: npart
     integer(kind=1), intent(inout) :: apr_level(:)
-    integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold,counter
+    integer :: ii,jj,kk,npartnew,nsplit_total,apri,npartold
     integer :: n_ref,nrelax,nmerge,nkilled,apr_current
     real, allocatable :: xyzh_ref(:,:),force_ref(:,:),pmass_ref(:)
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
@@ -123,10 +124,16 @@ contains
     logical :: do_this_part
 
     ! time lag
-    if (time < 0.5) return
+    !if (time < 0.5) return
 
     ! if the centre of the region can move, update it
-    if (dynamic_apr) call set_apr_centre(apr_type,apr_centre)
+    if (dynamic_apr) then
+      if (ntrack > 0) then
+        call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,xyzmh_ptmass,aprmassoftype)
+      else
+        call set_apr_centre(apr_type,apr_centre)
+      endif
+    endif
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
@@ -158,7 +165,6 @@ contains
     nsplit_total = 0
     nrelax = 0
     apri = 0 ! to avoid compiler errors
-    counter = 0
 
 
     do jj = 1,apr_max-1
@@ -181,7 +187,6 @@ contains
         ! if the level it should have is greater than the
         ! level it does have, increment it up one
         if (apri > apr_current) then
-          counter = counter + 1
           call splitpart(ii,npartnew)
           ! encompasses particles that have just split into the highest
           ! refinement level
@@ -189,17 +194,11 @@ contains
           if (apri == top_level .and. first_split) do_this_part = .true.
           if (.not.first_split) do_this_part = .true.
           if (do_relax .and. (do_this_part)) then
-            nrelax = nrelax + 8
-            relaxlist(nrelax-7) = ii
-            relaxlist(nrelax-6) = npartnew-6
-            relaxlist(nrelax-5) = npartnew-5
-            relaxlist(nrelax-4) = npartnew-4
-            relaxlist(nrelax-3) = npartnew-3
-            relaxlist(nrelax-2) = npartnew-2
-            relaxlist(nrelax-1) = npartnew-1
+            nrelax = nrelax + 2
+            relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
           endif
-          nsplit_total = nsplit_total + 7
+          nsplit_total = nsplit_total + 1
         endif
       enddo split_over_active
     enddo
@@ -210,10 +209,7 @@ contains
     if (apr_verbose) then
       print*,'split: ',nsplit_total
       print*,'npart: ',npart
-      print*,'counter called',counter
     endif
-
-      call hacky_write('pretest')
 
     ! Do any particles need to be merged?
     allocate(mergelist(npart),xyzh_merge(4,npart),vxyzu_merge(4,npart))
@@ -334,10 +330,9 @@ contains
     use apr_region,  only:apr_region_is_circle
     integer, intent(in) :: i
     integer, intent(inout) :: npartnew
-    integer :: j,npartold,next_door, k
+    integer :: j,npartold,next_door
     real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
-    real :: v(3),u(3),w(3),a,b,c,what(3)
-    real :: x_extras(6),y_extras(6),z_extras(6)
+    real :: v(3),u(3),w(3),a,b,c
     integer, save :: iseed = 4
     integer(kind=1) :: aprnew
 
@@ -386,65 +381,31 @@ contains
     endif
 
     ! Now apply it
-    what = w/sqrt(dot_product(w,w)) * sep * 0.01 ! this scaling factor is so the squares are offset but not by too much
-
     x_add = sep*v(1)*xyzh(4,i)
     y_add = sep*v(2)*xyzh(4,i)
     z_add = sep*v(3)*xyzh(4,i)
 
-    x_extras(3) = sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
-    y_extras(3) = sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
-    z_extras(3) = sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
-    x_extras(4) = -sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
-    y_extras(4) = -sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
-    z_extras(4) = -sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
-
-
-    ! if nchild > 2:
-    call rotatevec(v,w,pi)
-    x_extras(1) = sep*v(1)*xyzh(4,i) - sqrt(2.)*what(1)
-    y_extras(1) = sep*v(2)*xyzh(4,i) - sqrt(2.)*what(2)
-    z_extras(1) = sep*v(3)*xyzh(4,i) - sqrt(2.)*what(3)
-    x_extras(2) = -sep*v(1)*xyzh(4,i) - sqrt(2.)*what(1)
-    y_extras(2) = -sep*v(2)*xyzh(4,i) - sqrt(2.)*what(2)
-    z_extras(2) = -sep*v(3)*xyzh(4,i) - sqrt(2.)*what(3)
-
-    x_extras(5) = sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
-    y_extras(5) = sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
-    z_extras(5) = sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
-    x_extras(6) = -sep*v(1)*xyzh(4,i) + sqrt(2.)*what(1)
-    y_extras(6) = -sep*v(2)*xyzh(4,i) + sqrt(2.)*what(2)
-    z_extras(6) = -sep*v(3)*xyzh(4,i) + sqrt(2.)*what(3)
-
     npartold = npartnew
-    npartnew = npartold + 7
+    npartnew = npartold + 1
     npartoftype(igas) = npartoftype(igas) + 1
     aprnew = apr_level(i) + int(1,kind=1) ! to prevent compiler warnings
 
     !--create the new particle
-    k = 1
     do j=npartold+1,npartnew
       call copy_particle_all(i,j,new_part=.true.)
-      if (j==npartold+1) then
-        xyzh(1,j) = xyzh(1,i) + x_add - sqrt(2.)*what(1)
-        xyzh(2,j) = xyzh(2,i) + y_add - sqrt(2.)*what(2)
-        xyzh(3,j) = xyzh(3,i) + z_add - sqrt(2.)*what(3)
-      else
-        xyzh(1,j) = xyzh(1,i) + x_extras(k)
-        xyzh(2,j) = xyzh(2,i) + y_extras(k)
-        xyzh(3,j) = xyzh(3,i) + z_extras(k)
-        k = k + 1
-      endif
+      xyzh(1,j) = xyzh(1,i) + x_add
+      xyzh(2,j) = xyzh(2,i) + y_add
+      xyzh(3,j) = xyzh(3,i) + z_add
       vxyzu(:,j) = vxyzu(:,i)
       apr_level(j) = aprnew
-      xyzh(4,j) = xyzh(4,i)*(0.125**(1./3.))
+      xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
       if (ind_timesteps) call put_in_smallest_bin(j)
     enddo
 
     ! Edit the old particle that was sent in and kept
-    xyzh(1,i) = xyzh(1,i) - x_add - sqrt(2.)*what(1)
-    xyzh(2,i) = xyzh(2,i) - y_add - sqrt(2.)*what(2)
-    xyzh(3,i) = xyzh(3,i) - z_add - sqrt(2.)*what(3)
+    xyzh(1,i) = xyzh(1,i) - x_add
+    xyzh(2,i) = xyzh(2,i) - y_add
+    xyzh(3,i) = xyzh(3,i) - z_add
     apr_level(i) = aprnew
     xyzh(4,i) = xyzh(4,i)*(0.5**(1./3.))
     if (ind_timesteps) call put_in_smallest_bin(i)
@@ -470,12 +431,12 @@ contains
     real,            intent(inout) :: xyzh(:,:),vxyzu(:,:)
     real,            intent(inout) :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer :: remainder,icell,i,n_cell,apri,m
-    integer :: eldest,tuther,extras(6)
+    integer :: eldest,tuther
     real    :: com(3)
     type(cellforce)        :: cell
 
     ! First ensure that we're only sending in a multiple of 2 to the tree
-    remainder = modulo(nmerge,8)
+    remainder = modulo(nmerge,2)
     nmerge = nmerge - remainder
 
     call set_linklist(nmerge,nmerge,xyzh_merge(:,1:nmerge),vxyzu_merge(:,1:nmerge),&
@@ -498,24 +459,15 @@ contains
       ! we merge!
       if (apri < current_apr) then
         eldest = mergelist(inodeparts(inoderange(1,icell)))
-        tuther = mergelist(inodeparts(inoderange(1,icell) + 1))
-        extras(1) = mergelist(inodeparts(inoderange(1,icell) + 2))
-        extras(2) = mergelist(inodeparts(inoderange(1,icell) + 3))
-        extras(3) = mergelist(inodeparts(inoderange(1,icell) + 4))
-        extras(4) = mergelist(inodeparts(inoderange(1,icell) + 5))
-        extras(5) = mergelist(inodeparts(inoderange(1,icell) + 6))
-        extras(6) = mergelist(inodeparts(inoderange(1,icell) + 7))
+        tuther = mergelist(inodeparts(inoderange(1,icell) + 1)) !as in kdtree
 
         ! keep eldest, reassign it to have the com properties
         xyzh(1,eldest) = cell%xpos(1)
         xyzh(2,eldest) = cell%xpos(2)
         xyzh(3,eldest) = cell%xpos(3)
-        vxyzu(1:3,eldest) = 0.125*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther) + &
-                              vxyzu(1:3,extras(1)) + vxyzu(1:3,extras(2)) + &
-                              vxyzu(1:3,extras(3)) + vxyzu(1:3,extras(4)) + &
-                              vxyzu(1:3,extras(5)) + vxyzu(1:3,extras(6)))
+        vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
 
-        xyzh(4,eldest) = xyzh(4,eldest)*(8.0**(1./3.))
+        xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
         if (ind_timesteps) call put_in_smallest_bin(eldest)
 
@@ -527,22 +479,10 @@ contains
 
         ! discard tuther
         call kill_particle(tuther,npartoftype)
-        call kill_particle(extras(1),npartoftype)
-        call kill_particle(extras(2),npartoftype)
-        call kill_particle(extras(3),npartoftype)
-        call kill_particle(extras(4),npartoftype)
-        call kill_particle(extras(5),npartoftype)
-        call kill_particle(extras(6),npartoftype)
-        nkilled = nkilled + 8 ! this refers to the number of children killed
+        nkilled = nkilled + 2 ! this refers to the number of children killed
         ! If this particle was on the shuffle list previously, take it off
         do m = 1,nrelax
           if (relaxlist(m) == tuther) relaxlist(m) = 0
-          if (relaxlist(m) == extras(1)) relaxlist(m) = 0
-          if (relaxlist(m) == extras(2))  relaxlist(m) = 0
-          if (relaxlist(m) == extras(3)) relaxlist(m) = 0
-          if (relaxlist(m) == extras(4))  relaxlist(m) = 0
-          if (relaxlist(m) == extras(5)) relaxlist(m) = 0
-          if (relaxlist(m) == extras(6))  relaxlist(m) = 0
         enddo
       endif
 
@@ -600,7 +540,7 @@ contains
 
     call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
     call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
-    call write_inopt(apr_type,'apr_type','1: static, 2: moving sink',iunit)
+    call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)
     call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
     call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
@@ -613,7 +553,7 @@ contains
   !-----------------------------------------------------------------------
   subroutine hacky_write(ifile)
     use part, only:igas,rhoh,aprmassoftype,Bxyz, &
-                   npart,xyzh,apr_level,fxyzu,ibin
+                   npart,xyzh,apr_level,fxyzu,vxyzu
     use dim,  only:mhd
     character(len=*), intent(in) :: ifile
     integer :: ii,iunit=24
@@ -632,21 +572,22 @@ contains
   !  write(iunit,iostat=ierr) time,npart,npart,1.6,1.2,2,3, &
   !   6,1,3,3,-1.0,-1.0,1.0,1.0,12,'cartesian'
   !   if (ierr/=0) print*,'AH SOMETHING WRONG IN WRITE'
-    write(iunit,"('#',8(1x,'[',i2.2,1x,a11,']',2x))") &
+    write(iunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
     1,'x', &
     2,'y', &
     3,'h', &
     4,'rho', &
     5,'mass',&
     6,'apri',&
-    7,'tbin',&
-    8,'By'
+    7,'vx',&
+    8,'vy', &
+    9,'vz'
 
     do ii=1,npart
       pmass = aprmassoftype(igas,apr_level(ii))
       rhoi = rhoh(xyzh(4,ii),pmass)
       if (.not.mhd) then
-        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), real(ibin(ii)), 0.
+        write(iunit,'(9(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), vxyzu(1:3,ii)
       else
         write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), Bxyz(1,ii), Bxyz(2,ii)
       endif
@@ -706,5 +647,143 @@ contains
     ibin(i) = nbinmax
 
   end subroutine put_in_smallest_bin
+
+  !-----------------------------------------------------------------------
+  !+
+  !  Create a new apr region that is centred on a dense clump
+  !+
+  !-----------------------------------------------------------------------
+
+   subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,xyzmh_ptmass,aprmassoftype)
+    use apr_region, only:set_apr_centre
+    use part, only:iorig
+     integer, intent(in) :: npart
+     real, intent(in) :: xyzh(:,:), vxyzu(:,:), aprmassoftype(:,:),xyzmh_ptmass(:,:)
+     real(kind=4), intent(in) :: poten(:)
+     integer :: nbins, ii, ibin, nmins, jj, apri
+     integer, allocatable :: counter(:), minima(:), min_particle(:)
+     real, allocatable :: radius(:), ave_poten(:)
+     real :: rin, rout, dbin, dx, dy, dz, rad, gradleft, gradright, minpoten
+
+     ! set up arrays
+     nbins = 100
+     allocate(counter(nbins),radius(nbins),ave_poten(nbins),&
+              minima(nbins),min_particle(nbins))
+
+     ! Currently hardwired but this is problematic
+     rin = 10.
+     rout = 100.
+     dbin = (rout-rin)/real(nbins-1)
+     do ii = 1,nbins
+       radius(ii) = rin + real(ii-1)*dbin
+     enddo
+
+     ave_poten = 0.
+     counter = 0
+     ! Create an azimuthally averaged potential energy vs. radius profile
+     do ii = 1,npart
+       dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
+       dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
+       dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
+       rad = sqrt(dx**2 + dy**2 + dz**2)
+
+       ibin = int((rad - radius(1))/dbin + 1)
+       if ((ibin > nbins) .or. (ibin < 1)) cycle
+
+       ave_poten(ibin) = ave_poten(ibin) + poten(ii)
+       counter(ibin) = counter(ibin) + 1
+     enddo
+
+     ! average with the number of particles in the bin
+     do ii = 1,nbins
+       if (counter(ii) > 0) then
+         ave_poten(ii) = ave_poten(ii)/counter(ii)
+       else
+         ave_poten(ii) = 0.
+       endif
+     enddo
+
+     ! Identify what radius the local minima are at
+     minima = 0
+     nmins = 0
+     do ii = 2, nbins-1
+       gradleft = (ave_poten(ii) - ave_poten(ii-1))/(radius(ii) - radius(ii-1))
+       gradright = (ave_poten(ii+1) - ave_poten(ii))/(radius(ii+1) - radius(ii))
+       if (gradleft * gradright < 0.) then
+         nmins = nmins + 1
+         minima(nmins) = ii
+       endif
+     enddo
+     if (nmins == 0) return
+
+     ! Identify the particles in these minima that have the lowest potential energy
+     ! this is quite inefficient, in future should save these above into the bins so
+     ! you just need to cycle through the subset? Don't know if this is faster
+     minpoten = 1.0
+     do jj = 1,nmins
+       do ii = 1,npart
+         dx = xyzh(1,ii) - xyzmh_ptmass(1,1)
+         dy = xyzh(2,ii) - xyzmh_ptmass(2,1)
+         dz = xyzh(3,ii) - xyzmh_ptmass(3,1)
+         rad = sqrt(dx**2 + dy**2 + dz**2)
+
+         ibin = int((rad - radius(1))/dbin + 1)
+         if ((ibin == (minima(jj))) .or. &
+             (ibin - 1 == (minima(jj))) .or. &
+             (ibin + 1 == (minima(jj)))) then
+           if(poten(ii) < minpoten) then
+             minpoten = poten(ii)
+             min_particle(jj) = ii
+           endif
+        endif
+      enddo
+    enddo
+
+    ! For the moment, force there to only be one minimum
+    nmins = 1
+
+     ! Check they are not already within a region of low potential energy
+     ! If they are, replace the existing particle as the one to be tracked
+     do jj = 1,nmins
+       ! get the refinement level of the particle in the middle of the potential
+       call get_apr(xyzh(1:3,min_particle(jj)),apri)
+       if ((ref_dir == -1) .and. (apri == apr_max) .and. (ntrack<1)) then
+        ! it's a newly identified clump, time to derefine it
+         ntrack = ntrack + 1
+         track_part = min_particle(jj)
+       else
+         ! it's an existing clump, update the position of it's centre
+         track_part = min_particle(jj)
+       endif
+     enddo
+     if (ntrack > 0) call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
+     print*,'tracking ',track_part,ntrack
+
+     ! tidy up
+     deallocate(counter,ave_poten,radius,minima,min_particle)
+
+   end subroutine
+
+   !-----------------------------------------------------------------------
+   !+
+   !  A little function to work out which particle to query based on it's iorig
+   !+
+   !-----------------------------------------------------------------------
+
+   subroutine invert_iorig(ii,jj)
+     use part, only : norig,iorig
+     integer, intent(in) :: ii
+     integer, intent(out) :: jj
+     integer :: i
+
+     do i = 1,norig
+       if (ii == iorig(i)) then
+         jj = ii
+         return
+       endif
+     enddo
+     print*,'warning, no particle found in invert_iorig'
+
+   end subroutine invert_iorig
 
 end module apr                                                                             

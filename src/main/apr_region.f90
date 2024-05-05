@@ -35,16 +35,17 @@ contains
   !+
   !-----------------------------------------------------------------------
 
-subroutine set_apr_centre(apr_type,apr_centre)
-  use part, only: xyzmh_ptmass
+subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
+  use part, only: xyzmh_ptmass,xyzh
   integer, intent(in)  :: apr_type
   real,    intent(out) :: apr_centre(3)
+  integer, optional, intent(in) :: ntrack,track_part
 
   select case (apr_type)
 
   case(1) ! a static circle
-    apr_centre(1) = 0.0
-    apr_centre(2) = 0.0
+    apr_centre(1) = 0.5
+    apr_centre(2) = 0.5
     apr_centre(3) = 0.0
 
   case(2) ! around sink particle 2 - e.g. a planet
@@ -52,6 +53,17 @@ subroutine set_apr_centre(apr_type,apr_centre)
     apr_centre(1) = xyzmh_ptmass(1,2)
     apr_centre(2) = xyzmh_ptmass(2,2)
     apr_centre(3) = xyzmh_ptmass(3,2)
+
+  case(3) ! to derefine a clump - only activated when the centre of the clump
+          ! has been found
+      dynamic_apr = .true.
+    if (present(ntrack)) then
+      apr_centre(1) = xyzh(1,track_part)
+      apr_centre(2) = xyzh(2,track_part)
+      apr_centre(3) = xyzh(3,track_part)
+    else
+      apr_centre = tiny(apr_centre) ! this *might* be safe? Just want it to be irrelevant
+    endif
 
   case default ! used for the test suite
     apr_centre(:) = 0.
@@ -87,5 +99,6 @@ subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
   endif
 
 end subroutine set_apr_regions
+
 
 end module apr_region

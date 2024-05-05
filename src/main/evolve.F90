@@ -41,7 +41,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability,mtot_in
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -87,13 +87,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
-#ifdef APR
-  use apr,             only:update_apr
-  use part,            only:apr_level
-#endif
+ use apr,              only:update_apr,create_or_update_apr_clump
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
+                            accrete_particles_outside_sphere,apr_level,aprmassoftype
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
@@ -230,10 +228,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 #endif
 
-#ifdef APR
- ! split or merge as required
- call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
-#endif
+ if (use_apr) then
+   ! split or merge as required
+   call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+ endif
 
     dtmaxold    = dtmax
 #ifdef IND_TIMESTEPS
@@ -279,8 +277,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        ! creation of new sink particles
        !
-       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+       if (use_apr) then
+         call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,xyzmh_ptmass,aprmassoftype)
+       else
+         call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+       endif
     endif
     !
     ! Strang splitting: implicit update for half step
