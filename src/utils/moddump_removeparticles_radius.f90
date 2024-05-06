@@ -103,7 +103,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call delete_particles_with_large_h(outcenter,npart,h_on_r_min,rho_max,rmax)
  endif
 
- print*,'Removed a total of ',npart-npart_old,' particles'
+ print*,'Removed a total of ',npart_old-npart,' particles'
 
 end subroutine modify_dump
 
