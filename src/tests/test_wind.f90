@@ -23,6 +23,8 @@ module testwind
 
  private
 
+ logical :: vb = .false.
+
 contains
 !----------------------------------------------------------
 !+
@@ -30,15 +32,16 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,        only:id,master!,iprint,iwritein
- use inject,    only:inject_type
- use boundary,  only:set_boundary
- use physcon,   only:au,solarm,solarl
- use units,     only:set_units
- use part,      only:npart,xyzmh_ptmass,vxyz_ptmass,xyzh,vxyzu
- use testutils, only:checkval,update_test_scores
- use dim,       only:mpi
- !use readwrite_infile, only:read_infile,write_infile
+ use io,         only:id,master!,iprint,iwritein
+ use inject,     only:inject_type
+ use boundary,   only:set_boundary
+ use physcon,    only:au,solarm,solarl
+ use units,      only:set_units
+ use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp
+ use testutils,  only:checkval,update_test_scores
+ use dim,        only:mpi,maxTdust,maxp
+ use allocutils, only:allocate_array
+ use readwrite_infile, only:read_infile,write_infile
 
  integer, intent(inout) :: ntests,npass
 
@@ -63,36 +66,40 @@ subroutine test_wind(ntests,npass)
 ! test trans-sonic wind - no radiation, no dust
 
  call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject)
- !debug if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
+ !if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
  call integrate_wind(npart_old,istepfrac,dtinject)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- !print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987894518367E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
  call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(4),'wind mass loss rate')
- call checkval(eint,2.172921072880526E+03,eps_sum,nfailed(5),'total internal energy')
- call checkval(ekin,1.452084518428992E+02,eps_sum,nfailed(6),'total kinetic energy')
+ call checkval(eint,3.367417540822784E+03,eps_sum,nfailed(5),'total internal energy')
+ call checkval(ekin,5.524867074648309E+01,eps_sum,nfailed(6),'total kinetic energy')
  call update_test_scores(ntests,nfailed,npass)
 
+
+ maxTdust = maxp
+ if (allocated(dust_temp)) deallocate(dust_temp)
+ call allocate_array('dust_temp',dust_temp,maxTdust)
 
 ! test wind with bowen dust + radiative acceleration
 
  call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
- !debug if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
+ !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
  call integrate_wind(npart_old,istepfrac,dtinject)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
  ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- !print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+ if (vb) print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
  call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
  call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(4),'wind mass loss rate')
- call checkval(eint,1.670176368675748E+02,eps_sum,nfailed(5),'total internal energy')
- call checkval(ekin,1.082975394957043E+02,eps_sum,nfailed(6),'total kinetic energy')
+ call checkval(eint,3.496431505098527E+02,eps_sum,nfailed(5),'total internal energy')
+ call checkval(ekin,1.109784837120262E+02,eps_sum,nfailed(6),'total kinetic energy')
  call update_test_scores(ntests,nfailed,npass)
 
 
@@ -106,7 +113,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
 !
 !-----------------------------------------------------------------------
 
- use io,        only:iverbose!,iwritein
+ use io,        only:iverbose
  use inject,    only:init_inject,inject_particles,set_default_options_inject
  use units,     only:umass,utime,unit_energ,udist
  use physcon,   only:au,solarm,solarl
@@ -120,6 +127,7 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  use checksetup,     only:check_setup
  use partinject,     only:update_injected_particles
  use testutils,      only:checkval,update_test_scores
+ use ptmass,         only:set_integration_precision
  use ptmass_radiation, only:alpha_rad,isink_radiation
  use dust_formation,   only:idust_opacity
 
@@ -132,11 +140,12 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  real :: t,default_particle_mass,dtnew
 
  call init_part()
+ call set_integration_precision()
 
  ! set properties of mass-losing sink particle
  nptmass = 1
- xyzmh_ptmass(4,1)     = 1.2*solarm/umass
- xyzmh_ptmass(5,1)     = au/udist
+ xyzmh_ptmass(4,1)  = 1.2*solarm/umass
+ xyzmh_ptmass(5,1)  = au/udist
  if (icase == 1) then
     xyzmh_ptmass(iTeff,1) = 50000.
  elseif (icase == 2) then
@@ -203,7 +212,7 @@ if (icase == 1) then
 
     ! check 1D wind profile
    i = size(trvurho_1D(1,:))
-   !print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+   if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
    call checkval(massoftype(igas),1.490822861042279E-9,epsilon(0.),nfailed(1),'setting particle mass')
    call checkval(trvurho_1D(2,i),7.058624412798283E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
    call checkval(trvurho_1D(3,i),1.112160584479353E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
@@ -220,7 +229,7 @@ if (icase == 1) then
 
    ! check 1D wind profile
    i = size(trvurho_1D(1,:))
-   !print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+   if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
    call checkval(massoftype(igas),6.820748526700016E-10,epsilon(0.),nfailed(1),'setting particle mass')
    call checkval(trvurho_1D(2,i), 1.546371444697654E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
    call checkval(trvurho_1D(3,i), 4.298693548460183E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
@@ -228,7 +237,6 @@ if (icase == 1) then
    call checkval(trvurho_1D(5,i), 4.879641694552266E-16,epsilon(0.),nfailed(5),'1D wind terminal density')
    call update_test_scores(ntests,nfailed,npass)
  endif
-
 
 end subroutine init_testwind
 
