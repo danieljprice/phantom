@@ -62,17 +62,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer                         :: unitnum,i,ncols
  logical                         :: requires_eos_opts
 
- !case 7 variables
- character(len=17), allocatable :: columns(:)
-
- !case 12 variables
- real                         :: etoti, ekini, einti, epoti, phii
-
- real, dimension(3)           :: com_xyz, com_vxyz
- real, dimension(3)           :: xyz_a, vxyz_a
- real, allocatable            :: histogram_data(:,:)
- real                         :: ang_vel
-
  !chose analysis type
  if (dump_number==0) then
     print "(40(a,/))", &
@@ -90,7 +79,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '13) MESA EoS compute total entropy and other average td quantities', &
             '15) Gravitational drag on sinks', &
             '16) CoM of gas around primary core', &
-            '17) Miscellaneous', &
             '18) J-E plane', &
             '19) Rotation profile', &
             '20) Energy profile', &
@@ -202,48 +190,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
  case(16)
     call get_core_gas_com(time,npart,xyzh,vxyzu)
- case(17)
-    ncols = 6
-    allocate(columns(ncols))
-    columns = (/'           x', &
-                '           y', &
-                '           z', &
-                '           r', &
-                'spec. energy', &
-                ' omega ratio'/)
-
-    call orbit_com(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,com_xyz,com_vxyz)
-
-    ang_vel = 0.
-
-    do i=1,nptmass
-       if (xyzmh_ptmass(4,i) > 0.) then
-          xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
-          vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
-          ang_vel = ang_vel + (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-       endif
-    enddo
-
-    ang_vel = ang_vel / 2.
-
-    allocate(histogram_data(6,npart))
-
-    do i=1,npart
-       xyz_a(1:3) = xyzh(1:3,i) - com_xyz(1:3)
-       vxyz_a(1:3) = vxyzu(1:3,i) - com_vxyz(1:3)
-
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),radprop(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,etoti)
-       histogram_data(1:3,i) = xyzh(1:3,i)
-       histogram_data(4,i) = distance(xyz_a(1:3))
-       histogram_data(5,i) = epoti + ekini
-       histogram_data(6,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-       histogram_data(6,i) = (histogram_data(6,i) - ang_vel) / ang_vel
-    enddo
-
-    call write_file('specific_energy_particles', 'histogram', columns, histogram_data, size(histogram_data(1,:)), ncols, num)
-
-    deallocate(histogram_data)
-
  case(18)
     call J_E_plane(num,npart,particlemass,xyzh,vxyzu)
  end select
