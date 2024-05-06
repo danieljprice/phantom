@@ -85,7 +85,7 @@ jobs:
     - name: Cache intel installation
       if: matrix.system == 'ifort'
       id: cache-intel
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           /opt/intel
@@ -111,10 +111,10 @@ jobs:
         sudo apt-get install -y python3-matplotlib
 
     - name: "Clone phantom"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: "Grab a copy of splash source code"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         repository: danieljprice/splash
         path: splash
