@@ -62,9 +62,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer                         :: unitnum,i,ncols
  logical                         :: requires_eos_opts
 
- !case 5 variables
- real                         :: rhopart
-
  !case 7 variables
  character(len=17), allocatable :: columns(:)
 
@@ -76,17 +73,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  real, allocatable            :: histogram_data(:,:)
  real                         :: ang_vel
 
- real :: pres_1i, proint_1i, peint_1i, temp_1i
- real :: troint_1i, teint_1i, entrop_1i, abad_1i, gamma1_1i, gam_1i
-
- !case 16 variables
- real, allocatable :: thermodynamic_quantities(:,:)
- real, allocatable :: radius_1i, dens_1i
-
-
  !chose analysis type
  if (dump_number==0) then
-    print "(41(a,/))", &
+    print "(40(a,/))", &
             ' 1) Sink separation', &
             ' 2) Bound and unbound quantities', &
             ' 3) Energies', &
@@ -99,7 +88,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             '11) Profile of newly unbound particles', &
             '12) Sink properties', &
             '13) MESA EoS compute total entropy and other average td quantities', &
-            '14) MESA EoS save on file thermodynamical quantities for all particles', &
             '15) Gravitational drag on sinks', &
             '16) CoM of gas around primary core', &
             '17) Miscellaneous', &
@@ -136,7 +124,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                                    xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
  ! List of analysis options that require specifying EOS options
- requires_eos_opts = any((/2,3,4,5,6,8,9,11,13,14,15,20,21,22,23,24,25,26,29,30,31,32,33,35,41/) == analysis_to_perform)
+ requires_eos_opts = any((/2,3,4,5,6,8,9,11,13,15,20,21,22,23,24,25,26,29,30,31,32,33,35,41/) == analysis_to_perform)
  if (dump_number == 0 .and. requires_eos_opts) call set_eos_options(analysis_to_perform)
 
  select case(analysis_to_perform)
@@ -210,48 +198,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call sink_properties(time,npart,particlemass,xyzh,vxyzu)
  case(13) !MESA EoS compute total entropy and other average thermodynamical quantities
     call bound_unbound_thermo(time,npart,particlemass,xyzh,vxyzu)
- case(14) !MESA EoS save on file thermodynamical quantities for all particles
-    allocate(thermodynamic_quantities(5,npart))
-    do i=1,npart
-
-       !particle radius
-       radius_1i = distance(xyzh(1:3,i)) * udist
-
-       !particles density in code units
-       rhopart = rhoh(xyzh(4,i), particlemass)
-       dens_1i = rhopart * unit_density
-
-       !gets entropy for the current particle
-       call get_eos_various_mesa(rhopart*unit_density,vxyzu(4,i) * unit_ergg, &
-                                 pres_1i,proint_1i,peint_1i,temp_1i,troint_1i, &
-                                 teint_1i,entrop_1i,abad_1i,gamma1_1i,gam_1i)
-
-       !stores everything in an array
-       thermodynamic_quantities(1,i) = radius_1i
-       thermodynamic_quantities(2,i) = dens_1i
-       thermodynamic_quantities(3,i) = pres_1i
-       thermodynamic_quantities(4,i) = temp_1i
-       thermodynamic_quantities(5,i) = entrop_1i
-
-    enddo
-    ncols = 5
-    allocate(columns(ncols))
-    columns = (/'      radius', &
-                '     density', &
-                '    pressure', &
-                ' temperature', &
-                '     entropy'/)
-    call write_file('td_quantities', 'thermodynamics', columns, thermodynamic_quantities, npart, ncols, num)
-
-    unitnum = unitnum + 1
-    deallocate(thermodynamic_quantities)
-
  case(15) !Gravitational drag on sinks
     call gravitational_drag(time,npart,particlemass,xyzh,vxyzu)
-
  case(16)
     call get_core_gas_com(time,npart,xyzh,vxyzu)
-
  case(17)
     ncols = 6
     allocate(columns(ncols))
