@@ -81,6 +81,7 @@ subroutine test_wind(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
 
+#ifdef ISINK_RADIATION
  maxTdust = maxp
  if (allocated(dust_temp)) deallocate(dust_temp)
  call allocate_array('dust_temp',dust_temp,maxTdust)
@@ -101,7 +102,7 @@ subroutine test_wind(ntests,npass)
  call checkval(eint,3.496431505098527E+02,eps_sum,nfailed(5),'total internal energy')
  call checkval(ekin,1.109784837120262E+02,eps_sum,nfailed(6),'total kinetic energy')
  call update_test_scores(ntests,nfailed,npass)
-
+#endif
 
  if (id==master) write(*,"(/,a)") '<-- WIND TEST COMPLETE'
 
