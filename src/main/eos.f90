@@ -427,7 +427,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(21)
 !
-!--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=8
+!--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=9
 !
     if (eni < 0.) then
        call fatal('eos (stamatellos)','utherm < 0',var='u',val=eni)
@@ -439,9 +439,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     presi = cgspresi/unit_pressure
     ponrhoi = presi/rhoi
     gammai = 1.d0 + presi/(eni*rhoi)
-    !if (gammai < 1.d0 .or. gammai > 2.d0) then
-    !                print *, gammai, tempi, mui,cgseni,cgsrhoi,cgspresi
-    !endif
     spsoundi = sqrt(gammai*ponrhoi)
     
  case default

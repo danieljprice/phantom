@@ -4,7 +4,7 @@
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.bitbucket.io/                                          !
 !--------------------------------------------------------------------------!
-module cooling_stamatellos
+module cooling_radapprox
 !
 ! Cooling method of Stamatellos et al. 2007
 !
@@ -24,7 +24,7 @@ module cooling_stamatellos
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 4 ! default = Stamatellos+ 2007 method
  integer :: fld_opt = 1 ! by default FLD is switched on
- public :: cooling_S07,write_options_cooling_stamatellos,read_options_cooling_stamatellos
+ public :: radcool_update_energ,write_options_cooling_stamatellos,read_options_cooling_stamatellos
  public :: init_star
 
 contains
@@ -61,8 +61,8 @@ end subroutine init_star
 !
 ! Do cooling calculation
 !
-! edit this to make a loop and update energy to return evolved energy array.
-subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
+! update energy to return evolved energy array.
+subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
@@ -71,8 +71,8 @@ subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
  use part,       only:xyzmh_ptmass,rhoh,massoftype,igas
 
  integer,intent(in) :: npart
- real,intent(in) :: dudt_sph(:),xyzh(:,:),Tfloor,dt
- real,intent(inout) :: energ(:)
+ real,intent(in) :: xyzh(:,:),dt,Tfloor
+ real,intent(inout) :: energ(:),dudt_sph(:)
  real            :: dudti_cool,ui,rhoi
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
@@ -80,13 +80,13 @@ subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
  integer         :: i
 
- !omp parallel do default(none) &
- !omp shared(npart,duFLD,xyzh,energ,rhoh,massoftype,igas,xyzmh_ptmass) &
- !omp shared(isink_star,pi,steboltz,solarl,Rg,doFLD,ttherm_store,teqi_store) &
- !omp shared(opac_store,Tfloor,dt,dudt_sph)
- !omp private(i,poti,du_FLDi,xi,yi,zi,ui,rhoi,ri2,coldensi,kappaBari) &
- !omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
- !omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,poti,presi,Hcomb)
+ !$omp parallel do default(none) &
+ !$omp shared(npart,duFLD,xyzh,energ,massoftype,xyzmh_ptmass,unit_density,Gpot_cool) &
+ !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure) &
+ !$omp shared(opac_store,Tfloor,dt,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool) &
+ !$omp private(i,poti,du_FLDi,xi,yi,zi,ui,rhoi,ri2,coldensi,kappaBari,Ti) &
+ !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
+ !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,Lstar,dudti_cool)
  overpart: do i=1,npart
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
@@ -204,7 +204,7 @@ subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
        print *, "rhoi=",rhoi, "Ti=", Ti
        print *, "opaci=",opaci,"coldensi=",coldensi,"dudt_sphi",dudt_sph(i)
        print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-       print *, "dudti_rad=", dudti_rad ,"dudt_dlf=",du_fldi,"ueqi=",ueqi,"ui=",ui
+       print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
        call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
        stop
     else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
@@ -213,10 +213,17 @@ subroutine cooling_S07(npart,xyzh,energ,Tfloor,dudt_sph,dt)
 
     ! evolve energy
     energ(i) = energ(i) + dudti_cool * dt
-
+    
  enddo overpart
+ !$omp end parallel do
+     ! zero fxyzu(4,:)
+ !$omp parallel do shared(dudt_sph) private(i) schedule(runtime)
+ do i=1,npart
+    dudt_sph(i) = 0d0
+ enddo
+ !$omp end parallel do
 
-end subroutine cooling_S07
+end subroutine radcool_update_energ
 
 
 subroutine write_options_cooling_stamatellos(iunit)
@@ -274,5 +281,5 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
 
 end subroutine read_options_cooling_stamatellos
 
-end module cooling_stamatellos
+end module cooling_radapprox
 

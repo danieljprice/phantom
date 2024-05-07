@@ -61,7 +61,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
- use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
+ use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,icooling
+ use cooling_radapprox, only:radcool_update_energ
+ use cooling,        only:Tfloor
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -181,6 +183,11 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (use_porosity) call get_probastick(npart,xyzh,ddustprop(1,:),dustprop,dustgasprop,filfac)
  endif
 
+!
+! update energy if using radiative cooling approx (icooling=9) and set fxyzu(4,:) to zero
+!
+ if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor) 
+ 
 !
 ! compute dust temperature
 !

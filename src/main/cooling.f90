@@ -15,7 +15,7 @@ module cooling
 !     5 = Koyama & Inutuska (2002)        [explicit]
 !     6 = Koyama & Inutuska (2002)        [implicit]
 !     7 = Gammie cooling power law        [explicit]
-!     9 = Stamatellos et al. (2007)       [implicit]
+!     9 = Young et al. (2024)             [implicit]
 !
 ! :References:
 !   Gail & Sedlmayr textbook Physics and chemistry of Circumstellar dust shells
@@ -29,7 +29,7 @@ module cooling
 !
 ! :Dependencies: chem, cooling_gammie, cooling_gammie_PL, cooling_ism,
 !   cooling_koyamainutsuka, cooling_molecular, cooling_solver,
-!   cooling_stamatellos, dim, eos, eos_stamatellos, infile_utils, io,
+!   cooling_radapprox, dim, eos, eos_stamatellos, infile_utils, io,
 !   options, part, physcon, timestep, units, viscosity
 !
 
@@ -70,7 +70,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
  use eos_stamatellos,   only:read_optab,eos_file
- use cooling_stamatellos, only: init_star,od_method
+ use cooling_radapprox, only: init_star,od_method
  use viscosity,         only:irealvisc
 
  integer, intent(in)  :: id,master,iprint
@@ -207,7 +207,7 @@ subroutine write_options_cooling(iunit)
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
- use cooling_stamatellos, only:write_options_cooling_stamatellos
+ use cooling_radapprox, only:write_options_cooling_stamatellos
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
@@ -244,7 +244,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
- use cooling_stamatellos, only:read_options_cooling_stamatellos
+ use cooling_radapprox, only:read_options_cooling_stamatellos
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
