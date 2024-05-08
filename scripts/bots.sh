@@ -207,6 +207,8 @@ for edittype in $bots_to_run; do
                'shout' )
                  sed -e 's/SQRT(/sqrt(/g' \
                      -e 's/NINT(/nint(/g' \
+                     -e 's/REAL(/real(/g' \
+                     -e 's/DBLE(/dble(/g' \
                      -e 's/ STOP/ stop/g' \
                      -e 's/ATAN/atan/g' \
                      -e 's/ACOS(/acos(/g' \
@@ -216,6 +218,17 @@ for edittype in $bots_to_run; do
                      -e 's/EXP(/exp(/g' \
                      -e 's/LOG(/log(/g' \
                      -e 's/READ(/read(/g' \
+                     -e 's/OPEN(/open(/g' \
+                     -e 's/OPEN (/open(/g' \
+                     -e 's/CLOSE(/close(/g' \
+                     -e 's/CLOSE (/close(/g' \
+                     -e 's/INDEX(/index(/g' \
+                     -e 's/ANY(/any(/g' \
+                     -e 's/, STATUS=/,status=/g' \
+                     -e 's/,STATUS=/,status=/g' \
+                     -e 's/, FORM=/,form=/g' \
+                     -e 's/,FORM=/,form=/g' \
+                     -e 's/TRIM(/trim(/g' \
                      -e 's/IF (/if (/g' \
                      -e 's/) THEN/) then/g' \
                      -e 's/ENDDO/enddo/g' \
@@ -267,6 +280,22 @@ for edittype in $bots_to_run; do
                  sed -e 's/end if/endif/g' \
                      -e 's/end do/enddo/g' \
                      -e 's/else if/elseif/g' \
+                     -e 's/open (/open(/g' \
+                     -e 's/, file = /,file=/g' \
+                     -e 's/, file=/,file=/g' \
+                     -e 's/, status = /,status=/g' \
+                     -e 's/, status=/,status=/g' \
+                     -e 's/, iostat = /,iostat=/g' \
+                     -e 's/, iostat=/,iostat=/g' \
+                     -e 's/, access = /,access=/g' \
+                     -e 's/, access=/,access=/g' \
+                     -e 's/, form = /,form=/g' \
+                     -e 's/, form=/,form=/g' \
+                     -e 's/, action = /,action=/g' \
+                     -e 's/, action=/,action=/g' \
+                     -e 's/, iomsg = /,iomsg=/g' \
+                     -e 's/, iomsg=/,iomsg=/g' \
+                     -e 's/(unit =/(unit=/g' \
                      -e 's/if(/if (/g' \
                      -e 's/)then/) then/g' $file > $out;;
                'header' )

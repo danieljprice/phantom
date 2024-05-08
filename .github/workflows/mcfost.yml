@@ -9,7 +9,7 @@ on:
       - 'README.md'
 
 env:
-  PREFIX: /usr/local/
+  PREFIX: /opt/homebrew
   MCFOST_GIT: 1
   SYSTEM: gfortran
   HOMEBREW_NO_INSTALL_CLEANUP: 1
@@ -23,13 +23,12 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: install gfortran
-      run: brew install gfortran
+    - uses: fortran-lang/setup-fortran@v1
+      with:
+         compiler: gcc
 
-    - name: soft link gfortran and check version
-      run: |
-        ln -s `ls $PREFIX/bin/gfortran-* | tail -1` $PREFIX/bin/gfortran
-        gfortran -v
+    - name: Check gfortran version
+      run: gfortran --version
 
     - name: tap the homebrew repo
       run: brew tap danieljprice/all
@@ -38,7 +37,7 @@ jobs:
       run: brew install mcfost
 
     - name: "Clone phantom"
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: "Compile phantom and link with mcfost"
       run: make SETUP=disc MCFOST=yes PREFIX=${PREFIX} LIBCXX=-lc++

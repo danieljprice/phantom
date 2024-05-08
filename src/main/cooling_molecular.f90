@@ -210,7 +210,7 @@ subroutine loadCoolingTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('radcool_all.dat','cooling')
- OPEN(unit=iunit, file=trim(filename), STATUS="OLD", ACTION="read", &
+ open(unit=iunit,file=trim(filename),status="OLD", ACTION="read", &
             iostat=istat, IOMSG=imsg)
 
  ! Begin loading in data
@@ -218,13 +218,13 @@ subroutine loadCoolingTable(data_array)
     !!! Skip header
     rewind(unit=iunit)
     do o = 1, headerLines
-       read(iunit, *, iostat=istat, IOMSG = imsg)
+       read(iunit, *,iostat=istat, IOMSG = imsg)
     enddo
 
     ! Read data
     skipheaderif: if ((istat == 0)) then
        readdo: do
-          read(iunit, *, iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
+          read(iunit, *,iostat=istat) i, j, k, T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN
           if (istat /= 0) exit
           data_array(i, j, k, :) = [T, n_H, N_coolant, lambda_CO, lambda_H2O, lambda_HCN]
 
@@ -275,20 +275,20 @@ subroutine loadCDTable(data_array)
 
  iunit = 1
  filename = find_phantom_datafile('table_cd.dat','cooling')
- open(unit=iunit, file=filename, STATUS="OLD", iostat=istat, IOMSG=imsg)
+ open(unit=iunit,file=filename,status="OLD",iostat=istat, IOMSG=imsg)
 
  ! Begin loading in data
  openif: if (istat == 0) then
     !!! Skip header
     rewind(unit=iunit)
     do o = 1, headerLines
-       read(iunit, *, iostat=istat, IOMSG = imsg)
+       read(iunit, *,iostat=istat, IOMSG = imsg)
     enddo
 
     !!! Read data
     skipheaderif: if ((istat == 0)) then
        readdo: do
-          read(iunit, *, iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
+          read(iunit, *,iostat=istat) i, j, k, l, r_part, widthLine, m_exp, r_sep, N_H
           if (istat /= 0) exit
           data_array(i, j, k, l, :) = [r_part, widthLine, m_exp, r_sep, N_H]
 

@@ -74,6 +74,7 @@ module mpidens
     integer                   :: maxlength = 0
     integer                   :: n = 0
     integer                   :: number
+    integer                   :: idum     ! to avoid ifort warning
  end type stackdens
 
 contains
@@ -227,6 +228,8 @@ subroutine free_mpitype_of_celldens(dtype)
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
+#else
+ dtype = 0
 #endif
 
 end subroutine free_mpitype_of_celldens

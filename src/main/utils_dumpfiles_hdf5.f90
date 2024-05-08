@@ -468,7 +468,7 @@ subroutine write_hdf5_arrays( &
 
  ! Dust growth
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(dustprop(1,1:npart), 'grainsize', group_id, error)
+    call write_to_hdf5(dustprop(1,1:npart), 'grainmass', group_id, error)
     call write_to_hdf5(dustprop(2,1:npart), 'graindens', group_id, error)
     call write_to_hdf5(VrelVf(1:npart), 'vrel_on_vfrag', group_id, error)
     call write_to_hdf5(dustgasprop(3,1:npart), 'St', group_id, error)
@@ -614,7 +614,7 @@ subroutine write_hdf5_arrays_small( &
 
  ! Dustgrowth
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainsize', group_id, error)
+    call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainmass', group_id, error)
     call write_to_hdf5(real(dustprop(2,1:npart), kind=4), 'graindens', group_id, error)
  endif
 
@@ -933,7 +933,7 @@ subroutine read_hdf5_arrays( &
 
  ! Dust growth
  if (array_options%use_dustgrowth) then
-    call read_from_hdf5(dustprop(1,:), 'grainsize', group_id, got_arrays%got_dustprop(1), error)
+    call read_from_hdf5(dustprop(1,:), 'grainmass', group_id, got_arrays%got_dustprop(1), error)
     call read_from_hdf5(dustprop(2,:), 'graindens', group_id, got_arrays%got_dustprop(2), error)
     call read_from_hdf5(VrelVf(:), 'vrel_on_vfrag', group_id, got_arrays%got_VrelVf, error)
     call read_from_hdf5(dustgasprop(3,:), 'St', group_id, got_arrays%got_St, error)

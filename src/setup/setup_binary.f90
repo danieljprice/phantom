@@ -23,8 +23,8 @@ module setup
 !   - w            : *argument of periapsis (deg)*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
-!   setunits, setup_params, units
+!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
+!   setstar, setunits, setup_params, units
 !
  use setstar, only:star_t
  use dim,     only:gr
@@ -62,6 +62,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use centreofmass,   only:reset_centreofmass
  use setunits,       only:mass_unit,dist_unit
  use physcon,        only:deg_to_rad
+ use kernel,         only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -75,6 +76,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  integer :: ierr,i,nstar,nptmass_in,iextern_prev
  logical :: iexist,write_profile,use_var_comp,add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
+ logical, parameter :: set_oblateness = .false.
 !
 !--general parameters
 !
@@ -83,6 +85,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  time = 0.
  polyk = 0.
  gamma = 1.
+ hfact = hfact_default
 !
 !--space available for injected gas particles
 !  in case only sink particles are used
@@ -192,7 +195,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
     accradius1 = xyzmh_ptmass(ihacc,nptmass+1)
     xyzmh_ptmass(:,nptmass) = xyzmh_ptmass(:,nptmass+1)
     vxyz_ptmass(:,nptmass) = vxyz_ptmass(:,nptmass+1)
- else
+ elseif (set_oblateness) then
     ! set J2 for sink particle 1 to be equal to oblateness of Saturn
     xyzmh_ptmass(iJ2,1) = 0.01629
     angle = 30.*deg_to_rad

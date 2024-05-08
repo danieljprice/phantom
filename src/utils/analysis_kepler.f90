@@ -641,16 +641,16 @@ subroutine composition_array(interpolate_comp,columns_compo,comp_label)
 
     !Save composition read from file.
     allocate(interpolate_comp(columns_compo,n_rows))
-    open(12, file=filename)
+    open(12,file=filename)
     ierr = 0
     !get column labels and send them back.
-    read(12, '(a)', iostat=ierr) line
+    read(12, '(a)',iostat=ierr) line
     allocate(comp_label(columns_compo))
     call get_column_labels(line,n_labels,comp_label)
     close(12)
     print*,"comp_label ",comp_label
 
-    open(13, file=filename)
+    open(13,file=filename)
     call skip_header(13,nheader,ierr)
     do k = 1, n_rows
        read(13,*,iostat=ierr) interpolate_comp(:,k)
@@ -673,7 +673,7 @@ subroutine assign_atomic_mass_and_number(comp_label,A_array,Z_array)
  real,allocatable               :: A_array(:), Z_array(:)
  integer                        :: size_to_allocate, i
 
- if ( ANY( comp_label=="nt1" ) ) then
+ if ( any( comp_label=="nt1" ) ) then
     size_to_allocate = size(comp_label(:))-1
 
  else
@@ -814,14 +814,14 @@ subroutine write_dump_info(fileno,density,temperature,mass,xpos,rad,distance,pos
 
  ! open the file for appending or creating
  if (file_exists) then
-    open(unit=file_id, file=filename, status='old', position="append", action="write", iostat=status)
+    open(unit=file_id,file=filename,status='old', position="append",action="write",iostat=status)
     if (status /= 0) then
        write(*,*) 'Error opening file: ', filename
        stop
     endif
 
  else
-    open(unit=file_id, file=filename, status='new', action='write', iostat=status)
+    open(unit=file_id,file=filename,status='new',action='write',iostat=status)
     if (status /= 0) then
        write(*,*) 'Error creating file: ', filename
        stop

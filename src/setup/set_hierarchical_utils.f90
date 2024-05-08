@@ -247,10 +247,10 @@ subroutine load_hierarchy_file(prefix, data, lines, ierr)
  inquire(file=trim(filename), exist=iexist)
 
  if (iexist) then
-    open(2, file = trim(filename), status = 'old')
+    open(2,file=trim(filename),status='old')
     lines=0
     do
-       read(2, *, iostat=io) data(lines+1,:)
+       read(2, *,iostat=io) data(lines+1,:)
        if (io/=0) exit
        lines = lines + 1
     enddo
@@ -301,7 +301,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
  endif
 
  if (lines > 0) then
-    open(newunit=iu, file = trim(filename), status = 'old')
+    open(newunit=iu,file=trim(filename),status='old')
     do i=1,lines
        write(iu,*) int(data(i,1)), int(data(i,2)), data(i,3:)
     enddo
@@ -309,7 +309,7 @@ subroutine update_hierarchy_file(prefix, hs, data, lines, hier_prefix, i1, i2, i
     inquire(file=trim(filename), exist=iexist)
     if (iexist) print "(1x,a)",'WARNING: set_multiple: deleting an existing HIERARCHY file.'
 
-    open(newunit=iu, file = trim(filename), status = 'replace')
+    open(newunit=iu,file=trim(filename),status='replace')
  endif
  write(iu,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
        period, incl, arg_peri, posang_ascnode
@@ -462,7 +462,7 @@ subroutine find_hierarchy_index(level, int_sinks, inner_sinks_num, prefix)
 
  character(len=10)      :: label = '         '
 
- read(level, *, iostat=io) h_index
+ read(level, *,iostat=io) h_index
 
  call load_hierarchy_file(prefix, data, lines, ierr)
 

@@ -629,16 +629,21 @@ end subroutine checkvalbuf_int
 !  (buffered: reports on errors only and ndiff is a running total)
 !+
 !----------------------------------------------------------------
-subroutine checkvalbuf_real(xi,val,tol,label,ndiff,ncheck,errmax)
+subroutine checkvalbuf_real(xi,val,tol,label,ndiff,ncheck,errmax,use_rel_tol)
  real,             intent(in)    :: xi
  real,             intent(in)    :: val,tol
  character(len=*), intent(in)    :: label
  integer,          intent(inout) :: ndiff,ncheck
  real,             intent(inout) :: errmax
+ logical, intent(in), optional   :: use_rel_tol
  real :: erri
+ logical :: rel_tol
+
+ rel_tol = .false.
+ if (present(use_rel_tol)) rel_tol = use_rel_tol
 
  erri = abs(xi-val)
- if (abs(val) > smallval .and. erri > tol) erri = erri/abs(val)
+ if (rel_tol .or. (abs(val) > smallval .and. erri > tol)) erri = erri/abs(val)
 
  ncheck = ncheck + 1
  if (erri > tol .or. erri /= erri) then

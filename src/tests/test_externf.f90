@@ -35,7 +35,7 @@ subroutine test_externf(ntests,npass)
  use externalforces, only:externalforcetype,externalforce,accrete_particles, &
                           was_accreted,iexternalforce_max,initialise_externalforces,&
                           accradius1,update_externalforce,is_velocity_dependent,&
-                          externalforce_vdependent,update_vdependent_extforce_leapfrog,&
+                          externalforce_vdependent,update_vdependent_extforce,&
                           iext_lensethirring,iext_prdrag,iext_einsteinprec,iext_spiral,&
                           iext_densprofile,iext_staticsine,iext_gwinspiral
  use extern_corotate, only:omega_corotate
@@ -52,7 +52,7 @@ subroutine test_externf(ntests,npass)
  real :: psep,fxi,fyi,fzi,dtf,time,pmassi,dhi
  real :: fextxi,fextyi,fextzi,dumx,dumy,dumz,pot1,pot2
  real :: xerrmax,yerrmax,zerrmax,ferrmaxx,ferrmaxy,ferrmaxz
- real :: xi(4),v1(3),fext_iteration(3),fexti(3),vhalfx,vhalfy,vhalfz,dt
+ real :: xi(4),v1(3),fext_iteration(3),fexti(3),vhalfx,vhalfy,vhalfz,dt,hdt
  real :: xmini(3),xmaxi(3),poti
  real, parameter :: tolf = 1.5e-3
  real, parameter :: tolfold = 1.e-10
@@ -199,24 +199,25 @@ subroutine test_externf(ntests,npass)
           fxi = -0.0789  ! non-zero, but small so that v-dependent
           fyi = 0.036    ! part is dominant component of the force
           fzi = -0.01462
+          hdt = 0.5*dt
           !
           ! get an explicit evaluation of the external force
           ! and solve v^1 = v^1/2 + dt/2*[f1(x^1) + f1(x^1,v^1)]
           ! by iterating 20 times
           !
-          v1 = (/vhalfx + 0.5*dt*fxi,vhalfy + 0.5*dt*fyi,vhalfz + 0.5*dt*fzi/)
+          v1 = (/vhalfx + hdt*fxi,vhalfy + hdt*fyi,vhalfz + hdt*fzi/)
           do i=1,30
              call externalforce_vdependent(iextf,xi(1:3),v1,fext_iteration,poti)
-             v1(1) = vhalfx + 0.5*dt*(fxi + fext_iteration(1))
-             v1(2) = vhalfy + 0.5*dt*(fyi + fext_iteration(2))
-             v1(3) = vhalfz + 0.5*dt*(fzi + fext_iteration(3))
+             v1(1) = vhalfx + hdt*(fxi + fext_iteration(1))
+             v1(2) = vhalfy + hdt*(fyi + fext_iteration(2))
+             v1(3) = vhalfz + hdt*(fzi + fext_iteration(3))
              !print*,'fext_iteration = ',fext_iteration
           enddo
           !
           ! call update_leapfrog routine to get analytic solution
           !
-          call update_vdependent_extforce_leapfrog(iextf,vhalfx,vhalfy,vhalfz,&
-                                 fxi,fyi,fzi,fexti,dt,xi(1),xi(2),xi(3))
+          call update_vdependent_extforce(iextf,vhalfx,vhalfy,vhalfz,&
+                                 fxi,fyi,fzi,fexti,hdt,xi(1),xi(2),xi(3))
           !
           ! check that these agree with each other
           !
