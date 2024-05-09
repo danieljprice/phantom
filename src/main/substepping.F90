@@ -467,6 +467,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  nsubsteps      = 0
  dtextforce_min = huge(dt)
  done           = .false.
+ accreted       = .false.
 
  substeps: do while (timei <= t_end_step .and. .not.done)
     force_count = 0
