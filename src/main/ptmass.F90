@@ -1947,7 +1947,6 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
- call write_inopt(use_regnbody, 'use_regnbody', 'Subsystem (SD and secular and AR) integration method', iunit)
 
 end subroutine write_options_ptmass
 
@@ -2022,8 +2021,6 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
- case('use_regnbody')
-    read(valstring,*,iostat=ierr) use_regnbody
  case default
     imatch = .false.
  end select
