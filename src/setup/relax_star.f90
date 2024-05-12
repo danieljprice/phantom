@@ -58,8 +58,8 @@ contains
 subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,npin,label)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
- use dim,             only:maxp,maxvxyzu,gr,gravity
- use part,            only:vxyzu,rad,eos_vars,massoftype,igas
+ use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
+ use part,            only:vxyzu,rad,eos_vars,massoftype,igas,apr_level,fxyzu
  use step_lf_global,  only:init_step,step
  use initial,         only:initialise
  use memory,          only:allocate_memory
@@ -73,6 +73,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
+ use apr,             only:init_apr,update_apr,apr_max_in,ref_dir,apr_type,apr_rad
+ use linklist,        only:allocate_linklist
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
  real,    intent(in)    :: rho(nt),pr(nt),r(nt)
@@ -141,6 +143,19 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     call warning('relax_star','asynchronous shifting not implemented with external forces: evolving in time instead')
     use_step = .true.
  endif
+
+ ! if using apr, set up the options here
+ if (use_apr) then
+   apr_max_in = 1
+   ref_dir = -1
+   apr_type = 1
+   apr_rad = 200.
+   call allocate_linklist
+   call init_apr(apr_level,ierr)
+   call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+ endif
+
+
  !
  ! define utherm(r) based on P(r) and rho(r)
  ! and use this to set the thermal energy of all particles
@@ -176,7 +191,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     return
  endif
  if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
-   ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
+   ' s-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
@@ -204,6 +219,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     else
        call shift_particles(i1,npart,xyzh,vxyzu,dt)
     endif
+    ! if using apr, update here
+    if (use_apr) call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
     !
     ! reset thermal energy and calculate information
     !
@@ -299,13 +316,15 @@ end subroutine relax_star
 subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  use deriv, only:get_derivs_global
  use part,  only:fxyzu,fext,xyzmh_ptmass,nptmass,rhoh,massoftype,igas
+ use part,  only:aprmassoftype,apr_level
  use ptmass,only:get_accel_sink_gas
  use eos,   only:get_spsound
  use options, only:ieos
+ use dim,   only:use_apr
  integer, intent(in) :: i1,npart
  real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
  real, intent(out)   :: dtmin
- real :: dx(3),dti,phi,rhoi,cs,hi
+ real :: dx(3),dti,phi,rhoi,cs,hi,pmassi
  integer :: i,nlargeshift
 !
 ! shift particles asynchronously
@@ -314,7 +333,8 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
  nlargeshift = 0
  !$omp parallel do schedule(guided) default(none) &
  !$omp shared(i1,npart,xyzh,vxyzu,fxyzu,fext,xyzmh_ptmass,nptmass,massoftype,ieos) &
- !$omp private(i,dx,dti,phi,cs,rhoi,hi) &
+ !$omp shared(apr_level,aprmassoftype) &
+ !$omp private(i,dx,dti,phi,cs,rhoi,hi,pmassi) &
  !$omp reduction(min:dtmin) &
  !$omp reduction(+:nlargeshift)
  do i=i1+1,npart
@@ -324,7 +344,12 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
                                xyzmh_ptmass,fext(1,i),fext(2,i),fext(3,i),phi)
     endif
     hi = xyzh(4,i)
-    rhoi = rhoh(hi,massoftype(igas))
+    if (use_apr) then
+      pmassi = aprmassoftype(igas,apr_level(i))
+    else
+      pmassi = massoftype(igas)
+    endif
+    rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
     dti = 0.3*hi/cs   ! h/cs
     dx  = 0.5*dti**2*(fxyzu(1:3,i) + fext(1:3,i))
@@ -356,40 +381,73 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
                                   utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
  use sortutils,   only:find_rank,r2func
- use part,        only:rhoh,massoftype,igas,maxvxyzu,iorder=>ll
- use dim,         only:do_radiation
+ use part,        only:rhoh,massoftype,igas,maxvxyzu,ll
+ use part,        only:apr_level,aprmassoftype
+ use dim,         only:do_radiation,use_apr
  use eos,         only:gamma
  integer, intent(in) :: i1,npart,nt
  real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
- real :: ri,rhor,rhoi,rho1,mstar,massri
- integer :: i
+ real :: rj,rhor,rhoj,rho1,mstar,massrj,pmassj
+ integer :: i,j,rankj,rank_prev,npart_with_rank_prev
+ integer, allocatable :: iorder(:)
+ logical, allocatable :: iorder_mask(:)
 
  rho1 = yinterp(rho,mr,0.)
  rmax = 0.
  rmserr = 0.
+ ll = 0 ! this reassignment without changing length is essential for apr
+ allocate(iorder(npart-i1))
  call find_rank(npart-i1,r2func,xyzh(1:3,i1+1:npart),iorder)
+ ll(1:npart-i1) = iorder(1:npart-i1)
+
  mstar = mr(nt)
+ allocate(iorder_mask(size(iorder)))
+ iorder_mask = .true.
+ rank_prev = 0
+ massrj = 0.
+
  do i = i1+1,npart
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = mstar * real(iorder(i-i1)-1) / real(npart-i1)
-    !if (i1 > 0 .and. i-i1 < 10) print*,' r=  ',ri,' massri=',massri,iorder(i-i1),npart-i1
-    rhor = yinterp(rho,mr,massri) ! analytic rho(r)
-    rhoi = rhoh(xyzh(4,i),massoftype(igas)) ! actual rho
+   if (use_apr) then
+      rankj = minval(iorder,mask=iorder_mask)   ! Start from innermost to outermost particles
+      j = sum(minloc(iorder,mask=iorder_mask))  ! ID of first particle with iorder==rankj. Ignore the sum, doesn't do anything in practice.
+      iorder_mask(j) = .false.                  ! Eliminate this particle from next loop
+      npart_with_rank_prev = count(iorder==rank_prev)  ! note that this is 0 for rankj=1
+      pmassj = aprmassoftype(igas,apr_level(j))  ! replace with actual particle mass
+   else
+      j = i
+      pmassj = massoftype(igas)  ! replace with actual particle mass
+   endif
+
+   rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
+
+   if (use_apr) then
+      if (rankj/=rank_prev) massrj = massrj + real(npart_with_rank_prev)*pmassj   ! for rankj=1, this correctly gives 0
+      rank_prev = rankj
+   else
+      massrj = mstar * real(iorder(i-i1)-1) / real(npart-i1)
+   endif
+  !  print*,'rankj=',rankj,'rank_prev=',rank_prev,'npartwithrankprev=',npart_with_rank_prev,'rj=',rj,'massri/pmass=',massrj/pmassj
+  !  read*
+
+    rhor = yinterp(rho,mr,massrj) ! analytic rho(r)
+    rhoj = rhoh(xyzh(4,j),pmassj) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,i) = (yinterp(entrop,mr,massri)*rhoi**(gamma-1.))/(gamma-1.)
+          vxyzu(4,j) = (yinterp(entrop,mr,massrj)*rhoj**(gamma-1.))/(gamma-1.)
        else
-          vxyzu(4,i) = yinterp(utherm,mr,massri)
+          vxyzu(4,j) = yinterp(utherm,mr,massrj)
        endif
     endif
-    rmserr = rmserr + (rhor - rhoi)**2
-    rmax   = max(rmax,ri)
+    rmserr = rmserr + (rhor - rhoj)**2
+    rmax   = max(rmax,rj)
  enddo
  if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
+
+ deallocate(iorder,iorder_mask)
 
 end subroutine reset_u_and_get_errors
 
