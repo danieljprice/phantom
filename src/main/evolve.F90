@@ -278,7 +278,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        if (use_apr) then
-         call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,xyzmh_ptmass,aprmassoftype)
+         call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
        else
          call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
