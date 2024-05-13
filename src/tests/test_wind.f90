@@ -24,6 +24,8 @@ module testwind
  private
 
  logical :: vb = .false.
+
+ contains
 !----------------------------------------------------------
 !+
 !  Unit tests of timestepping and boundary crossing
