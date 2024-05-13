@@ -433,6 +433,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check Forward symplectic integration method imcompatiblity
 !
  call check_vdep_extf (nwarn,iexternalforce)
+!
+!--check Regularization imcompatibility
+!
+ call check_regnbody (nerror)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -1027,5 +1031,15 @@ subroutine check_vdep_extf(nwarn,iexternalforce)
  endif
 
 end subroutine check_vdep_extf
+
+subroutine check_regnbody (nerror)
+ use ptmass, only:use_regnbody,use_fourthorder
+ integer, intent(inout) :: nerror
+ if (use_regnbody .and. .not.(use_fourthorder)) then
+    print "(/,a,/)","Error: TTL integration and regularization tools are not available without FSI. Turn off TTL..."
+    nerror = nerror + 1
+ endif
+end subroutine check_regnbody
+
 
 end module checksetup
