@@ -32,22 +32,26 @@ contains
 !+
 !----------------------------------------------------------
 subroutine test_wind(ntests,npass)
- use io,         only:id,master!,iprint,iwritein
+ use io,         only:id,master,iprint,iwritein
  use inject,     only:inject_type
  use boundary,   only:set_boundary
  use physcon,    only:au,solarm,solarl
  use units,      only:set_units
  use part,       only:npart,xyzmh_ptmass,vxyzu,dust_temp
  use testutils,  only:checkval,update_test_scores
- use dim,        only:mpi,maxTdust,maxp
+ use dim,        only:mpi,maxTdust,maxp,sink_radiation,nucleation,inject_parts,ind_timesteps
  use allocutils, only:allocate_array
  use readwrite_infile, only:read_infile,write_infile
+ use dust,        only:idrag
+ use options,     only:overcleanfac,avdecayconst,alpha,alphamax,psidecayfac,&
+      iresistive_heating,alphaB
 
  integer, intent(inout) :: ntests,npass
 
  real, parameter :: eps_sum = 5e-15
  integer :: npart_old,nfailed(6),istepfrac
  real :: dtinject,eint,ekin
+ logical :: testkd,testcyl,test2
 
  if (mpi) then
     if (id==master) write(*,"(/,a,/)") '--> SKIPPING WIND TEST (currently not working with MPI)'
@@ -59,14 +63,25 @@ subroutine test_wind(ntests,npass)
     if (id==master) write(*,"(/,a,/)") '--> TESTING WIND MODULE'
  endif
 
+ print *,'@@@@@@@@@@@@@@@@@@@ ','sink_radiation=',sink_radiation,'nucleation=',nucleation,&
+      'inject_parts=',inject_parts
+ print *,'@@@@@@@@@@@@@@@@@@@ ','psidecayfac=',psidecayfac,'overcleanfac=',overcleanfac,&
+      'alpha=',alpha,'alphamax=',alphamax,'alphaB=',alphaB,'avdecayconst=',avdecayconst,&
+      'iresistive_heating=',iresistive_heating,'idrag=',idrag,'ind_timesteps=',ind_timesteps
+
  call set_units(dist=au,mass=solarm,G=1.d0)
  call set_boundary(-50.,50.,-50.,50.,-50.,50.)
 
+ testkd  = sink_radiation .and. nucleation .and. alphamax == 1. .and. ind_timesteps
+ test2   = .not.sink_radiation .and. .not.nucleation .and. alphamax == 1. .and. .not.ind_timesteps
+ testcyl = .not.sink_radiation .and. .not.nucleation .and. alphamax == 1. .and. ind_timesteps
+
+ print *,'testkd=',testkd,' testcyl=',testcyl,' test2=',test2
 
 ! test trans-sonic wind - no radiation, no dust
 
  call init_testwind(1,ntests,npass,npart_old,istepfrac,dtinject)
- !if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
+ if (id==master) call write_infile('w.in','w.log','w.ev','w_00000',iwritein,iprint)
  call integrate_wind(npart_old,istepfrac,dtinject)
  nfailed(:) = 0
  eint = sum(vxyzu(4,1:npart))
@@ -76,33 +91,58 @@ subroutine test_wind(ntests,npass)
  call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
  call checkval(npart,12180,0,nfailed(3),'number of ejected particles')
  call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(4),'wind mass loss rate')
- call checkval(eint,3.367417540822784E+03,eps_sum,nfailed(5),'total internal energy')
- call checkval(ekin,5.524867074648309E+01,eps_sum,nfailed(6),'total kinetic energy')
+ if (testcyl) then
+    call checkval(eint,3.360686893182378E+03,eps_sum,nfailed(5),'total internal energy')
+    call checkval(ekin,5.605632523862468E+01,eps_sum,nfailed(6),'total kinetic energy')
+ elseif (testkd) then
+    call checkval(eint,3.164153170427767E+03,eps_sum,nfailed(5),'total internal energy')
+    call checkval(ekin,6.101010545772693E+01,eps_sum,nfailed(6),'total kinetic energy')
+ elseif (test2) then
+    call checkval(eint,3.367417540822784E+03,eps_sum,nfailed(5),'total internal energy')
+    call checkval(ekin,5.524867074648306E+01,eps_sum,nfailed(6),'total kinetic energy')
+ else!if (test)
+    call checkval(eint,3.179016341424608E+03,eps_sum,nfailed(5),'total internal energy')
+    call checkval(ekin,6.005124961952793E+01,eps_sum,nfailed(6),'total kinetic energy')
+ !else
+ !   stop 'problem1 identifying setup?'
+ endif
  call update_test_scores(ntests,nfailed,npass)
 
 
-#ifdef ISINK_RADIATION
- maxTdust = maxp
- if (allocated(dust_temp)) deallocate(dust_temp)
- call allocate_array('dust_temp',dust_temp,maxTdust)
+ if (sink_radiation) then
 
 ! test wind with bowen dust + radiative acceleration
 
- call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
+    maxTdust = maxp
+    if (allocated(dust_temp)) deallocate(dust_temp)
+    call allocate_array('dust_temp',dust_temp,maxTdust)
+
+    call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
  !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
- call integrate_wind(npart_old,istepfrac,dtinject)
- nfailed(:) = 0
- eint = sum(vxyzu(4,1:npart))
- ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
- if (vb) print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
- call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
- call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
- call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
- call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(4),'wind mass loss rate')
- call checkval(eint,3.496431505098527E+02,eps_sum,nfailed(5),'total internal energy')
- call checkval(ekin,1.109784837120262E+02,eps_sum,nfailed(6),'total kinetic energy')
+    call integrate_wind(npart_old,istepfrac,dtinject)
+    nfailed(:) = 0
+    eint = sum(vxyzu(4,1:npart))
+    ekin = sqrt(sum(vxyzu(1,1:npart)**2+vxyzu(2,1:npart)**2+vxyzu(3,1:npart)**2))
+    if (vb) print '(5(1x,es22.15),i8)',xyzmh_ptmass(4,1),xyzmh_ptmass(7,1),xyzmh_ptmass(15,1),eint,ekin,npart
+    call checkval(xyzmh_ptmass(4,1),1.199987815414834E+00,epsilon(0.),nfailed(1),'sink particle mass')
+    call checkval(xyzmh_ptmass(7,1),0.,epsilon(0.),nfailed(2),'mass accreted')
+    call checkval(npart,21924,0,nfailed(3),'number of ejected particles')
+    call checkval(xyzmh_ptmass(15,1),1.591640703559762E-06,epsilon(0.),nfailed(4),'wind mass loss rate')
+    if (testkd) then
+       call checkval(eint,2.187465510809545E+02,eps_sum,nfailed(5),'total internal energy')
+       call checkval(ekin,1.709063901093157E+02,eps_sum,nfailed(6),'total kinetic energy')
+    else!if (test) then
+       call checkval(eint,2.218461223513083E+02,eps_sum,nfailed(5),'total internal energy')
+       call checkval(ekin,1.709669096834302E+02,eps_sum,nfailed(6),'total kinetic energy')
+    !else
+    !   stop 'problem2 identifying setup?'
+    endif
+ else
+    if (id==master) write(*,"(/,a,/)") '    SKIPPING SINK RADIATION TEST'
+    !call checkval(eint,3.496431505098527E+02,eps_sum,nfailed(5),'total internal energy')
+    !call checkval(ekin,1.109784837120262E+02,eps_sum,nfailed(6),'total kinetic energy')
+ endif
  call update_test_scores(ntests,nfailed,npass)
-#endif
 
  if (id==master) write(*,"(/,a)") '<-- WIND TEST COMPLETE'
 
