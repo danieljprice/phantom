@@ -36,7 +36,7 @@ module options
 
  real, public :: alpha,alphau,beta
  real, public :: alphamax
- real, public :: alphaB, psidecayfac, overcleanfac, hdivbbmax_max
+ real, public :: alphaB, psidecayfac, overcleanfac
  integer, public :: ishock_heating,ipdv_heating,icooling,iresistive_heating
  integer, public :: ireconav
 
@@ -134,8 +134,6 @@ subroutine set_default_options
  alphaB            = 1.0
  psidecayfac       = 1.0     ! psi decay factor (MHD only)
  overcleanfac      = 1.0     ! factor to increase signal velocity for (only) time steps and psi cleaning
- hdivbbmax_max     = 1.0     ! if > overcleanfac, then use B/(h*|div B|) as a coefficient for dtclean;
- !                           ! this is the max value allowed; test suggest =512 for magnetised colliding flows
  beta              = 2.0     ! beta viscosity term
  avdecayconst      = 0.1     ! decay time constant for viscosity switches
 
