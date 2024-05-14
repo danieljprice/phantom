@@ -493,19 +493,21 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  !--- Load/Create HIERARCHY file: xyzmh_ptmass index | hierarchical index | star mass | companion star mass | semi-major axis | eccentricity | period | inclination | argument of pericenter | ascending node longitude
  inquire(file=trim(filename), exist=iexist)
- if (present(subst) .and. subst>10) then
-    if (iexist) then
-       open(1,file=trim(filename),status='old')
-       lines=0
-       do
-          read(1, *,iostat=io) data(lines+1,:)
-          if (io/=0) exit
-          lines = lines + 1
-       enddo
-       close(1)
-    else
-       print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
-       ierr = ierr_HIER2
+ if (present(subst)) then
+    if (subst>10) then
+       if (iexist) then
+          open(1, file = trim(filename), status = 'old')
+          lines=0
+          do
+             read(1, *, iostat=io) data(lines+1,:)
+             if (io/=0) exit
+             lines = lines + 1
+          enddo
+          close(1)
+       else
+          print "(1x,a)",'ERROR: set_multiple: there is no HIERARCHY file, cannot perform subtitution.'
+          ierr = ierr_HIER2
+       endif
     endif
  else
     if (iexist) then
@@ -535,7 +537,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  subst_index = 0
  !--- Checks to avoid bad substitutions
- if (present(subst) .and. subst>10) then
+ if (present(subst)) then
+    if (subst>10) then
     write(hier_prefix, *) subst
     io=0
     mtot = 0.
@@ -604,6 +607,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     !nptmass = nptmass + 1
 
     period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
+    endif
  else
     mprimary = m1
     msecondary = m2
@@ -620,7 +624,8 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
             f=f,accretion_radius1=accretion_radius1,accretion_radius2=accretion_radius2, &
             xyzmh_ptmass=xyzmh_ptmass,vxyz_ptmass=vxyz_ptmass,nptmass=nptmass, ierr=ierr)
 
- if (present(subst) .and. subst>10) then
+ if (present(subst)) then
+    if (subst>10) then
     !--- lower nptmass, copy one of the new sinks to the subst star
     nptmass = nptmass-1
     i1 = subst_index
@@ -725,6 +730,7 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
     write(1,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
          period, incl, arg_peri, posang_ascnode
     close(1)
+    endif
  endif
 
 end subroutine set_multiple
