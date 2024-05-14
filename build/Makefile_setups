@@ -455,7 +455,6 @@ ifeq ($(SETUP), nimhdshock)
     NONIDEALMHD=yes
     KERNEL=WendlandC4
     ISOTHERMAL=yes
-    MAXP=6000000
     KNOWN_SETUP=yes
 endif
 
@@ -738,7 +737,6 @@ ifeq ($(SETUP), star)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
 endif
 
@@ -751,7 +749,6 @@ ifeq ($(SETUP), grstar)
     MODFILE= moddump_tidal.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=100000000
     GRAVITY=yes
 endif
 
@@ -761,7 +758,6 @@ ifeq ($(SETUP), radstar)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
     RADIATION=yes
 endif
@@ -773,7 +769,6 @@ ifeq ($(SETUP), dustystar)
     MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
     ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90 dust_formation.f90
     KNOWN_SETUP=yes
-    MAXP=10000000
     GRAVITY=yes
     SINK_RADIATION=yes
 endif
