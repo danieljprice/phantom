@@ -196,11 +196,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) then
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
        else
-          if (icooling  /=  9) then
-             vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-          else
-             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-          endif
+          vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
 
        !--floor the thermal energy if requested and required
@@ -249,7 +245,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     else
        call substep_sph_gr(dtsph,npart,xyzh,vxyzu,dens,pxyzu,metrics)
     endif
- elseif (icooling /= 9) then
+ else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                                  fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
@@ -479,10 +475,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (gr) then
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
                 else
-                   if (icooling /= 9) then
-                      vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-                   else
-                      vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+                   vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   if (fxyzu(4,i) > TINY(fxyzu(4,i))) then
+                      print *, "In step du/dt not zero"
                    endif
                 endif
 
@@ -505,11 +500,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
              else
-                if (icooling /= 9) then
-                   vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
-                else
-                   vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
-                endif
+                vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
              endif
 
              !--floor the thermal energy if requested and required
@@ -659,11 +650,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) - hdtsph*fxyzu(:,i)
              else
-                if (icooling /= 9 ) then
-                   vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
-                else
-                   vxyzu(1:3,i) = vxyzu(1:3,i) - hdtsph*fxyzu(1:3,i)
-                endif
+                vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
              endif
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then
