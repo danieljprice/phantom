@@ -207,7 +207,7 @@ subroutine write_options_cooling(iunit)
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
  use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
- use cooling_radapprox, only:write_options_cooling_stamatellos
+ use cooling_radapprox, only:write_options_cooling_radapprox
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling cooling'
@@ -224,7 +224,7 @@ subroutine write_options_cooling(iunit)
  case(7)
     call write_options_cooling_gammie_PL(iunit)
  case(9)
-       call write_options_cooling_stamatellos(iunit)
+       call write_options_cooling_radapprox(iunit)
  case default
     call write_options_cooling_solver(iunit)
  end select
@@ -244,7 +244,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_ism,       only:read_options_cooling_ism
  use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
- use cooling_radapprox, only:read_options_cooling_stamatellos
+ use cooling_radapprox, only:read_options_cooling_radapprox
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -281,7 +281,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     case(7)
        call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
     case(9)
-       call read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
+       call read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr)
     case default
        call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
     end select

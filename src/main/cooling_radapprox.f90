@@ -22,9 +22,9 @@ module cooling_radapprox
  implicit none
  real, public :: Lstar=0.0 ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
- integer :: od_method = 4 ! default = Stamatellos+ 2007 method
+ integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
- public :: radcool_update_energ,write_options_cooling_stamatellos,read_options_cooling_stamatellos
+ public :: radcool_update_energ,write_options_cooling_radapprox,read_options_cooling_radapprox
  public :: init_star
 
 contains
@@ -76,30 +76,34 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  real            :: dudti_cool,ui,rhoi
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Hmod2,xi,yi,zi
+ real            :: cs2,Om2,Hmod2
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
- integer         :: i
+ integer         :: i,ratefile
+ character(len=20) :: filename
 
- !$omp parallel do default(none) &
+! write (temp,'(E5.2)') dt
+ write (filename, 11) dt
+11 format("coolrate_", E7.2,".dat")
+ 
+ ratefile = 34
+ open(unit=ratefile,file=filename,status="replace",form="formatted")
+ !$omp parallel do default(none) schedule(runtime) &
  !$omp shared(npart,duFLD,xyzh,energ,massoftype,xyzmh_ptmass,unit_density,Gpot_cool) &
- !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure) &
+ !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure,ratefile) &
  !$omp shared(opac_store,Tfloor,dt,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool) &
- !$omp private(i,poti,du_FLDi,xi,yi,zi,ui,rhoi,ri2,coldensi,kappaBari,Ti) &
+ !$omp private(i,poti,du_FLDi,ui,rhoi,ri2,coldensi,kappaBari,Ti) &
  !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
  !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,Lstar,dudti_cool)
  overpart: do i=1,npart
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
-    xi = xyzh(1,i)
-    yi = xyzh(2,i)
-    zi = xyzh(3,i)
     ui = energ(i)
     rhoi =  rhoh(xyzh(4,i),massoftype(igas))
     
     if (isink_star > 0) then
-       ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
-            + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
-            + (zi-xyzmh_ptmass(3,isink_star))**2d0  
+       ri2 = (xyzh(1,i)-xyzmh_ptmass(1,isink_star))**2d0 &
+            + (xyzh(2,i)-xyzmh_ptmass(2,isink_star))**2d0 &
+            + (xyzh(3,i)-xyzmh_ptmass(3,isink_star))**2d0  
     endif
 
     ! get opacities & Ti for ui
@@ -207,26 +211,29 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
        print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
        call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
        stop
-    else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
-       dudti_cool = (umini - ui)/dt
+!    else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
+ !      dudti_cool = (umini - ui)/dt
     endif
 
     ! evolve energy
-    energ(i) = energ(i) + dudti_cool * dt
-    
+    energ(i) = ui + dudti_cool * dt
+
+    !set fxyzu(4,i) for timestepping - or don't...
+    if (dudti_cool == 0d0) then
+       dudt_sph(i) = tiny(dudti_cool)
+    else
+       dudt_sph(i) = dudti_cool
+    endif
+  !  !$omp critical
+  !  write (ratefile,'(I6,1X,E15.4,E15.4)') i, dudt_sph(i), (ui - energ(i))/dt
+  !  !$omp end critical
  enddo overpart
  !$omp end parallel do
-     ! zero fxyzu(4,:)
- !$omp parallel do shared(dudt_sph) private(i) schedule(runtime)
- do i=1,npart
-    dudt_sph(i) = 0d0
- enddo
- !$omp end parallel do
-
+ close(ratefile)
 end subroutine radcool_update_energ
 
 
-subroutine write_options_cooling_stamatellos(iunit)
+subroutine write_options_cooling_radapprox(iunit)
  use infile_utils, only:write_inopt
  use eos_stamatellos, only: eos_file
  integer, intent(in) :: iunit
@@ -238,9 +245,9 @@ subroutine write_options_cooling_stamatellos(iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
  call write_inopt(FLD_opt,'do FLD','Do FLD? (1) yes (0) no',iunit)
 
-end subroutine write_options_cooling_stamatellos
+end subroutine write_options_cooling_radapprox
 
-subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ierr)
+subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr)
  use io, only:warning,fatal
  use eos_stamatellos, only: eos_file,doFLD
  character(len=*), intent(in)  :: name,valstring
@@ -279,7 +286,7 @@ subroutine read_options_cooling_stamatellos(name,valstring,imatch,igotallstam,ie
 
  if (ngot >= 4) igotallstam = .true.
 
-end subroutine read_options_cooling_stamatellos
+end subroutine read_options_cooling_radapprox
 
 end module cooling_radapprox
 

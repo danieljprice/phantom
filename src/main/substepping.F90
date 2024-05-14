@@ -1074,7 +1074,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
     endif
  endif
 #endif
- ! update internal energy
+ ! update internal energy 
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

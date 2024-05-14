@@ -163,6 +163,12 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
 !
+! update energy if using radiative cooling approx (icooling=9) 
+!
+ if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+
+ 
+!
 ! compute forces
 !
 #ifdef DRIVING
@@ -186,7 +192,8 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! update energy if using radiative cooling approx (icooling=9) and set fxyzu(4,:) to zero
 !
- if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor) 
+! if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+
  
 !
 ! compute dust temperature
@@ -203,6 +210,15 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     enddo
     !$omp end parallel do
  endif
+
+ if (icooling == 9) then
+    !$omp parallel do shared(fxyzu,npart) private(i)
+    do i=1,npart
+       fxyzu(4,i) = 0.
+    enddo
+    !$omp end parallel do
+ endif
+
 !
 ! set new timestep from Courant/forces condition
 !
