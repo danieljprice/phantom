@@ -50,8 +50,9 @@ module setstar
  end type star_t
 
  public :: star_t
- public :: set_star,set_defaults_star,shift_star
+ public :: set_star,set_defaults_star,set_defaults_stars,shift_star
  public :: write_options_star,read_options_star,set_star_interactive
+ public :: write_options_stars,read_options_stars
  public :: ikepler,imesa,ibpwpoly,ipoly,iuniform,ifromfile,ievrard
  public :: need_polyk
 
@@ -90,6 +91,21 @@ subroutine set_defaults_star(star)
  star%label          = ''
 
 end subroutine set_defaults_star
+
+!--------------------------------------------------------------------------
+!+
+!  same as above but does it for multiple stars
+!+
+!--------------------------------------------------------------------------
+subroutine set_defaults_stars(stars)
+ type(star_t), intent(out) :: stars(:)
+ integer :: i
+
+ do i=1,size(stars)
+    call set_defaults_star(stars(i))
+ enddo
+
+end subroutine set_defaults_stars
 
 !--------------------------------------------------------------------------
 !+
@@ -755,5 +771,84 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
  endif
 
 end subroutine read_options_star
+
+!-----------------------------------------------------------------------
+!+
+!  write_options routine that writes options for multiple stars
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_stars(star,relax,iunit,nstar)
+ use relaxstar,    only:write_options_relax
+ use infile_utils, only:write_inopt
+ type(star_t), intent(in) :: star(:)
+ integer,      intent(in) :: iunit
+ logical,      intent(in) :: relax
+ integer,      intent(in), optional :: nstar
+ integer :: i,nstars
+
+ ! optionally ask for number of stars, otherwise fix nstars to the input array size
+ if (present(nstar)) then
+    call write_inopt(nstar,'nstars','number of stars to add (0-'//achar(size(star)+48)//')',iunit)
+    nstars = nstar
+ else
+    nstars = size(star)
+ endif
+
+ ! write options for each star
+ do i=1,nstars
+    call write_options_star(star(i),iunit,label=achar(i+48))
+ enddo
+
+ ! write relaxation options if any stars are made of gas
+ if (nstars > 0) then
+    if (any(star(1:nstars)%iprofile > 0)) then
+       write(iunit,"(/,a)") '# relaxation options'
+       call write_inopt(relax,'relax','relax stars into equilibrium',iunit)
+       call write_options_relax(iunit)
+    endif
+ endif
+
+end subroutine write_options_stars
+
+!-----------------------------------------------------------------------
+!+
+!  read_options routine that reads options for multiple stars
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr,nstar)
+ use relaxstar,    only:read_options_relax
+ use infile_utils, only:inopts,read_inopt
+ type(star_t),              intent(out)   :: star(:)
+ type(inopts), allocatable, intent(inout) :: db(:)
+ integer,                   intent(out)   :: need_iso
+ integer,                   intent(inout) :: ieos
+ real,                      intent(inout) :: polyk
+ logical,                   intent(out)   :: relax
+ integer,                   intent(inout) :: nerr
+ integer,                   intent(out), optional :: nstar
+ integer :: i,nstars
+
+ ! optionally ask for number of stars
+ if (present(nstar)) then
+    call read_inopt(nstar,'nstars',db,nerr,min=0,max=size(star))
+    nstars = nstar
+ else
+    nstars = size(star)
+ endif
+
+ ! read options for each star
+ do i=1,nstars
+    call read_options_star(star(i),need_iso,ieos,polyk,db,nerr,label=achar(i+48))
+ enddo
+
+ ! read relaxation options if any stars are made of gas
+ if (nstars > 0) then
+    if (any(star(1:nstars)%iprofile > 0)) then
+       call read_inopt(relax,'relax',db,errcount=nerr)
+       call read_options_relax(db,nerr)
+    endif
+ endif
+
+end subroutine read_options_stars
 
 end module setstar

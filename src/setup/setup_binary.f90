@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
- use setstar,        only:set_star,set_defaults_star,shift_star
+ use setstar,        only:set_star,set_defaults_stars,shift_star
  use eos,            only:X_in,Z_in,ieos
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
@@ -98,9 +98,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  vxyzu(:,:) = 0.
  nptmass = 0
  nstar = 2
- do i=1,nstar
-    call set_defaults_star(star(i))
- enddo
+ call set_defaults_stars(star)
  relax = .true.
  corotate = .false.
  semi_major_axis = '10.'
@@ -213,8 +211,7 @@ end subroutine setpart
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use setstar,      only:write_options_star
- use relaxstar,    only:write_options_relax
+ use setstar,      only:write_options_stars
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
@@ -224,8 +221,8 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit,gr)
- call write_options_star(star(1),iunit,label='1')
- call write_options_star(star(2),iunit,label='2')
+ call write_options_stars(star,relax,iunit)
+ call write_inopt(corotate,'corotate','set stars in corotation',iunit)
 
  write(iunit,"(/,a)") '# orbit settings'
  call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1',iunit)
@@ -234,13 +231,6 @@ subroutine write_setupfile(filename)
  call write_inopt(O,'O','position angle of ascending node (deg)',iunit)
  call write_inopt(w,'w','argument of periapsis (deg)',iunit)
  call write_inopt(f,'f','initial true anomaly (180=apoastron)',iunit)
- call write_inopt(corotate,'corotate','set stars in corotation',iunit)
-
- if (any(star(:)%iprofile > 0)) then
-    write(iunit,"(/,a)") '# relaxation options'
-    call write_inopt(relax,'relax','relax stars into equilibrium',iunit)
-    call write_options_relax(iunit)
- endif
  close(iunit)
 
 end subroutine write_setupfile
@@ -253,8 +243,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
- use setstar,      only:read_options_star
- use relaxstar,    only:read_options_relax
+ use setstar,      only:read_options_stars
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)    :: filename
  integer,          intent(inout) :: ieos
@@ -268,9 +257,9 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
- call read_options_star(star(1),need_iso,ieos,polyk,db,nerr,label='1')
- call read_options_star(star(2),need_iso,ieos,polyk,db,nerr,label='2')
+ call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
  if (need_iso==1) call fatal('setup_binary','incompatible setup for eos')
+ call read_inopt(corotate,'corotate',db,errcount=nerr)
 
  call read_inopt(semi_major_axis,'a',db,errcount=nerr)
  call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
@@ -278,13 +267,6 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  call read_inopt(O,'O',db,errcount=nerr)
  call read_inopt(w,'w',db,errcount=nerr)
  call read_inopt(f,'f',db,errcount=nerr)
-
- call read_inopt(corotate,'corotate',db,errcount=nerr)
-
- if (any(star(:)%iprofile > 0)) then
-    call read_inopt(relax,'relax',db,errcount=nerr)
-    call read_options_relax(db,nerr)
- endif
 
  call close_db(db)
  if (nerr > 0) then

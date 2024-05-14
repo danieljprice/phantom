@@ -34,12 +34,14 @@ module setup
 !   timestep, units
 !
  use options, only:alpha
+ use setstar, only:star_t
  implicit none
  public :: setpart
 
  real,    private :: mhole,mdisc,r_in,r_out,r_ref,spin,honr,theta,p_index,q_index,accrad,gamma_ad
- integer, private :: np
- logical, private :: ismooth
+ integer, private :: np,nstars
+ logical, private :: ismooth,relax
+ type(star_t), private :: star(1)
 
  private
 
@@ -68,6 +70,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,       only:tmax,dtmax
  use eos,            only:ieos
  use kernel,         only:hfact_default
+ use setstar,        only:set_defaults_stars
+ use setunits,       only:mass_unit
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -99,7 +103,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! Set default problem parameters
 !
-
+ mass_unit = '1e6*solarm'
  mhole  = 1.e6    ! (solarm)
  mdisc  = 10.     ! (solarm)
  r_in   = 4.      ! (GM/c^2)
@@ -115,11 +119,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gamma_ad= 1.001
  np     = 1e6
  accrad = 4.      ! (GM/c^2)
+ accradius1 = accrad
+ gamma = gamma_ad
+
+ ! stars
+ nstars = 0
+ call set_defaults_stars(star)
+ relax = .true.
 
 !
 !-- Read runtime parameters from setup file
 !
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",'Disc setup'
+ if (id==master) print "(/,65('-'),(/,1x,a),/,65('-'),/)",'General relativistic disc setup'
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -186,7 +197,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  npartoftype(1) = npart
 
- return
 end subroutine setpart
 
 
@@ -195,12 +205,17 @@ end subroutine setpart
 !
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
+ use setstar,      only:write_options_stars
+ use dim,          only:gr
+ use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- write(iunit,"(a)") '# input file for grdisc setup'
+ call write_options_units(iunit,gr)
+
+ write(iunit,"(/,a)") '# disc parameters'
  call write_inopt(mhole  ,'mhole'  ,'mass of black hole (solar mass)'           , iunit)
  call write_inopt(mdisc  ,'mdisc'  ,'mass of disc       (solar mass)'           , iunit)
  call write_inopt(r_in   ,'r_in'   ,'inner edge of disc (GM/c^2, code units)'   , iunit)
@@ -216,6 +231,10 @@ subroutine write_setupfile(filename)
  call write_inopt(gamma_ad,'gamma' ,'adiabatic gamma'                           , iunit)
  call write_inopt(accrad ,'accrad' ,'accretion radius   (GM/c^2, code units)'   , iunit)
  call write_inopt(np     ,'np'     ,'number of particles in disc'               , iunit)
+
+ write(iunit,"(/,a)") '# stars'
+ call write_options_stars(star,relax,iunit,nstar=nstars)
+ !call write_options_orbit(orbit,iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -223,16 +242,21 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ use setstar,      only:read_options_stars
+ use eos,          only:ieos,polyk
+ use dim,          only:gr
+ use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
- integer :: nerr
+ integer :: nerr,need_iso
  type(inopts), allocatable :: db(:)
 
  print "(a)",'reading setup options from '//trim(filename)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
+ call read_options_and_set_units(db,nerr,gr)
  call read_inopt(mhole  ,'mhole'  ,db,min=0.,errcount=nerr)
  call read_inopt(mdisc  ,'mdisc'  ,db,min=0.,errcount=nerr)
  call read_inopt(r_in   ,'r_in'   ,db,min=0.,errcount=nerr)
@@ -248,6 +272,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(gamma_ad,'gamma' ,db,min=1.,errcount=nerr)
  call read_inopt(accrad ,'accrad' ,db,min=0.,errcount=nerr)
  call read_inopt(np     ,'np   '  ,db,min=0 ,errcount=nerr)
+ call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr,nstars)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
