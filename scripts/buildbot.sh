@@ -184,9 +184,10 @@ check_phantomsetup ()
    #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
+   flags="--np=1000"
    echo -e "$myinput" > myinput.txt;
    sed '/-e/d' myinput.txt > mycleanin.txt
-   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
@@ -197,8 +198,8 @@ check_phantomsetup ()
    # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
    #
    infile="${prefix}.in"
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
       #test_setupfile_options "$prefix" "$prefix.setup" $infile;
