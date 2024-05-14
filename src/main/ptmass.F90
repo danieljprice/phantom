@@ -1549,17 +1549,16 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
     xyzmh_ptmass(itbirth,nptmass) = time
     xyzmh_ptmass(4,nptmass) = -1.
     xyzmh_ptmass(ihacc,nptmass) = -1.
-    if (i==nseed)then
-       linklist_ptmass(nptmass) = -1 !! null pointer
-    else
-       linklist_ptmass(nptmass) = nptmass + 1 !! link this new seed to the next one
-    endif
+    linklist_ptmass(nptmass) = nptmass + 1 !! link this new seed to the next one
  enddo
+ linklist_ptmass(nptmass) = -1 !! null pointer to end the link list
+
 end subroutine ptmass_create_seeds
 
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
  use physcon, only:solarm,pi
  use eos,     only:polyk
+ use io,      only:iprint
  use units,   only:umass
  use part, only:itbirth,ihacc
  use utils_sampling, only:divide_unit_seg
@@ -1571,7 +1570,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
  real              :: xi(3),vi(3)
  integer           :: i,k,n
  real              :: tbirthi,mi,hacci,minmass,minmonmi
- real              :: xk,yk,zk,dk,cs
+ real              :: xk,yk,zk,d,cs
 
  do i=1,nptmass
     mi      = xyzmh_ptmass(4,i)
@@ -1579,6 +1578,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
     tbirthi = xyzmh_ptmass(itbirth,i)
     if (mi<0.) cycle
     if (time>tbirthi+tmax_acc .and. hacci>0. ) then
+       write(iprint,"(i8,i8)") time, tbirthi+tmax_acc
        !! save xcom and vcom before placing stars
        xi(1) = xyzmh_ptmass(1,i)
        xi(2) = xyzmh_ptmass(2,i)
@@ -1598,12 +1598,12 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
        k=i
        do while(k>0)
           !! do some clever stuff
-          dk = huge(mi)
-          do while (dk>1.)
+          d = huge(mi)
+          do while (d>1.)
              xk = rand()
              yk = rand()
              zk = rand()
-             dk = xk**2+yk**2+zk**2
+             d  = xk**2+yk**2+zk**2
           enddo
           cs = sqrt(polyk)
           xyzmh_ptmass(ihacc,i) = -1.
