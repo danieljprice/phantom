@@ -63,7 +63,7 @@ module ptmass
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
- real,    public :: tmax_acc = 0.0
+ real,    public :: tmax_acc = huge(f_acc)
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
@@ -791,7 +791,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     mpt  = xyzmh_ptmass(4,i)
     age  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
-    if (age + tmax_acc < time ) cycle
+    if (age + tmax_acc < time) cycle
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
