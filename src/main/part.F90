@@ -605,6 +605,7 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
+ linklist_ptmass = -1
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
