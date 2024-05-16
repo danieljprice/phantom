@@ -186,6 +186,7 @@ ifeq ($(SETUP), radiotde)
     IND_TIMESTEPS=no
     ANALYSIS=analysis_radiotde.f90
     MODFILE=moddump_radiotde.f90
+    SRCINJECT=inject_sim.f90
     SYSTEM=gfortran
 endif
 
