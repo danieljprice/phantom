@@ -907,36 +907,43 @@ end subroutine calc_rho_from_PT
 !  up to an additive integration constant, from density and pressure.
 !+
 !-----------------------------------------------------------------------
-function entropy(rho,pres,mu_in,ientropy,eint_in,ierr)
+function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
  use io,                only:fatal,warning
- use physcon,           only:radconst,kb_on_mh
+ use physcon,           only:radconst,kb_on_mh,Rg
  use eos_idealplusrad,  only:get_idealgasplusrad_tempfrompres
  use eos_mesa,          only:get_eos_eT_from_rhop_mesa
  use mesa_microphysics, only:getvalue_mesa
  real,    intent(in)            :: rho,pres,mu_in
- real,    intent(in),  optional :: eint_in
+ real,    intent(in),  optional :: eint_in,T_in,Trad_in
  integer, intent(in)            :: ientropy
  integer, intent(out), optional :: ierr
- real                           :: mu,entropy,logentropy,temp,eint
+ real                           :: mu,entropy,logentropy,temp,Trad,eint
 
  if (present(ierr)) ierr=0
 
  mu = mu_in
+ if (present(T_in)) then  ! is gas temperature specified?
+    temp = T_in
+ else
+    temp = pres * mu / (rho * Rg)  ! used as initial guess for case 2
+ endif
+
  select case(ientropy)
- case(1) ! Include only gas entropy (up to additive constants)
-    temp = pres * mu / (rho * kb_on_mh)
+ case(1) ! Only include gas contribution
+    ! check temp
+    if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
-    ! check temp
-    if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
-
- case(2) ! Include both gas and radiation entropy (up to additive constants)
-    temp = pres * mu / (rho * kb_on_mh) ! Guess for temp
+ case(2) ! Include both gas and radiation contributions (up to additive constants)
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
-    entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*temp**3 / (3.*rho)
-
+    if (present(Trad_in)) then
+       Trad = Trad_in
+    else
+       Trad = temp  ! assume thermal equilibrium
+    endif
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
+    entropy = kb_on_mh / mu * log(temp**1.5/rho) + 4.*radconst*Trad**3 / (3.*rho)
 
  case(3) ! Get entropy from MESA tables if using MESA EoS
     if (ieos /= 10 .and. ieos /= 20) call fatal('eos','Using MESA tables to calculate S from rho and pres, but not using MESA EoS')

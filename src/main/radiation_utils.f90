@@ -23,8 +23,8 @@ module radiation_utils
  public :: get_rad_R
  public :: radiation_equation_of_state
  public :: T_from_Etot
- public :: radE_from_Trad
- public :: Trad_from_radE
+ public :: radxi_from_rhoT
+ public :: Trad_from_rhoxi
  public :: ugas_from_Tgas
  public :: Tgas_from_ugas
  public :: get_opacity
@@ -136,29 +136,29 @@ end function T_from_Etot
 
 !---------------------------------------------------------
 !+
-!  get the radiation energy from the radiation temperature
+!  get specific radiation energy density from the radiation temperature
 !+
 !---------------------------------------------------------
-real function radE_from_Trad(Trad) result(radE)
+real function radxi_from_rhoT(rho,Trad) result(radxi)
  use units, only:get_radconst_code
- real, intent(in) :: Trad
+ real, intent(in) :: Trad,rho
 
- radE = Trad**4*get_radconst_code()
+ radxi = Trad**4*get_radconst_code()/rho
 
-end function radE_from_Trad
+end function radxi_from_rhoT
 
 !---------------------------------------------------------
 !+
-!  get the radiation temperature from the radiation energy per unit volume
+!  get the radiation temperature from specific radiation energy
 !+
 !---------------------------------------------------------
-real function Trad_from_radE(radE) result(Trad)
+real function Trad_from_rhoxi(rho,radxi) result(Trad)
  use units, only:get_radconst_code
- real, intent(in) :: radE
+ real, intent(in) :: rho,radxi
 
- Trad = (radE/get_radconst_code())**0.25
+ Trad = (rho*radxi/get_radconst_code())**0.25
 
-end function Trad_from_radE
+end function Trad_from_rhoxi
 
 !---------------------------------------------------------
 !+
