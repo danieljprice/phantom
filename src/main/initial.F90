@@ -130,7 +130,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
-                            Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx
+                            Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
+                            n_group,n_ingroup,n_sing,nmatrix,group_info
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -150,7 +151,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use nicil_sup,        only:use_consistent_gmw
  use ptmass,           only:init_ptmass,get_accel_sink_gas,get_accel_sink_sink, &
                             h_acc,r_crit,r_crit2,rho_crit,rho_crit_cgs,icreate_sinks, &
-                            r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2
+                            r_merge_uncond,r_merge_cond,r_merge_uncond2,r_merge_cond2,r_merge2, &
+                            use_regnbody
  use timestep,         only:time,dt,dtextforce,C_force,dtmax,dtmax_user,idtmax_n
  use timing,           only:get_timings
  use timestep_ind,     only:ibinnow,maxbins,init_ibin,istepfrac
@@ -210,6 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
+ use subgroup,       only:group_identify
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -495,10 +498,15 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-
     ! compute initial sink-sink forces and get timestep
-    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+    if (use_regnbody) then
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
+    else
+       call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+    endif
     dtsinksink = C_force*dtsinksink
     if (id==master) write(iprint,*) 'dt(sink-sink) = ',dtsinksink
     dtextforce = min(dtextforce,dtsinksink)

@@ -65,11 +65,12 @@ module ptmass
  real,    public :: f_acc  = 0.8
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
- real,    public :: r_merge_uncond  = 0.0    ! sinks will unconditionally merge if they touch
- real,    public :: r_merge_cond    = 0.0    ! sinks will merge if bound within this radius
- real,    public :: f_crit_override = 0.0    ! 1000.
+ real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
+ real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
+ real,    public :: f_crit_override = 0.0     ! 1000.
 
 
+ logical, public :: use_regnbody    = .false. ! subsystems switch
  logical, public :: use_fourthorder = .true.
  integer, public :: n_force_order   = 3
  real, public, parameter :: dk2(3) = (/0.5,0.5,0.0/)
@@ -299,7 +300,7 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,group_info)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -307,6 +308,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
+ use part,           only:igarg,igid
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -317,6 +319,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
+ integer, optional, intent(in)  :: group_info(3,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
@@ -324,8 +327,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
- integer :: i,j
- logical :: extrap
+ integer :: k,l,i,j,gidi,gidj
+ logical :: extrap,subsys
 
  dtsinksink = huge(dtsinksink)
  fxyz_ptmass(:,:) = 0.
@@ -339,6 +342,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     extrap = .true.
  else
     extrap = .false.
+ endif
+
+ if (present(group_info)) then
+    subsys = .true.
+ else
+    subsys = .false.
  endif
  !
  !--get self-contribution to the potential if sink-sink softening is used
@@ -356,10 +365,11 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info,subsys) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old) &
- !$omp private(i,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
+ !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
  !$omp private(fextx,fexty,fextz,phiext) &
@@ -367,8 +377,14 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
- do i=1,nptmass
-    if (extrap) then
+ do k=1,nptmass
+    if (subsys) then
+       i = group_info(igarg,k)
+       gidi = group_info(igid,k)
+    else
+       i = k
+    endif
+    if (extrap)then
        xi     = xyzmh_ptmass(1,i) + extrapfac*fsink_old(1,i)
        yi     = xyzmh_ptmass(2,i) + extrapfac*fsink_old(2,i)
        zi     = xyzmh_ptmass(3,i) + extrapfac*fsink_old(3,i)
@@ -389,7 +405,14 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     dsx    = 0.
     dsy    = 0.
     dsz    = 0.
-    do j=1,nptmass
+    do l=1,nptmass
+       if (subsys) then
+          j = group_info(igarg,l)
+          gidj = group_info(igid,l)
+          if (gidi==gidj) cycle
+       else
+          j = l
+       endif
        if (i==j) cycle
        if (extrap) then
           dx     = xi - (xyzmh_ptmass(1,j) + extrapfac*fsink_old(1,j))
@@ -552,17 +575,35 @@ end subroutine ptmass_boundary_crossing
 !  (called from inside a parallel section)
 !+
 !----------------------------------------------------------------
-subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass)
+subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingroup)
+ use part,only:igarg
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: ckdt
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass)
- integer :: i
+ integer, optional, intent(in)    :: n_ingroup
+ integer, optional, intent(in)    :: group_info(:,:)
+ integer :: i,k,istart_ptmass
+ logical :: woutsub
+
+ if (present(n_ingroup)) then
+    istart_ptmass = n_ingroup + 1
+    woutsub = .true.
+ else
+    istart_ptmass = 1
+    woutsub = .false.
+ endif
 
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass) &
- !$omp private(i)
- do i=1,nptmass
+ !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
+ !$omp private(i,k)
+ do k=istart_ptmass,nptmass
+    if (woutsub) then
+       i = group_info(igarg,k)
+    else
+       i = k
+    endif
     if (xyzmh_ptmass(4,i) > 0.) then
        xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + ckdt*vxyz_ptmass(1,i)
        xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + ckdt*vxyz_ptmass(2,i)
@@ -1212,7 +1253,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
           if (maxvxyzu >= 4) then
              etherm = etherm + pmassj*vxyzu(4,j)
           else
-             if (ieos==2 .and. gamma > 1.001) then
+             if ((ieos==2 .or. ieos==17) .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(gamma - 1.)
              elseif (ieos==5 .and. gamma > 1.001) then
                 etherm = etherm + pmassj*(eos_vars(igasP,j)/rhoj)/(eos_vars(igamma,j) - 1.)
