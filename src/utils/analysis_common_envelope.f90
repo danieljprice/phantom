@@ -154,7 +154,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(19) ! Optical depth profile
     call tau_profile(time,num,npart,particlemass,xyzh)
  case(20) ! Particle tracker
-    call track_particle(time,particlemass,xyzh,vxyzu)
+    call track_particle(time,npart,particlemass,xyzh,vxyzu)
  case(21) ! Unbound ion fractions
     call unbound_ionfrac(time,npart,particlemass,xyzh,vxyzu)
  case(22) ! Optical depth at recombination
@@ -1561,31 +1561,40 @@ end subroutine eos_surfaces
 !  Particle tracker: Paint the life of a particle
 !+
 !----------------------------------------------------------------
-subroutine track_particle(time,particlemass,xyzh,vxyzu)
- use part, only:eos_vars,itemp
- use eos,  only:entropy
+subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
+ use part,  only:itemp,iradxi,ilambda
+ use eos,   only:entropy
+ use radiation_utils,   only:Trad_from_rhoxi
  use mesa_microphysics, only:getvalue_mesa
- use ionization_mod, only:ionisation_fraction
+ use ionization_mod,    only:ionisation_fraction
  real, intent(in)        :: time,particlemass
+ integer, intent(in)     :: npart
  real, intent(inout)     :: xyzh(:,:),vxyzu(:,:)
- integer, parameter      :: nparttotrack=10,ncols=17
+ integer, parameter      :: nparttotrack=6,ncols=20
  real                    :: r,v,rhopart,ponrhoi,Si,spsoundi,tempi,machi,xh0,xh1,xhe0,xhe1,xhe2,&
-                            ekini,einti,epoti,ethi,etoti,dum,phii,pgas,mu
+                            ekini,einti,epoti,ethi,eradi,etoti,dum,phii,pgas,mu,rho_cgs,Tradi,lambdai
  real, dimension(ncols)  :: datatable
  character(len=17)       :: filenames(nparttotrack),columns(ncols)
  integer                 :: i,k,partID(nparttotrack),ientropy,ierr
 
- partID = (/ 1,2,3,4,5,6,7,8,9,10 /)
+ ! pid_orig is a map from current particle ID to original particle ID, if particles have been removed
+!  call initial_to_current_IDs(npart,pid_orig)
+
+!  partID = (/ 1,2,3,4,5,6,7,8,9,10 /)
+ partID = (/ 359018, 1669237, 342811, 598910, 1690937, 285745 /)
  columns = (/ '      r',&
               '      v',&
               '    rho',&
               '   temp',&
+              '   Trad',&
+              ' lambda',&
               'entropy',&
               'spsound',&
               '   mach',&
               '   ekin',&
               '   epot',&
               '    eth',&
+              '   erad',&
               '   eint',&
               '   etot',&
               '    xHI',&
@@ -1605,36 +1614,45 @@ subroutine track_particle(time,particlemass,xyzh,vxyzu)
     r = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
     v = separation(vxyzu(1:3,i),vxyz_ptmass(1:3,1))
     rhopart = rhoh(xyzh(4,i), particlemass)
+    rho_cgs = rhopart*unit_density
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     machi = v / spsoundi
     select case(ieos)
     case(2)
-       ientropy = 1
+       if (do_radiation) then
+          ientropy = 2
+       else
+          ientropy = 1
+       endif
     case(10,12)
        ientropy = 2
     case default
        ientropy = -1
     end select
-    if (ieos==10) then
-       call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-       mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
+    if (ieos==10) then  ! get mu
+       call getvalue_mesa(rho_cgs,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
+       mu = rho_cgs * Rg * tempi / pgas
     else
        mu = gmw
     endif
-    ! MESA ENTROPY
-    Si = 0.
-    if (ieos==10) then
-       Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
+    Tradi = 0.
+    lambdai = 0.
+    if (do_radiation) then
+       lambdai = radprop(ilambda,i)
+       Tradi = Trad_from_rhoxi(rhopart,rad(iradxi,i))
+       Si = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr,Trad_in=Tradi)
+    else
+       Si = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
     endif
-    ! MESA ENTROPY
-    !  Si = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
-    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),radprop(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
-    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-    etoti = ekini + epoti + ethi
-    call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,ethi,rad(:,i))
+    etoti = ekini + epoti + ethi  ! ethi includes radiation energy
+    eradi = particlemass*rad(iradxi,i)
+    call ionisation_fraction(rho_cgs,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
     ! Write file
-    datatable = (/ r,v,rhopart,eos_vars(itemp,i),Si,spsoundi,machi,ekini,epoti,ethi,einti,etoti,xh0,xh1,xhe0,xhe1,xhe2 /)
+    datatable = (/ r,v,rhopart,tempi,Tradi,lambdai,Si,spsoundi,machi,ekini,epoti,ethi,eradi,einti,etoti,&
+                   xh0,xh1,xhe0,xhe1,xhe2 /)
     call write_time_file(trim(adjustl(filenames(k))),columns,time,datatable,ncols,dump_number)
  enddo
 
