@@ -348,18 +348,19 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
  real, intent(in), optional :: rad(:)
  real, intent(out)   :: ethi
- real                :: hi,densi_cgs,mui
+ real                :: hi,densi_cgs,mui,rhoi
 
+ rhoi = rhoh(hi,particlemass)
  select case (ieos)
  case(10,20) ! calculate just gas + radiation thermal energy
     hi = xyzh(4)
-    densi_cgs = rhoh(hi,particlemass)*unit_density
+    densi_cgs = rhoi*unit_density
     mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
     call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,ethi)
     ethi = particlemass * ethi / unit_ergg
  case default ! assuming internal energy = thermal energy
     ethi = particlemass * vxyzu(4)
-    if (do_radiation) ethi  = ethi + particlemass*rad(iradxi)
+    if (do_radiation) ethi  = ethi + particlemass*rad(iradxi)/rhoi
  end select
 
 end subroutine calc_thermal_energy
@@ -419,9 +420,9 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
     xhe2g = xhe2g + dx(3)
  enddo
 
- xh1 = xh1g * n / nh
- xhe1 = xhe1g * n / nhe
- xhe2 = xhe2g * n / nhe
+ xh1 = max(xh1g * n / nh,1.e-99)
+ xhe1 = max(xhe1g * n / nhe,1.e-99)
+ xhe2 = max(xhe2g * n / nhe,1.e-99)
  xh0 = ((nh/n) - xh1g) * n / nh
  xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
 

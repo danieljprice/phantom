@@ -1564,7 +1564,7 @@ end subroutine eos_surfaces
 subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
  use part,  only:itemp,iradxi,ilambda
  use eos,   only:entropy
- use radiation_utils,   only:Trad_from_rhoxi
+ use radiation_utils,   only:Trad_from_radE
  use mesa_microphysics, only:getvalue_mesa
  use ionization_mod,    only:ionisation_fraction
  real, intent(in)        :: time,particlemass
@@ -1639,7 +1639,7 @@ subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
     lambdai = 0.
     if (do_radiation) then
        lambdai = radprop(ilambda,i)
-       Tradi = Trad_from_rhoxi(rhopart,rad(iradxi,i))
+       Tradi = Trad_from_radE(rad(iradxi,i))
        Si = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr,Trad_in=Tradi)
     else
        Si = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,ientropy,vxyzu(4,i)*unit_ergg,ierr)
@@ -1647,7 +1647,7 @@ subroutine track_particle(time,npart,particlemass,xyzh,vxyzu)
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,einti,dum)
     call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,ethi,rad(:,i))
     etoti = ekini + epoti + ethi  ! ethi includes radiation energy
-    eradi = particlemass*rad(iradxi,i)
+    eradi = particlemass*rad(iradxi,i)/rhopart
     call ionisation_fraction(rho_cgs,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
     ! Write file
@@ -3782,7 +3782,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  real, intent(in)                       :: xyzh(:),vxyzu(:),rad(:)
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,einti,etoti
- real                                   :: fxi,fyi,fzi
+ real                                   :: fxi,fyi,fzi,rhopart
 
  phii = 0.0
 
@@ -3791,7 +3791,10 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
  einti = particlemass * vxyzu(4)
- if (do_radiation) einti = einti + particlemass * rad(iradxi)
+ if (do_radiation) then
+    rhopart = rhoh(xyzh(4),particlemass)
+    einti = einti + particlemass * rad(iradxi)/rhopart
+ endif
  etoti = epoti + ekini + einti
 
 end subroutine calc_gas_energies
