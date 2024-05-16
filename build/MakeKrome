@@ -5,16 +5,15 @@ KROME_BUILD_DIR = ${KROMEPATH}/build
 
 KFLAGS:=$(filter-out -std=f2008, $(FFLAGS))
 
-# I dont know if this works for ifort
 KFLAGS+= -shared -fPIC
 ifeq ($(SYSTEM), ifort)
     KFLAGS  += -O3 -ipo -ip -unroll -xHost -g -fp-model precise
 else
     KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
+	@echo "WARNING: KROME is not parallelised for this compiler. Please consider using ifort."
 endif
 
-# I dont know if this works for ifort
-FFLAGS += -Wl,-rpath=/home/matse/codes/krome/build -L/home/matse/codes/krome/build -lkrome
+FFLAGS += -Wl,-rpath=${KROME_BUILD_DIR} -L${KROME_BUILD_DIR} -lkrome
 PASSED=0
 
 NETFILE=${shell cat $(RUNDIR)/krome.setup | grep '^\-n=' | sed s/-n=networks\\///g }
