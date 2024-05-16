@@ -51,7 +51,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer, save :: nprev = 0
  real          :: dt_cgs, rho_cgs, T_gas, gammai, mui
  real          :: abundance_part(krome_nmols)
- integer       :: i, j, ierr
+ integer       :: i, j, ierr, completed_iterations
 
  if (.not.done_init) then
     done_init = .true.
@@ -84,11 +84,12 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     if (ierr /= 0) call fatal(analysistype, "Failed to initialise EOS")
  else
     dt_cgs = (time - tprev)*utime
+    completed_iterations = 0
     print*, "not first step data, timestep = ",dt_cgs, "npart = ",npart, "nprev = ",nprev
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,dt_cgs,nprev,iorig,iorig_old,iprev) &
     !$omp shared(abundance,abundance_prev,particlemass,unit_density) &
-    !$omp shared(eos_vars,ieos,gamma,gmw,time) &
+    !$omp shared(eos_vars,ieos,gamma,gmw,time,completed_iterations) &
     !$omp private(i,j,abundance_part,rho_cgs,T_gas,gammai,mui)
     outer: do i=1,npart
        if (.not.isdead_or_accreted(xyzh(4,i))) then
@@ -112,8 +113,10 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
              call krome(abundance_part,rho_cgs,T_gas,dt_cgs)
              abundance(:,i) = abundance_part
        endif
+       !$omp atomic
+       completed_iterations = completed_iterations + 1
+       print*, 'Completed ', completed_iterations, ' of ', npart
     enddo outer
-    stop
  endif
 
  call write_chem(npart, dumpfile)
