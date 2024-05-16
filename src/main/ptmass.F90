@@ -1501,11 +1501,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nptmass = nptmass + 1
     if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
     n = nptmass
-    xyzmh_ptmass(:,n)      = 0.              ! zero all quantities by default
-    xyzmh_ptmass(1:3,n)    = (/xi,yi,zi/)
-    xyzmh_ptmass(4,n)      = 0.              ! zero mass
-    xyzmh_ptmass(ihacc,n)  = h_acc
-    xyzmh_ptmass(ihsoft,n) = h_soft_sinkgas
+    xyzmh_ptmass(:,n)         = 0.              ! zero all quantities by default
+    xyzmh_ptmass(1:3,n)       = (/xi,yi,zi/)
+    xyzmh_ptmass(4,n)         = 0.              ! zero mass
+    xyzmh_ptmass(ihacc,n)     = h_acc
+    xyzmh_ptmass(ihsoft,n)    = h_soft_sinkgas
     xyzmh_ptmass(itbirth,n)   = time
     vxyz_ptmass(:,n)       = 0.              ! zero velocity, get this by accreting
     itypej = igas                            ! default particle type to be accreted
