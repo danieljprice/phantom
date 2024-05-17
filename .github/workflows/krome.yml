@@ -27,9 +27,20 @@ jobs:
             toolchain: {compiler: intel-classic}
 
     steps:
-      - uses: fortran-lang/setup-fortran@v1
+      # Install the Fortran compiler (workaround for broken setup-fortran action on macOS)
+      - name: install Fortran compiler
+        if: matrix.os == 'ubuntu-latest'
+        uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.toolchain.compiler }}
+
+      - name: install Fortran compiler on macOS
+        if: matrix.os == 'macos-latest'
+        run: brew install gfortran
+
+      #- uses: fortran-lang/setup-fortran@v1
+      #  with:
+      #    compiler: ${{ matrix.toolchain.compiler }}
 
       - name: "Clone phantom"
         uses: actions/checkout@v4
