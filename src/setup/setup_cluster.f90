@@ -141,7 +141,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  t_ff          = sqrt(3.*pi/(32.*rhozero))  ! free-fall time (the characteristic timescale)
  epotgrav      = 3./5.*totmass**2/rmax      ! Gravitational potential energy
  lattice       = 'random'
- tmax_acc      = 0.5*(myr/utime)
+ tmax_acc      = 30*(myr/utime)
 
  !--Set positions
  call set_sphere(trim(lattice),id,master,0.,rmax,psep,hfact,npart,xyzh,nptot=npart_total, &
