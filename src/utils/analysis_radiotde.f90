@@ -35,7 +35,7 @@ module analysis
  real, dimension(:), allocatable    :: rad_all,vr_all,v_all
  real, dimension(:), allocatable    :: theta,plot_theta,phi,vr,vtheta,vphi
  logical, dimension(:), allocatable :: cap
- real    :: m_accum, m_cap 
+ real    :: m_accum, m_cap
  real    :: vr_accum_mean, vr_accum_max, vr_cap_mean, vr_cap_max
  real    :: r_accum_maxv, r_cap_maxv
  real    :: v_accum_mean, v_cap_mean
@@ -107,10 +107,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  endif
 
  ! read background entropy
- if (npart_cnm < 0) then 
+ if (npart_cnm < 0) then
     if (npart_tde_reserve < 0) npart_tde_reserve = 10*npart
     allocate(ent_bg(npart_tde_reserve+npart)) ! save more memory for later injection
-    npart_cnm = npart 
+    npart_cnm = npart
     call record_background(pxyzu(4,:),0,npart,ent_bg)
     write(*,'(I9,1x,a16)') npart_cnm, 'particles in CNM'
  endif
@@ -141,7 +141,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     allocate(theta(npart),plot_theta(npart),phi(npart),vr(npart),vtheta(npart), &
              vphi(npart),cap(npart))
     cap = .false.
-    
+
     call outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
 
     if (n_cap > 0) then
@@ -194,14 +194,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
         v_cap_mean, &
         e_accum*unit_energ, &
         e_cap*unit_energ
-    close(iunit) 
+    close(iunit)
 
     write(*,'(I8,1X,A2,1X,I8,1X,A34)') n_cap, 'of', npart, 'particles are in the capture shell'
     write(*,'(I8,1X,A2,1X,I8,1X,A40)') n_accum, 'of', npart, 'particles are outside the capture radius'
 
  case ('shock')
     write(*,'(a)') ' Analysing the shock ...'
-    
+
     call shock_analysis(npart,pmass,rad_all,vr_all,pxyzu(4,:))
 
     deallocate(rad_all,vr_all,v_all)
@@ -283,7 +283,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
        vri = vr_all(i)
        vr_accum_add = vr_accum_add + vri
        v_accum_add = v_accum_add + v
-       if (vri > vr_accum_max) then 
+       if (vri > vr_accum_max) then
           vr_accum_max = vri
           r_accum_maxv = r
        endif
@@ -303,7 +303,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
              e_cap = e_cap + 0.5*pmass*v**2
              vr_cap_add = vr_cap_add + vri
              v_cap_add = v_cap_add + v
-             if (vri > vr_cap_max) then 
+             if (vri > vr_cap_max) then
                 vr_cap_max = vri
                 r_cap_maxv = r
              endif
@@ -326,9 +326,9 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
  integer             :: i
 
  print*, 'Record background entropy of ', npart_new, ' particles'
- 
+
  do i=1,npart_new
-    ent_bg(npart_old+i) = ent(npart_old+i)*1.1 ! give some range for self evolution 
+    ent_bg(npart_old+i) = ent(npart_old+i)*1.1 ! give some range for self evolution
                                                    !(is there a reasonable choice instead of arbitrary?)
  enddo
 
@@ -341,7 +341,7 @@ subroutine shock_analysis(npart,pmass,rad_all,vr_all,ent)
  real, intent(in) :: pmass,rad_all(:),vr_all(:),ent(:)
  integer :: i,n,n_cnm,n_tde
  real    :: ri,half_m,ei,vi
- ! 
+ !
  !------Determine the shock
  !
  n = 0

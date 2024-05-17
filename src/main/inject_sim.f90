@@ -31,7 +31,7 @@ module inject
 !
 
 ! global variables
- 
+
  character(len=120) :: start_dump,final_dump,pre_dump,next_dump
  integer :: npart_sim
  real    :: r_inject,r_inject_cgs=-1,next_time!,e_inject
@@ -65,7 +65,7 @@ subroutine init_inject(ierr)
  call get_dump_time_npart(trim(next_dump),next_time,ierr,npart_out=npart_sim)
  ierr = 0
  niter = 0
-    
+
  do while (next_time < time .and. niter < max_niter)
     niter = niter + 1
     pre_dump = next_dump
@@ -78,7 +78,7 @@ subroutine init_inject(ierr)
     endif
  enddo
  start_dump = next_dump
- 
+
  write(*,'(a,1x,es10.2)') ' Start read sims and inject particle from '//trim(next_dump)//' at t =',next_time
 
  r_inject = r_inject_cgs/udist ! to code unit
@@ -123,8 +123,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     call find_next_dump(next_dump,next_time,ierr)
     start_dump = next_dump
 
-    write(*,'(i10,1x,a27,1x,a)') npart-npart_old, 'particles are injected from', trim(pre_dump) 
-    
+    write(*,'(i10,1x,a27,1x,a)') npart-npart_old, 'particles are injected from', trim(pre_dump)
+
     if (pre_dump == final_dump) then
        write(*,'(a)') ' Reach the final dumpfile. Stop injecting ...'
        next_time = huge(0.)
@@ -256,7 +256,7 @@ end subroutine inject_particles
     integer, parameter :: iunit=242
     logical :: iexist
     integer :: nread,i
-    
+
     inquire(file=trim(injected_filename),exist=iexist)
 
     if (iexist) then

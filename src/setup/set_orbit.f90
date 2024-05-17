@@ -8,7 +8,7 @@ module setorbit
 !
 ! Generic procedure for setting up two body orbits with
 ! different parameter sets for the orbital elements
-! 
+!
 ! The current options are:
 !   0) Campbell elements for bound or unbound orbit (aeiOwf)
 !   1) Flyby parameters (periapsis, initial separation, argument of periapsis, inclination)
