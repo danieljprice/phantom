@@ -37,6 +37,8 @@ jobs:
       - name: install Fortran compiler on macOS
         if: matrix.os == 'macos-latest'
         run: brew install gfortran
+        env:
+          FC: gfortran
 
       #- uses: fortran-lang/setup-fortran@v1
       #  with:
