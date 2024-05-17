@@ -2074,6 +2074,8 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(r_crit,'r_crit','critical radius for point mass creation (no new sinks < r_crit from existing sink)', &
                         iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
+       !if (icreate_sinks>1)
+       call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
                            iunit)
@@ -2158,6 +2160,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case('r_merge_cond')
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
+    ngot = ngot + 1
+ case('tmax_acc')
+    read(valstring,*,iostat=ierr) tmax_acc
     ngot = ngot + 1
  case default
     imatch = .false.
