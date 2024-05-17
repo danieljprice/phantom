@@ -2029,7 +2029,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
                     '            # HeI', &
                     '           # HeII', &
                     '          # HeIII' /)
-  case(5) ! Sound speed
+ case(5) ! Sound speed
     filename = '       grid_cs.ev'
     headerline = '# cs profile    '
  end select

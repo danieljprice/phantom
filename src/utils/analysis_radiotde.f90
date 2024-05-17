@@ -216,7 +216,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
                                              'rad_min_cnm[cm]', 'rad_max_cnm[cm]', 'vel_cnm[c]', 'mass_cnm[Msun]', 'ene_cnm[erg]'
     endif
     if (rad_max > 0.) then
-    write(iunit,'(16(es18.10,1x))') &
+       write(iunit,'(16(es18.10,1x))') &
        time*todays, &
        rad_min*udist, rad_max*udist, shock_v, shock_m*umass/solarm, shock_e*unit_energ, &
        rad_min_tde*udist, rad_max_tde*udist, shock_v_tde, shock_m_tde*umass/solarm, shock_e_tde*unit_energ, &
@@ -224,10 +224,10 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     endif
     close(iunit)
 
-  case default
+ case default
     write(*,'(a)') " Unknown analysis type. Do 'outflow' or 'shock'"
     stop
-  end select
+ end select
 
 end subroutine do_analysis
 
@@ -329,7 +329,7 @@ subroutine record_background(ent,npart_old,npart_new,ent_bg)
 
  do i=1,npart_new
     ent_bg(npart_old+i) = ent(npart_old+i)*1.1 ! give some range for self evolution
-                                                   !(is there a reasonable choice instead of arbitrary?)
+    !(is there a reasonable choice instead of arbitrary?)
  enddo
 
 end subroutine record_background

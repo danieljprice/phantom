@@ -62,7 +62,7 @@ module setstar
  public :: need_polyk
 
  integer, parameter :: istar_offset = 3 ! offset for particle type to distinguish particles
-                                        ! placed in stars from other particles in the simulation
+ ! placed in stars from other particles in the simulation
 
  private
 

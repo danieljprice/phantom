@@ -52,36 +52,36 @@ module setorbit
  ! to setup an orbit
  !
  type campbell_elems
-   character(len=20) :: semi_major_axis ! string because can specific units
-   real :: e   ! eccentricity
-   real :: i   ! inclination
-   real :: O   ! position angle of the ascending node
-   real :: w   ! argument of periapsis
-   real :: f   ! initial true anomaly
+    character(len=20) :: semi_major_axis ! string because can specific units
+    real :: e   ! eccentricity
+    real :: i   ! inclination
+    real :: O   ! position angle of the ascending node
+    real :: w   ! argument of periapsis
+    real :: f   ! initial true anomaly
  end type campbell_elems
 
  type posvel_elems
-   real :: x1(3)  ! position of body 1
-   real :: v1(3)  ! velocity of body 1
-   real :: x2(3)  ! position of body 2
-   real :: v2(3)  ! velocity of body 2
+    real :: x1(3)  ! position of body 1
+    real :: v1(3)  ! velocity of body 1
+    real :: x2(3)  ! position of body 2
+    real :: v2(3)  ! velocity of body 2
  end type posvel_elems
 
  type flyby_elems
-   character(len=20) :: rp   ! pericentre distance in arbitrary units
-   real :: d                 ! initial separation
-   real :: O                 ! position angle of the ascending node
-   real :: i                 ! inclination
+    character(len=20) :: rp   ! pericentre distance in arbitrary units
+    real :: d                 ! initial separation
+    real :: O                 ! position angle of the ascending node
+    real :: i                 ! inclination
  end type flyby_elems
 
  !
  ! generic type handling all options
  !
  type orbit_t
-   integer :: itype
-   type(campbell_elems) :: elems
-   type(flyby_elems)    :: flyby
-   type(posvel_elems)   :: posvel
+    integer :: itype
+    type(campbell_elems) :: elems
+    type(flyby_elems)    :: flyby
+    type(posvel_elems)   :: posvel
  end type orbit_t
 
  private
@@ -142,16 +142,16 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
  ierr = 0
  select case(orbit%itype)
  case(2)
-     ! body 1
-     xyzmh_ptmass(1:3,nptmass+1) = orbit%posvel%x1(1:3)
-     xyzmh_ptmass(4,nptmass+1)   = m1
-     xyzmh_ptmass(5,nptmass+1)   = hacc1
-     vxyz_ptmass(1:3,nptmass+1)  = orbit%posvel%v1(1:3)
-     ! body 2
-     xyzmh_ptmass(1:3,nptmass+2) = orbit%posvel%x2(1:3)
-     xyzmh_ptmass(4,nptmass+2)   = m2
-     xyzmh_ptmass(5,nptmass+2)   = hacc2
-     vxyz_ptmass(1:3,nptmass+2)  = orbit%posvel%v2(1:3)
+    ! body 1
+    xyzmh_ptmass(1:3,nptmass+1) = orbit%posvel%x1(1:3)
+    xyzmh_ptmass(4,nptmass+1)   = m1
+    xyzmh_ptmass(5,nptmass+1)   = hacc1
+    vxyz_ptmass(1:3,nptmass+1)  = orbit%posvel%v1(1:3)
+    ! body 2
+    xyzmh_ptmass(1:3,nptmass+2) = orbit%posvel%x2(1:3)
+    xyzmh_ptmass(4,nptmass+2)   = m2
+    xyzmh_ptmass(5,nptmass+2)   = hacc2
+    vxyz_ptmass(1:3,nptmass+2)  = orbit%posvel%v2(1:3)
  case(1)
     rp = in_code_units(orbit%flyby%rp,ierr)
 
@@ -181,7 +181,7 @@ subroutine set_orbit(orbit,m1,m2,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ve
                        posang_ascnode=orbit%elems%O,arg_peri=orbit%elems%w,&
                        incl=orbit%elems%i,f=orbit%elems%f,verbose=verbose)
     endif
-  end select
+ end select
 
 end subroutine set_orbit
 

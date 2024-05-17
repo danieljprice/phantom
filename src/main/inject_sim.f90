@@ -137,168 +137,168 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  dtinject = tfac*(next_time - time)
 end subroutine inject_particles
 
- subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
-    use dump_utils, only: read_array_from_file
-    character(len=*), intent(in) :: filename
-    real, intent(out) :: xyzh_dump(:,:)
-    integer, intent(out) :: ierr
-    real, intent(out), optional :: vxyzu_dump(:,:),pxyzu_dump(:,:)
-    integer, parameter :: iunit = 578
-    real(kind=4) :: h(npart_sim)
+subroutine read_dump(filename,xyzh_dump,ierr,vxyzu_dump,pxyzu_dump)
+ use dump_utils, only: read_array_from_file
+ character(len=*), intent(in) :: filename
+ real, intent(out) :: xyzh_dump(:,:)
+ integer, intent(out) :: ierr
+ real, intent(out), optional :: vxyzu_dump(:,:),pxyzu_dump(:,:)
+ integer, parameter :: iunit = 578
+ real(kind=4) :: h(npart_sim)
 
-    !
-    !--read xyzh
-    !
-    call read_array_from_file(iunit,filename,'x',xyzh_dump(1,:),ierr,iprint_in=.false.)
-    call read_array_from_file(iunit,filename,'y',xyzh_dump(2,:),ierr,iprint_in=.false.)
-    call read_array_from_file(iunit,filename,'z',xyzh_dump(3,:),ierr,iprint_in=.false.)
-    call read_array_from_file(iunit,filename,'h',h,ierr,iprint_in=.false.)
-    xyzh_dump(4,:) = h
+ !
+ !--read xyzh
+ !
+ call read_array_from_file(iunit,filename,'x',xyzh_dump(1,:),ierr,iprint_in=.false.)
+ call read_array_from_file(iunit,filename,'y',xyzh_dump(2,:),ierr,iprint_in=.false.)
+ call read_array_from_file(iunit,filename,'z',xyzh_dump(3,:),ierr,iprint_in=.false.)
+ call read_array_from_file(iunit,filename,'h',h,ierr,iprint_in=.false.)
+ xyzh_dump(4,:) = h
 
-    !
-    !--read vxyzu
-    !
-    if (present(vxyzu_dump)) then
-       call read_array_from_file(iunit,filename,'vx',vxyzu_dump(1,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'vy',vxyzu_dump(2,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'vz',vxyzu_dump(3,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'u',vxyzu_dump(4,:),ierr,iprint_in=.false.)
-    endif
+ !
+ !--read vxyzu
+ !
+ if (present(vxyzu_dump)) then
+    call read_array_from_file(iunit,filename,'vx',vxyzu_dump(1,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'vy',vxyzu_dump(2,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'vz',vxyzu_dump(3,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'u',vxyzu_dump(4,:),ierr,iprint_in=.false.)
+ endif
 
-    !
-    !--read vxyzu
-    !
-    if (present(pxyzu_dump)) then
-       call read_array_from_file(iunit,filename,'px',pxyzu_dump(1,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'py',pxyzu_dump(2,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'pz',pxyzu_dump(3,:),ierr,iprint_in=.false.)
-       call read_array_from_file(iunit,filename,'entropy',pxyzu_dump(4,:),ierr,iprint_in=.false.)
-    endif
+ !
+ !--read vxyzu
+ !
+ if (present(pxyzu_dump)) then
+    call read_array_from_file(iunit,filename,'px',pxyzu_dump(1,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'py',pxyzu_dump(2,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'pz',pxyzu_dump(3,:),ierr,iprint_in=.false.)
+    call read_array_from_file(iunit,filename,'entropy',pxyzu_dump(4,:),ierr,iprint_in=.false.)
+ endif
 
- end subroutine read_dump
+end subroutine read_dump
 
- subroutine get_dump_time_npart(filename,time,ierr,npart_out)
-    use io,                      only:iprint,id,nprocs
-    use dump_utils,              only:dump_h,open_dumpfile_r,read_header,free_header
-    use part,                    only:maxtypes
-    use readwrite_dumps_fortran, only:unfill_header
-    use readwrite_dumps_common,  only:get_options_from_fileid
+subroutine get_dump_time_npart(filename,time,ierr,npart_out)
+ use io,                      only:iprint,id,nprocs
+ use dump_utils,              only:dump_h,open_dumpfile_r,read_header,free_header
+ use part,                    only:maxtypes
+ use readwrite_dumps_fortran, only:unfill_header
+ use readwrite_dumps_common,  only:get_options_from_fileid
 
-    character(len=*), intent(in)   :: filename
-    real, intent(out)              :: time
-    integer, intent(out)           :: ierr
-    integer, intent(out), optional :: npart_out
-    integer, parameter :: idisk=389
-    character(len=120) :: fileid
-    logical :: tagged,phantomdump,smalldump,use_dustfrac
-    type(dump_h) :: hdr
-    integer(kind=8) :: nparttot
-    integer :: nblocks,npartoftype(maxtypes),npart
-    real :: hfactfile,alphafile
+ character(len=*), intent(in)   :: filename
+ real, intent(out)              :: time
+ integer, intent(out)           :: ierr
+ integer, intent(out), optional :: npart_out
+ integer, parameter :: idisk=389
+ character(len=120) :: fileid
+ logical :: tagged,phantomdump,smalldump,use_dustfrac
+ type(dump_h) :: hdr
+ integer(kind=8) :: nparttot
+ integer :: nblocks,npartoftype(maxtypes),npart
+ real :: hfactfile,alphafile
 
-    call open_dumpfile_r(idisk,filename,fileid,ierr)
-    call get_options_from_fileid(fileid,tagged,phantomdump,smalldump,use_dustfrac,ierr)
-    call read_header(idisk,hdr,ierr,tagged=tagged)
-    call unfill_header(hdr,phantomdump,tagged,nparttot, &
+ call open_dumpfile_r(idisk,filename,fileid,ierr)
+ call get_options_from_fileid(fileid,tagged,phantomdump,smalldump,use_dustfrac,ierr)
+ call read_header(idisk,hdr,ierr,tagged=tagged)
+ call unfill_header(hdr,phantomdump,tagged,nparttot, &
                     nblocks,npart,npartoftype, &
                     time,hfactfile,alphafile,iprint,id,nprocs,ierr)
-    call free_header(hdr,ierr)
-    close(idisk)
+ call free_header(hdr,ierr)
+ close(idisk)
 
-    if (present(npart_out)) npart_out = npart
+ if (present(npart_out)) npart_out = npart
 
- end subroutine get_dump_time_npart
+end subroutine get_dump_time_npart
 
- subroutine find_next_dump(next_dump,next_time,ierr)
-    character(len=*), intent(inout) :: next_dump
-    real, intent(out) :: next_time
-    integer, intent(out) :: ierr
+subroutine find_next_dump(next_dump,next_time,ierr)
+ character(len=*), intent(inout) :: next_dump
+ real, intent(out) :: next_time
+ integer, intent(out) :: ierr
 
-    next_dump = getnextfilename(next_dump)
-    call get_dump_time_npart(next_dump,next_time,ierr)
+ next_dump = getnextfilename(next_dump)
+ call get_dump_time_npart(next_dump,next_time,ierr)
 
- end subroutine find_next_dump
+end subroutine find_next_dump
 
- subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
-    use part,       only:igas,pxyzu,isdead_or_accreted
-    use partinject, only:add_or_update_particle
-    integer, intent(inout) :: npart, npartoftype(:)
-    real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
-    real, intent(in) :: xyzh_pre(:,:), xyzh_next(:,:), vxyzu_next(:,:), pxyzu_next(:,:)
-    integer :: i,partid
-    real :: r_next,r_pre,vr_next!,e_next
+subroutine inject_required_part_tde(npart,npartoftype,xyzh,vxyzu,xyzh_pre,xyzh_next,vxyzu_next,pxyzu_next)
+ use part,       only:igas,pxyzu,isdead_or_accreted
+ use partinject, only:add_or_update_particle
+ integer, intent(inout) :: npart, npartoftype(:)
+ real, intent(inout) :: xyzh(:,:), vxyzu(:,:)
+ real, intent(in) :: xyzh_pre(:,:), xyzh_next(:,:), vxyzu_next(:,:), pxyzu_next(:,:)
+ integer :: i,partid
+ real :: r_next,r_pre,vr_next!,e_next
 
-    !
-    !--check all the particles
-    !
-    do i=1,npart_sim
-       if (.not. isdead_or_accreted(xyzh_next(4,i)) .and. .not. injected(i)) then
-          r_next = sqrt(dot_product(xyzh_next(1:3,i),xyzh_next(1:3,i)))
-          r_pre = sqrt(dot_product(xyzh_pre(1:3,i),xyzh_pre(1:3,i)))
-          vr_next = (dot_product(xyzh_next(1:3,i),vxyzu_next(1:3,i)))/r_next
-          !e_next = 0.5*vr_next**2 - 1./r_next
+ !
+ !--check all the particles
+ !
+ do i=1,npart_sim
+    if (.not. isdead_or_accreted(xyzh_next(4,i)) .and. .not. injected(i)) then
+       r_next = sqrt(dot_product(xyzh_next(1:3,i),xyzh_next(1:3,i)))
+       r_pre = sqrt(dot_product(xyzh_pre(1:3,i),xyzh_pre(1:3,i)))
+       vr_next = (dot_product(xyzh_next(1:3,i),vxyzu_next(1:3,i)))/r_next
+       !e_next = 0.5*vr_next**2 - 1./r_next
 
-          if (r_next > r_inject .and. r_pre < r_inject .and. vr_next > 0.) then! .and. e_next > e_inject) then
-             ! inject particle by copy the data into position
-             partid = npart+1
-             call add_or_update_particle(igas,xyzh_next(1:3,i),vxyzu_next(1:3,i),xyzh_next(4,i), &
+       if (r_next > r_inject .and. r_pre < r_inject .and. vr_next > 0.) then! .and. e_next > e_inject) then
+          ! inject particle by copy the data into position
+          partid = npart+1
+          call add_or_update_particle(igas,xyzh_next(1:3,i),vxyzu_next(1:3,i),xyzh_next(4,i), &
                                     vxyzu_next(4,i),partid,npart,npartoftype,xyzh,vxyzu)
-             pxyzu(:,partid) = pxyzu_next(:,i)
-             injected(i) = .true.
-          endif
+          pxyzu(:,partid) = pxyzu_next(:,i)
+          injected(i) = .true.
        endif
-    enddo
+    endif
+ enddo
 
- end subroutine inject_required_part_tde
+end subroutine inject_required_part_tde
 
- subroutine read_injected_par()
-    use io, only:fatal,warning
-    integer, parameter :: iunit=242
-    logical :: iexist
-    integer :: nread,i
+subroutine read_injected_par()
+ use io, only:fatal,warning
+ integer, parameter :: iunit=242
+ logical :: iexist
+ integer :: nread,i
 
-    inquire(file=trim(injected_filename),exist=iexist)
+ inquire(file=trim(injected_filename),exist=iexist)
 
-    if (iexist) then
-       open(iunit,file=trim(injected_filename),status='old')
-       read(iunit,*) nread
+ if (iexist) then
+    open(iunit,file=trim(injected_filename),status='old')
+    read(iunit,*) nread
 
-       ! check if npart in file is the same as npart_sim
-       if (nread /= npart_sim) call fatal('inject_sim','npart in '//trim(injected_filename)// &
+    ! check if npart in file is the same as npart_sim
+    if (nread /= npart_sim) call fatal('inject_sim','npart in '//trim(injected_filename)// &
                                               ' does not match npart_sim')
 
-       do i=1,nread
-          read(iunit,*) injected(i)
-       enddo
-       close(iunit)
+    do i=1,nread
+       read(iunit,*) injected(i)
+    enddo
+    close(iunit)
+ else
+    call warning('inject_sim',trim(injected_filename)//' not found, assume no particles are injected')
+    injected = .false.
+ endif
+
+end subroutine
+
+subroutine update_injected_par()
+ use io, only:error
+ integer, parameter :: iunit=284
+ logical :: iexist
+ integer :: i
+
+ if (allocated(injected)) then
+    inquire(file=trim(injected_filename),exist=iexist)
+    if (iexist) then
+       open(iunit,file=trim(injected_filename),status='replace')
     else
-       call warning('inject_sim',trim(injected_filename)//' not found, assume no particles are injected')
-       injected = .false.
+       open(iunit,file=trim(injected_filename),status='new')
     endif
 
- end subroutine
-
- subroutine update_injected_par()
-    use io, only:error
-    integer, parameter :: iunit=284
-    logical :: iexist
-    integer :: i
-
-    if (allocated(injected)) then
-       inquire(file=trim(injected_filename),exist=iexist)
-       if (iexist) then
-          open(iunit,file=trim(injected_filename),status='replace')
-       else
-          open(iunit,file=trim(injected_filename),status='new')
-       endif
-
-       write(iunit,*) npart_sim
-       do i=1,npart_sim
-          write(iunit,*) injected(i)
-       enddo
-       close(iunit)
-    endif
- end subroutine
+    write(iunit,*) npart_sim
+    do i=1,npart_sim
+       write(iunit,*) injected(i)
+    enddo
+    close(iunit)
+ endif
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
