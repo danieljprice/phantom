@@ -78,7 +78,7 @@ subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
  use setbinary,         only:get_eccentricity_vector
- use timestep,          only:tmax,dtmax
+ use timestep,          only:tmax
  use wind_equations,    only:init_wind_equations
  use wind,              only:setup_wind,save_windprofile
  use physcon,           only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi, Gg
@@ -88,12 +88,11 @@ subroutine init_inject(ierr)
  use part,              only:xyzmh_ptmass,vxyz_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
- use ptmass_radiation,  only:alpha_rad
 
  integer, intent(out) :: ierr
- integer :: ires_min,nzones_per_sonic_point,new_nfill
+ integer :: nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
- real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject,tboundary
+ real :: dr,dp,mass_of_particles1,tcross,tend,rsonic,tsonic,initial_Rinject,tboundary
  real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar
 
  if (icooling > 0) nwrite = nwrite+1
@@ -232,6 +231,7 @@ subroutine init_inject(ierr)
  time_between_spheres  = mass_of_spheres / wind_mass_rate
  massoftype(iboundary) = mass_of_particles
  if (time_between_spheres > tmax)  then
+    call logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print *,'time_between_spheres = ',time_between_spheres,' < tmax = ',tmax
     call fatal(label,'no shell ejection : tmax < time_between_spheres')
  endif
@@ -268,8 +268,29 @@ subroutine init_inject(ierr)
     print*,'got dr/dp = ',dr/dp,' compared to desired dr on dp = ',wind_shell_spacing
  endif
 
+ xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
 
 !logging
+ call logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
+
+end subroutine init_inject
+
+
+!-----------------------------------------------------------------------
+
+subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
+
+!-----------------------------------------------------------------------
+
+ use physcon,  only:pi,gg
+ use units,    only:utime,udist
+ use timestep, only:dtmax
+ use ptmass_radiation,  only:alpha_rad
+
+ real, intent(in) :: initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary
+ integer :: ires_min
+ real :: vesc
+
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
@@ -309,9 +330,8 @@ subroutine init_inject(ierr)
     if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
- xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
+end subroutine logging
 
-end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -635,15 +655,15 @@ subroutine set_default_options_inject(flag)
     wind_mass_rate_Msun_yr = 8.2d-8
     wind_injection_radius_au = 0.
  else
-    !trans-sonic wind
     if (icase == 1) then
+       !trans-sonic wind
        sonic_type = 1
        wind_velocity_km_s = 0.
        wind_mass_rate_Msun_yr = 1.d-5
        wind_injection_radius_au = 2.
        wind_temperature = 50000.
-       !super sonic-wind
     else
+       !super sonic-wind
        sonic_type = 0
        wind_velocity_km_s = 20.
        wind_mass_rate_Msun_yr = 1.d-5

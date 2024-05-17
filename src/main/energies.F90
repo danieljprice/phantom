@@ -71,7 +71,7 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,rad,iradxi
+                          iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,n_group
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
@@ -81,7 +81,8 @@ subroutine compute_energies(t)
  use externalforces, only:externalforce,externalforce_vdependent,was_accreted,accradius1
  use options,        only:iexternalforce,calc_erot,alpha,ieos,use_dustfrac
  use mpiutils,       only:reduceall_mpi
- use ptmass,         only:get_accel_sink_gas
+ use ptmass,         only:get_accel_sink_gas,use_regnbody
+ use subgroup,     only:get_pot_subsys
  use viscosity,      only:irealvisc,shearfunc
  use nicil,          only:nicil_update_nimhd,nicil_get_halldrift,nicil_get_ambidrift, &
                      use_ohm,use_hall,use_ambi,n_data_out,n_warn,eta_constant
@@ -364,7 +365,7 @@ subroutine compute_energies(t)
              if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
              if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
           else
-             if ((ieos==2  .or. ieos == 5) .and. gammai > 1.001) then
+             if ((ieos==2 .or. ieos == 5 .or. ieos == 17) .and. gammai > 1.001) then
                 !--thermal energy using polytropic equation of state
                 etherm = etherm + pmassi*ponrhoi/(gammai-1.)*gasfrac
              elseif (ieos==9) then
@@ -601,7 +602,14 @@ subroutine compute_energies(t)
  emag = reduceall_mpi('+',emag)
  epot = reduceall_mpi('+',epot)
  erad = reduceall_mpi('+',erad)
- if (nptmass > 1) epot = epot + epot_sinksink
+ if (nptmass > 1) then
+    if (use_regnbody) then
+       call get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
+    endif
+    epot = epot + epot_sinksink
+ endif
+
+
 
  etot = ekin + etherm + emag + epot + erad
 

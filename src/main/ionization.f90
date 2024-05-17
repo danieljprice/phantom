@@ -338,13 +338,15 @@ end subroutine get_erec_components
 !  gas particle. Inputs and outputs in code units
 !+
 !----------------------------------------------------------------
-subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
- use part,             only:rhoh
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,radprop)
+ use dim,              only:do_radiation
+ use part,             only:rhoh,iradxi
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use physcon,          only:radconst,Rg
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
  integer, intent(in) :: ieos
  real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
+ real, intent(in), optional :: radprop(:)
  real, intent(out)   :: ethi
  real                :: hi,densi_cgs,mui
 
@@ -357,6 +359,7 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi)
     ethi = particlemass * ethi / unit_ergg
  case default ! assuming internal energy = thermal energy
     ethi = particlemass * vxyzu(4)
+    if (do_radiation) ethi  = ethi + particlemass*radprop(iradxi)
  end select
 
 end subroutine calc_thermal_energy
