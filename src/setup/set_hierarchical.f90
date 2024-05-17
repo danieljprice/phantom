@@ -496,10 +496,10 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  if (present(subst)) then
     if (subst>10) then
        if (iexist) then
-          open(1, file = trim(filename), status = 'old')
+          open(1,file=trim(filename),status='old')
           lines=0
           do
-             read(1, *, iostat=io) data(lines+1,:)
+             read(1, *,iostat=io) data(lines+1,:)
              if (io/=0) exit
              lines = lines + 1
           enddo
