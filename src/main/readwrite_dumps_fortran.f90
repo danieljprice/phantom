@@ -27,7 +27,7 @@ module readwrite_dumps_fortran
  use readwrite_dumps_common, only:check_arrays,fileident,get_options_from_fileid,fill_header,unfill_header
  implicit none
 
- public :: write_smalldump_fortran,write_fulldump_fortran,read_smalldump_fortran,read_dump_fortran
+ public :: write_smalldump_fortran,write_fulldump_fortran,read_smalldump_fortran,read_dump_fortran,unfill_header
 
  logical, target, public    :: opened_full_dump_fortran       ! for use in analysis files if user wishes to skip small dumps
  logical, target, public    :: dt_read_in_fortran             ! to determine if dt has been read in so that ibin & ibinold can be set on restarts

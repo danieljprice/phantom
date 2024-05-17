@@ -155,7 +155,7 @@ module dump_utils
 
  ! generic interface for reading arrays from dumpfile
  interface read_array_from_file
-  module procedure read_array_from_file_r8, read_array_from_file_r4
+  module procedure read_array_from_file_r4, read_array_from_file_r8
  end interface read_array_from_file
 
  private
@@ -2412,17 +2412,19 @@ end subroutine open_dumpfile_rh
 !  in the file
 !+
 !-----------------------------------------------------
-subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
+subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block,iprint_in)
  integer,               intent(in) :: iunit
  character(len=*),      intent(in) :: filename
  character(len=*),      intent(in) :: tag
  real(kind=8),          intent(out) :: array(:)
  integer, intent(out) :: ierr
  integer, intent(in), optional :: use_block
+ logical, intent(in), optional :: iprint_in
  integer, parameter :: maxarraylengths = 12
  integer(kind=8) :: number8(maxarraylengths)
  integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
  integer :: nblocks,narraylengths,my_block
+ logical :: iprint
 
  character(len=lentag) :: mytag
 
@@ -2431,6 +2433,14 @@ subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
  else
     my_block = 1 ! match from block 1 by default
  endif
+
+ ! if printing the tags
+ if (present(iprint_in)) then
+    iprint = iprint_in
+ else
+    iprint = .true.
+ endif
+
  array = 0.
 
  ! open file for read and get minimal information from header
@@ -2448,9 +2458,9 @@ subroutine read_array_from_file_r8(iunit,filename,tag,array,ierr,use_block)
                    read(iunit,iostat=ierr) mytag
                    if (trim(mytag)==trim(tag)) then
                       read(iunit,iostat=ierr) array(1:min(int(number8(j)),size(array)))
-                      print*,'->',mytag
+                      if (iprint) print*,'->',mytag
                    else
-                      print*,'  ',mytag
+                      if (iprint) print*,'  ',mytag
                       read(iunit,iostat=ierr)
                    endif
                 else
@@ -2474,24 +2484,34 @@ end subroutine read_array_from_file_r8
 !  in the file
 !+
 !-----------------------------------------------------
-subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block)
+subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block,iprint_in)
  integer,               intent(in) :: iunit
  character(len=*),      intent(in) :: filename
  character(len=*),      intent(in) :: tag
  real(kind=4), intent(out) :: array(:)
  integer, intent(out) :: ierr
  integer, intent(in), optional :: use_block
+ logical, intent(in), optional :: iprint_in
  integer, parameter :: maxarraylengths = 12
  integer(kind=8) :: number8(maxarraylengths)
  integer :: i,j,k,iblock,nums(ndatatypes,maxarraylengths)
  integer :: nblocks,narraylengths,my_block
  character(len=lentag) :: mytag
+ logical :: iprint
 
  if (present(use_block)) then
     my_block = use_block
  else
     my_block = 1 ! match from block 1 by default
  endif
+
+ ! if printing the tags
+ if (present(iprint_in)) then
+    iprint = iprint_in
+ else
+    iprint = .true.
+ endif
+
  array = 0.
 
  ! open file for read
@@ -2509,9 +2529,9 @@ subroutine read_array_from_file_r4(iunit,filename,tag,array,ierr,use_block)
                    read(iunit,iostat=ierr) mytag
                    if (trim(mytag)==trim(tag)) then
                       read(iunit,iostat=ierr) array(1:min(int(number8(j)),size(array)))
-                      print*,'->',mytag
+                      if (iprint) print*,'->',mytag
                    else
-                      print*,'  ',mytag
+                      if (iprint) print*,'  ',mytag
                       read(iunit,iostat=ierr)
                    endif
                 else
