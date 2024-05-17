@@ -286,7 +286,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all)
           vr_accum_max = vri
           r_accum_maxv = r
        endif
-       if (r-rad_cap < drad_cap .and. (v .ge. v_min .and. v .le. v_max)) then
+       if (r-rad_cap < drad_cap .and. (v  >=  v_min .and. v  <=  v_max)) then
           thetai = atan2d(y,x)
           phii = atan2d(z,sqrt(x**2+y**2))
           if ((thetai  >=  theta_min .and. thetai  <=  theta_max) .and. (phii  >=  phi_min .and. phii  <=  phi_max)) then

@@ -315,7 +315,7 @@ subroutine write_options_inject(iunit)
  real, parameter :: r_inject_default = 5.e14
 
  ! write something meaningful in infile
- if (r_inject_cgs .le. 0.) then
+ if (r_inject_cgs  <=  0.) then
     start_dump = start_dump_default
     r_inject_cgs = r_inject_default
     final_dump = final_dump_default
