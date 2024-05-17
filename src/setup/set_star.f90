@@ -15,7 +15,9 @@ module setstar
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nstars : *number of stars to add (0-'//achar(size(star)+48)//')*
+!   - relax  : *relax stars into equilibrium*
 !
 ! :Dependencies: centreofmass, dim, eos, extern_densprofile, infile_utils,
 !   io, mpiutils, part, physcon, prompting, radiation_utils, relaxstar,

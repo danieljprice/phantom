@@ -29,8 +29,9 @@ module setup
 !   - spin    : *spin parameter of black hole |a|<1*
 !   - theta   : *inclination of disc (degrees)*
 !
-! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   io, kernel, metric, options, part, physcon, prompting, setdisc,
+! :Dependencies: dim, eos, extern_lensethirring, externalforces,
+!   infile_utils, io, kernel, metric, mpidomain, options, part, physcon,
+!   prompting, setdisc, setorbit, setstar, setunits, setup_params,
 !   timestep, units
 !
  use options,  only:alpha

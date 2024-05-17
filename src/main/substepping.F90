@@ -28,7 +28,7 @@ module substepping
 ! :Dependencies: chem, cons2primsolver, cooling, cooling_ism, damping, dim,
 !   dust_formation, eos, extern_gr, externalforces, io, io_summary,
 !   krome_interface, metric_tools, mpiutils, options, part, ptmass,
-!   ptmass_radiation, timestep, timestep_sts
+!   ptmass_radiation, subgroup, timestep, timestep_sts
 !
  implicit none
 

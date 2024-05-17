@@ -10,19 +10,16 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
-!   - phi_max   : *max phi (in deg)*
-!   - phi_min   : *min phi (in deg)*
-!   - rad_cap   : *capture inner radius (in cm)*
-!   - theta_max : *max theta (in deg)*
-!   - theta_min : *min theta (in deg)*
-!   - v_max     : *max velocity (in c)*
-!   - v_min     : *min velocity (in c)*
+!   - phi_max   : *max phi (in deg) (-ve = ignore)*
+!   - phi_min   : *min phi (in deg) (-ve = ignore)*
+!   - r_in      : *radius to count outflow (in cm)*
+!   - theta_max : *max theta (in deg) (-ve = ignore)*
+!   - theta_min : *min theta (in deg) (-ve = ignore)*
 !
-! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
+! :Dependencies: infile_utils, io, part, physcon, readwrite_dumps, units
 !
  implicit none
  character(len=10), parameter, public :: analysistype = 'tdeoutflow'

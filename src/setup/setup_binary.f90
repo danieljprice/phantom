@@ -13,18 +13,11 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - O            : *position angle of ascending node (deg)*
-!   - a            : *semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1*
-!   - corotate     : *set stars in corotation*
-!   - eccentricity : *eccentricity*
-!   - f            : *initial true anomaly (180=apoastron)*
-!   - inc          : *inclination (deg)*
-!   - relax        : *relax stars into equilibrium*
-!   - w            : *argument of periapsis (deg)*
+!   - corotate : *set stars in corotation*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
-!   setstar, setunits, setup_params, units
+!   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
+!   setup_params
 !
  use setstar,  only:star_t
  use setorbit, only:orbit_t

@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dust_formation, energies, eos,
+! :Dependencies: centreofmass, dim, dust_formation, energies, eos,
 !   eos_gasradrec, eos_mesa, extern_corotate, io, ionization_mod, kernel,
 !   mesa_microphysics, part, physcon, prompting, ptmass, setbinary,
 !   sortutils, table_utils, units, vectorutils

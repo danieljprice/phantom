@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module utils_subgroup
+!
+! utils_subgroup
+!
+! :References: None
+!
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: None
+!
  implicit none
  integer, parameter :: ck_size = 8
  real,dimension(8),parameter :: cks=(/0.3922568052387800,0.5100434119184585,-0.4710533854097566,&

@@ -14,6 +14,7 @@ module analysis
 !
 ! :Runtime parameters:
 !   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
+!   - npart_tde : *npart in tde sims (-ve=10*npart of cnm)*
 !   - phi_max   : *max phi (in deg)*
 !   - phi_min   : *min phi (in deg)*
 !   - rad_cap   : *capture inner radius (in cm)*
@@ -22,7 +23,7 @@ module analysis
 !   - v_max     : *max velocity (in c)*
 !   - v_min     : *min velocity (in c)*
 !
-! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
+! :Dependencies: infile_utils, io, part, physcon, readwrite_dumps, units
 !
  implicit none
  character(len=8), parameter, public :: analysistype = 'radiotde'

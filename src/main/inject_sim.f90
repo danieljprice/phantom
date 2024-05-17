@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module inject
 !
@@ -10,15 +10,13 @@ module inject
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - start_dump      : *dump to start looking for particles to inject*
-!   - r_inject        : *radius to inject particles*
-!   - final_dump      : *stop injection after reaching this dump*
+!   - r_inject : *radius to inject tde outflow (in cm)*
 !
-! :Dependencies: fileutils, io, timestep, units, dump_utils, part,
-!   readwrite_dumps_fortran, readwrite_dumps_common, partinject, infile_utils
+! :Dependencies: dump_utils, fileutils, infile_utils, io, part, partinject,
+!   readwrite_dumps_common, readwrite_dumps_fortran, timestep, units
 !
  use fileutils, only:getnextfilename
 

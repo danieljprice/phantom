@@ -23,7 +23,7 @@ module setup
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
 !   kernel, metric, mpidomain, part, physcon, relaxstar, setbinary,
-!   setstar, setup_params, timestep, units, vectorutils
+!   setstar, setup_params, systemutils, timestep, units, vectorutils
 !
  use setstar, only:star_t
  implicit none

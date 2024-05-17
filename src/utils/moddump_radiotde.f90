@@ -14,7 +14,9 @@ module moddump
 !
 ! :Runtime parameters:
 !   - ieos             : *equation of state used*
-!   - ignore_radius    : *tde particle inside this radius will be ignored*
+!   - ignore_radius    : *ignore tde particle inside this radius (-ve = ignore all for injection)*
+!   - m_target         : *target mass in circumnuclear gas cloud (in Msun) (-ve = ignore and use rho0)*
+!   - m_threshold      : *threshold in solving rho0 for m_target (in Msun)*
 !   - mu               : *mean molecular density of the cloud*
 !   - nbreak           : *number of broken power laws*
 !   - nprof            : *number of data points in the cloud profile*
@@ -23,7 +25,7 @@ module moddump
 !   - rad_min          : *inner radius of the circumnuclear gas cloud*
 !   - remove_overlap   : *remove outflow particles overlap with circum particles*
 !   - rhof_n_1         : *power law index of the section*
-!   - rhof_rho0        : *density at rad_min (in g/cm^3)*
+!   - rhof_rho0        : *density at rad_min (in g/cm^3) (-ve = ignore and calc for m_target)*
 !   - temperature      : *temperature of the gas cloud (-ve = read from file)*
 !   - use_func         : *if use broken power law for density profile*
 !

@@ -1,3 +1,9 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module subgroup
 !
 ! this module contains everything to identify
@@ -5,7 +11,11 @@ module subgroup
 !
 ! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Yann BERNARD
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, mpiutils, part, utils_kepler, utils_subgroup
 !
  use utils_subgroup
  implicit none
