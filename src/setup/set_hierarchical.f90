@@ -575,13 +575,14 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
              q_comp = mtot/m_comp
              if (q_comp>1) q_comp=q_comp**(-1)
 
-             ! Mardling&Aarseth (2001) criterion check
-
-             period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/(semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
+             ! Mardling & Aarseth (2001) criterion check
+             period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/&
+                                 (semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
              criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
 
              if (criterion > period_ratio) then
-                print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
+                print "(1x,a)",'WARNING: set_multiple: orbital parameters do not satisfy '//&
+                               'Mardling & Aarseth stability criterion.'
              endif
 
              q2=m2/m1
