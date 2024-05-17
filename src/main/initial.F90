@@ -546,6 +546,8 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (r_merge_uncond < 2.0*h_acc) then
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
+    fxyz_ptmass=0.
+    dsdt_ptmass=0.
  endif
  if (abs(time) <= tiny(0.)) then
     !initialize nucleation array at the start of the run only
