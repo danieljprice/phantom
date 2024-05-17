@@ -12,6 +12,7 @@ env:
   PREFIX: /usr/local/
   PHANTOM_DIR: ${{ github.workspace }}
   KROMEPATH: ${{ github.workspace }}/krome
+  FC: gfortran  # default if not overwritten by matrix
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -37,8 +38,6 @@ jobs:
       - name: install Fortran compiler on macOS
         if: matrix.os == 'macos-latest'
         run: brew install gfortran
-        env:
-          FC: gfortran
 
       #- uses: fortran-lang/setup-fortran@v1
       #  with:
