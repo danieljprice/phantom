@@ -14,7 +14,9 @@ module moddump
 !
 ! :Runtime parameters:
 !   - ieos             : *equation of state used*
-!   - ignore_radius    : *tde particle inside this radius will be ignored*
+!   - ignore_radius    : *ignore tde particle inside this radius (-ve = ignore all for injection)*
+!   - m_target         : *target mass in circumnuclear gas cloud (in Msun) (-ve = ignore and use rho0)*
+!   - m_threshold      : *threshold in solving rho0 for m_target (in Msun)*
 !   - mu               : *mean molecular density of the cloud*
 !   - nbreak           : *number of broken power laws*
 !   - nprof            : *number of data points in the cloud profile*
@@ -23,7 +25,7 @@ module moddump
 !   - rad_min          : *inner radius of the circumnuclear gas cloud*
 !   - remove_overlap   : *remove outflow particles overlap with circum particles*
 !   - rhof_n_1         : *power law index of the section*
-!   - rhof_rho0        : *density at rad_min (in g/cm^3)*
+!   - rhof_rho0        : *density at rad_min (in g/cm^3) (-ve = ignore and calc for m_target)*
 !   - temperature      : *temperature of the gas cloud (-ve = read from file)*
 !   - use_func         : *if use broken power law for density profile*
 !
@@ -56,7 +58,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use physcon,      only:solarm,years,mass_proton_cgs,kb_on_mh,kboltz,radconst
  use setup_params, only:npart_total
  use part,         only:igas,set_particle_type,pxyzu,delete_particles_inside_radius, &
-                        delete_particles_outside_sphere,kill_particle,shuffle_part, & 
+                        delete_particles_outside_sphere,kill_particle,shuffle_part, &
                         eos_vars,itemp,igamma,igasP
  use io,           only:fatal,master,id
  use units,        only:umass,udist,utime,set_units,unit_density
@@ -107,7 +109,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  rhof_rbreak       = rad_min
  m_target          = dot_product(npartoftype,massoftype)*umass/solarm
  m_threshold       = 1.e-3
- 
+
  !--Profile default setups
  read_temp         = .false.
  profile_filename  = default_name
@@ -197,7 +199,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     else
        call fatal('moddump','Must give rho0 or m_target')
     endif
- endif 
+ endif
 
  !--remove unwanted particles
  if (ignore_radius > 0) then
@@ -233,7 +235,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call set_particle_type(i,igas)
     r = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
     rhofr = rhof(r)
-    if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)       
+    if (read_temp) temperature = get_temp_r(r,rad_prof,temp_prof)
     vxyzu(4,i) = uerg(rhofr,temperature,ieos)
     vxyzu(1:3,i) = 0. ! stationary for now
     pxyzu(4,i) = entropy(rhofr,temperature,ieos)
@@ -388,7 +390,7 @@ subroutine calc_rho0(rhof)
  procedure(rho), pointer, intent(in) :: rhof
  real    :: rho0_min,rho0_max,totmass
  integer :: iter
- 
+
  rho0_min = 0.
  rho0_max = 1.
  totmass = -1.

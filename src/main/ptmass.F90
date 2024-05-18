@@ -384,7 +384,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     else
        i = k
     endif
-    if (extrap)then
+    if (extrap) then
        xi     = xyzmh_ptmass(1,i) + extrapfac*fsink_old(1,i)
        yi     = xyzmh_ptmass(2,i) + extrapfac*fsink_old(2,i)
        zi     = xyzmh_ptmass(3,i) + extrapfac*fsink_old(3,i)

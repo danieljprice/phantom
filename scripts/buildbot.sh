@@ -13,7 +13,7 @@
 #
 # Written by Daniel Price, 2012-2023, daniel.price@monash.edu
 #
-if [ X$SYSTEM == X ]; then
+if [ "X$SYSTEM" == "X" ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
    echo "Usage: $0 [max idim to check] [url]";
    exit;
@@ -77,7 +77,6 @@ listofcomponents='main setup analysis utils';
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
-#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))

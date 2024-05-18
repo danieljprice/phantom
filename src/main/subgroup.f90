@@ -1,3 +1,9 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module subgroup
 !
 ! this module contains everything to identify
@@ -5,7 +11,11 @@ module subgroup
 !
 ! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Yann BERNARD
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, mpiutils, part, utils_kepler, utils_subgroup
 !
  use utils_subgroup
  implicit none
@@ -61,10 +71,10 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  visited = .false.
  group_info(igcum,1) = 0
  do i=1,nptmass
-    if(.not.visited(i)) then
+    if (.not.visited(i)) then
        n_ingroup = n_ingroup + 1
        call dfs(i,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
-       if (ncg>1)then
+       if (ncg>1) then
           n_group = n_group + 1
           group_info(igcum,n_group+1) = (ncg) + group_info(igcum,n_group)
        else
@@ -144,7 +154,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
     do j=1,nptmass
-       if(i==j) cycle
+       if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
        dy = yi - xyzmh_ptmass(2,j)
        dz = zi - xyzmh_ptmass(3,j)
@@ -153,7 +163,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
        if (r<r_neigh) then
           nmatrix(i,j) = 1
           cycle
-       else if (r>r_search) then
+       elseif (r>r_search) then
           nmatrix(i,j) = 0
           cycle
        endif
@@ -196,7 +206,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
  real,    intent(in)    :: tnext,time
  integer :: i,start_id,end_id,gsize
  if (n_group>0) then
-    if(id==master) then
+    if (id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,gtgrad,n_group)&
@@ -239,7 +249,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
  ismultiple = gsize > 2
 
- if(ismultiple) then
+ if (ismultiple) then
     call get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,W,start_id,end_id,ds_init=ds_init)
  else
     prim = group_info(igarg,start_id)
@@ -284,7 +294,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
     step_count_int = step_count_int + 1
 
-    if(step_count_int > max_step) then
+    if (step_count_int > max_step) then
        print*,"MAX STEP NUMBER, ABORT !!!"
        call abort
     endif
@@ -309,7 +319,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
              step_modif = min(max(step_modif,0.0625),0.5)
              ds(switch)   = ds(switch)*step_modif
              ds(3-switch) = ds(switch)
-          else if ((n_step_end > 1) .and. (dt<0.3*dt_end)) then
+          elseif ((n_step_end > 1) .and. (dt<0.3*dt_end)) then
              ds(3-switch) = ds(switch) * dt_end/dt
           else
              n_step_end = n_step_end + 1
@@ -323,7 +333,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
           backup_flag  = .false.
        endif
 
-    else if (tcoord > tnext + time_error) then
+    elseif (tcoord > tnext + time_error) then
        t_end_flag = .true.
        backup_flag = .false.
        n_step_end = 0
@@ -367,7 +377,7 @@ subroutine new_ds_sync_sup(ds,time_table,tnext,switch)
  real :: tp,dtc,dstmp
  do i=1,ck_size
     k = cck_sorted_id(i)
-    if(tnext<time_table(k)) exit
+    if (tnext<time_table(k)) exit
  enddo
 
  if (i==1) then
@@ -575,7 +585,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  dt_init = 0.
 
 
- if(present(ds_init)) then
+ if (present(ds_init)) then
     init = .true.
     ds_init = 0.
  else
@@ -637,7 +647,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  enddo
 
  om = om*0.5
- if(init) ds_init = dt_init/om
+ if (init) ds_init = dt_init/om
 
 end subroutine get_force_TTL
 
@@ -667,7 +677,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,i,j,potonly,ds_i
 
  fxyz_ptmass(4,i) = -gtki
  fxyz_ptmass(4,j) = -gtkj
- if(.not.present(potonly)) then
+ if (.not.present(potonly)) then
     fxi = -dx*gravfi
     fyi = -dy*gravfi
     fzi = -dz*gravfi
@@ -713,7 +723,7 @@ subroutine get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epo
  real :: phitot,phigroup
  phitot = 0.
  if (n_group>0) then
-    if(id==master) then
+    if (id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group)&

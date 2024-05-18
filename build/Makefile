@@ -653,7 +653,7 @@ phantomsetup: setup
 SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
           set_dust_options.f90 set_units.f90 \
           density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
-          set_slab.f90 set_disc.F90 \
+          set_slab.f90 set_disc.F90 set_orbit.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \

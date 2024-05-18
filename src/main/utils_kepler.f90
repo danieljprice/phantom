@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 module utils_kepler
+!
+! utils_kepler
+!
+! :References: None
+!
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: physcon
+!
  use physcon,only: pi
  implicit none
 
