@@ -752,7 +752,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
- use part,       only: ihacc
+ use part,       only: ihacc,ndptmass
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
@@ -762,7 +762,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(in)    :: vxyz_ptmass(3,nptmass)
  logical,           intent(out)   :: accreted
- real,              intent(inout) :: dptmass(:,:)
+ real,              intent(inout) :: dptmass(ndptmass,nptmass)
  integer(kind=1),   intent(in)    :: nbinmax
  integer(kind=1),   intent(inout) :: ibin_wakei
  integer, optional, intent(out)   :: nfaili
@@ -936,11 +936,13 @@ end subroutine ptmass_accrete
 !+
 !-----------------------------------------------------------------------
 subroutine update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
- real,    intent(in)    :: dptmass(:,:)
+ use part ,only:ndptmass
+ integer, intent(in)    :: nptmass
+ real,    intent(in)    :: dptmass(ndptmass,nptmass)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(inout) :: vxyz_ptmass(:,:)
  real,    intent(inout) :: fxyz_ptmass(:,:)
- integer, intent(in)    :: nptmass
+
 
  real                   :: newptmass(nptmass),newptmass1(nptmass)
 
@@ -1023,7 +1025,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:)
- real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:),dptmass(ndptmass,nptmass+1)
+ real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:),dptmass(ndptmass,maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
