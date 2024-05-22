@@ -496,10 +496,10 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  if (present(subst)) then
     if (subst>10) then
        if (iexist) then
-          open(1, file = trim(filename), status = 'old')
+          open(1,file=trim(filename),status='old')
           lines=0
           do
-             read(1, *, iostat=io) data(lines+1,:)
+             read(1, *,iostat=io) data(lines+1,:)
              if (io/=0) exit
              lines = lines + 1
           enddo
@@ -539,74 +539,75 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
  !--- Checks to avoid bad substitutions
  if (present(subst)) then
     if (subst>10) then
-    write(hier_prefix, *) subst
-    io=0
-    mtot = 0.
-    do i=1,lines
-       if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
-          if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
-             print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
-             ierr = ierr_subststar
-          endif
-          subst_index = int(data(i,1))
-          data(i,1) = 0
+       write(hier_prefix, *) subst
+       io=0
+       mtot = 0.
+       do i=1,lines
+          if (data(i,2)==abs(subst)) then ! Check that star to be substituted exists in HIERARCHY file
+             if (data(i,1)==0) then ! Check that star to be substituted has not already been substituted
+                print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' substituted yet.'
+                ierr = ierr_subststar
+             endif
+             subst_index = int(data(i,1))
+             data(i,1) = 0
 
-          if (subst>0) then
-             rel_posang_ascnode = data(i, 10)
+             if (subst>0) then
+                rel_posang_ascnode = data(i, 10)
 
-             if (rel_posang_ascnode /= 0) then
-                print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
-                ierr = ierr_Omegasubst
+                if (rel_posang_ascnode /= 0) then
+                   print "(1x,a)",'ERROR: set_multiple: at the moment phantom can subst only Omega=0 binaries.'
+                   ierr = ierr_Omegasubst
+                endif
+
+                rel_arg_peri= data(i, 9)
+                rel_incl = data(i, 8)
+             else
+                rel_posang_ascnode = posang_ascnode
+                rel_arg_peri = arg_peri
+                rel_incl = incl
              endif
 
-             rel_arg_peri= data(i, 9)
-             rel_incl = data(i, 8)
-          else
-             rel_posang_ascnode = posang_ascnode
-             rel_arg_peri = arg_peri
-             rel_incl = incl
+             mtot = data(i, 3)
+             m_comp = data(i, 4)
+             a_comp = data(i, 5)
+             e_comp = data(i, 6)
+
+             q_comp = mtot/m_comp
+             if (q_comp>1) q_comp=q_comp**(-1)
+
+             ! Mardling & Aarseth (2001) criterion check
+             period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/&
+                                 (semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
+             criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
+
+             if (criterion > period_ratio) then
+                print "(1x,a)",'WARNING: set_multiple: orbital parameters do not satisfy '//&
+                               'Mardling & Aarseth stability criterion.'
+             endif
+
+             q2=m2/m1
+             mprimary = mtot/(1+q2)
+             msecondary = mtot*q2/(1+q2)
+
+             io=1
+             exit
           endif
+       enddo
 
-          mtot = data(i, 3)
-          m_comp = data(i, 4)
-          a_comp = data(i, 5)
-          e_comp = data(i, 6)
-
-          q_comp = mtot/m_comp
-          if (q_comp>1) q_comp=q_comp**(-1)
-
-          ! Mardling&Aarseth (2001) criterion check
-
-          period_ratio = sqrt((a_comp*a_comp*a_comp)/(m_comp+mtot)/(semimajoraxis*semimajoraxis*semimajoraxis)*(mtot)) ! Po/Pi
-          criterion = 4.7*(1-e_comp)**(-1.8)*(1+e_comp)**(0.6)*(1+q_comp)**(0.1)
-
-          if (criterion > period_ratio) then
-             print "(1x,a)",'WARNING: set_multiple: orbital parameters does not satisfy Mardling and Aarseth stability criterion.'
-          endif
-
-          q2=m2/m1
-          mprimary = mtot/(1+q2)
-          msecondary = mtot*q2/(1+q2)
-
-          io=1
-          exit
+       if (io == 0) then
+          print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
+          ierr = ierr_missstar
        endif
-    enddo
 
-    if (io == 0) then
-       print "(1x,a)",'ERROR: set_multiple: star '//trim(hier_prefix)//' not present in HIERARCHY file.'
-       ierr = ierr_missstar
-    endif
+       if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
+          x_subst(:)=xyzmh_ptmass(1:3,subst_index)
+          v_subst(:)=vxyz_ptmass(:,subst_index)
+       endif
+       !i1 = subst_index
+       !i2 = nptmass + 1
+       !nptmass = nptmass + 1
 
-    if (subst_index > 0 .and. subst_index <= size(xyzmh_ptmass(1,:))) then ! check for seg fault
-       x_subst(:)=xyzmh_ptmass(1:3,subst_index)
-       v_subst(:)=vxyz_ptmass(:,subst_index)
-    endif
-    !i1 = subst_index
-    !i2 = nptmass + 1
-    !nptmass = nptmass + 1
-
-    period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
+       period = sqrt(4.*pi**2*semimajoraxis**3/mtot)
     endif
  else
     mprimary = m1
@@ -626,110 +627,110 @@ subroutine set_multiple(m1,m2,semimajoraxis,eccentricity, &
 
  if (present(subst)) then
     if (subst>10) then
-    !--- lower nptmass, copy one of the new sinks to the subst star
-    nptmass = nptmass-1
-    i1 = subst_index
-    i2 = nptmass
+       !--- lower nptmass, copy one of the new sinks to the subst star
+       nptmass = nptmass-1
+       i1 = subst_index
+       i2 = nptmass
 
-    ! positions and accretion radii
-    xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
+       ! positions and accretion radii
+       xyzmh_ptmass(1:6,i1) = xyzmh_ptmass(1:6,nptmass+1)
 
-    ! test Jolien
+       ! test Jolien
 !    print "(5(2x,a,g12.3,/),2x,a,g12.3)", &
 !    'i1     :',i1, &
 !     'mass i1:',xyzmh_ptmass(4,i1), &
 !     'i2     :',i2, &
 !     'mass i2:',xyzmh_ptmass(4,i2)
 
-    ! velocities
-    vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
+       ! velocities
+       vxyz_ptmass(:,i1) = vxyz_ptmass(:,nptmass+1)
 
-    !---
-    ! Rotate the substituting binary with orientational parameters
-    ! referring to the substituted star's orbital plane
-    if (subst>0) then
+       !---
+       ! Rotate the substituting binary with orientational parameters
+       ! referring to the substituted star's orbital plane
+       if (subst>0) then
 
-       omega     = rel_arg_peri*pi/180.
-       !big_omega = rel_posang_ascnode*pi/180.! + 0.5*pi
-       inc       = rel_incl*pi/180.
+          omega     = rel_arg_peri*pi/180.
+          !big_omega = rel_posang_ascnode*pi/180.! + 0.5*pi
+          inc       = rel_incl*pi/180.
 
-       ! Retrieve eulerian angles of the substituted star orbit's semi-major axis (y axis)
-       if (omega <= pi/2) then
-          beta_y = omega
-          sign_alpha=-1
-          if (inc <= pi) then
-             sign_gamma=1
+          ! Retrieve eulerian angles of the substituted star orbit's semi-major axis (y axis)
+          if (omega <= pi/2) then
+             beta_y = omega
+             sign_alpha=-1
+             if (inc <= pi) then
+                sign_gamma=1
+             else
+                sign_gamma=-1
+             endif
           else
-             sign_gamma=-1
+             beta_y = 2*pi-omega
+             sign_alpha=1
+             if (inc <= pi) then
+                sign_gamma=-1
+             else
+                sign_gamma=1
+             endif
           endif
-       else
-          beta_y = 2*pi-omega
-          sign_alpha=1
+          gamma_y=acos(sign_gamma*sin(beta_y)*sin(inc))
+          alpha_y=acos(sign_alpha*sqrt(abs(sin(beta_y)**2-cos(gamma_y)**2))) ! Needs abs cause float approx for cos
+
+          ! Retrieve eulerian angles of the axis perpendicular to the substituted star orbital plane (z axis)
+          beta_z = pi/2.
+          gamma_z = inc
+          alpha_z = pi/2. - inc
           if (inc <= pi) then
-             sign_gamma=-1
-          else
-             sign_gamma=1
+             gamma_z=inc
+             if (inc <= pi/2.) then
+                alpha_z = pi/2.-inc
+             elseif (inc > pi/2.) then
+                alpha_z = inc-pi/2.
+             endif
+          elseif (inc < 2.*pi .and. inc > pi) then
+             gamma_z = 2.*pi-inc
+             if (inc <= 3.*pi/2.) then
+                alpha_z = inc-pi/2
+             elseif (inc > 3.*pi/2.) then
+                alpha_z = 5.*pi/2.-inc
+             endif
           endif
+
+          ! Rotate substituting sinks by argument of pericenter around the z axis
+          call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+          call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
+
+          ! Rotate substituting sinks by inclination around the y axis
+          call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
+          call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
+
+          ! Rotate substituting sinks by ascending node longitude around the z axis
+          call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+          call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
+          call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
        endif
-       gamma_y=acos(sign_gamma*sin(beta_y)*sin(inc))
-       alpha_y=acos(sign_alpha*sqrt(abs(sin(beta_y)**2-cos(gamma_y)**2))) ! Needs abs cause float approx for cos
 
-       ! Retrieve eulerian angles of the axis perpendicular to the substituted star orbital plane (z axis)
-       beta_z = pi/2.
-       gamma_z = inc
-       alpha_z = pi/2. - inc
-       if (inc <= pi) then
-          gamma_z=inc
-          if (inc <= pi/2.) then
-             alpha_z = pi/2.-inc
-          elseif (inc > pi/2.) then
-             alpha_z = inc-pi/2.
-          endif
-       elseif (inc < 2.*pi .and. inc > pi) then
-          gamma_z = 2.*pi-inc
-          if (inc <= 3.*pi/2.) then
-             alpha_z = inc-pi/2
-          elseif (inc > 3.*pi/2.) then
-             alpha_z = 5.*pi/2.-inc
-          endif
-       endif
+       ! Move the substituting binary's center of mass in the substituted star position
+       xyzmh_ptmass(1:3,i1) = xyzmh_ptmass(1:3,i1)+x_subst
+       xyzmh_ptmass(1:3,i2) = xyzmh_ptmass(1:3,i2)+x_subst
+       ! Set the substituting binary's center of mass velocity
+       vxyz_ptmass(:,i1) = vxyz_ptmass(:,i1)+v_subst
+       vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
 
-       ! Rotate substituting sinks by argument of pericenter around the z axis
-       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
-       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, arg_peri*pi/180)
-
-       ! Rotate substituting sinks by inclination around the y axis
-       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_y,beta_y,gamma_y, incl*pi/180)
-       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_y,beta_y,gamma_y, incl*pi/180)
-
-       ! Rotate substituting sinks by ascending node longitude around the z axis
-       call gen_rotate(xyzmh_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i1),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
-       call gen_rotate(xyzmh_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
-       call gen_rotate(vxyz_ptmass(1:3,i2),alpha_z,beta_z,gamma_z, posang_ascnode*pi/180)
-    endif
-
-    ! Move the substituting binary's center of mass in the substituted star position
-    xyzmh_ptmass(1:3,i1) = xyzmh_ptmass(1:3,i1)+x_subst
-    xyzmh_ptmass(1:3,i2) = xyzmh_ptmass(1:3,i2)+x_subst
-    ! Set the substituting binary's center of mass velocity
-    vxyz_ptmass(:,i1) = vxyz_ptmass(:,i1)+v_subst
-    vxyz_ptmass(:,i2) = vxyz_ptmass(:,i2)+v_subst
-
-    ! Write updated HIERARCHY file with the two new stars and the substituted one
-    open(1,file=trim(filename),status='old')
-    do i=1,lines
-       write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
-    enddo
-    write(1,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
+       ! Write updated HIERARCHY file with the two new stars and the substituted one
+       open(1,file=trim(filename),status='old')
+       do i=1,lines
+          write(1,*) int(data(i,1)), int(data(i,2)), data(i,3:)
+       enddo
+       write(1,*) i1, trim(hier_prefix)//"1", mprimary, msecondary, semimajoraxis, eccentricity, &
          period, incl, arg_peri, posang_ascnode
-    write(1,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
+       write(1,*) i2, trim(hier_prefix)//"2", msecondary, mprimary, semimajoraxis, eccentricity, &
          period, incl, arg_peri, posang_ascnode
-    close(1)
+       close(1)
     endif
  endif
 

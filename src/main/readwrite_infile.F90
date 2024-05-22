@@ -108,7 +108,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
 #ifdef INJECT_PARTICLES
- use inject,          only:write_options_inject
+ use inject,          only:write_options_inject,inject_type,update_injected_par
 #endif
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
@@ -269,6 +269,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
+ if (inject_type=='sim') call update_injected_par()
 #endif
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 

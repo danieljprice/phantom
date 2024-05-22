@@ -22,7 +22,7 @@ module initial
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
 !   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
 !   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
 !   timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
