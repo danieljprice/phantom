@@ -198,6 +198,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        else
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
+       !Alison
+       if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L202", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
        if (ufloor > 0. .and. icooling /= 9) then
@@ -271,7 +273,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(alphaind,ieos,alphamax,ialphaloc) &
-!$omp shared(eos_vars,ufloor) &
+!$omp shared(eos_vars,ufloor,icooling) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
@@ -318,9 +320,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
+       !Alison
+       if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L324", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
-       if (ufloor > 0.) then
+       if (ufloor > 0. .and. icooling /= 9) then
           if (vpred(4,i) < ufloor) then
              vpred(4,i) = ufloor
              nvfloorps  = nvfloorps + 1
@@ -476,10 +480,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
                 else
                    vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
-                   if (fxyzu(4,i) > TINY(fxyzu(4,i))) then
-                      print *, "In step du/dt not zero"
-                   endif
                 endif
+                !Alison
+                if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
 
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
                 if (itype==igas) then
@@ -502,6 +505,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
              endif
+             !Alison
+             if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L509", fxyzu(4,i)             
 
              !--floor the thermal energy if requested and required
              if (ufloor > 0. .and. icooling /= 9) then
@@ -559,7 +564,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
                 vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
                 if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
-
+                !Alison
+                if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
                 erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
                 errmax = max(errmax,erri)
 
@@ -652,6 +658,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
              endif
+             !Alison
+             if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L662", fxyzu(4,i)
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)

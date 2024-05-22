@@ -943,10 +943,12 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        ! temperature and abundances update (only done during the last force calculation of the substep)
        !
+       
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
        endif
+       
     endif
  enddo
  !$omp enddo

@@ -20,7 +20,7 @@ module cooling_radapprox
 !
 
  implicit none
- real, public :: Lstar=0.0 ! in units of L_sun
+ real  :: Lstar = 0d0 ! in units of L_sun
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
@@ -73,8 +73,7 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  integer,intent(in) :: npart
  real,intent(in) :: xyzh(:,:),dt,Tfloor
  real,intent(inout) :: energ(:),dudt_sph(:)
- real            :: dudti_cool,ui,rhoi
- real            :: coldensi,kappaBari,kappaParti,ri2
+ real            :: ui,rhoi,coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
  real            :: cs2,Om2,Hmod2
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
@@ -84,20 +83,22 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
 ! write (temp,'(E5.2)') dt
  write (filename, 11) dt
 11 format("coolrate_", E7.2,".dat")
- 
+
+ print *, "In cooling"
  ratefile = 34
  open(unit=ratefile,file=filename,status="replace",form="formatted")
  !$omp parallel do default(none) schedule(runtime) &
  !$omp shared(npart,duFLD,xyzh,energ,massoftype,xyzmh_ptmass,unit_density,Gpot_cool) &
  !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure,ratefile) &
- !$omp shared(opac_store,Tfloor,dt,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool) &
+ !$omp shared(opac_store,Tfloor,dt,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool,Lstar) &
  !$omp private(i,poti,du_FLDi,ui,rhoi,ri2,coldensi,kappaBari,Ti) &
  !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
- !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,Lstar,dudti_cool)
+ !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb)
  overpart: do i=1,npart
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
     ui = energ(i)
+    if (abs(ui) < epsilon(ui)) print *, "ui zero", i
     rhoi =  rhoh(xyzh(4,i),massoftype(igas))
     
     if (isink_star > 0) then
@@ -145,8 +146,6 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
           Om2 = 0d0
        endif
        Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
-       !Q3D = Om2/(4.d0*pi*rhoi)
-    !Hmod2 = (cs2/Om2) * piontwo /(1d0 + (1d0/(rpiontwo*Q3D)))
        Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
        coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
     end select
@@ -154,7 +153,6 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
     if (isink_star > 0 .and. Lstar > 0.d0) then
-       ! Tfloor + stellar heating
        Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
     else
        Tmini4 = Tfloor**4d0
@@ -164,8 +162,8 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     opac_store(i) = opaci
     dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
+!    if (mod(i,100) == 0) print *, "dudt_sph", dudt_sph(i)
     if (doFLD) then
-       ! include term from FLD
        Teqi = (du_FLDi + dudt_sph(i)) *opaci*unit_ergg/utime ! physical units
        du_tot = dudt_sph(i) + dudti_rad + du_FLDi
     else
@@ -181,14 +179,19 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
        Teqi = Teqi**(1.0/4.0)
     endif
     teqi_store(i) = Teqi
+
+    if (Teqi > 1e6) then
+       print *, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
+            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb
+    endif
+    
     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
     ueqi = ueqi/unit_ergg
         
     call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
     umini = umini/unit_ergg
 
-    ! calculate thermalization timescale and
-    ! internal energy update -> in form where it'll work as dudtcool
+    ! calculate thermalization timescale
     if ((du_tot) == 0.d0) then
        tthermi = 0d0
     else
@@ -196,40 +199,36 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     endif
 
     ttherm_store(i) = tthermi
-
+    
+    ! evolve energy
     if (tthermi == 0d0) then
-       dudti_cool = 0.d0 ! condition if denominator above is zero
+       energ(i) = ui ! condition if denominator above is zero
+    elseif ( (dt/tthermi) < TINY(ui) ) then
+       energ(i) = ui
     else
-       dudti_cool = (ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) -ui)/dt !code units
+       energ(i) = ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi))  !code units
     endif
 
-    if (isnan(dudti_cool)) then
+    if (isnan(energ(i)) .or. energ(i) < epsilon(ui)) then
        !    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-       print *, "rhoi=",rhoi, "Ti=", Ti
+       print *, "rhoi=",rhoi*unit_density, "Ti=", Ti, "Teqi=", Teqi
+       print *, "Tmini=",Tmini4**(1.0/4.0), "ri=", ri2**(0.5)
        print *, "opaci=",opaci,"coldensi=",coldensi,"dudt_sphi",dudt_sph(i)
        print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
        print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
-       call warning("In Stamatellos cooling","dudticool=NaN. ui",val=ui)
+       call warning("In Stamatellos cooling","energ=NaN or 0. ui",val=ui)
        stop
-!    else if (dudti_cool < 0.d0 .and. abs(dudti_cool) > ui/dt) then
- !      dudti_cool = (umini - ui)/dt
     endif
 
-    ! evolve energy
-    energ(i) = ui + dudti_cool * dt
-
-    !set fxyzu(4,i) for timestepping - or don't...
-    if (dudti_cool == 0d0) then
-       dudt_sph(i) = tiny(dudti_cool)
-    else
-       dudt_sph(i) = dudti_cool
+    if (abs(dudt_sph(i)) >1.) then
+         !$omp critical
+       write (ratefile,'(I6,1X,E15.4)') i, (ui - energ(i))/dt
+       !$omp end critical
     endif
-  !  !$omp critical
-  !  write (ratefile,'(I6,1X,E15.4,E15.4)') i, dudt_sph(i), (ui - energ(i))/dt
-  !  !$omp end critical
  enddo overpart
  !$omp end parallel do
  close(ratefile)
+! print *, "min/max dudt_sph():", minval(dudt_sph), maxval(dudt_sph) 
 end subroutine radcool_update_energ
 
 

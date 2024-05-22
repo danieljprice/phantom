@@ -146,6 +146,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     call do_timing('dens',tlast,tcpulast)
  endif
 
+ print *, "calling eos from deriv"
  if (gr) then
     call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  else
@@ -165,7 +166,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 !
 ! update energy if using radiative cooling approx (icooling=9) 
 !
- if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+! if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
 
  
 !
@@ -191,8 +192,9 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 
 !
 ! update energy if using radiative cooling approx (icooling=9) and set fxyzu(4,:) to zero
-!
-! if (icooling == 9 .and. dt > 0.0)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+ !
+ print *, "min,max energy", minval(vxyzu(4,1:npart)), maxval(vxyzu(4,1:npart))
+ if (icooling == 9 .and. dt > 0.0 .and. icall==1)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
 
  
 !
@@ -211,7 +213,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     !$omp end parallel do
  endif
 
- if (icooling == 9) then
+ if (icooling == 9 .and. icall==1) then
     !$omp parallel do shared(fxyzu,npart) private(i)
     do i=1,npart
        fxyzu(4,i) = 0.
