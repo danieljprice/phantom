@@ -430,7 +430,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    n_group,n_ingroup,n_sing)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
- use part,           only:fxyz_ptmass_sinksink
+ use part,           only:fxyz_ptmass_sinksink,ndptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
  use ptmass,         only:use_fourthorder,use_regnbody,ck,dk
@@ -442,7 +442,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: dtextforce
  real,            intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
- real,            intent(inout) :: dptmass(:,:),fsink_old(:,:),gtgrad(:,:)
+ real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:)
  integer(kind=1), intent(in)    :: nbinmax
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
  logical :: extf_vdep_flag,done,last_step,accreted
