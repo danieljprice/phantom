@@ -127,7 +127,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype,igas,idust,imu,igamma,massoftype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fxyz_ptmass_sinksink,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
@@ -548,6 +548,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     endif
     dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
     fxyz_ptmass = 0.
+    fxyz_ptmass_sinksink = 0.
  endif
  if (abs(time) <= tiny(0.)) then
     !initialize nucleation array at the start of the run only

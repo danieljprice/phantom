@@ -998,9 +998,9 @@ end subroutine update_ptmass
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,time)
+                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
  use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma,ndptmass
+                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
@@ -1024,8 +1024,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(inout) :: xyzh(:,:)
  real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
- real,            intent(inout) :: xyzmh_ptmass(:,:)
- real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:),dptmass(ndptmass,maxptmass)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
+ real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
@@ -1535,8 +1535,8 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
-    fxyz_ptmass(:,nptmass) = 0.0
-    fxyz_ptmass_sinksink(:,nptmass) = 0.0
+    fxyz_ptmass(1:4,n) = 0.0
+    fxyz_ptmass_sinksink(1:4,n) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
 
     if (id==id_rhomax) then
