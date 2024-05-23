@@ -382,7 +382,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
                                   relaxed,use_var_comp,initialtemp,npin)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
- use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
+ use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
  integer, intent(in)    :: ieos,npart,npts
@@ -439,7 +439,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          rad(iradxi,i) = radxi_from_Trad(tempi)
        else
           vxyzu(4,i) = eni / unit_ergg
        endif
