@@ -306,10 +306,9 @@ ifeq ($(AOCC), yes)
     FPPFLAGS += -DAOCC
 endif
 
+SRCAPR=relaxem.f90 apr_region.f90 apr.f90
 ifeq ($(APR), yes)
-    FPPFLAGS += -DAPR
-		SRCAPR=relaxem.f90 apr_region.f90 apr.f90
-		KERNEL=WendlandC2
+		FPPFLAGS += -DAPR
 endif
 
 #
@@ -693,7 +692,7 @@ else
 endif
 
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.F90 test_growth.f90 test_smol.F90 \
+         ${SRCAPR} test_apr.f90 test_dust.F90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
