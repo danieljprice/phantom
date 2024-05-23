@@ -76,7 +76,7 @@ contains
 
     ! initiliase the regions
     call set_apr_centre(apr_type,apr_centre)
-    allocate(apr_regions(apr_max),npart_regions(apr_max))
+    if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
     call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
     npart_regions = 0
 
@@ -96,6 +96,8 @@ contains
     enddo
 
     ierr = 0
+
+    if (apr_verbose) print*,'initialised apr'
 
   end subroutine init_apr
 
@@ -138,6 +140,9 @@ contains
 
     ! If this routine doesn't need to be used, just skip it
     if (apr_max == 1) return
+
+    ! Just a metric
+    if (apr_verbose) print*,'original npart is',npart
 
     ! Before adjusting the particles, if we're going to
     ! relax them then let's save the reference particles
@@ -210,6 +215,7 @@ contains
     if (apr_verbose) then
       print*,'split: ',nsplit_total
       print*,'npart: ',npart
+      call hacky_write('test')
     endif
 
     ! Do any particles need to be merged?
@@ -271,8 +277,6 @@ contains
 
     if (apr_verbose) print*,'total particles at end of apr: ',npart
 
-    call hacky_write('test')
-
   end subroutine update_apr
 
   !-----------------------------------------------------------------------
@@ -332,7 +336,7 @@ contains
     integer, intent(inout) :: npartnew
     integer :: j,npartold,next_door
     real :: theta,dx,dy,dz,x_add,y_add,z_add,sep,rneigh
-    real :: v(3),u(3),w(3),a,b,c
+    real :: v(3),u(3),w(3),a,b,c,mag_v
     integer, save :: iseed = 4
     integer(kind=1) :: aprnew
 
@@ -353,7 +357,7 @@ contains
       dz = xyzh(3,i) - apr_centre(3)
 
       ! Calculate a vector, v, that lies on the plane
-      u = (/1.0,1.0,1.0/)
+      u = (/1.0,0.5,1.0/)
       w = (/dx,dy,dz/)
       call cross_product3D(u,w,v)
 
@@ -369,7 +373,12 @@ contains
         v = (/a, b, c/)
       endif
 
-      v = v/sqrt(dot_product(v,v))
+      mag_v = sqrt(dot_product(v,v))
+      if (mag_v > tiny(mag_v)) then
+        v = v/mag_v
+      else
+        v = 0.
+      endif
     else
       dz = 0.
       u = 0.
@@ -397,8 +406,8 @@ contains
       xyzh(2,j) = xyzh(2,i) + y_add
       xyzh(3,j) = xyzh(3,i) + z_add
       vxyzu(:,j) = vxyzu(:,i)
-      apr_level(j) = aprnew
       xyzh(4,j) = xyzh(4,i)*(0.5**(1./3.))
+      apr_level(j) = aprnew
       if (ind_timesteps) call put_in_smallest_bin(j)
     enddo
 

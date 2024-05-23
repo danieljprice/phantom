@@ -563,6 +563,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        dfac = 1.
     endif
  endif
+ ! note that dfac can be a constant value across all particles even if APR is used
 
  i1=inoderange(1,nnode)
  ! during initial queue build which is serial, we can parallelise this loop
@@ -590,6 +591,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (use_apr) then
          pmassi = aprmassoftype(igas,apr_level_soa(i))
+         fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -613,6 +615,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (use_apr) then
          pmassi = aprmassoftype(igas,apr_level_soa(i))
+         fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -784,11 +787,12 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
       if (apr_tree) then
         ! apr special sort - only used for merging particles
         call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-                                    inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,npnode)
+                                    inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,&
+                                    npnode,apr_level_soa)
       else
         ! regular sort
         call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
       endif
 
        if (nr + nl  /=  npnode) then
@@ -862,14 +866,14 @@ end subroutine construct_node
 !  fall to the left or the right of the pivot axis
 !+
 !----------------------------------------------------------------
-subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
  integer, intent(in)  :: iaxis,imin,imax
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
  real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:)
+ integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
  integer,         intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot
- integer(kind=1) :: iphase_swap
+ integer(kind=1) :: iphase_swap,apr_swap
  integer :: inodeparts_swap,i,j
  real :: xyzh_swap(4)
 
@@ -879,7 +883,8 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
 
  i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
  j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
- ! k = 0
+ !  k = 0
+
  do while(i < j)
     if (i_lt_pivot) then
        i = i + 1
@@ -893,14 +898,17 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
           inodeparts_swap = inodeparts(i)
           xyzh_swap(1:4)  = xyzh_soa(i,1:4)
           iphase_swap     = iphase_soa(i)
+          apr_swap        = apr_level_soa(i)
 
           inodeparts(i)   = inodeparts(j)
           xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
           iphase_soa(i)   = iphase_soa(j)
+          apr_level_soa(i)= apr_level_soa(j)
 
           inodeparts(j)   = inodeparts_swap
           xyzh_soa(j,1:4) = xyzh_swap(1:4)
           iphase_soa(j)   = iphase_swap
+          apr_level_soa(j)= apr_swap
 
           i = i + 1
           j = j - 1
@@ -921,7 +929,7 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
  if ( j /= i+1) print*,' ERROR ',i,j
  nl = max_l - min_l + 1
  nr = max_r - min_r + 1
-
+ 
 end subroutine sort_particles_in_cell
 
 !----------------------------------------------------------------
@@ -932,15 +940,15 @@ end subroutine sort_particles_in_cell
 !+
 !----------------------------------------------------------------
 subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,&
-                                nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,npnode)
+                                nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,npnode,apr_level_soa)
  use io, only:error
  integer, intent(in)  :: iaxis,imin,imax,npnode
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
  real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:)
+ integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
  integer,         intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot,slide_l,slide_r
- integer(kind=1) :: iphase_swap
+ integer(kind=1) :: iphase_swap,apr_swap
  integer :: inodeparts_swap,i,j,nchild_in
  integer :: k,ii,rem_nr,rem_nl
  real :: xyzh_swap(4),dpivot(npnode)
@@ -976,14 +984,17 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
           inodeparts_swap = inodeparts(i)
           xyzh_swap(1:4)  = xyzh_soa(i,1:4)
           iphase_swap     = iphase_soa(i)
+          apr_swap        = apr_level_soa(i)
 
           inodeparts(i)   = inodeparts(j)
           xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
           iphase_soa(i)   = iphase_soa(j)
+          apr_level_soa(i)= apr_level_soa(j)
 
           inodeparts(j)   = inodeparts_swap
           xyzh_soa(j,1:4) = xyzh_swap(1:4)
           iphase_soa(j)   = iphase_swap
+          apr_level_soa(j)= apr_swap
 
           i = i + 1
           j = j - 1
@@ -1828,7 +1839,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           inodeparts(npnode) = -i
        endif
-       if (use_apr) inodeparts(npnode) = abs(inodeparts(npnode))
+       !if (use_apr) inodeparts(npnode) = abs(inodeparts(npnode)) ! Don't think this is necessary anymore
 #else
        inodeparts(npnode) = i
 #endif

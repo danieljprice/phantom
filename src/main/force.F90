@@ -1319,7 +1319,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
          pmassj = massoftype(iamtypej)
        endif
 
-       fgrav = 0.5*pmassj*(fgravi + fgravj)
+       fgrav = 0.5*(pmassj*fgravi + pmassi*fgravj)
 
        !  If particle is hidden by the sink, treat the neighbour as
        !  not gas; gravitational contribution will be added after the
