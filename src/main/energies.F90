@@ -336,7 +336,7 @@ subroutine compute_energies(t)
           dumy = 0.
           dumz = 0.
           epottmpi = 0.
-          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
+          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epottmpi,ii=i)
           call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
           epoti = pmassi*epottmpi
        endif
@@ -353,7 +353,7 @@ subroutine compute_energies(t)
           epot = epot + epoti
        else
           epotacc = epotacc + epoti
-       endif 
+       endif
 
        !
        ! total dust mass for each species
