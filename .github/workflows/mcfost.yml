@@ -23,22 +23,10 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - name: install gfortran
-      run: brew install gfortran
- 
-    - name: soft link gfortran and check version
-      run: |
-        brew link gfortran
-
-    #ls $PREFIX/bin/gfortran-*
-    #ln -s `ls "$PREFIX/bin/gfortran-*" | tail -1` $PREFIX/bin/gfortran
-    #gfortran -v
-
-    - name: Check gfortran version
-      run: gfortran --version
-    #- uses: fortran-lang/setup-fortran@v1
-    #  with:
-    #     compiler: gcc
+    - name: install gfortran compiler
+      uses: fortran-lang/setup-fortran@v1
+      with:
+         compiler: gcc
 
     - name: Check gfortran version
       run: gfortran --version
