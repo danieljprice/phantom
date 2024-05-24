@@ -199,7 +199,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
        !Alison
-       if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L202", fxyzu(4,i)
+       if (icooling == 9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L202", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
        if (ufloor > 0. .and. icooling /= 9) then
@@ -321,7 +321,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
        !Alison
-       if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L324", fxyzu(4,i)
+       if (icooling == 9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L324", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
        if (ufloor > 0. .and. icooling /= 9) then
@@ -482,7 +482,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                 endif
                 !Alison
-                if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
+                if (icooling==9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
 
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
                 if (itype==igas) then
@@ -565,7 +565,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
                 if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
                 !Alison
-                if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
+                if (icooling==9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L568", fxyzu(4,i)
                 erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
                 errmax = max(errmax,erri)
 
@@ -659,7 +659,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vxyzu(:,i) = vxyzu(:,i) - hdtsph*fxyzu(:,i)
              endif
              !Alison
-             if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L662", fxyzu(4,i)
+             if (icooling ==9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L662", fxyzu(4,i)
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) - hdtsph*ddustprop(:,i)
              if (itype==igas) then
                 if (mhd)          Bevol(:,i)  = Bevol(:,i)  - hdtsph*dBevol(:,i)
