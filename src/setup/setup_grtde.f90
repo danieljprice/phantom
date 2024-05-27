@@ -45,7 +45,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
-                     gravity,eos_vars,rad
+                     gravity,eos_vars,rad,gr
  use setbinary, only:set_binary
  use setstar,   only:set_star,shift_star
  use units,     only:set_units,umass,udist
@@ -61,6 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
  use setup_params,   only:rhozero,npart_total
  use systemutils,    only:get_command_option
+ use options,        only:iexternalforce
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -227,6 +228,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     theta_gw = -theta*180./pi
  endif
+
+ if (.not.gr) iexternalforce = 1
 
  if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')
