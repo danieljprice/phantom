@@ -419,6 +419,8 @@ subroutine compute_energies(t)
              elseif (ieos==9) then
                 !--thermal energy using piecewise polytropic equation of state
                 ethermi = pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
+             else
+                ethermi = 0.
              endif
              if (spsoundi < tiny(spsoundi) .and. was_not_accreted) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
