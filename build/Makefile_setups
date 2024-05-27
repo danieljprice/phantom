@@ -925,8 +925,8 @@ ifeq ($(SETUP), isosgdisc)
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
     ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
     KNOWN_SETUP=yes
+    SRCINJECT= inject_keplerian.f90
 endif
 
 ifeq ($(SETUP), dustyisosgdisc)
@@ -937,7 +937,7 @@ ifeq ($(SETUP), dustyisosgdisc)
     IND_TIMESTEPS=yes
     ANALYSIS=analysis_dustydisc.f90
     ISOTHERMAL=yes
-    DISC_VISCOSITY=yes
+    SRCINJECT= inject_keplerian.f90
     KNOWN_SETUP=yes
 endif
 
