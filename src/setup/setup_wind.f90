@@ -46,7 +46,7 @@ module setup
 !   - wind_gamma        : *adiabatic index (initial if Krome chemistry used)*
 !
 ! :Dependencies: dim, eos, infile_utils, inject, io, part, physcon,
-!   prompting, setbinary, sethierarchical, spherical, timestep, units
+!   prompting, setbinary, sethierarchical, spherical, units
 !
  use dim, only:isothermal
  implicit none

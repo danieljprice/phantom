@@ -22,7 +22,7 @@ module initial
 !   krome_interface, linklist, metric_tools, mf_write, mpibalance,
 !   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
 !   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, timestep, timestep_ind,
+!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
 !   timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
@@ -127,7 +127,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use part,             only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,tau, tau_lucy, &
                             npartoftype,maxtypes,ndusttypes,alphaind,ntot,ndim,update_npartoftypetot,&
                             maxphase,iphase,isetphase,iamtype,igas,idust,imu,igamma,massoftype, &
-                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                            nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fxyz_ptmass_sinksink,&
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
@@ -546,8 +546,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (r_merge_uncond < 2.0*h_acc) then
        write(iprint,*) ' WARNING! Sink creation is on, but but merging is off!  Suggest setting r_merge_uncond >= 2.0*h_acc'
     endif
-    fxyz_ptmass=0.
-    dsdt_ptmass=0.
+    dsdt_ptmass = 0. ! could introduce NaN in ptmass spins if not initialised (no get_accel done before creating sink)
+    fxyz_ptmass = 0.
+    fxyz_ptmass_sinksink = 0.
  endif
  if (abs(time) <= tiny(0.)) then
     !initialize nucleation array at the start of the run only

@@ -34,7 +34,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'wind'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      wind_injection_radius,set_default_options_inject
+      wind_injection_radius,set_default_options_inject,update_injected_par
  private
 !
 !--runtime settings for this module
@@ -501,6 +501,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+

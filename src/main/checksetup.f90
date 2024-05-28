@@ -1020,13 +1020,17 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
 end subroutine check_setup_radiation
 
 subroutine check_vdep_extf(nwarn,iexternalforce)
- use externalforces, only: is_velocity_dependent
- use ptmass, only : use_fourthorder
+ use externalforces, only:is_velocity_dependent
+ use ptmass,         only:use_fourthorder
+ use dim,            only:gr
  integer, intent(inout) :: nwarn
  integer, intent(in)    :: iexternalforce
- if (is_velocity_dependent(iexternalforce) .and. use_fourthorder) then
-    print "(/,a,/)","Warning: velocity dependant external forces are not compatible with FSI switch back to Leapfrog..."
-    nwarn = nwarn + 1
+
+ if (iexternalforce > 0 .and. is_velocity_dependent(iexternalforce) .and. use_fourthorder) then
+    if (.not.gr) then ! do not give the warning in GR, just do it...
+       print "(/,1x,a,/)"," Warning: Switching to Leapfrog integrator for velocity-dependent external forces..."
+       nwarn = nwarn + 1
+    endif
     use_fourthorder = .false.
  endif
 

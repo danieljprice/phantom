@@ -385,7 +385,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     else
        i = k
     endif
-    if (extrap)then
+    if (extrap) then
        xi     = xyzmh_ptmass(1,i) + extrapfac*fsink_old(1,i)
        yi     = xyzmh_ptmass(2,i) + extrapfac*fsink_old(2,i)
        zi     = xyzmh_ptmass(3,i) + extrapfac*fsink_old(3,i)
@@ -939,7 +939,7 @@ end subroutine ptmass_accrete
 !+
 !-----------------------------------------------------------------------
 subroutine update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
- use part, only: ndptmass
+ use part ,only:ndptmass
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dptmass(ndptmass,nptmass)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
@@ -1001,9 +1001,9 @@ end subroutine update_ptmass
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,dptmass,time)
+                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,fxyz_ptmass_sinksink,eos_vars,igasP,igamma,ndptmass
+                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
@@ -1027,9 +1027,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real,            intent(inout) :: xyzh(:,:)
  real,            intent(in)    :: vxyzu(:,:),fxyzu(:,:),fext(:,:),massoftype(:)
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
- real,            intent(inout) :: xyzmh_ptmass(:,:)
- real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(:,:),dptmass(ndptmass,maxptmass)
- integer,         intent(inout) :: linklist_ptmass(:)
+ real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
+ real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ integer,         intent(inout) :: linklist_ptmass(maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
@@ -1527,7 +1527,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
-       call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
+       call ptmass_accrete(n,n,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
                            dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
@@ -1536,19 +1536,19 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     enddo
 
     ! perform reduction just for this sink
-    dptmass(:,nptmass) = reduceall_mpi('+',dptmass(:,nptmass))
+    dptmass(:,n) = reduceall_mpi('+',dptmass(:,n))
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
-    fxyz_ptmass(:,nptmass) = 0.0
-    fxyz_ptmass_sinksink(:,nptmass) = 0.0
-    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+    fxyz_ptmass(1:4,n) = 0.0
+    fxyz_ptmass_sinksink(1:4,n) = 0.0
+    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,n)
 
-    if (icreate_sinks > 1) call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+    if (icreate_sinks > 1) call ptmass_create_seeds(n,xyzmh_ptmass,linklist_ptmass,time)
 
     if (id==id_rhomax) then
-       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
-       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
+       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',n,&
+       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,n),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,n)
     endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     !

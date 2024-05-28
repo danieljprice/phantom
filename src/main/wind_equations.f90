@@ -14,7 +14,7 @@ module wind_equations
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, eos, options, physcon
+! :Dependencies: dim, dust_formation, eos, options, physcon
 !
 
  implicit none

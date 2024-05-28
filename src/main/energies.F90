@@ -18,19 +18,20 @@ module energies
 !
 ! :Dependencies: boundary_dyn, centreofmass, dim, dust, eos, eos_piecewise,
 !   externalforces, gravwaveutils, io, kernel, metric_tools, mpiutils,
-!   nicil, options, part, ptmass, timestep, units, utils_gr, vectorutils,
-!   viscosity
+!   nicil, options, part, ptmass, subgroup, timestep, units, utils_gr,
+!   vectorutils, viscosity
 !
  use dim,   only:maxdusttypes,maxdustsmall
  use units, only:utime
  implicit none
 
  logical,         public    :: gas_only,track_mass,track_lum
- real,            public    :: ekin,etherm,emag,epot,etot,totmom,angtot,mtot,xyzcom(3)
+ real,            public    :: ekin,etherm,emag,epot,etot,eacc,totmom,angtot,mtot,xyzcom(3)
+ real,            public    :: ekinacc,ethermacc,emagacc,epotacc,eradacc,etotall
  real,            public    :: hdivBonB_ave,hdivBonB_max
  real,            public    :: vrms,rmsmach,accretedmass,mdust(maxdusttypes),mgas
- real,            public    :: xmom,ymom,zmom
- real,            public    :: totlum
+ real,            public    :: xcom,ycom,zcom,xmom,ymom,zmom,angx,angy,angz
+ real,            public    :: totlum,angxall,angyall,angzall,angall
  real,            public    :: hx(4),hp(4),ddq_xy(3,3)
  integer,         public    :: iquantities
  integer(kind=8), public    :: ndead,npartall,np_cs_eq_0,np_e_eq_0
@@ -98,10 +99,10 @@ subroutine compute_energies(t)
  real, intent(in) :: t
  integer :: iregime,idusttype,ierr
  real    :: ev_data_thread(4,0:inumev)
- real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi,angx,angy,angz
- real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,xcom,ycom,zcom,dm
+ real    :: xi,yi,zi,hi,vxi,vyi,vzi,v2i,Bxi,Byi,Bzi,Bi,B2i,rhoi
+ real    :: xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz,dm
  real    :: epoti,pmassi,dnptot,dnpgas,tsi
- real    :: xmomall,ymomall,zmomall,angxall,angyall,angzall,rho1i,vsigi
+ real    :: xmomall,ymomall,zmomall,rho1i,vsigi
  real    :: ponrhoi,spsoundi,dumx,dumy,dumz,gammai
  real    :: divBi,hdivBonBi,alphai,valfven2i,betai
  real    :: n_total,n_total1,n_ion,shearparam_art,shearparam_phys,ratio_phys_to_av
@@ -109,13 +110,13 @@ subroutine compute_energies(t)
  real    :: etaohm,etahall,etaambi,vhall,vion
  real    :: curlBi(3),vhalli(3),vioni(3),data_out(n_data_out)
  real    :: erotxi,erotyi,erotzi,fdum(3),x0(3),v0(3),a0(3),xyz_x_all(3),xyz_n_all(3)
- real    :: ethermi
+ real    :: ekini,ethermi,epottmpi,eradi,emagi
  real    :: pdotv,bigvi(1:3),alpha_gr,beta_gr_UP(1:3),lorentzi,pxi,pyi,pzi
  real    :: gammaijdown(1:3,1:3),angi(1:3),fourvel_space(3)
  integer :: i,j,itype,iu
  integer :: ierrlist(n_warn)
  integer(kind=8) :: np,npgas,nptot,np_rho(maxtypes),np_rho_thread(maxtypes)
- !real, allocatable :: axyz(:,:)
+ logical :: was_not_accreted
 
  ! initialise values
  itype  = igas
@@ -149,6 +150,11 @@ subroutine compute_energies(t)
  angaccx = 0.
  angaccy = 0.
  angaccz = 0.
+ ekinacc = 0.
+ ethermacc = 0.
+ emagacc = 0.
+ epotacc = 0.
+ eradacc = 0.
  mgas    = 0.
  mdust   = 0.
  mgas    = 0.
@@ -178,20 +184,22 @@ subroutine compute_energies(t)
 !$omp shared(iev_dtg,iev_ts,iev_macc,iev_totlum,iev_erot,iev_viscrat) &
 !$omp shared(eos_vars,grainsize,graindens,ndustsmall,metrics) &
 !$omp private(i,j,xi,yi,zi,hi,rhoi,vxi,vyi,vzi,Bxi,Byi,Bzi,Bi,B2i,epoti,vsigi,v2i) &
-!$omp private(ponrhoi,spsoundi,gammai,ethermi,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
+!$omp private(ponrhoi,spsoundi,gammai,dumx,dumy,dumz,valfven2i,divBi,hdivBonBi,curlBi) &
 !$omp private(rho1i,shearparam_art,shearparam_phys,ratio_phys_to_av,betai) &
 !$omp private(gasfrac,rhogasi,dustfracisum,dustfraci,dust_to_gas,n_total,n_total1,n_ion) &
 !$omp private(etaohm,etahall,etaambi,vhalli,vhall,vioni,vion,data_out) &
+!$omp private(ekini,ethermi,emagi,eradi,epottmpi) &
 !$omp private(erotxi,erotyi,erotzi,fdum) &
 !$omp private(ev_data_thread,np_rho_thread) &
 !$omp firstprivate(alphai,itype,pmassi) &
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 !$omp shared(idrag) &
-!$omp private(tsi,iregime,idusttype) &
+!$omp private(tsi,iregime,idusttype,was_not_accreted) &
 !$omp shared(luminosity,track_lum) &
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
+!$omp reduction(+:ekinacc,ethermacc,emagacc,epotacc,eradacc) &
 !$omp reduction(+:ekin,etherm,emag,epot,erad,vrms,rmsmach,ierrlist)
  call initialise_ev_data(ev_data_thread)
  np_rho_thread  = 0
@@ -201,7 +209,8 @@ subroutine compute_energies(t)
     yi = xyzh(2,i)
     zi = xyzh(3,i)
     hi = xyzh(4,i)
-    if (.not.isdead_or_accreted(hi)) then
+    was_not_accreted = .not.was_accreted(iexternalforce,hi)
+    if (.not.isdead_or_accreted(hi) .or. .not. was_not_accreted) then
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
@@ -209,31 +218,32 @@ subroutine compute_energies(t)
        endif
 
        rhoi = rhoh(hi,pmassi)
-       call ev_data_update(ev_data_thread,iev_rho,rhoi)
-       if (.not.gas_only) then
-          select case(itype)
-          case(igas)
-             call ev_data_update(ev_data_thread,iev_rhop(1), rhoi)
-             np_rho_thread(igas) =  np_rho_thread(igas) + 1
-          case(idust)
-             call ev_data_update(ev_data_thread,iev_rhop(2),rhoi)
-             np_rho_thread(idust) =  np_rho_thread(idust) + 1
-          case(iboundary)
-             call ev_data_update(ev_data_thread,iev_rhop(3), rhoi)
-             np_rho_thread(iboundary) =  np_rho_thread(iboundary) + 1
-          case(istar)
-             call ev_data_update(ev_data_thread,iev_rhop(4),rhoi)
-             np_rho_thread(istar) =  np_rho_thread(istar) + 1
-          case(idarkmatter)
-             call ev_data_update(ev_data_thread,iev_rhop(5),  rhoi)
-             np_rho_thread(idarkmatter) =  np_rho_thread(idarkmatter) + 1
-          case(ibulge)
-             call ev_data_update(ev_data_thread,iev_rhop(6), rhoi)
-             np_rho_thread(ibulge) =  np_rho_thread(ibulge) + 1
-          end select
+       if (was_not_accreted) then
+          call ev_data_update(ev_data_thread,iev_rho,rhoi)
+          if (.not.gas_only) then
+             select case(itype)
+             case(igas)
+                call ev_data_update(ev_data_thread,iev_rhop(1), rhoi)
+                np_rho_thread(igas) =  np_rho_thread(igas) + 1
+             case(idust)
+                call ev_data_update(ev_data_thread,iev_rhop(2),rhoi)
+                np_rho_thread(idust) =  np_rho_thread(idust) + 1
+             case(iboundary)
+                call ev_data_update(ev_data_thread,iev_rhop(3), rhoi)
+                np_rho_thread(iboundary) =  np_rho_thread(iboundary) + 1
+             case(istar)
+                call ev_data_update(ev_data_thread,iev_rhop(4),rhoi)
+                np_rho_thread(istar) =  np_rho_thread(istar) + 1
+             case(idarkmatter)
+                call ev_data_update(ev_data_thread,iev_rhop(5),  rhoi)
+                np_rho_thread(idarkmatter) =  np_rho_thread(idarkmatter) + 1
+             case(ibulge)
+                call ev_data_update(ev_data_thread,iev_rhop(6), rhoi)
+                np_rho_thread(ibulge) =  np_rho_thread(ibulge) + 1
+             end select
+          endif
+          np = np + 1
        endif
-
-       np   = np + 1
 
        vxi  = vxyzu(1,i)
        vyi  = vxyzu(2,i)
@@ -244,11 +254,6 @@ subroutine compute_energies(t)
           pyi  = pxyzu(2,i)
           pzi  = pxyzu(3,i)
 
-          !  linear momentum
-          xmom = xmom + pmassi*pxi
-          ymom = ymom + pmassi*pyi
-          zmom = zmom + pmassi*pzi
-
           call unpack_metric(metrics(:,:,:,i),betaUP=beta_gr_UP,alpha=alpha_gr,gammaijdown=gammaijdown)
           bigvi    = (vxyzu(1:3,i)+beta_gr_UP)/alpha_gr
           v2i      = dot_product_gr(bigvi,bigvi,gammaijdown)
@@ -258,99 +263,142 @@ subroutine compute_energies(t)
           ! angular momentum
           fourvel_space = (lorentzi/alpha_gr)*vxyzu(1:3,i)
           call cross_product3D(xyzh(1:3,i),fourvel_space,angi) ! position cross with four-velocity
-          angx = angx + pmassi*angi(1)
-          angy = angy + pmassi*angi(2)
-          angz = angz + pmassi*angi(3)
 
           ! kinetic energy
-          ekin     = ekin + pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
-          mtot = mtot + pmassi
+          ekini = pmassi*(pdotv + alpha_gr/lorentzi - 1.) ! The 'kinetic term' in total specific energy, minus rest mass
        else
+          pxi = vxi
+          pyi = vyi
+          pzi = vzi
+
           ! centre of mass
           xcom = xcom + pmassi*xi
           ycom = ycom + pmassi*yi
           zcom = zcom + pmassi*zi
+
+          ! angular momentum
+          angi(1) = (yi*vzi - zi*vyi)
+          angi(2) = (zi*vxi - xi*vzi)
+          angi(3) = (xi*vyi - yi*vxi)
+
+          ! kinetic energy and rms velocity
+          v2i   = vxi*vxi + vyi*vyi + vzi*vzi
+          ekini = pmassi*v2i
+       endif
+
+       if (was_not_accreted) then
+          ! total mass
           mtot = mtot + pmassi
 
           ! linear momentum
-          xmom = xmom + pmassi*vxi
-          ymom = ymom + pmassi*vyi
-          zmom = zmom + pmassi*vzi
+          xmom = xmom + pmassi*pxi
+          ymom = ymom + pmassi*pyi
+          zmom = zmom + pmassi*pzi
 
           ! angular momentum
-          angx = angx + pmassi*(yi*vzi - zi*vyi)
-          angy = angy + pmassi*(zi*vxi - xi*vzi)
-          angz = angz + pmassi*(xi*vyi - yi*vxi)
+          angx = angx + pmassi*angi(1)
+          angy = angy + pmassi*angi(2)
+          angz = angz + pmassi*angi(3)
 
           ! kinetic energy & rms velocity
-          v2i  = vxi*vxi + vyi*vyi + vzi*vzi
-          ekin = ekin + pmassi*v2i
-       endif
+          ekin = ekin + ekini
+          vrms = vrms + v2i
+       else
+          call ev_data_update(ev_data_thread,iev_macc,pmassi)
 
-       vrms = vrms + v2i
+          ! linear momentum (accreted particles)
+          xmomacc = xmomacc + pmassi*pxi
+          ymomacc = ymomacc + pmassi*pyi
+          zmomacc = zmomacc + pmassi*pzi
+
+          ! angular momentum (accreted particles)
+          angaccx = angaccx + pmassi*angi(1)
+          angaccy = angaccy + pmassi*angi(2)
+          angaccz = angaccz + pmassi*angi(3)
+
+          ! kinetic energy (accreted particles
+          ekinacc = ekinacc + ekini
+       endif
 
        ! rotational energy around each axis through the Centre of mass
        ! note: for efficiency, centre of mass is from the previous time energies was called
-       if (calc_erot) then
+       if (calc_erot .and. was_not_accreted) then
           call get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
           call ev_data_update(ev_data_thread,iev_erot(1),erotxi)
           call ev_data_update(ev_data_thread,iev_erot(2),erotyi)
           call ev_data_update(ev_data_thread,iev_erot(3),erotzi)
        endif
 
-       if (iexternalforce > 0) then
+       ! potential energy
+       epoti = 0.
+       if (iexternalforce > 0 .and. .not.gr) then
           dumx = 0.
           dumy = 0.
           dumz = 0.
-#ifdef GR
-          epoti = 0.
-#else
-          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epoti,ii=i)
-          call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epoti)
-#endif
-          epot = epot + pmassi*epoti
+          epottmpi = 0.
+          call externalforce(iexternalforce,xi,yi,zi,hi,t,dumx,dumy,dumz,epottmpi,ii=i)
+          call externalforce_vdependent(iexternalforce,xyzh(1:3,i),vxyzu(1:3,i),fdum,epottmpi)
+          epoti = pmassi*epottmpi
        endif
        if (nptmass > 0) then
           dumx = 0.
           dumy = 0.
           dumz = 0.
-          call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,dumx,dumy,dumz,epoti)
-          epot = epot + pmassi*epoti
+          epottmpi = 0.
+          call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,dumx,dumy,dumz,epottmpi)
+          epoti = epoti + pmassi*epottmpi
        endif
-       if (gravity) epot = epot + poten(i)
+       if (gravity) epoti = epoti + poten(i)
+       if (was_not_accreted) then
+          epot = epot + epoti
+       else
+          epotacc = epotacc + epoti
+       endif
 
        !
        ! total dust mass for each species
        !
-       if (use_dust) then
+       if (use_dust .and. was_not_accreted) then
           if (iamdust(iphase(i))) then
              idusttype = ndustsmall + itype - idust + 1
              mdust(idusttype) = mdust(idusttype) + pmassi
           endif
        endif
 
-       if (do_radiation) erad = erad + pmassi*rad(iradxi,i)
+       if (do_radiation) then
+          eradi = pmassi*rad(iradxi,i)
+          if (was_not_accreted) then
+             erad = erad + eradi
+          else
+             eradacc = eradacc + eradi
+          endif
+       endif
+
        !
        ! the following apply ONLY to gas particles
        !
        isgas: if (itype==igas) then
 
-          npgas = npgas + 1
           if (use_dustfrac) then
              dustfraci    = dustfrac(:,i)
              dustfracisum = sum(dustfraci)
              gasfrac      = 1. - dustfracisum
              dust_to_gas  = dustfraci(:)/gasfrac
-             do j=1,ndustsmall
-                call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
-             enddo
-             mdust(1:ndustsmall) = mdust(1:ndustsmall) + pmassi*dustfraci(1:ndustsmall)
+             if (was_not_accreted) then
+                do j=1,ndustsmall
+                   call ev_data_update(ev_data_thread,iev_dtg,dust_to_gas(j))
+                enddo
+                mdust(1:ndustsmall) = mdust(1:ndustsmall) + pmassi*dustfraci(1:ndustsmall)
+             endif
           else
              dustfraci    = 0.
              dustfracisum = 0.
              gasfrac      = 1.
           endif
-          mgas = mgas + pmassi*gasfrac
+          if (was_not_accreted) then
+             npgas = npgas + 1
+             mgas = mgas + pmassi*gasfrac
+          endif
 
           ! thermal energy
           ponrhoi  = eos_vars(igasP,i)/rhoi
@@ -360,60 +408,70 @@ subroutine compute_energies(t)
              ethermi = pmassi*vxyzu(4,i)*gasfrac
              if (gr) ethermi = (alpha_gr/lorentzi)*ethermi
 
-             etherm = etherm + ethermi
-
-             if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
-             if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
+             if (was_not_accreted) then
+                if (vxyzu(iu,i) < tiny(vxyzu(iu,i))) np_e_eq_0 = np_e_eq_0 + 1
+                if (spsoundi < tiny(spsoundi) .and. vxyzu(iu,i) > 0. ) np_cs_eq_0 = np_cs_eq_0 + 1
+             endif
           else
              if ((ieos==2 .or. ieos == 5 .or. ieos == 17) .and. gammai > 1.001) then
                 !--thermal energy using polytropic equation of state
-                etherm = etherm + pmassi*ponrhoi/(gammai-1.)*gasfrac
+                ethermi = pmassi*ponrhoi/(gammai-1.)*gasfrac
              elseif (ieos==9) then
                 !--thermal energy using piecewise polytropic equation of state
-                etherm = etherm + pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
+                ethermi = pmassi*ponrhoi/(gamma_pwp(rhoi)-1.)*gasfrac
+             else
+                ethermi = 0.
              endif
-             if (spsoundi < tiny(spsoundi)) np_cs_eq_0 = np_cs_eq_0 + 1
+             if (spsoundi < tiny(spsoundi) .and. was_not_accreted) np_cs_eq_0 = np_cs_eq_0 + 1
           endif
           vsigi = spsoundi
 
-          ! entropy
-          call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gammai))
-
-          ! gas temperature
-          if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
-             call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
+          if (was_not_accreted) then
+             etherm = etherm + ethermi
+          else
+             ethermacc = ethermacc + ethermi
           endif
 
-          ! min and mean stopping time
-          if (use_dustfrac) then
-             rhogasi = rhoi*gasfrac
-             do j=1,ndustsmall
-                call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi,iregime)
-                call ev_data_update(ev_data_thread,iev_ts,tsi)
-             enddo
-          endif
+          if (was_not_accreted) then
+             ! entropy
+             call ev_data_update(ev_data_thread,iev_entrop,pmassi*ponrhoi*rhoi**(1.-gammai))
 
-          if (track_lum .and. lightcurve) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
-
-          ! rms mach number
-          if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2
-
-          ! max of dissipation parameters
-          if (maxalpha==maxp) then
-             alphai = alphaind(1,i)
-             call ev_data_update(ev_data_thread,iev_alpha,alphai)
-          endif
-
-          ! physical viscosity
-          if (irealvisc /= 0) then
-             shearparam_art  = 0.1*alphai*hi*vsigi
-             shearparam_phys = shearfunc(xi,yi,zi,spsoundi)
-             if (shearparam_art > 0.) then
-                ratio_phys_to_av = shearparam_phys/shearparam_art
-             else
-                ratio_phys_to_av = 0.
+             ! gas temperature
+             if (eos_is_non_ideal(ieos) .or. eos_outputs_gasP(ieos)) then
+                call ev_data_update(ev_data_thread,iev_temp,eos_vars(itemp,i))
              endif
-             call ev_data_update(ev_data_thread,iev_viscrat,ratio_phys_to_av)
+
+             ! min and mean stopping time
+             if (use_dustfrac) then
+                rhogasi = rhoi*gasfrac
+                do j=1,ndustsmall
+                   call get_ts(idrag,j,grainsize(j),graindens(j),rhogasi,rhoi*dustfracisum,spsoundi,0.,tsi,iregime)
+                   call ev_data_update(ev_data_thread,iev_ts,tsi)
+                enddo
+             endif
+
+             if (track_lum .and. lightcurve) call ev_data_update(ev_data_thread,iev_totlum,real(luminosity(i)))
+
+             ! rms mach number
+             if (spsoundi > 0.) rmsmach = rmsmach + v2i/spsoundi**2
+
+             ! max of dissipation parameters
+             if (maxalpha==maxp) then
+                alphai = alphaind(1,i)
+                call ev_data_update(ev_data_thread,iev_alpha,alphai)
+             endif
+
+             ! physical viscosity
+             if (irealvisc /= 0) then
+                shearparam_art  = 0.1*alphai*hi*vsigi
+                shearparam_phys = shearfunc(xi,yi,zi,spsoundi)
+                if (shearparam_art > 0.) then
+                   ratio_phys_to_av = shearparam_phys/shearparam_art
+                else
+                   ratio_phys_to_av = 0.
+                endif
+                call ev_data_update(ev_data_thread,iev_viscrat,ratio_phys_to_av)
+             endif
           endif
 
           ! mhd parameters
@@ -426,88 +484,70 @@ subroutine compute_energies(t)
              rho1i     = 1./rhoi
              valfven2i = B2i*rho1i
              vsigi     = sqrt(valfven2i + spsoundi*spsoundi)
-             emag      = emag + pmassi*B2i*rho1i
+             emagi     = pmassi*B2i*rho1i
 
-             divBi     = abs(divcurlB(1,i))
-             if (B2i > 0.) then
-                hdivBonBi = hi*divBi/Bi
-                betai     = 2.0*ponrhoi*rhoi/B2i ! plasma beta
-             else
-                hdivBonBi = 0.
-                betai     = 0.
-             endif
-             call ev_data_update(ev_data_thread,iev_B,    Bi       )
-             call ev_data_update(ev_data_thread,iev_divB, divBi    )
-             call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
-             call ev_data_update(ev_data_thread,iev_beta, betai    )
+             if (was_not_accreted) then
+                emag      = emag + emagi
+                divBi     = abs(divcurlB(1,i))
+                if (B2i > 0.) then
+                   hdivBonBi = hi*divBi/Bi
+                   betai     = 2.0*ponrhoi*rhoi/B2i ! plasma beta
+                else
+                   hdivBonBi = 0.
+                   betai     = 0.
+                endif
+                call ev_data_update(ev_data_thread,iev_B,    Bi       )
+                call ev_data_update(ev_data_thread,iev_divB, divBi    )
+                call ev_data_update(ev_data_thread,iev_hdivB,hdivBonBi)
+                call ev_data_update(ev_data_thread,iev_beta, betai    )
 
-             if ( mhd_nonideal ) then
-                call nicil_update_nimhd(0,etaohm,etahall,etaambi,Bi,rhoi, &
+                if ( mhd_nonideal ) then
+                   call nicil_update_nimhd(0,etaohm,etahall,etaambi,Bi,rhoi, &
                                         eos_vars(itemp,i),nden_nimhd(:,i),ierrlist,data_out)
-                curlBi = divcurlB(2:4,i)
-                if (use_ohm) then
-                   call ev_data_update(ev_data_thread,iev_etao,   etaohm      )
-                endif
-                if (use_hall) then
-                   call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
-                   vhall = sqrt( dot_product(vhalli,vhalli) )
-                   call ev_data_update(ev_data_thread,iev_etah(1),etahall     )
-                   call ev_data_update(ev_data_thread,iev_etah(2),abs(etahall))
-                   call ev_data_update(ev_data_thread,iev_vhall  ,vhall       )
-                endif
-                if (use_ambi) then
-                   call nicil_get_ambidrift(etaambi,Bxi,Byi,Bzi,curlBi,vioni)
-                   vion   = sqrt( dot_product(vioni,  vioni  ) )
-                   call ev_data_update(ev_data_thread,iev_etaa,   etaambi     )
-                   call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)   )
-                   call ev_data_update(ev_data_thread,iev_vion,   vion        )
-                endif
-                if (.not.eta_constant) then
-                   n_ion = 0
-                   do j = 9,21
-                      n_ion = n_ion + data_out(j)
-                   enddo
-                   n_total = data_out(5)
-                   if (n_total > 0.) then
-                      n_total1 = 1.0/n_total
-                   else
-                      n_total1 = 0.0         ! only possible if eta_constant = .true.
+                   curlBi = divcurlB(2:4,i)
+                   if (use_ohm) then
+                      call ev_data_update(ev_data_thread,iev_etao,   etaohm      )
                    endif
-                   eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
-                   call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
-                   call ev_data_update(ev_data_thread,iev_n(2),data_out( 8)*n_total1)
-                   call ev_data_update(ev_data_thread,iev_n(3),data_out( 8))
-                   call ev_data_update(ev_data_thread,iev_n(4),n_total-n_ion)
-                   call ev_data_update(ev_data_thread,iev_n(5),data_out(24))
-                   call ev_data_update(ev_data_thread,iev_n(6),data_out(23))
-                   call ev_data_update(ev_data_thread,iev_n(7),data_out(22))
+                   if (use_hall) then
+                      call nicil_get_halldrift(etahall,Bxi,Byi,Bzi,curlBi,vhalli)
+                      vhall = sqrt( dot_product(vhalli,vhalli) )
+                      call ev_data_update(ev_data_thread,iev_etah(1),etahall     )
+                      call ev_data_update(ev_data_thread,iev_etah(2),abs(etahall))
+                      call ev_data_update(ev_data_thread,iev_vhall  ,vhall       )
+                   endif
+                   if (use_ambi) then
+                      call nicil_get_ambidrift(etaambi,Bxi,Byi,Bzi,curlBi,vioni)
+                      vion   = sqrt( dot_product(vioni,  vioni  ) )
+                      call ev_data_update(ev_data_thread,iev_etaa,   etaambi     )
+                      call ev_data_update(ev_data_thread,iev_vel,    sqrt(v2i)   )
+                      call ev_data_update(ev_data_thread,iev_vion,   vion        )
+                   endif
+                   if (.not.eta_constant) then
+                      n_ion = 0
+                      do j = 9,21
+                         n_ion = n_ion + data_out(j)
+                      enddo
+                      n_total = data_out(5)
+                      if (n_total > 0.) then
+                         n_total1 = 1.0/n_total
+                      else
+                         n_total1 = 0.0         ! only possible if eta_constant = .true.
+                      endif
+                      eta_nimhd(iion,i) = n_ion*n_total1    ! Save ionisation fraction for the dump file
+                      call ev_data_update(ev_data_thread,iev_n(1),n_ion*n_total1)
+                      call ev_data_update(ev_data_thread,iev_n(2),data_out( 8)*n_total1)
+                      call ev_data_update(ev_data_thread,iev_n(3),data_out( 8))
+                      call ev_data_update(ev_data_thread,iev_n(4),n_total-n_ion)
+                      call ev_data_update(ev_data_thread,iev_n(5),data_out(24))
+                      call ev_data_update(ev_data_thread,iev_n(6),data_out(23))
+                      call ev_data_update(ev_data_thread,iev_n(7),data_out(22))
+                   endif
                 endif
+             else
+                emagacc = emagacc + emagi
              endif
           endif
        endif isgas
-
-    elseif (was_accreted(iexternalforce,hi)) then
-!
-!--count accretion onto fixed potentials (external forces) separately
-!
-       vxi = vxyzu(1,i)
-       vyi = vxyzu(2,i)
-       vzi = vxyzu(3,i)
-       if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
-       else
-          pmassi = massoftype(igas)
-       endif
-       xmomacc = xmomacc + pmassi*vxi
-       ymomacc = ymomacc + pmassi*vyi
-       zmomacc = zmomacc + pmassi*vzi
-
-       angaccx = angaccx + pmassi*(yi*vzi - zi*vyi)
-       angaccy = angaccy + pmassi*(zi*vxi - xi*vzi)
-       angaccz = angaccz + pmassi*(xi*vyi - yi*vxi)
-
-       call ev_data_update(ev_data_thread,iev_macc,pmassi)
-
     endif
  enddo
 !$omp enddo
@@ -609,9 +649,8 @@ subroutine compute_energies(t)
     epot = epot + epot_sinksink
  endif
 
-
-
  etot = ekin + etherm + emag + epot + erad
+ etotall = etot
 
  xcom = reduceall_mpi('+',xcom)
  ycom = reduceall_mpi('+',ycom)
@@ -702,12 +741,24 @@ subroutine compute_energies(t)
     angxall = angx + angaccx
     angyall = angy + angaccy
     angzall = angz + angaccz
-    ev_data(iev_sum,iev_angall) = sqrt(angxall*angxall + angyall*angyall + angzall*angzall)
+    angall  = sqrt(angxall*angxall + angyall*angyall + angzall*angzall)
+    ev_data(iev_sum,iev_angall) = angall
+
+    ekinacc   = reduceall_mpi('+',ekinacc)
+    epotacc   = reduceall_mpi('+',epotacc)
+    ethermacc = reduceall_mpi('+',ethermacc)
+    emagacc   = reduceall_mpi('+',emagacc)
+    eradacc   = reduceall_mpi('+',eradacc)
+    eacc      = ekinacc + ethermacc + emagacc + epotacc + eradacc
+    etotall   = etotall + eacc
  endif
 
  if (track_mass) then
     accretedmass = ev_data(iev_sum,iev_macc)
-    if (accradius1 > 0.) ev_data(iev_sum,iev_eacc) = accretedmass/accradius1 ! total accretion energy
+    if (accradius1 > 0.) then
+       !eacc = accretedmass/accradius1
+       ev_data(iev_sum,iev_eacc) = eacc ! total accretion energy
+    endif
  endif
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 

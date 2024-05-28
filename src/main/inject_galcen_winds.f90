@@ -26,7 +26,7 @@ module inject
  character(len=*), parameter, public :: inject_type = 'galcen_winds'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  real :: outer_boundary = 20.
  character(len=120) :: datafile = 'winddata.txt'
@@ -222,6 +222,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  dtinject = huge(dtinject)
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
