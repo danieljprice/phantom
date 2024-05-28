@@ -24,11 +24,11 @@ module apr
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
   public :: create_or_update_apr_clump
   integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
-  real,    public :: apr_rad = 0.0
+  real,    public :: apr_rad = 0.0, apr_drad = 0.1
 
   private
   integer :: top_level = 1, ntrack = 0, track_part
-  real    :: apr_centre(3), apr_drad = 0.1
+  real    :: apr_centre(3)
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2

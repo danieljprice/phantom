@@ -73,7 +73,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  use options,         only:iexternalforce
  use io_summary,      only:summary_initialise
  use setstar_utils,   only:set_star_thermalenergy,set_star_composition
- use apr,             only:init_apr,update_apr,apr_max_in,ref_dir,apr_type,apr_rad
+ use apr,             only:init_apr,update_apr
  use linklist,        only:allocate_linklist
  integer, intent(in)    :: nt
  integer, intent(inout) :: npart
@@ -144,12 +144,8 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     use_step = .true.
  endif
 
- ! if using apr, set up the options here
+ ! if using apr, options set in setup file but needs to be initialised here
  if (use_apr) then
-   apr_max_in = 1
-   ref_dir = -1
-   apr_type = 1
-   apr_rad = 200.
    call allocate_linklist
    call init_apr(apr_level,ierr)
    call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
