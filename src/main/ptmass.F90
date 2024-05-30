@@ -1046,7 +1046,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
- integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax,nneigh_act
+ integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax,nneigh_act,new_nptmass
  logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot,ForceCreation
 
  ifail       = 0
@@ -1500,16 +1500,15 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  ! create new point mass, at position of original particle but with zero mass. Then accrete particles within hacc to form sink
  !
  if (ifail==0) then
-    nptmass = nptmass + 1
-    if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
-    n = nptmass
-    xyzmh_ptmass(:,n)         = 0.              ! zero all quantities by default
-    xyzmh_ptmass(1:3,n)       = (/xi,yi,zi/)
-    xyzmh_ptmass(4,n)         = 0.              ! zero mass
-    xyzmh_ptmass(ihacc,n)     = h_acc
-    xyzmh_ptmass(ihsoft,n)    = h_soft_sinkgas
-    xyzmh_ptmass(itbirth,n)   = time
-    vxyz_ptmass(:,n)       = 0.              ! zero velocity, get this by accreting
+    new_nptmass = nptmass + 1
+    if (new_nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
+    xyzmh_ptmass(:,new_nptmass)         = 0.              ! zero all quantities by default
+    xyzmh_ptmass(1:3,new_nptmass)       = (/xi,yi,zi/)
+    xyzmh_ptmass(4,new_nptmass)         = 0.              ! zero mass
+    xyzmh_ptmass(ihacc,new_nptmass)     = h_acc
+    xyzmh_ptmass(ihsoft,new_nptmass)    = h_soft_sinkgas
+    xyzmh_ptmass(itbirth,new_nptmass)   = time
+    vxyz_ptmass(:,new_nptmass)       = 0.              ! zero velocity, get this by accreting
     itypej = igas                            ! default particle type to be accreted
     pmassj = massoftype(igas)                ! default particle mass to be accreted
     !
@@ -1527,7 +1526,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
-       call ptmass_accrete(n,n,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
+       call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
                            dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
@@ -1536,21 +1535,23 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     enddo
 
     ! perform reduction just for this sink
-    dptmass(:,n) = reduceall_mpi('+',dptmass(:,n))
+    dptmass(:,new_nptmass) = reduceall_mpi('+',dptmass(:,new_nptmass))
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
-    fxyz_ptmass(1:4,n) = 0.0
-    fxyz_ptmass_sinksink(1:4,n) = 0.0
-    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,n)
+    fxyz_ptmass(1:4,new_nptmass) = 0.0
+    write(iprint,*) ubound(fxyz_ptmass_sinksink,dim=2),fxyz_ptmass(1:4,new_nptmass),fxyz_ptmass_sinksink(1:4,new_nptmass)
+    fxyz_ptmass_sinksink(1:4,new_nptmass) = 0.0
+    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,new_nptmass)
 
-    if (icreate_sinks > 1) call ptmass_create_seeds(n,xyzmh_ptmass,linklist_ptmass,time)
+    if (icreate_sinks > 1) call ptmass_create_seeds(new_nptmass,xyzmh_ptmass,linklist_ptmass,time)
 
     if (id==id_rhomax) then
-       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',n,&
-       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,n),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,n)
+       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',new_nptmass,&
+       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,new_nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,new_nptmass)
     endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
+    nptmass = new_nptmass
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
     ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
