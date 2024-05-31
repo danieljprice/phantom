@@ -1544,14 +1544,17 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     fxyz_ptmass_sinksink(1:4,new_nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,new_nptmass)
 
-    if (icreate_sinks > 1) call ptmass_create_seeds(new_nptmass,xyzmh_ptmass,linklist_ptmass,time)
-
     if (id==id_rhomax) then
        write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',new_nptmass,&
        ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,new_nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,new_nptmass)
     endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     nptmass = new_nptmass
+
+    if (icreate_sinks == 2) then
+       call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+       write(iprint,"(a,i3)") ' Star formation prescription : created seeds #',(nptmass-new_nptmass)
+    endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
     ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
@@ -1583,20 +1586,21 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
- integer :: i, nseed
+ integer :: i, nseed, n
 !
 !-- Draw the number of star seeds in the core
 !
  nseed = floor(5*rand())
+ n = nptmass
  do i=1,nseed
-    nptmass = nptmass + 1
-    xyzmh_ptmass(itbirth,nptmass) = time
-    xyzmh_ptmass(4,nptmass) = -1.
-    xyzmh_ptmass(ihacc,nptmass) = -1.
-    linklist_ptmass(nptmass) = nptmass + 1 !! link this new seed to the next one
+    n = n + 1
+    xyzmh_ptmass(itbirth,n) = time
+    xyzmh_ptmass(4,n) = -1.
+    xyzmh_ptmass(ihacc,n) = -1.
+    linklist_ptmass(n) = n + 1 !! link this new seed to the next one
  enddo
- linklist_ptmass(nptmass) = -1 !! null pointer to end the link list
-
+ linklist_ptmass(n) = -1 !! null pointer to end the link list
+ nptmass = n
 end subroutine ptmass_create_seeds
 
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
