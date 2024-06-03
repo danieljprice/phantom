@@ -49,9 +49,10 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  n_group = 0
  n_ingroup = 0
  n_sing = 0
-
- call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
- call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+ if (nptmass > 0) then
+    call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+    call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+ endif
 
  if (id==master .and. iverbose>1) then
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
