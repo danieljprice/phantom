@@ -306,7 +306,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           ilen(2) = int(nptmass,kind=8)
           call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,nerr)
           call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,nerr)
-          if (icreate_sinks > 1) then
+          if (icreate_sinks == 2) then
              call write_array(2,linklist_ptmass,"linklist_ptmass",nptmass,k,ipass,idump,nums,nerr)
           endif
           if (nerr > 0) call error('write_dump','error writing sink particle arrays')
@@ -1122,7 +1122,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-             if (icreate_sinks > 1) then
+             if (icreate_sinks == 2) then
                 call read_array(linklist_ptmass,'linklist_ptmass',got_sink_llist,ik,1,nptmass,0,idisk1,tag,match,ierr)
              endif
           end select

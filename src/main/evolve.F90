@@ -278,7 +278,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
-       if (icreate_sinks > 1) call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
+       if (icreate_sinks == 2) call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
     endif
     !
     ! Strang splitting: implicit update for half step

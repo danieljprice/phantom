@@ -321,7 +321,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
  integer, optional, intent(in)  :: group_info(3,nptmass)
- real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
+ real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
@@ -368,8 +368,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info,subsys) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
- !$omp shared(extrapfac,extrap,fsink_old) &
- !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
+ !$omp shared(extrapfac,extrap,fsink_old,h_acc) &
+ !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
@@ -395,7 +395,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        zi     = xyzmh_ptmass(3,i)
     endif
     pmassi = xyzmh_ptmass(4,i)
-    !hsofti = xyzmh_ptmass(5,i)
+    hacci  = xyzmh_ptmass(5,i)
     if (pmassi < 0.) cycle
     J2i    = xyzmh_ptmass(iJ2,i)
 
@@ -425,7 +425,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           dz     = zi - xyzmh_ptmass(3,j)
        endif
        pmassj = xyzmh_ptmass(4,j)
-       !hsoftj = xyzmh_ptmass(5,j)
+       haccj  = xyzmh_ptmass(5,j)
        if (pmassj < 0.) cycle
        J2j = xyzmh_ptmass(iJ2,j)
 
@@ -478,17 +478,19 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
           endif
        endif
-       if (rr2 < r_merge2) then
-          if (merge_ij(i)==0) then
-             merge_n = merge_n + 1
-             merge_ij(i) = j
-          else
-             ! if we have already identified a nearby sink, replace the tag with the nearest sink
-             dx   = xi - xyzmh_ptmass(1,merge_ij(i))
-             dy   = yi - xyzmh_ptmass(2,merge_ij(i))
-             dz   = zi - xyzmh_ptmass(3,merge_ij(i))
-             rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
-             if (rr2 < rr2j) merge_ij(i) = j
+       if (hacci>h_acc .or. haccj>h_acc) then
+          if (rr2 < r_merge2) then
+             if (merge_ij(i)==0) then
+                merge_n = merge_n + 1
+                merge_ij(i) = j
+             else
+                ! if we have already identified a nearby sink, replace the tag with the nearest sink
+                dx   = xi - xyzmh_ptmass(1,merge_ij(i))
+                dy   = yi - xyzmh_ptmass(2,merge_ij(i))
+                dz   = zi - xyzmh_ptmass(3,merge_ij(i))
+                rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
+                if (rr2 < rr2j) merge_ij(i) = j
+             endif
           endif
        endif
     enddo
@@ -1540,7 +1542,6 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
     ! update ptmass position, spin, velocity, acceleration, and mass
     fxyz_ptmass(1:4,new_nptmass) = 0.0
-    write(iprint,*) ubound(fxyz_ptmass_sinksink,dim=2),fxyz_ptmass(1:4,new_nptmass),fxyz_ptmass_sinksink(1:4,new_nptmass)
     fxyz_ptmass_sinksink(1:4,new_nptmass) = 0.0
     call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,new_nptmass)
 
@@ -1553,7 +1554,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
     if (icreate_sinks == 2) then
        call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
-       write(iprint,"(a,i3)") ' Star formation prescription : created seeds #',(nptmass-new_nptmass)
+       write(iprint,"(a,i3)") ' Star formation prescription : created seeds #',(nptmass + 1 - new_nptmass)
     endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
@@ -1582,16 +1583,19 @@ end subroutine ptmass_create
 
 subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
  use part, only:itbirth,ihacc
+ use random, only:ran2
  integer, intent(inout) :: nptmass
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
- integer :: i, nseed, n
+ integer :: i,nseed,iseed,n
 !
 !-- Draw the number of star seeds in the core
 !
- nseed = floor(5*rand())
+ iseed=-834
+ nseed = floor(5*ran2(iseed))-1
  n = nptmass
+ linklist_ptmass(n) = n + 1 !! link the core to the seeds
  do i=1,nseed
     n = n + 1
     xyzmh_ptmass(itbirth,n) = time
@@ -1609,24 +1613,26 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
  use io,      only:iprint
  use units,   only:umass
  use part, only:itbirth,ihacc
- use utils_sampling, only:divide_unit_seg
+ use random , only:ran2,gauss_random,divide_unit_seg
  integer, intent(in)    :: nptmass
  integer, intent(in)    :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(in)    :: time
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
- integer           :: i,k,n
+ integer           :: i,k,n,iseed
  real              :: tbirthi,mi,hacci,minmass,minmonmi
  real              :: xk,yk,zk,d,cs
+
+ iseed = -3541
 
  do i=1,nptmass
     mi      = xyzmh_ptmass(4,i)
     hacci   = xyzmh_ptmass(ihacc,i)
     tbirthi = xyzmh_ptmass(itbirth,i)
     if (mi<0.) cycle
-    if (time>tbirthi+tmax_acc .and. hacci>0. ) then
-       write(iprint,"(i8,i8)") time, tbirthi+tmax_acc
+    if (time>=tbirthi+tmax_acc .and. hacci==h_acc ) then
+       write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
        !! save xcom and vcom before placing stars
        xi(1) = xyzmh_ptmass(1,i)
        xi(2) = xyzmh_ptmass(2,i)
@@ -1648,20 +1654,20 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
           !! do some clever stuff
           d = huge(mi)
           do while (d>1.)
-             xk = rand()
-             yk = rand()
-             zk = rand()
+             xk = ran2(iseed)
+             yk = ran2(iseed)
+             zk = ran2(iseed)
              d  = xk**2+yk**2+zk**2
           enddo
           cs = sqrt(polyk)
-          xyzmh_ptmass(ihacc,i) = -1.
-          xyzmh_ptmass(4,i)     = masses(n)
+          xyzmh_ptmass(ihacc,k) = hacci*1.e-3
+          xyzmh_ptmass(4,k)     = masses(n)
           xyzmh_ptmass(1,k) = xi(1) + xk*hacci
           xyzmh_ptmass(2,k) = xi(2) + yk*hacci
           xyzmh_ptmass(3,k) = xi(3) + zk*hacci
-          vxyz_ptmass(1,k) = vi(1) + cs*(-2.*log10(rand()))*cos(2*pi**rand())
-          vxyz_ptmass(2,k) = vi(2) + cs*(-2.*log10(rand()))*cos(2*pi**rand())
-          vxyz_ptmass(3,k) = vi(3) + cs*(-2.*log10(rand()))*cos(2*pi**rand())
+          vxyz_ptmass(1,k) = vi(1) + cs*gauss_random(iseed)
+          vxyz_ptmass(2,k) = vi(2) + cs*gauss_random(iseed)
+          vxyz_ptmass(3,k) = vi(3) + cs*gauss_random(iseed)
           k = linklist_ptmass(k)
           n = n - 1
        enddo
@@ -1772,7 +1778,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
                                     - mij*(xyzmh_ptmass(1,k)*vxyz_ptmass(2,k) - xyzmh_ptmass(2,k)*vxyz_ptmass(1,k))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
-             if(icreate_sinks>1) then
+             if (icreate_sinks == 2) then
                 ! Connect linked list of the merged sink to the survivor
                 call ptmass_end_lklist(k,l,linklist_ptmass)
                 linklist_ptmass(l) = j
@@ -2081,8 +2087,9 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(r_crit,'r_crit','critical radius for point mass creation (no new sinks < r_crit from existing sink)', &
                         iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
-       !if (icreate_sinks>1)
-       call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
+       if (icreate_sinks==2) then
+          call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
+       endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
                            iunit)
