@@ -171,8 +171,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/) + x0
-       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./) + v0
+       xyzi = (/rinj*cosphi,rinj*sinphi,zi/) 
+       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./) 
 
        u = 1.5*cs**2
 
