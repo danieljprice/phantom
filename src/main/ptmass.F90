@@ -1662,12 +1662,12 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
           cs = sqrt(polyk)
           xyzmh_ptmass(ihacc,k) = hacci*1.e-3
           xyzmh_ptmass(4,k)     = masses(n)
-          xyzmh_ptmass(1,k) = xi(1) + xk*hacci
-          xyzmh_ptmass(2,k) = xi(2) + yk*hacci
-          xyzmh_ptmass(3,k) = xi(3) + zk*hacci
-          vxyz_ptmass(1,k) = vi(1) + cs*gauss_random(iseed)
-          vxyz_ptmass(2,k) = vi(2) + cs*gauss_random(iseed)
-          vxyz_ptmass(3,k) = vi(3) + cs*gauss_random(iseed)
+          xyzmh_ptmass(1,k)     = xi(1) + xk*hacci
+          xyzmh_ptmass(2,k)     = xi(2) + yk*hacci
+          xyzmh_ptmass(3,k)     = xi(3) + zk*hacci
+          vxyz_ptmass(1,k)      = vi(1) + cs*gauss_random(iseed)
+          vxyz_ptmass(2,k)      = vi(2) + cs*gauss_random(iseed)
+          vxyz_ptmass(3,k)      = vi(3) + cs*gauss_random(iseed)
           k = linklist_ptmass(k)
           n = n - 1
        enddo
