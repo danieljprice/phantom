@@ -59,6 +59,7 @@ module ptmass
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
+ integer, public :: iseed_sf = 313    ! seed used to sample random value for icreate == 2 prescription...
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
@@ -1588,12 +1589,11 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
- integer :: i,nseed,iseed,n
+ integer :: i,nseed,n
 !
 !-- Draw the number of star seeds in the core
 !
- iseed=-834
- nseed = floor(5*ran2(iseed))-1
+ nseed = floor(5*ran2(iseed_sf))-1
  n = nptmass
  linklist_ptmass(n) = n + 1 !! link the core to the seeds
  do i=1,nseed
@@ -1620,11 +1620,9 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
  real,    intent(in)    :: time
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
- integer           :: i,k,n,iseed
+ integer           :: i,k,n
  real              :: tbirthi,mi,hacci,minmass,minmonmi
  real              :: xk,yk,zk,d,cs
-
- iseed = -3541
 
  do i=1,nptmass
     mi      = xyzmh_ptmass(4,i)
@@ -1646,7 +1644,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
        allocate(masses(n))
        minmass  = (0.08*solarm)/umass
        minmonmi = minmass/mi
-       call divide_unit_seg(masses,minmonmi,n)
+       call divide_unit_seg(masses,minmonmi,n,iseed_sf)
        masses = masses*mi
 
        k=i
@@ -1654,9 +1652,9 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
           !! do some clever stuff
           d = huge(mi)
           do while (d>1.)
-             xk = ran2(iseed)
-             yk = ran2(iseed)
-             zk = ran2(iseed)
+             xk = ran2(iseed_sf)
+             yk = ran2(iseed_sf)
+             zk = ran2(iseed_sf)
              d  = xk**2+yk**2+zk**2
           enddo
           cs = sqrt(polyk)
@@ -1665,9 +1663,9 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
           xyzmh_ptmass(1,k)     = xi(1) + xk*hacci
           xyzmh_ptmass(2,k)     = xi(2) + yk*hacci
           xyzmh_ptmass(3,k)     = xi(3) + zk*hacci
-          vxyz_ptmass(1,k)      = vi(1) + cs*gauss_random(iseed)
-          vxyz_ptmass(2,k)      = vi(2) + cs*gauss_random(iseed)
-          vxyz_ptmass(3,k)      = vi(3) + cs*gauss_random(iseed)
+          vxyz_ptmass(1,k)      = vi(1) + cs*gauss_random(iseed_sf)
+          vxyz_ptmass(2,k)      = vi(2) + cs*gauss_random(iseed_sf)
+          vxyz_ptmass(3,k)      = vi(3) + cs*gauss_random(iseed_sf)
           k = linklist_ptmass(k)
           n = n - 1
        enddo
@@ -2089,6 +2087,7 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
        if (icreate_sinks==2) then
           call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
+          call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
        endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
@@ -2177,6 +2176,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('tmax_acc')
     read(valstring,*,iostat=ierr) tmax_acc
+    ngot = ngot + 1
+ case('iseed_sf')
+    read(valstring,*,iostat=ierr) iseed_sf
     ngot = ngot + 1
  case default
     imatch = .false.

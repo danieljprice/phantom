@@ -168,17 +168,16 @@ real function gauss_random(iseed)
 end function gauss_random
 
 
-subroutine divide_unit_seg(lengths,mindist,nlengths)
- integer, intent(in)    :: nlengths
+subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
+ integer, intent(in)    :: nlengths,iseed
  real,    intent(inout) :: lengths(nlengths)
  real,    intent(in)    :: mindist
- integer :: i,j,iseed
+ integer :: i,j
  logical :: close,lower
  real :: points(nlengths+1),tmp,dist
  points(nlengths+1) = 1.
  points(1)          = 0.
  tmp  = 0.
- iseed = -3421
 
  do i=2,nlengths
     close =  .true.
