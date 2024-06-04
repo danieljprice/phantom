@@ -1112,12 +1112,12 @@ subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
 end subroutine
 
 subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
-        radius, h_smooth)
+        radius, accretion_radius, h_smooth)
     use io, only:fatal
-    use part, only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft
+    use part, only:nptmass,maxptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,iReff
     implicit none
     integer :: i, j
-    double precision :: mass, x, y, z, vx, vy, vz, radius, h_smooth
+    double precision :: mass, x, y, z, vx, vy, vz, radius, accretion_radius, h_smooth
     double precision :: position(3), velocity(3)
   
     nptmass = nptmass + 1
@@ -1130,7 +1130,8 @@ subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
     xyzmh_ptmass(2,i) = y
     xyzmh_ptmass(3,i) = z
     xyzmh_ptmass(4,i) = mass
-    xyzmh_ptmass(ihacc,i) = radius
+    xyzmh_ptmass(iReff,i) = radius
+    xyzmh_ptmass(ihacc,i) = accretion_radius
     xyzmh_ptmass(ihsoft,i) = h_smooth
     vxyz_ptmass(1,i) = vx
     vxyz_ptmass(2,i) = vy
@@ -1338,24 +1339,40 @@ subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
     write(*,*) 'getting dm ', i
 end subroutine amuse_get_state_dm
 
-subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
     implicit none
     integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: mass, x, y, z, vx, vy, vz, radius, accretion_radius
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
     call amuse_get_velocity(i, vx, vy, vz)
     call amuse_get_sink_radius(i, radius)
     write(*,*) 'getting sink ', i, ': radius is ', radius
+    call amuse_get_sink_accretion_radius(i, accretion_radius)
 end subroutine amuse_get_state_sink
 
 subroutine amuse_get_sink_radius(j, radius)
+    implicit none
+    integer :: j
+    double precision :: radius
+    call amuse_get_sink_effective_radius(j, radius)
+end subroutine amuse_get_sink_radius
+
+subroutine amuse_get_sink_effective_radius(j, radius)
+    use part, only:xyzmh_ptmass, iReff
+    implicit none
+    integer :: j
+    double precision :: radius
+    radius = xyzmh_ptmass(iReff, -j)
+end subroutine amuse_get_sink_effective_radius
+
+subroutine amuse_get_sink_accretion_radius(j, radius)
     use part, only:xyzmh_ptmass, ihacc
     implicit none
     integer :: j
     double precision :: radius
     radius = xyzmh_ptmass(ihacc, -j)
-end subroutine amuse_get_sink_radius
+end subroutine amuse_get_sink_accretion_radius
 
 subroutine amuse_get_sink_temperature(j, temperature)
     use part, only:xyzmh_ptmass, iTeff
@@ -1614,11 +1631,28 @@ subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius)
 end subroutine
 
 subroutine amuse_set_sink_radius(j, radius)
+    use part, only:xyzmh_ptmass, ihacc, iReff
+    implicit none
+    integer :: j
+    double precision :: radius
+    call amuse_set_sink_effective_radius(j, radius)
+    call amuse_set_sink_accretion_radius(j, radius)
+end subroutine
+
+subroutine amuse_set_sink_accretion_radius(j, radius)
     use part, only:xyzmh_ptmass, ihacc
     implicit none
     integer :: j
     double precision :: radius
     xyzmh_ptmass(ihacc, -j) = radius
+end subroutine
+
+subroutine amuse_set_sink_effective_radius(j, radius)
+    use part, only:xyzmh_ptmass, iReff
+    implicit none
+    integer :: j
+    double precision :: radius
+    xyzmh_ptmass(iReff, -j) = radius
 end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
