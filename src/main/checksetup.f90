@@ -437,6 +437,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check Regularization imcompatibility
 !
  call check_regnbody (nerror)
+!
+!--check HII region expansion feedback
+!
+ call check_HIIRegion (nerror)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then

@@ -120,10 +120,10 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
  real,    intent(inout) :: tempi
- real,    intent(in),         optional :: eni
- real,    intent(inout),      optional :: mu_local,gamma_local
- real,    intent(in)   ,      optional :: Xlocal,Zlocal
- logical(kind=1), intent(in), optional :: isionised
+ real,    intent(in),    optional :: eni
+ real,    intent(inout), optional :: mu_local,gamma_local
+ real,    intent(in)   , optional :: Xlocal,Zlocal
+ logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
  real    :: mass_r, mass ! defined for generalised Farris prescription

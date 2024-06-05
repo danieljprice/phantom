@@ -219,7 +219,7 @@ module part
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
-    'rate_ion'/)
+    'rate_ion '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -310,7 +310,7 @@ module part
  !
 !-- Regularisation algorithm allocation
 !
- logical(kind=1), allocatable :: isionised(:)
+ logical, allocatable :: isionised(:)
 !
 !--derivatives (only needed if derivs is called)
 !

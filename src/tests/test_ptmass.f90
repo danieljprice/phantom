@@ -1111,6 +1111,85 @@ subroutine test_merger(ntests,npass)
 
 end subroutine test_merger
 
+subroutine test_HIIregion(ntests,npass)
+ use io,             only:id,master,iverbose
+ use eos,            only:gmw,ieos
+ use deriv,          only:get_derivs_global
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fext &
+                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                            npartoftype,fxyzu,massoftype,isionised
+ use ptmass,         only:h_acc
+ use step_lf_global, only:init_step,step
+ use timestep,       only:dtmax
+ use energies,       only:compute_energies,angtot,totmom,mtot
+ use spherical,      only:set_sphere
+ use units,          only:set_units,utime,unit_velocity
+ use physcon,        only:pc,solarm,years
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback
+ integer, intent(inout) :: ntests,npass
+ integer(kind=8) :: ncloud
+ real    :: totmass,tmax,t,dt,dtext,dtnew,psep
+ real    :: Rsp,Rspi,ci,k
+ if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars (coin)'
+
+ call set_units(dist=pc,mass=solarm,G=1.d0)
+
+ !
+ ! initialise arrays to zero
+ !
+ call init_part()
+ vxyzu(:,:) = 0.
+ fxyzu(:,:) = 0.
+ fext(:,:)  = 0.
+
+ gmw = 1.0
+ ieos = 21
+
+ xyzmh_ptmass(:,:) = 0.
+ vxyz_ptmass(:,:)  = 0.
+
+ h_acc = 0.002
+
+ xyzmh_ptmass(4,1) = 40.
+ xyzmh_ptmass(5,1) = 1e-3*h_acc
+ nptmass = 1
+
+ ncloud = 1e6
+ psep = 0.05
+ call set_sphere('random',id,master,0.,2.91,psep,hfact,npartoftype(igas),xyzh,nptot=ncloud)
+
+ totmass = 8.e3
+ massoftype(igas) = totmass / npartoftype(igas)
+ npart = npartoftype(igas)
+
+
+ call initialize_H2R
+ call update_ionrate(nptmass,xyzmh_ptmass)
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+
+ Rspi = 0.314
+ ci   = 12850./unit_velocity
+ k = 0.005
+ Rsp = Rspi
+
+ call get_derivs_global(dt_new=dt)
+
+ tmax = (3.e6*years)/utime
+ t    = 0.
+ dtmax = dt*100
+ dtext = dt
+
+ call init_step(npart,t,dtmax)
+ do while (t < tmax)
+    call step(npart,npart,t,dt,dtext,dtnew)
+    xyzmh_ptmass(1:3,1) = 0.
+    vxyz_ptmass(1:3,1)  = 0.
+    Rsp = (ci*((Rspi/Rsp)**(3./4.) - k*(Rspi/Rsp)**(-3./4.)))*dt
+    print*,Rsp - xyzmh_ptmass(irstrom,1)
+ enddo
+
+end subroutine test_HIIregion
+
 !-----------------------------------------------------------------------
 !+
 !  Helper function used in sink particle creation test

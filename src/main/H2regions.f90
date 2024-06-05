@@ -19,7 +19,7 @@ module HIIRegion
 
  implicit none
 
- public :: update_ionrate, HII_feedback,initialize_H2R
+ public :: update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
 
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
@@ -36,13 +36,11 @@ module HIIRegion
  real,    private              :: ar
  real,    private              :: sigd
  real,    private              :: hv_on_c
- real,    private              :: mu = 2.38
  real,    private              :: mH
  real,    private              :: T_ion
  real,    private              :: u_to_t
  real,    private              :: Rst2_max
  real,    private              :: Rst_max
- logical, private              :: overlapping =.false.
 
  private
 
@@ -57,7 +55,7 @@ subroutine initialize_H2R
  use io,      only:iprint,iverbose
  use part,    only:isionised
  use units,   only:udist,umass,utime
- use physcon, only:mass_proton_cgs,kboltz,pc,eV
+ use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
  use eos    , only:gmw
  isionised(:)=.false.
  !calculate the useful constant in code units
@@ -89,12 +87,13 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  use part,   only:irateion,ihacc
  use ptmass, only: h_acc
  integer, intent(in)    :: nptmass
- real,    intent(inout) :: xyzmh_ptmass
- real    :: logmi,log_Q,mi,hi
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real    :: logmi,log_Q,mi,hi,Q
  integer :: i,n
+ n = 0
  !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose)&
- !$omp private(logmi,log_Q,mi,hi)&
+ !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Mmin,h_acc)&
+ !$omp private(logmi,log_Q,Q,mi,hi)&
  !$omp reduction(+:n)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
@@ -106,7 +105,8 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-       xyzmh_ptmass(irateion,i) = (10.**log_Q)*utime
+       Q = (10.**log_Q)*utime
+       xyzmh_ptmass(irateion,i) = Q
        n = n + 1
        if (iverbose > 1) then
           write(iprint,"(/a,es18.10/)")"HII region detected : Log Q : ",log_Q
@@ -115,7 +115,7 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  enddo
  !$omp end parallel do
  if (iverbose > 1) then
-    wirte(iprint,"(/a,i8/)") "nb_feedback sources : ",n
+    write(iprint,"(/a,i8/)") "nb_feedback sources : ",n
  endif
  return
 end subroutine update_ionrate
@@ -126,24 +126,29 @@ end subroutine update_ionrate
  !+
  !-----------------------------------------------------------------------
 
-subroutine HII_feedback(dt,nptmass,npart,xyzh,xyzmh_ptmass,vxyzu)
+subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
-                      irstrom,ioverlap
- use linklist,   only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
- use utils_sort, only:indexxfunc,set_r2func_origin,r2func_origin
- use units,      only:unit_density,udist,umass
+                      irstrom
+ use linklist,   only:listneigh=>listneigh_global
+ use sortutils,  only:indexxfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only: get_timings
- integer, intent(in)    :: nptmass,npart
- real,    intent(in)    :: dt
- real,    intent(in)    :: xyzh(:,:)
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
- integer, parameter :: maxcache = 12000
- real, save         :: xyzcache(maxcache,3)
- integer            :: i,k,j,npartin,nneigh
+ integer,          intent(in)    :: nptmass,npart
+ real,             intent(in)    :: xyzh(:,:)
+ real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ logical,          intent(inout) :: isionised(:)
+ real,   optional, intent(in)    :: dt
+ integer            :: i,k,j,npartin
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
- real               :: pmass,Ndot,DNdot,R_stop,taud,mHII,r,hcheck
- real               :: dx,dy,dz,vkx,vky,vkz
+ real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in,hcheck,rsti_old
+ real               :: xi,yi,zi,Qi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
+ logical            :: momflag
+
+ momflag = .false.
+ r = 0.
+ r_in = 0.
+
+ if (present(dt)) momflag = .true.
 
  ! at each new kick we reset all the particles status
  isionised(:) = .false.
@@ -203,43 +208,39 @@ subroutine HII_feedback(dt,nptmass,npart,xyzh,xyzmh_ptmass,vxyzu)
     !
     !-- Momentum feedback
     !
-    j = listneigh(1)
-    mHII = ((4.*pi*(R_stop**3-r**3)*rhoh(xyzh(4,j),pmass))/3)
-    if (mHII>3*pmass) then
+    if(momflag) then
+       j = listneigh(1)
+       r_in = ((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+       mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
+       if (mHII>3*pmass) then
 !$omp parallel do default(none) &
-!$omp shared(mHII,listneigh,xyzcache,xyzh,sigd,dt,Qi,hv_on_c) &
+!$omp shared(mHII,listneigh,xyzh,sigd,dt) &
+!$omp shared(mH,vxyzu,Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
 !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
-       do k=1,npartin
-          j = listneigh(1)
-          if (k <= maxcache) then
-             xj = xyzcache(k,1)
-             yj = xyzcache(k,2)
-             zj = xyzcache(k,3)
-          else
+          do k=1,npartin
+             j = listneigh(1)
              xj = xyzh(1,j)
              yj = xyzh(2,j)
              zj = xyzh(3,j)
-          endif
-          dx = xi - xj
-          dy = yi - yj
-          dz = zi - zj
-          r = dx**2 + dy**2 + dz**2
-
-          taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
-          if (taud > 1.97) taud=1.97
-          vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
-          vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
-          vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
-          vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
-          vxyzu(2,j) = vxyzu(2,j) +  vky*dt
-          vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
-       enddo
+             dx = xj - xi
+             dy = yj - yi
+             dz = zj - zi
+             r = dx**2 + dy**2 + dz**2
+             taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
+             if (taud > 1.97) taud=1.97
+             vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
+             vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
+             vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
+             vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
+             vxyzu(2,j) = vxyzu(2,j) +  vky*dt
+             vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
+          enddo
 !$omp end parallel do
-    enddo
- endif
-enddo
-call get_timings(t2,tcpu2)
-return
+       endif
+    endif
+ enddo
+ call get_timings(t2,tcpu2)
+ return
 end subroutine HII_feedback
 
 subroutine write_options_H2R(iunit)
@@ -277,7 +278,7 @@ subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .true.
  end select
- igotall = (ngotall >= 3)
+ igotall = (ngot >= 3)
 end subroutine read_options_H2R
 
 end module HIIRegion

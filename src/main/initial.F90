@@ -131,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
-                            n_group,n_ingroup,n_sing,nmatrix,group_info
+                            n_group,n_ingroup,n_sing,nmatrix,group_info,isionised
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -213,7 +213,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
  use subgroup,         only:group_identify
- use HIIRegion,        only:iH2R,initialize_H2R
+ use HIIRegion,        only:iH2R,initialize_H2R,HII_feedback
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -499,7 +499,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-    if (iH2R > 0) call initialize_H2R()
+    if (iH2R > 0) then
+       call initialize_H2R
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    endif
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
