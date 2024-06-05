@@ -16,22 +16,21 @@ module HIIRegion
  ! reference : Fujii et al. 2021 SIRIUS Project Paper III
  !
  !
- use part, only:nbpart,npart
 
  implicit none
 
- public :: update_fbsource, update_Q_list, HII_feedback,initialize_fb,search_connected_HII,check_ionized_sinks
- public :: allocate_fb,deallocate_fb
+ public :: update_ionrate, HII_feedback,initialize_H2R
 
- integer, public               :: nbfbmax = 300
- integer, public               :: nbfbs = 0
- integer, public               :: iFb = 0
- real,    private, parameter   :: a = -39.3178
- real,    private, parameter   :: b =  221.997
- real,    private, parameter   :: c = -227.456
- real,    private, parameter   :: d =  117.410
- real,    private, parameter   :: e = -30.1511
- real,    private, parameter   :: f =  3.06810
+ integer, public               :: iH2R = 0
+ real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
+ real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
+
+ real,    private, parameter   :: a = -39.3178 !
+ real,    private, parameter   :: b =  221.997 !fitted parameters to compute
+ real,    private, parameter   :: c = -227.456 !ionisation rate for massive
+ real,    private, parameter   :: d =  117.410 !extracted from Fujii et al. (2021).
+ real,    private, parameter   :: e = -30.1511 !
+ real,    private, parameter   :: f =  3.06810 !
  real,    private, parameter   :: ar_cgs = 2.6d-13
  real,    private, parameter   :: sigd_cgs = 1.d-21
  real,    private              :: ar
@@ -42,15 +41,9 @@ module HIIRegion
  real,    private              :: T_ion
  real,    private              :: u_to_t
  real,    private              :: Rst2_max
+ real,    private              :: Rst_max
  logical, private              :: overlapping =.false.
- integer,          allocatable :: source_id(:)
- real,             allocatable :: Qsource(:)
- real,             allocatable :: dxyz (:,:,:)
- real,             allocatable :: r2(:)
- real,             allocatable :: overlap_e(:)
- real,             allocatable :: Rst_source(:)
- integer,          allocatable :: arg_r2(:,:)
- logical, public,  allocatable :: isionised(:)
+
  private
 
 contains
@@ -60,13 +53,13 @@ contains
  !  Initialise stellar feedbacks
  !+
  !-----------------------------------------------------------------------
-subroutine initialize_fb
+subroutine initialize_H2R
+ use io,      only:iprint,iverbose
+ use part,    only:isionised
  use units,   only:udist,umass,utime
- use physcon, only:mass_proton_cgs,kboltz,atomic_mass_unit,pc,eV
- use eos    , only:gamma,gmw
- call allocate_fb(nbfbmax)
+ use physcon, only:mass_proton_cgs,kboltz,pc,eV
+ use eos    , only:gmw
  isionised(:)=.false.
- source_id(:)= 0
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
  u_to_t = (3./2)*(kboltz/mH)*(utime/udist)**2
@@ -75,51 +68,57 @@ subroutine initialize_fb
  ar = ar_cgs*utime/udist**3
  sigd = sigd_cgs*udist**2
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
- Rst2_max = ((15*pc)/udist)**2
- print*,"feedback constants mH,u_to_t,T_ion,u_to_t*T_ion,gmw  : ",mH,u_to_t,T_ion,u_to_t*T_ion,gmw
- !open(20,file="Rst.dat")
- return
-end subroutine initialize_fb
-
- !-----------------------------------------------------------------------
- !+
- !  subroutine that gives the number of sources
- !+
- !-----------------------------------------------------------------------
-
-subroutine update_fbsource(pmass,i)
- use part, only: nbpart
- real,    intent(in) :: pmass
- integer, intent(in) :: i
- ! select feedback source with a minimum mass of 8 Msun
- if(pmass>8) then
-    nbfbs = nbfbs + 1
-    source_id(nbfbs) = i
-    call update_Q_list(pmass)
+ Rst2_max = ((Rmax*pc)/udist)**2
+ Rst_max = sqrt(Rst_max)
+ Mmin = (Mmin*solarm)/umass
+ if (iverbose > 1) then
+    write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t : ", mH, u_to_t
  endif
  return
-end subroutine update_fbsource
+end subroutine initialize_H2R
 
- !-----------------------------------------------------------------------
- !+
- !  Calculation of the the ionizing photon rate
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Calculation of the the ionizing photon rate
+!+
+!-----------------------------------------------------------------------
 
-subroutine update_Q_list(pmass)
- use units, only:utime
- use part,  only:xyzmh_bpart
- real, intent(in) :: pmass
- real    :: log_pmassj,log_Q
- ! caluclation of the ionizing photon rate  of each sources
- ! this calculation uses Fujii's formula derived from OSTAR2002 databases
- log_pmassj = log10(pmass)
- log_Q = (a+b*log_pmassj+c*log_pmassj**2+d*log_pmassj**3+e*log_pmassj**4+f*log_pmassj**5)
- Qsource(nbfbs) = (10.**log_Q)*utime
- print*,"New source detected : Log Q : ",log_Q
- print*,"nb_feedback sources : ",nbfbs
+subroutine update_ionrate(nptmass,xyzmh_ptmass)
+ use io,     only:iprint,iverbose
+ use units,  only:utime
+ use part,   only:irateion,ihacc
+ use ptmass, only: h_acc
+ integer, intent(in)    :: nptmass
+ real,    intent(inout) :: xyzmh_ptmass
+ real    :: logmi,log_Q,mi,hi
+ integer :: i,n
+ !$omp parallel do default(none) &
+ !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose)&
+ !$omp private(logmi,log_Q,mi,hi)&
+ !$omp reduction(+:n)
+ do i=1,nptmass
+    mi = xyzmh_ptmass(4,i)
+    hi = xyzmh_ptmass(ihacc,i)
+    if(mi > Mmin .or. hi > h_acc)then
+       xyzmh_ptmass(irateion,i) = -1.
+    else
+       logmi = log10(mi)
+       ! caluclation of the ionizing photon rate  of each sources
+       ! this calculation uses Fujii's formula derived from OSTAR2002 databases
+       log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
+       xyzmh_ptmass(irateion,i) = (10.**log_Q)*utime
+       n = n + 1
+       if (iverbose > 1) then
+          write(iprint,"(/a,es18.10/)")"HII region detected : Log Q : ",log_Q
+       endif
+    endif
+ enddo
+ !$omp end parallel do
+ if (iverbose > 1) then
+    wirte(iprint,"(/a,i8/)") "nb_feedback sources : ",n
+ endif
  return
-end subroutine update_Q_list
+end subroutine update_ionrate
 
  !-----------------------------------------------------------------------
  !+
@@ -127,276 +126,158 @@ end subroutine update_Q_list
  !+
  !-----------------------------------------------------------------------
 
-subroutine HII_feedback(dt)
- use part,   only:xyzh,xyzmh_bpart,vxyzu,rhoh,massoftype
- use units,  only:unit_density,udist,umass
- use physcon,only:pc,pi
- use utils_stellarfb,only:merge_argsort,print_fblog_time
- use timing, only: get_timings
- real(kind=4)    :: t1,t2,tcpu1,tcpu2
- real, intent(in) :: dt
- integer :: i,j,l,k,n
- real    :: pmass,Ndot,DNdot,R_stop,eps,taud_on_r,taud,mHII,v_kick,r
- pmass = massoftype(1)
+subroutine HII_feedback(dt,nptmass,npart,xyzh,xyzmh_ptmass,vxyzu)
+ use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
+                      irstrom,ioverlap
+ use linklist,   only:getneigh_pos,ifirstincell,listneigh=>listneigh_global
+ use utils_sort, only:indexxfunc,set_r2func_origin,r2func_origin
+ use units,      only:unit_density,udist,umass
+ use physcon,    only:pc,pi
+ use timing,     only: get_timings
+ integer, intent(in)    :: nptmass,npart
+ real,    intent(in)    :: dt
+ real,    intent(in)    :: xyzh(:,:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
+ integer, parameter :: maxcache = 12000
+ real, save         :: xyzcache(maxcache,3)
+ integer            :: i,k,j,npartin,nneigh
+ real(kind=4)       :: t1,t2,tcpu1,tcpu2
+ real               :: pmass,Ndot,DNdot,R_stop,taud,mHII,r,hcheck
+ real               :: dx,dy,dz,vkx,vky,vkz
+
  ! at each new kick we reset all the particles status
  isionised(:) = .false.
- Rst_source(:) = 0.
- overlap_e(:) = 0.
- eps = xyzmh_bpart(5,1)
+ pmass = massoftype(igas)
  !
- !!!!!!! Rst derivation and thermal feedback
+ !-- Rst derivation and thermal feedback
  !
  call get_timings(t1,tcpu1)
- do i=1,nbfbs
-    n=size(r2)
-    j=source_id(i)
+ do i=1,nptmass
+    npartin=0
+    Qi = xyzmh_ptmass(irateion,i)
+    if (Qi <=0.) cycle
+    Ndot = Qi
+    xi = xyzmh_ptmass(1,i)
+    yi = xyzmh_ptmass(2,i)
+    zi = xyzmh_ptmass(3,i)
+    rsti_old = xyzmh_ptmass(irstrom,i)
+    if (rsti_old > 0.) then
+       hcheck = Rst_max
+    elseif (rsti_old > 0.8*Rst_max) then
+       hcheck = Rst_max
+    else
+       hcheck = rsti_old*1.3
+    endif
     ! for each source we compute the distances of each particles and sort to have a Knn list
     ! Patch : We need to be aware of dead particles that will pollute the scheme if not taking into account.
     ! The simpliest way is to put enormous distance for dead particle to be at the very end of the knn list.
-    do l=1,npart
-       if (xyzh(4,l)<0.) then
-          dxyz(:,l,i) = huge(pmass)
-       else
-          dxyz(1,l,i) = xyzh(1,l)-xyzmh_bpart(1,j)
-          dxyz(2,l,i) = xyzh(2,l)-xyzmh_bpart(2,j)
-          dxyz(3,l,i) = xyzh(3,l)-xyzmh_bpart(3,j)
+    call set_r2func_origin(xi,yi,zi)
+    call indexxfunc(npart,r2func_origin,xyzh,listneigh)
+    do k=1,npart
+       j = listneigh(k)
+       if (.not. isdead_or_accreted(xyzh(4,j))) then
+          ! calculation of the ionised mass
+          DNdot = (pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2)
+          if (Ndot>DNdot) then
+             ! iteration on the Knn until we used all the source photons
+             if (.not.(isionised(j))) then
+                Ndot = Ndot - DNdot
+                vxyzu(4,j) = u_to_t*T_ion
+                isionised(j)=.true.
+             endif
+          else
+             vxyzu(4,j) = (Ndot/DNdot)*u_to_t*T_ion
+             if (k > 1) then
+                ! end of the HII region
+                r = ((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+             else
+                ! unresolved case
+                r = 0.
+             endif
+             exit
+          endif
        endif
     enddo
-    r2(:) = dxyz(1,:,i)**2+dxyz(2,:,i)**2+dxyz(3,:,i)**2
-    call merge_argsort(r2,arg_r2(:,i))
-    k = arg_r2(n,i)
-    ! calculation of the ionised mass
-    Ndot = Qsource(i)
-    DNdot = (pmass*ar*rhoh(xyzh(4,k),pmass))/(mH**2)
-    !print*,"Ndot : DNdot : local rho : ",Ndot,DNdot,rhoh(xyzh(4,k),pmass)*unit_density
-    if (Ndot>DNdot) then
-       ! iteration on the Knn until we used all the source photons
-       if (r2(k)<Rst2_max) then
-          do while (Ndot>DNdot .and. n/=0 .and. r2(k)<Rst2_max)
-             if (.not.(isionised(k))) then
-                Ndot = Ndot - DNdot
-                vxyzu(4,k) = u_to_t*T_ion
-                isionised(k)=.true.
-             else !If already ionised : the ionization energy is stored for regularization
-                Ndot = Ndot - DNdot
-                overlap_e(i) = overlap_e(i) + DNdot
-                overlapping = .true.
-             endif
-             n = n-1
-             k = arg_r2(n,i)
-             DNdot = (pmass*ar*rhoh(xyzh(4,k),pmass))/(mH**2)
-          enddo
-          Rst_source(i) = sqrt(r2(k))
-       else
-          Rst_source(i) = sqrt(Rst2_max)
-       endif
-       !write(20,*) Rst_source(i),Rst
-       !print*,"remaining ionization Energy: ",(Ndot)/Qsource(i),(Ndot/DNdot)*T_ion
-       !print*,"ionised particles, Rst  : ",npart-n,Rst_source(i)
-    else
-       ! unresolved cased...
-       !print*,"source unresolved"
-       vxyzu(4,k) = (Ndot/DNdot)*u_to_t*T_ion
-       Rst_source(i) = 0.
-    endif
- enddo
- !
- !!!!!!!! overlap regulartization
- !
- if(overlapping) then
-    !print*,"overlapping detection : regularization of the ionization front"
-    call search_connected_HII(nbfbs)
-    do i=1,nbfbs
-       n=size(r2)
-       k = arg_r2(n,i)
-       Ndot = overlap_e(i)
-       DNdot = (pmass*ar*rhoh(xyzh(4,k),pmass))/(mH**2)
-       ! iteration on the Knn until we used all the source photons
-       do while (Ndot>DNdot .and. n/=0 .and. r2(k)<Rst2_max)
-          if (.not.(isionised(k))) then
-             Ndot = Ndot - DNdot
-             vxyzu(4,k) = u_to_t*T_ion
-             isionised(k)=.true.
+    npartin = k
+    xyzmh_ptmass(irstrom,i) = r
+    !
+    !-- Momentum feedback
+    !
+    j = listneigh(1)
+    mHII = ((4.*pi*(R_stop**3-r**3)*rhoh(xyzh(4,j),pmass))/3)
+    if (mHII>3*pmass) then
+!$omp parallel do default(none) &
+!$omp shared(mHII,listneigh,xyzcache,xyzh,sigd,dt,Qi,hv_on_c) &
+!$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
+       do k=1,npartin
+          j = listneigh(1)
+          if (k <= maxcache) then
+             xj = xyzcache(k,1)
+             yj = xyzcache(k,2)
+             zj = xyzcache(k,3)
+          else
+             xj = xyzh(1,j)
+             yj = xyzh(2,j)
+             zj = xyzh(3,j)
           endif
-          n = n-1
-          k = arg_r2(n,i)
-          DNdot = (pmass*ar*rhoh(xyzh(4,k),pmass))/(mH**2)
+          dx = xi - xj
+          dy = yi - yj
+          dz = zi - zj
+          r = dx**2 + dy**2 + dz**2
+
+          taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
+          if (taud > 1.97) taud=1.97
+          vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
+          vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
+          vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
+          vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
+          vxyzu(2,j) = vxyzu(2,j) +  vky*dt
+          vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
        enddo
+!$omp end parallel do
     enddo
  endif
- !
- !!!!!!!! momentum feedback
- !
- !print*, "Adding momentum feedback in HII region"
- do i=1, nbfbs
-    if (Rst_source(i)< 2*eps) then
-       R_stop = 2*eps
-    else
-       R_stop = Rst_source(i)
-    endif
-    n=size(r2)
-    k = arg_r2(n,i)
-    r = sqrt(dxyz(1,k,i)**2 + dxyz(2,k,i)**2 + dxyz(3,k,i)**2)
-    taud_on_r = (rhoh(xyzh(4,k),pmass)/mH)*sigd
-    mHII = ((4.*pi*(R_stop**3-r**3)*rhoh(xyzh(4,k),pmass))/3)
-    !print*,"MHII and Momentum prefactor :",mHII,(Qsource(i)/mHII)*hv_on_c,R_stop,Rst_source(i)
-    if (mHII>3*pmass) then
-       do while (r<R_stop)
-          do j=1,3
-             taud = taud_on_r*abs(dxyz(j,k,i)/r)
-             if (taud > 1.97) taud=1.97
-             v_kick = (1.+1.5*exp(-taud))*(Qsource(i)/mHII)*hv_on_c*(dxyz(j,k,i)/r)
-             vxyzu(j,k) = vxyzu(j,k) +  v_kick*dt
-          enddo
-          n=n-1
-          k = arg_r2(n,i)
-          r = sqrt(dxyz(1,k,i)**2 + dxyz(2,k,i)**2 + dxyz(3,k,i)**2)
-       enddo
-       !print*, "real MHII", (size(r2)-n)*pmass
-    endif
- enddo
-
-
-
- ! resetting overlap flag for the next step.
- overlapping = .false.
- call get_timings(t2,tcpu2)
- call print_fblog_time(nbfbs,tcpu2-tcpu1)
- return
+enddo
+call get_timings(t2,tcpu2)
+return
 end subroutine HII_feedback
 
+subroutine write_options_H2R(iunit)
+ use infile_utils, only:write_inopt
+ integer, intent(in) :: iunit
+ write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
+ if(iH2R>0) then
+    call write_inopt(IH2R, 'IH2R', "unable the HII region expansion feedback in star forming reigon", iunit)
+    call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
+    call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
+ endif
+end subroutine write_options_H2R
 
-subroutine search_connected_HII(nb)
- use part,   only: xyzmh_bpart
- use utils_stellarfb, only:jacobi_eigenvalue
- integer, intent(in) :: nb
- real                :: LapMatrix(nb,nb)
- real                :: EigenVec(nb,nb)
- real                :: EigenV(nb)
- integer            :: i,j,k,l,nb_region,nb_node
- real                :: dist,dx,dy,dz
- real                :: region_ov_e
- ! construct laplacian matrix to identify unconnected components of the graph
- LapMatrix = 0.
- do i=1,nbfbs
-    do j=1,nbfbs
-       k = source_id(i)
-       l = source_id(j)
-       dx =(xyzmh_bpart(1,k)-xyzmh_bpart(1,l))
-       dy =(xyzmh_bpart(2,k)-xyzmh_bpart(2,l))
-       dz =(xyzmh_bpart(3,k)-xyzmh_bpart(3,l))
-       dist = sqrt(dx**2+dy**2+dz**2)
-       !print*,dist,Rst_source(i)+Rst_source(j)
-       ! ici il faut résoudre le soucis de la connexion sur des sources non résolues ou coupées car trop loin
-       if (Rst_source(i)/=0.0 .and. Rst_source(j)/=0.0) then
-          if (dist< Rst_source(i)+Rst_source(j) .and. i/=j) then
-             LapMatrix(i,j)= - 1
-          endif
-       endif
-    enddo
-    LapMatrix(i,i) = abs(sum(LapMatrix(i,:)))
-    !print*,LapMatrix(i,:)
- enddo
- ! compute egeinvalues and vectors of the Laplacian matrix
- call jacobi_eigenvalue(nb,LapMatrix,1000,EigenVec,EigenV)
- nb_region = count(EigenV<0.000001)
- !print*,EigenV
- do i=1, nb_region
-    !print*,"region : ",i
-    region_ov_e=0
-    nb_node=0
-    do j=1, nbfbs
-       if (EigenVec(j,i)/=0.)then
-          region_ov_e = region_ov_e + overlap_e(j)
-          nb_node = nb_node + 1
-          !print*,"member : ",j
-       endif
-    enddo
-    do j=1, nbfbs
-       if (EigenVec(j,i)/=0.)then
-          overlap_e(j) = region_ov_e/nb_node
-       endif
-    enddo
- enddo
-
-end subroutine search_connected_HII
-
- !-----------------------------------------------------------------------
- !+
- !  The aim of this subroutine is to warned if a sink has been ionized by
- !  a massive star. One star can only ionized one sink, beacause it can be only in one sink.
- !  Thus these check need to collect m_acc t_mean to compute the ionizing criterion.
- !+
- !-----------------------------------------------------------------------
-
-subroutine check_ionized_sinks(msflag,merged_ptmass)
- use part,    only: nptmass,xyzmh_ptmass,xyzmh_bpart,ihacc,icmpast,itcreate,t_acc
- use physcon, only: pi
- logical, intent(out) :: msflag(nptmass)
- integer, intent(in) :: merged_ptmass(:)
- integer :: i,j,k,kmax,nmerged
- real :: rsquare,h2,tmean,macc,rhos,rst
- msflag(:)=.false.
- ! Check if any MS are in the vinicity of a sink
- do i = 1, nbfbs
-    if (xyzmh_bpart(4,i)<15.)cycle
-    kmax  = 0
-    tmean = 0.
-    macc  = 0.
-    do j = 1, nptmass
-       if (xyzmh_ptmass(ihacc,j)<0.) cycle
-       if (xyzmh_ptmass(4,j)<0.)cycle
-       if (msflag(j)) cycle
-       h2 = xyzmh_ptmass(ihacc,i)**2
-       rsquare = (xyzmh_ptmass(1,j)-xyzmh_bpart(1,i))**2+(xyzmh_ptmass(2,j)-xyzmh_bpart(2,i))**2&
-                +(xyzmh_ptmass(3,j)-xyzmh_bpart(3,i))**2
-       if (rsquare<h2) then !check passed only for one sink posssibe
-          kmax = j
-          exit
-       endif
-    enddo
-    if (kmax/=0) then
-       do k=1,nptmass
-          if (merged_ptmass(k)==kmax) then
-             macc = macc + xyzmh_ptmass(icmpast,k)
-             tmean = tmean + xyzmh_ptmass(itcreate,k)
-             nmerged = nmerged + 1
-          endif
-       enddo
-       tmean = tmean/(nmerged*t_acc)
-       macc = xyzmh_ptmass(4,kmax)-macc
-       rhos = (tmean*macc)/(4*pi*(xyzmh_ptmass(ihacc,kmax)**3)/3)
-       rst = ((3*Qsource(i))/(4*pi*(rhos/mH)**2))**(1./3)
-       if (rst>0.5*(xyzmh_ptmass(ihacc,kmax))) then
-          msflag(kmax) = .true.
-       endif
-    endif
- enddo
-end subroutine check_ionized_sinks
-
-subroutine allocate_fb(n)
- use allocutils, only:allocate_array
- integer, intent(in) :: n
- call allocate_array("Qsource"  , Qsource  , n)
- call allocate_array("Rst_source"  , Rst_source  , n)
- call allocate_array("overlap_e", overlap_e, n)
- call allocate_array("dxyz", dxyz, 3,npart, n)
- call allocate_array("r2", r2, npart)
- call allocate_array("arg_r2", arg_r2, npart,n)
- call allocate_array("isionised", isionised, npart)
- call allocate_array('source_id', source_id, n)
-end subroutine allocate_fb
-
-subroutine deallocate_fb
- deallocate(source_id)
- deallocate(Qsource)
- deallocate(overlap_e)
- deallocate(Rst_source)
- deallocate(dxyz)
- deallocate(r2)
- deallocate(arg_r2)
- deallocate(isionised)
-end subroutine deallocate_fb
-
+subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
+ use io,         only:fatal
+ character(len=*), intent(in)  :: name,valstring
+ logical,          intent(out) :: imatch,igotall
+ integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
+ character(len=30), parameter  :: label = 'read_options_H2R'
+ imatch = .true.
+ select case(trim(name))
+ case('H2R')
+    read(valstring,*,iostat=ierr) iH2R
+    if (iH2R < 0) call fatal(label,'HII region option out of range')
+    ngot = ngot + 1
+ case('Mmin')
+    read(valstring,*,iostat=ierr) Mmin
+    if (Mmin < 8.) call fatal(label,'Minimimum mass can not be inferior to 8 solar masses')
+    ngot = ngot + 1
+ case('Rmax')
+    read(valstring,*,iostat=ierr) Rmax
+    if (Rmax < 10.) call fatal(label,'Maximum radius can not be inferior to 10 pc')
+    ngot = ngot + 1
+ case default
+    imatch = .true.
+ end select
+ igotall = (ngotall >= 3)
+end subroutine read_options_H2R
 
 end module HIIRegion
