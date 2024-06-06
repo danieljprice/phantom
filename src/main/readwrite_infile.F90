@@ -315,7 +315,7 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,store_dust_temperature,gr,do_nucleation
+                           itau_alloc,gr,do_nucleation
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
@@ -340,8 +340,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use ptmass,          only:read_options_ptmass
  use ptmass_radiation,   only:read_options_ptmass_radiation,isink_radiation,&
                               alpha_rad,iget_tdust,iray_resolution
- use radiation_utils,    only:kappa_cgs
- use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
+ use radiation_implicit, only:read_options_radiation
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  use boundary_dyn,    only:read_options_boundary
@@ -357,7 +356,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallrad
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -389,6 +388,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallgw       = .true.
  igotallgr       = .true.
  igotallbdy      = .true.
+ igotallrad      = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -518,23 +518,6 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     case('mcfost_dust_subl')
        read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
-    case('implicit_radiation')
-       read(valstring,*,iostat=ierr) implicit_radiation
-       if (implicit_radiation) store_dust_temperature = .true.
-    case('gas-rad_exchange')
-       read(valstring,*,iostat=ierr) exchange_radiation_energy
-    case('flux_limiter')
-       read(valstring,*,iostat=ierr) limit_radiation_flux
-    case('iopacity_type')
-       read(valstring,*,iostat=ierr) iopacity_type
-    case('cv_type')
-       read(valstring,*,iostat=ierr) cv_type
-    case('kappa_cgs')
-       read(valstring,*,iostat=ierr) kappa_cgs
-    case('tol_rad')
-       read(valstring,*,iostat=ierr) tol_rad
-    case('itsmax_rad')
-       read(valstring,*,iostat=ierr) itsmax_rad
     case default
        imatch = .false.
        if (.not.imatch) call read_options_externalforces(name,valstring,imatch,igotallextern,ierr,iexternalforce)
@@ -555,6 +538,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
        endif
        if (.not.imatch .and. mhd_nonideal) call read_options_nicil(name,valstring,imatch,igotallnonideal,ierr)
+       if (.not.imatch .and. do_radiation) call read_options_radiation(name,valstring,imatch,igotallrad,ierr)
        if (.not.imatch) call read_options_eos(name,valstring,imatch,igotalleos,ierr)
        if (.not.imatch .and. maxvxyzu >= 4) call read_options_cooling(name,valstring,imatch,igotallcooling,ierr)
        if (.not.imatch) call read_options_damping(name,valstring,imatch,igotalldamping,ierr)
@@ -578,11 +562,12 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  enddo
  close(unit=ireadin)
 
- igotallrequired = (ngot  >=  nrequired) .and. igotalllink   .and. igotallbowen   .and. igotalldust &
-                    .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
-                    .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
-                    .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
+ igotallrequired = (ngot  >=  nrequired)  .and. igotalllink     .and. igotallbowen   .and. igotalldust &
+                    .and. igotalleos      .and. igotallcooling  .and. igotallextern  .and. igotallturb &
+                    .and. igotallptmass   .and. igotallinject   .and. igotallionise  .and. igotallnonideal &
+                    .and. igotallgrowth   .and. igotallporosity .and. igotalldamping .and. igotallprad &
+                    .and. igotalldustform .and. igotallgw       .and. igotallgr      .and. igotallbdy &
+                    .and. igotallrad
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -618,6 +603,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
           if (.not.igotallptmass) write(*,*) 'missing sink particle options'
           if (.not.igotalldustform) write(*,*) 'missing dusty wind options'
           if (.not.igotallgw) write(*,*) 'missing gravitational wave options'
+          if (.not.igotallrad) write(*,*) 'missing radiation options'
           infilenew = trim(infile)
        endif
        write(*,"(a)") ' REWRITING '//trim(infilenew)//' with all current and available options...'

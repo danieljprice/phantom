@@ -47,7 +47,7 @@ module radiation_implicit
  character(len=*), parameter :: label = 'radiation_implicit'
 
  private
- public :: do_radiation_implicit,ierr_failed_to_converge
+ public :: do_radiation_implicit,ierr_failed_to_converge,read_options_radiation
 
 contains
 
@@ -1476,6 +1476,7 @@ real function gas_dust_collisional_term(xnH2,metallicity,gas_temp)
 
 end function gas_dust_collisional_term
 
+
 !---------------------------------------------------------
 !+
 !  solve quartic (eq 22, Whitehouse et al. 2005)
@@ -1499,5 +1500,78 @@ subroutine solve_quartic(u1term,u0term,uold,soln,moresweep,ierr)
  call quarticsolve(a,uold,soln,moresweep,ierr)
 
 end subroutine solve_quartic
+
+
+!-----------------------------------------------------------------------
+!+
+!  read options from input file
+!+
+!-----------------------------------------------------------------------
+subroutine read_options_radiation(name,valstring,imatch,igotall,ierr)
+ use io,                 only:fatal
+ use dim,                only:store_dust_temperature
+ use options,            only:implicit_radiation,exchange_radiation_energy,limit_radiation_flux,iopacity_type
+ use radiation_utils,    only:kappa_cgs
+ use eos,                only:X_in,Z_in
+ character(len=*), intent(in)  :: name,valstring
+ logical, intent(out) :: imatch,igotall
+ integer,intent(out) :: ierr
+ integer, save :: ngot = 0
+ integer :: ni
+ character(len=30), parameter :: label = 'read_options_radiation'
+
+ imatch  = .true.
+ igotall = .false.
+ select case(trim(name))
+ case('implicit_radiation')
+    read(valstring,*,iostat=ierr) implicit_radiation
+    ngot = ngot + 1
+    if (implicit_radiation) store_dust_temperature = .true.
+ case('gas-rad_exchange')
+    read(valstring,*,iostat=ierr) exchange_radiation_energy
+    ngot = ngot + 1
+ case('flux_limiter')
+    read(valstring,*,iostat=ierr) limit_radiation_flux
+    ngot = ngot + 1
+ case('iopacity_type')
+    read(valstring,*,iostat=ierr) iopacity_type
+    ngot = ngot + 1
+    if (iopacity_type < -1 .or. iopacity_type > 2) call fatal(label,'invalid setting for iopacity_type ([-1,2])')
+ case('cv_type')
+    read(valstring,*,iostat=ierr) cv_type
+    ngot = ngot + 1
+    if (cv_type < 0 .or. cv_type > 1) call fatal(label,'invalid setting for cv_type ([0,1])')
+ case('kappa_cgs')  ! only needed for iopacity_type = 2 (constant opacity)
+    read(valstring,*,iostat=ierr) kappa_cgs
+    ngot = ngot + 1
+    if (kappa_cgs < 0.) call fatal(label,'kappa_cgs must be positive')
+ case('tol_rad')
+    read(valstring,*,iostat=ierr) tol_rad
+    ngot = ngot + 1
+    if (tol_rad < 0.) call fatal(label,'tol_rad must be positive')
+ case('itsmax_rad')
+    read(valstring,*,iostat=ierr) itsmax_rad
+    ngot = ngot + 1
+    if (itsmax_rad < 0) call fatal(label,'itsmax_rad must be positive')
+ case('X')  ! only needed for iopacity_type = 1 (MESA opacities)
+    read(valstring,*,iostat=ierr) X_in
+    if (X_in <= 0. .or. X_in >= 1.) call fatal(label,'X must be between 0 and 1')
+    ngot = ngot + 1
+ case('Z')  ! only needed for iopacity_type = 1 (MESA opacities)
+    read(valstring,*,iostat=ierr) Z_in
+    if (Z_in <= 0. .or. Z_in > 1.) call fatal(label,'Z must be between 0 and 1')
+    ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ ni = 7
+ if (iopacity_type == 1) then
+    ni = ni+2  ! need to read X and Z for MESA opacity tables
+ elseif (iopacity_type ==2) then
+    ni = ni+1  ! need to read kappa_cgs
+ endif
+ igotall = (ngot >= ni)
+
+end subroutine read_options_radiation
 
 end module radiation_implicit
