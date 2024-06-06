@@ -58,7 +58,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use forces,         only:force
  use part,           only:mhd,gradh,alphaind,igas,iradxi,ifluxx,ifluxy,ifluxz,ithick
  use derivutils,     only:do_timing
- use cons2prim,      only:cons2primall,cons2prim_everything,prim2consall
+ use cons2prim,      only:cons2primall,cons2prim_everything
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
  use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
@@ -115,7 +115,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     if (gr) then
        ! Recalculate the metric after moving particles to their new tasks
        call init_metric(npart,xyzh,metrics)
-       !call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
     endif
 
     if (nptmass > 0 .and. periodic) call ptmass_boundary_crossing(nptmass,xyzmh_ptmass)
@@ -221,11 +220,13 @@ end subroutine derivs
 !+
 !--------------------------------------
 subroutine get_derivs_global(tused,dt_new,dt)
- use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
-                dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol
- use timing, only:printused,getused
- use io,     only:id,master
+ use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
+                        Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,filfac,&
+                        dustfrac,ddustevol,eos_vars,pxyzu,dens,metrics,dustevol,gr
+ use timing,       only:printused,getused
+ use io,           only:id,master
+ use cons2prim,    only:prim2consall
+ use metric_tools, only:init_metric
  real(kind=4), intent(out), optional :: tused
  real,         intent(out), optional :: dt_new
  real,         intent(in), optional  :: dt  ! optional argument needed to test implicit radiation routine
@@ -237,6 +238,13 @@ subroutine get_derivs_global(tused,dt_new,dt)
  dti = 0.
  if (present(dt)) dti = dt
  call getused(t1)
+ ! update conserved quantities in the GR code
+ if (gr) then
+    call init_metric(npart,xyzh,metrics)
+    call prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens=.false.)
+ endif
+
+ ! evaluate derivatives
  call derivs(1,npart,npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
              rad,drad,radprop,dustprop,ddustprop,dustevol,ddustevol,filfac,dustfrac,&
              eos_vars,time,dti,dtnew,pxyzu,dens,metrics)

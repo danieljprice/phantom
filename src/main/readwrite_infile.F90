@@ -108,7 +108,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use growth,          only:write_options_growth
  use porosity,        only:write_options_porosity
 #ifdef INJECT_PARTICLES
- use inject,          only:write_options_inject
+ use inject,          only:write_options_inject,inject_type,update_injected_par
 #endif
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
@@ -215,7 +215,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  ! thermodynamics
  !
  call write_options_eos(iwritein)
- if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==5 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16) ) then
+ if (maxvxyzu >= 4 .and. (ieos==2 .or. ieos==5 .or. ieos==10 .or. ieos==15 .or. ieos==12 .or. ieos==16 .or. ieos==17) ) then
     call write_inopt(ipdv_heating,'ipdv_heating','heating from PdV work (0=off, 1=on)',iwritein)
     call write_inopt(ishock_heating,'ishock_heating','shock heating (0=off, 1=on)',iwritein)
     if (mhd) then
@@ -269,6 +269,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  write(iwritein,"(/,a)") '# options for injecting/removing particles'
 #ifdef INJECT_PARTICLES
  call write_options_inject(iwritein)
+ if (inject_type=='sim') call update_injected_par()
 #endif
  call write_inopt(rkill,'rkill','deactivate particles outside this radius (<0 is off)',iwritein)
 
@@ -685,14 +686,15 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (beta > 4.)     call warn(label,'very high beta viscosity set')
 #ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 5  .and. ieos /= 4  .and. ieos /= 10 .and. &
-             ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 20)) &
+             ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 17 .and. ieos /= 20)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
-    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5)) call fatal(label,'cooling requires adiabatic eos (ieos=2)')
+    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos == 17)) &
+         call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
     if (((isink_radiation == 1 .or. isink_radiation == 3 ) .and. idust_opacity == 0 ) &

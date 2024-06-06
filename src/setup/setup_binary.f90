@@ -13,28 +13,21 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - O            : *position angle of ascending node (deg)*
-!   - a            : *semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1*
-!   - corotate     : *set stars in corotation*
-!   - eccentricity : *eccentricity*
-!   - f            : *initial true anomaly (180=apoastron)*
-!   - inc          : *inclination (deg)*
-!   - relax        : *relax stars into equilibrium*
-!   - w            : *argument of periapsis (deg)*
+!   - corotate : *set stars in corotation*
 !
 ! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   kernel, mpidomain, options, part, physcon, relaxstar, setbinary,
-!   setstar, setunits, setup_params, units
+!   kernel, mpidomain, options, part, physcon, setorbit, setstar, setunits,
+!   setup_params
 !
- use setstar, only:star_t
+ use setstar,  only:star_t
+ use setorbit, only:orbit_t
  use dim,     only:gr
  implicit none
  public :: setpart
 
- real    :: a,ecc,inc,O,w,f
  logical :: relax,corotate
- type(star_t) :: star(2)
- character(len=20) :: semi_major_axis
+ type(star_t)  :: star(2)
+ type(orbit_t) :: orbit
 
  private
 
@@ -49,13 +42,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use part,           only:gr,nptmass,xyzmh_ptmass,vxyz_ptmass,&
                           ihacc,ihsoft,eos_vars,rad,nsinkproperties,iJ2,iReff,ispinx,ispinz
- use setbinary,      only:set_binary,get_a_from_period
- use units,          only:is_time_unit,in_code_units,utime
- use physcon,        only:solarm,au,pi,solarr,days
+ use setorbit,       only:set_defaults_orbit,set_orbit
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
  use io,             only:master,fatal
- use setstar,        only:set_star,set_defaults_star,shift_star
+ use setstar,        only:set_defaults_stars,set_stars,shift_stars
  use eos,            only:X_in,Z_in,ieos
  use setup_params,   only:rhozero,npart_total
  use mpidomain,      only:i_belong
@@ -73,7 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr,i,nstar,nptmass_in,iextern_prev
+ integer :: ierr,nstar,nptmass_in,iextern_prev
  logical :: iexist,write_profile,use_var_comp,add_spin
  real :: xyzmh_ptmass_in(nsinkproperties,2),vxyz_ptmass_in(3,2),angle
  logical, parameter :: set_oblateness = .false.
@@ -98,18 +89,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  vxyzu(:,:) = 0.
  nptmass = 0
  nstar = 2
- do i=1,nstar
-    call set_defaults_star(star(i))
- enddo
+ call set_defaults_stars(star)
+ call set_defaults_orbit(orbit)
  relax = .true.
  corotate = .false.
- semi_major_axis = '10.'
- a    = 10.
- ecc  = 0.
- inc = 0.
- O = 0.
- w = 270.
- f = 180.
  ieos = 2
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
@@ -133,54 +116,27 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  iextern_prev = iexternalforce
  iexternalforce = 0
  gamma = 5./3.
- do i=1,nstar
-    if (star(i)%iprofile > 0) then
-       print "(/,a,i0,a)",' --- STAR ',i,' ---'
-       call set_star(id,master,star(i),xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
-                     massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
-                     X_in,Z_in,relax,use_var_comp,write_profile,&
-                     rhozero,npart_total,i_belong,ierr,itype=i)
-    endif
- enddo
+ call set_stars(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+                X_in,Z_in,relax,use_var_comp,write_profile,&
+                rhozero,npart_total,i_belong,ierr)
 
- !
- !--if a is negative or is given time units, interpret this as a period
- !
- a = in_code_units(semi_major_axis,ierr)
- if (is_time_unit(semi_major_axis) .and. ierr == 0) then
-    a = -abs(a)
-    print "(a,g0,a,g0,a)",' Using PERIOD = ',abs(a),' = ',abs(a)*utime/days,' days'
- endif
- if (a < 0.) a = get_a_from_period(star(1)%mstar,star(2)%mstar,abs(a))
- !
- !--now setup orbit using fake sink particles
- !
  nptmass_in = 0
  if (iexternalforce==iext_corotate) then
-    call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
-                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,omega_corotate,&
-                    posang_ascnode=O,arg_peri=w,incl=inc,f=f,verbose=(id==master))
-    add_spin = .false.  ! already in corotating frame
+    call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
+                   xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr,omega_corotate)
+    add_spin = .false.
  else
-    call set_binary(star(1)%mstar,star(2)%mstar,a,ecc,star(1)%hacc,star(2)%hacc,&
-                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,ierr,&
-                    posang_ascnode=O,arg_peri=w,incl=inc,f=f,verbose=(id==master))
+    call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
+                   xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr)
     add_spin = corotate
  endif
- if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
+ if (ierr /= 0) call fatal ('setup_binary','error in call to set_orbit')
  !
  !--place stars into orbit, or add real sink particles if iprofile=0
  !
- do i=1,nstar
-    if (star(i)%iprofile > 0) then
-       call shift_star(npart,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
-                       v0=vxyz_ptmass_in(1:3,i),itype=i,corotate=add_spin)
-    else
-       nptmass = nptmass + 1
-       xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,i)
-       vxyz_ptmass(:,nptmass) = vxyz_ptmass_in(:,i)
-    endif
- enddo
+ call shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,xyzh,vxyzu,&
+                  xyzmh_ptmass,vxyz_ptmass,npart,nptmass,corotate=add_spin)
  !
  !--restore options
  !
@@ -213,8 +169,8 @@ end subroutine setpart
 !----------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
- use setstar,      only:write_options_star
- use relaxstar,    only:write_options_relax
+ use setstar,      only:write_options_stars
+ use setorbit,     only:write_options_orbit
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer :: iunit
@@ -224,23 +180,9 @@ subroutine write_setupfile(filename)
  write(iunit,"(a)") '# input file for binary setup routines'
 
  call write_options_units(iunit,gr)
- call write_options_star(star(1),iunit,label='1')
- call write_options_star(star(2),iunit,label='2')
-
- write(iunit,"(/,a)") '# orbit settings'
- call write_inopt(semi_major_axis,'a','semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1',iunit)
- call write_inopt(ecc,'ecc','eccentricity',iunit)
- call write_inopt(inc,'inc','inclination (deg)',iunit)
- call write_inopt(O,'O','position angle of ascending node (deg)',iunit)
- call write_inopt(w,'w','argument of periapsis (deg)',iunit)
- call write_inopt(f,'f','initial true anomaly (180=apoastron)',iunit)
+ call write_options_stars(star,relax,iunit)
  call write_inopt(corotate,'corotate','set stars in corotation',iunit)
-
- if (any(star(:)%iprofile > 0)) then
-    write(iunit,"(/,a)") '# relaxation options'
-    call write_inopt(relax,'relax','relax stars into equilibrium',iunit)
-    call write_options_relax(iunit)
- endif
+ call write_options_orbit(orbit,iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -253,8 +195,8 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
- use setstar,      only:read_options_star
- use relaxstar,    only:read_options_relax
+ use setstar,      only:read_options_stars
+ use setorbit,     only:read_options_orbit
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)    :: filename
  integer,          intent(inout) :: ieos
@@ -268,25 +210,12 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr,gr)
- call read_options_star(star(1),need_iso,ieos,polyk,db,nerr,label='1')
- call read_options_star(star(2),need_iso,ieos,polyk,db,nerr,label='2')
+ call read_options_stars(star,need_iso,ieos,polyk,relax,db,nerr)
  if (need_iso==1) call fatal('setup_binary','incompatible setup for eos')
-
- call read_inopt(semi_major_axis,'a',db,errcount=nerr)
- call read_inopt(ecc,'ecc',db,min=0.,errcount=nerr)
- call read_inopt(inc,'inc',db,errcount=nerr)
- call read_inopt(O,'O',db,errcount=nerr)
- call read_inopt(w,'w',db,errcount=nerr)
- call read_inopt(f,'f',db,errcount=nerr)
-
  call read_inopt(corotate,'corotate',db,errcount=nerr)
-
- if (any(star(:)%iprofile > 0)) then
-    call read_inopt(relax,'relax',db,errcount=nerr)
-    call read_options_relax(db,nerr)
- endif
-
+ call read_options_orbit(orbit,db,nerr)
  call close_db(db)
+
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
