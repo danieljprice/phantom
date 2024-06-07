@@ -91,10 +91,11 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real    :: logmi,log_Q,mi,hi,Q
  integer :: i
+ nHIIsources = 0
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Mmin,h_acc)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
- !$omp reduction(+:n)
+ !$omp reduction(+:nHIIsources)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
     hi = xyzmh_ptmass(ihacc,i)
@@ -129,20 +130,21 @@ end subroutine update_ionrate
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
- use linklist,   only:listneigh=>listneigh_global
- use sortutils,  only:indexxfunc,set_r2func_origin,r2func_origin
+ use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
+ use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only: get_timings
- use units,      only: unit_density
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
  logical,          intent(inout) :: isionised(:)
  real,   optional, intent(in)    :: dt
- integer            :: i,k,j,npartin
+ integer, parameter :: maxcache      = 12000
+ real, save :: xyzcache(maxcache,3)
+ integer            :: i,k,j,npartin,nneigh
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
- real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in
- real               :: xi,yi,zi,Qi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
+ real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in,hcheck
+ real               :: xi,yi,zi,Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
  logical            :: momflag
 
  momflag = .false.
@@ -157,7 +159,6 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  !
  !-- Rst derivation and thermal feedback
  !
- call get_timings(t1,tcpu1)
  if (nHIIsources > 0) then
     do i=1,nptmass
        npartin=0
@@ -167,11 +168,20 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        xi = xyzmh_ptmass(1,i)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
+       stromi = xyzmh_ptmass(irstrom,i)
        ! for each source we compute the distances of each particles and sort to have a Knn list
        ! Patch : We need to be aware of dead particles that will pollute the scheme if not taking into account.
        ! The simpliest way is to put enormous distance for dead particle to be at the very end of the knn list.
+       if(stromi > 0 ) then
+          hcheck = 2.*stromi
+          if (hcheck > Rmax) hcheck = Rmax
+       else
+          hcheck = Rmax
+       endif
+       call get_timings(t1,tcpu1)
+       call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
        call set_r2func_origin(xi,yi,zi)
-       call indexxfunc(npart,r2func_origin,xyzh,listneigh)
+       call Knnfunc(nneigh,r2func_origin,xyzh,listneigh)
        do k=1,npart
           j = listneigh(k)
           if (.not. isdead_or_accreted(xyzh(4,j))) then
@@ -234,7 +244,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
     enddo
  endif
  call get_timings(t2,tcpu2)
-
+ print*, "HII feedback CPU time : ",t2-t1
  return
 end subroutine HII_feedback
 

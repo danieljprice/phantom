@@ -1134,13 +1134,15 @@ subroutine test_HIIregion(ntests,npass)
  use units,          only:set_units,utime,unit_velocity,udist
  use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
  use kernel,         only: hfact_default
- use kdtree,          only:tree_accuracy
+ use kdtree,         only:tree_accuracy
  use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources
+ use timing,         only:get_timings
  integer, intent(inout) :: ntests,npass
- integer :: np,i
- real    :: totmass,tmax,t,dt,dtext,dtnew,psep
- real    :: Rsp,Rspi,ci,k
- real    :: totvol,nx,rmin,rmax,temp
+ integer        :: np,i
+ real           :: totmass,tmax,t,dt,dtext,dtnew,psep
+ real           :: Rsp,Rspi,ci,k
+ real           :: totvol,nx,rmin,rmax,temp
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
  if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars...'
 
  call set_units(dist=1.*pc,mass=1.*solarm,G=1.d0)
@@ -1204,10 +1206,10 @@ subroutine test_HIIregion(ntests,npass)
  iH2R = 1
  if (id==master) then
     call initialize_H2R
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+    !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
  endif
 
- Rspi = xyzmh_ptmass(irstrom,1)
+ Rspi = 0.310 !xyzmh_ptmass(irstrom,1)
  ci   = 12850000./unit_velocity
  k = 0.005
  Rsp = Rspi
@@ -1229,7 +1231,10 @@ subroutine test_HIIregion(ntests,npass)
  do while (t < tmax)
     t = t + dt
     call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+    call get_timings(t1,tcpu1)
     call step(npart,npart,t,dt,dtext,dtnew)
+    call get_timings(t2,tcpu2)
+    print*, "STEP CPU time : ",t2-t1
     Rsp = Rsp + (ci*((Rspi/Rsp)**(3./4.) - k*(Rspi/Rsp)**(-3./4.)))*dt
     print*,"R stromgren (analytic,prescription)",Rsp , xyzmh_ptmass(irstrom,1)
  enddo
