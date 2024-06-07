@@ -1052,14 +1052,18 @@ end subroutine check_regnbody
 subroutine check_HIIRegion(nerror)
  use HIIRegion, only:iH2R
  use eos,       only:ieos
- use dim,       only:gr
+ use dim,       only:gr,mpi
  integer, intent(inout) :: nerror
- if(iH2R>0 .and. ieos/=21) then
+ if(iH2R > 0 .and. ieos/=21) then
     print "(/,a,/)", "Error: If HII activated, eos == 21 is mandatory..."
     nerror = nerror + 1
  endif
- if(iH2R>0 .and. gr) then
+ if(iH2R > 0 .and. gr) then
     print "(/,a,/)", "Error: Gr is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+ if(iH2R > 0 .and. mpi) then
+    print "(/,a,/)", "Error: MPI is not compatible with HII Region"
     nerror = nerror + 1
  endif
 end subroutine check_HIIRegion

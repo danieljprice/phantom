@@ -499,7 +499,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-    if (iH2R > 0) then
+    if (iH2R > 0 .and. id==master) then
        call initialize_H2R
        call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
     endif

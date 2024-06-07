@@ -435,9 +435,9 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
     !
     if(isionised) then
-       ponrhoi  = polyk
+       ponrhoi  = (12850000./unit_velocity)**2
        spsoundi = sqrt(ponrhoi)
-       tempi    = temperature_coef*mui*ponrhoi
+       tempi    = temperature_coef*0.5*ponrhoi
     else
        ponrhoi  = polyk
        spsoundi = sqrt(ponrhoi)

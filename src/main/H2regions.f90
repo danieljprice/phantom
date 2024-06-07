@@ -24,14 +24,15 @@ module HIIRegion
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
  real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
+ real   , public               :: nHIIsources = 0
 
  real,    private, parameter   :: a = -39.3178 !
  real,    private, parameter   :: b =  221.997 !fitted parameters to compute
  real,    private, parameter   :: c = -227.456 !ionisation rate for massive
  real,    private, parameter   :: d =  117.410 !extracted from Fujii et al. (2021).
- real,    private, parameter   :: e = -30.1511 !
+ real,    private, parameter   :: e = -30.1511 ! (Expressed in log(solar masses))
  real,    private, parameter   :: f =  3.06810 !
- real,    private, parameter   :: ar_cgs = 2.6d-13
+ real,    private, parameter   :: ar_cgs = 2.7d-13
  real,    private, parameter   :: sigd_cgs = 1.d-21
  real,    private              :: ar
  real,    private              :: sigd
@@ -63,7 +64,7 @@ subroutine initialize_H2R
  u_to_t = (3./2)*(kboltz/mH)*(utime/udist)**2
  mH = mH/umass
  T_ion = 1.d4
- ar = ar_cgs*utime/udist**3
+ ar = ar_cgs*(utime/udist**3)
  sigd = sigd_cgs*udist**2
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst2_max = ((Rmax*pc)/udist)**2
@@ -89,8 +90,7 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real    :: logmi,log_Q,mi,hi,Q
- integer :: i,n
- n = 0
+ integer :: i
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Mmin,h_acc)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
@@ -98,19 +98,19 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
     hi = xyzmh_ptmass(ihacc,i)
-    if(mi > Mmin .or. hi > h_acc)then
-       xyzmh_ptmass(irateion,i) = -1.
-    else
+    if(mi > Mmin .and. hi < h_acc)then
        logmi = log10(mi)
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
        Q = (10.**log_Q)*utime
        xyzmh_ptmass(irateion,i) = Q
-       n = n + 1
+       nHIIsources = nHIIsources + 1
        if (iverbose > 1) then
-          write(iprint,"(/a,es18.10/)")"HII region detected : Log Q : ",log_Q
+          write(iprint,"(/a,es18.10/)")"Massive stars detected : Log Q : ",log_Q
        endif
+    else
+       xyzmh_ptmass(irateion,i) = -1.
     endif
  enddo
  !$omp end parallel do
@@ -133,6 +133,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use sortutils,  only:indexxfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only: get_timings
+ use units,      only: unit_density
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -140,7 +141,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  real,   optional, intent(in)    :: dt
  integer            :: i,k,j,npartin
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
- real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in,hcheck,rsti_old
+ real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in
  real               :: xi,yi,zi,Qi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
  logical            :: momflag
 
@@ -157,89 +158,83 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  !-- Rst derivation and thermal feedback
  !
  call get_timings(t1,tcpu1)
- do i=1,nptmass
-    npartin=0
-    Qi = xyzmh_ptmass(irateion,i)
-    if (Qi <=0.) cycle
-    Ndot = Qi
-    xi = xyzmh_ptmass(1,i)
-    yi = xyzmh_ptmass(2,i)
-    zi = xyzmh_ptmass(3,i)
-    rsti_old = xyzmh_ptmass(irstrom,i)
-    if (rsti_old > 0.) then
-       hcheck = Rst_max
-    elseif (rsti_old > 0.8*Rst_max) then
-       hcheck = Rst_max
-    else
-       hcheck = rsti_old*1.3
-    endif
-    ! for each source we compute the distances of each particles and sort to have a Knn list
-    ! Patch : We need to be aware of dead particles that will pollute the scheme if not taking into account.
-    ! The simpliest way is to put enormous distance for dead particle to be at the very end of the knn list.
-    call set_r2func_origin(xi,yi,zi)
-    call indexxfunc(npart,r2func_origin,xyzh,listneigh)
-    do k=1,npart
-       j = listneigh(k)
-       if (.not. isdead_or_accreted(xyzh(4,j))) then
-          ! calculation of the ionised mass
-          DNdot = (pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2)
-          if (Ndot>DNdot) then
-             ! iteration on the Knn until we used all the source photons
-             if (.not.(isionised(j))) then
-                Ndot = Ndot - DNdot
-                vxyzu(4,j) = u_to_t*T_ion
-                isionised(j)=.true.
-             endif
-          else
-             vxyzu(4,j) = (Ndot/DNdot)*u_to_t*T_ion
-             if (k > 1) then
-                ! end of the HII region
-                r = ((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+ if (nHIIsources > 0) then
+    do i=1,nptmass
+       npartin=0
+       Qi = xyzmh_ptmass(irateion,i)
+       if (Qi <=0.) cycle
+       Ndot = Qi
+       xi = xyzmh_ptmass(1,i)
+       yi = xyzmh_ptmass(2,i)
+       zi = xyzmh_ptmass(3,i)
+       ! for each source we compute the distances of each particles and sort to have a Knn list
+       ! Patch : We need to be aware of dead particles that will pollute the scheme if not taking into account.
+       ! The simpliest way is to put enormous distance for dead particle to be at the very end of the knn list.
+       call set_r2func_origin(xi,yi,zi)
+       call indexxfunc(npart,r2func_origin,xyzh,listneigh)
+       do k=1,npart
+          j = listneigh(k)
+          if (.not. isdead_or_accreted(xyzh(4,j))) then
+             ! calculation of the ionised mass
+             DNdot = (pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2)
+             if (Ndot>DNdot) then
+                ! iteration on the Knn until we used all the source photons
+                if (.not.(isionised(j))) then
+                   Ndot = Ndot - DNdot
+                   isionised(j)=.true.
+                endif
              else
-                ! unresolved case
-                r = 0.
+                if (k > 1) then
+                   ! end of the HII region
+                   r = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+                   j = listneigh(1)
+                else
+                   ! unresolved case
+                   r = 0.
+                endif
+                exit
              endif
-             exit
           endif
-       endif
-    enddo
-    npartin = k
-    xyzmh_ptmass(irstrom,i) = r
-    !
-    !-- Momentum feedback
-    !
-    if(momflag) then
-       j = listneigh(1)
-       r_in = ((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
-       mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
-       if (mHII>3*pmass) then
+       enddo
+       npartin = k
+       xyzmh_ptmass(irstrom,i) = r
+       !
+       !-- Momentum feedback
+       !
+       if(momflag) then
+          j = listneigh(1)
+          r_in = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
+          mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
+          if (mHII>3*pmass) then
 !$omp parallel do default(none) &
 !$omp shared(mHII,listneigh,xyzh,sigd,dt) &
 !$omp shared(mH,vxyzu,Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
 !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
-          do k=1,npartin
-             j = listneigh(1)
-             xj = xyzh(1,j)
-             yj = xyzh(2,j)
-             zj = xyzh(3,j)
-             dx = xj - xi
-             dy = yj - yi
-             dz = zj - zi
-             r = dx**2 + dy**2 + dz**2
-             taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
-             if (taud > 1.97) taud=1.97
-             vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
-             vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
-             vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
-             vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
-             vxyzu(2,j) = vxyzu(2,j) +  vky*dt
-             vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
-          enddo
+             do k=1,npartin
+                j = listneigh(1)
+                xj = xyzh(1,j)
+                yj = xyzh(2,j)
+                zj = xyzh(3,j)
+                dx = xj - xi
+                dy = yj - yi
+                dz = zj - zi
+                r = dx**2 + dy**2 + dz**2
+                taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
+                if (taud > 1.97) taud=1.97
+                vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
+                vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
+                vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
+                vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
+                vxyzu(2,j) = vxyzu(2,j) +  vky*dt
+                vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
+             enddo
 !$omp end parallel do
+          endif
        endif
-    endif
- enddo
+    enddo
+ endif
  call get_timings(t2,tcpu2)
+
  return
 end subroutine HII_feedback
 

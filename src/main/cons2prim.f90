@@ -215,7 +215,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,isionised) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &

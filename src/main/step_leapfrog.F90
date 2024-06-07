@@ -98,7 +98,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,isionised
+                          filfac,filfacpred,mprev,filfacprev
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -127,7 +127,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                            substep_sph_gr,substep_sph
- use HIIRegion,       only:HII_feedback,iH2R
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -264,7 +263,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  timei = timei + dtsph
  nvfloorps  = 0
 
- if (iH2R > 0) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dtsph)
+
 
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
