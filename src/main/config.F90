@@ -42,7 +42,7 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 20
+ integer, parameter :: nsinkproperties = 22
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL

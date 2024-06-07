@@ -90,13 +90,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
-                            linklist_ptmass
+                            linklist_ptmass,isionised
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision,ptmass_create_stars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
+ use HIIRegion,       only:HII_feedback,iH2R
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -286,6 +287,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
+
+    if (iH2R > 0 .and. id==master) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep

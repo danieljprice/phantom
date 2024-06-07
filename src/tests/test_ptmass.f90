@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
- logical :: do_test_chinese_coin,do_test_merger
+ logical :: do_test_chinese_coin,do_test_merger,do_test_HII
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -51,6 +51,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_softening = .false.
  do_test_merger = .false.
  do_test_chinese_coin = .false.
+ do_test_HII = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -71,6 +72,9 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_binary = .true.
     do_test_softening = .true.
     do_test_merger = .true.
+ case('ptmassHII')
+    do_test_HII = .true.
+
  case default
     testall = .true.
  end select
@@ -122,6 +126,8 @@ subroutine test_ptmass(ntests,npass,string)
  !  Test sink particle creation
  !
  if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
+
+ if (do_test_HII) call test_HIIregion(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -1133,6 +1139,125 @@ subroutine test_merger(ntests,npass)
  r_merge_cond   = 0.
 
 end subroutine test_merger
+
+subroutine test_HIIregion(ntests,npass)
+ use dim,            only:maxp,maxphase
+ use io,             only:id,master,iverbose,iprint
+ use eos,            only:gmw,ieos,polyk,gamma
+ use deriv,          only:get_derivs_global
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fext, &
+                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                            npartoftype,fxyzu,massoftype,isionised,init_part,&
+                            iphase,isetphase,irateion
+ use ptmass,         only:h_acc
+ use step_lf_global, only:init_step,step
+ use timestep,       only:dtmax
+ use energies,       only:compute_energies,angtot,totmom,mtot
+ use spherical,      only:set_sphere
+ use units,          only:set_units,utime,unit_velocity,udist
+ use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
+ use kernel,         only: hfact_default
+ use kdtree,          only:tree_accuracy
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources
+ integer, intent(inout) :: ntests,npass
+ integer :: np,i
+ real    :: totmass,tmax,t,dt,dtext,dtnew,psep
+ real    :: Rsp,Rspi,ci,k
+ real    :: totvol,nx,rmin,rmax,temp
+ if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars...'
+
+ call set_units(dist=1.*pc,mass=1.*solarm,G=1.d0)
+ iverbose = 1
+ !
+ ! initialise arrays to zero
+ !
+ call init_part()
+ gmw = 1.0
+ ieos = 1
+
+ xyzmh_ptmass(:,:) = 0.
+ vxyz_ptmass(:,:)  = 0.
+
+ h_acc = 0.002
+
+ xyzmh_ptmass(4,1) = -1
+ xyzmh_ptmass(5,1) = 1e-3*h_acc
+ xyzmh_ptmass(irateion,1) = (10.**49.)*utime
+ nptmass = 1
+ nHIIsources = 1
+
+ t  = 0.
+ hfact = 1.2
+ gamma = 1.
+ rmin  = 0.
+ rmax  = 2.91
+ ieos  = 21
+ tree_accuracy = 0.5
+ temp = 1000
+!
+!--setup particles
+!
+ np       = 1000000
+ totvol   = 4./3.*pi*rmax**3
+ nx       = int(np**(1./3.))
+ psep     = totvol**(1./3.)/real(nx)
+ npart    = 0
+ ! only set up particles on master, otherwise we will end up with n duplicates
+ if (id==master) then
+    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+ endif
+ np       = npart
+
+
+!
+!--set particle properties
+!
+ totmass        = 8.e3
+ npartoftype(:) = 0
+ npartoftype(igas) = npart
+ massoftype(:)  = 0.0
+ massoftype(igas)  = totmass/npartoftype(igas)
+ if (maxphase==maxp) then
+    do i=1,npart
+       iphase(i) = isetphase(igas,iactive=.true.)
+    enddo
+ endif
+
+
+ iH2R = 1
+ if (id==master) then
+    call initialize_H2R
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+ endif
+
+ Rspi = xyzmh_ptmass(irstrom,1)
+ ci   = 12850000./unit_velocity
+ k = 0.005
+ Rsp = Rspi
+
+ polyk = kboltz*temp/(gmw*mass_proton_cgs)*((utime/udist)**2)
+ vxyzu(:,:) = 0.
+ fxyzu(:,:) = 0.
+ call get_derivs_global()
+
+
+ tmax = (3.e6*years)/utime
+ t    = 0.
+ dt   = 0.000001
+ dtmax = dt*100
+ dtext = dt
+ dtnew = dt
+
+ call init_step(npart,t,dtmax)
+ do while (t < tmax)
+    t = t + dt
+    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+    call step(npart,npart,t,dt,dtext,dtnew)
+    Rsp = Rsp + (ci*((Rspi/Rsp)**(3./4.) - k*(Rspi/Rsp)**(-3./4.)))*dt
+    print*,"R stromgren (analytic,prescription)",Rsp , xyzmh_ptmass(irstrom,1)
+ enddo
+
+end subroutine test_HIIregion
 
 !-----------------------------------------------------------------------
 !+

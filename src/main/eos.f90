@@ -49,7 +49,7 @@ module eos
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
  implicit none
- integer, parameter, public :: maxeos = 20
+ integer, parameter, public :: maxeos = 21
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -103,7 +103,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,isionised)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -123,6 +123,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
  real,    intent(in)   , optional :: Xlocal,Zlocal
+ logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
  real    :: mass_r, mass ! defined for generalised Farris prescription
@@ -130,6 +131,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
  real    :: enthi,pondensi
+ logical :: ionisedi
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
@@ -147,6 +149,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
+ if (present(isionised)) ionisedi = isionised
 
  select case(eos_type)
  case(1)
@@ -423,6 +426,25 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
+ case(21)
+    !
+    !--dual medium isothermal eos
+    !
+    !  :math:`P = c_s^2 \rho`
+    !
+    !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
+    !
+    if(isionised) then
+       ponrhoi  = (12850000./unit_velocity)**2
+       spsoundi = sqrt(ponrhoi)
+       tempi    = temperature_coef*0.5*ponrhoi
+    else
+       ponrhoi  = polyk
+       spsoundi = sqrt(ponrhoi)
+       tempi    = temperature_coef*mui*ponrhoi
+    endif
+
+
 
  case default
     spsoundi = 0. ! avoids compiler warnings

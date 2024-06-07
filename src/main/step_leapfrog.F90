@@ -126,7 +126,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
-                          substep_sph_gr,substep_sph
+                           substep_sph_gr,substep_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -262,6 +262,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  timei = timei + dtsph
  nvfloorps  = 0
+
+
+
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph

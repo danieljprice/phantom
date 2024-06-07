@@ -123,6 +123,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
  use part,               only:maxp,mhd,maxalpha,nptmass
  use boundary_dyn,       only:write_options_boundary
+ use HIIRegion,          only:write_options_H2R
  character(len=*), intent(in) :: infile,logfile,evfile,dumpfile
  integer,          intent(in) :: iwritein,iprint
  integer                      :: ierr
@@ -303,6 +304,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) call write_options_metric(iwritein)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
+ call write_options_H2R(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
@@ -346,6 +348,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  use damping,         only:read_options_damping
  use gravwaveutils,   only:read_options_gravitationalwaves
  use boundary_dyn,    only:read_options_boundary
+ use HIIRegion,       only:read_options_H2R
  character(len=*), parameter   :: label = 'read_infile'
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -358,7 +361,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
  logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
- logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy
+ logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R
  integer, parameter :: nrequired = 1
 
  ireaderr = 0
@@ -390,6 +393,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotallgw       = .true.
  igotallgr       = .true.
  igotallbdy      = .true.
+ igotallH2R      = .true.
  use_Voronoi_limits_file = .false.
 
  open(unit=ireadin,err=999,file=infile,status='old',form='formatted')
@@ -569,6 +573,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
        endif
        if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotallgw,ierr)
        if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotallbdy,ierr)
+       if (.not.imatch) call read_options_H2R(name,valstring,imatch,igotallH2R,ierr)
        if (len_trim(name) /= 0 .and. .not.imatch) then
           call warn('read_infile','unknown variable '//trim(adjustl(name))// &
                      ' in input file, value = '//trim(adjustl(valstring)))

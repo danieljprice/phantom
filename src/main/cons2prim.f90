@@ -175,7 +175,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,isionised
  use part,              only:nucleation,igamma
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
@@ -215,7 +215,7 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 !$omp parallel do default (none) &
 !$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,isionised) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
@@ -277,7 +277,8 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
        else
           !isothermal
-          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui)
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui, &
+                               isionised=isionised(i))
        endif
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas

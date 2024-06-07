@@ -204,7 +204,9 @@ module part
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
- integer, parameter :: itbirth = 20
+ integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! overlapped energy between two HII regions (icreate_sinks == 2)
+ integer, parameter :: itbirth = 22
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
  integer, allocatable :: linklist_ptmass(:)
  real,    allocatable :: xyzmh_ptmass(:,:)
@@ -218,7 +220,8 @@ module part
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    ','massenc  ','J2       ','tbirth   '/)
+    'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
+    'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -306,6 +309,10 @@ module part
  integer  :: n_sing = 0
  ! Gradient of the time transformation function
  real, allocatable :: gtgrad(:,:)
+ !
+!-- Regularisation algorithm allocation
+!
+ logical, allocatable :: isionised(:)
 !
 !--derivatives (only needed if derivs is called)
 !
@@ -500,6 +507,7 @@ subroutine allocate_part
  call allocate_array('group_info', group_info, 3, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
+ call allocate_array('isionised', isionised, maxp)
 
 
 end subroutine allocate_part
@@ -584,6 +592,7 @@ subroutine deallocate_part
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
  if (allocated(gtgrad))       deallocate(gtgrad)
+ if (allocated(isionised))    deallocate(isionised)
 
 end subroutine deallocate_part
 

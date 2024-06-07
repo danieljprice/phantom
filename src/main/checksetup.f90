@@ -437,6 +437,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check Regularization imcompatibility
 !
  call check_regnbody (nerror)
+!
+!--check HII region expansion feedback
+!
+ call check_HIIRegion (nerror)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -1044,6 +1048,25 @@ subroutine check_regnbody (nerror)
     nerror = nerror + 1
  endif
 end subroutine check_regnbody
+
+subroutine check_HIIRegion(nerror)
+ use HIIRegion, only:iH2R
+ use eos,       only:ieos
+ use dim,       only:gr,mpi
+ integer, intent(inout) :: nerror
+ if(iH2R > 0 .and. ieos/=21) then
+    print "(/,a,/)", "Error: If HII activated, eos == 21 is mandatory..."
+    nerror = nerror + 1
+ endif
+ if(iH2R > 0 .and. gr) then
+    print "(/,a,/)", "Error: Gr is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+ if(iH2R > 0 .and. mpi) then
+    print "(/,a,/)", "Error: MPI is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+end subroutine check_HIIRegion
 
 
 end module checksetup
