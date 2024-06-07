@@ -2497,18 +2497,17 @@ end subroutine planet_profile
 !+
 !----------------------------------------------------------------
 subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
- integer, intent(in)                          :: npart,num
- real,    intent(in)                          :: time,particlemass
- real,    intent(inout)                       :: xyzh(:,:),vxyzu(:,:)
- integer, dimension(4)                        :: npart_hist
- real,    dimension(5,npart)                  :: dist_part,rad_part
- real,    dimension(:), allocatable           :: hist_var
- real                                         :: etoti,ekini,ereci,egasi,eradi,epoti,ethi,phii,dum,rhopart,ponrhoi,spsoundi,tempi
- real                                         :: maxloga,minloga
- character(len=18), dimension(4)              :: grid_file
- character(len=40)                            :: data_formatter
- logical, allocatable, save                   :: prev_unbound(:,:),prev_bound(:,:)
- integer                                      :: i,unitnum,nbins
+ integer, intent(in)                :: npart,num
+ real,    intent(in)                :: time,particlemass
+ real,    intent(inout)             :: xyzh(:,:),vxyzu(:,:)
+ integer, dimension(4)              :: npart_hist
+ real,    dimension(5,npart)        :: dist_part,rad_part
+ real,    dimension(:), allocatable :: hist_var
+ real                               :: etoti,ekini,ereci,egasi,eradi,epoti,phii,dum,maxloga,minloga
+ character(len=18), dimension(4)    :: grid_file
+ character(len=40)                  :: data_formatter
+ logical, allocatable, save         :: prev_unbound(:,:),prev_bound(:,:)
+ integer                            :: i,unitnum,nbins
 
  call compute_energies(time)
  npart_hist = 0     ! Stores number of particles fulfilling each of the four bound/unbound criterion
@@ -2534,12 +2533,9 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
 
  do i=1,npart
     if (.not. isdead_or_accreted(xyzh(4,i))) then
-       rhopart = rhoh(xyzh(4,i), particlemass)
-       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
        call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
                               epoti,ekini,egasi,eradi,ereci,dum)
-       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,tempi,ethi)
-       etoti = ekini + epoti + ethi
+       etoti = ekini + epoti + egasi + eradi
 
        ! Ekin + Epot + Eth > 0
        if ((etoti > 0.) .and. (.not. prev_unbound(1,i))) then
@@ -2590,15 +2586,12 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
 
     if (num == 0) then ! Write header line
-       unitnum = 1000
-       open(unit=unitnum,file=trim(adjustl(grid_file(i))),status='replace')
+       open(newunit=unitnum,file=trim(adjustl(grid_file(i))),status='replace')
        write(unitnum, "(a)") '# Newly bound/unbound particles'
        close(unit=unitnum)
     endif
 
-    unitnum=1001+i
-
-    open(unit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
+    open(newunit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
 
     write(unitnum,"()")
     write(unitnum,data_formatter) time,hist_var(:)
