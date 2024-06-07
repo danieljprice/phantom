@@ -115,7 +115,7 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
  enddo
  !$omp end parallel do
  if (iverbose > 1) then
-    write(iprint,"(/a,i8/)") "nb_feedback sources : ",n
+    write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
  endif
  return
 end subroutine update_ionrate
