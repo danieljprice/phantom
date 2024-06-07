@@ -92,6 +92,7 @@ module physcon
  real(kind=8), parameter :: hours = 3.6d3
  real(kind=8), parameter :: days = 8.64d4
  real(kind=8), parameter :: years = 3.1556926d7
+ real(kind=8), parameter :: myr   = 3.1556926d13
 !
 !--Energy conversion
 !

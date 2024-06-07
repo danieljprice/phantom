@@ -19,7 +19,7 @@ module random
 !
  implicit none
  public :: ran2,get_random,rayleigh_deviate
- public :: get_random_pos_on_sphere,gauss_random
+ public :: get_random_pos_on_sphere,gauss_random,divide_unit_seg
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -166,5 +166,41 @@ real function gauss_random(iseed)
  gauss_random = sqrt(2.*log(1./x1))*cos(2.*pi*x2)
 
 end function gauss_random
+
+
+subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
+ integer, intent(in)    :: nlengths,iseed
+ real,    intent(inout) :: lengths(nlengths)
+ real,    intent(in)    :: mindist
+ integer :: i,j
+ logical :: close,lower
+ real :: points(nlengths+1),tmp,dist
+ points(nlengths+1) = 1.
+ points(1)          = 0.
+ tmp  = 0.
+
+ do i=2,nlengths
+    close =  .true.
+    lower =  .true.
+    dist = huge(tmp)
+    do while (close .or. lower)
+       tmp = ran2(iseed)
+       dist = huge(tmp)
+       do j=1,i-1
+          dist = min(abs(points(j)-tmp),dist)
+       enddo
+       dist = min(abs(points(nlengths+1)-tmp),dist)
+       close = dist>mindist
+       lower = tmp < points(i-1)
+    enddo
+    points(i) = tmp
+ enddo
+
+ do i=2,nlengths+1
+    lengths(i-1) = points(i) - points(i-1)
+ enddo
+
+end subroutine divide_unit_seg
+
 
 end module random

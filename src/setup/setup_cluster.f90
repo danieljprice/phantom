@@ -45,7 +45,7 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au
+ use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au,myr
  use velfield,     only:set_velfield_from_cubes
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -77,7 +77,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=16)            :: lattice
  character(len=120)           :: filex,filey,filez,filein,fileset
  logical                      :: inexists,setexists
- logical                      :: BBB03 = .true. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
+ logical                      :: BBB03 = .false. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
 
  !--Ensure this is pure hydro
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
@@ -141,6 +141,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  t_ff          = sqrt(3.*pi/(32.*rhozero))  ! free-fall time (the characteristic timescale)
  epotgrav      = 3./5.*totmass**2/rmax      ! Gravitational potential energy
  lattice       = 'random'
+ tmax_acc      = 30*(myr/utime)
 
  !--Set positions
  call set_sphere(trim(lattice),id,master,0.,rmax,psep,hfact,npart,xyzh,nptot=npart_total, &
