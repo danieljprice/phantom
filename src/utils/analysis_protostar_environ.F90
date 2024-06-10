@@ -294,7 +294,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
                 + (xyzmh_ptmass(2,isink)-xyzmh_ptmass(2,j))**2 &
                 + (xyzmh_ptmass(3,isink)-xyzmh_ptmass(3,j))**2
           if (rtmp2 < rmerge2) then
-             write(filelog,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'.log'
+             write(filelog,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'.log'
              inquire(file=filelog,exist=iexist)
              if ( firstlog .or. .not.iexist ) then
                 firstlog = .false.
@@ -315,13 +315,13 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     write(rval, '(I3.3)') rthreshAU
     write(csink,'(I3.3)') isink
     if (isink==0) then
-       write(fileout1,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_discRM.dat'
-       write(fileout2,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_discRMnx.dat'
-       write(fileout3,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_vol',rval,'RM.dat'
+       write(fileout1,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_discRM.dat'
+       write(fileout2,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_discRMnx.dat'
+       write(fileout3,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_vol',rval,'RM.dat'
     else
-       write(fileout1,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'discRM.dat'
-       write(fileout2,'(5a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'discRMnx.dat'
-       write(fileout3,'(7a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_S',csink,'vol',rval,'RM.dat'
+       write(fileout1,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'discRM.dat'
+       write(fileout2,'(5a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'discRMnx.dat'
+       write(fileout3,'(7a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_S',csink,'vol',rval,'RM.dat'
     endif
     if ( no_file(isink) ) then
        open(iunit,file=fileout1,status='replace')
@@ -473,7 +473,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Print the globally averaged eta-values, for particles with rho > rho_crit
  if (calc_eta) then
-    write(fileout6,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_eta.dat'
+    write(fileout6,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_eta.dat'
     if ( no_file(maxptmass+1) ) then
        open(eunit,file=fileout6,status='replace')
        call write_header_file6(eunit)
@@ -504,9 +504,9 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call get_mu(npart,nptmass,nmu_global,rmu_global,mu_global,mass_mu_global,B_mu_global, &
                 xyzh,xyzmh_ptmass,Bxyz,particlemass)
 
-    write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu.dat'
-    write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_mass.dat'
-    write(fileout9,'(3a)') 'analysisout_',trim(dumpfile(1:INDEX(dumpfile,'_')-1)),'_mu_B.dat'
+    write(fileout7,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu.dat'
+    write(fileout8,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu_mass.dat'
+    write(fileout9,'(3a)') 'analysisout_',trim(dumpfile(1:index(dumpfile,'_')-1)),'_mu_B.dat'
     if ( no_file(maxptmass+1) ) then
        open(eunit,file=fileout7,status='replace')
        call write_header_file7(eunit)

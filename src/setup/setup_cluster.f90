@@ -112,9 +112,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
  endif
 
- !--Set units
- call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
-
  if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
  !--Read values from .setup
@@ -130,6 +127,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call get_input_from_prompts()
     call write_setupfile(fileset)
  endif
+
+ !--Set units
+ call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
 
  !--Define remaining variables using the inputs
  polyk         = kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2

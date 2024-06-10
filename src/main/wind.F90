@@ -207,8 +207,7 @@ subroutine wind_step(state)
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc
- use eos,              only:ieos
+ use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH, pH_tot
@@ -241,9 +240,9 @@ subroutine wind_step(state)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
     state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
- elseif (idust_opacity == 1) then
-    state%kappa = calc_kappa_bowen(state%Tdust)
-    if (ieos == 5) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
+ else
+    if (idust_opacity == 1) state%kappa = calc_kappa_bowen(state%Tdust)
+    if (update_muGamma) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then
@@ -345,13 +344,12 @@ subroutine wind_step(state)
  use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity, calc_mugamma
+      calc_Eddington_factor,idust_opacity, calc_muGamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc
- use eos,              only:ieos
+ use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
  real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH,pH_tot
@@ -365,9 +363,9 @@ subroutine wind_step(state)
     state%mu        = state%JKmuS(idmu)
     state%gamma     = state%JKmuS(idgamma)
     state%kappa     = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
- elseif (idust_opacity == 1) then
-    state%kappa     = calc_kappa_bowen(state%Tdust)
-    if (ieos == 5 ) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
+ else
+    if (idust_opacity == 1) state%kappa     = calc_kappa_bowen(state%Tdust)
+    if (update_muGamma) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then

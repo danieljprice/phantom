@@ -121,11 +121,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Check if a neighbour file is present
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
  else
     ! If there is no neighbour file, generate the list
@@ -146,7 +146,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  allocate(dpoten(npart)) ! Holding array for potential (real*8)
 
 
- dpoten = DBLE(poten)
+ dpoten = dble(poten)
 
 ! Add potential contribution from all sinks first
 
@@ -219,7 +219,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  over_parts: do l = 1,npart
 
-    percent = 100.0*REAL(l)/REAL(npart)
+    percent = 100.0*real(l)/real(npart)
 
     if (percent > percentcount) then
        write(*,'(I3," % complete")') int(percentcount)
@@ -377,7 +377,7 @@ subroutine read_analysis_options(dumpfile)
 
  if (inputexist) then
     print '(a,a,a)', "File ",inputfile, " found: reading analysis options"
-    open(10,file=inputfile, form='formatted')
+    open(10,file=inputfile,form='formatted')
     read(10,*) boundchoice
     read(10,*) sinkchoice
     read(10,*) skipchoice
@@ -413,7 +413,7 @@ subroutine read_analysis_options(dumpfile)
     if (skipsmalldumps) skipchoice  = 'y'
 
     ! Write choices to new inputfile
-    open(10,file=inputfile, status='new', form='formatted')
+    open(10,file=inputfile,status='new',form='formatted')
     write(10,*) boundchoice, "      Test clumps for gravitational boundness?"
     write(10,*) sinkchoice,  "      Include sinks' contribution to potential?"
     write(10,*) skipchoice,  "      Skip small dumps (velocity data missing)?"
@@ -465,7 +465,7 @@ subroutine amend_options_file(dumpfile)
  character(len=*),intent(in) :: dumpfile
 
  ! Open the options file, and wind forward to the line of interest
- open(10,file='clumpfind.options', form='formatted')
+ open(10,file='clumpfind.options',form='formatted')
  read(10,*)
  read(10,*)
  read(10,*)
@@ -979,7 +979,7 @@ subroutine write_clump_data(nclump,deletedclumps,npart,time,dumpfile,tag)
 
  clumpfile = trim(tag)//"_clumpcat_"//trim(dumpfile)
 
- open(10,file=clumpfile, status='unknown')
+ open(10,file=clumpfile,status='unknown')
  write(10,*) nclump-deletedclumps, time
 
  do iclump=1,nclump
@@ -1006,7 +1006,7 @@ subroutine write_clump_data(nclump,deletedclumps,npart,time,dumpfile,tag)
     if (member(i) > 0) member(i) = clump(member(i))%ID
  enddo
 
- open(10,file=clumpfile, form='unformatted')
+ open(10,file=clumpfile,form='unformatted')
  write(10) (member(i), i=1,npart)
  close(10)
 
@@ -1033,7 +1033,7 @@ subroutine read_oldclump_data(noldclump,npart,oldtime,olddumpfile,tag)
 
  clumpfile = trim(tag)//"_clumpcat_"//trim(olddumpfile)
 
- open(10,file=clumpfile, status='unknown')
+ open(10,file=clumpfile,status='unknown')
  read(10,*) noldclump, oldtime
 
  allocate(oldclump(noldclump))
@@ -1054,7 +1054,7 @@ subroutine read_oldclump_data(noldclump,npart,oldtime,olddumpfile,tag)
 
  allocate(oldmember(npart))
 
- open(10,file=clumpfile, form='unformatted')
+ open(10,file=clumpfile,form='unformatted')
  read(10) (oldmember(i), i=1,npart)
  close(10)
 

@@ -45,6 +45,7 @@ subroutine init_cooling_KI02(ierr)
  use units,   only:utime,umass,udist
  integer, intent(out) :: ierr
 
+ ierr = 0
  LambdaKI_coef = GammaKI_cgs*umass*utime**3/(mass_proton_cgs**2 * udist**5)
  GammaKI       = GammaKI_cgs*utime**3/(mass_proton_cgs*udist**2)
  call init_hv4table(ierr)
@@ -229,6 +230,7 @@ subroutine read_options_cooling_KI02(name,valstring,imatch,igotall,ierr)
 
  imatch  = .true.
  igotall = .true. ! nothing to read
+ ierr = 0
 
 end subroutine read_options_cooling_KI02
 

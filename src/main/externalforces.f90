@@ -21,7 +21,7 @@ module externalforces
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
 !   extern_densprofile, extern_geopot, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   infile_utils, io, lumin_nsdisc, part, units
+!   infile_utils, io, part, units
 !
  use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
  use extern_corotate, only:omega_corotate  ! so public from this module
@@ -33,7 +33,7 @@ module externalforces
  public :: accradius1,omega_corotate,accretedmass1,accretedmass2
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
- public :: update_vdependent_extforce_leapfrog
+ public :: update_vdependent_extforce
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
@@ -493,14 +493,14 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
- use extern_corotate,      only:update_coriolis_leapfrog
- use extern_prdrag,        only:update_prdrag_leapfrog
- use extern_lensethirring, only:update_ltforce_leapfrog
- use extern_gnewton,       only:update_gnewton_leapfrog
+subroutine update_vdependent_extforce(iexternalforce, &
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,densi,ui)
+ use extern_corotate,      only:update_coriolis
+ use extern_prdrag,        only:update_prdrag
+ use extern_lensethirring, only:update_ltforce
+ use extern_gnewton,       only:update_gnewton
  integer, intent(in)    :: iexternalforce
- real,    intent(in)    :: dt,xi,yi,zi
+ real,    intent(in)    :: dkdt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
@@ -508,16 +508,16 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
 
  select case(iexternalforce)
  case(iext_corotate,iext_corot_binary)
-    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
+    call update_coriolis(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt)
  case(iext_prdrag)
-    call update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_lensethirring,iext_einsteinprec)
-    call update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_gnewton)
-    call update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  end select
 
-end subroutine update_vdependent_extforce_leapfrog
+end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
 !+
@@ -525,9 +525,8 @@ end subroutine update_vdependent_extforce_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
- use io,                only:iprint,iverbose,warn
- use lumin_nsdisc,      only:set_Lstar,BurstProfile,LumAcc,make_beta_grids
- use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
+ use io,                only:warn
+ use part,              only:xyzh,vxyzu,igas,npart,nptmass,&
                              xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
  use extern_binary,     only:update_binary
@@ -538,12 +537,6 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  select case(iexternalforce)
  case(iext_binary,iext_corot_binary)
     call update_binary(ti)
- case(iext_prdrag)
-    call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
-    call set_Lstar( BurstProfile, ti, dmdt, mass1 )
-    if (iverbose >= 1) then
-       write(iprint,*) 'updating prdrag at t = ',ti,' Mdot = ',dmdt,' LAcc = ',LumAcc
-    endif
  case(iext_gwinspiral)
     call gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
     call get_gw_force()

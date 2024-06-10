@@ -242,7 +242,7 @@ subroutine openw_sf (file,origin,n_lag,lag,n_order,n_rho_power)
  real,                 intent(in) :: lag(n_lag)
  namelist /structurefn/n_lag,n_order,n_rho_power,origin
 !
- open (power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
+ open(power_unit,file=trim(file),status='unknown',form='formatted')                 ! open unit
  write (power_unit,structurefn)                                                ! dimensions info
  write (power_unit,'(1x,8g15.7)') lag                                          ! lag vector
 end subroutine openw_sf

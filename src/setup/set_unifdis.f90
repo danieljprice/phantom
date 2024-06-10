@@ -56,7 +56,6 @@ subroutine set_unifdis(lattice,id,master,xmin,xmax,ymin,ymax, &
                        nptot,npy,npz,npnew_in,rhofunc,massfunc,inputiseed,verbose,centre,dir,geom,mask,err)
  use random,     only:ran2
  use stretchmap, only:set_density_profile
- !use mpidomain,  only:i_belong
  character(len=*), intent(in)    :: lattice
  integer,          intent(in)    :: id,master
  integer,          intent(inout) :: np

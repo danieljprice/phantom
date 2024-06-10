@@ -89,7 +89,7 @@ subroutine power_fourier(npts,x,dat,omega,power)
     sum1 = sum1 + dat(i)*cos(-omega*x(i))
     sum2 = sum2 + dat(i)*sin(-omega*x(i))
  enddo
- power= sqrt(sum1**2 + sum2**2)/REAL(npts)
+ power= sqrt(sum1**2 + sum2**2)/real(npts)
 
  return
 end subroutine power_fourier
