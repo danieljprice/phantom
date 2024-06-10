@@ -502,7 +502,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-    call update_ionrates(nptmass,xyzmh_ptmass)
+    call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)

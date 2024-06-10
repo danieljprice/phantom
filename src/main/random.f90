@@ -169,7 +169,8 @@ end function gauss_random
 
 
 subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
- integer, intent(in)    :: nlengths,iseed
+ integer, intent(in)    :: nlengths
+ integer, intent(inout) :: iseed
  real,    intent(inout) :: lengths(nlengths)
  real,    intent(in)    :: mindist
  integer :: i,j

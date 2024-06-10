@@ -82,13 +82,13 @@ end subroutine initialize_H2R
 !+
 !-----------------------------------------------------------------------
 
-subroutine update_ionrates(nptmass,xyzmh_ptmass)
+subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:utime
  use part,   only:irateion,ihacc
- use ptmass, only: h_acc
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: h_acc
  real    :: logmi,log_Q,mi,hi,Q
  integer :: i
  nHIIsources = 0
@@ -121,13 +121,13 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass)
  return
 end subroutine update_ionrates
 
-subroutine update_ionrate(i,xyzmh_ptmass)
+subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:utime
  use part,   only:irateion,ihacc
- use ptmass, only: h_acc
  integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: h_acc
  real    :: logmi,log_Q,mi,hi,Q
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)

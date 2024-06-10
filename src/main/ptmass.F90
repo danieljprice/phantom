@@ -1672,7 +1672,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
        enddo
        deallocate(masses)
     endif
-    call update_ionrate(k,xyzmh_ptmass)
+    call update_ionrate(k,xyzmh_ptmass,h_acc)
  enddo
 
 end subroutine ptmass_create_stars

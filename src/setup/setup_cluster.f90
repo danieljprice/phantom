@@ -55,7 +55,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas, &
+                        r_merge_uncond
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -201,6 +202,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        rho_crit_cgs   = 1.d-18
        h_soft_sinkgas = 2.*h_acc
        tmax_acc       = 1*(myr/utime)
+       r_merge_uncond = h_acc
     else
        r_crit        = 2.*h_acc
        icreate_sinks = 1
@@ -240,7 +242,7 @@ subroutine get_input_from_prompts()
  call prompt('Enter the radius of the sink particles (in au)',Rsink_au)
  call prompt('Enter the Temperature of the cloud (used for initial sound speed)',Temperature)
  call prompt('Enter the mean molecular mass (used for initial sound speed)',mu)
- if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic)',ieos_in)
+ if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion)',ieos_in)
 
 end subroutine get_input_from_prompts
 !----------------------------------------------------------------
