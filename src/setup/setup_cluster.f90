@@ -121,6 +121,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 21       ! Isothermal equation of state
     mass_fac    = 1.0d4   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
+    iH2R        = 1
  case default
     ! from Bate, Bonnell & Bromm (2003)
     default_cluster = "Bate, Bonnell & Bromm (2003)"
@@ -129,7 +130,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in         = 8       ! Barotropic equation of state
     mass_fac        = 1.0     ! mass code unit: mass_fac * solarm
     dist_fac        = 0.1     ! distance code unit: dist_fac * pc
-    iH2R            = 1
  end select
 
 
