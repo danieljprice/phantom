@@ -213,7 +213,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
  use subgroup,         only:group_identify
- use HIIRegion,        only:iH2R,initialize_H2R,HII_feedback
+ use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
  logical,          intent(in), optional :: noread
@@ -497,12 +497,12 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  else
     rhofinal1 = 0.0
  endif
+ if (iH2R > 0 .and. id==master) then
+    call initialize_H2R
+ endif
  if (nptmass > 0) then
     if (id==master) write(iprint,"(a,i12)") ' nptmass       = ',nptmass
-    if (iH2R > 0 .and. id==master) then
-       call initialize_H2R
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
-    endif
+    call update_ionrates(nptmass,xyzmh_ptmass)
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)

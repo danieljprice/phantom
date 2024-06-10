@@ -55,11 +55,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
+ use HIIRegion,    only:iH2R
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -77,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=16)            :: lattice
  character(len=120)           :: filex,filey,filez,filein,fileset
  logical                      :: inexists,setexists
- logical                      :: BBB03 = .false. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
+ integer                      :: icluster = 3 ! BBBO3 = 1, (S. Jaffa) = 2, Embedded = 3
 
  !--Ensure this is pure hydro
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
@@ -94,7 +95,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
  mu          = 2.46          ! Mean molecular weight (required for polyK only)
- if (BBB03) then
+ select case (icluster)
+ case (1)
     ! from Bate, Bonnell & Bromm (2003)
     default_cluster = "Bate, Bonnell & Bromm (2003)"
     Rcloud_pc   = 0.1875  ! Input radius [pc]
@@ -102,7 +104,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 8       ! Barotropic equation of state
     mass_fac    = 1.0     ! mass code unit: mass_fac * solarm
     dist_fac    = 0.1     ! distance code unit: dist_fac * pc
- else
+ case(2)
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
     default_cluster = "Young Massive Cluster"
     Rcloud_pc   = 5.0     ! Input radius [pc]
@@ -110,7 +112,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 1       ! Isothermal equation of state
     mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
- endif
+ case(3)
+    ! Young Massive Cluster (Yann Bernard, IPAG)
+    default_cluster = "Embedded cluster"
+    Rcloud_pc   = 10.0     ! Input radius [pc]
+    Mcloud_msun = 1.0d4   ! Input mass [Msun]
+    ieos_in     = 21       ! Isothermal equation of state
+    mass_fac    = 1.0d4   ! mass code unit: mass_fac * solarm
+    dist_fac    = 1.0     ! distance code unit: dist_fac * pc
+ case default
+    ! from Bate, Bonnell & Bromm (2003)
+    default_cluster = "Bate, Bonnell & Bromm (2003)"
+    Rcloud_pc       = 0.1875  ! Input radius [pc]
+    Mcloud_msun     = 50.     ! Input mass [Msun]
+    ieos_in         = 8       ! Barotropic equation of state
+    mass_fac        = 1.0     ! mass code unit: mass_fac * solarm
+    dist_fac        = 0.1     ! distance code unit: dist_fac * pc
+    iH2R            = 1
+ end select
+
 
  if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
@@ -141,7 +161,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  t_ff          = sqrt(3.*pi/(32.*rhozero))  ! free-fall time (the characteristic timescale)
  epotgrav      = 3./5.*totmass**2/rmax      ! Gravitational potential energy
  lattice       = 'random'
- tmax_acc      = 30*(myr/utime)
 
  !--Set positions
  call set_sphere(trim(lattice),id,master,0.,rmax,psep,hfact,npart,xyzh,nptot=npart_total, &
@@ -176,9 +195,18 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     tmax          = 2.*t_ff
     dtmax         = 0.002*t_ff
     h_acc         = Rsink_au*au/udist
-    r_crit        = 2.*h_acc
-    icreate_sinks = 1
-    rho_crit_cgs  = 1.d-10
+    if (icluster == 3) then
+       r_crit         = h_acc
+       icreate_sinks  = 2
+       rho_crit_cgs   = 1.d-18
+       h_soft_sinkgas = 2.*h_acc
+       tmax_acc       = 1*(myr/utime)
+    else
+       r_crit        = 2.*h_acc
+       icreate_sinks = 1
+       rho_crit_cgs  = 1.d-10
+    endif
+
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used
  endif
