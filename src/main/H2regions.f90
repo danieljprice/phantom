@@ -11,7 +11,7 @@ module HIIRegion
  !
  !
  ! contains routine for Stromgren radius calculation and Radiative pressure velocity kick
- ! routine originally made by Fujii et al 2021
+ ! routine originally made by Hopkins et al. (2012) Fujii et al. (2021)
  ! adapted in Phantom by Yann BERNARD
  ! reference : Fujii et al. 2021 SIRIUS Project Paper III
  !
@@ -19,7 +19,7 @@ module HIIRegion
 
  implicit none
 
- public :: update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
+ public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
 
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
@@ -27,10 +27,10 @@ module HIIRegion
  real   , public               :: nHIIsources = 0
 
  real,    private, parameter   :: a = -39.3178 !
- real,    private, parameter   :: b =  221.997 !fitted parameters to compute
- real,    private, parameter   :: c = -227.456 !ionisation rate for massive
- real,    private, parameter   :: d =  117.410 !extracted from Fujii et al. (2021).
- real,    private, parameter   :: e = -30.1511 ! (Expressed in log(solar masses))
+ real,    private, parameter   :: b =  221.997 !  fitted parameters to compute
+ real,    private, parameter   :: c = -227.456 !  ionisation rate for massive
+ real,    private, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
+ real,    private, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
  real,    private, parameter   :: f =  3.06810 !
  real,    private, parameter   :: ar_cgs = 2.7d-13
  real,    private, parameter   :: sigd_cgs = 1.d-21
@@ -78,11 +78,11 @@ end subroutine initialize_H2R
 
 !-----------------------------------------------------------------------
 !+
-!  Calculation of the the ionizing photon rate
+!  Calculation of the the ionizing photon rate of all stars (Only for restart)
 !+
 !-----------------------------------------------------------------------
 
-subroutine update_ionrate(nptmass,xyzmh_ptmass)
+subroutine update_ionrates(nptmass,xyzmh_ptmass)
  use io,     only:iprint,iverbose
  use units,  only:utime
  use part,   only:irateion,ihacc
@@ -115,6 +115,37 @@ subroutine update_ionrate(nptmass,xyzmh_ptmass)
     endif
  enddo
  !$omp end parallel do
+ if (iverbose > 1) then
+    write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
+ endif
+ return
+end subroutine update_ionrates
+
+subroutine update_ionrate(i,nptmass,xyzmh_ptmass)
+ use io,     only:iprint,iverbose
+ use units,  only:utime
+ use part,   only:irateion,ihacc
+ use ptmass, only: h_acc
+ integer, intent(in)    :: nptmass,i
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real    :: logmi,log_Q,mi,hi,Q
+ mi = xyzmh_ptmass(4,i)
+ hi = xyzmh_ptmass(ihacc,i)
+ if(mi > Mmin .and. hi < h_acc)then
+    logmi = log10(mi)
+    ! caluclation of the ionizing photon rate  of each sources
+    ! this calculation uses Fujii's formula derived from OSTAR2002 databases
+    log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
+    Q = (10.**log_Q)*utime
+    xyzmh_ptmass(irateion,i) = Q
+    nHIIsources = nHIIsources + 1
+    if (iverbose > 1) then
+       write(iprint,"(/a,es18.10/)")"(HII region) Massive stars detected : Log Q : ",log_Q
+    endif
+ else
+    xyzmh_ptmass(irateion,i) = -1.
+ endif
+
  if (iverbose > 1) then
     write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
  endif
