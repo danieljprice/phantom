@@ -1347,7 +1347,6 @@ subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_
     call amuse_get_position(i, x, y, z)
     call amuse_get_velocity(i, vx, vy, vz)
     call amuse_get_sink_radius(i, radius)
-    write(*,*) 'getting sink ', i, ': radius is ', radius
     call amuse_get_sink_accretion_radius(i, accretion_radius)
 end subroutine amuse_get_state_sink
 
@@ -1464,10 +1463,8 @@ subroutine amuse_get_radius(i, radius)
     integer :: j
     double precision, intent(out) :: radius
     if (i == abs(i)) then
-        write(*,*) "not a sink"
         call amuse_get_smoothing_length(i, radius)
     else
-        write(*,*) "a sink"
         j = -i
         call amuse_get_sink_radius(i, radius)
     endif
