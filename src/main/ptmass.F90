@@ -1614,7 +1614,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
  use units,     only:umass
  use part,      only:itbirth,ihacc
  use random ,   only:ran2,gauss_random,divide_unit_seg
- use HIIRegion, only:update_ionrate
+ use HIIRegion, only:update_ionrate,iH2R
  integer, intent(in)    :: nptmass
  integer, intent(in)    :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -1671,7 +1671,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
           n = n - 1
        enddo
        deallocate(masses)
-       call update_ionrate(k,xyzmh_ptmass,h_acc)
+       if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
     endif
  enddo
 

@@ -284,7 +284,7 @@ subroutine write_options_H2R(iunit)
  integer, intent(in) :: iunit
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
  if(iH2R>0) then
-    call write_inopt(IH2R, 'IH2R', "unable the HII region expansion feedback in star forming reigon", iunit)
+    call write_inopt(IH2R, 'IH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
  endif
