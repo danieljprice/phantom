@@ -1608,12 +1608,13 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
 end subroutine ptmass_create_seeds
 
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
- use physcon, only:solarm,pi
- use eos,     only:polyk
- use io,      only:iprint
- use units,   only:umass
- use part, only:itbirth,ihacc
- use random , only:ran2,gauss_random,divide_unit_seg
+ use physcon,   only:solarm,pi
+ use eos,       only:polyk
+ use io,        only:iprint
+ use units,     only:umass
+ use part,      only:itbirth,ihacc
+ use random ,   only:ran2,gauss_random,divide_unit_seg
+ use HIIRegion, only:update_ionrate
  integer, intent(in)    :: nptmass
  integer, intent(in)    :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -1671,8 +1672,8 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
        enddo
        deallocate(masses)
     endif
+    call update_ionrate(k,xyzmh_ptmass)
  enddo
-
 
 end subroutine ptmass_create_stars
 

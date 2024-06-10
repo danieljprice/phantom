@@ -121,12 +121,12 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass)
  return
 end subroutine update_ionrates
 
-subroutine update_ionrate(i,nptmass,xyzmh_ptmass)
+subroutine update_ionrate(i,xyzmh_ptmass)
  use io,     only:iprint,iverbose
  use units,  only:utime
  use part,   only:irateion,ihacc
  use ptmass, only: h_acc
- integer, intent(in)    :: nptmass,i
+ integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real    :: logmi,log_Q,mi,hi,Q
  mi = xyzmh_ptmass(4,i)
