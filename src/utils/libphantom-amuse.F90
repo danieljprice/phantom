@@ -1788,6 +1788,7 @@ subroutine amuse_evolve_model(tmax_in)
     
     tlast = time
     write(*,*) "TIMESTEPPING: evolve from ", time, " to ", tmax
+    ! Allowing for a shortage of 1% of dtmax to account for floating point differences
     timestepping: do while (time+0.01 * dtmax < tmax)
 
 #ifdef IND_TIMESTEPS
