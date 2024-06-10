@@ -284,7 +284,7 @@ subroutine write_options_H2R(iunit)
  integer, intent(in) :: iunit
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
  if(iH2R>0) then
-    call write_inopt(IH2R, 'IH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
+    call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
  endif
@@ -299,7 +299,7 @@ subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
  character(len=30), parameter  :: label = 'read_options_H2R'
  imatch = .true.
  select case(trim(name))
- case('H2R')
+ case('iH2R')
     read(valstring,*,iostat=ierr) iH2R
     if (iH2R < 0) call fatal(label,'HII region option out of range')
     ngot = ngot + 1
