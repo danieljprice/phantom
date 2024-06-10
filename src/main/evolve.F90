@@ -288,7 +288,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
 
-    if (iH2R > 0 .and. id==master) call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    if (iH2R > 0 .and. id==master) then
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+    endif
 
     nsteps = nsteps + 1
 !
