@@ -40,8 +40,8 @@ module HIIRegion
  real,    private              :: mH
  real,    private              :: T_ion
  real,    private              :: u_to_t
- real,    private              :: Rst2_max
  real,    private              :: Rst_max
+ real,    private              :: Minmass
 
  private
 
@@ -67,9 +67,8 @@ subroutine initialize_H2R
  ar = ar_cgs*(utime/udist**3)
  sigd = sigd_cgs*udist**2
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
- Rst2_max = ((Rmax*pc)/udist)**2
- Rst_max = sqrt(Rst_max)
- Mmin = (Mmin*solarm)/umass
+ Rst_max = sqrt(((Rmax*pc)/udist)**2)
+ Minmass = (Mmin*solarm)/umass
  if (iverbose > 1) then
     write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t : ", mH, u_to_t
  endif
@@ -93,13 +92,13 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  integer :: i
  nHIIsources = 0
  !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Mmin,h_acc)&
+ !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Minmass,h_acc)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
  !$omp reduction(+:nHIIsources)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
     hi = xyzmh_ptmass(ihacc,i)
-    if(mi > Mmin .and. hi < h_acc)then
+    if(mi > Minmass .and. hi < h_acc)then
        logmi = log10(mi)
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
@@ -131,7 +130,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  real    :: logmi,log_Q,mi,hi,Q
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)
- if(mi > Mmin .and. hi < h_acc)then
+ if(mi > Minmass .and. hi < h_acc)then
     logmi = log10(mi)
     ! caluclation of the ionizing photon rate  of each sources
     ! this calculation uses Fujii's formula derived from OSTAR2002 databases
@@ -287,7 +286,7 @@ subroutine write_options_H2R(iunit)
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
  if(iH2R>0) then
     call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
-    call write_inopt((Mmin*umass)/solarm, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
+    call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
  endif
 end subroutine write_options_H2R
