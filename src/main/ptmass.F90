@@ -479,7 +479,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
           endif
        endif
-       if (hacci>h_acc .or. haccj>h_acc) then
+       if (hacci==h_acc .and. haccj==h_acc) then
           if (rr2 < r_merge2) then
              if (merge_ij(i)==0) then
                 merge_n = merge_n + 1
@@ -1777,6 +1777,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
                                     - mij*(xyzmh_ptmass(1,k)*vxyz_ptmass(2,k) - xyzmh_ptmass(2,k)*vxyz_ptmass(1,k))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
+             xyzmh_ptmass(ihacc,j)  = -1.
              if (icreate_sinks == 2) then
                 ! Connect linked list of the merged sink to the survivor
                 call ptmass_end_lklist(k,l,linklist_ptmass)

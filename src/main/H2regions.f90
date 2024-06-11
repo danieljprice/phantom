@@ -275,17 +275,19 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
     enddo
  endif
  call get_timings(t2,tcpu2)
- print*, "HII feedback CPU time : ",t2-t1
+ !print*, "HII feedback CPU time : ",t2-t1
  return
 end subroutine HII_feedback
 
 subroutine write_options_H2R(iunit)
  use infile_utils, only:write_inopt
+ use physcon,      only:solarm
+ use units,        only:umass
  integer, intent(in) :: iunit
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
  if(iH2R>0) then
     call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
-    call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
+    call write_inopt((Mmin*umass)/solarm, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
  endif
 end subroutine write_options_H2R
