@@ -1816,10 +1816,11 @@ subroutine ptmass_end_lklist(i,k,linklist_ptmass)
  integer, intent(in)  :: linklist_ptmass(:)
  integer, intent(in)  :: i
  integer, intent(out) :: k
- integer :: l
- l=i
- do while (l>0)
-    l = linklist_ptmass(l)
+ integer :: l,g
+ g=i
+ do while (g>0)
+    l = g
+    g = linklist_ptmass(l)
  enddo
  k=l
 end subroutine ptmass_end_lklist
