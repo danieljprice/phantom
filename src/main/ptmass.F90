@@ -2163,7 +2163,7 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case('f_crit_override')
     read(valstring,*,iostat=ierr) f_crit_override
     if (f_crit_override < 0.) f_crit_override = 0.  ! reset to zero since a negative value does not make sense
-    if (f_crit_override > 0. .and. f_crit_override < 100. ) call fatal(label,'Give star formation a chance! Reset to > 100')
+    if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
     l_crit_override = .true.
  case('h_soft')  ! to ensure backwards compatibility
     read(valstring,*,iostat=ierr) h_soft
