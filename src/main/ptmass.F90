@@ -310,7 +310,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid
+ use part,           only:igarg,igid,ihacc
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -396,7 +396,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        zi     = xyzmh_ptmass(3,i)
     endif
     pmassi = xyzmh_ptmass(4,i)
-    hacci  = xyzmh_ptmass(5,i)
+    hacci  = xyzmh_ptmass(ihacc,i)
     if (pmassi < 0.) cycle
     J2i    = xyzmh_ptmass(iJ2,i)
 
@@ -426,7 +426,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           dz     = zi - xyzmh_ptmass(3,j)
        endif
        pmassj = xyzmh_ptmass(4,j)
-       haccj  = xyzmh_ptmass(5,j)
+       haccj  = xyzmh_ptmass(ihacc,j)
        if (pmassj < 0.) cycle
        J2j = xyzmh_ptmass(iJ2,j)
 
@@ -479,8 +479,22 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              call get_geopot_force(dx,dy,dz,ddr,f1,rsinki,J2i,shati,fxi,fyi,fzi,phii,dsx,dsy,dsz)
           endif
        endif
-       if (hacci==h_acc .and. haccj==h_acc) then
-          if (rr2 < r_merge2) then
+       if (rr2 < r_merge2) then
+          if (icreate_sinks == 2) then
+             if (hacci==h_acc .and. haccj==h_acc) then
+                if (merge_ij(i)==0) then
+                   merge_n = merge_n + 1
+                   merge_ij(i) = j
+                else
+                   ! if we have already identified a nearby sink, replace the tag with the nearest sink
+                   dx   = xi - xyzmh_ptmass(1,merge_ij(i))
+                   dy   = yi - xyzmh_ptmass(2,merge_ij(i))
+                   dz   = zi - xyzmh_ptmass(3,merge_ij(i))
+                   rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
+                   if (rr2 < rr2j) merge_ij(i) = j
+                endif
+             endif
+          else
              if (merge_ij(i)==0) then
                 merge_n = merge_n + 1
                 merge_ij(i) = j
