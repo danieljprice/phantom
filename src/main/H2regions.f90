@@ -69,8 +69,10 @@ subroutine initialize_H2R
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
- if (iverbose > 1) then
-    write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t : ", mH, u_to_t
+ if (iverbose > 0) then
+    write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
+    write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
+    write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
  endif
  return
 end subroutine initialize_H2R
@@ -281,7 +283,6 @@ end subroutine HII_feedback
 subroutine write_options_H2R(iunit)
  use infile_utils, only:write_inopt
  use physcon,      only:solarm
- use units,        only:umass
  integer, intent(in) :: iunit
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
  if(iH2R>0) then
