@@ -107,7 +107,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        Q = (10.**log_Q)*utime
        xyzmh_ptmass(irateion,i) = Q
        nHIIsources = nHIIsources + 1
-       if (iverbose > 1) then
+       if (iverbose > 0) then
           write(iprint,"(/a,es18.10/)")"Massive stars detected : Log Q : ",log_Q
        endif
     else
@@ -139,7 +139,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
     Q = (10.**log_Q)*utime
     xyzmh_ptmass(irateion,i) = Q
     nHIIsources = nHIIsources + 1
-    if (iverbose > 1) then
+    if (iverbose > 0) then
        write(iprint,"(/a,es18.10/)")"(HII region) Massive stars detected : Log Q : ",log_Q
     endif
  else
@@ -232,6 +232,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 else
                    ! unresolved case
                    r = 0.
+                   k = 0
                 endif
                 exit
              endif
@@ -242,7 +243,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        !
        !-- Momentum feedback
        !
-       if(momflag) then
+       if(momflag .and. npartin > 3) then
           j = listneigh(1)
           r_in = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
           mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
