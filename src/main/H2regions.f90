@@ -232,7 +232,6 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 else
                    ! unresolved case
                    r = 0.
-                   k = 0
                 endif
                 exit
              endif
