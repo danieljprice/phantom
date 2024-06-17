@@ -1621,9 +1621,9 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
  nptmass = n
 end subroutine ptmass_create_seeds
 
-subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
+subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
+ use dim,       only:maxptmass
  use physcon,   only:solarm,pi
- use eos,       only:polyk
  use io,        only:iprint
  use units,     only:umass
  use part,      only:itbirth,ihacc
@@ -1632,12 +1632,13 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
  integer, intent(in)    :: nptmass
  integer, intent(in)    :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,    intent(in)    :: time
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
  integer           :: i,k,n
  real              :: tbirthi,mi,hacci,minmass,minmonmi
- real              :: xk,yk,zk,d,cs
+ real              :: a(8),velk,rk,xk(3),vk(3),rvir
 
  do i=1,nptmass
     mi      = xyzmh_ptmass(4,i)
@@ -1664,28 +1665,56 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,
 
        k=i
        do while(k>0)
-          !! do some clever stuff
-          d = huge(mi)
-          do while (d>1.)
-             xk = ran2(iseed_sf)
-             yk = ran2(iseed_sf)
-             zk = ran2(iseed_sf)
-             d  = xk**2+yk**2+zk**2
+          !! Position and velocity sampling methods
+          a(:) = 0.
+          rvir = 0.7*h_acc
+
+          !
+          !-- Positions
+          !
+          do while (a(1) < 1.e-10 .and. a(1)>0.55) ! avoid stars to be concentrated too much in the center
+             a(1) = ran2(iseed_sf)
           enddo
-          cs = sqrt(polyk)
-          xyzmh_ptmass(ihacc,k) = hacci*1.e-3
-          xyzmh_ptmass(4,k)     = masses(n)
-          xyzmh_ptmass(1,k)     = xi(1) + xk*hacci
-          xyzmh_ptmass(2,k)     = xi(2) + yk*hacci
-          xyzmh_ptmass(3,k)     = xi(3) + zk*hacci
-          vxyz_ptmass(1,k)      = vi(1) + cs*gauss_random(iseed_sf)
-          vxyz_ptmass(2,k)      = vi(2) + cs*gauss_random(iseed_sf)
-          vxyz_ptmass(3,k)      = vi(3) + cs*gauss_random(iseed_sf)
-          k = linklist_ptmass(k)
+          rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
+          a(2)  = ran2(iseed_sf)
+          a(3)  = ran2(iseed_sf)
+          xk(3) = (1.0-2.0*a(2))*rk
+          xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
+          xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
+          !
+          !-- Velocities
+          !
+          do while(0.1*a(5)> a(6))
+             a(4) = ran2(iseed_sf)
+             a(5) = ran2(iseed_sf)
+             a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
+          enddo
+
+          velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)*sqrt(2.0*mi/rvir)
+          a(7)  = ran2(iseed_sf)
+          a(8)  = ran2(iseed_sf)
+          vk(3) = (1.0-2.0*a(7))*velk
+          vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
+          vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
+
+          !
+          !-- Star creation
+          !
+          xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+          xyzmh_ptmass(4,k)           = masses(n)
+          xyzmh_ptmass(3,k)           = xi(3) + xk(3)
+          xyzmh_ptmass(2,k)           = xi(2) + xk(2)
+          xyzmh_ptmass(1,k)           = xi(1) + xk(1)
+          vxyz_ptmass(1,k)            = vi(1) + vk(1)
+          vxyz_ptmass(2,k)            = vi(2) + vk(2)
+          vxyz_ptmass(3,k)            = vi(3) + vk(3)
+          fxyz_ptmass(1:4,k)          = 0.
+          fxyz_ptmass_sinksink(1:4,k) = 0.
+          k = linklist_ptmass(k) ! acces to the next point mass in the linked list
           n = n - 1
+          if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
        enddo
        deallocate(masses)
-       if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
     endif
  enddo
 
@@ -2092,6 +2121,7 @@ end subroutine ptmass_calc_enclosed_mass
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
+ use subgroup,     only:r_neigh
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
@@ -2112,6 +2142,10 @@ subroutine write_options_ptmass(iunit)
        endif
        call write_inopt(h_soft_sinkgas,'h_soft_sinkgas','softening length for new sink particles', iunit)
     endif
+ endif
+ if(use_regnbody) then
+    call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
+    call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
