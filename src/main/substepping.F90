@@ -37,6 +37,7 @@ module substepping
  public :: substep_sph
  public :: substep_sph_gr
  public :: substep
+ public :: get_force
 
  private
 

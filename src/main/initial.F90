@@ -212,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
- use subgroup,         only:group_identify
+ use subgroup,         only:group_identify,init_subgroup
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -505,6 +505,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     if (iH2R > 0) call update_ionrates(nptmass,xyzmh_ptmass,h_acc)
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
+       call init_subgroup
        call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)

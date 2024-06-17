@@ -22,35 +22,56 @@ module subgroup
  public :: group_identify
  public :: evolve_groups
  public :: get_pot_subsys
- ! parameters for group identification
- real, parameter :: eta_pert = 20
+ public :: init_subgroup
+ !
+ !-- parameters for group identification
+ !
  real, parameter :: time_error = 2.5e-14
- real, parameter :: max_step = 100000000
- real, parameter, public :: r_neigh  = 0.001
- real,            public :: t_crit   = 1.e-9
- real,            public :: C_bin    = 0.02
- real,            public :: r_search = 100.*r_neigh
+ real, parameter :: max_step = 1000000
+ real, parameter :: C_bin    = 0.02
+ real, public    :: r_neigh  = 0.001 ! default value assume udist = 1 pc
+ real            :: r_search
  private
 contains
+!-----------------------------------------------
+!
+! Initialisation routine
+!
+!-----------------------------------------------
+subroutine init_subgroup
+ use units, only:udist
+
+ r_neigh  = r_neigh/udist
+ r_search = 100.*r_neigh
+
+end subroutine init_subgroup
 
 !-----------------------------------------------
 !
 ! Group identification routines
 !
 !-----------------------------------------------
-subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix,dtext)
  use io ,only:id,master,iverbose,iprint
- integer, intent(in)            :: nptmass
- real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout)         :: group_info(3,nptmass)
+ integer,         intent(in)    :: nptmass
+ real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,         intent(inout) :: group_info(3,nptmass)
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
- integer, intent(inout)         :: n_group,n_ingroup,n_sing
+ real, optional,  intent(in)    :: dtext
+ logical :: large_search
+
+ large_search = present(dtext)
 
  n_group = 0
  n_ingroup = 0
  n_sing = 0
  if (nptmass > 0) then
-    call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+    if(large_search) then
+       call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
+    else
+       call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+    endif
     call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  endif
 
@@ -125,22 +146,28 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
 end subroutine dfs
 
 
-subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  use utils_kepler, only: Espec,extract_a,extract_e,extract_ea
- integer, intent(in) :: nptmass
+ integer,         intent(in) :: nptmass
+ real,            intent(in) :: xyzmh_ptmass(:,:)
+ real,            intent(in) :: vxyz_ptmass(:,:)
  integer(kind=1), intent(out):: nmatrix(nptmass,nptmass)
- real,    intent(in) :: xyzmh_ptmass(:,:)
- real,    intent(in) :: vxyz_ptmass(:,:)
+ real, optional,  intent(in) :: dtext
  real :: xi,yi,zi,vxi,vyi,vzi,mi
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
- real :: aij,eij,B,rperi
+ real :: aij,eij,B,rperi,dtexti
  integer :: i,j
+ if (present(dtext)) then
+    dtexti = dtext
+ else
+    dtexti = 0.
+ endif
 !
 !!TODO MPI Proof version of the matrix construction
 !
 
  !$omp parallel do default(none) &
- !$omp shared(nptmass,C_bin,t_crit,nmatrix) &
+ !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
  !$omp private(dx,dy,dz,r,r2) &
@@ -182,7 +209,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
        else
           call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
           rperi = aij*(1-eij)
-          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<t_crit) then
+          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<dtexti) then
              nmatrix(i,j) = 1
           endif
        endif

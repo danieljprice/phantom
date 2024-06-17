@@ -56,12 +56,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
  use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas, &
-                        r_merge_uncond
+                        r_merge_uncond,use_regnbody
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
  use HIIRegion,    only:iH2R
+ use subgroup,     only:r_neigh
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -116,12 +117,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  case(3)
     ! Young Massive Cluster (Yann Bernard, IPAG)
     default_cluster = "Embedded cluster"
-    Rcloud_pc   = 10.0     ! Input radius [pc]
+    Rcloud_pc   = 10.0    ! Input radius [pc]
     Mcloud_msun = 1.0d4   ! Input mass [Msun]
-    ieos_in     = 21       ! Isothermal equation of state
+    ieos_in     = 21      ! Isothermal equation of state
     mass_fac    = 1.0d4   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
-    iH2R        = 1
+    iH2R        = 1       ! switch HII regions
+    Rsink_au    = 4000.   ! Sink radius [au]
+    mu          = 2.35    ! mean molecular weight
+
  case default
     ! from Bate, Bonnell & Bromm (2003)
     default_cluster = "Bate, Bonnell & Bromm (2003)"
@@ -203,6 +207,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        h_soft_sinkgas = 2.*h_acc
        tmax_acc       = 1*(myr/utime)
        r_merge_uncond = h_acc
+       use_regnbody   = .true.
+       r_neigh       = 5e-2*h_acc
     else
        r_crit        = 2.*h_acc
        icreate_sinks = 1

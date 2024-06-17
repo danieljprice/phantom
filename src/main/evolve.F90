@@ -90,14 +90,17 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
-                            linklist_ptmass,isionised
+                            linklist_ptmass,isionised,dsdt_ptmass
+ use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
-                            set_integration_precision,ptmass_create_stars
+                            set_integration_precision,ptmass_create_stars,use_regnbody
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
- use HIIRegion,       only:HII_feedback,iH2R
+ use HIIRegion,        only:HII_feedback,iH2R
+ use subgroup,         only:group_identify
+ use substepping,      only:get_force
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -139,6 +142,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
+ integer         :: dummy
+
+ dummy = 0
 
  tprint    = 0.
  nsteps    = 0
@@ -279,7 +285,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
-       if (icreate_sinks == 2) call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,time)
+       if (icreate_sinks == 2) then
+          call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
+          if (use_regnbody) then
+             call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+             call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                            fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
+          endif
+       endif
     endif
     !
     ! Strang splitting: implicit update for half step
