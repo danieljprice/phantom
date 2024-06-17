@@ -291,7 +291,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
              call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
              call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
                             fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
+          else
+             call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                           fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
           endif
+
        endif
     endif
     !
