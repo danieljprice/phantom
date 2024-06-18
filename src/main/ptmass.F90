@@ -1637,7 +1637,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
  integer           :: i,k,n
- real              :: tbirthi,mi,hacci,minmass,minmonmi
+ real              :: tbirthi,mi,hacci,minmass
  real              :: a(8),velk,rk,xk(3),vk(3),rvir
 
  do i=1,nptmass
@@ -1658,11 +1658,10 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
        !! masses sampling method
        call ptmass_size_lklist(i,n,linklist_ptmass)
        allocate(masses(n))
-       minmass  = (0.08*solarm)/umass
-       minmonmi = minmass/mi
-       call divide_unit_seg(masses,minmonmi,n,iseed_sf)
+       minmass  = 0.08/(mi*(umass/solarm))
+       call divide_unit_seg(masses,minmass,n,iseed_sf)
        masses = masses*mi
-       write(iprint,"(a,es18.10)") "Mass sharing  : ", masses*umass/solarm
+       write(iprint,*) "Mass sharing  : ", masses*umass/solarm
 
 
        k=i
@@ -1670,7 +1669,6 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           !! Position and velocity sampling methods
           a(:) = 0.
           rvir = 0.7*h_acc
-
           !
           !-- Positions
           !
@@ -1698,7 +1696,6 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           vk(3) = (1.0-2.0*a(7))*velk
           vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
           vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
-
           !
           !-- Star creation
           !
