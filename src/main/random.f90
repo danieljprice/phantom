@@ -195,7 +195,7 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
           dist = min(abs(points(j)-tmp),dist)
        enddo
        dist = min(abs(points(nlengths+1)-tmp),dist)
-       close = dist>mindist
+       close = dist<mindist
     enddo
     points(i) = tmp
  enddo
