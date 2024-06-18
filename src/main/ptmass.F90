@@ -2161,6 +2161,7 @@ end subroutine write_options_ptmass
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
+ use subgroup,   only:r_neigh
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2231,6 +2232,10 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case('iseed_sf')
     read(valstring,*,iostat=ierr) iseed_sf
     ngot = ngot + 1
+ case('use_regnbody')
+    read(valstring,*,iostat=ierr) use_regnbody
+ case('r_neigh')
+    read(valstring,*,iostat=ierr) r_neigh
  case default
     imatch = .false.
  end select
