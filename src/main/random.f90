@@ -169,37 +169,44 @@ end function gauss_random
 
 
 subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
+ use sortutils, only:indexx
  integer, intent(in)    :: nlengths
  integer, intent(inout) :: iseed
  real,    intent(inout) :: lengths(nlengths)
  real,    intent(in)    :: mindist
- integer :: i,j
- logical :: close,lower
- real :: points(nlengths+1),tmp,dist
+ real,    allocatable :: points(:)
+ integer, allocatable :: idx(:)
+ integer              :: i,j
+ logical              :: close
+ real                 :: tmp,dist
+
+ allocate(points(nlengths+1))
+ allocate(idx(nlengths+1))
  points(nlengths+1) = 1.
  points(1)          = 0.
  tmp  = 0.
 
  do i=2,nlengths
     close =  .true.
-    lower =  .true.
-    dist = huge(tmp)
-    do while (close .or. lower)
+    do while (close)
        tmp = ran2(iseed)
-       dist = huge(tmp)
-       do j=1,i-1
+       dist = tmp
+       do j=2,i-1
           dist = min(abs(points(j)-tmp),dist)
        enddo
        dist = min(abs(points(nlengths+1)-tmp),dist)
        close = dist>mindist
-       lower = tmp < points(i-1)
     enddo
     points(i) = tmp
  enddo
 
+ call indexx(nlengths+1,points,idx)
+
  do i=2,nlengths+1
-    lengths(i-1) = points(i) - points(i-1)
+    lengths(i-1) = points(idx(i)) - points(idx(i-1))
  enddo
+ deallocate(points)
+ deallocate(idx)
 
 end subroutine divide_unit_seg
 

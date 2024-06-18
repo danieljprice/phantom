@@ -1662,6 +1662,8 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
        minmonmi = minmass/mi
        call divide_unit_seg(masses,minmonmi,n,iseed_sf)
        masses = masses*mi
+       write(iprint,"(a,es18.10)") "Mass sharing  : ", masses*umass/solarm
+
 
        k=i
        do while(k>0)
