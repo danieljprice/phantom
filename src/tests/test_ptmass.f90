@@ -906,7 +906,7 @@ subroutine test_createsink(ntests,npass)
        coremass = 0.
        starsmass = 0.
        coremass = xyzmh_ptmass(4,1)
-       call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,linklist_ptmass,0.)
+       call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,0.)
        do i=1,nptmass
           starsmass = starsmass + xyzmh_ptmass(4,i)
        enddo
@@ -1143,6 +1143,7 @@ end subroutine test_merger
 subroutine test_HIIregion(ntests,npass)
  use dim,            only:maxp,maxphase
  use io,             only:id,master,iverbose,iprint
+ use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma
  use deriv,          only:get_derivs_global
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fext, &
@@ -1169,6 +1170,7 @@ subroutine test_HIIregion(ntests,npass)
  if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars...'
 
  call set_units(dist=1.*pc,mass=1.*solarm,G=1.d0)
+ call init_eos_HIIR()
  iverbose = 1
  !
  ! initialise arrays to zero
@@ -1206,7 +1208,7 @@ subroutine test_HIIregion(ntests,npass)
  npart    = 0
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
-    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
  endif
  np       = npart
 
@@ -1232,8 +1234,8 @@ subroutine test_HIIregion(ntests,npass)
     !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
  endif
 
- Rspi = 0.310 !xyzmh_ptmass(irstrom,1)
- ci   = 12850000./unit_velocity
+ Rspi = 0.310278984 !xyzmh_ptmass(irstrom,1)
+ ci   = sqrt(polykion)
  k = 0.005
  Rsp = Rspi
 
@@ -1245,7 +1247,7 @@ subroutine test_HIIregion(ntests,npass)
 
  tmax = (3.e6*years)/utime
  t    = 0.
- dt   = 0.000001
+ dt   = 0.00001
  dtmax = dt*100
  dtext = dt
  dtnew = dt

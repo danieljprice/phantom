@@ -116,6 +116,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_HIIR,       only:get_eos_HIIR
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -131,7 +132,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
  real    :: enthi,pondensi
- logical :: ionisedi
+ logical :: isionisedi
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
@@ -149,7 +150,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
- if (present(isionised)) ionisedi = isionised
+ if (present(isionised)) isionisedi = isionised
 
  select case(eos_type)
  case(1)
@@ -427,22 +428,8 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
  case(21)
-    !
-    !--dual medium isothermal eos
-    !
-    !  :math:`P = c_s^2 \rho`
-    !
-    !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
-    !
-    if(isionised) then
-       ponrhoi  = (12850000./unit_velocity)**2
-       spsoundi = sqrt(ponrhoi)
-       tempi    = temperature_coef*0.5*ponrhoi
-    else
-       ponrhoi  = polyk
-       spsoundi = sqrt(ponrhoi)
-       tempi    = temperature_coef*mui*ponrhoi
-    endif
+
+    call get_eos_HIIR(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
 
 
 
@@ -470,6 +457,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
+ use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -546,6 +534,10 @@ subroutine init_eos(eos_type,ierr)
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
+
+ case(21)
+
+    call init_eos_HIIR()
 
  end select
  done_init_eos = .true.
