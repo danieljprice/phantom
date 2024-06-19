@@ -16,7 +16,7 @@ module checksetup
 !
 ! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
 !   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   ptmass_radiation, sortutils, timestep, units, utils_gr
+!   ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -105,7 +105,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5) then
+    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5 .and. ieos /= 17) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -239,7 +239,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9 .and. ieos /= 17)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
@@ -429,6 +429,14 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check centre of mass
 !
  call get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+!
+!--check Forward symplectic integration method imcompatiblity
+!
+ call check_vdep_extf (nwarn,iexternalforce)
+!
+!--check Regularization imcompatibility
+!
+ call check_regnbody (nerror)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -522,11 +530,15 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
                 ilum,iJ2,ispinx,ispinz,iReff
  use ptmass_radiation, only:isink_radiation
+ use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
  real,    intent(in)    :: hmin
  integer :: i,j,n
  real :: dx(3)
  real :: r,hsink,hsoft,J2
+ logical :: isoblate
+
+ isoblate = .false.
 
  if (gr .and. nptmass > 0) then
     print*,' ERROR: nptmass = ',nptmass, ' should be = 0 for GR'
@@ -615,6 +627,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
     ! in order to specify the rotation direction
     !
     if (J2 > 0.) then
+       isoblate = .true.
        if (dot_product(xyzmh_ptmass(ispinx:ispinz,i),xyzmh_ptmass(ispinx:ispinz,i)) < tiny(0.)) then
           nerror = nerror + 1
           print*,'ERROR! non-zero J2 requires non-zero spin on sink particle ',i
@@ -625,6 +638,13 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        endif
     endif
  enddo
+
+ if (isoblate .and. use_fourthorder) then
+    nwarn = nwarn + 1
+    print*, 'WARNING: Substepping integration switched back to leapfrog due to oblateness'
+    use_fourthorder = .false.
+ endif
+
  !
  !  check that radiation properties are sensible
  !
@@ -998,5 +1018,32 @@ subroutine check_setup_radiation(npart,nerror,nwarn,radprop,rad)
  call check_NaN(npart,radprop,'radiation properties',nerror)
 
 end subroutine check_setup_radiation
+
+subroutine check_vdep_extf(nwarn,iexternalforce)
+ use externalforces, only:is_velocity_dependent
+ use ptmass,         only:use_fourthorder
+ use dim,            only:gr
+ integer, intent(inout) :: nwarn
+ integer, intent(in)    :: iexternalforce
+
+ if (iexternalforce > 0 .and. is_velocity_dependent(iexternalforce) .and. use_fourthorder) then
+    if (.not.gr) then ! do not give the warning in GR, just do it...
+       print "(/,1x,a,/)"," Warning: Switching to Leapfrog integrator for velocity-dependent external forces..."
+       nwarn = nwarn + 1
+    endif
+    use_fourthorder = .false.
+ endif
+
+end subroutine check_vdep_extf
+
+subroutine check_regnbody (nerror)
+ use ptmass, only:use_regnbody,use_fourthorder
+ integer, intent(inout) :: nerror
+ if (use_regnbody .and. .not.(use_fourthorder)) then
+    print "(/,a,/)","Error: TTL integration and regularization tools are not available without FSI. Turn off TTL..."
+    nerror = nerror + 1
+ endif
+end subroutine check_regnbody
+
 
 end module checksetup

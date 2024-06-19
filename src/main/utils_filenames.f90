@@ -216,7 +216,7 @@ function get_nlines(string,skip_comments,n_columns,n_headerlines) result(n)
  integer, optional, intent(out) :: n_columns
  integer, optional, intent(out) :: n_headerlines
 
- open(newunit=iunit, file=string,status='old',iostat=ierr)
+ open(newunit=iunit,file=string,status='old',iostat=ierr)
  do_skip = .false.
  if (present(skip_comments)) do_skip = skip_comments
 

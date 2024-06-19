@@ -17,7 +17,7 @@ module moddump
 ! :Dependencies: dim, growth, part, prompting, timestep
 !
  implicit none
-  !- initialise variables
+ !- initialise variables
  integer, private :: bins_per_dex = 5
  real, private :: smax_user    = 2.
  logical, private :: force_smax   = .false.

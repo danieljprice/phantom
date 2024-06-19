@@ -10,13 +10,17 @@ module moddump
 !
 ! :References: None
 !
-! :Owner: Arnaud Vericel
+! :Owner: Stephane Michoulier
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, dust, growth, options, part, prompting, set_dust,
-!   table_utils, units
+! :Dependencies: dim, dust, growth, options, part, porosity, prompting,
+!   set_dust, table_utils, units
 !
+
+ use part,         only:delete_particles_outside_sphere,igas,idust
+ use prompting,    only:prompt
+
  implicit none
 
 contains
@@ -27,8 +31,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use part,         only:igas,idust,set_particle_type,ndusttypes,ndustsmall,ndustlarge,&
                         grainsize,graindens,dustfrac
  use set_dust,     only:set_dustfrac,set_dustbinfrac
- use options,      only:use_dustfrac
+ use options,      only:use_dustfrac,use_porosity
  use growth,       only:set_dustprop,convert_to_twofluid
+ use porosity,     only:iporosity
  use prompting,    only:prompt
  use dust,         only:grainsizecgs,graindenscgs
  use table_utils,  only:logspace
@@ -37,8 +42,13 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
+ real, dimension(3) :: incenter,outcenter
  integer :: i,j,itype,ipart,iloc,dust_method,np_ratio,np_gas,np_dust,maxdust
  real    :: dust_to_gas,smincgs,smaxcgs,sindex,dustbinfrac(maxdusttypes),udens
+ integer :: iremoveparttype
+ real    :: inradius,outradius,pwl_sizedistrib,R_ref,H_R_ref,q_index
+ logical :: icutinside,icutoutside,sizedistrib
+
 
  if (.not. use_dust) then
     print*,' DOING NOTHING: COMPILE WITH DUST=yes'
@@ -53,6 +63,19 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  smaxcgs = 1.
  sindex = 3.5
  dustbinfrac = 0.
+ pwl_sizedistrib = -2
+ R_ref = 100
+ H_R_ref = 0.0895
+ q_index = 0.25
+
+ icutinside      = .false.
+ icutoutside     = .false.
+ iremoveparttype = 0
+ incenter(:)     = 0.
+ outcenter(:)    = 0.
+ inradius        = 10.
+ outradius       = 200.
+
  !- grainsize and graindens already set if convert from one fluid to two fluid with growth
  if (.not. (use_dustfrac .and. use_dustgrowth)) then
     grainsize = 1.
@@ -95,7 +118,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
        graindens = graindens(1)/udens
     else
        if (use_dustgrowth) then
-          call prompt('Enter initial grain size in cm',grainsizecgs,0.)
+          call prompt('Use porosity ? (0=no,1=yes)',iporosity,0,1)
+          if (iporosity == 1) then
+             use_porosity = .true.
+          endif
+          call prompt('Set dust size via size distribution ?',sizedistrib)
+          if (sizedistrib) then
+             call prompt('Enter grain size in cm at Rref',grainsizecgs,0.)
+             call prompt('Enter power-law index ',pwl_sizedistrib)
+             call prompt('Enter R_ref ',R_ref,0.)
+             call prompt('Enter H/R at R_ref',H_R_ref,0.)
+             call prompt('Enter q index',q_index)
+          else
+             call prompt('Enter initial grain size in cm',grainsizecgs,0.)
+          endif
        else
           call prompt('Enter grain size in cm',grainsizecgs,0.)
        endif
@@ -155,9 +191,62 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
        enddo
     endif
-
     if (use_dustgrowth) then
-       call set_dustprop(npart)
+       call set_dustprop(npart,xyzh,sizedistrib,pwl_sizedistrib,R_ref,H_R_ref,q_index)
+    endif
+ endif
+ !Delete particles if necessary
+
+ !
+ !--set the centers and the radius
+ !
+ call prompt('Deleting particles inside a given radius ?',icutinside)
+ call prompt('Deleting particles outside a given radius ?',icutoutside)
+ if (icutinside) then
+    call prompt('Enter inward radius in au',inradius,0.)
+    call prompt('Enter x coordinate of the center of that sphere',incenter(1))
+    call prompt('Enter y coordinate of the center of that sphere',incenter(2))
+    call prompt('Enter z coordinate of the center of that sphere',incenter(3))
+ endif
+ if (icutoutside) then
+    call prompt('Enter outward radius in au',outradius,0.)
+    call prompt('Enter x coordinate of the center of that sphere',outcenter(1))
+    call prompt('Enter y coordinate of the center of that sphere',outcenter(2))
+    call prompt('Enter z coordinate of the center of that sphere',outcenter(3))
+ endif
+
+ if (icutinside .or. icutoutside) then
+    call prompt('Deleting which particles (0=all, 1=gas only, 2=dust only)?', iremoveparttype)
+    ! add other types of particles here if needed
+    select case (iremoveparttype)
+    case (1)
+       iremoveparttype = igas
+    case (2)
+       iremoveparttype = idust
+    case default
+       iremoveparttype = 0
+    end select
+ endif
+
+ if (icutinside) then
+    print*,'Phantommoddump: Remove particles inside a particular radius'
+    print*,'Removing particles inside radius ',inradius
+    if (iremoveparttype > 0) then
+       print*,'Removing particles type ',iremoveparttype
+       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.,mytype=iremoveparttype)
+    else
+       call delete_particles_outside_sphere(incenter,inradius,npart,revert=.true.)
+    endif
+ endif
+
+ if (icutoutside) then
+    print*,'Phantommoddump: Remove particles outside a particular radius'
+    print*,'Removing particles outside radius ',outradius
+    if (iremoveparttype > 0) then
+       print*,'Removing particles type ',iremoveparttype
+       call delete_particles_outside_sphere(outcenter,outradius,npart,mytype=iremoveparttype)
+    else
+       call delete_particles_outside_sphere(outcenter,outradius,npart)
     endif
  endif
 

@@ -70,11 +70,11 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  ! Check if a neighbour file is present
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else
@@ -158,8 +158,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  write(fmtstring, "('(I',I1,')')") ndigits
 
  write(numstring, fmtstring) num
- valuefile = 'eig0'//TRIM(numstring)
- vectorfile = 'evc0'//TRIM(numstring)
+ valuefile = 'eig0'//trim(numstring)
+ vectorfile = 'evc0'//trim(numstring)
 
 
  call write_eigenfiles(valuefile,vectorfile, iwrite)
@@ -516,8 +516,8 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
 
 
 ! Write eigenvalues to file
- print*, 'Writing eigenvalues to file ', TRIM(valuefile)
- open(27,file=TRIM(valuefile), status='unknown',form='unformatted')
+ print*, 'Writing eigenvalues to file ', trim(valuefile)
+ open(27,file=trim(valuefile),status='unknown',form='unformatted')
  write(27) ngas
  write(27) (eigenpart(i),i=1,ngas)
  write(27) (xbin(i), i=1,ngas)
@@ -529,8 +529,8 @@ subroutine write_eigenfiles(valuefile,vectorfile, ngas)
  close(27)
 
 ! Now write the eigenvectors to file
- print*, 'Writing eigenvectors to file ', TRIM(vectorfile)
- open(27,file=TRIM(vectorfile),status='unknown', form='unformatted')
+ print*, 'Writing eigenvectors to file ', trim(vectorfile)
+ open(27,file=trim(vectorfile),status='unknown',form='unformatted')
  write(27) ngas
  write(27) (eigenpart(i),i=1,ngas)
  write(27) (eigenvectors(1,1:3,i),i=1,ngas)

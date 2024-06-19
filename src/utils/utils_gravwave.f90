@@ -272,7 +272,7 @@ subroutine write_rotated_strain_components(time,ddq_xy)
  ! Write a file where I append all the values of the strain wrt time
  if (firstdump) then
     firstdump = .false.
-    open(newunit=iuu, file='quadrupole_plane_xy.txt',status='replace')
+    open(newunit=iuu,file='quadrupole_plane_xy.txt',status='replace')
     write(iuu,"('#',7(1x,'[',i2.2,1x,a11,']',2x))") &
           1, 'time',  &
           2, 'ddm11', &
@@ -282,7 +282,7 @@ subroutine write_rotated_strain_components(time,ddq_xy)
           6, 'ddm23', &
           7, 'ddm33'
  else
-    open(newunit=iuu, file='quadrupole_plane_xy.txt',position='append')
+    open(newunit=iuu,file='quadrupole_plane_xy.txt',position='append')
  endif
  write(iuu,'(7(es18.10,1X))') time, ddq_xy(1,1),ddq_xy(1,2),ddq_xy(1,3),&
                               ddq_xy(2,2),ddq_xy(2,3),ddq_xy(3,3)

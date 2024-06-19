@@ -6,9 +6,10 @@
 !--------------------------------------------------------------------------!
 module metric_interp
 !
-! metric_interp
+! Interpolate a tabulated metric onto the particle positions
 !
-! :References: None
+! :References:
+!  Magnall, Price, Lasky & Macpherson (2023), Phys. Rev D. 108, 103534
 !
 ! :Owner: Spencer Magnall
 !
@@ -16,13 +17,16 @@ module metric_interp
 !
 ! :Dependencies: einsteintk_utils
 !
+ implicit none
 
  interface trilinear_interp
   module procedure interp_g, interp_sqrtg, interp_gderiv
  end interface trilinear_interp
+
 contains
 
 subroutine interp_g()
+
 end subroutine interp_g
 
 subroutine interp_sqrtg()
@@ -53,7 +57,6 @@ pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
  xlower = xlower + 1
  ylower = ylower + 1
  zlower = zlower + 1
-
 
 end subroutine get_grid_neighbours
 

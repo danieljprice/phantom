@@ -345,21 +345,6 @@ end subroutine comp_snow_line
 
 !-----------------------------------------------------------------------
 !+
-!  Get grain mass from dust properties
-!+
-!-----------------------------------------------------------------------
-real function get_grain_mass(dustprop)
- use physcon, only:pi
- real, intent(in) :: dustprop(2)
-
- ! dustprop(1) is the grain size
- ! dustprop(2) is the grain density
- get_grain_mass = 4./3.*pi*(dustprop(1)**3)*dustprop(2)
-
-end function get_grain_mass
-
-!-----------------------------------------------------------------------
-!+
 !  Write growth options in the input file
 !+
 !-----------------------------------------------------------------------
@@ -591,7 +576,7 @@ end subroutine set_dustprop
 subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  use part,           only:npart,npartoftype,massoftype,ndusttypes,&
                           ndustlarge,grainsize,dustprop,dustfrac,graindens,&
-                          iamtype,iphase,set_particle_type,idust,maxdustlarge
+                          iamtype,iphase,set_particle_type,idust,maxdustlarge,filfac
  use units,          only:udist
  use table_utils,    only:logspace
  use io,             only:fatal,error
@@ -603,25 +588,26 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  real                   :: smaxtmp,smintmp,smax,smin,tolm
  real                   :: mdustold,mdustnew,code_to_mum,mdustfrac,mdusttype
  logical                :: init,use_moments
- integer                :: nbins,nbinmax,i,j,itype,idusttype,ndustold,ndustnew,npartmin,imerge,iu
+ integer                :: nbinsize,nbinsizemax,i,j,itype,ndustold,ndustnew,npartmin,imerge,iu
+ integer                :: nbinfilfacmax,ndustsizetypes
  real, allocatable, dimension(:) :: grid
  character(len=20)               :: outfile = "bin_distrib.dat"
 
  !- initialise
  code_to_mum = udist*1.e4
- tolm         = 1.e-5
- smaxtmp      = 0.
- smintmp      = 1.e26
- ndustold     = 0
- ndustnew     = 0
- mdustold     = 0.
- mdustnew     = 0.
- nbinmax      = maxdustlarge
- if (nbinmax <= 1) call error('bin_to_multi','please compile with MAXDUSTLARGE > 1',var='nbinmax',ival=nbinmax)
- npartmin     = 50 !- limit to find neighbours
- init         = .false.
- graindens    = maxval(dustprop(2,:))
- use_moments  = .true.
+ tolm          = 1.e-5
+ smaxtmp       = 0.
+ smintmp       = 1.e26
+ ndustold      = 0
+ ndustnew      = 0
+ mdustold      = 0.
+ mdustnew      = 0.
+ nbinsizemax   = 25
+ nbinfilfacmax = 10
+ npartmin      = 50 !- limit to find neighbours
+ init          = .false.
+ graindens     = maxval(dustprop(2,:))
+ use_moments   = .true.
 
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
@@ -652,10 +638,10 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
     smin = smintmp
 
     !- set ndusttypes based on desired log size spacing
-    nbins      = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
-    ndusttypes = min(nbins, nbinmax) !- prevent memory allocation errors
-    if (ndusttypes==nbinmax) call error('bin_to_multi','need to compile with more bins, try',var='make MAXDUSTLARGE',ival=nbins)
-    ndustlarge = ndusttypes !- this is written to the header
+    nbinsize   = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
+    ndustsizetypes = min(nbins, nbinmax) !- prevent memory allocation errors
+    if (ndusttypes >= nbinmax) call error('bin_to_multi','need to compile with more bins, try',var='make MAXDUSTLARGE',ival=nbins)
+    ndustlarge = ndustsizetypes !- this is written to the header
 
     !- allocate memory for a grid of ndusttypes+1 elements
     allocate(grid(ndusttypes+1))
@@ -719,8 +705,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
        mdust_in(idusttype) = massoftype(itype)*npartoftype(itype)
        ! if we have set the dust fraction by splitting existing dust particles, count it
        mdusttype = sum(dustfrac(idusttype,1:npart))*massoftype(idust)
- 
-       write(*,"(i3,a1,f10.1,a1,f10.1,a1,f10.1,a5,i6,a1,es10.2)") itype-idust+1,"|",grid(idusttype)*code_to_mum,"|", &
+       write(*,"(i3,a1,f10.1,a1,f10.1,a1,f10.1,a5,i6,a1,es10.2)") idusttype,"|",grid(idusttype)*code_to_mum,"|", &
                                                                      grainsize(idusttype)*code_to_mum, &
                                                                      "|",grid(idusttype+1)*code_to_mum,"|==>",npartoftype(itype), &
                                                                      "|",max(mdust_in(idusttype),mdusttype)
@@ -730,7 +715,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
 
        if (verbose) write(iu,*) idusttype,grid(idusttype)*code_to_mum,grainsize(idusttype)*code_to_mum,&
                      grid(idusttype+1)*code_to_mum,npartoftype(itype)
-    
+
        mdustfrac = mdustfrac + mdusttype
     enddo
 
@@ -752,6 +737,8 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  else !- init
     grainsize(ndusttypes) = smaxtmp !- only 1 bin, all particles have same size
  endif
+ ! clean up
+ if (allocated(grid)) deallocate(grid)
 
 end subroutine bin_to_multi
 
@@ -789,7 +776,6 @@ subroutine reconstruct_moments(ndusttypes,grainsize,dustgrid,dustprop,code_to_mu
 ! print*,'sum(dustfrac)=',sum(dustfrac),' should be ',params(1)
  !call reconstruct_gamma_dist(dust_moments,params,err,ierr,verbose=verbose)
 ! read*
-
 
 end subroutine reconstruct_moments
 
@@ -857,7 +843,7 @@ subroutine merge_bins(npart,grid,npartmin)
 !- recompute grainsize and grid borders
  if (backward) then
     massoftype(iculprit) = 0.
-    mdust_in(idusttype)   = 0.
+    mdust_in(idusttype)  = 0.
     graindens(idusttype) = 0.
 
     !- recompute size with weighted sum

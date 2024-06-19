@@ -121,10 +121,12 @@ You first need to compile libmcfost:
    cd mcfost/src
    make all
 
-then simply set MCFOST=yes when compiling PHANTOM.
+then simply set MCFOST=yes when compiling PHANTOM. 
 
-Using Phantom+MCFOST on Ozstar
--------------------------------
+
+Compiling and running Phantom+MCFOST on Ozstar
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 There is a copy of mcfost and libmcfost.a compiled in /fred/oz015/cpinte/mcfost
 
 To compile phantom with mcfost on ozstar using this pre-compiled version, you will need::
@@ -142,8 +144,8 @@ To run the code with MCFOST you will need::
 
 You will also need a disc.para file
 
-Using Phantom+MCFOST on Mac OS with mcfost installed using homebrew
---------------------------------------------------------------------------
+Compiling and running Phantom+MCFOST on Mac OS with mcfost installed using homebrew
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 A simple way to install mcfost from source on Mac OS is to use the homebrew package::
 
   brew tap danieljprice/all
@@ -174,3 +176,71 @@ To run the code with MCFOST you will need to create a directory where MCFOST uti
 
 You will also need a disc.para file
 
+
+Runtime options for phantom+MCFOST
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+First, when using MCFOST, you should NOT let the temperature evolve between MCFOST calls, hence
+the following options should be switched off when MCFOST is activated::
+
+              ipdv_heating =          0    ! heating from PdV work (0=off, 1=on)
+           ishock_heating =           0    ! shock heating (0=off, 1=on)
+
+This is because we assume radiative equilibrium at all times, so the temperature is set by the
+balance between heating and cooling, and this is computed by MCFOST, not phantom. The temperature
+is updated every dtmax.
+
+After compiling phantom+MCFOST as above, you should also find several new options appearing in the .in file::
+
+         use_mcfost =            T    ! use the mcfost library
+
+use this option to switch the call to MCFOST on or off. Beware that the code is compiled with energy
+STORED, so running with use_mcfost = F will revert to an ADIABATIC equation of state, but where u=const
+on particles if ipdv_heating and ishoc_heating are off (this is not the same as the locally isothermal
+equation of state used in normal simulations of discs).
+
+::
+
+    use_mcfost_stars =           F    ! Fix the stellar parameters to mcfost values or update using sink mass
+
+either use the stellar spectra in the MCFOST .para file, or look up spectra based on Siess+2000 isochrones
+based on the mass of each sink particle. You should manually set the stellar parameters in the .para file
+if you are trying to model a known source (e.g. HD 142527).
+
+::
+
+    mcfost_computes_Lacc =           F    ! Should mcfost compute the accretion luminosity
+
+Accretion luminosity adds an additional radiation source based assuming mass accreted by each sink particle
+is converted into radiation on the stellar surface. This is emitted as a blackbody with temperature set by dividing
+the accretion luminosity by 4*pi*R^2, where R is the stellar radius (set in the .para file).
+
+::
+
+     mcfost_uses_PdV =           T    ! Should mcfost use the PdV work and shock heating?
+
+The only source of photons in MCFOST by default is from stars (ie. sink particles). If you want to include heating
+from shocks and PdV work, you should set this to T. This will add the pdV work and shock heating as source terms
+in the Monte Carlo radiative transfer. Recall that when using MCFOST we are assuming radiative equilibrium at
+all times, so the temperature is set by the balance between heating and cooling. See Figure A1 in 
+`Borchert et al. 2022b <https://ui.adsabs.harvard.edu/abs/2022MNRAS.517.4436B>`__ for an example of the effect 
+of PdV work and shock heating on the temperature structure of a disc. Typically it is small.
+
+::
+
+    mcfost_keep_part =       0.999    ! Fraction of particles to keep for MCFOST
+
+MCFOST throws away very distant particles by default when constructing the Voronoi mesh. Set this to 1.0 to keep all particles.
+
+::
+
+                 ISM =           0    ! ISM heating : 0 -> no ISM radiation field, 1 -> ProDiMo, 2 -> Bate & Keto
+
+include additional source of UV from the background interstellar medium, so there is some low temperature even if
+no sink particles are present in the simulation
+
+::
+
+    mcfost_dust_subl =           F    ! Should mcfost do dust sublimation (experimental!)
+
+attempts to remove dust in regions where the temperature exceeds the sublimation temperature (1500K). This is experimental.
