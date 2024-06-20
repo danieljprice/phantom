@@ -1624,7 +1624,7 @@ end subroutine ptmass_create_seeds
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
- use io,        only:iprint
+ use io,        only:iprint,verbose
  use units,     only:umass
  use part,      only:itbirth,ihacc
  use random ,   only:ran2,gauss_random,divide_unit_seg
@@ -1637,7 +1637,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
  integer           :: i,k,n
- real              :: tbirthi,mi,hacci,minmass
+ real              :: tbirthi,mi,hacci,minmass,mcutoff
  real              :: a(8),velk,rk,xk(3),vk(3),rvir
 
  do i=1,nptmass
@@ -1661,7 +1661,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
        minmass  = 0.08/(mi*(umass/solarm))
        call divide_unit_seg(masses,minmass,n,iseed_sf)
        masses = masses*mi
-       write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+       if(verbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
 
 
        k=i
@@ -1669,12 +1669,11 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           !! Position and velocity sampling methods
           a(:) = 0.
           rvir = 0.7*h_acc
+          mcutoff = 0.55
           !
           !-- Positions
           !
-          do while (a(1) < 1.e-10 .and. a(1)>0.55) ! avoid stars to be concentrated too much in the center
-             a(1) = ran2(iseed_sf)
-          enddo
+          a(1)  = ran2(iseed_sf)*mcutoff
           rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
           a(2)  = ran2(iseed_sf)
           a(3)  = ran2(iseed_sf)
@@ -1684,6 +1683,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           !
           !-- Velocities
           !
+          a(5) = 1.
           do while(0.1*a(5)> a(6))
              a(4) = ran2(iseed_sf)
              a(5) = ran2(iseed_sf)

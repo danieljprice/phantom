@@ -181,6 +181,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     vxi = vxyz_ptmass(1,i)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
+    if(mi < 0 ) cycle
     do j=1,nptmass
        if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
