@@ -326,7 +326,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
     if (step_count_int > max_step) then
        print*,"MAX STEP NUMBER, ABORT !!!"
-       call abort
+       call abort()
     endif
 
     if ((.not.t_end_flag).and.(dt<0.)) then
@@ -612,7 +612,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  integer :: i,j,k,l
  logical :: init
  om = 0.
- dt_init = 0.
+ dt_init = huge(om)
 
 
  if (present(ds_init)) then
@@ -677,7 +677,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  enddo
 
  om = om*0.5
- if (init) ds_init = dt_init/om
+ if (init) ds_init = dt_init*om
 
 end subroutine get_force_TTL
 
