@@ -1624,9 +1624,9 @@ end subroutine ptmass_create_seeds
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
- use io,        only:iprint,verbose
+ use io,        only:iprint,iverbose
  use units,     only:umass
- use part,      only:itbirth,ihacc
+ use part,      only:itbirth,ihacc,ihsoft
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
  integer, intent(in)    :: nptmass
@@ -1661,7 +1661,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
        minmass  = 0.08/(mi*(umass/solarm))
        call divide_unit_seg(masses,minmass,n,iseed_sf)
        masses = masses*mi
-       if(verbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+       if(iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
 
 
        k=i
@@ -1700,6 +1700,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           !-- Star creation
           !
           xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+          xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
           xyzmh_ptmass(4,k)           = masses(n)
           xyzmh_ptmass(3,k)           = xi(3) + xk(3)
           xyzmh_ptmass(2,k)           = xi(2) + xk(2)
@@ -2142,14 +2143,14 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(h_soft_sinkgas,'h_soft_sinkgas','softening length for new sink particles', iunit)
     endif
  endif
- if(use_regnbody) then
-    call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
-    call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
- endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ if(use_regnbody) then
+    call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
+    call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
+ endif
 
 end subroutine write_options_ptmass
 

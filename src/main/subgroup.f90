@@ -40,8 +40,9 @@ contains
 !-----------------------------------------------
 subroutine init_subgroup
  use units, only:udist
+ use physcon, only:pc
 
- r_neigh  = r_neigh/udist
+ r_neigh  = r_neigh*(pc/udist)
  r_search = 100.*r_neigh
 
 end subroutine init_subgroup
