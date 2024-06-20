@@ -194,7 +194,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
 ! update energy if using radiative cooling approx (icooling=9) and set fxyzu(4,:) to zero
  !
  print *, "min,max energy", minval(vxyzu(4,1:npart)), maxval(vxyzu(4,1:npart))
- if (icooling == 9 .and. dt > 0.0 .and. icall==1)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
+ if (icooling == 9 .and. dt > 0.0 .and. icall==2)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
 
  
 !
