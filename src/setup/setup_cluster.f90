@@ -204,8 +204,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        r_crit         = h_acc
        icreate_sinks  = 2
        rho_crit_cgs   = 1.d-18
-       h_soft_sinkgas = 2.*h_acc
-       tmax_acc       = 1*(myr/utime)
+       h_soft_sinkgas = h_acc
+       tmax_acc       = 0.5*(myr/utime)
        r_merge_uncond = h_acc
        use_regnbody   = .true.
        r_neigh       = 5e-2*h_acc
