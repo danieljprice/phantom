@@ -165,7 +165,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use linklist,   only:listneigh=>listneigh_global,getneigh_pos,ifirstincell
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
- use timing,     only: get_timings
+ use timing,     only:get_timings,increment_timer,itimer_HII
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -188,6 +188,8 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  ! at each new kick we reset all the particles status
  isionised(:) = .false.
  pmass = massoftype(igas)
+
+ call get_timings(t1,tcpu1)
  !
  !-- Rst derivation and thermal feedback
  !
@@ -210,7 +212,6 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        else
           hcheck = Rmax
        endif
-       call get_timings(t1,tcpu1)
        call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
        call set_r2func_origin(xi,yi,zi)
        call Knnfunc(nneigh,r2func_origin,xyzh,listneigh)
@@ -276,7 +277,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
     enddo
  endif
  call get_timings(t2,tcpu2)
- !print*, "HII feedback CPU time : ",t2-t1
+ call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
  return
 end subroutine HII_feedback
 

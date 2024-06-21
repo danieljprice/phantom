@@ -53,17 +53,21 @@ end subroutine init_subgroup
 !
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix,dtext)
- use io ,only:id,master,iverbose,iprint
+ use io,     only:id,master,iverbose,iprint
+ use timing, only:get_timings,increment_timer,itimer_sg_id
  integer,         intent(in)    :: nptmass
  real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer,         intent(inout) :: group_info(3,nptmass)
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  real, optional,  intent(in)    :: dtext
- logical :: large_search
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+ logical      :: large_search
+
+
 
  large_search = present(dtext)
-
+ call get_timings(t1,tcpu1)
  n_group = 0
  n_ingroup = 0
  n_sing = 0
@@ -79,6 +83,11 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  if (id==master .and. iverbose>1) then
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
  endif
+
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
+
+
 
 end subroutine group_identify
 
@@ -227,14 +236,20 @@ end subroutine matrix_construction
 !---------------------------------------------
 
 subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- use part, only: igarg,igcum
- use io, only: id,master
- use mpiutils,only:bcast_mpi
+ use part,     only:igarg,igcum
+ use io,       only:id,master
+ use mpiutils, only:bcast_mpi
+ use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(in)    :: tnext,time
- integer :: i,start_id,end_id,gsize
+ integer      :: i,start_id,end_id,gsize
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+
+
+ call get_timings(t1,tcpu1)
+
  if (n_group>0) then
     if (id==master) then
        !$omp parallel do default(none)&
@@ -253,6 +268,9 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
 
  call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
 
 
 end subroutine evolve_groups

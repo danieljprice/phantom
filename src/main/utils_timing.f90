@@ -61,9 +61,12 @@ module timing
                                  itimer_rad_store     = 20, &
                                  itimer_cons2prim     = 21, &
                                  itimer_extf          = 22, &
-                                 itimer_ev            = 23, &
-                                 itimer_io            = 24
- integer, public, parameter :: ntimers = 24 ! should be equal to the largest itimer index
+                                 itimer_sg_id         = 23, &
+                                 itimer_sg_evol       = 24, &
+                                 itimer_HII           = 25, &
+                                 itimer_ev            = 26, &
+                                 itimer_io            = 27
+ integer, public, parameter :: ntimers = 27 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -92,6 +95,7 @@ subroutine setup_timers
  call init_timer(itimer_force       , 'force',       itimer_step  )
  call init_timer(itimer_force_local , 'local',       itimer_force )
  call init_timer(itimer_force_remote, 'remote',      itimer_force )
+ call init_timer(itimer_HII         , 'HII_regions', itimer_step  )
  call init_timer(itimer_radiation   , 'radiation',   itimer_step  )
  call init_timer(itimer_rad_save    , 'save',        itimer_radiation  )
  call init_timer(itimer_rad_neighlist,'neighlist',   itimer_radiation  )
@@ -103,6 +107,8 @@ subroutine setup_timers
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
  call init_timer(itimer_extf        , 'extf',        itimer_step  )
+ call init_timer(itimer_sg_id       , 'subg_id',     itimer_extf  )
+ call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_extf  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 
