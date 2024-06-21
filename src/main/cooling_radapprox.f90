@@ -254,6 +254,7 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallstam
  integer,          intent(out) :: ierr
+ integer       :: ieosread
  integer, save :: ngot = 0
 
  imatch  = .true.
@@ -281,6 +282,9 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr
        doFLD = .true.
     endif
     ngot = ngot + 1
+ case('ieos')
+    read(valstring,*,iostat=ierr) ieosread
+    if (ieosread /= 21) call fatal('ieosread','For icooling=9, you need ieos=21')
  case default
     imatch = .false.
  end select

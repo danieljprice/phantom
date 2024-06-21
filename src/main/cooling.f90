@@ -70,7 +70,7 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
  use eos_stamatellos,   only:read_optab,eos_file
- use cooling_radapprox, only: init_star,od_method
+ use cooling_radapprox, only:init_star,od_method
  use viscosity,         only:irealvisc
 
  integer, intent(in)  :: id,master,iprint
@@ -86,7 +86,7 @@ subroutine init_cooling(id,master,iprint,ierr)
     call init_cooling_ism()
     if (icooling==8) cooling_in_step = .false.
  case(9)
-    if (ieos /= 21 .and. ieos /=2)  call fatal('cooling','icooling=9 requires ieos=21',&
+    if (ieos /= 21 )  call fatal('cooling','icooling=9 requires ieos=21',&
          var='ieos',ival=ieos)
     if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
          'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
@@ -132,7 +132,7 @@ end subroutine init_cooling
 !
 !-----------------------------------------------------------------------
 
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,dudti_sph,part_id)
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
@@ -147,8 +147,6 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: dudti_sph ! in code units
- integer, intent(in),optional :: part_id
  real, intent(in), optional :: abund_in(nabn)
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
@@ -176,9 +174,6 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  if (present(Tdust_in)) Tdust = Tdust_in
 
  select case (icooling)
- case (9)
-    ! should not occur!
-    call fatal('energ_cooling','cooling_S07 called from cooling.f90')
  case (6)
     call cooling_KoyamaInutsuka_implicit(ui,rho,dt,dudt)
  case (5)
@@ -249,7 +244,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
- logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallstam
+ logical :: igotallism,igotallmol,igotallgammie,igotallgammiePL,igotallfunc,igotallradapp
 
  imatch        = .true.
  igotall       = .false.  ! cooling options are compulsory
@@ -257,7 +252,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  igotallmol    = .true.
  igotallgammie = .true.
  igotallfunc   = .true.
- igotallstam   = .true.
+ igotallradapp   = .true.
 
  select case(trim(name))
  case('icooling')
@@ -281,13 +276,13 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
     case(7)
        call read_options_cooling_gammie_PL(name,valstring,imatch,igotallgammiePL,ierr)
     case(9)
-       call read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr)
+       call read_options_cooling_radapprox(name,valstring,imatch,igotallradapp,ierr)
     case default
        call read_options_cooling_solver(name,valstring,imatch,igotallfunc,ierr)
     end select
  end select
  ierr = 0
- if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallstam) then
+ if (icooling >= 0 .and. ngot >= 2 .and. igotallgammie .and. igotallfunc .and. igotallism .and. igotallradapp) then
     igotall = .true.
  else
     igotall = .false.
