@@ -179,6 +179,11 @@ ifeq ($(SYSTEM), ifort)
     include Makefile_defaults_ifort
 endif
 
+ifeq ($(SYSTEM), ifx)
+#   default settings for the new Intel Fortran Compiler
+    include Makefile_defaults_ifx
+endif
+
 ifeq ($(SYSTEM), ifortmac)
 #   default settings for the Intel Fortran Compiler on Mac OS
     include Makefile_defaults_ifort
