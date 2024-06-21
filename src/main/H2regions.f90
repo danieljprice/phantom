@@ -25,23 +25,23 @@ module HIIRegion
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
  real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
  real   , public               :: nHIIsources = 0
+ real   , public               :: ar
+ real   , public               :: mH
 
- real,    private, parameter   :: a = -39.3178 !
- real,    private, parameter   :: b =  221.997 !  fitted parameters to compute
- real,    private, parameter   :: c = -227.456 !  ionisation rate for massive
- real,    private, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
- real,    private, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
- real,    private, parameter   :: f =  3.06810 !
- real,    private, parameter   :: ar_cgs = 2.7d-13
- real,    private, parameter   :: sigd_cgs = 1.d-21
- real,    private              :: ar
- real,    private              :: sigd
- real,    private              :: hv_on_c
- real,    private              :: mH
- real,    private              :: T_ion
- real,    private              :: u_to_t
- real,    private              :: Rst_max
- real,    private              :: Minmass
+ real, parameter   :: a = -39.3178 !
+ real, parameter   :: b =  221.997 !  fitted parameters to compute
+ real, parameter   :: c = -227.456 !  ionisation rate for massive
+ real, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
+ real, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
+ real, parameter   :: f =  3.06810 !
+ real, parameter   :: ar_cgs = 2.7d-13
+ real, parameter   :: sigd_cgs = 1.d-21
+ real              :: sigd
+ real              :: hv_on_c
+ real              :: T_ion
+ real              :: u_to_t
+ real              :: Rst_max
+ real              :: Minmass
 
  private
 
@@ -203,9 +203,6 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
-       ! for each source we compute the distances of each particles and sort to have a Knn list
-       ! Patch : We need to be aware of dead particles that will pollute the scheme if not taking into account.
-       ! The simpliest way is to put enormous distance for dead particle to be at the very end of the knn list.
        if(stromi > 0 ) then
           hcheck = 2.*stromi
           if (hcheck > Rmax) hcheck = Rmax
@@ -218,10 +215,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        do k=1,npart
           j = listneigh(k)
           if (.not. isdead_or_accreted(xyzh(4,j))) then
-             ! calculation of the ionised mass
+             ! ionising photons needed to fully ionise the current particle
              DNdot = (pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2)
              if (Ndot>DNdot) then
-                ! iteration on the Knn until we used all the source photons
                 if (.not.(isionised(j))) then
                    Ndot = Ndot - DNdot
                    isionised(j)=.true.

@@ -1146,30 +1146,27 @@ subroutine test_HIIregion(ntests,npass)
  use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma
  use deriv,          only:get_derivs_global
- use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fext, &
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
                             npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
                             npartoftype,fxyzu,massoftype,isionised,init_part,&
-                            iphase,isetphase,irateion
+                            iphase,isetphase,irateion,irstrom
  use ptmass,         only:h_acc
  use step_lf_global, only:init_step,step
- use timestep,       only:dtmax
- use energies,       only:compute_energies,angtot,totmom,mtot
  use spherical,      only:set_sphere
- use units,          only:set_units,utime,unit_velocity,udist
+ use units,          only:set_units,utime,unit_velocity,udist,umass
  use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
  use kernel,         only: hfact_default
  use kdtree,         only:tree_accuracy
- use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources
- use timing,         only:get_timings
+ use testutils,      only: checkval,update_test_scores
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources,ar,mH
  integer, intent(inout) :: ntests,npass
- integer        :: np,i
- real           :: totmass,tmax,t,dt,dtext,dtnew,psep
- real           :: Rsp,Rspi,ci,k
+ integer        :: np,i,nfailed(1)
+ real           :: totmass,psep
+ real           :: Rstrom,ci,k,rho0
  real           :: totvol,nx,rmin,rmax,temp
- real(kind=4)    :: t1,t2,tcpu1,tcpu2
  if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars...'
 
- call set_units(dist=1.*pc,mass=1.*solarm,G=1.d0)
+ call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR()
  iverbose = 1
  !
@@ -1177,7 +1174,6 @@ subroutine test_HIIregion(ntests,npass)
  !
  call init_part()
  gmw = 1.0
- ieos = 1
 
  xyzmh_ptmass(:,:) = 0.
  vxyz_ptmass(:,:)  = 0.
@@ -1185,19 +1181,17 @@ subroutine test_HIIregion(ntests,npass)
  h_acc = 0.002
 
  xyzmh_ptmass(4,1) = -1
- xyzmh_ptmass(5,1) = 1e-3*h_acc
- xyzmh_ptmass(irateion,1) = (10.**49.)*utime
+ xyzmh_ptmass(irateion,1) = (10.**49.)*utime ! rate_ion [s^-1]
  nptmass = 1
  nHIIsources = 1
 
- t  = 0.
  hfact = 1.2
  gamma = 1.
  rmin  = 0.
- rmax  = 2.91
+ rmax  = 2.91*pc/udist
  ieos  = 21
  tree_accuracy = 0.5
- temp = 1000
+ temp = 1000.
 !
 !--setup particles
 !
@@ -1208,7 +1202,7 @@ subroutine test_HIIregion(ntests,npass)
  npart    = 0
  ! only set up particles on master, otherwise we will end up with n duplicates
  if (id==master) then
-    call set_sphere('random',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
  endif
  np       = npart
 
@@ -1216,7 +1210,7 @@ subroutine test_HIIregion(ntests,npass)
 !
 !--set particle properties
 !
- totmass        = 8.e3
+ totmass        = 8.e3*solarm/umass
  npartoftype(:) = 0
  npartoftype(igas) = npart
  massoftype(:)  = 0.0
@@ -1234,35 +1228,23 @@ subroutine test_HIIregion(ntests,npass)
     !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
  endif
 
- Rspi = 0.310278984 !xyzmh_ptmass(irstrom,1)
+ rho0 = totmass/totvol
+
+ Rstrom = ((3*xyzmh_ptmass(irateion,1)*mH**2)/(4*pi*ar*rho0**2))**(1./3.)
  ci   = sqrt(polykion)
  k = 0.005
- Rsp = Rspi
 
- polyk = kboltz*temp/(gmw*mass_proton_cgs)*((utime/udist)**2)
+ polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
  vxyzu(:,:) = 0.
  fxyzu(:,:) = 0.
+
  call get_derivs_global()
 
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
 
- tmax = (3.e6*years)/utime
- t    = 0.
- dt   = 0.00001
- dtmax = dt*100
- dtext = dt
- dtnew = dt
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.e-2,nfailed(1),'Initial strömgren radius')
 
- call init_step(npart,t,dtmax)
- do while (t < tmax)
-    t = t + dt
-    call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
-    call get_timings(t1,tcpu1)
-    call step(npart,npart,t,dt,dtext,dtnew)
-    call get_timings(t2,tcpu2)
-    print*, "STEP CPU time : ",t2-t1
-    Rsp = Rsp + (ci*((Rspi/Rsp)**(3./4.) - k*(Rspi/Rsp)**(-3./4.)))*dt
-    print*,"R stromgren (analytic,prescription)",Rsp , xyzmh_ptmass(irstrom,1)
- enddo
+ call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_HIIregion
 
