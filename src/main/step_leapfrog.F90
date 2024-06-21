@@ -118,7 +118,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step
- use timing,         only:increment_timer,get_timings,itimer_extf
+ use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
  use options,        only:use_porosity
  use porosity,       only:get_filfac
@@ -258,7 +258,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  endif
  call get_timings(t2,tcpu2)
- call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_substep,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0

@@ -60,7 +60,7 @@ module timing
                                  itimer_rad_update    = 19, &
                                  itimer_rad_store     = 20, &
                                  itimer_cons2prim     = 21, &
-                                 itimer_extf          = 22, &
+                                 itimer_substep       = 22, &
                                  itimer_sg_id         = 23, &
                                  itimer_sg_evol       = 24, &
                                  itimer_HII           = 25, &
@@ -106,9 +106,9 @@ subroutine setup_timers
  call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
- call init_timer(itimer_extf        , 'extf',        itimer_step  )
- call init_timer(itimer_sg_id       , 'subg_id',     itimer_extf  )
- call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_extf  )
+ call init_timer(itimer_substep     , 'substep',     itimer_step  )
+ call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
+ call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 

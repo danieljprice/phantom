@@ -67,25 +67,29 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
 
 
  large_search = present(dtext)
- call get_timings(t1,tcpu1)
  n_group = 0
  n_ingroup = 0
  n_sing = 0
  if (nptmass > 0) then
+
+    call get_timings(t1,tcpu1)
+
     if(large_search) then
        call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     else
        call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
     endif
     call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
+
  endif
 
  if (id==master .and. iverbose>1) then
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
  endif
 
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
 
 
 
@@ -248,9 +252,11 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
 
- call get_timings(t1,tcpu1)
 
  if (n_group>0) then
+
+    call get_timings(t1,tcpu1)
+
     if (id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
@@ -264,13 +270,15 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
        enddo
        !$omp end parallel do
     endif
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
+
  endif
 
  call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
 
- call get_timings(t2,tcpu2)
- call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
 
 
 end subroutine evolve_groups

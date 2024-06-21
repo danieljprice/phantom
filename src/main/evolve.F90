@@ -666,7 +666,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_link,itimer_balance,itimer_dens,&
-                  itimer_force,itimer_extf,itimer_ev,itimer_io,ntimers
+                  itimer_force,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep
