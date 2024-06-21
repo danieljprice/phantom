@@ -12,6 +12,7 @@ ifeq ($(SYSTEM), ifx)
 else
     KFLAGS  += -ffree-line-length-none -w -fallow-argument-mismatch
 endif
+endif
 FFLAGS+= -I$(KROME_BUILD_DIR)
 PASSED=0
 
