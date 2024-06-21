@@ -50,7 +50,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
  use part,         only:igas,set_particle_type
- use io,           only:fatal,master
+ use io,           only:fatal,master,iprint
  use units,        only:umass,udist,utime,set_units
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
@@ -63,6 +63,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use mpidomain,    only:i_belong
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
+ use utils_shuffleparticles, only:shuffleparticles
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -177,6 +178,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  do i = 1,npart
     call set_particle_type(i,igas)
  enddo
+
+ call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rhozero,dmedium=0.,&
+                       is_setup=.true.,prefix=trim(fileprefix))
 
  !--Set velocities (from pre-made velocity cubes)
  write(*,"(1x,a)") 'Setting up velocity field on the particles...'

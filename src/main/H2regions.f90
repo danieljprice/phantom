@@ -69,7 +69,7 @@ subroutine initialize_H2R
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
- if (id == master .and. iverbose > 0) then
+ if (id == master .and. iverbose > 1) then
     write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
     write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin

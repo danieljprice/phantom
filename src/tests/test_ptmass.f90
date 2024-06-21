@@ -1168,7 +1168,7 @@ subroutine test_HIIregion(ntests,npass)
 
  call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR()
- iverbose = 1
+ iverbose = 0
  !
  ! initialise arrays to zero
  !
