@@ -64,7 +64,7 @@ subroutine initialize_H2R
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
  use eos    , only:gmw
- real :: logumass,logumass2,logumass3
+ real :: logumass,logumass2,logumass3,logutime
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
@@ -79,19 +79,20 @@ subroutine initialize_H2R
  logumass  = log10(umass)
  logumass2 = logumass**2
  logumass3 = logumass2*logumass
+ logutime  = log10(utime)
 
- a = a_u*utime
- b = b_u*utime*(solarm/logumass)
- c = c_u*utime*(solarm/logumass2)
- d = d_u*utime*(solarm/logumass3)
- e = e_u*utime*(solarm/(logumass2**2))
- f = f_u*utime*(solarm/(logumass3*logumass2))
+ a = a_u*logutime
+ b = b_u*logutime*(solarm/logumass)
+ c = c_u*logutime*(solarm/logumass2)
+ d = d_u*logutime*(solarm/logumass3)
+ e = e_u*logutime*(solarm/(logumass2**2))
+ f = f_u*logutime*(solarm/(logumass3*logumass2))
 
  if (id == master .and. iverbose > 1) then
     write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
     write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
-    write(iprint,"(/a,es18.10,es18.10/)") "Rate coefficient    (code)      : ", a,b,c,d,e,f
+    write(iprint,"(/a,6(es18.10)/)") "Rate coefficient    (code)      : ", a,b,c,d,e,f
  endif
  return
 end subroutine initialize_H2R
@@ -113,7 +114,8 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  integer :: i
  nHIIsources = 0
  !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose,utime,Minmass,h_acc)&
+ !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose)&
+ !$omp shared(utime,Minmass,h_acc,a,b,c,d,e,f)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
  !$omp reduction(+:nHIIsources)
  do i=1,nptmass
