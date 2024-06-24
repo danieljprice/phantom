@@ -28,20 +28,14 @@ module HIIRegion
  real   , public               :: ar
  real   , public               :: mH
 
- real, parameter   :: a_u = -39.3178 !
- real, parameter   :: b_u =  221.997 !  fitted parameters to compute
- real, parameter   :: c_u = -227.456 !  ionisation rate for massive
- real, parameter   :: d_u =  117.410 !  extracted from Fujii et al. (2021).
- real, parameter   :: e_u = -30.1511 ! (Expressed in function of log(solar masses) and s)
- real, parameter   :: f_u =  3.06810 !
+ real, parameter   :: a = -39.3178 !
+ real, parameter   :: b =  221.997 !  fitted parameters to compute
+ real, parameter   :: c = -227.456 !  ionisation rate for massive
+ real, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
+ real, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
+ real, parameter   :: f =  3.06810 !
  real, parameter   :: ar_cgs = 2.7d-13
  real, parameter   :: sigd_cgs = 1.d-21
- real              :: a
- real              :: b
- real              :: c
- real              :: d
- real              :: e
- real              :: f
  real              :: sigd
  real              :: hv_on_c
  real              :: T_ion
@@ -64,7 +58,6 @@ subroutine initialize_H2R
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
  use eos    , only:gmw
- real :: logumass,logumass2,logumass3,logutime
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
@@ -76,23 +69,11 @@ subroutine initialize_H2R
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
- logumass  = log10(umass)
- logumass2 = logumass**2
- logumass3 = logumass2*logumass
- logutime  = log10(utime)
-
- a = a_u*logutime
- b = b_u*logutime*(solarm/logumass)
- c = c_u*logutime*(solarm/logumass2)
- d = d_u*logutime*(solarm/logumass3)
- e = e_u*logutime*(solarm/(logumass2**2))
- f = f_u*logutime*(solarm/(logumass3*logumass2))
 
  if (id == master .and. iverbose > 1) then
     write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
     write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
-    write(iprint,"(/a,6(es18.10)/)") "Rate coefficient    (code)      : ", a,b,c,d,e,f
  endif
  return
 end subroutine initialize_H2R
@@ -114,19 +95,19 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  integer :: i
  nHIIsources = 0
  !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,nptmass,iprint,iverbose)&
- !$omp shared(utime,Minmass,h_acc,a,b,c,d,e,f)&
+ !$omp shared(xyzmh_ptmass,iprint,iverbose)&
+ !$omp shared(utime,Minmass,h_acc,nptmass)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
  !$omp reduction(+:nHIIsources)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
     hi = xyzmh_ptmass(ihacc,i)
     if(mi > Minmass .and. hi < h_acc)then
-       logmi = log10(mi)
+       logmi = log10(mi*(umass/solarm))
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-       Q = (10.**log_Q)
+       Q = (10.**log_Q)*utime
        xyzmh_ptmass(irateion,i) = Q
        nHIIsources = nHIIsources + 1
        if (iverbose > 0) then
@@ -145,7 +126,7 @@ end subroutine update_ionrates
 
 subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
- use units,  only:utime
+ use units,  only:utime,umass
  use part,   only:irateion,ihacc
  integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
@@ -154,7 +135,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)
  if(mi > Minmass .and. hi < h_acc)then
-    logmi = log10(mi)
+    logmi = log10(mi*(umass/solarm))
     ! caluclation of the ionizing photon rate  of each sources
     ! this calculation uses Fujii's formula derived from OSTAR2002 databases
     log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
