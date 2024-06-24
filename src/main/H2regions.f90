@@ -86,8 +86,9 @@ end subroutine initialize_H2R
 
 subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
- use units,  only:utime
+ use units,  only:utime,umass
  use part,   only:irateion,ihacc
+ use physcon,only:solarm
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: h_acc
@@ -95,7 +96,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  integer :: i
  nHIIsources = 0
  !$omp parallel do default(none) &
- !$omp shared(xyzmh_ptmass,iprint,iverbose)&
+ !$omp shared(xyzmh_ptmass,iprint,iverbose,umass)&
  !$omp shared(utime,Minmass,h_acc,nptmass)&
  !$omp private(logmi,log_Q,Q,mi,hi)&
  !$omp reduction(+:nHIIsources)
@@ -128,6 +129,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:utime,umass
  use part,   only:irateion,ihacc
+ use physcon,only:solarm
  integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: h_acc
