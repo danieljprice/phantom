@@ -24,18 +24,24 @@ module HIIRegion
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
  real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
- real   , public               :: nHIIsources = 0
+ integer, public               :: nHIIsources = 0
  real   , public               :: ar
  real   , public               :: mH
 
- real, parameter   :: a = -39.3178 !
- real, parameter   :: b =  221.997 !  fitted parameters to compute
- real, parameter   :: c = -227.456 !  ionisation rate for massive
- real, parameter   :: d =  117.410 !  extracted from Fujii et al. (2021).
- real, parameter   :: e = -30.1511 ! (Expressed in function of log(solar masses) and s)
- real, parameter   :: f =  3.06810 !
+ real, parameter   :: a_u = -39.3178 !
+ real, parameter   :: b_u =  221.997 !  fitted parameters to compute
+ real, parameter   :: c_u = -227.456 !  ionisation rate for massive
+ real, parameter   :: d_u =  117.410 !  extracted from Fujii et al. (2021).
+ real, parameter   :: e_u = -30.1511 ! (Expressed in function of log(solar masses) and s)
+ real, parameter   :: f_u =  3.06810 !
  real, parameter   :: ar_cgs = 2.7d-13
  real, parameter   :: sigd_cgs = 1.d-21
+ real              :: a
+ real              :: b
+ real              :: c
+ real              :: d
+ real              :: e
+ real              :: f
  real              :: sigd
  real              :: hv_on_c
  real              :: T_ion
@@ -58,6 +64,7 @@ subroutine initialize_H2R
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
  use eos    , only:gmw
+ real :: logumass,logumass2,logumass3
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
@@ -69,10 +76,22 @@ subroutine initialize_H2R
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
+ logumass  = log10(umass)
+ logumass2 = logumass**2
+ logumass3 = logumass2*logumass
+
+ a = a_u*utime
+ b = b_u*utime*(solarm/logumass)
+ c = c_u*utime*(solarm/logumass2)
+ d = d_u*utime*(solarm/logumass3)
+ e = e_u*utime*(solarm/(logumass2**2))
+ f = f_u*utime*(solarm/(logumass3*logumass2))
+
  if (id == master .and. iverbose > 1) then
     write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
     write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
+    write(iprint,"(/a,es18.10,es18.10/)") "Rate coefficient    (code)      : ", a,b,c,d,e,f
  endif
  return
 end subroutine initialize_H2R
@@ -105,11 +124,11 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-       Q = (10.**log_Q)*utime
+       Q = (10.**log_Q)
        xyzmh_ptmass(irateion,i) = Q
        nHIIsources = nHIIsources + 1
        if (iverbose > 0) then
-          write(iprint,"(/a,es18.10/)")"Massive stars detected : Log Q : ",log_Q
+          write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
        endif
     else
        xyzmh_ptmass(irateion,i) = -1.
@@ -141,7 +160,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
     xyzmh_ptmass(irateion,i) = Q
     nHIIsources = nHIIsources + 1
     if (iverbose > 0) then
-       write(iprint,"(/a,es18.10/)")"(HII region) Massive stars detected : Log Q : ",log_Q
+       write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
     endif
  else
     xyzmh_ptmass(irateion,i) = -1.
