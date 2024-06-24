@@ -84,7 +84,6 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  write (filename, 11) dt
 11 format("coolrate_", E7.2,".dat")
 
- print *, "In cooling"
  ratefile = 34
  open(unit=ratefile,file=filename,status="replace",form="formatted")
  !$omp parallel do default(none) schedule(runtime) &
