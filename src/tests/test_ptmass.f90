@@ -785,6 +785,7 @@ subroutine test_createsink(ntests,npass)
  integer :: id_rhomax,ipart_rhomax_global
  real :: psep,totmass,r2min,r2,t,coremass,starsmass
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
+ logical :: formed
  procedure(rho_func), pointer :: density_func
 
  density_func => gaussianr
@@ -906,7 +907,7 @@ subroutine test_createsink(ntests,npass)
        coremass = 0.
        starsmass = 0.
        coremass = xyzmh_ptmass(4,1)
-       call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,0.)
+       call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,0.,formed)
        do i=1,nptmass
           starsmass = starsmass + xyzmh_ptmass(4,i)
        enddo

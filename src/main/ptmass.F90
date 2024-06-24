@@ -1621,7 +1621,7 @@ subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
  nptmass = n
 end subroutine ptmass_create_seeds
 
-subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
+subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time,formed)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
@@ -1634,11 +1634,14 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,    intent(in)    :: time
+ logical, intent(out)   :: formed
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
  integer           :: i,k,n
  real              :: tbirthi,mi,hacci,minmass,mcutoff
  real              :: a(8),velk,rk,xk(3),vk(3),rvir
+
+ formed = .false.
 
  do i=1,nptmass
     mi      = xyzmh_ptmass(4,i)
@@ -1646,6 +1649,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
     tbirthi = xyzmh_ptmass(itbirth,i)
     if (mi<0.) cycle
     if (time>=tbirthi+tmax_acc .and. hacci==h_acc ) then
+       formed = .true.
        write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
        !! save xcom and vcom before placing stars
        xi(1) = xyzmh_ptmass(1,i)
