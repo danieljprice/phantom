@@ -638,6 +638,7 @@ end subroutine ptmass_drift
 !+
 !----------------------------------------------------------------
 subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+ use part, only:iJ2
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
@@ -647,16 +648,18 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
 
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass,iJ2) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
        vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
        vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
        vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+       if(xyzmh_ptmass(iJ2,i) > 0.) then
+          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
+          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
+          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+       endif
     endif
  enddo
  !$omp end parallel do
@@ -1626,7 +1629,7 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
  use units,     only:umass
- use part,      only:itbirth,ihacc,ihsoft
+ use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
  integer, intent(in)    :: nptmass
@@ -1709,6 +1712,9 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           xyzmh_ptmass(3,k)           = xi(3) + xk(3)
           xyzmh_ptmass(2,k)           = xi(2) + xk(2)
           xyzmh_ptmass(1,k)           = xi(1) + xk(1)
+          xyzmh_ptmass(ispinx,k)      = 0. !
+          xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
+          xyzmh_ptmass(ispinz,k)      = 0. !
           vxyz_ptmass(1,k)            = vi(1) + vk(1)
           vxyz_ptmass(2,k)            = vi(2) + vk(2)
           vxyz_ptmass(3,k)            = vi(3) + vk(3)
