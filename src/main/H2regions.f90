@@ -87,7 +87,7 @@ end subroutine initialize_H2R
 subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:utime,umass
- use part,   only:irateion,ihacc
+ use part,   only:irateion,ihacc,irstrom
  use physcon,only:solarm
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
@@ -110,12 +110,14 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
        Q = (10.**log_Q)*utime
        xyzmh_ptmass(irateion,i) = Q
+       xyzmh_ptmass(irstrom,i)  = -1.
        nHIIsources = nHIIsources + 1
        if (iverbose >= 0) then
           write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
        endif
     else
        xyzmh_ptmass(irateion,i) = -1.
+       xyzmh_ptmass(irstrom,i)  = -1.
     endif
  enddo
  !$omp end parallel do
@@ -128,7 +130,7 @@ end subroutine update_ionrates
 subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:utime,umass
- use part,   only:irateion,ihacc
+ use part,   only:irateion,ihacc,irstrom
  use physcon,only:solarm
  integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
@@ -142,13 +144,15 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
     ! this calculation uses Fujii's formula derived from OSTAR2002 databases
     log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
     Q = (10.**log_Q)*utime
-    xyzmh_ptmass(irateion,i) = Q
+    xyzmh_ptmass(irateion,i) =  Q
+    xyzmh_ptmass(irstrom,i)  = -1.
     nHIIsources = nHIIsources + 1
-    if (iverbose > 0) then
+    if (iverbose >= 0) then
        write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
     endif
  else
     xyzmh_ptmass(irateion,i) = -1.
+    xyzmh_ptmass(irstrom,i)  = -1.
  endif
 
  if (iverbose > 1) then
@@ -207,8 +211,8 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
-       if(stromi > 0 ) then
-          hcheck = 2.*stromi
+       if(stromi >= 0 ) then
+          hcheck = 2.*stromi + 0.01*Rmax ! additive term to allow unresolved case to open
           if (hcheck > Rmax) hcheck = Rmax
        else
           hcheck = Rmax
