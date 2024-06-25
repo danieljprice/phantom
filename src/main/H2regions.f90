@@ -111,7 +111,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        Q = (10.**log_Q)*utime
        xyzmh_ptmass(irateion,i) = Q
        nHIIsources = nHIIsources + 1
-       if (iverbose > 0) then
+       if (iverbose >= 0) then
           write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
        endif
     else

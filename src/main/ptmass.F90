@@ -1714,9 +1714,10 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
           vxyz_ptmass(3,k)            = vi(3) + vk(3)
           fxyz_ptmass(1:4,k)          = 0.
           fxyz_ptmass_sinksink(1:4,k) = 0.
+          if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
+
           k = linklist_ptmass(k) ! acces to the next point mass in the linked list
           n = n - 1
-          if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
        enddo
        deallocate(masses)
     endif
