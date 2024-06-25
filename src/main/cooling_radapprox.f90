@@ -94,7 +94,7 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
  !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb)
  overpart: do i=1,npart
-    if (.not. iactive(iphase(i)) .or. isdead_or_accreted(xyzh(4,i))) cycle
+!    if (.not. iactive(iphase(i)) .or. isdead_or_accreted(xyzh(4,i))) cycle
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
     ui = energ(i)

@@ -93,14 +93,13 @@ subroutine read_optab(eos_file,ierr)
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
     enddo
  enddo
-! print *, 'nx,ny=', nx, ny
 end subroutine read_optab
 
 !
 ! Main subroutine for interpolating tables to get EOS values
 !
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
-  use io, only:fatal
+  use io, only:warning
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
@@ -118,9 +117,9 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
-    call fatal('getopac_opdep','rhoi out of range',var='rhoi',val=rhoi)
+    call warning('getopac_opdep','rhoi out of range',var='rhoi',val=rhoi)
  elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
-    call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
+    call warning('getopac_opdep','ui out of range',var='ui',val=ui)
  endif
     
  if (rhoi <  rhomin) then
@@ -212,7 +211,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
- use io, only:fatal
+ use io, only:warning
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
 
@@ -222,9 +221,9 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real rhoi_
 
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
-    call fatal('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
+    call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
  elseif (Teqi > OPTABLE(1,ny,2) .or. Teqi < OPTABLE(1,1,2)) then
-    call fatal('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
+    call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
  
