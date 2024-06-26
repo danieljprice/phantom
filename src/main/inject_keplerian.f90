@@ -8,7 +8,7 @@ module inject
 !
 ! Injection of material at keplerian speed in an accretion disc
 !
-! :References: 
+! :References:
 !
 ! :Owner: Cristiano Longarini
 !
@@ -116,7 +116,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  r2min = huge(r2min)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       r2 = (xyzh(1,i)-x0(1))**2 + (xyzh(2,i)-x0(2))**2 
+       r2 = (xyzh(1,i)-x0(1))**2 + (xyzh(2,i)-x0(2))**2
        dr2 = abs(r2 - rinj*rinj)
        if (dr2 < r2min) then
           hguess = xyzh(4,i)
@@ -176,8 +176,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/) 
-       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./) 
+       xyzi = (/rinj*cosphi,rinj*sinphi,zi/)
+       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./)
 
        u = 1.5*cs**2
 
@@ -220,7 +220,7 @@ subroutine write_options_inject(iunit)
 endif
 if (nptmass >= 1) then
    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
-endif 
+endif
 
 end subroutine write_options_inject
 
