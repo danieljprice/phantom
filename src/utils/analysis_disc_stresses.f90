@@ -128,7 +128,7 @@ subroutine read_analysis_options
     call read_inopt(rout,'rout',db,errcount=nerr)
     call close_db(db)
     if (nerr > 0) then
-      call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
+       call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
     endif
 
  else

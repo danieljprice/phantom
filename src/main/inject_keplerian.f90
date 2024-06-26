@@ -216,11 +216,11 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  if (maxvxyzu >= 4) then
-   call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
-endif
-if (nptmass >= 1) then
-   call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
-endif
+    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ endif
+ if (nptmass >= 1) then
+    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
+ endif
 
 end subroutine write_options_inject
 
