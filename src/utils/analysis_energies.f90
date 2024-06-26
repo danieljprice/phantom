@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: energies, evwrite, metric_tools, options, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'energies'

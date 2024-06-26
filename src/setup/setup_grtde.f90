@@ -22,8 +22,9 @@ module setup
 !   - theta         : *inclination of orbit (degrees)*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, metric, mpidomain, part, physcon, relaxstar, setbinary,
-!   setstar, setup_params, systemutils, timestep, units, vectorutils
+!   kernel, metric, mpidomain, options, part, physcon, relaxstar,
+!   setbinary, setstar, setup_params, systemutils, timestep, units,
+!   vectorutils
 !
  use setstar, only:star_t
  implicit none

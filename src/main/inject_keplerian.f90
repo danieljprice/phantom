@@ -10,14 +10,16 @@ module inject
 !
 ! :References: 
 !
-! :Owner: Daniel Price
+! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   - datafile       : *name of data file for wind injection*
-!   - outer_boundary : *kill gas particles outside this radius*
+!   - HonR_inj    : *aspect ratio to give temperature at rinj*
+!   - follow_sink : *injection radius is relative to sink particle 1*
+!   - mdot        : *mass injection rate [msun/yr]*
+!   - rinj        : *injection radius*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   random, units
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   partinject, physcon, random, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
