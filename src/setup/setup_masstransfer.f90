@@ -13,8 +13,9 @@ module setup
 ! :Owner: Daniel Price
 !
 ! :Runtime parameters:
-!   - O            : *position angle of ascending node (deg)*
-!   - a            : *semi-major axis (e.g. 1 au), period (e.g. 10*days) or rp if e=1*
+!   - a            : *semi-major axis*
+!   - mdon         : *donor/primary star mass*
+!   - macc         : *accretor/companion star mass* 
 !   - corotate     : *set stars in corotation*
 !   - eccentricity : *eccentricity*
 !   - f            : *initial true anomaly (180=apoastron)*
@@ -29,7 +30,7 @@ module setup
  
  implicit none
  public :: setpart
- real    :: a,mdon,macc,hacc,hdon
+ real    :: a,mdon,macc,hacc
 
  private
 
@@ -44,8 +45,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
  use setbinary,      only:set_binary,get_period_from_a
+use centreofmass,    only:reset_centreofmass
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
+ use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft
  use io,             only:master,fatal
  use eos,            only:ieos, gmw
  use setunits,       only:mass_unit,dist_unit
@@ -62,13 +65,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  character(len=120) :: filename
  integer :: ierr
  logical :: iexist
- real    :: period,ecc
+ real    :: period,ecc,hdon,mass_ratio
 !
 !--general parameters
 !
  dist_unit = 'solarr'
  mass_unit = 'solarm'
- iexternalforce = iext_corotate 
  time = 0.
  polyk = 0.
  gamma = 5./3.
@@ -80,17 +82,19 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  npartoftype(:) = 0
  massoftype = 0.
 
+ iexternalforce = iext_corotate
+ icompanion_grav = 1
  xyzh(:,:)  = 0.
  vxyzu(:,:) = 0.
  nptmass = 0
  a    = 266.34
  mdon = 6.97
  macc = 1.41
- hacc = 10.
+ hacc = 1.
  ieos = 2
  gmw  = 0.6
  ecc  = 0.
- hdon = 0.
+ hdon = 1.
 
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
    ' Welcome to the Ultimate Binary Setup'
@@ -112,24 +116,30 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
  
  period = get_period_from_a(mdon,macc,a)
  tmax = 10.*period
- dtmax = tmax/20.
+ dtmax = tmax/200.
  !
  !--now setup orbit using fake sink particles
  !
  call set_binary(mdon,macc,a,ecc,hdon,hacc,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,omega_corotate,&
                   verbose=(id==master))
 
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
  
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
+ 
+ companion_mass = mdon
+ companion_xpos = xyzmh_ptmass(1,1)
+ mass_ratio = mdon / macc
+ hsoft = 0.1 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
+               log( 1. + mass_ratio**(1./3.) ) ) * a
  !
  !--delete donor sink 
  !
  nptmass=1
  xyzmh_ptmass(:,1) = xyzmh_ptmass(:,2)
- vxyz_ptmass(:,1) = vxyz_ptmass(:,2)
- 
- !
+ vxyz_ptmass(1:3,1) = 0.
+  
  !--restore options
  !
  
@@ -174,7 +184,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
  use setunits,     only:read_options_and_set_units
- character(len=*), intent(in)    :: filename
+ character(len=*), intent(in) :: filename
  integer,          intent(inout) :: ieos
  real,             intent(inout) :: polyk
  integer,          intent(out) :: ierr
@@ -183,7 +193,8 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  type(inopts), allocatable :: db(:)
 
  nerr = 0
- ierr = 0
+ ierr = 0 
+
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr)
 
@@ -194,8 +205,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  call read_inopt(hacc,'hacc',db,errcount=nerr)
  call close_db(db)
 
-
- if (nerr > 0) then
+  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
