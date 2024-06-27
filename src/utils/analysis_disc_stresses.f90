@@ -12,10 +12,13 @@ module analysis
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nbins : *Number of radial bins*
+!   - rin   : *Inner Disc Radius*
+!   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, io, kernel, part, physcon,
-!   prompting, units
+! :Dependencies: dim, eos, getneighbours, infile_utils, io, kernel, part,
+!   physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
@@ -125,7 +128,7 @@ subroutine read_analysis_options
     call read_inopt(rout,'rout',db,errcount=nerr)
     call close_db(db)
     if (nerr > 0) then
-      call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
+       call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
     endif
 
  else
