@@ -49,7 +49,8 @@ module ptmass
  public :: merge_sinks
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
- public :: ptmass_accrete, ptmass_create,ptmass_create_stars
+ public :: ptmass_accrete, ptmass_create
+ public :: ptmass_create_stars,ptmass_create_seeds
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
  public :: calculate_mdot
@@ -65,6 +66,7 @@ module ptmass
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
  real,    public :: tmax_acc = huge(f_acc)
+ real,    public :: tseeds    = huge(f_acc)
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
@@ -648,7 +650,7 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
 
 
  !$omp parallel do schedule(static) default(none) &
- !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass,iJ2) &
+ !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dkdt,nptmass) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
@@ -1569,10 +1571,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
     nptmass = new_nptmass
-
+    ! link the new sink to nothing (waiting for age > tseeds)
     if (icreate_sinks == 2) then
-       call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
-       write(iprint,"(a,i3)") ' Star formation prescription : created seeds #',(nptmass + 1 - new_nptmass)
+       linklist_ptmass(nptmass) = -1
     endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
@@ -1600,28 +1601,39 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 end subroutine ptmass_create
 
 subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
- use part, only:itbirth,ihacc
+ use part,   only:itbirth,ihacc
  use random, only:ran2
+ use io,     only:iprint
  integer, intent(inout) :: nptmass
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
- integer :: i,nseed,n
+ real    :: mi,hi,tbirthi
+ integer :: i,j,nseed,n
 !
 !-- Draw the number of star seeds in the core
 !
- nseed = floor(5*ran2(iseed_sf))-1
- n = nptmass
- linklist_ptmass(n) = n + 1 !! link the core to the seeds
- do i=1,nseed
-    n = n + 1
-    xyzmh_ptmass(itbirth,n) = time
-    xyzmh_ptmass(4,n) = -1.
-    xyzmh_ptmass(ihacc,n) = -1.
-    linklist_ptmass(n) = n + 1 !! link this new seed to the next one
+ do i=1,nptmass
+    mi = xyzmh_ptmass(4,i)
+    hi = xyzmh_ptmass(ihacc,i)
+    tbirthi  = xyzmh_ptmass(itbirth,i)
+    if (linklist_ptmass(i)/=-1 .or. mi < 0 .or. hi<h_acc) cycle
+    if (time>=tbirthi+tseeds) then
+       nseed = floor(5*ran2(iseed_sf))-1
+       n = nptmass
+       linklist_ptmass(i) = n + 1 !! link the core to the seeds
+       do j=1,nseed
+          n = n + 1
+          xyzmh_ptmass(itbirth,n) = time
+          xyzmh_ptmass(4,n) = -1.
+          xyzmh_ptmass(ihacc,n) = -1.
+          linklist_ptmass(n) = n + 1 !! link this new seed to the next one
+       enddo
+       linklist_ptmass(n) = -1 !! null pointer to end the link list
+       write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed, ' seeds in sink n° :', i
+       nptmass = n
+    endif
  enddo
- linklist_ptmass(n) = -1 !! null pointer to end the link list
- nptmass = n
 end subroutine ptmass_create_seeds
 
 subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time,formed)
@@ -2145,6 +2157,7 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
        if (icreate_sinks==2) then
           call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
+          call write_inopt(tseeds, "tseeds", "delay between sink creation and its seeds", iunit)
           call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
        endif
        if (f_crit_override > 0. .or. l_crit_override) then
@@ -2239,6 +2252,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('tmax_acc')
     read(valstring,*,iostat=ierr) tmax_acc
+    ngot = ngot + 1
+ case('tseeds')
+    read(valstring,*,iostat=ierr) tseeds
     ngot = ngot + 1
  case('iseed_sf')
     read(valstring,*,iostat=ierr) iseed_sf

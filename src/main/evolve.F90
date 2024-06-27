@@ -94,7 +94,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
-                            set_integration_precision,ptmass_create_stars,use_regnbody
+                            set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
@@ -287,8 +287,17 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
        if (icreate_sinks == 2) then
+          !
+          ! creation of new seeds into evolved sinks
+          !
+          call ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+          !
+          ! creation of new stars from sinks (cores)
+          !
           call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
                                    linklist_ptmass,time,star_formed)
+
+          ! Need to recompute the force when sink or stars are created
           if(star_formed .or. isdead_or_accreted(xyzh(4,ipart_rhomax))) then
              if (use_regnbody) then
                 call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
@@ -299,6 +308,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                            fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
              endif
           endif
+
        endif
     endif
     !
@@ -310,7 +320,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
     if (iH2R > 0 .and. id==master) then
 #ifdef IND_TIMESTEPS
-       if(mod(istepfrac,(2**(nbinmax-3))==0).or. istepfrac==1) then
+       if(mod(istepfrac,2**(nbinmax-3))==0 .or. istepfrac==1) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
 #else
