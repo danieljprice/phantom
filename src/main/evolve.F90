@@ -90,7 +90,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
-                            linklist_ptmass,isionised,dsdt_ptmass
+                            linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
  use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
@@ -289,7 +289,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if (icreate_sinks == 2) then
           call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
                                    linklist_ptmass,time,star_formed)
-          if(star_formed) then
+          if(star_formed .or. isdead_or_accreted(xyzh(4,ipart_rhomax))) then
              if (use_regnbody) then
                 call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
                 call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
@@ -309,7 +309,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (iH2R > 0 .and. id==master) then
+#ifdef IND_TIMESTEPS
+       if(mod(istepfrac,(2**(nbinmax-3))==0).or. istepfrac==1) then
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+       endif
+#else
        call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+#endif
     endif
 
     nsteps = nsteps + 1
