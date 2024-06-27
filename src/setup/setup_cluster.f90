@@ -56,7 +56,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
  use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas, &
-                        r_merge_uncond,use_regnbody
+                        r_merge_uncond,use_regnbody,f_crit_override
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
@@ -205,14 +205,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     dtmax         = 0.002*t_ff
     h_acc         = Rsink_au*au/udist
     if (icluster == 3) then
-       r_crit         = h_acc
-       icreate_sinks  = 2
-       rho_crit_cgs   = 1.d-18
-       h_soft_sinkgas = h_acc
-       tmax_acc       = 0.5*(myr/utime)
-       r_merge_uncond = h_acc
-       use_regnbody   = .true.
-       r_neigh       = 5e-2*h_acc
+       r_crit          = h_acc
+       icreate_sinks   = 2
+       rho_crit_cgs    = 1.d-18
+       h_soft_sinkgas  = h_acc
+       tmax_acc        = 0.5*(myr/utime)
+       r_merge_uncond  = h_acc
+       use_regnbody    = .true.
+       r_neigh         = 5e-2*h_acc
+       f_crit_override = 100.
     else
        r_crit        = 2.*h_acc
        icreate_sinks = 1
