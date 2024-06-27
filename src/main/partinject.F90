@@ -43,10 +43,10 @@ contains
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
- use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm!,dust_temp
+ use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,apr_level!,dust_temp
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin
  use io,   only:fatal
- use dim,  only:ind_timesteps
+ use dim,  only:ind_timesteps,use_apr
  use timestep_ind, only:nbinmax
  integer, intent(in)    :: itype
  real,    intent(in)    :: position(3), velocity(3), h, u
@@ -107,6 +107,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
 
  if (ind_timesteps) ibin(particle_number) = nbinmax
  if (present(jKmuS)) nucleation(:,particle_number) = JKmuS(:)
+
+ if (use_apr) apr_level(particle_number) = 1 ! since it has the largest mass
 
 end subroutine add_or_update_particle
 

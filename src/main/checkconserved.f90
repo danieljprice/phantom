@@ -83,7 +83,7 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
 
  ! This is to check that total mass is conserved when we use apr
  ! It can't be used if mass is accreted or injected
- should_conserve_aprmass = (iexternalforce==0 .and. use_apr)
+ should_conserve_aprmass = (iexternalforce==0 .and. use_apr .and. .not.inject_parts)
 
 end subroutine init_conservation_checks
 
