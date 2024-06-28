@@ -17,7 +17,7 @@ module sortutils
 ! :Dependencies: None
 !
  implicit none
- public :: indexx,indexxfunc,Knnfunc,find_rank,r2func,r2func_origin,set_r2func_origin
+ public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank,r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
  end interface indexx
@@ -450,6 +450,164 @@ subroutine Knnfunc(n, func, xyzh, indx)
 
  goto 1
 end subroutine Knnfunc
+
+
+!----------------------------------------------------------------
+!+
+!  customised low-memory sorting routine using Quicksort
+!  sort key value on-the-fly by calling the function func
+!  which can be any function of the particle positions.
+!  (Tweaked version of the original one to sort a list of
+!   neighbours founded using the KD tree) (Parallel scheme, approx 2 times faster)
+!+
+!----------------------------------------------------------------
+subroutine parqsort(n, arr,func, indx)
+ use omp_lib,only:omp_get_num_threads
+ implicit none
+ integer, parameter :: m=8, nstack=500
+ integer(kind=8), intent(in)  :: n
+ real,    intent(in)  :: arr(n)
+ integer, intent(inout) :: indx(n)
+ real, external :: func
+ integer       :: i,j,k,il,ir,jstack,jqueue,indxt,itemp,nthreads,t,spt,nquick
+ integer, save :: istack(nstack)
+ !$omp threadprivate(istack)
+ integer       :: iqueue(nstack)
+ real :: a
+
+ nthreads = 1
+
+ !$omp parallel default(none) shared(nthreads)
+!$ nthreads = omp_get_num_threads()
+ !$omp end parallel
+
+
+ spt = n/nthreads
+
+ jstack = 0
+ jqueue = 0
+ iqueue = 0
+ istack = 0
+ il = 1
+ ir = n
+
+ do while (.true.)
+
+    if (ir - il <= spt) then
+       jqueue = jqueue + 2
+       iqueue(jqueue) = ir
+       iqueue(jqueue - 1) = il
+       if (jstack==0) exit
+       ir = istack(jstack)
+       il = istack(jstack - 1)
+       jstack = jstack - 2
+    else
+       k = (il + ir)/2
+       i = il
+       j = ir
+       indxt = indx(k)
+       a = func(arr(indxt))
+
+       do while (j>i)
+          do while(func(arr(indx(i))) < a)
+             i = i + 1
+          enddo
+          do while (func(arr(indx(j))) > a)
+             j = j - 1
+          enddo
+          if(j>i) then
+             itemp = indx(i)
+             indx(i) = indx(j)
+             indx(j) = itemp
+          endif
+       enddo
+       jstack = jstack + 2
+       if (jstack > nstack) then
+          print*,'fatal error!!! stacksize exceeded in sort'
+          print*,'need to set parameter nstack higher in subroutine indexx '
+          stop
+       endif
+       if (ir - i + 1 >= j - il) then
+          istack(jstack) = ir
+          istack(jstack - 1) = i
+          ir = j - 1
+       else
+          istack(jstack) = j - 1
+          istack(jstack - 1) = il
+          il = i
+       endif
+    endif
+ enddo
+
+ istack = 0
+ nquick = jqueue/2
+
+
+ !$omp parallel do default(none) &
+ !$omp shared(indx,arr,nquick,iqueue)&
+ !$omp private(i,j,k,il,ir,a,jstack,indxt,itemp)
+ do t=1,nquick
+    ir = iqueue(2*t)
+    il  = iqueue(2*t - 1)
+    jstack = 0
+
+    do while (.true.)
+       if (ir - il < m) then
+          !print*,il,ir
+          do j = il , ir
+             indxt = indx(j)
+             a = func(arr(indxt))
+             do i = j - 1, il, -1
+                if (func(arr(indx(i))) <= a) goto 5
+                indx(i + 1) = indx(i)
+             enddo
+             i = il-1
+5            indx(i + 1) = indxt
+          enddo
+          if (jstack==0) exit
+          ir = istack(jstack)
+          il = istack(jstack - 1)
+          jstack = jstack - 2
+       else
+          k = (il + ir)/2
+          i = il
+          j = ir
+          indxt = indx(k)
+          a = func(arr(indxt))
+
+          do while (j>i)
+             do while(func(arr(indx(i))) < a)
+                i = i + 1
+             enddo
+             do while (func(arr(indx(j))) > a)
+                j = j - 1
+             enddo
+             if(j>i) then
+                itemp = indx(i)
+                indx(i) = indx(j)
+                indx(j) = itemp
+             endif
+          enddo
+          jstack = jstack + 2
+          if (jstack > nstack) then
+             print*,'fatal error!!! stacksize exceeded in sort'
+             print*,'need to set parameter nstack higher in subroutine indexx '
+             stop
+          endif
+          if (ir - i + 1 >= j - il) then
+             istack(jstack) = ir
+             istack(jstack - 1) = i
+             ir = j - 1
+          else
+             istack(jstack) = j - 1
+             istack(jstack - 1) = il
+             il = i
+          endif
+       endif
+    enddo
+ enddo
+
+end subroutine parqsort
 
 
 !----------------------------------------------------------------
