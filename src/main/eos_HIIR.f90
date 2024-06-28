@@ -18,7 +18,7 @@ module eos_HIIR
  !
  implicit none
 
- public :: get_eos_HIIR,init_eos_HIIR
+ public :: get_eos_HIIR_iso,get_eos_HIIR_adiab,init_eos_HIIR
 
  real, parameter :: Tion = 10000.
  real, parameter :: muioninv = 2.
@@ -48,10 +48,10 @@ end subroutine init_eos_HIIR
 
  !-----------------------------------------------------------------------
  !+
- !  Main eos routine
+ !  Main eos routine (isothermal)
  !+
  !-----------------------------------------------------------------------
-subroutine get_eos_HIIR(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
+subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
  real, intent(in)    :: polyk,temperature_coef
  real, intent(out)   :: ponrhoi,spsoundi,mui,tempi
  logical, intent(in) :: isionisedi
@@ -66,7 +66,7 @@ subroutine get_eos_HIIR(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isioni
  if(isionisedi) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
-    tempi    = temperature_coef*muion*ponrhoi
+    tempi    = Tion
  else
     ponrhoi  = polyk
     spsoundi = sqrt(ponrhoi)
@@ -74,7 +74,53 @@ subroutine get_eos_HIIR(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isioni
  endif
 
 
-end subroutine get_eos_HIIR
+end subroutine get_eos_HIIR_iso
+
+
+ !-----------------------------------------------------------------------
+ !+
+ !  Main eos routine (adiabatic)
+ !+
+ !-----------------------------------------------------------------------
+subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
+ use io, only:fatal
+ real, intent(in)              :: polyk,temperature_coef,rhoi,gammai
+ real, intent(out)             :: ponrhoi,spsoundi,mui,tempi
+ real, intent(in),    optional :: eni
+
+ logical, intent(in) :: isionisedi
+
+
+ if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
+
+
+ if(isionisedi) then
+    ponrhoi  = polykion
+    spsoundi = sqrt(ponrhoi)
+    tempi    = Tion
+ else
+    if (present(eni)) then
+       if (eni < 0.) then
+          !write(iprint,'(a,Es18.4,a,4Es18.4)')'Warning: eos: u = ',eni,' < 0 at {x,y,z,rho} = ',xi,yi,zi,rhoi
+          call fatal('eos','utherm < 0',var='u',val=eni)
+       endif
+       if (gammai > 1.0001) then
+          ponrhoi = (gammai-1.)*eni   ! use this if en is thermal energy
+       else
+          ponrhoi = 2./3.*eni ! en is thermal energy and gamma = 1
+       endif
+    else
+       ponrhoi = polyk*rhoi**(gammai-1.)
+    endif
+    spsoundi = sqrt(gammai*ponrhoi)
+
+    tempi = temperature_coef*mui*ponrhoi
+ endif
+
+
+end subroutine get_eos_HIIR_adiab
+
+
 
 end module eos_HIIR
 
