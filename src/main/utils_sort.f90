@@ -465,7 +465,7 @@ subroutine parqsort(n, arr,func, indx)
  use omp_lib,only:omp_get_num_threads
  implicit none
  integer, parameter :: m=8, nstack=500
- integer(kind=8), intent(in)  :: n
+ integer, intent(in)  :: n
  real,    intent(in)  :: arr(n)
  integer, intent(inout) :: indx(n)
  real, external :: func

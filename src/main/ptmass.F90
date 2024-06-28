@@ -61,6 +61,8 @@ module ptmass
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
  integer, public :: iseed_sf = 313    ! seed used to sample random value for icreate == 2 prescription...
+ integer, public :: ipart_createstars = 0 ! particle id that needs to create stars after reaching tmax_acc
+ integer, public :: ipart_createseeds = 0 ! particle id that needs to create seeds after reaching tseeds
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
@@ -775,7 +777,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
- use part,       only: ihacc,itbirth,ndptmass
+ use part,       only: ihacc,itbirth,ndptmass,linklist_ptmass
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
@@ -793,7 +795,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real               :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter :: iofailreason=.false.
  integer            :: j
- real               :: mpt,age,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
+ real               :: mpt,tbirthi,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
  logical            :: mostbound
 !$ external         :: omp_set_lock,omp_unset_lock
 
@@ -811,9 +813,18 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  sinkloop : do i=is,nptmass
     hacc = xyzmh_ptmass(ihacc,i)
     mpt  = xyzmh_ptmass(4,i)
-    age  = xyzmh_ptmass(itbirth,i)
+    tbirthi  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
-    if (age + tmax_acc < time) cycle
+    if(icreate_sinks==2) then
+       if (hacc < h_acc ) cycle
+       if (tbirthi + tmax_acc < time) then
+          if(ipart_createstars == 0) ipart_createstars = i
+          cycle
+       endif
+       if (tbirthi + tseeds < time .and. linklist_ptmass(i) /= -1) then
+          if(ipart_createstars == 0) ipart_createseeds = i
+       endif
+    endif
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
@@ -1600,43 +1611,42 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 end subroutine ptmass_create
 
-subroutine ptmass_create_seeds(nptmass,xyzmh_ptmass,linklist_ptmass,time)
+subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
  use part,   only:itbirth,ihacc
  use random, only:ran2
  use io,     only:iprint
  integer, intent(inout) :: nptmass
+ integer, intent(in)    :: itest
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: time
- real    :: mi,hi,tbirthi
- integer :: i,j,nseed,n
+ integer :: j,nseed,n
 !
 !-- Draw the number of star seeds in the core
 !
- do i=1,nptmass
-    mi = xyzmh_ptmass(4,i)
-    hi = xyzmh_ptmass(ihacc,i)
-    tbirthi  = xyzmh_ptmass(itbirth,i)
-    if (linklist_ptmass(i)/=-1 .or. mi < 0 .or. hi<h_acc) cycle
-    if (time>=tbirthi+tseeds) then
-       nseed = floor(5*ran2(iseed_sf))-1
-       n = nptmass
-       linklist_ptmass(i) = n + 1 !! link the core to the seeds
-       do j=1,nseed
-          n = n + 1
-          xyzmh_ptmass(itbirth,n) = time
-          xyzmh_ptmass(4,n) = -1.
-          xyzmh_ptmass(ihacc,n) = -1.
-          linklist_ptmass(n) = n + 1 !! link this new seed to the next one
-       enddo
-       linklist_ptmass(n) = -1 !! null pointer to end the link list
-       write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed, ' seeds in sink n° :', i
-       nptmass = n
-    endif
- enddo
+ nseed = floor(4*ran2(iseed_sf))
+ if(nseed > 0) then
+    n = nptmass
+    linklist_ptmass(itest) = n + 1 !! link the core to the seeds
+    do j=1,nseed-1
+       n = n + 1
+       xyzmh_ptmass(4,n) = -1.
+       xyzmh_ptmass(ihacc,n) = -1.
+       linklist_ptmass(n) = n + 1 !! link this new seed to the next one
+    enddo
+    linklist_ptmass(n) = -1 !! null pointer to end the link list
+    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed, ' seeds in sink n° :', itest
+    nptmass = n
+ else
+    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', 1, ' seeds in sink n° :', itest
+    linklist_ptmass(itest) = -2 !! special null pointer to differentiate mono seed to gas clump
+ endif
+
+ ipart_createseeds = 0 ! reset pointer to zero
+
 end subroutine ptmass_create_seeds
 
-subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time,formed)
+subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
@@ -1644,102 +1654,96 @@ subroutine ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz
  use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
- integer, intent(in)    :: nptmass
+ integer, intent(in)    :: nptmass,itest
  integer, intent(in)    :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,    intent(in)    :: time
- logical, intent(out)   :: formed
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
- integer           :: i,k,n
- real              :: tbirthi,mi,hacci,minmass,mcutoff
+ integer           :: k,n,l
+ real              :: mi,hacci,minmass,mcutoff
  real              :: a(8),velk,rk,xk(3),vk(3),rvir
 
- formed = .false.
 
- do i=1,nptmass
-    mi      = xyzmh_ptmass(4,i)
-    hacci   = xyzmh_ptmass(ihacc,i)
-    tbirthi = xyzmh_ptmass(itbirth,i)
-    if (mi<0.) cycle
-    if (time>=tbirthi+tmax_acc .and. hacci==h_acc ) then
-       formed = .true.
-       write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
-       !! save xcom and vcom before placing stars
-       xi(1) = xyzmh_ptmass(1,i)
-       xi(2) = xyzmh_ptmass(2,i)
-       xi(3) = xyzmh_ptmass(3,i)
-       vi(1) = vxyz_ptmass(1,i)
-       vi(2) = vxyz_ptmass(2,i)
-       vi(3) = vxyz_ptmass(3,i)
+ write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
+ !! save xcom and vcom before placing stars
+ xi(1) = xyzmh_ptmass(1,itest)
+ xi(2) = xyzmh_ptmass(2,itest)
+ xi(3) = xyzmh_ptmass(3,itest)
+ mi    = xyzmh_ptmass(4,itest)
+ hacci = xyzmh_ptmass(ihacc,itest)
+ vi(1) = vxyz_ptmass(1,itest)
+ vi(2) = vxyz_ptmass(2,itest)
+ vi(3) = vxyz_ptmass(3,itest)
 
-       !! masses sampling method
-       call ptmass_size_lklist(i,n,linklist_ptmass)
-       allocate(masses(n))
-       minmass  = 0.08/(mi*(umass/solarm))
-       call divide_unit_seg(masses,minmass,n,iseed_sf)
-       masses = masses*mi
-       if(iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+ !! masses sampling method
+ call ptmass_endsize_lklist(itest,l,n,linklist_ptmass)
+ allocate(masses(n))
+ minmass  = 0.08/(mi*(umass/solarm))
+ call divide_unit_seg(masses,minmass,n,iseed_sf)
+ masses = masses*mi
+ if(iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
 
 
-       k=i
-       do while(k>0)
-          !! Position and velocity sampling methods
-          a(:) = 0.
-          rvir = 0.7*h_acc
-          mcutoff = 0.55
-          !
-          !-- Positions
-          !
-          a(1)  = ran2(iseed_sf)*mcutoff
-          rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
-          a(2)  = ran2(iseed_sf)
-          a(3)  = ran2(iseed_sf)
-          xk(3) = (1.0-2.0*a(2))*rk
-          xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
-          xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
-          !
-          !-- Velocities
-          !
-          a(5) = 1.
-          do while(0.1*a(5)> a(6))
-             a(4) = ran2(iseed_sf)
-             a(5) = ran2(iseed_sf)
-             a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
-          enddo
+ k=itest
+ do while(k>0)
+    !! Position and velocity sampling methods
+    a(:) = 0.
+    rvir = 0.7*h_acc
+    mcutoff = 0.55
+    !
+    !-- Positions
+    !
+    a(1)  = ran2(iseed_sf)*mcutoff
+    rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
+    a(2)  = ran2(iseed_sf)
+    a(3)  = ran2(iseed_sf)
+    xk(3) = (1.0-2.0*a(2))*rk
+    xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
+    xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
+    !
+    !-- Velocities
+    !
+    a(5) = 1.
+    do while(0.1*a(5)> a(6))
+       a(4) = ran2(iseed_sf)
+       a(5) = ran2(iseed_sf)
+       a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
+    enddo
 
-          velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)*sqrt(2.0*mi/rvir)
-          a(7)  = ran2(iseed_sf)
-          a(8)  = ran2(iseed_sf)
-          vk(3) = (1.0-2.0*a(7))*velk
-          vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
-          vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
-          !
-          !-- Star creation
-          !
-          xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
-          xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
-          xyzmh_ptmass(4,k)           = masses(n)
-          xyzmh_ptmass(3,k)           = xi(3) + xk(3)
-          xyzmh_ptmass(2,k)           = xi(2) + xk(2)
-          xyzmh_ptmass(1,k)           = xi(1) + xk(1)
-          xyzmh_ptmass(ispinx,k)      = 0. !
-          xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
-          xyzmh_ptmass(ispinz,k)      = 0. !
-          vxyz_ptmass(1,k)            = vi(1) + vk(1)
-          vxyz_ptmass(2,k)            = vi(2) + vk(2)
-          vxyz_ptmass(3,k)            = vi(3) + vk(3)
-          fxyz_ptmass(1:4,k)          = 0.
-          fxyz_ptmass_sinksink(1:4,k) = 0.
-          if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
+    velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)*sqrt(2.0*mi/rvir)
+    a(7)  = ran2(iseed_sf)
+    a(8)  = ran2(iseed_sf)
+    vk(3) = (1.0-2.0*a(7))*velk
+    vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
+    vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
+    !
+    !-- Star creation
+    !
+    xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+    xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
+    xyzmh_ptmass(4,k)           = masses(n)
+    xyzmh_ptmass(3,k)           = xi(3) + xk(3)
+    xyzmh_ptmass(2,k)           = xi(2) + xk(2)
+    xyzmh_ptmass(1,k)           = xi(1) + xk(1)
+    xyzmh_ptmass(ispinx,k)      = 0. !
+    xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
+    xyzmh_ptmass(ispinz,k)      = 0. !
+    vxyz_ptmass(1,k)            = vi(1) + vk(1)
+    vxyz_ptmass(2,k)            = vi(2) + vk(2)
+    vxyz_ptmass(3,k)            = vi(3) + vk(3)
+    fxyz_ptmass(1:4,k)          = 0.
+    fxyz_ptmass_sinksink(1:4,k) = 0.
+    if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
 
-          k = linklist_ptmass(k) ! acces to the next point mass in the linked list
-          n = n - 1
-       enddo
-       deallocate(masses)
-    endif
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+    n = n - 1
  enddo
+
+ deallocate(masses)
+ ipart_createstars = 0 ! reset pointer to zero
+
 
 end subroutine ptmass_create_stars
 
@@ -1774,7 +1778,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
  integer, intent(inout) :: linklist_ptmass(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
- integer :: i,j,k,l
+ integer :: i,j,k,l,n
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
  logical :: lmerge
@@ -1846,8 +1850,8 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
              xyzmh_ptmass(ihacc,j)  = -1.
              if (icreate_sinks == 2) then
                 ! Connect linked list of the merged sink to the survivor
-                call ptmass_end_lklist(k,l,linklist_ptmass)
-                linklist_ptmass(l) = j
+                call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
+                if(.not.(linklist_ptmass(l)/=-1 .and. n == 1)) linklist_ptmass(l) = j
              endif
              ! print success
              write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',k,' & ',j,' at time = ',time
@@ -1864,31 +1868,21 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
 
 end subroutine merge_sinks
 
-subroutine ptmass_end_lklist(i,k,linklist_ptmass)
+subroutine ptmass_endsize_lklist(i,k,n,linklist_ptmass)
  integer, intent(in)  :: linklist_ptmass(:)
  integer, intent(in)  :: i
- integer, intent(out) :: k
+ integer, intent(out) :: k,n
  integer :: l,g
  g=i
+ n = 0
  do while (g>0)
     l = g
     g = linklist_ptmass(l)
- enddo
- k=l
-end subroutine ptmass_end_lklist
-
-subroutine ptmass_size_lklist(i,n,linklist_ptmass)
- integer, intent(in)  :: linklist_ptmass(:)
- integer, intent(in)  :: i
- integer, intent(out) :: n
- integer :: l
- l=i
- n = 0
- do while (l>0)
-    l = linklist_ptmass(l)
     n = n + 1
  enddo
-end subroutine ptmass_size_lklist
+ k=l
+end subroutine ptmass_endsize_lklist
+
 
 subroutine set_integration_precision
 
