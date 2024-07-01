@@ -94,7 +94,8 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
  !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb)
  overpart: do i=1,npart
-!    if (.not. iactive(iphase(i)) .or. isdead_or_accreted(xyzh(4,i))) cycle
+!    if (.not. iactive(iphase(i)) ) cycle
+    if (isdead_or_accreted(xyzh(4,i)) ) cycle
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
     ui = energ(i)
@@ -106,7 +107,7 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
             + (xyzh(2,i)-xyzmh_ptmass(2,isink_star))**2d0 &
             + (xyzh(3,i)-xyzmh_ptmass(3,isink_star))**2d0  
     endif
-    if (rhoi*unit_density > 1d0) print *, "rhoi > 1.", rhoi,i,sqrt(ri2)
+
     ! get opacities & Ti for ui
     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
            Ti,gmwi)
@@ -162,7 +163,6 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     opac_store(i) = opaci
     dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
-!    if (mod(i,100) == 0) print *, "dudt_sph", dudt_sph(i)
     if (doFLD) then
        Teqi = (du_FLDi + dudt_sph(i)) *opaci*unit_ergg/utime ! physical units
        du_tot = dudt_sph(i) + dudti_rad + du_FLDi
@@ -180,11 +180,11 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     endif
     teqi_store(i) = Teqi
 
-    if (Teqi > 1e6) then
-       print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
-            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dt=", dudt_sph(i)*dt 
-    endif
+!    if (Teqi > 1e6) then
+!       print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
+!            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
+!            "dudt_sph * dt=", dudt_sph(i)*dt 
+!    endif
     
     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
     ueqi = ueqi/unit_ergg
