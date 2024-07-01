@@ -658,25 +658,28 @@ subroutine ptmass_vdependent_correction(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyz
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout)    :: fxyz_ptmass(4,nptmass)
  integer, intent(in)    :: iexternalforce
- real :: fxi,fyi,fzi,fextv(3)
+ real :: fxi,fyi,fzi,vxhalfi,vyhalfi,vzhalfi,fextv(3)
  integer :: i
 
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dkdt,nptmass,iexternalforce) &
- !$omp private(fxi,fyi,fzi,fextv) &
+ !$omp private(vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv) &
  !$omp private(i)
  do i=1,nptmass
     if (xyzmh_ptmass(4,i) > 0.) then
+       vxhalfi = vxyz_ptmass(1,i)
+       vyhalfi = vxyz_ptmass(2,i)
+       vzhalfi = vxyz_ptmass(3,i)
        fxi = fxyz_ptmass(1,i)
        fyi = fxyz_ptmass(2,i)
        fzi = fxyz_ptmass(3,i)
        call update_vdependent_extforce(iexternalforce,&
-              vxyz_ptmass(1,i),vxyz_ptmass(2,i),vxyz_ptmass(3,i), &
-              fxi,fyi,fzi,fextv,dkdt,xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
+              vxhalfi,vyhalfi,vzhalfi,fxi,fyi,fzi,fextv,dkdt, &
+              xyzmh_ptmass(1,i),xyzmh_ptmass(2,i), &
               xyzmh_ptmass(3,i))
-       fxyz_ptmass(1,i) = fxi + fextv(1)
-       fxyz_ptmass(2,i) = fyi + fextv(2)
-       fxyz_ptmass(3,i) = fzi + fextv(3)
+       fxyz_ptmass(1,i) = fxi
+       fxyz_ptmass(2,i) = fyi
+       fxyz_ptmass(3,i) = fzi
     endif
  enddo
  !$omp end parallel do
