@@ -919,8 +919,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
                 if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
-             fxyz_ptmass_sinksink=fxyz_ptmass
-             dsdt_ptmass_sinksink=dsdt_ptmass
+             fxyz_ptmass_sinksink(1:4,1:nptmass)=fxyz_ptmass
+             dsdt_ptmass_sinksink(1:3,1:nptmass)=dsdt_ptmass
           else
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
@@ -930,8 +930,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
                 if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
-             fxyz_ptmass_sinksink=fxyz_ptmass
-             dsdt_ptmass_sinksink=dsdt_ptmass
+             fxyz_ptmass_sinksink(1:4,1:nptmass)=fxyz_ptmass
+             dsdt_ptmass_sinksink(1:3,1:nptmass)=dsdt_ptmass
           endif
        endif
     else
