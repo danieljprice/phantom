@@ -286,14 +286,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
-
-       if(isdead_or_accreted(xyzh(4,ipart_rhomax))) then
-          if (use_regnbody) then
-             call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
-             call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                                         fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
-          endif
-       endif
     endif
 
     if (icreate_sinks == 2) then
@@ -309,16 +301,21 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        if(ipart_createstars /= 0) then
           call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
                                linklist_ptmass,time)
-          ! Need to recompute the force when sink or stars are created
-          if (use_regnbody) then
-             call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
-             call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                        fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
-          else
-             call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                       fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
-          endif
        endif
+    endif
+
+    ! Need to recompute the force when sink or stars are created
+    if (isdead_or_accreted(xyzh(4,ipart_rhomax)) .or. (ipart_createseeds /= 0) .or. (ipart_createstars /= 0)) then
+       if (use_regnbody) then
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
+       else
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
+       endif
+       ipart_createseeds = 0 ! reset pointer to zero
+       ipart_createstars = 0 ! reset pointer to zero
     endif
     !
     ! Strang splitting: implicit update for half step

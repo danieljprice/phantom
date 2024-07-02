@@ -606,14 +606,14 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingro
  integer, optional, intent(in)    :: n_ingroup
  integer, optional, intent(in)    :: group_info(:,:)
  integer :: i,k,istart_ptmass
- logical :: woutsub
+ logical :: wsub
 
  if (present(n_ingroup)) then
     istart_ptmass = n_ingroup + 1
-    woutsub = .true.
+    wsub = .true.
  else
     istart_ptmass = 1
-    woutsub = .false.
+    wsub = .false.
  endif
 
  !$omp parallel do schedule(static) default(none) &
@@ -621,7 +621,7 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingro
  !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
  !$omp private(i,k)
  do k=istart_ptmass,nptmass
-    if (woutsub) then
+    if (wsub) then
        i = group_info(igarg,k)
     else
        i = k
@@ -816,16 +816,19 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     mpt  = xyzmh_ptmass(4,i)
     tbirthi  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
+    !$omp single
     if(icreate_sinks==2) then
        if (hacc < h_acc ) cycle
        if (tbirthi + tmax_acc < time) then
           if(ipart_createstars == 0) ipart_createstars = i
           cycle
        endif
-       if (tbirthi + tseeds < time .and. linklist_ptmass(i) == 0) then
-          if(ipart_createstars == 0) ipart_createseeds = i
+       if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
+          (ipart_createseeds == 0)) then
+          ipart_createseeds = i
        endif
     endif
+    !$omp end single
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
@@ -1629,21 +1632,20 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
  if(nseed > 0) then
     n = nptmass
     linklist_ptmass(itest) = n + 1 !! link the core to the seeds
-    do j=1,nseed-1
+    do j=1,nseed
        n = n + 1
-       xyzmh_ptmass(4,n) = -1.
+       xyzmh_ptmass(:,n)     = 0.
+       xyzmh_ptmass(4,n)     = -1.
        xyzmh_ptmass(ihacc,n) = -1.
-       linklist_ptmass(n) = n + 1 !! link this new seed to the next one
+       linklist_ptmass(n)    = n + 1 !! link this new seed to the next one
     enddo
     linklist_ptmass(n) = -1 !! null pointer to end the link list
-    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed, ' seeds in sink n° :', itest
+    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed+1, ' seeds in sink n° :', itest
     nptmass = n
  else
     write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', 1, ' seeds in sink n° :', itest
     linklist_ptmass(itest) = -1 !! null pointer to differentiate mono seed to gas clump
  endif
-
- ipart_createseeds = 0 ! reset pointer to zero
 
 end subroutine ptmass_create_seeds
 
@@ -1743,8 +1745,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  enddo
 
  deallocate(masses)
- ipart_createstars = 0 ! reset pointer to zero
-
 
 end subroutine ptmass_create_stars
 
