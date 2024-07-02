@@ -822,7 +822,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
           if(ipart_createstars == 0) ipart_createstars = i
           cycle
        endif
-       if (tbirthi + tseeds < time .and. linklist_ptmass(i) /= -1) then
+       if (tbirthi + tseeds < time .and. linklist_ptmass(i) == 0) then
           if(ipart_createstars == 0) ipart_createseeds = i
        endif
     endif
@@ -1585,7 +1585,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nptmass = new_nptmass
     ! link the new sink to nothing (waiting for age > tseeds)
     if (icreate_sinks == 2) then
-       linklist_ptmass(nptmass) = -1
+       linklist_ptmass(nptmass) = 0
     endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
@@ -1640,7 +1640,7 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
     nptmass = n
  else
     write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', 1, ' seeds in sink n° :', itest
-    linklist_ptmass(itest) = -2 !! special null pointer to differentiate mono seed to gas clump
+    linklist_ptmass(itest) = -1 !! null pointer to differentiate mono seed to gas clump
  endif
 
  ipart_createseeds = 0 ! reset pointer to zero

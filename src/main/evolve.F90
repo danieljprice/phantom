@@ -307,7 +307,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new stars from sinks (cores)
        !
        if(ipart_createstars /= 0) then
-          call ptmass_create_stars(nptmass,ipart_createseeds,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
+          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
                                linklist_ptmass,time)
           ! Need to recompute the force when sink or stars are created
           if (use_regnbody) then
