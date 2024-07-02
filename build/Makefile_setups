@@ -845,6 +845,15 @@ ifeq ($(SETUP), windtunnel)
     ANALYSIS=analysis_common_envelope.f90
 endif
 
+ifeq ($(SETUP), masstransfer)
+#   Wind tunnel setup
+    SETUPFILE= setup_masstransfer.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
+endif
+
 ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
