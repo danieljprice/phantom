@@ -55,9 +55,12 @@ module options
  real(kind=sp), public :: mcfost_keep_part
  character(len=80), public :: Voronoi_limits_file
 
- ! radiation
+! radiation
  logical, public :: exchange_radiation_energy, limit_radiation_flux, implicit_radiation
  logical, public :: implicit_radiation_store_drad
+
+! library use
+ logical, public :: write_files
 
  public :: set_default_options
  public :: ieos,idamp
@@ -168,6 +171,9 @@ subroutine set_default_options
 
  ! variable composition
  use_var_comp = .false.
+
+ ! for use as a library
+ write_files = .true.
 
 end subroutine set_default_options
 
