@@ -776,7 +776,8 @@ subroutine test_createsink(ntests,npass)
                       dptmass,fxyz_ptmass_sinksink,linklist_ptmass
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
-                      ptmass_create_stars,tmax_acc
+                      ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
+                      ptmass_create_seeds
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
@@ -786,7 +787,6 @@ subroutine test_createsink(ntests,npass)
  integer :: id_rhomax,ipart_rhomax_global
  real :: psep,totmass,r2min,r2,t,coremass,starsmass
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
- logical :: formed
  procedure(rho_func), pointer :: density_func
 
  density_func => gaussianr
@@ -842,6 +842,9 @@ subroutine test_createsink(ntests,npass)
        icreate_sinks = 2
        linklist_ptmass = -1
        tmax_acc = 0.
+       tseeds = 0.
+       ipart_createseeds = 1
+       ipart_createstars = 1
     else
        icreate_sinks = 1
     endif
@@ -907,11 +910,16 @@ subroutine test_createsink(ntests,npass)
     if (itest==3) then
        coremass = 0.
        starsmass = 0.
+       xyzmh_ptmass(4,1) = xyzmh_ptmass(4,1)*6e33
        coremass = xyzmh_ptmass(4,1)
-       call ptmass_create_stars(nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,0.,formed)
+       call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,0.)
+       call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                                fxyz_ptmass_sinksink,linklist_ptmass,0.)
        do i=1,nptmass
           starsmass = starsmass + xyzmh_ptmass(4,i)
        enddo
+       xyzmh_ptmass(4,1) = coremass/6e33
+       xyzmh_ptmass(4,:) = 0.
     endif
     !
     ! check that creation succeeded
@@ -1143,7 +1151,7 @@ subroutine test_merger(ntests,npass)
 end subroutine test_merger
 
 subroutine test_HIIregion(ntests,npass)
- use dim,            only:maxp,maxphase
+ use dim,            only:maxp,maxphase,maxvxyzu
  use io,             only:id,master,iverbose,iprint
  use eos_HIIR,       only:polykion,init_eos_HIIR
  use eos,            only:gmw,ieos,polyk,gamma
@@ -1166,7 +1174,7 @@ subroutine test_HIIregion(ntests,npass)
  real           :: totmass,psep
  real           :: Rstrom,ci,k,rho0
  real           :: totvol,nx,rmin,rmax,temp
- if (id==master) write(*,"(/,a)") '--> testing HII region expansion around massive stars...'
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region expansion around massive stars...'
 
  call set_units(dist=pc,mass=solarm,G=1.d0)
  call init_eos_HIIR()
@@ -1182,7 +1190,7 @@ subroutine test_HIIregion(ntests,npass)
 
  h_acc = 0.002
 
- xyzmh_ptmass(4,1) = -1
+ xyzmh_ptmass(4,1) = -1.
  xyzmh_ptmass(irateion,1) = (10.**49.)*utime ! rate_ion [s^-1]
  nptmass = 1
  nHIIsources = 1
@@ -1233,12 +1241,17 @@ subroutine test_HIIregion(ntests,npass)
  rho0 = totmass/totvol
 
  Rstrom = ((3*xyzmh_ptmass(irateion,1)*mH**2)/(4*pi*ar*rho0**2))**(1./3.)
+ xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)
  k = 0.005
 
  polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
  vxyzu(:,:) = 0.
  fxyzu(:,:) = 0.
+ if (maxvxyzu >= 4) then
+    vxyzu(4,:) = polyk
+    ieos = 22
+ endif
 
  call get_derivs_global()
 
