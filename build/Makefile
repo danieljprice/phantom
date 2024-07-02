@@ -1286,6 +1286,7 @@ giza-fortran.o : $(SPLASH_DIR)/giza/interface/giza-fortran.F90 $(SPLASH_DIR)/giz
 
 compilers:
 	@echo "I suggest one of the following, based on detected Fortran compilers..."; echo;
+	@if type -p ifx > /dev/null; then echo "make SYSTEM=ifx"; fi;
 	@if type -p ifort > /dev/null; then echo "make SYSTEM=ifort"; fi;
 	@if type -p pathf90 > /dev/null; then echo "make SYSTEM=pathf90"; fi;
 	@if type -p pgf90 > /dev/null; then echo "make SYSTEM=pgf90"; fi;
