@@ -212,16 +212,16 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
        if(stromi >= 0. ) then
-          hcheck = 1.4*stromi
+          hcheck = 1.4*stromi + 0.01*Rmax
        else
           hcheck = Rmax
        endif
-       do while(nneigh < 0 .and. hcheck/=Rmax)
-          hcheck = hcheck + 0.01*Rmax  ! additive term to allow unresolved case to open
-          if (hcheck > Rmax) hcheck = Rmax
+       do while(hcheck <= Rmax)
           call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
           call set_r2func_origin(xi,yi,zi)
           call Knnfunc(nneigh,r2func_origin,xyzh,listneigh)
+          if (nneigh > 0) exit
+          hcheck = hcheck + 0.01*Rmax  ! additive term to allow unresolved case to open
        enddo
        do k=1,nneigh
           j = listneigh(k)
