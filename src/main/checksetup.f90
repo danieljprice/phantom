@@ -1055,8 +1055,8 @@ subroutine check_HIIRegion(nerror)
  use eos,       only:ieos
  use dim,       only:gr,mpi
  integer, intent(inout) :: nerror
- if(iH2R > 0 .and. ieos/=21) then
-    print "(/,a,/)", "Error: If HII activated, eos == 21 is mandatory..."
+ if(iH2R > 0 .and. (ieos/=21 .or. ieos==22)) then
+    print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
     nerror = nerror + 1
  endif
  if(iH2R > 0 .and. gr) then
