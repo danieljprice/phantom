@@ -819,16 +819,16 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     if(icreate_sinks==2) then
        if (hacc < h_acc ) cycle
        if (tbirthi + tmax_acc < time) then
-          !$omp single
+          !$omp master
           if(ipart_createstars == 0) ipart_createstars = i
-          !$omp end single
+          !$omp end master
           cycle
        endif
        if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
           (ipart_createseeds == 0)) then
-          !$omp single
+          !$omp master
           ipart_createseeds = i
-          !$omp end single
+          !$omp end master
        endif
     endif
     dx = xi - xyzmh_ptmass(1,i)
@@ -1642,10 +1642,12 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
        linklist_ptmass(n)    = n + 1 !! link this new seed to the next one
     enddo
     linklist_ptmass(n) = -1 !! null pointer to end the link list
-    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', nseed+1, ' seeds in sink n° :', itest
+    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+                                           nseed+1, ' seeds in sink n° :', itest, " t= ",time
     nptmass = n
  else
-    write(iprint,"(a,i3,a,i3)") ' Star formation prescription : creation of :', 1, ' seeds in sink n° :', itest
+    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+                                           1, ' seeds in sink n° :', itest, " t= ",time
     linklist_ptmass(itest) = -1 !! null pointer to differentiate mono seed to gas clump
  endif
 
