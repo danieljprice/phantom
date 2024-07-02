@@ -64,6 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
  use utils_shuffleparticles, only:shuffleparticles
+ use cooling,      only:Tfloor
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -107,6 +108,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 8       ! Barotropic equation of state
     mass_fac    = 1.0     ! mass code unit: mass_fac * solarm
     dist_fac    = 0.1     ! distance code unit: dist_fac * pc
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
  case(2)
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
     default_cluster = "Young Massive Cluster"
@@ -115,17 +117,25 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 1       ! Isothermal equation of state
     mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
+
  case(3)
     ! Young Massive Cluster (Yann Bernard, IPAG)
     default_cluster = "Embedded cluster"
     Rcloud_pc   = 10.0    ! Input radius [pc]
     Mcloud_msun = 1.0d4   ! Input mass [Msun]
-    ieos_in     = 21      ! Isothermal equation of state
+    ieos_in     = 21      ! Isothermal equation of state + HII
     mass_fac    = 1.0d4   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
     iH2R        = 1       ! switch HII regions
     Rsink_au    = 4000.   ! Sink radius [au]
     mu          = 2.35    ! mean molecular weight
+    if (maxvxyzu >= 4) then
+       ieos_in = 22 ! Adiabatic equation of state + HII
+       gamma   = 5./3.
+       Tfloor  = 6.
+    endif
+
 
  case default
     ! from Bate, Bonnell & Bromm (2003)
@@ -135,10 +145,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in         = 8       ! Barotropic equation of state
     mass_fac        = 1.0     ! mass code unit: mass_fac * solarm
     dist_fac        = 0.1     ! distance code unit: dist_fac * pc
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
  end select
 
 
- if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
  !--Read values from .setup
  if (setexists) then
@@ -158,7 +168,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
 
  !--Define remaining variables using the inputs
- polyk         = kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
+ polyk         = gamma*kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
  rmax          = Rcloud_pc*(pc/udist)
  r2            = rmax*rmax
  totmass       = Mcloud_msun*(solarm/umass)
@@ -195,6 +205,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !--Normalise the energy
  call normalise_vfield(npart,vxyzu,ierr,ke=epotgrav)
  if (ierr /= 0) call fatal('setup','error normalising velocity field')
+
+ if (maxvxyzu >= 4) then
+    if (gamma > 1.) then
+       vxyzu(4,:) = polyk/(gamma*(gamma-1.))
+    else
+       vxyzu(4,:) = 1.5*polyk
+    endif
+ endif
 
  !--Setting the centre of mass of the cloud to be zero
  call reset_centreofmass(npart,xyzh,vxyzu)
