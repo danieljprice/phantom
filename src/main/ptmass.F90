@@ -618,7 +618,7 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingro
 
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass) &
- !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
+ !$omp shared(n_ingroup,group_info,wsub,istart_ptmass) &
  !$omp private(i,k)
  do k=istart_ptmass,nptmass
     if (wsub) then
@@ -816,19 +816,21 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     mpt  = xyzmh_ptmass(4,i)
     tbirthi  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
-    !$omp single
     if(icreate_sinks==2) then
        if (hacc < h_acc ) cycle
        if (tbirthi + tmax_acc < time) then
+          !$omp single
           if(ipart_createstars == 0) ipart_createstars = i
+          !$omp end single
           cycle
        endif
        if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
           (ipart_createseeds == 0)) then
+          !$omp single
           ipart_createseeds = i
+          !$omp end single
        endif
     endif
-    !$omp end single
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
