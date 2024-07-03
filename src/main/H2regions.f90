@@ -16,7 +16,6 @@ module HIIRegion
  ! reference : Fujii et al. 2021 SIRIUS Project Paper III
  !
  !
- use dim, only:maxvxyzu
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
@@ -61,8 +60,7 @@ subroutine initialize_H2R
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
- mH = mH/umass
- Tion = 1.d4
+ Tion = 1.e4
  ar = ar_cgs*(utime/udist**3)
  sigd = sigd_cgs*udist**2
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
@@ -71,13 +69,15 @@ subroutine initialize_H2R
  if (gamma>1.) then
     uIon = kboltz*Tion/(mH*(gamma-1.))*(utime/udist)**2
  else
-    uIon = 1.5*(kboltz*Tion/(mH)*(utime/udist)**2)
+    uIon = 1.5*(kboltz*Tion/(mH))*(utime/udist)**2
  endif
 
+ mH = mH/umass
+
  if (id == master .and. iverbose > 1) then
-    write(iprint,"(/a,es18.10/)") "feedback constants mH           : ", mH
-    write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
-    write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
+    write(iprint,"(a,es18.10,es18.10)") " feedback constants mH,uIon      : ", mH,uIon
+    write(iprint,"(a,es18.10,es18.10)") " Max strögrem radius (code/pc)   : ", Rst_max, Rmax
+    write(iprint,"(a,es18.10,es18.10)") " Min feedback mass   (code/Msun) : ", Minmass, Mmin
  endif
  return
 end subroutine initialize_H2R
@@ -178,6 +178,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use sortutils,  only:Knnfunc,set_r2func_origin,r2func_origin
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
+ use dim,        only:maxvxyzu
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)

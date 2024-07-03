@@ -84,11 +84,10 @@ end subroutine get_eos_HIIR_iso
  !-----------------------------------------------------------------------
 subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
  use io, only:fatal
- real, intent(in)              :: polyk,temperature_coef,rhoi,gammai
- real, intent(out)             :: ponrhoi,spsoundi,mui,tempi
- real, intent(in),    optional :: eni
-
- logical, intent(in) :: isionisedi
+ real,    intent(in)              :: polyk,temperature_coef,rhoi,gammai
+ real,    intent(out)             :: ponrhoi,spsoundi,mui,tempi
+ logical, intent(in)              :: isionisedi
+ real,    intent(in),    optional :: eni
 
 
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)

@@ -143,7 +143,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
- integer         :: dummy
+ integer         :: dummy,istepHII
 
  dummy = 0
 
@@ -327,7 +327,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
     if (iH2R > 0 .and. id==master) then
 #ifdef IND_TIMESTEPS
-       if(mod(istepfrac,2**(nbinmax-3))==0 .or. istepfrac==1) then
+       istepHII = 2**nbinmax/8
+       if (istepHII==0) istepHII = 1
+       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
 #else
