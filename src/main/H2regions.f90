@@ -16,7 +16,7 @@ module HIIRegion
  ! reference : Fujii et al. 2021 SIRIUS Project Paper III
  !
  !
-
+ use dim, only:maxvxyzu
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
@@ -38,10 +38,10 @@ module HIIRegion
  real, parameter   :: sigd_cgs = 1.d-21
  real              :: sigd
  real              :: hv_on_c
- real              :: T_ion
- real              :: u_to_t
+ real              :: Tion
  real              :: Rst_max
  real              :: Minmass
+ real              :: uIon
 
  private
 
@@ -57,21 +57,25 @@ subroutine initialize_H2R
  use part,    only:isionised
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
- use eos    , only:gmw
+ use eos    , only:gmw,gamma
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
- u_to_t = (3./2)*(kboltz/mH)*(utime/udist)**2
  mH = mH/umass
- T_ion = 1.d4
+ Tion = 1.d4
  ar = ar_cgs*(utime/udist**3)
  sigd = sigd_cgs*udist**2
  hv_on_c = ((18.6*eV)/2.997924d10)*(utime/(udist*umass))
  Rst_max = sqrt(((Rmax*pc)/udist)**2)
  Minmass = (Mmin*solarm)/umass
+ if (gamma>1.) then
+    uIon = kboltz*Tion/(mH*(gamma-1.))*(utime/udist)**2
+ else
+    uIon = 1.5*(kboltz*Tion/(mH)*(utime/udist)**2)
+ endif
 
  if (id == master .and. iverbose > 1) then
-    write(iprint,"(/a,es18.10,es18.10/)") "feedback constants mH, u_to_t   : ", mH, u_to_t
+    write(iprint,"(/a,es18.10/)") "feedback constants mH           : ", mH
     write(iprint,"(/a,es18.10,es18.10/)") "Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(/a,es18.10,es18.10/)") "Min feedback mass   (code/Msun) : ", Minmass, Mmin
  endif
@@ -232,6 +236,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 if (.not.(isionised(j))) then
                    Ndot = Ndot - DNdot
                    isionised(j)=.true.
+                   if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                 endif
              else
                 if (k > 1) then
