@@ -1856,7 +1856,11 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
              if (icreate_sinks == 2) then
                 ! Connect linked list of the merged sink to the survivor
                 call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
-                if(.not.(linklist_ptmass(l)/=-1 .and. n == 1)) linklist_ptmass(l) = j
+                if(linklist_ptmass(l)/=0)then
+                   linklist_ptmass(l) = j
+                else
+                   linklist_ptmass(j) = -2 ! special null pointer for dead gas clump
+                endif
              endif
              ! print success
              write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',k,' & ',j,' at time = ',time
