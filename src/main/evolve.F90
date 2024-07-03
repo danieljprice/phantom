@@ -305,7 +305,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     ! Need to recompute the force when sink or stars are created
-    if (isdead_or_accreted(xyzh(4,ipart_rhomax)) .or. (ipart_createseeds /= 0) .or. (ipart_createstars /= 0)) then
+    if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
        if (use_regnbody) then
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
@@ -316,6 +316,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        endif
        ipart_createseeds = 0 ! reset pointer to zero
        ipart_createstars = 0 ! reset pointer to zero
+       dummy = 0
     endif
     !
     ! Strang splitting: implicit update for half step

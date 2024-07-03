@@ -124,7 +124,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
- use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                            substep_sph_gr,substep_sph
 
