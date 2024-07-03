@@ -700,7 +700,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
     if (shearparam < 0.)                     call fatal(label,'stupid value for shear parameter (< 0)')
     if (irealvisc==2 .and. shearparam > 1) call error(label,'alpha > 1 for shakura-sunyaev viscosity')
     if (iverbose > 99 .or. iverbose < -9)   call fatal(label,'invalid verboseness setting (two digits only)')
-    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos == 17)) &
+    if (icooling > 0 .and. .not.(ieos == 2 .or. ieos == 5 .or. ieos == 17 .or. ieos==22)) &
          call fatal(label,'cooling requires adiabatic eos (ieos=2)')
     if (icooling > 0 .and. (ipdv_heating <= 0 .or. ishock_heating <= 0)) &
          call fatal(label,'cooling requires shock and work contributions')
