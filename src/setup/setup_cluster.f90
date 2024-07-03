@@ -64,7 +64,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
  use utils_shuffleparticles, only:shuffleparticles
- use cooling,      only:Tfloor
+ use cooling,      only:Tfloor,icooling
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -134,6 +134,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        ieos_in = 22 ! Adiabatic equation of state + HII
        gamma   = 5./3.
        Tfloor  = 6.
+       icooling = 6
+       Temperature = 40.
     endif
 
 
