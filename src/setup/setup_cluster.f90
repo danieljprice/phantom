@@ -64,7 +64,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use HIIRegion,    only:iH2R
  use subgroup,     only:r_neigh
  use utils_shuffleparticles, only:shuffleparticles
- use cooling,      only:Tfloor,icooling
+ use cooling,      only:Tfloor
+ use options,      only:icooling
+
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
