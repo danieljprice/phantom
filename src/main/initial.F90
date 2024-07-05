@@ -570,17 +570,17 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  call init_inject(ierr)
  if (ierr /= 0) call fatal('initial','error initialising particle injection')
  if (write_files) then
-    !rename wind profile filename
-    inquire(file='wind_profile1D.dat',exist=iexist)
-    if (iexist) then
-       i = len(trim(dumpfile))
-       if (dumpfile(i-2:i) == 'tmp') then
-          file1D = dumpfile(1:i-9) // '1D.dat'
-       else
-          file1D = dumpfile(1:i-5) // '1D.dat'
-       endif
-       call rename('wind_profile1D.dat',trim(file1D))
+ !rename wind profile filename
+ inquire(file='wind_profile1D.dat',exist=iexist)
+ if (iexist) then
+    i = len(trim(dumpfile))
+    if (dumpfile(i-2:i) == 'tmp') then
+       file1D = dumpfile(1:i-9) // '1D.dat'
+    else
+       file1D = dumpfile(1:i-5) // '1D.dat'
     endif
+    call rename('wind_profile1D.dat',trim(file1D))
+ endif
  endif
  npart_old = npart
  call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
@@ -778,32 +778,32 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 !  if the input file ends in .tmp or .init
 !
  if (write_files) then
-    iposinit = index(dumpfile,'.init')
-    ipostmp  = index(dumpfile,'.tmp')
-    if (iposinit > 0 .or. ipostmp > 0) then
+ iposinit = index(dumpfile,'.init')
+ ipostmp  = index(dumpfile,'.tmp')
+ if (iposinit > 0 .or. ipostmp > 0) then
 #ifdef HDF5
-       dumpfileold = trim(dumpfile)//'.h5'
+    dumpfileold = trim(dumpfile)//'.h5'
 #else
-       dumpfileold = dumpfile
+    dumpfileold = dumpfile
 #endif
-       if (iposinit > 0) then
-          dumpfile = trim(dumpfile(1:iposinit-1))
-       else
-          dumpfile = trim(dumpfile(1:ipostmp-1))
-       endif
-       call write_fulldump(time,trim(dumpfile))
-       if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
-       !
-       !  delete temporary dump file
-       !
-       call barrier_mpi() ! Ensure all procs have read temp file before deleting
-       inquire(file=trim(dumpfileold),exist=iexist)
-       if (id==master .and. iexist) then
-          write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
-          open(unit=idisk1,file=trim(dumpfileold),status='old')
-          close(unit=idisk1,status='delete')
-       endif
+    if (iposinit > 0) then
+       dumpfile = trim(dumpfile(1:iposinit-1))
+    else
+       dumpfile = trim(dumpfile(1:ipostmp-1))
     endif
+    call write_fulldump(time,trim(dumpfile))
+    if (id==master) call write_infile(infile,logfile,evfile,trim(dumpfile),iwritein,iprint)
+    !
+    !  delete temporary dump file
+    !
+    call barrier_mpi() ! Ensure all procs have read temp file before deleting
+    inquire(file=trim(dumpfileold),exist=iexist)
+    if (id==master .and. iexist) then
+       write(iprint,"(/,a,/)") ' ---> DELETING temporary dump file '//trim(dumpfileold)//' <---'
+       open(unit=idisk1,file=trim(dumpfileold),status='old')
+       close(unit=idisk1,status='delete')
+    endif
+ endif
  endif ! (write_files)
 
  if (id==master) then
