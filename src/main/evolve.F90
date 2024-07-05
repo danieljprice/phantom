@@ -304,6 +304,18 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        endif
     endif
 
+    if (iH2R > 0 .and. id==master) then
+#ifdef IND_TIMESTEPS
+       istepHII = 2**nbinmax/8
+       if (istepHII==0) istepHII = 1
+       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. ipart_createstars /= 0) then
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+       endif
+#else
+       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+#endif
+    endif
+
     ! Need to recompute the force when sink or stars are created
     if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
        if (use_regnbody) then
@@ -323,18 +335,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !
     if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
-    endif
-
-    if (iH2R > 0 .and. id==master) then
-#ifdef IND_TIMESTEPS
-       istepHII = 2**nbinmax/8
-       if (istepHII==0) istepHII = 1
-       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1) then
-          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
-       endif
-#else
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
-#endif
     endif
 
     nsteps = nsteps + 1
