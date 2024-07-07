@@ -658,7 +658,7 @@ end subroutine set_dustprop
 !  Bin sizes to fake multi large grains (used by moddump and live mcfost)
 !+
 !-----------------------------------------------------------------------
-subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
+subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,use_moments,verbose)
  use part,           only:npart,npartoftype,massoftype,ndusttypes,&
                           ndustlarge,grainsize,dustprop,dustfrac,&
                           iamtype,iphase,set_particle_type,idust,maxdustlarge,filfac
@@ -670,10 +670,10 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  integer, intent(in)    :: bins_per_dex
  real,    intent(in)    :: smax_user
  logical, intent(inout) :: force_smax
- logical, intent(in)    :: verbose
+ logical, intent(in)    :: use_moments,verbose
  real                   :: smaxtmp,smintmp,smax,smin,tolm
  real                   :: mdustold,mdustnew,code_to_mum,mdustfrac,mdusttype
- logical                :: init,use_moments
+ logical                :: init
  integer                :: nbinsize,nbinsizemax,i,j,itype,idusttype,ndustold,ndustnew,npartmin,imerge,iu
  integer                :: nbinfilfacmax,ndustsizetypes
  real, allocatable, dimension(:)   :: grid
@@ -694,7 +694,6 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  npartmin      = 50 !- limit to find neighbours
  init          = .false.
  allocate(dustpropmcfost(2,npart))
- use_moments   = .true.
 
  !- loop over particles, find min and max on non-accreted dust particles
  do i = 1,npart
@@ -728,6 +727,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,verbose)
  else
     init = .true.
     write(*,*) "Detected initial condition, restraining nbins = 1"
+    smax = smaxtmp
  endif
 
  if (.not. init) then

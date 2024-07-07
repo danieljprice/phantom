@@ -39,7 +39,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  integer, intent(inout) :: npartoftype(:)
  real,    intent(inout) :: massoftype(:)
  real,    intent(inout) :: xyzh(:,:),vxyzu(:,:)
- integer                :: iu,ierr
+ integer                :: ierr
  logical                :: file_exists
  character(len=20)      :: infile  = "bin_param.txt"
 
