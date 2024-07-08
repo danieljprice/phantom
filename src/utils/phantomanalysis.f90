@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, kernel,
-!   part, readwrite_dumps
+! :Dependencies: analysis, dim, eos, externalforces, fileutils,
+!   infile_utils, io, kernel, part, readwrite_dumps
 !
  use dim,             only:tagline,do_nucleation,inucleation
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
@@ -26,6 +26,7 @@ program phantomanalysis
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
  use kernel,          only:hfact_default
+ use externalforces,  only:mass1,accradius1
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i,idust_opacity
  real               :: time
@@ -76,6 +77,8 @@ program phantomanalysis
              do_nucleation = .true.
              inucleation = 1
           endif
+          call read_inopt(mass1,'mass1',db,ierr)
+          call read_inopt(accradius1,'accradius1',db,ierr)
           call close_db(db)
           close(ianalysis)
        endif
