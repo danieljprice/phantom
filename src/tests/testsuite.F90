@@ -97,6 +97,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
        write(*,"(2x,a)") '"Trace, test and treat"'
        write(*,"(14x,a,/)") '-- South Korea'
+       write(*,"(2x,a)") '"Testing a program demonstrates that it contains errors, never that it is correct"'
+       write(*,"(14x,a,/)") '-- E. W. Dijkstra'
     endif
     ntests = 0
     npass  = 0

@@ -291,6 +291,20 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
+!-- Regularisation algorithm allocation
+!
+ integer,         allocatable :: group_info(:,:)
+ integer(kind=1), allocatable :: nmatrix(:,:)
+ integer, parameter :: igarg  = 1 ! idx of the particle member of a group
+ integer, parameter :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
+ integer, parameter :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
+ ! needed for group identification and sorting
+ integer  :: n_group = 0
+ integer  :: n_ingroup = 0
+ integer  :: n_sing = 0
+ ! Gradient of the time transformation function
+ real, allocatable :: gtgrad(:,:)
+!
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
@@ -480,6 +494,9 @@ subroutine allocate_part
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
+ call allocate_array('group_info', group_info, 3, maxptmass)
+ call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("gtgrad", gtgrad, 3, maxptmass)
 
 
 end subroutine allocate_part
@@ -560,6 +577,9 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(group_info))   deallocate(group_info)
+ if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(gtgrad))       deallocate(gtgrad)
 
 end subroutine deallocate_part
 
