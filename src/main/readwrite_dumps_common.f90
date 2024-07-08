@@ -566,9 +566,10 @@ end subroutine unfill_rheader
 subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkproperties,massoftype,&
                         alphafile,tfile,phantomdump,got_iphase,got_xyzh,got_vxyzu,got_alpha, &
                         got_krome_mols,got_krome_gamma,got_krome_mu,got_krome_T, &
-                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,got_dustprop,got_pxyzu,got_VrelVf, &
+                        got_abund,got_dustfrac,got_sink_data,got_sink_vels,got_Bxyz,got_psi,&
+                        got_dustprop,got_grainsize,got_pxyzu,got_VrelVf, &
                         got_dustgasprop,got_rad,got_radprop,got_Tdust,got_eosvars,got_nucleation,got_iorig,iphase,&
-                        xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
+                        xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,dustprop,iorig,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
                 do_radiation,store_dust_temperature,do_nucleation,use_krome
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
@@ -579,17 +580,18 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
  use dust_formation, only:init_nucleation
+ use physcon,        only:pi
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
- logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:)
+ logical,         intent(in)    :: got_VrelVf,got_dustgasprop(:),got_grainsize
  logical,         intent(in)    :: got_abund(:),got_dustfrac(:),got_sink_data(:),got_sink_vels(:),got_Bxyz(:)
  logical,         intent(in)    :: got_krome_mols(:),got_krome_gamma,got_krome_mu,got_krome_T
  logical,         intent(in)    :: got_psi,got_Tdust,got_eosvars(:),got_nucleation(:),got_pxyzu(:),got_rad(:)
  logical,         intent(in)    :: got_radprop(:),got_iorig
  integer(kind=1), intent(inout) :: iphase(:)
  integer(kind=8), intent(inout) :: iorig(:)
- real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:)
+ real,            intent(inout) :: vxyzu(:,:),Bevol(:,:),pxyzu(:,:),dustprop(:,:)
  real(kind=4),    intent(inout) :: alphaind(:,:)
  real,            intent(inout) :: xyzh(:,:),xyzmh_ptmass(:,:)
  integer,         intent(in)    :: iprint
@@ -731,9 +733,17 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     if (id==master .and. i1==1) write(*,*) ' Setting dustfrac = 0'
     dustfrac = 0.
  endif
- if (use_dustgrowth .and. .not.got_dustprop(1)) then
-    if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain mass found in dump file'
-    ierr = ierr + 1
+ if (use_dustgrowth) then
+    if (got_grainsize .and. got_dustprop(2)) then
+       if (id==master) write(*,*) 'CONVERTING from grain size -> grain mass'
+       do i=i1,i2
+          dustprop(1,i) = 4./3.*pi*dustprop(1,i)**3*dustprop(2,i)
+       enddo
+    endif
+    if (.not.got_dustprop(1)) then
+       if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain mass found in dump file'
+       ierr = ierr + 1
+    endif
  endif
  if (use_dustgrowth .and. .not.got_dustprop(2)) then
     if (id==master) write(*,*) 'ERROR! using dustgrowth, but no grain density found in dump file'

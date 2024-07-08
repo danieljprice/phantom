@@ -665,7 +665,7 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,use_moments,verbose)
  use options,        only:use_porosity
  use units,          only:udist
  use table_utils,    only:logspace
- use io,             only:fatal,error
+ use io,             only:fatal
  use checkconserved, only:mdust_in
  integer, intent(in)    :: bins_per_dex
  real,    intent(in)    :: smax_user
@@ -736,10 +736,10 @@ subroutine bin_to_multi(bins_per_dex,force_smax,smax_user,use_moments,verbose)
     !- set ndusttypes based on desired log size spacing
     nbinsize   = int((log10(smax)-log10(smin))*bins_per_dex + 1.)
     ndustsizetypes = min(nbinsize, nbinsizemax) !- prevent memory allocation errors
-    if (ndusttypes >= nbinsizemax) then
-       call error('bin_to_multi','need to compile with more bins, try',var='make MAXDUSTLARGE',ival=nbinsize)
+    if (ndusttypes >= maxdustlarge) then
+       call fatal('bin_to_multi','need to compile with more bins, try',var='make MAXDUSTLARGE',ival=nbinsize)
     endif
-    ndustlarge = ndustsizetypes !- this is written to the header
+    ndustlarge = min(ndustsizetypes,maxdustlarge) !- this is written to the header
 
     !- allocate memory for a grid of ndusttypes+1 elements
     allocate(grid(ndusttypes+1))
