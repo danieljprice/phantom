@@ -1670,7 +1670,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  real              :: xi(3),vi(3)
  integer           :: k,n,l
  real              :: mi,hacci,minmass,mcutoff
- real              :: a(8),velk,rk,xk(3),vk(3),rvir
+ real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir
 
 
  write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
@@ -1731,21 +1731,42 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
     xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
     xyzmh_ptmass(4,k)           = masses(n)
-    xyzmh_ptmass(3,k)           = xi(3) + xk(3)
-    xyzmh_ptmass(2,k)           = xi(2) + xk(2)
-    xyzmh_ptmass(1,k)           = xi(1) + xk(1)
+    xyzmh_ptmass(3,k)           = xk(3)
+    xyzmh_ptmass(2,k)           = xk(2)
+    xyzmh_ptmass(1,k)           = xk(1)
     xyzmh_ptmass(ispinx,k)      = 0. !
     xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
     xyzmh_ptmass(ispinz,k)      = 0. !
-    vxyz_ptmass(1,k)            = vi(1) + vk(1)
-    vxyz_ptmass(2,k)            = vi(2) + vk(2)
-    vxyz_ptmass(3,k)            = vi(3) + vk(3)
+    vxyz_ptmass(1,k)            = vk(1)
+    vxyz_ptmass(2,k)            = vk(2)
+    vxyz_ptmass(3,k)            = vk(3)
     fxyz_ptmass(1:4,k)          = 0.
     fxyz_ptmass_sinksink(1:4,k) = 0.
     if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
 
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
     n = n - 1
+ enddo
+ k = itest
+ do while(k>0)
+    xcom(1) = xyzmh_ptmass(4,k)*xyzmh_ptmass(1,k)
+    xcom(2) = xyzmh_ptmass(4,k)*xyzmh_ptmass(2,k)
+    xcom(3) = xyzmh_ptmass(4,k)*xyzmh_ptmass(3,k)
+    vcom(1) = xyzmh_ptmass(4,k)*vxyz_ptmass(1,k)
+    vcom(2) = xyzmh_ptmass(4,k)*vxyz_ptmass(2,k)
+    vcom(3) = xyzmh_ptmass(4,k)*vxyz_ptmass(3,k)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+ k = itest
+ do while(k>0)
+    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
+    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
+    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
+    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
+    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
+    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
  deallocate(masses)
