@@ -3786,10 +3786,11 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  real, intent(in)                       :: xyzh(:),vxyzu(:),rad(:)
  real, dimension(5,nptmass), intent(in) :: xyzmh_ptmass
  real, intent(out)                      :: phii,epoti,ekini,egasi,eradi,ereci,etoti
- real                                   :: fxi,fyi,fzi,rhoi,spsoundi,ponrhoi,presi,tempi,egasradi
+ real                                   :: fxi,fyi,fzi,rhoi,rho_cgs,spsoundi,ponrhoi,presi,tempi,egasradi
  integer                                :: ierr
 
  rhoi = rhoh(xyzh(4),particlemass)
+ rho_cgs = rhoi*unit_density
  phii = 0.
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
@@ -3815,9 +3816,9 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
     call calc_thermal_energy(particlemass,10,xyzh,vxyzu,presi,tempi,egasradi,rad)
     ereci = vxyzu(4)*particlemass - egasradi
  case(12)
-    call get_idealplusrad_temp(rhoi,vxyzu(4)*unit_ergg,gmw,tempi,ierr)
-    egasi = egas_from_rhoT(rhoi,tempi,gmw)*particlemass
-    eradi = erad_from_rhoT(rhoi,tempi,gmw)*particlemass
+    call get_idealplusrad_temp(rho_cgs,vxyzu(4)*unit_ergg,gmw,tempi,ierr)
+    egasi = egas_from_rhoT(tempi,gmw)/unit_ergg*particlemass
+    eradi = erad_from_rhoT(rho_cgs,tempi,gmw)/unit_ergg*particlemass
     egasradi = egasi + eradi
  case default
     call fatal('calc_gas_energies',"EOS type not supported (currently, only supporting ieos=2,10,12)")

@@ -125,7 +125,7 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = egas_from_rhoT(densi,tempi,mu) + erad_from_rhoT(densi,tempi,mu)
+ eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi,mu)
 
 end subroutine get_idealplusrad_enfromtemp
 
@@ -135,8 +135,8 @@ end subroutine get_idealplusrad_enfromtemp
 !  Calculates specific gas energy from density and temperature
 !+
 !----------------------------------------------------------------
-real function egas_from_rhoT(densi,tempi,mu) result(egasi)
- real, intent(in) :: densi,tempi,mu
+real function egas_from_rhoT(tempi,mu) result(egasi)
+ real, intent(in) :: tempi,mu
 
  egasi = 1.5*Rg*tempi/mu
 
