@@ -305,15 +305,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (iH2R > 0 .and. id==master) then
+       istepHII = 1
 #ifdef IND_TIMESTEPS
        istepHII = 2**nbinmax/8
        if (istepHII==0) istepHII = 1
+#endif
        if(mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. ipart_createstars /= 0) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
-#else
-       call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
-#endif
     endif
 
     ! Need to recompute the force when sink or stars are created
