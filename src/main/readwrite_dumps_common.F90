@@ -127,7 +127,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
-                itemp,iX,iZ,imu
+                itemp,iX,iZ,imu,apr_level
  use io,   only:warning,id,master
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
@@ -227,7 +227,8 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     return
  endif
  if (use_apr .and. .not.(got_apr_level)) then
-    if (id==master) write(*,*) 'error in rdump: using APR, but resolution levels not found in dump file'
+    if (id==master) write(*,"(/,a,/)") 'WARNING: APR used but refinement levels not found, setting = 1'
+    apr_level(:) = 1
     ! ierr = 9
     return
  endif
