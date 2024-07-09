@@ -1014,6 +1014,14 @@ ifeq ($(SETUP), testgr)
     SETUPFILE= setup_grdisc.f90
 endif
 
+ifeq ($(SETUP), testapr)
+#   unit tests for apr
+    APR=yes
+    KNOWN_SETUP=yes
+    PERIODIC=yes
+    SETUPFILE= setup_unifdisc.f90
+endif
+
 ifeq ($(SETUP), default)
 #   default setup, uniform box
     KNOWN_SETUP=yes
