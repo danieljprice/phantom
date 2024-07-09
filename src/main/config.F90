@@ -322,10 +322,9 @@ module dim
 !--------------------
 ! Adaptive Particle Refinement (APR)
 !--------------------
- integer            :: maxp_apr = maxp_hard
 #ifdef APR
  logical, parameter :: use_apr = .true.
- integer, parameter :: apr_maxhard = 10
+ integer, parameter :: apr_maxhard = 20
 #else
  logical, parameter :: use_apr = .false.
  integer, parameter :: apr_maxhard = 0
@@ -367,6 +366,7 @@ subroutine update_max_sizes(n,ntot)
  integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
+ if (use_apr) maxp = 2*n
 
 #ifdef KROME
  maxp_krome = maxp
@@ -380,17 +380,8 @@ subroutine update_max_sizes(n,ntot)
  if (do_nucleation) maxp_nucleation = maxp
 
 #ifdef NCELLSMAX
-#ifdef APR
- ncellsmax       = 2*maxp_apr
- ncellsmaxglobal = 2*maxp_apr
-#else
  ncellsmax       = NCELLSMAX
  ncellsmaxglobal = NCELLSMAX
-#endif
-#else
-#ifdef APR
- ncellsmax = 2*maxp_apr
- ncellsmaxglobal = ncellsmax
 #else
  ncellsmax = 2*maxp
  if (present(ntot)) then
@@ -398,7 +389,6 @@ subroutine update_max_sizes(n,ntot)
  else
     ncellsmaxglobal = ncellsmax
  endif
-#endif
 #endif
 
 #ifdef DUST

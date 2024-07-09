@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,maxp_apr,apr_maxhard
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxhard
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -382,24 +382,6 @@ contains
 
 subroutine allocate_part
  use allocutils, only:allocate_array
- ! there must be some clever one line way to do this
- if (use_apr) then
-   maxp = maxp_apr
-   maxgradh = maxp_apr
-   maxan = maxp_apr
-   maxphase = maxp_apr
-   maxindan = maxp_apr
-   maxgrav = maxp_apr
-   if (mhd) then
-     maxmhd = maxp_apr
-     maxmhdan = maxp_apr
-   endif
-   maxprad = maxp_apr
-   maxp_dustfrac = maxp_apr
-   maxdustan = maxp_apr
-   maxTdust = maxp_apr
-   if (maxalpha > 0) maxalpha = maxp_apr
- endif
 
  call allocate_array('xyzh', xyzh, 4, maxp)
  call allocate_array('xyzh_soa', xyzh_soa, maxp, 4)
@@ -409,8 +391,8 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
- call allocate_array('apr_level',apr_level,maxp_apr)
- call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
+ call allocate_array('apr_level',apr_level,maxp)
+ call allocate_array('apr_level_soa',apr_level_soa,maxp)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
