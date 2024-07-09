@@ -24,18 +24,16 @@ module apr
   public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
   public :: create_or_update_apr_clump
   integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
-  real,    public :: apr_rad = 0.0, apr_drad = 0.1
+  real,    public :: apr_rad = 0.0, apr_drad = 0.1, apr_centre(3)
 
   private
   integer :: top_level = 1, ntrack = 0, track_part
-  real    :: apr_centre(3)
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
   logical :: apr_verbose = .false.
   logical :: do_relax = .false.
   logical :: adjusted_split = .true.
-  logical :: first_split = .false.
   logical :: directional = .true.
 
 contains
@@ -113,7 +111,6 @@ contains
     use quitdump, only:quit
     use relaxem,  only:relax_particles
     use apr_region, only:dynamic_apr,set_apr_centre
-    use timestep, only:time
     real,    intent(inout)         :: xyzh(:,:),vxyzu(:,:),fxyzu(:,:)
     integer, intent(inout)         :: npart
     integer(kind=1), intent(inout) :: apr_level(:)
@@ -123,10 +120,6 @@ contains
     real, allocatable :: xyzh_merge(:,:),vxyzu_merge(:,:)
     integer, allocatable :: relaxlist(:),mergelist(:)
     real :: xi,yi,zi,radi,radi_max
-    logical :: do_this_part
-
-    ! time lag
-    !if (time < 0.5) return
 
     ! if the centre of the region can move, update it
     if (dynamic_apr) then
@@ -194,12 +187,7 @@ contains
         ! level it does have, increment it up one
         if (apri > apr_current) then
           call splitpart(ii,npartnew)
-          ! encompasses particles that have just split into the highest
-          ! refinement level
-          do_this_part = .false.
-          if (apri == top_level .and. first_split) do_this_part = .true.
-          if (.not.first_split) do_this_part = .true.
-          if (do_relax .and. (do_this_part)) then
+          if (do_relax .and. (apri == top_level)) then
             nrelax = nrelax + 2
             relaxlist(nrelax-1) = ii
             relaxlist(nrelax)   = npartnew
@@ -215,7 +203,6 @@ contains
     if (apr_verbose) then
       print*,'split: ',nsplit_total
       print*,'npart: ',npart
-      call hacky_write('test')
     endif
 
     ! Do any particles need to be merged?
@@ -263,8 +250,7 @@ contains
     ! If we need to relax, do it here
     if (nrelax > 0 .and. do_relax) call relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
     ! Turn it off now because we only want to do this on first splits
-    !do_relax = .false.
-    first_split = .false. !turn it off
+    do_relax = .false.
 
     ! As we may have killed particles, time to do an array shuffle
     call shuffle_part(npart)
@@ -476,7 +462,7 @@ contains
         xyzh(3,eldest) = cell%xpos(3)
         vxyzu(1:3,eldest) = 0.5*(vxyzu(1:3,eldest) + vxyzu(1:3,tuther))
 
-        xyzh(4,eldest) = xyzh(4,eldest)*(2.0**(1./3.))
+        xyzh(4,eldest) = (0.5*(xyzh(4,eldest) + xyzh(4,tuther)))*(2.0**(1./3.))
         apr_level(eldest) = apr_level(eldest) - int(1,kind=1)
         if (ind_timesteps) call put_in_smallest_bin(eldest)
 
@@ -486,7 +472,7 @@ contains
           relaxlist(nrelax) = eldest
         endif
 
-        ! discard tuther
+        ! discard tuther (t'other)
         call kill_particle(tuther,npartoftype)
         nkilled = nkilled + 2 ! this refers to the number of children killed
         ! If this particle was on the shuffle list previously, take it off
@@ -660,6 +646,7 @@ contains
   !-----------------------------------------------------------------------
   !+
   !  Create a new apr region that is centred on a dense clump
+  !  (This is work in progress)
   !+
   !-----------------------------------------------------------------------
 
@@ -754,6 +741,7 @@ contains
   enddo
 
   ! For the moment, force there to only be one minimum
+  ! and let it be the lowest
   nmins = 1
 
   ! Check they are not already within a region of low potential energy

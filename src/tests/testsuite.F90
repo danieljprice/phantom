@@ -21,7 +21,7 @@ module test
 !   testindtstep, testkdtree, testkernel, testlink, testmath, testmpi,
 !   testnimhd, testpart, testpoly, testptmass, testradiation, testrwdump,
 !   testsedov, testsetdisc, testsethier, testsmol, teststep, testwind,
-!   timing
+!   timing, apr
 !
  implicit none
  public :: testsuite
@@ -44,6 +44,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsmol,     only:test_smol
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
+ use testapr,      only:test_apr
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
@@ -79,7 +80,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind, doapr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -132,6 +133,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dohier     = .false.
  dodamp     = .false.
  dowind     = .false.
+ doapr      = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -153,10 +155,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'hier')      /= 0) dohier    = .true.
  if (index(string,'damp')      /= 0) dodamp    = .true.
  if (index(string,'wind')      /= 0) dowind    = .true.
+ if (index(string,'apr')       /= 0) doapr     = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind/))
+               dopart,dopoly,dohier,dodamp,dowind,doapr/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -199,6 +202,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dowind = .true.
  case('mpi')
     dompi = .true.
+ case('apr')
+    doapr = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -402,6 +407,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_wind(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+ !--test of apr module
+ !
+  if (doapr.or.testall) then
+     call test_apr(ntests,npass)
+     call set_default_options_testsuite(iverbose) ! restore defaults
+  endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !
