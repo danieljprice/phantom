@@ -74,10 +74,10 @@ ifeq ($(SETUP), wddisc)
     DUST=yes
 endif
 
-ifeq ($(SETUP), asteroidwind)
-#   asteroid emitting a wind (Trevascus et al. 2021)
+ifeq ($(SETUP), randomwind)
+#   object emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_asteroidwind.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
