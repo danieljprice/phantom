@@ -1758,6 +1758,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
+ xcom = xcom/mi
+ vcom = vcom/mi
+
  k = itest
  do while(k>0)
     xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
