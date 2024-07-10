@@ -173,7 +173,7 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  integer, intent(in)    :: nlengths
  integer, intent(inout) :: iseed
  real,    intent(inout) :: lengths(nlengths)
- real,    intent(in)    :: mindist
+ real,    intent(inout)    :: mindist
  real,    allocatable :: points(:)
  integer, allocatable :: idx(:)
  integer              :: i,j
@@ -185,6 +185,11 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  points(nlengths+1) = 1.
  points(1)          = 0.
  tmp  = 0.
+
+ if (mindist > 1./nlengths) then ! override the minimum distance if we are in a bricked situation...
+    mindist = (1./(nlengths+1))  ! we'll have stars less massive than 0.08 solarmasses but it will assure to never brick the sim...
+ endif
+
 
  do i=2,nlengths
     close =  .true.
