@@ -32,6 +32,7 @@ contains
 !-----------------------------------------------------------------------
 subroutine test_gravity(ntests,npass,string)
  use dim, only:gravity
+ use testapr, only:setup_apr_region_for_test
  integer,          intent(inout) :: ntests,npass
  character(len=*), intent(in)    :: string
  logical :: testdirectsum,testpolytrope,testtaylorseries,testall
@@ -234,10 +235,10 @@ end subroutine test_taylorseries
 !-----------------------------------------------------------------------
 subroutine test_directsum(ntests,npass)
  use io,              only:id,master
- use dim,             only:maxp,maxptmass,mpi
+ use dim,             only:maxp,maxptmass,mpi,use_apr
  use part,            only:init_part,npart,npartoftype,massoftype,xyzh,hfact,vxyzu,fxyzu, &
                            gradh,poten,iphase,isetphase,maxphase,labeltype,&
-                           nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong
+                           nptmass,xyzmh_ptmass,fxyz_ptmass,ibelong,aprmassoftype
  use eos,             only:polyk,gamma
  use options,         only:ieos,alpha,alphau,alphaB,tolh
  use spherical,       only:set_sphere
@@ -253,6 +254,7 @@ subroutine test_directsum(ntests,npass)
  use linklist,        only:set_linklist
  use sort_particles,  only:sort_part_id
  use mpibalance,      only:balancedomains
+ use testapr,         only:setup_apr_region_for_test
 
  integer, intent(inout) :: ntests,npass
  integer :: nfailed(18)
@@ -308,6 +310,10 @@ subroutine test_directsum(ntests,npass)
           enddo
        endif
 !
+!--call apr setup if using it - this must be called after massoftype is set
+!
+       if (use_apr) call setup_apr_region_for_test()
+!
 !--set thermal terms and velocity to zero, so only force is gravity
 !
        polyk      = 0.
@@ -325,6 +331,8 @@ subroutine test_directsum(ntests,npass)
 !--call derivs to get everything initialised
 !
        call get_derivs_global()
+
+
 !
 !--reset force to zero
 !
