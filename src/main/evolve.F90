@@ -77,10 +77,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use partinject,       only:update_injected_particles
 #endif
  use dim,              only:do_radiation
- use options,          only:exchange_radiation_energy,implicit_radiation
+ use options,          only:exchange_radiation_energy,implicit_radiation,icooling
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
+ use cooling,          only:Tfloor
+ use cooling_radapprox,only:radcool_update_energ
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
@@ -89,7 +91,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere, &
+                            iphase,iactive
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision
@@ -137,7 +140,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
-
+ integer :: imax
+ real :: umax
+ 
  tprint    = 0.
  nsteps    = 0
  nsteplast = 0
@@ -284,6 +289,20 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
+
+    if (icooling == 9) then
+       write (*,*) "Before step", maxval(vxyzu(4,:)),minval(vxyzu(4,:))
+       umax = 0d0
+       do i=1, npart
+          if (vxyzu(4,i) > umax) then
+             umax = vxyzu(4,i)
+             imax = i
+          endif
+       enddo
+       print *, "max i=", imax, iactive(iphase(i)), fxyzu(4,i)
+       call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+       write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:)), fxyzu(4,i)        
+    endif
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep
@@ -301,6 +320,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (do_radiation .and. exchange_radiation_energy .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
+
+!    if (icooling == 9) then
+ !      write (*,*) "after step",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
+!       call radcool_update_energ(0.5*dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+  !     write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
+   ! endif
 
     dtlast = dt
 

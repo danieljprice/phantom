@@ -62,7 +62,7 @@ end subroutine init_star
 !
 ! Do cooling calculation
 !
-! update energy to return evolved energy array.
+! update energy to return evolved energy array. Called from evolve.F90 
 subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
@@ -90,8 +90,9 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
  !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb)
  overpart: do i=1,npart
-    if (.not. iactive(iphase(i)) ) cycle
-    if (isdead_or_accreted(xyzh(4,i)) ) cycle
+    if (.not. iactive(iphase(i)) .or. isdead_or_accreted(xyzh(4,i)) ) then
+       dudt_sph(i) = 0d0
+    endif
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)
     ui = energ(i)
@@ -154,11 +155,12 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
     ! If radiative cooling is negligible compared to hydrodynamical heating
-    ! don't use this method to update energy, just use hydro du/dt (don't zero
-    ! fxyzu(4,i) ).
+    ! don't use this method to update energy, just use hydro du/dt
     if (abs(dudti_rad/dudt_sph(i)) < dtcool_crit) then
 !       print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
-!            dudt_sph(i)
+       !            dudt_sph(i)
+       energ(i) = ui + dudt_sph(i)*dt
+       dudt_sph(i) = 0d0
        cycle
     endif
     
@@ -179,11 +181,11 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
     endif
     teqi_store(i) = Teqi
 
-!    if (Teqi > 1e6) then
-!       print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
-!            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-!            "dudt_sph * dt=", dudt_sph(i)*dt 
-!    endif
+    if (Teqi > 9e5) then
+       print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
+            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
+            "dudt_sph * dt=", dudt_sph(i)*dt 
+    endif
     
     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
     ueqi = ueqi/unit_ergg
@@ -225,14 +227,15 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  enddo overpart
  !$omp end parallel do
 
- n_uevo = 0
- !$omp parallel do default(none) &
- !$omp shared(dudt_sph,npart) private(i) reduction(+:n_uevo)
- do i=1, npart
-    if (dudt_sph(i) /= 0d0) n_uevo = n_uevo + 1
- enddo
- !$omp end parallel do
- print *, "energy not evolved with cooling for", n_uevo, "particles"
+ !n_uevo = 0
+ !!$omp parallel do default(none) &
+ !!$omp shared(dudt_sph,npart) private(i) reduction(+:n_uevo)
+ !do i=1, npart
+  !  if (dudt_sph(i) /= 0d0) n_uevo = n_uevo + 1
+   ! dudt_sph(i) = 0d0
+ !enddo
+ !!$omp end parallel do
+! print *, "energy not evolved with cooling for", n_uevo, "particles"
 ! print *, "min/max dudt_sph():", minval(dudt_sph), maxval(dudt_sph) 
 end subroutine radcool_update_energ
 

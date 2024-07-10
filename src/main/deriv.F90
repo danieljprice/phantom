@@ -14,10 +14,10 @@ module deriv
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: cons2prim, densityforce, derivutils, dim, dust_formation,
-!   externalforces, forces, forcing, growth, io, linklist, metric_tools,
-!   options, part, porosity, ptmass, ptmass_radiation, radiation_implicit,
-!   timestep, timestep_ind, timing
+! :Dependencies: cons2prim, densityforce, derivutils, dim, externalforces,
+!   forces, forcing, growth, io, linklist, metric_tools, options, part,
+!   porosity, ptmass, ptmass_radiation, radiation_implicit, timestep,
+!   timestep_ind, timing
 !
  implicit none
 
@@ -61,9 +61,7 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  use cons2prim,      only:cons2primall,cons2prim_everything
  use metric_tools,   only:init_metric
  use radiation_implicit, only:do_radiation_implicit,ierr_failed_to_converge
- use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity,icooling
- use cooling_radapprox, only:radcool_update_energ
- use cooling,        only:Tfloor
+ use options,        only:implicit_radiation,implicit_radiation_store_drad,use_porosity
  integer,      intent(in)    :: icall
  integer,      intent(inout) :: npart
  integer,      intent(in)    :: nactive
@@ -183,11 +181,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
  endif
 
 !
-! update energy if using radiative cooling approx (icooling=9)
-!
- if (icooling == 9 .and. dt > 0.0 .and. icall==1)  call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
-
-!
 ! compute dust temperature
 !
  if (sink_radiation .and. maxvxyzu == 4) then
@@ -202,16 +195,6 @@ subroutine derivs(icall,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
     enddo
     !$omp end parallel do
  endif
-
-! Set dudt to zero because we evolved energy already for icooling=9
- if (icooling == 9 .and. icall==1) then
-    !$omp parallel do shared(fxyzu,npart) private(i)
-    do i=1,npart
-       fxyzu(4,i) = 0.
-    enddo
-    !$omp end parallel do
- endif
-
 !
 ! set new timestep from Courant/forces condition
 !

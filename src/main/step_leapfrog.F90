@@ -127,7 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
- 
+
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -172,7 +172,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
  !$omp shared(Bevol,dBevol,dustevol,ddustevol,use_dustfrac) &
- !$omp shared(dustprop,ddustprop,dustproppred,ufloor,icooling) &
+ !$omp shared(dustprop,ddustprop,dustproppred,ufloor) &
  !$omp shared(mprev,filfacprev,filfac,use_porosity) &
  !$omp shared(ibin,ibin_old,twas,timei) &
  !$omp firstprivate(itype) &
@@ -199,11 +199,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        else
           vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
-       !Alison
-       !if (icooling == 9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L202", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
-       if (ufloor > 0. .and. icooling /= 9) then
+       if (ufloor > 0.) then
           if (vxyzu(4,i) < ufloor) then
              vxyzu(4,i) = ufloor
              nvfloorp   = nvfloorp + 1
@@ -233,7 +231,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
-
+! print *, "line 234", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -251,7 +249,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                     dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                     nmatrix,n_group,n_ingroup,n_sing)
     else
@@ -275,7 +273,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
 !$omp shared(alphaind,ieos,alphamax,ialphaloc) &
-!$omp shared(eos_vars,ufloor,icooling) &
+!$omp shared(eos_vars,ufloor) &
 !$omp shared(twas,timei) &
 !$omp shared(rad,drad,radpred)&
 !$omp private(hi,rhoi,tdecay1,source,ddenom,hdti) &
@@ -326,7 +324,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        !if (icooling == 9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L324", fxyzu(4,i)
 
        !--floor the thermal energy if requested and required
-       if (ufloor > 0. .and. icooling /= 9) then
+       if (ufloor > 0.) then
           if (vpred(4,i) < ufloor) then
              vpred(4,i) = ufloor
              nvfloorps  = nvfloorps + 1
@@ -387,13 +385,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
     dt_too_small = .false.
-
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,filfacpred,dustfrac,eos_vars,timei,dtsph,dtnew,&
                 ppred,dens,metrics)
 
-    if (do_radiation .and. implicit_radiation) then! .or. icooling == 9) then
+    if (do_radiation .and. implicit_radiation) then
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
@@ -407,6 +404,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call fatal('step','step too small: bin would exceed maximum')
     endif
  endif
+! print *, "line 407", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -422,6 +420,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !  any extra iterations, but to be reversible for velocity-dependent
 !  forces we must iterate until velocities agree.
 !-------------------------------------------------------------------------
+
+! print *, "line 423", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
@@ -483,9 +483,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 else
                    vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                 endif
-                !Alison
-        !        if (icooling==9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L488", fxyzu(4,i)
-
+ 
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
                 if (itype==igas) then
                    if (mhd)          Bevol(:,i) = Bevol(:,i) + dti*dBevol(:,i)
@@ -507,11 +505,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              else
                 vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
              endif
-             !Alison
-!             if (fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L509", fxyzu(4,i)             
-
+ 
              !--floor the thermal energy if requested and required
-             if (ufloor > 0. .and. icooling /= 9) then
+             if (ufloor > 0.) then
                 if (vxyzu(4,i) < ufloor) then
                    vxyzu(4,i) = ufloor
                    nvfloorc   = nvfloorc + 1
@@ -566,8 +562,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vyi = vxyzu(2,i) + hdtsph*fxyzu(2,i)
                 vzi = vxyzu(3,i) + hdtsph*fxyzu(3,i)
                 if (maxvxyzu >= 4) eni = vxyzu(4,i) + hdtsph*fxyzu(4,i)
-                !Alison
-        !        if (icooling==9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L568", fxyzu(4,i)
                 erri = (vxi - vpred(1,i))**2 + (vyi - vpred(2,i))**2 + (vzi - vpred(3,i))**2
                 errmax = max(errmax,erri)
 
@@ -579,7 +573,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 vxyzu(2,i) = vyi
                 vxyzu(3,i) = vzi
                 !--this is the energy equation if non-isothermal
-                if (maxvxyzu >= 4 .and. icooling /= 9) vxyzu(4,i) = eni
+                if (maxvxyzu >= 4) vxyzu(4,i) = eni
              endif
 
              if (itype==idust .and. use_dustgrowth) dustprop(:,i) = dustprop(:,i) + hdtsph*ddustprop(:,i)
@@ -619,8 +613,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(store_itype,vxyzu,fxyzu,vpred,iphase) &
 !$omp shared(Bevol,dBevol,Bpred,pxyzu,ppred) &
 !$omp shared(dustprop,ddustprop,dustproppred,use_dustfrac,dustevol,dustpred,ddustevol) &
-!$omp shared(filfac,filfacpred,use_porosity,icooling) &
-!$omp shared(rad,drad,radpred) &
+!$omp shared(filfac,filfacpred,use_porosity) &
+!$omp shared(rad,drad,radpred,icooling) &
 !$omp firstprivate(itype) &
 !$omp schedule(static)
        until_converged: do i=1,npart
@@ -628,11 +622,12 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (iamboundary(itype)) cycle until_converged
 
           if (ind_timesteps) then
+             if (icooling == 9) vxyzu(4,i) = vpred(4,i) !keep original value of u 
              if (iactive(iphase(i))) then
-
                 if (gr) then
                    ppred(:,i) = pxyzu(:,i)
                 else
+!                   if (icooling == 9) vxyzu(4,i) = vpred(4,i) !keep original value of u 
                    vpred(:,i) = vxyzu(:,i)
                 endif
                 if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
@@ -683,6 +678,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
+!       print *, "before 2nd derivs", maxval(vpred(4,:)), minval(vpred(4,:)),maxval(fxyzu(4,:))
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
                      dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
@@ -692,11 +688,16 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           vxyzu(4,1:npart) = vpred(4,1:npart)
        endif
        if (icooling == 9) then
+!          print *, "after 2nd derivs:vpred", maxval(vpred(4,:)), minval(vpred(4,:))
           vxyzu(4,1:npart) = vpred(4,1:npart)
        endif
     endif
+    if (icooling == 9) then
+!       print *, "end of iteration", maxval(vpred(4,:)), minval(vpred(4,:))
+       vxyzu(4,1:npart) = vpred(4,1:npart)
+    endif
  enddo iterations
-
+ print *, "line 695", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
