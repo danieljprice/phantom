@@ -251,7 +251,6 @@ subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setstar,      only:write_options_stars
  use setorbit,     only:write_options_orbit
- use dim,          only:gr
  use setunits,     only:write_options_units
  character(len=*), intent(in) :: filename
  integer, parameter :: iunit = 20
@@ -259,7 +258,7 @@ subroutine write_setupfile(filename)
 
  print "(a)",' writing setup options file '//trim(filename)
  open(unit=iunit,file=filename,status='replace',form='formatted')
- call write_options_units(iunit,gr)
+ call write_options_units(iunit,gr=.true.)
 
  write(iunit,"(/,a)") '# disc parameters'
  call write_inopt(mhole  ,'mhole'  ,'mass of black hole (solar mass)'           , iunit)
@@ -293,7 +292,6 @@ subroutine read_setupfile(filename,ierr)
  use setstar,      only:read_options_stars
  use setorbit,     only:read_options_orbit
  use eos,          only:ieos,polyk
- use dim,          only:gr
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
@@ -305,7 +303,7 @@ subroutine read_setupfile(filename,ierr)
  nerr = 0
  ierr = 0
  call open_db_from_file(db,filename,iunit,ierr)
- call read_options_and_set_units(db,nerr,gr)
+ call read_options_and_set_units(db,nerr,gr=.true.)
  call read_inopt(mhole  ,'mhole'  ,db,min=0.,errcount=nerr)
  call read_inopt(mdisc  ,'mdisc'  ,db,min=0.,errcount=nerr)
  call read_inopt(r_in   ,'r_in'   ,db,min=0.,errcount=nerr)
