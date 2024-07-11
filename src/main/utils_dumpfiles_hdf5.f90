@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -338,8 +338,6 @@ subroutine write_hdf5_arrays( &
    beta_pr,                   &
    pxyzu,                     &
    dens,                      &
-   gamma_chem,                &
-   mu_chem,                   &
    T_gas_cool,                &
    nucleation,                &
    dust_temp,                 &
@@ -370,8 +368,6 @@ subroutine write_hdf5_arrays( &
                                 deltav(:,:,:),     &
                                 pxyzu(:,:),        &
                                 dens(:),           &
-                                gamma_chem(:),     &
-                                mu_chem(:),        &
                                 T_gas_cool(:),     &
                                 nucleation(:,:),   &
                                 dust_temp(:),      &
@@ -472,7 +468,7 @@ subroutine write_hdf5_arrays( &
 
  ! Dust growth
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(dustprop(1,1:npart), 'grainsize', group_id, error)
+    call write_to_hdf5(dustprop(1,1:npart), 'grainmass', group_id, error)
     call write_to_hdf5(dustprop(2,1:npart), 'graindens', group_id, error)
     call write_to_hdf5(VrelVf(1:npart), 'vrel_on_vfrag', group_id, error)
     call write_to_hdf5(dustgasprop(3,1:npart), 'St', group_id, error)
@@ -486,8 +482,6 @@ subroutine write_hdf5_arrays( &
  ! Chemistry (Krome)
  if (array_options%krome) then
     call write_to_hdf5(abundance(:,1:npart), 'abundance', group_id, error)
-    call write_to_hdf5(gamma_chem(1:npart), 'gamma_chem', group_id, error)
-    call write_to_hdf5(mu_chem(1:npart), 'mu_chem', group_id, error)
     call write_to_hdf5(T_gas_cool(1:npart), 'T_gas_cool', group_id, error)
  endif
 
@@ -620,7 +614,7 @@ subroutine write_hdf5_arrays_small( &
 
  ! Dustgrowth
  if (array_options%use_dustgrowth) then
-    call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainsize', group_id, error)
+    call write_to_hdf5(real(dustprop(1,1:npart), kind=4), 'grainmass', group_id, error)
     call write_to_hdf5(real(dustprop(2,1:npart), kind=4), 'graindens', group_id, error)
  endif
 
@@ -794,8 +788,6 @@ subroutine read_hdf5_arrays( &
    dustgasprop,              &
    abundance,                &
    pxyzu,                    &
-   gamma_chem,               &
-   mu_chem,                  &
    T_gas_cool,               &
    nucleation,               &
    dust_temp,                &
@@ -824,8 +816,6 @@ subroutine read_hdf5_arrays( &
                                  VrelVf(:),         &
                                  abundance(:,:),    &
                                  pxyzu(:,:),        &
-                                 gamma_chem(:),     &
-                                 mu_chem(:),        &
                                  T_gas_cool(:),     &
                                  nucleation(:,:),   &
                                  dust_temp(:),      &
@@ -943,7 +933,7 @@ subroutine read_hdf5_arrays( &
 
  ! Dust growth
  if (array_options%use_dustgrowth) then
-    call read_from_hdf5(dustprop(1,:), 'grainsize', group_id, got_arrays%got_dustprop(1), error)
+    call read_from_hdf5(dustprop(1,:), 'grainmass', group_id, got_arrays%got_dustprop(1), error)
     call read_from_hdf5(dustprop(2,:), 'graindens', group_id, got_arrays%got_dustprop(2), error)
     call read_from_hdf5(VrelVf(:), 'vrel_on_vfrag', group_id, got_arrays%got_VrelVf, error)
     call read_from_hdf5(dustgasprop(3,:), 'St', group_id, got_arrays%got_St, error)
@@ -959,8 +949,6 @@ subroutine read_hdf5_arrays( &
  if (array_options%krome) then
     call read_from_hdf5(abundance, 'abundance', group_id, got, error)
     if (got) got_arrays%got_krome_mols = .true.
-    call read_from_hdf5(gamma_chem, 'gamma_chem', group_id, got_arrays%got_krome_gamma, error)
-    call read_from_hdf5(mu_chem, 'mu_chem', group_id, got_arrays%got_krome_mu, error)
     call read_from_hdf5(T_gas_cool, 'T_gas_cool', group_id, got_arrays%got_krome_gamma, error)
  endif
 

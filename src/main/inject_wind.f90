@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,13 +34,13 @@ module inject
  character(len=*), parameter, public :: inject_type = 'wind'
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      wind_injection_radius,set_default_options_inject
+      wind_injection_radius,set_default_options_inject,update_injected_par
  private
 !
 !--runtime settings for this module
 !
 ! Read from input file
- integer:: sonic_type = -1
+ integer:: sonic_type = 0
  integer:: iboundary_spheres = 5
  integer:: iwind_resolution = 5
  integer:: nfill_domain = 0
@@ -78,7 +78,7 @@ subroutine init_inject(ierr)
  use options,           only:icooling,ieos
  use io,                only:fatal,iverbose
  use setbinary,         only:get_eccentricity_vector
- use timestep,          only:tmax,dtmax
+ use timestep,          only:tmax
  use wind_equations,    only:init_wind_equations
  use wind,              only:setup_wind,save_windprofile
  use physcon,           only:mass_proton_cgs, kboltz, Rg, days, km, au, years, solarm, pi, Gg
@@ -88,12 +88,11 @@ subroutine init_inject(ierr)
  use part,              only:xyzmh_ptmass,vxyz_ptmass,massoftype,igas,iboundary,imloss,ilum,iTeff,iReff,nptmass
  use injectutils,       only:get_sphere_resolution,get_parts_per_sphere,get_neighb_distance
  use cooling_molecular, only:do_molecular_cooling,fit_rho_power,fit_rho_inner,fit_vel,r_compOrb
- use ptmass_radiation,  only:alpha_rad
 
  integer, intent(out) :: ierr
- integer :: ires_min,nzones_per_sonic_point,new_nfill
+ integer :: nzones_per_sonic_point,new_nfill
  real :: mV_on_MdotR,initial_wind_velocity_cgs,dist_to_sonic_point,semimajoraxis_cgs
- real :: dr,dp,mass_of_particles1,tcross,tend,vesc,rsonic,tsonic,initial_Rinject,tboundary
+ real :: dr,dp,mass_of_particles1,tcross,tend,rsonic,tsonic,initial_Rinject,tboundary
  real :: separation_cgs,wind_mass_rate_cgs,wind_velocity_cgs,ecc(3),eccentricity,Tstar
 
  if (icooling > 0) nwrite = nwrite+1
@@ -232,6 +231,7 @@ subroutine init_inject(ierr)
  time_between_spheres  = mass_of_spheres / wind_mass_rate
  massoftype(iboundary) = mass_of_particles
  if (time_between_spheres > tmax)  then
+    call logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print *,'time_between_spheres = ',time_between_spheres,' < tmax = ',tmax
     call fatal(label,'no shell ejection : tmax < time_between_spheres')
  endif
@@ -268,8 +268,29 @@ subroutine init_inject(ierr)
     print*,'got dr/dp = ',dr/dp,' compared to desired dr on dp = ',wind_shell_spacing
  endif
 
+ xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
 
 !logging
+ call logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
+
+end subroutine init_inject
+
+
+!-----------------------------------------------------------------------
+
+subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
+
+!-----------------------------------------------------------------------
+
+ use physcon,  only:pi,gg
+ use units,    only:utime,udist
+ use timestep, only:dtmax
+ use ptmass_radiation,  only:alpha_rad
+
+ real, intent(in) :: initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary
+ integer :: ires_min
+ real :: vesc
+
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
@@ -309,9 +330,8 @@ subroutine init_inject(ierr)
     if (iwind_resolution < ires_min) print *,'WARNING! resolution too low to pass sonic point : iwind_resolution < ',ires_min
  endif
 
- xyzmh_ptmass(imloss,wind_emitting_sink) = wind_mass_rate
+end subroutine logging
 
-end subroutine init_inject
 
 !-----------------------------------------------------------------------
 !+
@@ -319,7 +339,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use physcon,           only:pi,au
  use io,                only:fatal,iverbose
  use wind,              only:interp_wind_profile !,wind_profile
@@ -334,7 +354,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  integer :: outer_sphere, inner_sphere, inner_boundary_sphere, first_particle, i, ipart, &
@@ -364,11 +384,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     !
     ! delete particles that exit the outer boundary
     !
-    i = npart
     inner_radius = wind_injection_radius + deltaR_osc*sin(omega_osc*time)
     if (outer_boundary_au > Rinject) call delete_particles_outside_sphere(x0,real(outer_boundary_au*au/udist),npart)
     call delete_dead_particles_inside_radius(x0,inner_radius,npart)
-    if (npart /= i .and. iverbose > 0) print *,'deleted ',i-npart,'particles, remaining',npart
+    if (npart_old /= npart .and. iverbose > 0) print *,'deleted ',npart_old-npart,'particles, remaining',npart
+    npart_old = npart
 
     if (time_period > orbital_period .and. nptmass == 2) then
        time_period = 0.
@@ -481,6 +501,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (time <= 0.) dtinject = 0.01*dtinject
 
 end subroutine inject_particles
+
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
 
 !-----------------------------------------------------------------------
 !+
@@ -635,15 +660,15 @@ subroutine set_default_options_inject(flag)
     wind_mass_rate_Msun_yr = 8.2d-8
     wind_injection_radius_au = 0.
  else
-    !trans-sonic wind
     if (icase == 1) then
+       !trans-sonic wind
        sonic_type = 1
        wind_velocity_km_s = 0.
        wind_mass_rate_Msun_yr = 1.d-5
        wind_injection_radius_au = 2.
        wind_temperature = 50000.
-       !super sonic-wind
     else
+       !super sonic-wind
        sonic_type = 0
        wind_velocity_km_s = 20.
        wind_mass_rate_Msun_yr = 1.d-5
@@ -664,7 +689,6 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- if (sonic_type < 0) call set_default_options_inject
  call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
  !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
@@ -695,9 +719,13 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 
  integer, save :: ngot = 0
  integer :: noptions
- logical :: isowind = .true.
+ logical :: isowind = .true., init_opt = .false.
  character(len=30), parameter :: label = 'read_options_inject'
 
+ if (.not.init_opt) then
+    init_opt = .true.
+    call set_default_options_inject()
+ endif
  imatch  = .true.
  igotall = .false.
  select case(trim(name))

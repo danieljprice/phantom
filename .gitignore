@@ -29,3 +29,8 @@ build/radiation-test01implicit.ev
 build/radiation-test02explicit.ev
 build/radiation-test02implicit.ev
 build/test000
+*.cmdx
+*.cmod
+*.ilm
+*.stb
+

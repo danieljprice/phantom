@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -18,10 +18,10 @@ module test
 ! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
 !   testcorotate, testdamping, testderivs, testdust, testeos, testexternf,
 !   testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!   testindtstep, testkdtree, testkernel, testlink, testmath, testmpi,
-!   testnimhd, testpart, testpoly, testptmass, testradiation, testrwdump,
-!   testsedov, testsetdisc, testsethier, testsmol, teststep, testwind,
-!   timing, apr
+!   testindtstep, testiorig, testkdtree, testkernel, testlink, testmath,
+!   testmpi, testnimhd, testpart, testpoly, testptmass, testradiation,
+!   testrwdump, testsedov, testsetdisc, testsethier, testsmol, teststep,
+!   testwind, timing, testapr
 !
  implicit none
  public :: testsuite
@@ -65,6 +65,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testcooling,  only:test_cooling
  use testgeometry, only:test_geometry
  use testwind,     only:test_wind
+ use testiorig,    only:test_iorig
  use testpoly,     only:test_poly
  use testdamping,  only:test_damping
  use testradiation,only:test_radiation
@@ -80,7 +81,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
  logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind, doapr
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,&
+            doiorig,doapr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -97,6 +99,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
        write(*,"(2x,a)") '"Trace, test and treat"'
        write(*,"(14x,a,/)") '-- South Korea'
+       write(*,"(2x,a)") '"Testing a program demonstrates that it contains errors, never that it is correct"'
+       write(*,"(14x,a,/)") '-- E. W. Dijkstra'
     endif
     ntests = 0
     npass  = 0
@@ -134,6 +138,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dodamp     = .false.
  dowind     = .false.
  doapr      = .false.
+ doiorig    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
  if (index(string,'grav')      /= 0) dogravity = .true.
@@ -155,11 +160,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'hier')      /= 0) dohier    = .true.
  if (index(string,'damp')      /= 0) dodamp    = .true.
  if (index(string,'wind')      /= 0) dowind    = .true.
+ if (index(string,'iorig')     /= 0) doiorig   = .true.
+ if (index(string,'ptmass')    /= 0) doptmass  = .true.
  if (index(string,'apr')       /= 0) doapr     = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doapr/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -170,7 +177,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink')
+ case('ptmass','sink','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
@@ -200,6 +207,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     donimhd = .true.
  case('wind')
     dowind = .true.
+ case('iorig')
+    doiorig = .true.
  case('mpi')
     dompi = .true.
  case('apr')
@@ -327,7 +336,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of ptmass module
 !
  if (doptmass.or.testall) then
-    call test_ptmass(ntests,npass)
+    call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 
@@ -401,6 +410,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_radiation(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+!
 !--test of wind module
 !
  if (dowind.or.testall) then
@@ -413,6 +423,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
      call test_apr(ntests,npass)
      call set_default_options_testsuite(iverbose) ! restore defaults
   endif
+!
+!--test of particle id
+!
+ if (doiorig .or. testall) then
+    call test_iorig(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
 !
 !--now do a "real" calculation, putting it all together (Sedov blast wave)
 !

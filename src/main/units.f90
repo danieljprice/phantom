@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -100,13 +100,13 @@ subroutine set_units(dist,mass,time,G,c)
        utime = sqrt(udist**3/(gg*umass))
        if (present(time)) print "(a)",' WARNING: over-riding time unit with G=1 assumption'
     elseif (present(dist) .and. present(time)) then
-       umass = udist**2/(gg*utime**2)
+       umass = udist**3/(gg*utime**2)
        if (present(mass)) print "(a)",' WARNING: over-riding mass unit with G=1 assumption'
     elseif (present(mass) .and. present(time)) then
        udist = (utime**2*(gg*umass))**(1.d0/3.d0)
        if (present(dist)) print "(a)",' WARNING: over-riding length unit with G=1 assumption'
     elseif (present(time)) then
-       umass = udist**2/(gg*utime**2)     ! udist is 1
+       umass = udist**3/(gg*utime**2)     ! udist is 1
     else
        utime = sqrt(udist**3/(gg*umass))  ! udist and umass are 1
     endif

@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -29,14 +29,13 @@ module inject
  real, public :: mdot = 5.e8     ! mass injection rate in grams/second
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
-      set_default_options_inject
+      set_default_options_inject,update_injected_par
 
  private
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  real         :: vlag          = 0.0      ! percentage lag in velocity of wind
  integer      :: mdot_type     = 2        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
- logical,save :: scaling_set              ! has the scaling been set (initially false)
 
 contains
 !-----------------------------------------------------------------------
@@ -47,7 +46,6 @@ contains
 subroutine init_inject(ierr)
  integer, intent(inout) :: ierr
 
- scaling_set = .false.
  ierr = 0
 
 end subroutine init_inject
@@ -58,7 +56,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use io,            only:fatal
  use part,          only:nptmass,massoftype,igas,hfact,ihsoft
  use partinject,    only:add_or_update_particle
@@ -70,7 +68,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use binaryutils,   only:get_orbit_bits
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
@@ -151,6 +149,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
 end subroutine inject_particles
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine
+
 !-----------------------------------------------------------------------
 !+
 !  Returns dndt(t) depending on which function is chosen
@@ -225,8 +228,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
 end subroutine read_options_inject
 
 subroutine set_default_options_inject(flag)
-
  integer, optional, intent(in) :: flag
+
 end subroutine set_default_options_inject
 
 end module inject

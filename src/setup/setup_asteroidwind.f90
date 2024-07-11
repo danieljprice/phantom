@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,6 +22,7 @@ module setup
 !   - ipot          : *wd modelled by 0=sink or 1=externalforce*
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
+!   - mdot          : *mass injection rate (g/s)*
 !   - norbits       : *number of orbits*
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
@@ -29,8 +30,10 @@ module setup
 !   - mdot          : *rate of mass to be injected (g/s)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
-!   io, options, part, physcon, setbinary, spherical, timestep, units
+!   inject, io, kernel, options, part, physcon, setbinary, spherical,
+!   timestep, units
 !
+ use inject, only:mdot
  implicit none
  public :: setpart
 
@@ -45,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,unit_velocity,utime
+ use units,     only:set_units,umass,udist,utime,unit_velocity
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
                             mass1,accradius1
@@ -54,6 +57,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,       only:gmw
  use options,   only:iexternalforce
  use extern_lensethirring, only:blackhole_spin
+ use kernel,    only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -176,10 +180,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  endif
 
- ! both of these are reset in the first call to inject_particles
+ ! we use the estimated injection rate and the final time to set the particle mass
  massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
- hfact = 1.2
- !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinj)
+ hfact = hfact_default
+ !npart_old = npart
+ !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinj)
 
 !
 !-- check for silly parameter choices

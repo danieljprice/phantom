@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,13 +19,15 @@ module vectorutils
 !
  implicit none
  public :: minmaxave,cross_product3D,curl3D_epsijk,det
- public :: matrixinvert3D,rotatevec
+ public :: matrixinvert3D,rotatevec,unitvec,mag
 
  private
 
 contains
 !-------------------------------------------------------------------
-! simple routine to take min, max and average of a quantity
+!+
+!  find min, max and average of an array
+!+
 !-------------------------------------------------------------------
 subroutine minmaxave(x,xmin,xmax,xav,npts)
  integer :: i
@@ -43,9 +45,13 @@ subroutine minmaxave(x,xmin,xmax,xav,npts)
  enddo
  xav = xav/real(npts)
 
- return
 end subroutine minmaxave
 
+!-------------------------------------------------------------------
+!+
+!  vector cross product
+!+
+!-------------------------------------------------------------------
 pure subroutine cross_product3D(veca,vecb,vecc)
  real, intent(in)  :: veca(3),vecb(3)
  real, intent(out) :: vecc(3)
@@ -56,6 +62,11 @@ pure subroutine cross_product3D(veca,vecb,vecc)
 
 end subroutine cross_product3D
 
+!-------------------------------------------------------------------
+!+
+!  curl from the 3 x 3 gradient matrix
+!+
+!-------------------------------------------------------------------
 pure subroutine curl3D_epsijk(gradAvec,curlA)
  real, intent(in)  :: gradAvec(3,3)
  real, intent(out) :: curlA(3)
@@ -68,7 +79,7 @@ end subroutine curl3D_epsijk
 
 !----------------------------------------------------------------
 !+
-!  Internal subroutine that inverts a 3x3 matrix
+!  Inverts a 3x3 matrix
 !+
 !----------------------------------------------------------------
 subroutine matrixinvert3D(A,Ainv,ierr)
@@ -102,9 +113,13 @@ subroutine matrixinvert3D(A,Ainv,ierr)
  call cross_product3D(x0,x1,result)
  Ainv(:,3) = result(:)*ddet
 
- return
 end subroutine matrixinvert3D
 
+!----------------------------------------------------------------
+!+
+!  Determinant of a 3x3 matrix
+!+
+!----------------------------------------------------------------
 real function det(A)
  real, intent(in) :: A(3,3)
  real :: x0(3),x1(3),x2(3),result(3)
@@ -116,14 +131,13 @@ real function det(A)
  call cross_product3D(x1,x2,result)
  det = dot_product(x0,result)
 
- return
 end function det
 
 !------------------------------------------------------------------------
-!
-! rotate a vector (u) around an axis defined by another vector (v)
-! by an angle (theta) using the Rodrigues rotation formula
-!
+!+
+!  rotate a vector (u) around an axis defined by another vector (v)
+!  by an angle (theta) using the Rodrigues rotation formula
+!+
 !------------------------------------------------------------------------
 pure subroutine rotatevec(u,v,theta)
  real, dimension(3), intent(inout) :: u
@@ -137,5 +151,36 @@ pure subroutine rotatevec(u,v,theta)
  call cross_product3D(k,u,w)
  u = u*cos(theta) + w*sin(theta) + k*dot_product(k,u)*(1-cos(theta))
 end subroutine rotatevec
+
+!------------------------------------------------------------------------
+!+
+!  return unit vector given a vector
+!+
+!------------------------------------------------------------------------
+pure function unitvec(u) result(uhat)
+ real, intent(in) :: u(3)
+ real :: uhat(3),u2
+
+ u2 = dot_product(u,u)
+ if (u2 > tiny(0.)) then
+    uhat = u/sqrt(u2)
+ else
+    uhat = (/0.,0.,1./)  ! arbitrary if vector is zero
+ endif
+
+end function unitvec
+
+!------------------------------------------------------------------------
+!+
+!  magnitude of a vector
+!+
+!------------------------------------------------------------------------
+pure function mag(u) result(umag)
+ real, intent(in) :: u(3)
+ real :: umag
+
+ umag = sqrt(dot_product(u,u))
+
+end function mag
 
 end module vectorutils

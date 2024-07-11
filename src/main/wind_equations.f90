@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,7 @@ module wind_equations
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dust_formation, eos, options, physcon
+! :Dependencies: dim, dust_formation, eos, options, physcon
 !
 
  implicit none
@@ -290,6 +290,7 @@ end subroutine RK4_step_dr
 subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, dv_dr, dT_dr, numerator, denominator)
 !all quantities in cgs
  use physcon, only:Gg,Rg,pi
+ use dim,     only:update_muGamma
  use options, only:icooling,ieos
  use dust_formation,   only:calc_muGamma,idust_opacity
  real, intent(in) :: r, v, T0, mu0, gamma0, alpha, dalpha_dr, Q, dQ_dr, Rstar_cgs, Mdot_cgs
@@ -302,7 +303,7 @@ subroutine calc_dvT_dr(r, v, T0, Rstar_cgs, Mdot_cgs, mu0, gamma0, alpha, dalpha
  T = T0
  mu = mu0
  gamma = gamma0
- if (idust_opacity == 2) then
+ if (update_muGamma .or. idust_opacity == 2) then
     rho_cgs = Mdot_cgs/(4.*pi*r**2*v)
     call calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  endif

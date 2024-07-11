@@ -1,14 +1,14 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setfixedentropycore
 !
-! This module softens the core of a MESA stellar profile with a constant
-!   entropy profile, given a core radius and mass, in preparation
-!   for adding a sink particle core.
+! This module replaces the core of a MESA stellar profile with a flat-
+! entropy profile that is in hydrostatic equilibrium with an added sink
+! particle.
 !
 ! :References:
 !
@@ -20,6 +20,10 @@ module setfixedentropycore
 !
  implicit none
  integer :: ientropy
+ public :: set_fixedS_softened_core,calc_mass_from_rho,gcore
+
+ private
+ integer, parameter :: ierr_pres=1,ierr_rho=2,ierr_mass=3
 
 contains
 
@@ -28,40 +32,37 @@ contains
 !  Main subroutine that calculates the constant entropy softened profile
 !+
 !-----------------------------------------------------------------------
-subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
- use eos,         only:ieos
+subroutine set_fixedS_softened_core(eos_type,mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  use dim,         only:do_radiation
  use physcon,     only:pi,gg,solarm,solarr
  use table_utils, only:interpolator
  use io,          only:fatal
+ integer, intent(in)  :: eos_type
  real, intent(inout)  :: r(:),rho(:),m(:),pres(:),mcore
  real, allocatable    :: r_alloc(:),rho_alloc(:),pres_alloc(:)
  real, intent(in)     :: rcore,Xcore,Ycore
  integer, intent(out) :: ierr
  real                 :: mc,msoft,rc
- integer              :: icore
+ integer              :: icore,iverbose
 
  ierr = 0
  rc = rcore*solarr  ! convert to cm
  mc = mcore*solarm  ! convert to g
  call interpolator(r,rc,icore)  ! find index in r closest to rc
  msoft = m(icore) - mc
- if (msoft<0.) then
-    print *,'mcore=',mcore,', rcore=',rcore,', icore=',icore,', m(icore) =',m(icore)/solarm
-    call fatal('setup','mcore cannot exceed m(r=h)')
- endif
+ if (msoft<0.) call fatal('setup','mcore cannot exceed m(r=h)')
 
  if (do_radiation) then
     ientropy = 2
  else
-    select case(ieos)
+    select case(eos_type)
     case(2)
        ientropy = 1
     case(10,12,20)
        ientropy = 2
     case default
        call fatal('setfixedentropycore',&
-                   'ieos not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
+                   'eos_type not one of 2 (adiabatic), 12 (ideal plus rad.), 10 (MESA), or 20 (gas+rad+recombination)')
     end select
  endif
 
@@ -73,7 +74,8 @@ subroutine set_fixedS_softened_core(mcore,rcore,rho,r,pres,m,Xcore,Ycore,ierr)
  rho_alloc(icore) = rho(icore)
  allocate(pres_alloc(0:icore+1))
  pres_alloc(icore:icore+1) = pres(icore:icore+1)
- call calc_rho_and_pres(r_alloc,mc,m(icore),rho_alloc,pres_alloc,Xcore,Ycore)
+ iverbose = 0
+ call calc_rho_and_pres(r_alloc,mc,m(icore),rho_alloc,pres_alloc,Xcore,Ycore,iverbose)
  mcore = mc / solarm
  write(*,'(1x,a,f12.5,a)') 'Obtained core mass of ',mcore,' Msun'
  write(*,'(1x,a,f12.5,a)') 'Softened mass is ',m(icore)/solarm-mcore,' Msun'
@@ -90,13 +92,14 @@ end subroutine set_fixedS_softened_core
 !  Returns softened core profile with fixed entropy
 !+
 !-----------------------------------------------------------------------
-subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore)
+subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore,iverbose)
  use eos, only:entropy,get_mean_molecular_weight
  real, allocatable, dimension(:), intent(in)    :: r
+ integer, intent(in)                            :: iverbose
  real, intent(in)                               :: mh,Xcore,Ycore
  real, intent(inout)                            :: mcore
  real, allocatable, dimension(:), intent(inout) :: rho,pres
- integer                                        :: Nmax
+ integer                                        :: Nmax,it,ierr
  real                                           :: Sc,mass,mold,msoft,fac,mu
 
 ! INSTRUCTIONS
@@ -117,24 +120,32 @@ subroutine calc_rho_and_pres(r,mcore,mh,rho,pres,Xcore,Ycore)
  ! Start shooting method
  fac  = 0.05
  mass = msoft
+ it = 0
 
  do
     mold = mass
-    call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass) ! returned mass is m(r=0)
+    ierr = 0
+    call one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr) ! returned mass is m(r=0)
+    it = it + 1
+
     if (mass < 0.) then
        mcore = mcore * (1. - fac)
-       msoft = mh - mcore
-    elseif (mass/msoft < 1d-10) then
-       exit ! Happy when m(r=0) is sufficiently close to zero
+    elseif (mass/msoft < 1d-10) then  ! m(r=0) sufficiently close to zero
+       exit
     else
        mcore = mcore * (1. + fac)
-       msoft = mh - mcore
     endif
+    msoft = mh - mcore
     if (mold * mass < 0.) fac = fac * 0.5
-    if (abs(mold-mass) < tiny(0.)) then
-       write(*,'(/,1x,a,f12.5)') 'WARNING: Setting fixed entropy for m(r=0)/msoft = ',mass/msoft
+
+    if (abs(mold-mass) < tiny(0.) .and. ierr /= ierr_pres .and. ierr /= ierr_mass) then
+       write(*,'(/,1x,a,e12.5)') 'WARNING: Converged on mcore without reaching tolerance on zero &
+       &central mass. m(r=0)/msoft = ',mass/msoft
+       write(*,'(/,1x,a,i4,a,e12.5)') 'Reached iteration ',it,', fac=',fac
        exit
     endif
+
+    if (iverbose > 0) write(*,'(1x,i5,4(2x,a,e12.5))') it,'m(r=0) = ',mass,'mcore = ',mcore,'fac = ',fac
  enddo
 
 end subroutine calc_rho_and_pres
@@ -145,13 +156,15 @@ end subroutine calc_rho_and_pres
 !  Calculate a hydrostatic structure for a given entropy
 !+
 !-----------------------------------------------------------------------
-subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
- use physcon, only:gg,pi
- use eos, only:get_rho_from_p_s
+subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass,iverbose,ierr)
+ use physcon, only:gg,pi,solarm
+ use eos,     only:get_rho_from_p_s
  real, intent(in)                               :: Sc,mcore,msoft,mu
+ integer, intent(in)                            :: iverbose
  real, allocatable, dimension(:), intent(in)    :: r
  real, allocatable, dimension(:), intent(inout) :: rho,pres
  real, intent(out)                              :: mass
+ integer, intent(out)                           :: ierr
  integer                                        :: i,Nmax
  real                                           :: rcore,rhoguess
  real, allocatable, dimension(:)                :: dr,dvol
@@ -159,6 +172,7 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
  Nmax = size(rho)-1
  allocate(dr(1:Nmax+1),dvol(1:Nmax+1))
 
+ ! Pre-fill arrays
  do i = 1,Nmax+1
     dr(i) = r(i)-r(i-1)
     dvol(i) = 4.*pi/3. * (r(i)**3 - r(i-1)**3)
@@ -175,7 +189,28 @@ subroutine one_shot(Sc,r,mcore,msoft,mu,rho,pres,mass)
     rhoguess = rho(i)
     call get_rho_from_p_s(pres(i-1),Sc,rho(i-1),mu,rhoguess,ientropy)
     mass = mass - 0.5*(rho(i)+rho(i-1)) * dvol(i)
-    if (mass < 0.) return ! m(r) < 0 encountered, exit and decrease mcore
+
+    if (iverbose > 2) print*,Nmax-i+1,pres(i-1),rhoguess,rho(i-1),mass
+    if (mass < 0.) then ! m(r) < 0 encountered, exit and decrease mcore
+       if (iverbose > 1) print*,'WARNING: Negative mass reached at i = ',i, 'm = ',mass/solarm
+       ierr = ierr_mass
+       return
+    endif
+    if (rho(i-1)<rho(i)) then
+       if (iverbose > 1) then
+          print*,'WARNING: Density inversion at i = ',i, 'm = ',mass/solarm
+          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,rho(i),rho(i-1),mass
+       endif
+       ierr = ierr_rho
+    endif
+    if (pres(i-1)<pres(i)) then
+       if (iverbose > 1) then
+          print*,'WARNING: Pressure inversion at i = ',i, 'm = ',mass/solarm
+          write(*,'(i5,2x,e12.4,2x,e12.4,2x,e12.4)') i,pres(i-1),rho(i),mass
+       endif
+       ierr = ierr_pres
+       return
+    endif
  enddo
 
 end subroutine one_shot

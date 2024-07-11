@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -31,8 +31,6 @@ module kdtree
  integer, public,  allocatable :: inoderange(:,:)
  integer, public,  allocatable :: inodeparts(:)
  type(kdnode),     allocatable :: refinementnode(:)
- integer,          allocatable :: list(:)
- !$omp threadprivate(list)
 
 !
 !--tree parameters
@@ -82,9 +80,6 @@ subroutine allocate_kdtree
  call allocate_array('inoderange', inoderange, 2, ncellsmax+1)
  call allocate_array('inodeparts', inodeparts, maxp)
  if (mpi) call allocate_array('refinementnode', refinementnode, ncellsmax+1)
- !$omp parallel
- call allocate_array('list', list, maxp)
- !$omp end parallel
 
 end subroutine allocate_kdtree
 
@@ -93,10 +88,6 @@ subroutine deallocate_kdtree
  if (allocated(inoderange)) deallocate(inoderange)
  if (allocated(inodeparts)) deallocate(inodeparts)
  if (mpi .and. allocated(refinementnode)) deallocate(refinementnode)
-
- !$omp parallel
- if (allocated(list)) deallocate(list)
- !$omp end parallel
 
 end subroutine deallocate_kdtree
 
@@ -208,7 +199,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
     ! construct node
     call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, .false.,apr_tree)
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -258,7 +249,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refine
           ! construct node
           call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
               il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, .false.,apr_tree)
+              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -471,7 +462,7 @@ end subroutine pop_off_stack
 !--------------------------------------------------------------------
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
             global_build,apr_tree)
  use dim,       only:maxtypes,mpi
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
@@ -490,7 +481,6 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  integer,           intent(inout) :: maxlevel, minlevel
  real,              intent(in)    :: xyzh(:,:)
  logical,           intent(out)   :: wassplit
- integer,           intent(out)   :: list(:) ! not actually sent out, but to avoid repeated memory allocation/deallocation
  logical,           intent(in)    :: global_build
  logical,           intent(in)    :: apr_tree
 
@@ -1782,7 +1772,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
 
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, list, &
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
             .true.,apr_tree)
 
     if (.not.wassplit) then

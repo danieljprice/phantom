@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -34,6 +34,7 @@ module setbinary
  end interface get_eccentricity_vector
 
  real, parameter :: pi = 4.*atan(1.)
+ real, parameter :: deg_to_rad = pi/180.
  integer, parameter :: &
    ierr_m1   = 1, &
    ierr_m2   = 2, &
@@ -186,19 +187,19 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
     ecc = eccentricity
-    omega     = arg_peri*pi/180.
+    omega     = arg_peri*deg_to_rad
     ! our conventions here are Omega is measured East of North
-    big_omega = posang_ascnode*pi/180. + 0.5*pi
-    inc       = incl*pi/180.
+    big_omega = posang_ascnode*deg_to_rad + 0.5*pi
+    inc       = incl*deg_to_rad
 
     if (present(f)) then
        ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
-       theta = f*pi/180.
+       theta = f*deg_to_rad
        E = get_E_from_true_anomaly(theta,ecc)
     elseif (present(mean_anomaly)) then
        ! get eccentric anomaly from mean anomaly by solving Kepler equation
-       bigM = mean_anomaly*pi/180.
+       bigM = mean_anomaly*deg_to_rad
        E = get_E_from_mean_anomaly(bigM,ecc)
     else
        ! set binary at apastron
@@ -273,7 +274,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  v1 = -dv*m2/mtot
  v2 =  dv*m1/mtot
 
- omega0 = v1(2)/x1(1)
+ omega0 = v2(2)/x2(1)
 
  ! print info about positions and velocities
  if (do_verbose) then
@@ -282,8 +283,8 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
         'energy (KE+PE)   :',-mtot/sqrt(dot_product(dx,dx)) + 0.5*dot_product(dv,dv),&
         'angular momentum :',angmbin, &
         'mean ang. speed  :',omega0, &
-        'Omega_0 (prim)   :',v1(2)/x1(1), &
-        'Omega_0 (second) :',v1(2)/x1(1), &
+        'Omega_0 (prim)   :',v2(2)/x2(1), &
+        'Omega_0 (second) :',v2(2)/x2(1), &
         'R_accretion (1)  :',accretion_radius1, &
         'R_accretion (2)  :',accretion_radius2, &
         'Roche lobe  (1)  :',Rochelobe1, &
@@ -324,7 +325,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 ! rotate if inclination is non-zero
 !
  if (present(incl) .and. .not.(present(arg_peri) .and. present(posang_ascnode))) then
-    xangle = incl*pi/180.
+    xangle = incl*deg_to_rad
     cosi = cos(xangle)
     sini = sin(xangle)
     do i=i1,i2
@@ -357,10 +358,14 @@ real function Rochelobe_estimate(m1,m2,sep)
  real, intent(in) :: m1,m2,sep
  real :: q,q13,q23
 
- q = m2/m1
- q13 = q**(1./3.)
- q23 = q13*q13
- Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ if (m1 > 0. .and. m2 > 0.) then
+    q = m2/m1
+    q13 = q**(1./3.)
+    q23 = q13*q13
+    Rochelobe_estimate = sep * 0.49*q23/(0.6*q23 + log(1. + q13))
+ else
+    Rochelobe_estimate = sep
+ endif
 
 end function Rochelobe_estimate
 

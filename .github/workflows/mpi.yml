@@ -19,7 +19,7 @@ jobs:
           - yes
         ntasks:
           - 1
-          - 4
+          - 2
         input: # [SETUP, phantom_tests]
           - ['test', '']
           - ['testkd', '']
@@ -43,7 +43,7 @@ jobs:
 
     env:
       OMP_STACKSIZE: 512M
-      OMP_NUM_THREADS: 4
+      OMP_NUM_THREADS: 2
 
     steps:
 
@@ -53,7 +53,7 @@ jobs:
         sudo apt-get --yes install gfortran openmpi-bin openmpi-common libopenmpi-dev
 
     # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Compile with MPI
       run: make SETUP=${{ matrix.input[0] }} MPI=yes DEBUG=${{ matrix.debug }} OPENMP=${{ matrix.openmp }}  phantomtest

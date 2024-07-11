@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -14,7 +14,8 @@ module ionization_mod
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: eos_idealplusrad, io, part, physcon, units, vectorutils
+! :Dependencies: dim, eos_idealplusrad, io, part, physcon, units,
+!   vectorutils
 !
  implicit none
 
@@ -338,13 +339,15 @@ end subroutine get_erec_components
 !  gas particle. Inputs and outputs in code units
 !+
 !----------------------------------------------------------------
-subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,ethi)
- use part,             only:rhoh
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,radprop)
+ use dim,              only:do_radiation
+ use part,             only:rhoh,iradxi
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use physcon,          only:radconst,Rg
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
  integer, intent(in) :: ieos
- real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4),gamma
+ real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
+ real, intent(in), optional :: radprop(:)
  real, intent(out)   :: ethi
  real                :: hi,densi_cgs,mui
 
@@ -353,10 +356,11 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,gamma,et
     hi = xyzh(4)
     densi_cgs = rhoh(hi,particlemass)*unit_density
     mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
-    call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,gamma,ethi)
+    call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,ethi)
     ethi = particlemass * ethi / unit_ergg
  case default ! assuming internal energy = thermal energy
     ethi = particlemass * vxyzu(4)
+    if (do_radiation) ethi  = ethi + particlemass*radprop(iradxi)
  end select
 
 end subroutine calc_thermal_energy

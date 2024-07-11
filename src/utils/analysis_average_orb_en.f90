@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -41,14 +41,14 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
  if (first) then
     first = .false.
-    open(unit=iu, file='orbitalenergy.ev',status='replace')
+    open(unit=iu,file='orbitalenergy.ev',status='replace')
     write(iu,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',&
           2,'ekin',&
           3,'epot',&
           4,'etot'
  else
-    open(unit=iu, file='orbitalenergy.ev',position='append')
+    open(unit=iu,file='orbitalenergy.ev',position='append')
  endif
  write(iu,'(4(es18.10,1X))') time,ekin_av,epot_av,e_av
  close(iu)

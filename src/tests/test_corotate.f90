@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -98,7 +98,7 @@ subroutine test_sinkbinary(ntests,npass)
  use io,              only:id,master
  use testutils,       only:checkval,update_test_scores
  use extern_corotate, only:get_centrifugal_force,get_coriolis_force,omega_corotate
- use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass
+ use part,            only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass
  use setbinary,       only:set_binary
  use externalforces,  only:iext_corotate
  use ptmass,          only:get_accel_sink_sink
@@ -127,7 +127,7 @@ subroutine test_sinkbinary(ntests,npass)
  !
  ti = 0.
  call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-                          iext_corotate,ti,merge_ij,merge_n)
+                          iext_corotate,ti,merge_ij,merge_n,dsdt_ptmass)
  call checkval(3,fxyz_ptmass(1:3,1),0.,epsilon(0.),nfailed(4),'sink-sink force1 = 0')
  call checkval(3,fxyz_ptmass(1:3,2),0.,epsilon(0.),nfailed(5),'sink-sink force2 = 0')
 

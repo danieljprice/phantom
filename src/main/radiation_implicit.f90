@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -423,7 +423,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  real, intent(out)   :: vari(:,:),EU0(6,npart),varij(2,icompactmax),varij2(4,icompactmax)
  integer             :: n,i,j,k,icompact
  real :: pmi,hi,hi21,hi41,rhoi,dx,dy,dz,rij2,rij,rij1,dr,dti,&
-         pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,rhomean,&
+         pmj,rhoj,hj,hj21,hj41,v2i,vi,v2j,vj,dWi,dWj,&
          c_code,dWidrlightrhorhom,dWjdrlightrhorhom,&
          xi,yi,zi,gradhi,pmjdWrijrhoi,pmjdWrunix,pmjdWruniy,pmjdWruniz,&
          dust_kappai,dust_cooling,heatingISRi,dust_gas
@@ -432,7 +432,7 @@ subroutine fill_arrays(ncompact,ncompactlocal,npart,icompactmax,dt,xyzh,vxyzu,iv
  !$omp do &
  !$omp private(n,i,j,k,rhoi,icompact,pmi,dti) &
  !$omp private(dx,dy,dz,rij2,rij,rij1,dr,pmj,rhoj,hi,hj,hi21,hj21,hi41,hj41) &
- !$omp private(v2i,vi,v2j,vj,dWi,dWj,rhomean) &
+ !$omp private(v2i,vi,v2j,vj,dWi,dWj) &
  !$omp private(xi,yi,zi,gradhi,dWidrlightrhorhom,pmjdWrijrhoi,dWjdrlightrhorhom) &
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dust_kappai,dust_cooling,heatingISRi,dust_gas)
 
@@ -553,12 +553,12 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
  real, intent(out)   :: varinew(3,npart)  ! we use this parallel loop to set varinew to zero
  integer             :: i,j,k,n,icompact
  real                :: rhoi,rhoj,pmjdWrunix,pmjdWruniy,pmjdWruniz,dedx(3),dradenij,rhoiEU0
- real                :: gradE1i,opacity,radRi,EU01i
+ real                :: opacity,radRi,EU01i
 
  !$omp do schedule(runtime)&
  !$omp private(i,j,k,n,dedx,rhoi,rhoj,icompact)&
  !$omp private(pmjdWrunix,pmjdWruniy,pmjdWruniz,dradenij)&
- !$omp private(gradE1i,opacity,radRi,EU01i)
+ !$omp private(opacity,radRi,EU01i)
 
  do n = 1,ncompact
     i = ivar(3,n)
@@ -597,10 +597,10 @@ subroutine compute_flux(ivar,ijvar,ncompact,npart,icompactmax,varij2,vari,EU0,va
        if (dustRT) then
           if (dust_temp(i) < Tdust_threshold) opacity = nucleation(idkappa,i)
        endif
-      !  if (opacity < 0.) then
-      !     ierr = max(ierr,ierr_negative_opacity)
-      !     call error(label,'Negative opacity',val=opacity)
-      !  endif
+       !  if (opacity < 0.) then
+       !     ierr = max(ierr,ierr_negative_opacity)
+       !     call error(label,'Negative opacity',val=opacity)
+       !  endif
 
        if (limit_radiation_flux) then
           radRi = get_rad_R(rhoi,EU01i,dedx,opacity)
@@ -632,12 +632,12 @@ subroutine calc_diffusion_term(ivar,ijvar,varij,ncompact,npart,icompactmax, &
  real, intent(inout)  :: varinew(3,npart)
  integer              :: n,i,j,k,icompact
  real                 :: rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,dWdrlightrhorhom
- real                 :: diffusion_numerator,diffusion_denominator,tempval1,tempval2
+ real                 :: diffusion_numerator,diffusion_denominator
 
  ierr = 0
  !$omp do schedule(runtime)&
  !$omp private(i,j,k,n,rhoi,rhoj,opacityi,opacityj,Ej,bi,bj,b1,diffusion_numerator,diffusion_denominator)&
- !$omp private(dWdrlightrhorhom,tempval1,tempval2,icompact)&
+ !$omp private(dWdrlightrhorhom,icompact)&
  !$omp reduction(max:ierr)
  do n = 1,ncompact
     i = ivar(3,n)
@@ -721,7 +721,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  logical, intent(in) :: store_drad
  logical, intent(out):: moresweep
  logical, intent(inout):: mask(npart)
- integer             :: i,j,n,ieqtype,ierr
+ integer             :: i,n,ieqtype,ierr
  logical             :: moresweep2,skip_quartic
  real                :: dti,rhoi,diffusion_numerator,diffusion_denominator,gradEi2,gradvPi,rpdiag,rpall
  real                :: radpresdenom,stellarradiation,gas_temp,xnH2,betaval,gammaval,tfour,betaval_d,chival
@@ -729,7 +729,7 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  real                :: cosmic_ray,cooling_line,photoelectric,h2form,dust_heating,dust_term,e_planetesimali
  real                :: u4term,u1term,u0term,pcoleni,dust_cooling,heatingISRi,dust_gas
  real                :: pres_numerator,pres_denominator,mui,U1i,E1i,Tgas,dUcomb,dEcomb
- real                :: residualE,residualU,xchange,maxerrU2old,Tgas4,Trad4,ck,ack
+ real                :: residualE,residualU,maxerrU2old,Tgas4,Trad4,ck,ack
  real                :: Ei,Ui,cvi,opacityi,eddi
  real                :: maxerrE2i,maxerrU2i
 
@@ -742,12 +742,12 @@ subroutine update_gas_radiation_energy(ivar,vari,npart,ncompactlocal,&
  !$omp end single
 
  !$omp do schedule(runtime)&
- !$omp private(i,j,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
+ !$omp private(i,n,rhoi,dti,diffusion_numerator,diffusion_denominator,U1i,skip_quartic,Tgas,E1i,dUcomb,dEcomb) &
  !$omp private(gradEi2,gradvPi,rpdiag,rpall,radpresdenom,stellarradiation,dust_tempi,dust_kappai,xnH2) &
  !$omp private(dust_cooling,heatingISRi,dust_gas,gas_dust_val,dustgammaval,gas_dust_cooling,cosmic_ray) &
  !$omp private(cooling_line,photoelectric,h2form,dust_heating,dust_term,betaval,chival,gammaval,betaval_d,tfour) &
  !$omp private(e_planetesimali,u4term,u1term,u0term,pcoleni,pres_numerator,pres_denominator,moresweep2,mui,ierr) &
- !$omp private(residualE,residualU,xchange,maxerrU2old,gas_temp,ieqtype,unit_density,Tgas4,Trad4,ck,ack) &
+ !$omp private(residualE,residualU,maxerrU2old,gas_temp,ieqtype,unit_density,Tgas4,Trad4,ck,ack) &
  !$omp private(maxerrE2i,maxerrU2i) &
  !$omp reduction(max:maxerrE2,maxerrU2)
  main_loop: do n = 1,ncompactlocal

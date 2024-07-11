@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -26,23 +26,18 @@ module mathfunc
 contains
 
 
-!--------------------------------------------------------------------
-!Gegenbauer polynomials
-!--------------------------------------------------------------------
 subroutine gegenbauer_poly( n, alpha, x, cx )
 !
-!Taken from the Polpak http://people.sc.fsu.edu/~jburkardt/
+!  GEGENBAUER_POLY computes the Gegenbauer polynomials C(I,ALPHA,X).
 !
-!*****************************************************************************80
-!
-!! GEGENBAUER_POLY computes the Gegenbauer polynomials C(I,ALPHA,X).
+!  Taken from the Polpak http://people.sc.fsu.edu/~jburkardt/
 !
 !  Discussion:
 !
 !    The Gegenbauer polynomial can be evaluated in Mathematica with
 !    the command
 !
-!      GegenbauerC[n,m,x]
+!    GegenbauerC[n,m,x]
 !
 !    ALPHA must be greater than -0.5.
 !
@@ -140,13 +135,11 @@ subroutine gegenbauer_poly( n, alpha, x, cx )
 end subroutine gegenbauer_poly
 
 !--------------------------------------------------------------------
-!Associated Legendre polynomials
+! Associated Legendre polynomials
 !--------------------------------------------------------------------
 subroutine legendre_associated( n, m, x, cx )
-
-!*****************************************************************************80
 !
-!! LEGENDRE_ASSOCIATED evaluates the associated Legendre functions.
+! LEGENDRE_ASSOCIATED evaluates the associated Legendre functions.
 !
 !  Differential equation:
 !
