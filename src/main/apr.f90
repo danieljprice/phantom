@@ -21,7 +21,7 @@ module apr
   !
   implicit none
 
-  public :: init_apr,update_apr,read_options_apr,write_options_apr,hacky_write
+  public :: init_apr,update_apr,read_options_apr,write_options_apr
   public :: create_or_update_apr_clump
   integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
   real,    public :: apr_rad = 0.0, apr_drad = 0.1, apr_centre(3)
@@ -540,68 +540,6 @@ contains
     call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
   end subroutine write_options_apr
-
-  !-----------------------------------------------------------------------
-  !+
-  !  Hacky routine that just writes out the raw position, mass, density and h
-  !+
-  !-----------------------------------------------------------------------
-  subroutine hacky_write(ifile)
-    use part, only:igas,rhoh,aprmassoftype,Bxyz, &
-                   npart,xyzh,apr_level,fxyzu,vxyzu
-    use dim,  only:mhd
-    character(len=*), intent(in) :: ifile
-    integer :: ii,iunit=24
-    character(len=120) :: mydumpfile,rootname
-    real :: rhoi,pmass
-    real :: hfact
-    logical :: print_forces = .false.
-
-    hfact = 1.3 ! straight from the *.in file
-
-    rootname = 'raw'
-    write(mydumpfile,"(a,'.raw')") trim(ifile)
-
-    open(iunit,file=mydumpfile,status='replace',form='formatted')
-    ! Now we write the header, and here we just hard-wire what we need to
-  !  write(iunit,iostat=ierr) time,npart,npart,1.6,1.2,2,3, &
-  !   6,1,3,3,-1.0,-1.0,1.0,1.0,12,'cartesian'
-  !   if (ierr/=0) print*,'AH SOMETHING WRONG IN WRITE'
-    write(iunit,"('#',9(1x,'[',i2.2,1x,a11,']',2x))") &
-    1,'x', &
-    2,'y', &
-    3,'h', &
-    4,'rho', &
-    5,'mass',&
-    6,'apri',&
-    7,'vx',&
-    8,'vy', &
-    9,'vz'
-
-    do ii=1,npart
-      pmass = aprmassoftype(igas,apr_level(ii))
-      rhoi = rhoh(xyzh(4,ii),pmass)
-      if (.not.mhd) then
-        write(iunit,'(9(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), vxyzu(1:3,ii)
-      else
-        write(iunit,'(8(es18.10,1X))') xyzh(1:2,ii), xyzh(4,ii), rhoi, pmass, real(apr_level(ii)), Bxyz(1,ii), Bxyz(2,ii)
-      endif
-    enddo
-
-    close(iunit)
-
-    ! Print the forces?
-    if (print_forces) then
-      write(mydumpfile,"(a,'.force')") trim(ifile)
-      open(iunit,file=mydumpfile,status='replace',form='formatted')
-
-      do ii = 1,npart
-        write(iunit,*) xyzh(1:3,ii), fxyzu(1:3,ii)
-      enddo
-    close(iunit)
-    endif
-
-  end subroutine hacky_write
 
   subroutine closest_neigh(i,next_door,rmin)
     use part, only:xyzh,npart
