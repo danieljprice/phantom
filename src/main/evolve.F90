@@ -325,8 +325,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
        endif
-       ipart_createseeds = 0 ! reset pointer to zero
-       ipart_createstars = 0 ! reset pointer to zero
+       if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
+       if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
        dummy = 0
     endif
     !

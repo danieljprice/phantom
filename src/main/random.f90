@@ -176,18 +176,20 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  real,    intent(inout)    :: mindist
  real,    allocatable :: points(:)
  integer, allocatable :: idx(:)
- integer              :: i,j
+ integer              :: i,j,np
  logical              :: close
  real                 :: tmp,dist
 
- allocate(points(nlengths+1))
- allocate(idx(nlengths+1))
- points(nlengths+1) = 1.
- points(1)          = 0.
- tmp  = 0.
+ np = nlengths+1
 
- if (mindist > 1./nlengths) then ! override the minimum distance if we are in a bricked situation...
-    mindist = (1./(nlengths+1))  ! we'll have stars less massive than 0.08 solarmasses but it will assure to never brick the sim...
+ allocate(points(np))
+ allocate(idx(np))
+ points(np) = 1.
+ points(1)  = 0.
+ tmp        = 0.
+
+ if (mindist >= 0.1) then ! override the minimum distance if we are in a bricked situation...
+    mindist = 0.01  ! we'll have stars less massive than 0.08 solarmasses but it will assure to never brick the sim...
  endif
 
 
@@ -199,15 +201,15 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
        do j=2,i-1
           dist = min(abs(points(j)-tmp),dist)
        enddo
-       dist = min(abs(points(nlengths+1)-tmp),dist)
+       dist = min(abs(points(np)-tmp),dist)
        close = dist<mindist
     enddo
     points(i) = tmp
  enddo
 
- call indexx(nlengths+1,points,idx)
+ call indexx(np,points,idx)
 
- do i=2,nlengths+1
+ do i=2,np
     lengths(i-1) = points(idx(i)) - points(idx(i-1))
  enddo
  deallocate(points)
