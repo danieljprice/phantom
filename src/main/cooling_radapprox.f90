@@ -92,6 +92,7 @@ subroutine radcool_update_energ(dt,npart,xyzh,energ,dudt_sph,Tfloor)
  overpart: do i=1,npart
     if (.not. iactive(iphase(i)) .or. isdead_or_accreted(xyzh(4,i)) ) then
        dudt_sph(i) = 0d0
+       cycle
     endif
     poti = Gpot_cool(i)
     du_FLDi = duFLD(i)

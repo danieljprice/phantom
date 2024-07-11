@@ -2827,7 +2827,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
-     if ((icooling==9) .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + poti ! add contribution from distant nodes
+    if ((icooling==9) .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + poti ! add contribution from distant nodes
     if (gr .and. ien_type == ien_etotal) then
        fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
     endif
@@ -3065,6 +3065,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
        ! cooling timestep dt < fac*u/(du/dt)
        if (maxvxyzu >= 4 .and. .not. gr) then ! not with gr which uses entropy
           if (eni + dtc*fxyzu(4,i) < epsilon(0.) .and. eni > epsilon(0.)) dtcool = C_cool*abs(eni/fxyzu(4,i))
+          if (dtcool < epsilon(0.) .or. isnan(dtcool)) print *, "dtcool=zero or NaN in force.F90", dtcool
        endif
 
        ! s entropy timestep to avoid too large s entropy leads to infinite temperature

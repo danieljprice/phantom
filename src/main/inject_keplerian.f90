@@ -8,16 +8,18 @@ module inject
 !
 ! Injection of material at keplerian speed in an accretion disc
 !
-! :References: 
+! :References:
 !
-! :Owner: Daniel Price
+! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   - datafile       : *name of data file for wind injection*
-!   - outer_boundary : *kill gas particles outside this radius*
+!   - HonR_inj    : *aspect ratio to give temperature at rinj*
+!   - follow_sink : *injection radius is relative to sink particle 1*
+!   - mdot        : *mass injection rate [msun/yr]*
+!   - rinj        : *injection radius*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   random, units
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   partinject, physcon, random, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
@@ -114,7 +116,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  r2min = huge(r2min)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       r2 = (xyzh(1,i)-x0(1))**2 + (xyzh(2,i)-x0(2))**2 
+       r2 = (xyzh(1,i)-x0(1))**2 + (xyzh(2,i)-x0(2))**2
        dr2 = abs(r2 - rinj*rinj)
        if (dr2 < r2min) then
           hguess = xyzh(4,i)
@@ -174,8 +176,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/) 
-       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./) 
+       xyzi = (/rinj*cosphi,rinj*sinphi,zi/)
+       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./)
 
        u = 1.5*cs**2
 
@@ -214,11 +216,11 @@ subroutine write_options_inject(iunit)
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  if (maxvxyzu >= 4) then
-   call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
-endif
-if (nptmass >= 1) then
-   call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
-endif 
+    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ endif
+ if (nptmass >= 1) then
+    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
+ endif
 
 end subroutine write_options_inject
 
