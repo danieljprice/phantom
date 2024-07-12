@@ -41,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:mpi
+ use dim,              only:mpi,gr
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -56,6 +56,8 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use readwrite_dumps,  only:init_readwrite_dumps
+ use metric,           only:metric_type
+ use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -99,6 +101,13 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+!
+!--initialise metric if tabulated
+!
+ if (gr  .and. metric_type=='et') then
+    call read_tabulated_metric('tabuled_metric.dat',ierr)
+    gridinit = .true.
+ endif
 
  call init_readwrite_dumps()
 

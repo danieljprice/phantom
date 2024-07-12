@@ -488,7 +488,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
+SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
 #
@@ -1229,6 +1229,24 @@ combinedustdumps: checksys checkparams $(OBJCDD)
 
 cleancombinedustdumps:
 	rm -f $(BINDIR)/combinedustdumps
+
+#----------------------------------------------------
+# these are the sources for the tabulate_metric tility
+.PHONY: tabulate_metric
+SRCTAB= io.F90 utils_infiles.f90 metric_${METRIC}.f90 metric_et_utils.f90 tabulate_metric.f90 #metric_tools.F90
+OBJTAB1= $(SRCTAB:.F90=.o)
+OBJTAB= $(OBJTAB1:.f90=.o)
+
+tabulate_metric: checksys $(OBJTAB)
+	@echo ""
+	@echo "tabulate_metric: Because grids are great"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTAB)
+
+cleantabulatemetric:
+	rm -f $(BINDIR)/tabulate_metric
+
+
 
 
 include Makefile_qscripts
