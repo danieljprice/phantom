@@ -171,10 +171,10 @@ ifeq ($(SETUP), randomwind)
     SETUPFILE=setup_disc.f90
     ANALYSIS= analysis_disc.f90
     SRCINJECT=utils_binary.f90 inject_randomwind.f90
-    IND_TIMESTEPS=yes
-    CONST_AV=yes
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
+    MULTIRUNFILE= multirun.f90
+    IND_TIMESTEPS=yes
 endif
 
 ifeq ($(SETUP), grtde)
