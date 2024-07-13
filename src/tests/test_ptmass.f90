@@ -1144,6 +1144,7 @@ subroutine test_sink_potential(ntests,npass)
  rp = 2.
  isink_potential = 1
  ! place a single point mass at a random location
+ xyzmh_ptmass(:,:)     = 0.
  xyzmh_ptmass(1:3,1)   = x0
  xyzmh_ptmass(4,1)     = 3.14159
  xyzmh_ptmass(ihacc,1) = 0.
@@ -1155,9 +1156,11 @@ subroutine test_sink_potential(ntests,npass)
  xi = x0(1) + 1.00001*rp
  yi = x0(2) + 1.*rp
  zi = x0(3) + 1.*rp
+ fxi = 0.; fyi = 0.; fzi = 0.; phi = 0.
  call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi)
  ! evaluate sink-gas acceleration at some position + epsilon
  eps = 1.e-6
+ dumxi = 0.; dumyi = 0.; dumzi = 0.; phi1 = 0.
  call get_accel_sink_gas(nptmass,xi+eps,yi,zi,hi,xyzmh_ptmass,dumxi,dumyi,dumzi,phi1)
  ! get the derivative of phi and check it equals the acceleration
  dphidx = -(phi1 - phi)/eps
