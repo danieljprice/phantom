@@ -59,6 +59,7 @@ module ptmass
 
  ! settings affecting routines in module (read from/written to input file)
  integer, public :: icreate_sinks = 0
+ integer, public :: isink_potential = 0
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
@@ -68,7 +69,6 @@ module ptmass
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0     ! 1000.
-
 
  logical, public :: use_regnbody    = .false. ! subsystems switch
  logical, public :: use_fourthorder = .true.
@@ -160,7 +160,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
- real                             :: fxj,fyj,fzj,dsx,dsy,dsz
+ real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
  logical                          :: tofrom,extrap
  !
@@ -241,13 +241,29 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! acceleration of gas due to point mass particle
        f1     = pmassj*dr3
+
+       ! acceleration of sink from gas
+       if (tofrom) f2 = pmassi*dr3
+
+       ! modified potential
+       select case (isink_potential)
+       case(1)
+          ! Ayliffe & Bate (2010) equation 2 (prevent accretion on to sink)
+          Rsink = xyzmh_ptmass(iReff,j)
+          r=1./ddr
+          if (Rsink > 0. .and. r < 2*Rsink) then
+             fac = (1. - (2. - r/Rsink)**4)
+             f1 = f1*fac
+             f2 = f2*fac
+             phi = phi - pmassj*(r**3/3.-4.*r**2*Rsink+24.*r*Rsink**2 &
+                  -16.*Rsink**4/r-32.*Rsink**3*log(r))/Rsink**4
+          endif
+       end select
+
        ftmpxi = ftmpxi - dx*f1
        ftmpyi = ftmpyi - dy*f1
        ftmpzi = ftmpzi - dz*f1
        phi    = phi    - pmassj*ddr      ! potential (GM/r)
-
-       ! acceleration of sink from gas
-       if (tofrom) f2 = pmassi*dr3
 
        ! additional accelerations due to oblateness
        if (abs(J2) > 0.) then
@@ -1934,6 +1950,7 @@ subroutine write_options_ptmass(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
+ call write_inopt(isink_potential,'isink_potential','sink potential(0=1/r,1=surf)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -1980,6 +1997,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) icreate_sinks
     ngot = ngot + 1
     if (icreate_sinks < 0) call fatal(label,'sink creation option out of range')
+ case('isink_potential')
+    read(valstring,*,iostat=ierr) isink_potential
+    ngot = ngot + 1
  case('rho_crit_cgs')
     read(valstring,*,iostat=ierr) rho_crit_cgs
     if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
