@@ -459,7 +459,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
           "|_| /_/   \_\____/____/ "
 
        write(*,"(a)") 'TEST SUITE PASSED'
-       call system("say OK")
+       call system("say fantastic!")
     else
        write(*,"(5(a,/))") &
           " _____ _    ___ _     ", &
