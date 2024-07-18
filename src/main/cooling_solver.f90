@@ -231,6 +231,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  endif
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T      = T_on_u*ui
+ print *, "Initial Temperature: ", T
 
  if (T < T_floor) then
     Temp = T_floor
