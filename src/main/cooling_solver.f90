@@ -241,7 +241,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, kappa)
     Qi = Qref
-    Y         = 0.
+    y         = 0.
     k         = nTg
     Q         = Qref          ! default value if Tgrid < T for all k
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
