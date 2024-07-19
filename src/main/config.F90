@@ -371,7 +371,7 @@ subroutine update_max_sizes(n,ntot)
  integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
- if (use_apr) maxp = 2*n
+ if (use_apr) maxp = 4*n
 
  if (use_krome) maxp_krome = maxp
 
