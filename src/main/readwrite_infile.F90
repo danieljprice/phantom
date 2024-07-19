@@ -305,7 +305,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) call write_options_metric(iwritein)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
- 
+
  if (use_apr) then
   write(iwritein,"(/,a)") '# options for adaptive particle refinement'
   call write_options_apr(iwritein)
@@ -323,7 +323,7 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,store_dust_temperature,gr,do_nucleation
+                           itau_alloc,store_dust_temperature,gr,do_nucleation,use_apr
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
@@ -341,9 +341,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
-#ifdef APR
  use apr,             only:read_options_apr
-#endif
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass
@@ -562,9 +560,9 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
-#ifdef APR
+  if (use_apr) then
        if (.not.imatch) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
-#endif
+  endif
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
