@@ -231,7 +231,6 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  endif
  T_on_u = (gamma-1.)*mu*unit_ergg/Rg
  T      = T_on_u*ui
- print *, "Initial Temperature: ", T
 
  if (T < T_floor) then
     Temp = T_floor
@@ -241,7 +240,7 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
  else
     call calc_cooling_rate(Qref,dlnQref_dlnT, rho, Tref, Tdust, mu, gamma, K2, kappa)
     Qi = Qref
-    y         = 0.
+    Y         = 0.
     k         = nTg
     Q         = Qref          ! default value if Tgrid < T for all k
     dlnQ_dlnT = dlnQref_dlnT  ! default value if Tgrid < T for all k
