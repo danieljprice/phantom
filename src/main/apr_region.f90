@@ -44,15 +44,13 @@ subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
   select case (apr_type)
 
   case(1) ! a static circle
-    apr_centre(1) = 0.5
-    apr_centre(2) = 0.5
-    apr_centre(3) = 0.0
+    ! do nothing here
 
-  case(2) ! around sink particle 2 - e.g. a planet
+  case(2) ! around sink particle named track_part
     dynamic_apr = .true.
-    apr_centre(1) = xyzmh_ptmass(1,2)
-    apr_centre(2) = xyzmh_ptmass(2,2)
-    apr_centre(3) = xyzmh_ptmass(3,2)
+    apr_centre(1) = xyzmh_ptmass(1,track_part)
+    apr_centre(2) = xyzmh_ptmass(2,track_part)
+    apr_centre(3) = xyzmh_ptmass(3,track_part)
 
   case(3) ! to derefine a clump - only activated when the centre of the clump
           ! has been found

@@ -24,10 +24,10 @@ module apr
   public :: init_apr,update_apr,read_options_apr,write_options_apr
   public :: create_or_update_apr_clump
   integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
-  real,    public :: apr_rad = 0.0, apr_drad = 0.1, apr_centre(3)
+  real,    public :: apr_rad = 1.0, apr_drad = 0.1, apr_centre(3)
 
   private
-  integer :: top_level = 1, ntrack = 0, track_part
+  integer :: top_level = 1, ntrack = 0, track_part = 0
   real, allocatable    :: apr_regions(:)
   integer, allocatable :: npart_regions(:)
   real    :: sep_factor = 0.2
@@ -71,9 +71,8 @@ contains
         apr_level(1:npart) = int(apr_max,kind=1)
       endif
     endif
-
     ! initiliase the regions
-    call set_apr_centre(apr_type,apr_centre)
+    call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
     if (.not.allocated(apr_regions)) allocate(apr_regions(apr_max),npart_regions(apr_max))
     call set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
     npart_regions = 0
@@ -127,7 +126,7 @@ contains
         call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,&
                                         xyzmh_ptmass,aprmassoftype)
       else
-        call set_apr_centre(apr_type,apr_centre)
+        call set_apr_centre(apr_type,apr_centre,ntrack,track_part)
       endif
     endif
 
@@ -513,16 +512,74 @@ contains
     case('apr_rad')
       read(valstring,*,iostat=ierr) apr_rad
       ngot = ngot + 1
+      if (apr_rad  <  tiny(apr_rad)) call fatal(label,'apr_rad too small in input options')
     case('apr_drad')
       read(valstring,*,iostat=ierr) apr_drad
+      ngot = ngot + 1
+      if (apr_drad  <  tiny(apr_drad)) call fatal(label,'apr_drad too small in input options')
+    case default
+      imatch = .false.
+      select case(apr_type)
+        case(1)
+          call read_options_apr1(name,valstring,imatch,igotall,ierr)
+        case(2)
+          call read_options_apr2(name,valstring,imatch,igotall,ierr)
+      end select
+    end select
+
+    igotall = (ngot == 5)
+  end subroutine read_options_apr
+
+  !-----------------------------------------------------------------------
+  !+
+  !  extra subroutines for reading in different styles of apr zones
+  !+
+  !-----------------------------------------------------------------------
+
+  subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
+    use io, only:fatal
+    character(len=*), intent(in)  :: name,valstring
+    logical,          intent(out) :: imatch,igotall
+    integer,          intent(out) :: ierr
+    integer, save :: ngot = 0
+    character(len=30), parameter :: label = 'read_options_apr1'
+
+    imatch  = .true.
+    select case(trim(name))
+    case('apr_centre(1)')
+      read(valstring,*,iostat=ierr) apr_centre(1)
+      ngot = ngot + 1
+    case('apr_centre(2)')
+      read(valstring,*,iostat=ierr) apr_centre(2)
+      ngot = ngot + 1
+    case('apr_centre(3)')
+      read(valstring,*,iostat=ierr) apr_centre(3)
       ngot = ngot + 1
     case default
       imatch = .false.
     end select
 
-    igotall = (ngot >= 1)
+  end subroutine read_options_apr1
 
-  end subroutine read_options_apr
+  subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
+    use io, only:fatal
+    character(len=*), intent(in)  :: name,valstring
+    logical,          intent(out) :: imatch,igotall
+    integer,          intent(out) :: ierr
+    integer, save :: ngot = 0
+    character(len=30), parameter :: label = 'read_options_apr2'
+
+    imatch  = .true.
+    select case(trim(name))
+    case('track_part')
+      read(valstring,*,iostat=ierr) track_part
+      ngot = ngot + 1
+      if (track_part  <  1) call fatal(label,'track_part not chosen in input options')
+    case default
+      imatch = .false.
+    end select
+
+  end subroutine read_options_apr2
 
   !-----------------------------------------------------------------------
   !+
@@ -536,6 +593,17 @@ contains
     call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
     call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
     call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)
+    select case (apr_type)
+
+    case(2)
+      call write_inopt(track_part,'track_part','number of sink to track',iunit)
+
+    case default
+      call write_inopt(apr_centre(1),'apr_centre(1)','centre of region x position',iunit)
+      call write_inopt(apr_centre(2),'apr_centre(2)','centre of region y position',iunit)
+      call write_inopt(apr_centre(3),'apr_centre(3)','centre of region z position',iunit)
+
+    end select
     call write_inopt(apr_rad,'apr_rad','radius of innermost region',iunit)
     call write_inopt(apr_drad,'apr_drad','size of step to next region',iunit)
 
