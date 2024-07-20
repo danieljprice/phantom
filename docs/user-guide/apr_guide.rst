@@ -25,7 +25,7 @@ Use your usual setup routine but with APR=yes. For example:
 
 Initial conditions with APR
 -------------------------
-APR does not affect any setups except SETUP=star (but for the relax procedure only). When you receive your *.in file it will have apr options at the bottom:
+APR does not affect any setups except SETUP=star (but for the relax procedure only). When you check your .in file it will have apr options at the bottom:
 
 ::
 
@@ -45,13 +45,13 @@ If you are derefining the base level will be apr_max.
 
   apr_type =           2    ! 1: static, 2: moving sink, 3: create clumps
 
-  Here you choose what kind of region you want. Current options include:
-  1.	A position fixed in space
-  2.	Tracking a particular sink particle
-  3.	Tracking a gravitationally bound clump (under development).
-  Depending on what you choose here you will get additional options to choose to describe the properties of the region you selected.
-  You may need to re-run to get the right options if you alter apr_type. To add your own, new region you can edit the apr_region.f90 file.
-  Note for now that we only allow spherical regions.
+Here you choose what kind of region you want. Current options include:
+1.	A position fixed in space
+2.	Tracking a particular sink particle
+3.	Tracking a gravitationally bound clump (under development).
+Depending on what you choose here you will get additional options to choose to describe the properties of the region you selected.
+You may need to re-run to get the right options if you alter apr_type. To add your own, new region you can edit the apr_region.f90 file.
+Note for now that we only allow spherical regions.
 
 ::
 
@@ -112,7 +112,7 @@ This relies on the apr_level, aprmassoftype and use_apr which can be included wi
 
 ::
 
-  use dim, only:use_apr
-  use part, only:apr_level,aprmassoftype
+  use dim,  only::use_apr
+  use part, only::apr_level,aprmassoftype
 
 Note that apr_level is integer(kind=1).
