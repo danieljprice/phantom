@@ -31,7 +31,7 @@ module test
 contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
- use io,           only:iprint,id,master,iverbose
+ use io,           only:iprint,id,master,iverbose,error
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
@@ -74,7 +74,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #endif
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation
+ use dim,          only:do_radiation,use_apr
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
@@ -218,12 +218,18 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
 
+ if (use_apr) then
+   call error(string,'-DAPR not currently compatible with test suite, recompile with APR=no')
+   return
+ endif
+
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
 #endif
 !
 !--test kernel module
 !
+
  if (dokernel.or.testall) then
     call test_kernel(ntests,npass)
  endif
@@ -417,12 +423,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_wind(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
- !--test of apr module
- !
-  if (doapr.or.testall) then
-     call test_apr(ntests,npass)
-     call set_default_options_testsuite(iverbose) ! restore defaults
-  endif
+
 !
 !--test of particle id
 !
