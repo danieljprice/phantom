@@ -1,13 +1,15 @@
 Running phantom with APR
 ========================
 
-APR allows you to arbitrarily set regions of your simulation to have different local resolutions. A description of the method and our implementation can be found in Nealon & Price 2024.
+APR allows you to arbitrarily set regions of your simulation to have different local resolutions.
+A description of the method and our implementation can be found in Nealon & Price 2024 (under review) and
+you should cite this work if you are using APR.
 
 The rules of this method are:
--	A mass factor of 2 is allowed between adjacent refinement levels (e.g. one parent 0> two children)
--	Regions are spherical but can be nested together like a layered onion
--	You cannot have both refinement and derefinement in the same simulation, e.g. the base refinement level has to be either the maximum or minimum
--	Try to ensure that particles have several sound crossing times between subsequent split/merge procedures to reduce noise
+ 1.	A mass factor of 2 is allowed between adjacent refinement levels (e.g. one parent 0> two children)
+ 2.	Regions are spherical but can be nested together like a layered onion
+ 3.	You cannot have both refinement and derefinement in the same simulation, e.g. the base refinement level has to be either the maximum or minimum
+ 4.	Try to ensure that particles have several sound crossing times between subsequent split/merge procedures to reduce noise
 
 
 Compiling Phantom with APR
@@ -46,11 +48,11 @@ If you are derefining the base level will be apr_max.
   apr_type =           2    ! 1: static, 2: moving sink, 3: create clumps
 
 Here you choose what kind of region you want. Current options include:
-1.	A position fixed in space
-2.	Tracking a particular sink particle
-3.	Tracking a gravitationally bound clump (under development).
-Depending on what you choose here you will get additional options to choose to describe the properties of the region you selected.
-You may need to re-run to get the right options if you alter apr_type. To add your own, new region you can edit the apr_region.f90 file.
+ 1.	A position fixed in space
+ 2.	Tracking a particular sink particle
+ 3.	Tracking a gravitationally bound clump (under development).
+Depending on what you choose here you will get additional options to describe the properties of the region you selected.
+You may need to re-run to get the right options if you alter apr_type. To add your own new region you can edit the apr_region.f90 file.
 Note for now that we only allow spherical regions.
 
 ::
