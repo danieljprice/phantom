@@ -15,7 +15,7 @@ module porosity
 !   Tatsuuma et Kataoka (2021), ApJ 913, 132
 !   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
-! :Owner: Stephane Michoulier
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - gammaft     : *Force to torque efficient of gas flow on dust*
@@ -789,18 +789,18 @@ end function get_coeffrest
 real function compute_vstick(mass,size)
  real, intent(in) ::mass,size
  compute_vstick = 8.76*((surfenerg**5 * size**4)/(mass**3*youngmod**2))**(1./6.)
-end function
+end function compute_vstick
 
 !--velocity limit between elastic and inelastic bouncing regime
 real function compute_vyield(vstick)
  real, intent(in) ::vstick
  compute_vyield = 10.*vstick
-end function
+end function compute_vyield
 
 !--velocity limit between partial sticking + bouncing regime and full bouncing regime
 real function compute_vend(vstick)
  real, intent(in) ::vstick
  compute_vend = 24343220.*vstick
-end function
+end function compute_vend
 
 end module porosity
