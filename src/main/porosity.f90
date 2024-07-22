@@ -15,7 +15,7 @@ module porosity
 !   Tatsuuma et Kataoka (2021), ApJ 913, 132
 !   Michoulier & Gonzalez (2022), MNRAS 517, 3064
 !
-! :Owner: Daniel Price
+! :Owner: Stephane Michoulier
 !
 ! :Runtime parameters:
 !   - gammaft     : *Force to torque efficient of gas flow on dust*
