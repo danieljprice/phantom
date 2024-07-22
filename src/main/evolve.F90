@@ -99,7 +99,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
- use HIIRegion,        only:HII_feedback,iH2R
+ use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
  use subgroup,         only:group_identify
  use substepping,      only:get_force
 #ifdef MFLOW
@@ -307,10 +307,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (iH2R > 0 .and. id==master) then
        istepHII = 1
 #ifdef IND_TIMESTEPS
-       istepHII = 2**nbinmax/8
+       istepHII = 2**nbinmax/HIIuprate
        if (istepHII==0) istepHII = 1
 #endif
-       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. ipart_createstars /= 0) then
+       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
     endif

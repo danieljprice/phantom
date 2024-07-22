@@ -20,6 +20,7 @@ module HIIRegion
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
 
+ integer, parameter, public    :: HIIuprate   = 8 ! update rate when IND_TIMESTEPS=yes
  integer, public               :: iH2R = 0
  real   , public               :: Rmax = 15 ! Maximum HII region radius (pc) to avoid artificial expansion...
  real   , public               :: Mmin = 8  ! Minimum mass (Msun) to produce HII region
@@ -224,7 +225,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        do while(hcheck <= Rmax)
           call getneigh_pos((/xi,yi,zi/),0.,hcheck,3,listneigh,nneigh,xyzh,xyzcache,maxcache,ifirstincell)
           call set_r2func_origin(xi,yi,zi)
-          call Knnfunc(nneigh,r2func_origin,xyzh,listneigh)
+          call Knnfunc(nneigh,r2func_origin,xyzh,listneigh) !! Here still serial version of the quicksort. Parallel version in prep..
           if (nneigh > 0) exit
           hcheck = hcheck + 0.01*Rmax  ! additive term to allow unresolved case to open
        enddo
