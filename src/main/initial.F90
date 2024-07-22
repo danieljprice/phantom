@@ -14,7 +14,7 @@ module initial
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary, boundary_dyn, centreofmass,
+! :Dependencies: HIIRegion, analysis, boundary, boundary_dyn, centreofmass,
 !   checkconserved, checkoptions, checksetup, cons2prim, cooling, cpuinfo,
 !   damping, densityforce, deriv, dim, dust, dust_formation,
 !   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,

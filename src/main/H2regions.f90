@@ -1,13 +1,23 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2021 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
-! Module proposed By Yann BERNARD to implement stellar feedbacks in cluster!
-! simulations                                                              !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
-
 module HIIRegion
+!
+! HIIRegion
+!
+! :References: None
+!
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
+!   sortutils, timing, units
+!
+
  !
  !
  ! contains routine for Stromgren radius calculation and Radiative pressure velocity kick
@@ -108,7 +118,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
     hi = xyzmh_ptmass(ihacc,i)
-    if(mi > Minmass .and. hi < h_acc)then
+    if (mi > Minmass .and. hi < h_acc) then
        logmi = log10(mi*(umass/solarm))
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
@@ -143,7 +153,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  real    :: logmi,log_Q,mi,hi,Q
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)
- if(mi > Minmass .and. hi < h_acc)then
+ if (mi > Minmass .and. hi < h_acc) then
     logmi = log10(mi*(umass/solarm))
     ! caluclation of the ionizing photon rate  of each sources
     ! this calculation uses Fujii's formula derived from OSTAR2002 databases
@@ -217,7 +227,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
        stromi = xyzmh_ptmass(irstrom,i)
-       if(stromi >= 0. ) then
+       if (stromi >= 0. ) then
           hcheck = 1.4*stromi + 0.01*Rmax
        else
           hcheck = Rmax
@@ -258,7 +268,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
        !
        !-- Momentum feedback
        !
-       if(momflag .and. npartin > 3) then
+       if (momflag .and. npartin > 3) then
           j = listneigh(1)
           r_in = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
           mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
@@ -300,7 +310,7 @@ subroutine write_options_H2R(iunit)
  use physcon,      only:solarm
  integer, intent(in) :: iunit
  write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
- if(iH2R>0) then
+ if (iH2R>0) then
     call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)

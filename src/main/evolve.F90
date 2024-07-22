@@ -16,12 +16,12 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary_dyn, centreofmass, checkconserved, dim,
-!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
-!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: HIIRegion, analysis, boundary_dyn, centreofmass,
+!   checkconserved, dim, energies, evwrite, externalforces, fileutils,
+!   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
+!   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
+!   readwrite_infile, step_lf_global, subgroup, substepping, supertimestep,
+!   timestep, timestep_ind, timestep_sts, timing
 !
  implicit none
  public :: evol
@@ -298,7 +298,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        ! creation of new stars from sinks (cores)
        !
-       if(ipart_createstars /= 0) then
+       if (ipart_createstars /= 0) then
           call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
                                linklist_ptmass,time)
        endif
@@ -310,7 +310,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        istepHII = 2**nbinmax/HIIuprate
        if (istepHII==0) istepHII = 1
 #endif
-       if(mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
+       if (mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
     endif

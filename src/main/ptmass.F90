@@ -28,15 +28,18 @@ module ptmass
 !   - h_soft_sinkgas  : *softening length for new sink particles*
 !   - h_soft_sinksink : *softening length between sink particles*
 !   - icreate_sinks   : *allow automatic sink particle creation*
+!   - isink_potential : *sink potential(0=1/r,1=surf)*
 !   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
 !   - r_merge_cond    : *sinks will merge if bound within this radius*
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
+!   - r_neigh         : *searching radius to detect subgroups*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
+!   - use_regnbody    : *allow subgroup integration method*
 !
-! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
-!   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
-!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part,
-!   ptmass_heating, units, vectorutils
+! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
+!   eos_piecewise, extern_geopot, externalforces, fastmath, infile_utils,
+!   io, io_summary, kdtree, kernel, linklist, mpidomain, mpiutils, options,
+!   part, physcon, ptmass_heating, random, subgroup, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -675,7 +678,7 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
        vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
        vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
        vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
-       if(xyzmh_ptmass(iJ2,i) > 0.) then
+       if (xyzmh_ptmass(iJ2,i) > 0.) then
           xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
           xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
           xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
@@ -835,11 +838,11 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     mpt  = xyzmh_ptmass(4,i)
     tbirthi  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
-    if(icreate_sinks==2) then
+    if (icreate_sinks==2) then
        if (hacc < h_acc ) cycle
        if (tbirthi + tmax_acc < time) then
           !$omp master
-          if(ipart_createstars == 0) ipart_createstars = i
+          if (ipart_createstars == 0) ipart_createstars = i
           !$omp end master
           cycle
        endif
@@ -1650,7 +1653,7 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
 !-- Draw the number of star seeds in the core
 !
  nseed = floor(4*ran2(iseed_sf))
- if(nseed > 0) then
+ if (nseed > 0) then
     n = nptmass
     linklist_ptmass(itest) = n + 1 !! link the core to the seeds
     do j=1,nseed
@@ -1709,7 +1712,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  minmass  = 0.08/(mi*(umass/solarm))
  call divide_unit_seg(masses,minmass,n,iseed_sf)
  masses = masses*mi
- if(iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+ if (iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
 
 
  k=itest
@@ -1899,7 +1902,7 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
              if (icreate_sinks == 2) then
                 ! Connect linked list of the merged sink to the survivor
                 call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
-                if(linklist_ptmass(j)/=0)then
+                if (linklist_ptmass(j)/=0) then
                    linklist_ptmass(l) = j
                 else
                    linklist_ptmass(j) = -2 ! special null pointer for dead gas clump
@@ -2218,7 +2221,7 @@ subroutine write_options_ptmass(iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
  call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
  call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
- if(use_regnbody) then
+ if (use_regnbody) then
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif

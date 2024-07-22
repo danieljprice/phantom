@@ -15,7 +15,7 @@ module random
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: sortutils
 !
  implicit none
  public :: ran2,get_random,rayleigh_deviate

@@ -14,7 +14,7 @@ module sortutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: omp_lib
 !
  implicit none
  public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank,r2func,r2func_origin,set_r2func_origin
@@ -515,7 +515,7 @@ subroutine parqsort(n, arr,func, indx)
           do while (func(arr(indx(j))) > a)
              j = j - 1
           enddo
-          if(j>i) then
+          if (j>i) then
              itemp = indx(i)
              indx(i) = indx(j)
              indx(j) = itemp
@@ -582,7 +582,7 @@ subroutine parqsort(n, arr,func, indx)
              do while (func(arr(indx(j))) > a)
                 j = j - 1
              enddo
-             if(j>i) then
+             if (j>i) then
                 itemp = indx(i)
                 indx(i) = indx(j)
                 indx(j) = itemp

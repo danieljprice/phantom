@@ -14,9 +14,9 @@ module checksetup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
-!   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
+! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
+!   dust, eos, externalforces, io, metric_tools, nicil, options, part,
+!   physcon, ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -1055,15 +1055,15 @@ subroutine check_HIIRegion(nerror)
  use eos,       only:ieos
  use dim,       only:gr,mpi
  integer, intent(inout) :: nerror
- if(iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
+ if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
     print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
     nerror = nerror + 1
  endif
- if(iH2R > 0 .and. gr) then
+ if (iH2R > 0 .and. gr) then
     print "(/,a,/)", "Error: Gr is not compatible with HII Region"
     nerror = nerror + 1
  endif
- if(iH2R > 0 .and. mpi) then
+ if (iH2R > 0 .and. mpi) then
     print "(/,a,/)", "Error: MPI is not compatible with HII Region"
     nerror = nerror + 1
  endif

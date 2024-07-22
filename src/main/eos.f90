@@ -41,7 +41,7 @@ module eos
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
 !   units

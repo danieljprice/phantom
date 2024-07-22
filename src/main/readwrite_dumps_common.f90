@@ -16,7 +16,7 @@ module readwrite_dumps_common
 !
 ! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
 !   dust, dust_formation, eos, externalforces, fileutils, gitinfo, io,
-!   options, part, setup_params, sphNGutils, timestep, units
+!   options, part, ptmass, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid
  implicit none
@@ -768,7 +768,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     if (.not.all(got_sink_vels(1:3))) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
     endif
-    if( icreate_sinks > 1 .and. .not.got_sink_llist) then
+    if ( icreate_sinks > 1 .and. .not.got_sink_llist) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle link list not found'
     endif
     if (id==master .and. i1==1) then

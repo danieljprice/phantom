@@ -5,17 +5,17 @@
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module eos_HIIR
- !
- ! Implements Two temperature eos for HII region expansion
- !
- ! :References: None
- !
- ! :Owner: Yann Bernard
- !
- ! :Runtime parameters: None
- !
- ! :Dependencies: None
- !
+!
+! eos_HIIR
+!
+! :References: None
+!
+! :Owner: Yrisch
+!
+! :Runtime parameters: None
+!
+! :Dependencies: io, physcon, units
+!
  implicit none
 
  public :: get_eos_HIIR_iso,get_eos_HIIR_adiab,init_eos_HIIR
@@ -63,7 +63,7 @@ subroutine get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,is
  !
  !  where :math:`c_s^2 \equiv K` is a constant stored in the dump file header
  !
- if(isionisedi) then
+ if (isionisedi) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
     tempi    = Tion
@@ -93,7 +93,7 @@ subroutine get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,
  if (gammai < tiny(gammai)) call fatal('eos','gamma not set for adiabatic eos',var='gamma',val=gammai)
 
 
- if(isionisedi) then
+ if (isionisedi) then
     ponrhoi  = polykion
     spsoundi = sqrt(ponrhoi)
     tempi    = Tion
