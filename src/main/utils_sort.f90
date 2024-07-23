@@ -462,7 +462,7 @@ end subroutine Knnfunc
 !+
 !----------------------------------------------------------------
 subroutine parqsort(n, arr,func, indx)
- use omp_lib,only:omp_get_num_threads
+!$ use omp_lib,only:omp_get_num_threads
  implicit none
  integer, parameter :: m=8, nstack=500
  integer, intent(in)  :: n
