@@ -629,7 +629,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # must NOT contain .F90 files or pre-processing options
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
+SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             utils_binary.f90 set_binary.f90 set_flyby.f90 \
             set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
@@ -867,7 +867,7 @@ pyanalysis: libphantom.so
 #
 .PHONY: phantom2struct
 phantom2struct:
-	${MAKE} phantomanalysis ANALYSIS="utils_timing.f90 io_structurefn.f90 random.f90 struct_part.f90 analysis_structurefn.f90"\
+	${MAKE} phantomanalysis ANALYSIS="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 analysis_structurefn.f90"\
         ANALYSISBIN=$@ ANALYSISONLY=yes
 
 cleanphantom2struct:

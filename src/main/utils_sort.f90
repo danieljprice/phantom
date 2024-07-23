@@ -14,7 +14,7 @@ module sortutils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: omp_lib
+! :Dependencies: None
 !
  implicit none
  public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank,r2func,r2func_origin,set_r2func_origin
