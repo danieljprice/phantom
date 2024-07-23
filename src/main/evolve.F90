@@ -291,17 +291,20 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (icooling == 9) then
-       write (*,*) "Before step", maxval(vxyzu(4,:)),minval(vxyzu(4,:))
        umax = 0d0
+       imax = 0.
        do i=1, npart
           if (vxyzu(4,i) > umax) then
              umax = vxyzu(4,i)
              imax = i
           endif
        enddo
-       print *, "max i=", imax, iactive(iphase(i)), fxyzu(4,i)
-       call radcool_update_energ(dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
-       write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:)), fxyzu(4,i)        
+       print *, "max i=", imax, vxyzu(4,imax),iactive(iphase(imax)), fxyzu(4,imax)
+       print *, "minmax fxyzu(4,:)=", minval(fxyzu(4,1:npart)),maxval(fxyzu(4,1:npart))
+       call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
+       !      write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:)), fxyzu(4,i)
+       write (*,*) "Before step", maxval(vxyzu(4,:)),minval(vxyzu(4,:))
+       write (*,*) "fxyzu(4:)=", maxval(fxyzu(4,1:npart)),minval(fxyzu(4,1:npart))
     endif
     nsteps = nsteps + 1
 !
@@ -321,11 +324,16 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
 
-!    if (icooling == 9) then
- !      write (*,*) "after step",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
-!       call radcool_update_energ(0.5*dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
-  !     write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
-   ! endif
+    if (icooling == 9) then
+       imax = 0
+       write (*,*) "after step",maxval(vxyzu(4,1:npart)),minval(vxyzu(4,1:npart))
+       do i=1,npart
+          if (abs(fxyzu(4,i)) > epsilon(fxyzu(4,i))) imax = imax + 1
+       end do
+       print *, "n dudt > 0 =", imax
+      ! call radcool_update_energ(0.5*dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
+      ! write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
+    endif
 
     dtlast = dt
 
