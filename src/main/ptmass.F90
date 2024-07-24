@@ -333,7 +333,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid,ihacc
+ use part,           only:igarg,igid,icomp,ihacc
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -404,8 +404,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
     if (subsys) then
-       i = group_info(igarg,k)
-       gidi = group_info(igid,k)
+       i = group_info(igarg,k)     ! new id order when using group info
+       gidi = group_info(igid,k)   ! id of the group to identify which ptmasses are in the same group
+       compi = group_info(icomp,k) ! id of the companion if it exists
     else
        i = k
     endif
@@ -530,6 +531,9 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
                 if (rr2 < rr2j) merge_ij(i) = j
              endif
           endif
+       endif
+       if (compi /= i) then
+          pert_out = pert_out + f1
        endif
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
