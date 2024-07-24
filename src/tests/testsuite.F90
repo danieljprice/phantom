@@ -218,14 +218,20 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  end select
  call set_default_options_testsuite(iverbose) ! set defaults
 
- if (use_apr) then
-   call error(string,'-DAPR not currently compatible with test suite, recompile with APR=no')
-   return
- endif
-
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
 #endif
+
+!
+!--apr test
+!
+if (use_apr.and.testall) then
+  write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
+  return
+elseif (use_apr.and.doapr) then
+  call test_apr(ntests,npass)
+endif
+
 !
 !--test kernel module
 !

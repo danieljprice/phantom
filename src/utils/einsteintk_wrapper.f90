@@ -136,7 +136,7 @@ end subroutine step_et2phantom_MoL
 subroutine et2phantom_tmunu()
  use part,   only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
         Bevol,rad,radprop,eos_vars,pxyzu,dens,metrics,tmunus,metricderivs,&
-        igas,rhoh,alphaind,dvdx,gradh
+        igas,rhoh,alphaind,dvdx,gradh,apr_level
  !use part, only:xyzh,vxyzu,fxyzu,pxyzu,dens,metricderivs, metrics, npart, tmunus,eos_vars
  use cons2prim, only: cons2primall
  use deriv
@@ -161,7 +161,7 @@ subroutine et2phantom_tmunu()
  !call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
  call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                        stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
  ! Get primative variables for tmunu
  call cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
@@ -183,7 +183,8 @@ end subroutine et2phantom_tmunu
 
 subroutine phantom2et_consvar()
  use part,         only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-                        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,gradh
+                        Bevol,rad,radprop,metrics,igas,rhoh,alphaind,dvdx,&
+                        gradh,apr_level
  use densityforce, only:densityiterate
  use metric_tools, only:init_metric
  use linklist,     only:set_linklist
@@ -203,7 +204,7 @@ subroutine phantom2et_consvar()
  call init_metric(npart,xyzh,metrics)
  ! Calculate the cons density
  call densityiterate(1,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,&
-                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                         stressmax,fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
 
  ! Interpolate density to grid
  call phantom2et_rhostar

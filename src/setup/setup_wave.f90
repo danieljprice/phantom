@@ -80,7 +80,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
-  !  call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
+    call prompt(' enter number of '//trim(labeltype(itype))//' particles in x ',npartx,8,int(maxp/144.))
     if (use_dust) then
        dust_method = 2
        dtg = 1.
@@ -116,7 +116,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  deltax = length/npartx
  ! try to give y boundary that is a multiple of 6 particle spacings in the low density part
  fac = 6.*(int((1.-epsilon(0.))*radkern/6.) + 1)
- deltay = xmaxi !fac*deltax*sqrt(0.75)
+ deltay = fac*deltax*sqrt(0.75)
  deltaz = fac*deltax*sqrt(6.)/3.
  call set_boundary(xmini,xmaxi,xmini,deltay,-deltaz,deltaz)
 !
@@ -143,10 +143,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     select case (itypes)
     case(1)
        itype = igas
-  !     if (id==master) call prompt('enter '//trim(labeltype(itype))//&
-  !                          ' density (gives particle mass)',rhozero,0.)
+       if (id==master) call prompt('enter '//trim(labeltype(itype))//&
+                            ' density (gives particle mass)',rhozero,0.)
 
-  !     if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
+       if (id==master) call prompt('enter sound speed in code units (sets polyk)',cs,0.)
        if (maxvxyzu < 4) then
           call bcast_mpi(cs)
           polyk = cs**2
@@ -154,7 +154,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        else
           polyk = 0.
        endif
-  !     if (id==master) call prompt('enter perturbation amplitude',ampl)
+       if (id==master) call prompt('enter perturbation amplitude',ampl)
        call bcast_mpi(ampl)
        if (use_dustfrac) then
           call bcast_mpi(dtg)
@@ -187,7 +187,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     do i=npart_previous+1,npart
        call set_particle_type(i,itype)
 
-       vxyzu(1,i) = 0.001 !ampl*sin(kwave*(xyzh(1,i)-xmin))
+       vxyzu(1,i) = ampl*sin(kwave*(xyzh(1,i)-xmin))
        vxyzu(2:3,i) = 0.
 !
 !--perturb internal energy if not using a polytropic equation of state
@@ -217,8 +217,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 !--add a little perturbation to fake some noise
 !
-       xyzh(1,i) = xyzh(1,i) + 0.0001*(ran2(iseed)-0.5)
-       xyzh(2,i) = xyzh(2,i) + 0.0001*(ran2(iseed)-0.5)
+!       xyzh(1,i) = xyzh(1,i) + 0.0001*(ran2(iseed)-0.5)
+!       xyzh(2,i) = xyzh(2,i) + 0.0001*(ran2(iseed)-0.5)
 
     enddo
 
