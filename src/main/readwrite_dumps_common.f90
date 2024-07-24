@@ -571,7 +571,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
                         got_eosvars,got_nucleation,got_iorig,iphase,&
                         xyzh,vxyzu,pxyzu,alphaind,xyzmh_ptmass,Bevol,iorig,iprint,ierr)
  use dim,  only:maxp,maxvxyzu,maxalpha,maxBevol,mhd,h2chemistry,use_dustgrowth,gr,&
-                do_radiation,store_dust_temperature,do_nucleation,use_krome
+                do_radiation,store_dust_temperature,do_nucleation,use_krome,store_ll_ptmass
  use eos,  only:ieos,polyk,gamma,eos_is_non_ideal
  use part, only:maxphase,isetphase,set_particle_type,igas,ihacc,ihsoft,imacc,ilum,ikappa,&
                 xyzmh_ptmass_label,vxyz_ptmass_label,get_pmass,rhoh,dustfrac,ndusttypes,norig,&
@@ -580,7 +580,6 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  use options,        only:alpha,use_dustfrac,use_var_comp
  use sphNGutils,     only:itype_from_sphNG_iphase,isphNG_accreted
  use dust_formation, only:init_nucleation
- use ptmass,         only:icreate_sinks
  integer,         intent(in)    :: i1,i2,noffset,npartoftype(:),npartread,nptmass,nsinkproperties
  real,            intent(in)    :: massoftype(:),alphafile,tfile
  logical,         intent(in)    :: phantomdump,got_iphase,got_xyzh(:),got_vxyzu(:),got_alpha(:),got_dustprop(:)
@@ -768,7 +767,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
     if (.not.all(got_sink_vels(1:3))) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle velocities not found'
     endif
-    if ( icreate_sinks > 1 .and. .not.got_sink_llist) then
+    if ( store_ll_ptmass .and. .not.got_sink_llist) then
        if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING! sink particle link list not found'
     endif
     if (id==master .and. i1==1) then
