@@ -298,12 +298,22 @@ module part
 !
 !-- Regularisation algorithm allocation
 !
- integer,         allocatable :: group_info(:,:)
- integer(kind=1), allocatable :: nmatrix(:,:)
- integer, parameter :: igarg  = 1 ! idx of the particle member of a group
- integer, parameter :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
- integer, parameter :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
- integer, parameter :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
+ integer(kind=1), allocatable :: nmatrix(:,:)    ! adjacency matrix used to construct each groups
+
+ integer, allocatable :: group_info(:,:) ! array storing group id/idx of each group comp/boundary idx/bin comp id
+ integer, parameter   :: igarg  = 1 ! idx of the particle member of a group
+ integer, parameter   :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
+ integer, parameter   :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
+ integer, parameter   :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
+
+ real, allocatable :: bin_info(:,:)   ! array storing important orbital parameters and quantities of each binary
+ integer, parameter   :: isemi  = 1 ! semi major axis
+ integer, parameter   :: iecc   = 2 ! eccentricity
+ integer, parameter   :: iapo   = 3 ! apocenter
+ integer, parameter   :: ipert  = 4 ! perturbation
+ integer, parameter   :: ikap   = 5 ! kappa slow down
+
+
  ! needed for group identification and sorting
  integer  :: n_group = 0
  integer  :: n_ingroup = 0
@@ -506,6 +516,7 @@ subroutine allocate_part
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('group_info', group_info, 4, maxptmass)
+ call allocate_array('bin_info', bin_info, 5, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
@@ -591,6 +602,7 @@ subroutine deallocate_part
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
  if (allocated(group_info))   deallocate(group_info)
+ if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
  if (allocated(gtgrad))       deallocate(gtgrad)
  if (allocated(isionised))    deallocate(isionised)

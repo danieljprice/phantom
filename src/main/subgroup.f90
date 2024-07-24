@@ -59,11 +59,12 @@ end subroutine init_subgroup
 ! Group identification routines
 !
 !-----------------------------------------------
-subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix,dtext)
+subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass, &
+                          group_info,bin_info,nmatrix,dtext)
  use io,     only:id,master,iverbose,iprint
  use timing, only:get_timings,increment_timer,itimer_sg_id
  integer,         intent(in)    :: nptmass
- real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),bin_info(:,:)
  integer,         intent(inout) :: group_info(3,nptmass)
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
@@ -88,7 +89,7 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
     endif
     call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
 
-    if (n_group > 0) call find_binaries(xyzmh_ptmass,group_info,n_group)
+    if (n_group > 0) call find_binaries(xyzmh_ptmass,group_info,bin_info,n_group)
 
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
@@ -104,13 +105,17 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
 
 end subroutine group_identify
 
-subroutine find_binaries(xyzmh_ptmass,group_info,n_group)
- use part, only : igarg,igcum,icomp
- real,    intent(in)    :: xyzmh_ptmass(:,:)
- integer, intent(inout) :: group_info(:,:)
+subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+ use part,         only: igarg,igcum,icomp,isemi,iecc,iapo
+
+ real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: group_info(:,:),bin_info(:,:)
  integer, intent(in)    :: n_group
  integer, allocatable   :: r2min_id(:)
  integer :: i,j,k,l,np,ns,start_id,end_id,gsize
+ real    :: akl,ekl,apokl
+ ! need to be zeroed for safety reasons
+ bin_info(:,:) = 0.
 
 
  do i=1,n_group
@@ -119,24 +124,49 @@ subroutine find_binaries(xyzmh_ptmass,group_info,n_group)
     gsize    = (end_id - start_id) + 1
     if (gsize > 2) then
        allocate(r2min_id(gsize))
+       allocate(r2min(gsize))
        call compute_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
        do j=start_id,end_id
           np = (j-start_id) + 1
           k = group_info(igarg,j)
-          ns = r2min_id(np)
-          if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
-             l = group_info(igarg,ns+start_id) ! to find orbital params we need the relative seperation... (r2min)
-             group_info(icomp,k) = l
-             group_info(icomp,l) = k
-          else                       ! No matches... Only a single
-             group_info(icomp,k) = k
+          if (group_info(icomp,k) > 0) then
+             ns = r2min_id(np)
+             if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
+                l = group_info(igarg,ns+start_id)
+                group_info(icomp,k) = l
+                group_info(icomp,l) = k
+                !
+                !-- Compute and store main orbital parameters needed for SDAR method
+                !
+                call compute_orbparams(xyzmh_ptmass,vxyz_ptmass,akl,ekl,apokl,k,l)
+                bin_info(isemi,k) = akl
+                bin_info(isemi,l) = akl
+                bin_info(iecc,k)  = ekl
+                bin_info(iecc,l)  = ekl
+                bin_info(iapo,k)  = apokl
+                bin_info(iapo,l)  = apokl
+             else                       ! No matches... Only a single
+                group_info(icomp,k) = k
+                bin_info(:,k) = 0.
+             endif
           endif
        enddo
+       deallocate(r2min_id)
     else
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
        group_info(icomp,l) = k
        group_info(icomp,k) = l
+       !
+       !-- Compute and store main orbital parameters needed for SDAR method
+       !
+       call compute_orbparams(xyzmh_ptmass,vxyz_ptmass,akl,ekl,apokl,k,l)
+       bin_info(isemi,k) = akl
+       bin_info(isemi,l) = akl
+       bin_info(iecc,k)  = ekl
+       bin_info(iecc,l)  = ekl
+       bin_info(iapo,k)  = apokl
+       bin_info(iapo,l)  = apokl
     endif
  enddo
 
@@ -144,12 +174,12 @@ end subroutine find_binaries
 
 subroutine compute_r2min(xyzmh_ptmass,group_info,r2min_id,n_group)
  use part, only : igarg,igcum
- real,    intent(in)    :: xyzmh_ptmass(:,:)
+ real   , intent(in)    :: xyzmh_ptmass(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(out)   :: r2min_id(:)
  integer, intent(in)    :: n_group
  integer :: i,j,k,l,n
- real :: dr(3),r2min,r2
+ real :: dr(3),r2,r2min
  do i=start_id,end_id
     n = (i-start_id)+1
     j = group_info(igarg,i)
@@ -163,13 +193,38 @@ subroutine compute_r2min(xyzmh_ptmass,group_info,r2min_id,n_group)
        dr(3) = xyzmh_ptmass(3,j) - xyzmh_ptmass(3,l)
        r2 = dr(1)**2+dr(2)**2+dr(3)**2
        if (r2 < r2min) then
-          r2min = r2
+          r2min       = r2
           r2min_id(n) = (k-start_id)+1
        endif
     enddo
  enddo
 
 end subroutine compute_r2min
+
+subroutine compute_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,i,j)
+ use utils_kepler, only: extract_e,extract_a
+ real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real, intent(out)   :: aij,eij,apoij
+ integer, intent(in) :: i,j
+ real :: dv(3),dr(3),mu,r,v2
+
+ dv(1) = vxyz_ptmass(1,j)-vxyz_ptmass(1,i)
+ dv(2) = vxyz_ptmass(2,j)-vxyz_ptmass(2,i)
+ dv(3) = vxyz_ptmass(3,j)-vxyz_ptmass(3,i)
+ dr(1) = xyzmh_ptmass(1,j)-xyzmh_ptmass(1,i)
+ dr(2) = xyzmh_ptmass(2,j)-xyzmh_ptmass(2,i)
+ dr(3) = xyzmh_ptmass(3,j)-xyzmh_ptmass(3,i)
+ mu = xyzmh_ptmass(4,i) + xyzmh_ptmass(4,j)
+ r = sqrt(dr(1)**2+dr(2)**2+dr(3)**2)
+ v2 = dv(1)**2+dv(2)**2+dv(3)**2
+
+ call extract_a(r,mu,v2,aij)
+
+ call extract_e(dr(1),dr(2),dr(3),dv(1),dv(2),dv(3),mu,r,eij)
+
+ apoij = aij*(1+eij)
+
+end subroutine compute_orbparams
 
 
 subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
@@ -215,7 +270,8 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  ncg = 1
  inode = iroot
  group_info(igarg,n_ingroup) = inode
- group_info(igid,n_ingroup) = iroot
+ group_info(igid,n_ingroup)  = iroot
+ group_info(icomp,n_ingroup) = -1   ! icomp to -1 -> need to be identified later
  stack_top = stack_top + 1
  stack(stack_top) = inode
  visited(inode) = .true.
@@ -231,6 +287,7 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
           visited(j) = .true.
           group_info(igarg,n_ingroup) = j
           group_info(igid,n_ingroup) = iroot
+          group_info(icomp,n_ingroup) = -1 ! icomp to -1 -> need to be identified later
        endif
     enddo
  enddo
@@ -660,7 +717,7 @@ subroutine oneStep_bin(tcoord,W,ds,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,t
     !if (i == 1) print*, fxyz_ptmass(1,i),i,j
     time_table(k) = tcoord
 
-    if (kappa > 1.0) then
+    if (kappa1 < 1.0) then
        dtd_sd = dtd*kappa1
        vcom(1) = (m1*vxyz_ptmass(1,i)+m2*vxyz_ptmass(1,j))/mtot
        vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,j))/mtot
