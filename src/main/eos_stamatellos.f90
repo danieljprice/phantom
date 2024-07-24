@@ -42,7 +42,10 @@ subroutine init_S07cool()
  allocate(ttherm_store(npart))    
  allocate(teqi_store(npart))    
  allocate(opac_store(npart))    
+ Gpot_cool(:) = 0d0
+ gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
+ duFLD(:) = 0d0
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"

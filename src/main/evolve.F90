@@ -82,7 +82,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
  use cooling,          only:Tfloor
- use cooling_radapprox,only:radcool_update_energ
+ use cooling_radapprox,only:radcool_update_energ_loop
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
@@ -291,20 +291,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (icooling == 9) then
-       umax = 0d0
-       imax = 0.
-       do i=1, npart
-          if (vxyzu(4,i) > umax) then
-             umax = vxyzu(4,i)
-             imax = i
-          endif
-       enddo
-       print *, "max i=", imax, vxyzu(4,imax),iactive(iphase(imax)), fxyzu(4,imax)
-       print *, "minmax fxyzu(4,:)=", minval(fxyzu(4,1:npart)),maxval(fxyzu(4,1:npart))
-       call radcool_update_energ(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
+       call radcool_update_energ_loop(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
        !      write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:)), fxyzu(4,i)
        write (*,*) "Before step", maxval(vxyzu(4,:)),minval(vxyzu(4,:))
-       write (*,*) "fxyzu(4:)=", maxval(fxyzu(4,1:npart)),minval(fxyzu(4,1:npart))
+  !     write (*,*) "fxyzu(4:)=", maxval(fxyzu(4,1:npart)),minval(fxyzu(4,1:npart))
     endif
     nsteps = nsteps + 1
 !
@@ -325,14 +315,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (icooling == 9) then
-       imax = 0
        write (*,*) "after step",maxval(vxyzu(4,1:npart)),minval(vxyzu(4,1:npart))
-       do i=1,npart
-          if (abs(fxyzu(4,i)) > epsilon(fxyzu(4,i))) imax = imax + 1
-       end do
-       print *, "n dudt > 0 =", imax
-      ! call radcool_update_energ(0.5*dt,npart,xyzh,vxyzu(4,:),fxyzu(4,:),Tfloor)
-      ! write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:))
     endif
 
     dtlast = dt

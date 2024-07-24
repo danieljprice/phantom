@@ -197,7 +197,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) then
           pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
        else
-          vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          if (icooling == 9) then
+             vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+          else
+             vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+          endif
        endif
 
        !--floor the thermal energy if requested and required
@@ -321,9 +325,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
-       !Alison
-       if (icooling == 9 .and. fxyzu(4,i) > epsilon(fxyzu(4,i))) print *, "!warning! step L324", fxyzu(4,i)
-
+ 
        !--floor the thermal energy if requested and required
        if (ufloor > 0.) then
           if (vpred(4,i) < ufloor) then
@@ -385,6 +387,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
+    if (icooling == 9) vpred(4,1:npart) = vxyzu(4,1:npart)
     dt_too_small = .false.
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
@@ -483,7 +486,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 if (gr) then
                    pxyzu(:,i) = pxyzu(:,i) + dti*fxyzu(:,i)
                 else
-                   vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   if (icooling == 9) then
+                      vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+                   else
+                      vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
+                   endif
                 endif
  
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
@@ -505,7 +512,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
              if (gr) then
                 pxyzu(:,i) = pxyzu(:,i) + hdti*fxyzu(:,i)
              else
-                vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+                if (icooling == 9) then
+                   vxyzu(1:3,i) = vxyzu(1:3,i) + hdti*fxyzu(1:3,i)
+                else
+                   vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
+                endif
              endif
  
              !--floor the thermal energy if requested and required
@@ -624,12 +635,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           if (iamboundary(itype)) cycle until_converged
 
           if (ind_timesteps) then
-             if (icooling == 9) vxyzu(4,i) = vpred(4,i) !keep original value of u 
              if (iactive(iphase(i))) then
                 if (gr) then
                    ppred(:,i) = pxyzu(:,i)
                 else
-!                   if (icooling == 9) vxyzu(4,i) = vpred(4,i) !keep original value of u 
                    vpred(:,i) = vxyzu(:,i)
                 endif
                 if (use_dustgrowth) dustproppred(:,i) = dustprop(:,i)
@@ -680,7 +689,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !   get new force using updated velocity: no need to recalculate density etc.
 !
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
-!       print *, "before 2nd derivs", maxval(vpred(4,:)), minval(vpred(4,:)),maxval(fxyzu(4,:))
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
                      dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
@@ -691,17 +699,16 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        endif
        if (icooling == 9) then
           print *, "after 2nd derivs:vpred", maxval(vpred(4,:)), minval(vpred(4,:))
-          vxyzu(4,1:npart) = vpred(4,1:npart)
        endif
     endif
     if (icooling == 9) then
-       !       print *, "end of iteration", maxval(vpred(4,:)), minval(vpred(4,:))
+       print *, "end of iteration", maxval(vpred(4,:)), minval(vpred(4,:))
        print *, "end of iteration, dudt", maxval(fxyzu(4,1:npart)), minval(fxyzu(4,1:npart))
        print *, "End of iteration, nactive=", nactive
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
  enddo iterations
-! print *, "line 695", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
+
  ! MPI reduce summary variables
  nwake     = int(reduceall_mpi('+', nwake))
  nvfloorp  = int(reduceall_mpi('+', nvfloorp))
