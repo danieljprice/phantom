@@ -306,12 +306,12 @@ module part
  integer, parameter   :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
  integer, parameter   :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
 
- real, allocatable :: bin_info(:,:)   ! array storing important orbital parameters and quantities of each binary
- integer, parameter   :: isemi  = 1 ! semi major axis
- integer, parameter   :: iecc   = 2 ! eccentricity
- integer, parameter   :: iapo   = 3 ! apocenter
- integer, parameter   :: ipert  = 4 ! perturbation
- integer, parameter   :: ikap   = 5 ! kappa slow down
+ real, allocatable    :: bin_info(:,:) ! array storing important orbital parameters and quantities of each binary
+ integer, parameter   :: isemi = 1 ! semi major axis
+ integer, parameter   :: iecc  = 2 ! eccentricity
+ integer, parameter   :: iapo  = 3 ! apocenter
+ integer, parameter   :: ipert = 4 ! perturbation
+ integer, parameter   :: ikap  = 5 ! kappa  slow down
 
 
  ! needed for group identification and sorting
