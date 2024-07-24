@@ -117,7 +117,7 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  ! need to be zeroed for safety reasons
  bin_info(:,:) = 0.
 
-
+! this loop could be parallelized...
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)

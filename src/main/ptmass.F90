@@ -325,7 +325,8 @@ end subroutine get_accel_sink_gas
 !+
 !----------------------------------------------------------------
 subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksink,&
-            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,group_info)
+            iexternalforce,ti,merge_ij,merge_n,dsdt_ptmass,extrapfac,fsink_old,&
+            group_info,bin_info)
 #ifdef FINVSQRT
  use fastmath,       only:finvsqrt
 #endif
@@ -333,7 +334,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid,icomp,ihacc
+ use part,           only:igarg,igid,icomp,ihacc,ipert
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -344,11 +345,12 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
- integer, optional, intent(in)  :: group_info(3,nptmass)
+ real,    optional, intent(out) :: bin_info(5,nptmass)
+ integer, optional, intent(in)  :: group_info(4,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
- real    :: fextx,fexty,fextz,phiext !,hsofti
+ real    :: fextx,fexty,fextz,phiext,pert_out !,hsofti
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
@@ -397,13 +399,14 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
- !$omp private(fextx,fexty,fextz,phiext) &
+ !$omp private(fextx,fexty,fextz,phiext,pert_out) &
  !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
  !$omp reduction(min:dtsinksink) &
  !$omp reduction(+:phitot,merge_n)
  do k=1,nptmass
     if (subsys) then
+       pert_out = 0.
        i = group_info(igarg,k)     ! new id order when using group info
        gidi = group_info(igid,k)   ! id of the group to identify which ptmasses are in the same group
        compi = group_info(icomp,k) ! id of the companion if it exists
@@ -532,11 +535,13 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              endif
           endif
        endif
-       if (compi /= i) then
+       if (subsys .and. compi /= i) then
           pert_out = pert_out + f1
        endif
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)
+
+    if (subsys) bin_info(ipert,i) = pert_out
 
     !
     !--apply external forces
