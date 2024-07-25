@@ -175,7 +175,10 @@ subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
     if (Teqi > 9e5) then
        print *,"i=",i, "dudt_sph(i)=", dudti_sph, "duradi=", dudti_rad, "Ti=", Ti, &
             "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dti=", dudti_sph*dti 
+            "dudt_sph * dti=", dudti_sph*dti
+    elseif (Teqi < epsilon(Teqi)) then
+       print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
+            "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
     endif
     
     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
@@ -334,14 +337,14 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
     else
        du_tot = dudt_sph(i)
     endif
-   ! If radiative cooling is negligible compared to hydrodynamical heating
+   !If radiative cooling is negligible compared to hydrodynamical heating
        ! don't use this method to update energy, just use hydro du/dt
-!    if (abs(dudti_rad/du_tot) < dtcool_crit) then
+    if (abs(dudti_rad/du_tot) < dtcool_crit) then
        !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
        !                 dudt_sph(i)
- !      energ(i) = ui + du_tot*dti
-  !     cycle
-   ! endif
+       energ(i) = ui + du_tot*dti
+       cycle
+    endif
 
     Teqi = du_tot * opaci*unit_ergg/utime ! physical units
     du_tot = du_tot + dudti_rad
