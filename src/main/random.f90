@@ -19,7 +19,7 @@ module random
 !
  implicit none
  public :: ran2,get_random,rayleigh_deviate
- public :: get_random_pos_on_sphere,gauss_random
+ public :: get_random_pos_on_sphere,gauss_random,get_gaussian_pos_on_sphere
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -166,5 +166,30 @@ real function gauss_random(iseed)
  gauss_random = sqrt(2.*log(1./x1))*cos(2.*pi*x2)
 
 end function gauss_random
+
+!-------------------------------------------------------------------------
+!
+! get random position on sphere
+!
+!-------------------------------------------------------------------------
+function get_gaussian_pos_on_sphere(iseed, deltheta) result(dx)
+ integer, intent(inout) :: iseed
+ real, intent(in) :: deltheta
+ real  :: phi,theta,sintheta,costheta,sinphi,cosphi,gauss_theta
+ real  :: dx(3)
+
+ phi = 2.*pi*(ran2(iseed) - 0.5)
+ gauss_theta = gauss_random(iseed) * deltheta
+ do while (abs(gauss_theta) > 1.0)
+   gauss_theta = gauss_random(iseed) * deltheta
+ end do
+ theta = acos(gauss_theta)
+ sintheta = sin(theta)
+ costheta = cos(theta)
+ sinphi   = sin(phi)
+ cosphi   = cos(phi)
+ dx = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+end function get_gaussian_pos_on_sphere
 
 end module random
