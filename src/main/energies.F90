@@ -72,7 +72,7 @@ subroutine compute_energies(t)
                           isdead_or_accreted,epot_sinksink,imacc,ispinx,ispiny,&
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
-                          iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,n_group
+                          iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,bin_info,n_group
  use part,           only:pxyzu,fxyzu,fext
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
@@ -644,7 +644,7 @@ subroutine compute_energies(t)
  erad = reduceall_mpi('+',erad)
  if (nptmass > 1) then
     if (use_regnbody) then
-       call get_pot_subsys(n_group,group_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
+       call get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
     endif
     epot = epot + epot_sinksink
  endif

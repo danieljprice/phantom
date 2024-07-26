@@ -19,6 +19,10 @@ module utils_kepler
  use physcon,only: pi
  implicit none
 
+ public :: Espec,extract_a,extract_a_dot,extract_e
+ public :: extract_T,extract_ea,extract_kep_elmt
+
+ private
 contains
 subroutine Espec(v2,r,mu,B)
  real, intent(in) :: v2,r,mu
@@ -34,6 +38,14 @@ subroutine extract_a(r,mu,v2,aij)
  aij = (r*mu)/(2.*mu-r*v2)
 
 end subroutine extract_a
+
+subroutine extract_T(mu,aij,Tij)
+ real, intent(in)  :: mu,aij
+ real, intent(out) ::Tij
+
+ Tij = 2*pi*sqrt(abs(aij)**3/mu) !! absolute value of a to take into account hyperbolic encounter
+
+end subroutine extract_T
 
 subroutine extract_a_dot(r2,r,mu,v2,v,acc,adot)
  real, intent(in)    :: r2,r,mu,v2,v,acc

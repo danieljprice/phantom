@@ -111,7 +111,7 @@ module ptmass
  real, parameter :: dtfacphi2fsi = dtfacphifsi**2
 
  real :: dtfacphi = dtfacphifsi
- real :: dtfacphi2 = dtfacphifsi
+ real :: dtfacphi2 = dtfacphi2fsi
 
 
  ! parameters to control output regarding sink particles
@@ -354,7 +354,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real    :: fterm,pterm,potensoft0,dsx,dsy,dsz
  real    :: J2i,rsinki,shati(3)
  real    :: J2j,rsinkj,shatj(3)
- integer :: k,l,i,j,gidi,gidj
+ integer :: k,l,i,j,gidi,gidj,compi
  logical :: extrap,subsys
 
  dtsinksink = huge(dtsinksink)
@@ -392,14 +392,15 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !--compute N^2 forces on point mass particles due to each other
  !
  !$omp parallel do default(none) &
- !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info,subsys) &
+ !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
  !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
+ !$omp shared(group_info,bin_info,subsys) &
  !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
- !$omp private(gidi,gidj) &
+ !$omp private(gidi,gidj,compi,pert_out) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
- !$omp private(fextx,fexty,fextz,phiext,pert_out) &
+ !$omp private(fextx,fexty,fextz,phiext) &
  !$omp private(q2i,qi,psoft,fsoft) &
  !$omp private(fterm,pterm,J2i,J2j,shati,shatj,rsinki,rsinkj) &
  !$omp reduction(min:dtsinksink) &
@@ -411,6 +412,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        gidi = group_info(igid,k)   ! id of the group to identify which ptmasses are in the same group
        compi = group_info(icomp,k) ! id of the companion if it exists
     else
+       compi = 0
+       pert_out = 0.
        i = k
     endif
     if (extrap) then
@@ -535,8 +538,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
              endif
           endif
        endif
-       if (subsys .and. compi /= i) then
-          pert_out = pert_out + f1
+       if (subsys) then
+          if (compi /= i) pert_out = pert_out + f1
        endif
     enddo
     phitot = phitot + 0.5*pmassi*phii  ! total potential (G M_1 M_2/r)

@@ -91,7 +91,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
                             linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
- use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
+ use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
@@ -318,7 +318,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     ! Need to recompute the force when sink or stars are created
     if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
        if (use_regnbody) then
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
                  fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
        else

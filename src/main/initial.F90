@@ -131,7 +131,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
-                            n_group,n_ingroup,n_sing,nmatrix,group_info,isionised
+                            n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -508,9 +508,10 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
        call init_subgroup
-       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                             group_info=group_info,bin_info=bin_info)
     else
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)

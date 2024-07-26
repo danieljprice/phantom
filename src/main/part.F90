@@ -310,8 +310,9 @@ module part
  integer, parameter   :: isemi = 1 ! semi major axis
  integer, parameter   :: iecc  = 2 ! eccentricity
  integer, parameter   :: iapo  = 3 ! apocenter
- integer, parameter   :: ipert = 4 ! perturbation
- integer, parameter   :: ikap  = 5 ! kappa  slow down
+ integer, parameter   :: iorb  = 4 ! orbital period
+ integer, parameter   :: ipert = 5 ! perturbation
+ integer, parameter   :: ikap  = 6 ! kappa  slow down
 
 
  ! needed for group identification and sorting
