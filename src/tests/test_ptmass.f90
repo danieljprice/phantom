@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
- logical :: do_test_chinese_coin,do_test_merger
+ logical :: do_test_chinese_coin,do_test_merger,do_test_potential
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -50,6 +50,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_createsink = .false.
  do_test_softening = .false.
  do_test_merger = .false.
+ do_test_potential = .false.
  do_test_chinese_coin = .false.
  testall = .false.
  istart = 1
@@ -64,6 +65,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_softening = .true.
  case('ptmassmerger')
     do_test_merger = .true.
+ case('ptmasspotential')
+    do_test_potential = .true.
  case('ptmasschinchen','ptmasscoin','chinchen','coin','chinesecoin')
     do_test_chinese_coin = .true.
  case('ptmassfsi','fsi')
@@ -110,6 +113,10 @@ subroutine test_ptmass(ntests,npass,string)
     !
     if (do_test_merger .or. testall) call test_merger(ntests,npass)
  enddo
+ !
+ !  Test of sink particle potentials
+ !
+ if (do_test_potential .or. testall) call test_sink_potential(ntests,npass)
  !
  !  Tests of accrete_particle routine
  !
@@ -1110,6 +1117,61 @@ subroutine test_merger(ntests,npass)
  r_merge_cond   = 0.
 
 end subroutine test_merger
+
+!-----------------------------------------------------------------------
+!+
+!  Test sink particle surface force, simply that the acceleration
+!  is the gradient of the potential
+!+
+!-----------------------------------------------------------------------
+subroutine test_sink_potential(ntests,npass)
+ use io,         only:id,master
+ use testutils,  only:checkval,update_test_scores
+ use ptmass,     only:get_accel_sink_gas,isink_potential
+ use part,       only:npart,npartoftype,nptmass,xyzmh_ptmass,ihacc,iReff
+ use units,      only:set_units
+ integer, intent(inout) :: ntests,npass
+ integer :: nfailed(1)
+ real :: phi1,phi,eps,x0(3)
+ real :: dphidx,hi,xi,yi,zi,dumxi,dumyi,dumzi,fxi,fyi,fzi,rp
+
+ if (id==master) write(*,"(/,a)") '--> testing sink particle surface force'
+ nptmass = 1
+ npart = 0
+ npartoftype = 0
+ hi = 0.
+ x0 = [100.,100.,100.]
+ rp = 2.
+ isink_potential = 1
+ ! place a single point mass at a random location
+ xyzmh_ptmass(:,:)     = 0.
+ xyzmh_ptmass(1:3,1)   = x0
+ xyzmh_ptmass(4,1)     = 3.14159
+ xyzmh_ptmass(ihacc,1) = 0.
+ xyzmh_ptmass(iReff,1) = rp  ! surface radius = 2
+
+ call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+
+ ! evaluate sink-gas acceleration at some position
+ xi = x0(1) + 1.00001*rp
+ yi = x0(2) + 1.*rp
+ zi = x0(3) + 1.*rp
+ fxi = 0.; fyi = 0.; fzi = 0.; phi = 0.
+ call get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi)
+ ! evaluate sink-gas acceleration at some position + epsilon
+ eps = 1.e-6
+ dumxi = 0.; dumyi = 0.; dumzi = 0.; phi1 = 0.
+ call get_accel_sink_gas(nptmass,xi+eps,yi,zi,hi,xyzmh_ptmass,dumxi,dumyi,dumzi,phi1)
+ ! get the derivative of phi and check it equals the acceleration
+ dphidx = -(phi1 - phi)/eps
+
+ call checkval(dphidx,fxi,3.3e-8,nfailed(1),'dphi/dx = acceleration')
+ call update_test_scores(ntests,nfailed(1:1),npass)
+
+ ! reset options
+ isink_potential = 0
+
+end subroutine test_sink_potential
 
 !-----------------------------------------------------------------------
 !+
