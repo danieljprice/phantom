@@ -81,8 +81,6 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:rad,radprop
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
- use cooling,          only:Tfloor
- use cooling_radapprox,only:radcool_update_energ_loop
 #ifdef LIVE_ANALYSIS
  use analysis,         only:do_analysis
  use part,             only:igas
@@ -291,10 +289,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 
     if (icooling == 9) then
-       call radcool_update_energ_loop(dt,npart,xyzh,vxyzu(4,1:npart),fxyzu(4,1:npart),Tfloor)
-       !      write (*,*) "          ",maxval(vxyzu(4,:)),minval(vxyzu(4,:)), fxyzu(4,i)
        write (*,*) "Before step", maxval(vxyzu(4,:)),minval(vxyzu(4,:))
-  !     write (*,*) "fxyzu(4:)=", maxval(fxyzu(4,1:npart)),minval(fxyzu(4,1:npart))
     endif
     nsteps = nsteps + 1
 !

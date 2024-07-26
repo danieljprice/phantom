@@ -26,7 +26,7 @@ module cooling_radapprox
  integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
  public :: radcool_update_energ,write_options_cooling_radapprox,read_options_cooling_radapprox
- public :: init_star,radcool_update_energ_loop
+ public :: init_star, radcool_update_energ_loop
 
 contains
 
@@ -64,38 +64,39 @@ end subroutine init_star
 ! Do cooling calculation
 !
 ! update energy to return evolved energy array. Called from step corrector 
-subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
+subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,dudti_sph,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           duFLD,doFLD,ttherm_store,teqi_store,opac_store
  use part,       only:xyzmh_ptmass,rhoh,massoftype,igas
- use part,       only:iphase,maxphase,maxp,iamtype,ibin
  use timestep_ind, only:get_dt
- integer,intent(in) :: i,npart
- real,intent(in) :: xyzhi(:),dti,Tfloor,dudti_sph
+ integer,intent(in) :: i
+ integer(kind=1),intent(in) :: ibini
+ real,intent(in) :: xyzhi(:),dtsph,dudti_sph,Tfloor
  real,intent(inout) :: ui
- real            :: rhoi,coldensi,kappaBari,kappaParti,ri2
+ real            :: dti,rhoi,coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
  real            :: cs2,Om2,Hmod2
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
- integer         :: ratefile,n_uevo
 
-! write (temp,'(E5.2)') dt
-    coldensi = huge(coldensi)
-    poti = Gpot_cool(i)
-    du_FLDi = duFLD(i)
-    if (abs(ui) < epsilon(ui)) print *, "ui zero", i
-    rhoi =  rhoh(xyzhi(4),massoftype(igas))
-    
-    if (isink_star > 0) then
-       ri2 = (xyzhi(1)-xyzmh_ptmass(1,isink_star))**2d0 &
-            + (xyzhi(2)-xyzmh_ptmass(2,isink_star))**2d0 &
-            + (xyzhi(3)-xyzmh_ptmass(3,isink_star))**2d0  
-    else
-       ri2 = xyzhi(1)**2d0 + xyzhi(2)**2d0 + xyzhi(3)**2d0  
-    endif
+  dti = get_dt(dtsph,ibini)
+  coldensi = huge(coldensi)
+  poti = Gpot_cool(i)
+  du_FLDi = duFLD(i)
+  kappaBari = 0d0
+  kappaParti = 0d0
+  if (abs(ui) < epsilon(ui)) print *, "ui zero", i
+  rhoi =  rhoh(xyzhi(4),massoftype(igas))
+  
+  if (isink_star > 0) then
+     ri2 = (xyzhi(1)-xyzmh_ptmass(1,isink_star))**2d0 &
+          + (xyzhi(2)-xyzmh_ptmass(2,isink_star))**2d0 &
+          + (xyzhi(3)-xyzmh_ptmass(3,isink_star))**2d0  
+  else
+     ri2 = xyzhi(1)**2d0 + xyzhi(2)**2d0 + xyzhi(3)**2d0  
+  endif
 
     ! get opacities & Ti for ui
     call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
@@ -132,6 +133,9 @@ subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
        Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
        Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
        coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
+    case default
+       call warning("In radapprox cooling","cooling method not recognised",ival=od_method)
+       return
     end select
 
 !    Tfloor is from input parameters and is background heating
@@ -151,8 +155,9 @@ subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
     else
        du_tot = dudti_sph
     endif
+   
    ! If radiative cooling is negligible compared to hydrodynamical heating
-       ! don't use this method to update energy, just use hydro du/dt
+    ! don't use this method to update energy, just use hydro du/dt. Does it conserve u alright?
     if (abs(dudti_rad/du_tot) < dtcool_crit) then
        !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
        !                 dudt_sph(i)
@@ -161,10 +166,9 @@ subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
     endif
     
     Teqi = du_tot * opaci*unit_ergg/utime ! physical units
-    du_tot = du_tot + dudti_rad
-  
     Teqi = Teqi/4.d0/steboltz
     Teqi = Teqi + Tmini4
+    du_tot = du_tot + dudti_rad 
     if (Teqi < Tmini4) then
        Teqi = Tmini4**(1.0/4.0)
     else
@@ -178,6 +182,9 @@ subroutine radcool_update_energ(i,dti,npart,xyzhi,ui,dudti_sph,Tfloor)
             "dudt_sph * dti=", dudti_sph*dti
     elseif (Teqi < epsilon(Teqi)) then
        print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
+            "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
+    elseif (Teqi < Tfloor) then
+       print *,  "Teqi=",Teqi, "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
     endif
     
@@ -360,7 +367,10 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
     if (Teqi > 9e5) then
        print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
             "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dti=", dudt_sph(i)*dti 
+            "dudt_sph * dti=", dudt_sph(i)*dti
+    elseif (Teqi < epsilon(Teqi)) then
+       print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
+            "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
     endif
     
     call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)

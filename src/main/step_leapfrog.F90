@@ -117,7 +117,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
- use cooling,        only:ufloor,cooling_in_step
+ use cooling,        only:ufloor,cooling_in_step,Tfloor
  use timing,         only:increment_timer,get_timings,itimer_extf
  use growth,         only:check_dustprop
  use options,        only:use_porosity,icooling
@@ -127,7 +127,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
-
+ use cooling_radapprox, only:radcool_update_energ
+ 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -167,7 +168,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
- print *, "L197 predictor, maxmin abs fxyzu=", maxval(abs(fxyzu(4,1:npart))),minval(abs(fxyzu(4,1:npart)))
+! print *, "L197 predictor, maxmin abs fxyzu=", maxval(abs(fxyzu(4,1:npart))),minval(abs(fxyzu(4,1:npart)))
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
@@ -236,7 +237,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
  !Alison icooling, vpred is right value here for u, but shouldn't be ...?
- print *, "line 234", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)),"nactive =", nactive
+! print *, "line 234", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)),"nactive =", nactive
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -398,7 +399,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
-    if (icooling == 0) vxyzu(4,1:npart) = vpred(4,1:npart)
+    if (icooling == 9) vxyzu(4,1:npart) = vpred(4,1:npart)
 
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
@@ -409,7 +410,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call fatal('step','step too small: bin would exceed maximum')
     endif
  endif
- print *, "line 407", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)), "nactive=", nactive
+! print *, "line 407", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)), "nactive=", nactive
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -426,7 +427,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !  forces we must iterate until velocities agree.
 !-------------------------------------------------------------------------
 
- print *, "line 423", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
+! print *, "line 423", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
@@ -453,7 +454,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
-!$omp shared(rad,radpred,drad)&
+!$omp shared(rad,radpred,drad,Tfloor)&
 !$omp private(i,vxi,vyi,vzi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &
@@ -488,6 +489,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 else
                    if (icooling == 9) then
                       vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
+                      if (its == 1) call radcool_update_energ(i,ibin(i),dtsph,xyzh(:,i),vxyzu(4,i),fxyzu(4,i),Tfloor)
                    else
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                    endif
@@ -703,9 +705,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
     if (icooling == 9) then
        print *, "end of iteration", maxval(vpred(4,:)), minval(vpred(4,:))
+              print *, "end of iteration", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
        print *, "end of iteration, dudt", maxval(fxyzu(4,1:npart)), minval(fxyzu(4,1:npart))
        print *, "End of iteration, nactive=", nactive
-       vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
  enddo iterations
 

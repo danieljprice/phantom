@@ -46,6 +46,9 @@ subroutine init_S07cool()
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
  duFLD(:) = 0d0
+ teqi_store(:) = 0d0
+ ttherm_store(:) = 0d0
+ opac_store(:) = 0d0
  open (unit=iunitst,file='EOSinfo.dat',status='replace')    
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
@@ -214,7 +217,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
- use io, only:fatal
+ use io, only:warning
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
 
@@ -224,9 +227,9 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real rhoi_
 
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
-    call fatal('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
+    call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
  elseif (Teqi > OPTABLE(1,ny,2) .or. Teqi < OPTABLE(1,1,2)) then
-    call fatal('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
+    call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
  
