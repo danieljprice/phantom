@@ -441,7 +441,7 @@ subroutine set_ellipse(lattice,id,master,r_ellipsoid,delta,hfact,xyzh,np, &
     if (dir >= 1 .and. dir <= 3) stretchin_coord = dir
  endif
  if (present(rhofunc)) then
-   write(*,*), "stretchin_coord", stretchin_coord
+   write(*,*) "stretchin_coord", stretchin_coord
     if (stretchin_coord==1) then
       ! Stretch in x-z direction
       icoord = 1

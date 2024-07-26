@@ -102,7 +102,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  pmass = massoftype(igas)
 
  if (gravity) then
-   write(*,*), "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
+   write(*,*) "Disc self-gravity is on. Including disc mass in cloud orbit calculation."
    mtot=sum(xyzmh_ptmass(4,:)) + npartoftype(igas)*massoftype(igas)
  else
    mtot=sum(xyzmh_ptmass(4,:))
@@ -120,7 +120,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    endif
    call prompt('Enter infall mass in Msun:', in_mass, 0.0)
    call prompt('Enter value of power-law density along radius:', r_slope, 0.0)
-   write(*,*), "Initial radial distance is centre of star/sphere or ellipse."
+   write(*,*) "Initial radial distance is centre of star/sphere or ellipse."
    r_init_min = r_a + r_close
    r_init = 3*r_init_min
    call prompt('Enter initial radial distance in au:', r_init, r_init_min)
@@ -137,7 +137,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
 
  if (call_prompt) then
    if (in_orbit == 0) then
-     write(*,*), "Bound orbit not yet implemented."
+     write(*,*) "Bound orbit not yet implemented."
      stop
    endif
 
@@ -148,7 +148,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  endif
 
  if (in_orbit == 2) then
-   write(*,*), "Hyperbolic orbit, see Dullemond+2019 for parameter definitions."
+   write(*,*) "Hyperbolic orbit, see Dullemond+2019 for parameter definitions."
    if (call_prompt) then
      call prompt('Enter cloud velocity at infinity, v_inf, in km/s:', v_inf, 0.0)
    endif
@@ -156,7 +156,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    v_inf = v_inf * (100 * 1000) ! to cm/s
    v_inf =  v_inf / unit_velocity ! Change to code units
    b_crit = mtot * G / v_inf**2
-   write(*,*), "Critical impact parameter, b_crit, is ", b_crit, " au"
+   write(*,*) "Critical impact parameter, b_crit, is ", b_crit, " au"
 
    if (call_prompt) then
      call prompt('Enter impact parameter b as a ratio of b_crit:', b_frac, 0.0)
@@ -164,14 +164,14 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    b = b_frac * b_crit
    ecc = sqrt(1 + b**2/b_crit**2)
    r_close = b * sqrt((ecc-1)/(ecc+1))
-   write(*,*), "Eccentricity of the cloud is ", ecc
-   write(*,*), "Closest approach of cloud center will be ", r_close, " au."
+   write(*,*) "Eccentricity of the cloud is ", ecc
+   write(*,*) "Closest approach of cloud center will be ", r_close, " au."
  endif
 
  ! Incline the infall
  if (call_prompt) then
-   write(*,*), "Rotating the infalling gas."
-   write(*,*), "Convention: clock-wise rotation in the xy-plane."
+   write(*,*) "Rotating the infalling gas."
+   write(*,*) "Convention: clock-wise rotation in the xy-plane."
    call prompt('Enter rotation on x axis:', incx, -360., 360.)
    call prompt('Enter rotation on y axis:', incy, -360., 360.)
    call prompt('Enter rotation on z axis:', incz, -360., 360.)
@@ -213,11 +213,11 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    z0 = 0.0
    xp = (/x0, y0, z0/)
  endif
- write(*,*), "Initial centre is: ", xp
+ write(*,*) "Initial centre is: ", xp
 
  ! Number of injected particles is given by existing particle mass and total added disc mass
  n_add = int(in_mass/pmass)
- write(*,*), "Number of particles that will be added ", n_add
+ write(*,*) "Number of particles that will be added ", n_add
  allocate(xyzh_add(4,n_add+int(0.1*n_add)),vxyzu_add(4,n_add+int(0.1*n_add)))
  delta = 1.0 ! no idea what this is
  nptot = n_add + npartoftype(igas)
@@ -230,7 +230,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
      call set_sphere('random',id,master,0.,r_in,delta,hfact_default,np,xyzh_add,xyz_origin=xp,&
                      np_requested=n_add, nptot=nptot)
    endif
-   write(*,*), "The sphere has been succesfully initialised."
+   write(*,*) "The sphere has been succesfully initialised."
  elseif (in_shape == 1) then
    ! print*, "Deleting the below print statement breaks the code when call_prompt = .false. :)"
    ! print*, id,master,rellipsoid,delta,np,n_add,nptot
@@ -263,7 +263,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
      xyzh_add(1, i) = x0 + x_prime
      xyzh_add(2, i) = y0 + y_prime
    enddo
-   write(*,*), "The ellipse has been succesfully initialised."
+   write(*,*) "The ellipse has been succesfully initialised."
  endif
 
  !--Set velocities (from pre-made velocity cubes)
@@ -361,20 +361,20 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
    vp = (/vx0, vy0, vz0/)
  endif
 
- write(*,*), "Initial velocity of object centre is ", vp
+ write(*,*) "Initial velocity of object centre is ", vp
 
  if (use_dust) then
    if (use_dustfrac) then
-     write(*,*), "Detected one-fluid dust in the simulation, adding smallest dust to infall."
+     write(*,*) "Detected one-fluid dust in the simulation, adding smallest dust to infall."
      ! Set the dustfrac to the global dust to gas ratio
 
      dustfrac_tmp = sum(dustfrac)/npartoftype(igas)
 
-     write(*,*), "The total dustfrac is ", dustfrac_tmp
+     write(*,*) "The total dustfrac is ", dustfrac_tmp
 
      ! Set the dustfrac to the dustfrac of the smallest bin
      dustfrac_tmp = sum(dustfrac(1,:))/npartoftype(igas)
-     write(*,*), "The single bin dustfrac is ", dustfrac_tmp
+     write(*,*) "The single bin dustfrac is ", dustfrac_tmp
 
    endif
  endif
@@ -420,15 +420,15 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  if (ieos==3) then
    ! centred at 0,0,0, change to centred on isink=1 if nptmass == 1
    if (nptmass==1) then
-     write(*,*), "WARNING: Changing ieos from 3 to 6."
+     write(*,*) "WARNING: Changing ieos from 3 to 6."
      ieos = 6
      isink = 1
    elseif (nptmass==2) then
-     write(*,*), "WARNING: Changing ieos from 3 to 14."
+     write(*,*) "WARNING: Changing ieos from 3 to 14."
      ieos = 14
    endif
  endif
- write(*,*),  " ###### Added infall successfully ###### "
+ write(*,*)  " ###### Added infall successfully ###### "
  deallocate(xyzh_add,vxyzu_add)
 
  return
