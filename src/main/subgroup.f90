@@ -401,6 +401,8 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t1,tcpu1)
 
+    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+
     if (id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
@@ -452,6 +454,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
  ismultiple = gsize > 2
 
  if (ismultiple) then
+    call update_kappa(xyzmh_ptmass,group_info,bin_info,s_id,e_id)
     call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,W,start_id,end_id,ds_init=ds_init)
  else
     prim = group_info(igarg,start_id)
@@ -489,7 +492,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     W_old = W
     if (ismultiple) then
        do i=1,ck_size
-          call drift_TTL (tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,start_id,end_id)
+          call drift_TTL (tcoord,W,ds(switch)*cks(i),xyzmh_ptmass,vxyz_ptmass,group_info,gsize,start_id,end_id)
           time_table(i) = tcoord
           call kick_TTL  (ds(switch)*dks(i),W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,start_id,end_id)
        enddo
@@ -652,15 +655,19 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,tco
 end subroutine restore_state
 
 
-subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,s_id,e_id)
- use part, only: igarg
- real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer,intent(in)  :: group_info(:,:)
- real, intent(inout) :: tcoord
- real, intent(in)    :: h,W
- integer,intent(in)  :: s_id,e_id
- integer :: k,i
- real :: dtd
+subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,gsize,s_id,e_id)
+ use part, only: igarg,icomp,ikap
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(in)    :: group_info(:,:)
+ real,    intent(inout) :: tcoord
+ real,    intent(in)    :: h,W
+ integer, intent(in)    :: s_id,e_id,gsize
+ integer, allocatable :: binstack(:)
+ integer :: k,i,compi
+ real    :: dtd,vcom(3),m1,m2,mtot
+
+ allocate(binstack((gsize/4)+1))
+ binstack = 0
 
  dtd = h/W
 
@@ -668,10 +675,27 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,s_id,e_id)
 
  do k=s_id,e_id
     i = group_info(igarg,k)
-    xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dtd*vxyz_ptmass(1,i)
-    xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + dtd*vxyz_ptmass(2,i)
-    xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + dtd*vxyz_ptmass(3,i)
+    compi = group_info(icomp,i)
+    if (compi/=i) then ! It's a binary. identify companion and drift binary.
+       m1 = xyzmh_ptmass(4,i)
+       m2 = xyzmh_ptmass(4,compi)
+       mtot = m1+m2
+       kappa1i = bin_info(ikap,i)
+       if (any(binstack == i)) cycle! If already treated i will be in binstack
+       vcom(1) = (m1*vxyz_ptmass(1,i)+m2*vxyz_ptmass(1,compi))/mtot
+       vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,compi))/mtot
+       vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,compi))/mtot
+
+       call correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1i,dtd,i,compi)
+
+    else
+       xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dtd*vxyz_ptmass(1,i)
+       xyzmh_ptmass(2,i) = xyzmh_ptmass(2,i) + dtd*vxyz_ptmass(2,i)
+       xyzmh_ptmass(3,i) = xyzmh_ptmass(3,i) + dtd*vxyz_ptmass(3,i)
+    endif
  enddo
+
+ deallocate(binstack)
 
 end subroutine drift_TTL
 
@@ -686,6 +710,11 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
  real :: om,dw,dtk
  integer :: i,k
 
+
+ if (h==0.) then
+    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+    call update_kappa(xyzmh_ptmass,group_info,bin_info,s_id,e_id)
+ endif
  call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
 
 
@@ -915,6 +944,62 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
  if (init) ds_init = dt_init*om_init*0.5
 
 end subroutine get_force_TTL
+
+subroutine update_kappa(xyzmh_ptmass,group_info,bin_info,s_id,e_id)
+ use part, only:iarg,icomp,ipert,ikap
+ real   , intent(in)    :: xyzmh_ptmass(:,:)
+ real   , intent(inout) :: bin_info(:,:)
+ integer, intent(in)    :: group_info(:,:)
+ integer, intent(in)    :: s_id,e_id
+ integer, allocatable :: binstack(:)
+ integer :: k,l,i,j,compi
+ real :: pouti,r2,dx,dy,dz,ddr,ddr3,xi,yi,zi,m1,m2,mu
+ real :: kappai,rapo,rapo3
+
+
+ do k=s_id,e_id
+    i     = group_info(igarg,k)
+    compi  = group_info(icomp,i)
+    if (compi == i) cycle
+    if (any(binstack == i)) cycle
+    pouti = bin_info(ipert,i)
+    xi = xyzmh_ptmass(1,i)
+    yi = xyzmh_ptmass(2,i)
+    zi = xyzmh_ptmass(3,i)
+    m1 = xyzmh_ptmass(4,i)
+    m2 = xyzmh_ptmass(4,j)
+    do l=s_id,e_id
+       if (k == l) cycle
+       j = group_info(igarg,l)
+       if (j == compi)
+       dx = xi - xyzmh_ptmass(1,j)
+       dy = yi - xyzmh_ptmass(2,j)
+       dz = zi - xyzmh_ptmass(3,j)
+       r2 = dx**2+dy**2+dz**2
+       ddr  = 1./sqrt(r2)
+       ddr3 = ddr*ddr*ddr
+       mj = xyzmh_ptmass(4,j)
+       pouti = pouti +mj*ddr3
+    enddo
+
+    mu = (m1*m2)/(m1+m2)
+    rapo = bin_info(iapo,i)
+    rapo3 = rapo*rapo*rapo
+    kappai = kref/((rapo3/mu)*pouti)
+
+    if (kappai>1.) then
+       bin_info(ikap,i)     = kappai
+       bin_info(ikap,compi) = kappai
+    else
+       bin_info(ikap,i)     = 1.
+       bin_info(ikap,compi) = 1.
+    endif
+
+
+
+ enddo
+
+end subroutine update_kappa
 
 subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,potonly,ds_init,Tij)
  real,    intent(in)    :: xyzmh_ptmass(:,:)
