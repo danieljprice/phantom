@@ -250,9 +250,9 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
        ! write stamatellos cooling values
        if (icooling == 9) then ! .and. doFLD) then
 !         call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
-          call write_array(1,teqi_store,'teqi',npart,k,ipass,idump,nums,ierrs(13))
-          call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,ierrs(13))
-          call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,ierrs(13))
+          call write_array(1,teqi_store,'teqi',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
+          call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,nerr)
        endif
        ! smoothing length written as real*4 to save disk space
        call write_array(1,xyzh,xyzh_label,1,npart,k,ipass,idump,nums,nerr,use_kind=4,index=4)

@@ -127,7 +127,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
- use cooling_radapprox, only:radcool_update_energ
  
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -236,8 +235,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
- !Alison icooling, vpred is right value here for u, but shouldn't be ...?
-! print *, "line 234", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)),"nactive =", nactive
 
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
@@ -388,7 +385,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
-    if (icooling == 9) vpred(4,1:npart) = vxyzu(4,1:npart)
     dt_too_small = .false.
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
@@ -399,7 +395,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        rad = radpred
        vxyzu(4,1:npart) = vpred(4,1:npart)
     endif
-    if (icooling == 9) vxyzu(4,1:npart) = vpred(4,1:npart)
 
     if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
     if (dt_too_small) then
@@ -489,7 +484,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                 else
                    if (icooling == 9) then
                       vxyzu(1:3,i) = vxyzu(1:3,i) + dti*fxyzu(1:3,i)
-                      if (its == 1) call radcool_update_energ(i,ibin(i),dtsph,xyzh(:,i),vxyzu(4,i),fxyzu(4,i),Tfloor)
                    else
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                    endif
