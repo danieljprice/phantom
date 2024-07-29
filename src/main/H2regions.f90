@@ -8,7 +8,7 @@ module HIIRegion
 !
 ! HIIRegion
 !
-! :References: None
+! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
 ! :Owner: Yrisch
 !
@@ -17,15 +17,10 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
+! contains routines to model HII region expansion due to ionization and radiation pressure..
+! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! and adapted in Phantom by Yann Bernard
 
- !
- !
- ! contains routine for Stromgren radius calculation and Radiative pressure velocity kick
- ! routine originally made by Hopkins et al. (2012) Fujii et al. (2021)
- ! adapted in Phantom by Yann BERNARD
- ! reference : Fujii et al. 2021 SIRIUS Project Paper III
- !
- !
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
