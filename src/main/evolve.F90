@@ -306,7 +306,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
     if (iH2R > 0 .and. id==master) then
        istepHII = 1
-       if(ind_timestep) then
+       if(ind_timesteps) then
           istepHII = 2**nbinmax/HIIuprate
           if (istepHII==0) istepHII = 1
        endif
