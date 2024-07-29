@@ -41,7 +41,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,ind_timesteps
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -306,10 +306,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
     if (iH2R > 0 .and. id==master) then
        istepHII = 1
-#ifdef IND_TIMESTEPS
-       istepHII = 2**nbinmax/HIIuprate
-       if (istepHII==0) istepHII = 1
-#endif
+       if(ind_timestep) then
+          istepHII = 2**nbinmax/HIIuprate
+          if (istepHII==0) istepHII = 1
+       endif
        if (mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
