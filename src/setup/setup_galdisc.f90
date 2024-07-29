@@ -175,7 +175,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     totvolH  = 4./3.*pi*(5.0*rcyl)**3     !halo
 
     galsetupic = 'galsetic.txt'
-    OPEN(21,file=galsetupic,form='formatted')
+    open(21,file=galsetupic,form='formatted')
     do i=1,5
        if (i==1) then
           read(21,*)sometext,npartoftype(igas)
@@ -208,7 +208,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--Gas loop
     totmassG=0.
     if (yn_gas==1) then
-       OPEN(24,file='asciifile_G',form='formatted')
+       open(24,file='asciifile_G',form='formatted')
        i=1
        over_npartG: do while(i <= npartoftype(igas))
           read(24,*)xis,yis,zis,mis,vxis,vyis,vzis,phaseis
@@ -227,7 +227,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
           i=i+1
        enddo over_npartG
-       CLOSE(24)
+       close(24)
        massoftype(igas)   = totmassG/real( npartoftype(igas))
        rhozero3 = totmassG/totvol
        h3 = hfact*(massoftype(igas) /rhozero3)**(1./3.)
@@ -245,7 +245,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--Disc loop
     totmassD=0.
     if (yn_star==1) then
-       OPEN(22,file='asciifile_D',form='formatted')
+       open(22,file='asciifile_D',form='formatted')
        i= npartoftype(igas) + 1
        over_npartS: do while(i <= npartoftype(igas) + npartoftype(istar))
           read(22,*)xis,yis,zis,mis,vxis,vyis,vzis,phaseis
@@ -264,7 +264,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
           i=i+1
        enddo over_npartS
-       CLOSE(22)
+       close(22)
        massoftype(istar)  = totmassD/real( npartoftype(istar))
        rhozero1 = totmassD/totvol
        h1 = hfact*(massoftype(istar)/rhozero1)**(1./3.)
@@ -282,7 +282,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--Bulge loop
     totmassB=0.
     if (yn_bulge==1) then
-       OPEN(23,file='asciifile_B',form='formatted')
+       open(23,file='asciifile_B',form='formatted')
        i=npartoftype(istar)+npartoftype(igas) + 1
        over_npartB: do while(i <=npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge))
           read(23,*)xis,yis,zis,mis,vxis,vyis,vzis,phaseis
@@ -301,7 +301,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
           i=i+1
        enddo over_npartB
-       CLOSE(23)
+       close(23)
        massoftype(ibulge)  = totmassB/real( npartoftype(ibulge))
        rhozero2 = totmassB/totvolB
        h2 = hfact*(massoftype(ibulge)/rhozero2)**(1./3.)
@@ -319,7 +319,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     !--Halo loop
     totmassH=0.
     if (yn_halo==1) then
-       OPEN(23,file='asciifile_H',form='formatted')
+       open(23,file='asciifile_H',form='formatted')
        i=npartoftype(ibulge)+npartoftype(istar)+npartoftype(igas) + 1
        over_npartH: do while(i <=npartoftype(igas)+npartoftype(istar)+npartoftype(ibulge)+npartoftype(idarkmatter))
           read(23,*)xis,yis,zis,mis,vxis,vyis,vzis,phaseis
@@ -338,7 +338,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
           endif
           i=i+1
        enddo over_npartH
-       CLOSE(23)
+       close(23)
        massoftype(idarkmatter)  = totmassH/real( npartoftype(idarkmatter))
        rhozero4 = totmassH/totvolH
        h4 = hfact*(massoftype(idarkmatter)/rhozero4)**(1./3.)
@@ -422,7 +422,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     h1 = hfact*(massoftype(1)/rhozero)**(1./3.)
 
 
-    if (TRIM(partdist)=='o') then
+    if (trim(partdist)=='o') then
        !--Loop for pseudo-random placement (from observed distribution)
        print "(a)",' Realistic gas distribution requires location of CDF(r) files:'
        itot=0
