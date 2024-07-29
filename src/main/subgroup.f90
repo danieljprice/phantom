@@ -115,7 +115,6 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  integer, intent(in)    :: n_group
  integer, allocatable   :: r2min_id(:)
  integer :: i,j,k,l,np,ns,start_id,end_id,gsize
- real    :: akl,ekl,apokl,Tkl
  ! need to be zeroed for safety reasons
  bin_info(:,:) = 0.
 
@@ -125,36 +124,8 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
     end_id   = group_info(igcum,i+1)
     gsize    = (end_id - start_id) + 1
     if (gsize > 2) then
-       allocate(r2min_id(gsize))
-       call get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
-       do j=start_id,end_id
-          np = (j-start_id) + 1
-          k = group_info(igarg,j)
-          if (group_info(icomp,k) > 0) then
-             ns = r2min_id(np)
-             if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
-                l = group_info(igarg,ns+start_id)
-                group_info(icomp,k) = l
-                group_info(icomp,l) = k
-                !
-                !-- Compute and store main orbital parameters needed for SDAR method
-                !
-                call get_orbparams(xyzmh_ptmass,vxyz_ptmass,akl,ekl,apokl,Tkl,k,l)
-                bin_info(isemi,k) = akl
-                bin_info(isemi,l) = akl
-                bin_info(iecc,k)  = ekl
-                bin_info(iecc,l)  = ekl
-                bin_info(iapo,k)  = apokl
-                bin_info(iapo,l)  = apokl
-                bin_info(iorb,k)  = Tkl
-                bin_info(iorb,l)  = Tkl
-             else                       ! No matches... Only a single
-                group_info(icomp,k) = k
-                bin_info(:,k) = 0.
-             endif
-          endif
-       enddo
-       deallocate(r2min_id)
+       call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
+                                  gsize,start_id,end_id)
     else
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
@@ -176,6 +147,48 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  enddo
 
 end subroutine find_binaries
+
+subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
+ use part,         only: igarg,icomp,isemi,iecc,iapo,iorb
+ real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer, intent(inout) :: group_info(:,:)
+ real,    intent(inout) :: bin_info(:,:)
+ integer, intent(in)    :: start_id, end_id,gsize
+ integer, allocatable :: r2min_id
+ real    :: akl,ekl,apokl,Tkl
+ integer :: np,ns,j,k,l
+ allocate(r2min_id(gsize))
+ call get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
+ do j=start_id,end_id
+    np = (j-start_id) + 1
+    k = group_info(igarg,j)
+    if (group_info(icomp,k) > 0) then
+       ns = r2min_id(np)
+       if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
+          l = group_info(igarg,ns+start_id)
+          group_info(icomp,k) = l
+          group_info(icomp,l) = k
+          !
+          !-- Compute and store main orbital parameters needed for SDAR method
+          !
+          call get_orbparams(xyzmh_ptmass,vxyz_ptmass,akl,ekl,apokl,Tkl,k,l)
+          bin_info(isemi,k) = akl
+          bin_info(isemi,l) = akl
+          bin_info(iecc,k)  = ekl
+          bin_info(iecc,l)  = ekl
+          bin_info(iapo,k)  = apokl
+          bin_info(iapo,l)  = apokl
+          bin_info(iorb,k)  = Tkl
+          bin_info(iorb,l)  = Tkl
+       else                       ! No matches... Only a single
+          group_info(icomp,k) = k
+          bin_info(:,k) = 0.
+       endif
+    endif
+ enddo
+ deallocate(r2min_id)
+
+end subroutine binaries_in_multiples
 
 subroutine get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
  use part, only : igarg,igcum
@@ -712,7 +725,8 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
 
 
  if (h==0.) then
-    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+    call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
+                               (e_id-s_id+1),s_id,e_id)
     call update_kappa(xyzmh_ptmass,group_info,bin_info,s_id,e_id)
  endif
  call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
