@@ -129,8 +129,8 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
     else
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
-       group_info(icomp,l) = k
-       group_info(icomp,k) = l
+       group_info(icomp,end_id)   = k
+       group_info(icomp,start_id) = l
        !
        !-- Compute and store main orbital parameters needed for SDAR method
        !
@@ -162,12 +162,12 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
  do j=start_id,end_id
     np = (j-start_id) + 1
     k = group_info(igarg,j)
-    if (group_info(icomp,k) > 0) then
+    if (group_info(icomp,j) > 0) then
        ns = r2min_id(np)
        if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
           l = group_info(igarg,ns+start_id)
-          group_info(icomp,k) = l
-          group_info(icomp,l) = k
+          group_info(icomp,np)          = l
+          group_info(icomp,ns+start_id) = k
           !
           !-- Compute and store main orbital parameters needed for SDAR method
           !
@@ -414,7 +414,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t1,tcpu1)
 
-    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+    !call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
        !$omp parallel do default(none)&
@@ -479,7 +479,6 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     kappa1 = 1./bin_info(ikap,prim)
     call get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,W,kappa1,prim,sec,&
                            ds_init=ds_init,Tij=bin_info(iorb,prim))
-    print*,ds_init
  endif
 
 
@@ -688,7 +687,7 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
 
  do k=s_id,e_id
     i = group_info(igarg,k)
-    compi = group_info(icomp,i)
+    compi = group_info(icomp,k)
     if (compi/=i) then ! It's a binary. identify companion and drift binary.
        m1 = xyzmh_ptmass(4,i)
        m2 = xyzmh_ptmass(4,compi)
@@ -892,7 +891,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
 
  do k=s_id,e_id
     i         = group_info(igarg,k)
-    compi     = group_info(icomp,i)
+    compi     = group_info(icomp,k)
     kappa1i   = 1./bin_info(ikap,i)
     gravfi(1) = 0.
     gravfi(2) = 0.
@@ -975,7 +974,7 @@ subroutine update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
 
  do k=s_id,e_id
     i     = group_info(igarg,k)
-    compi = group_info(icomp,i)
+    compi = group_info(icomp,k)
     if (compi == i) cycle
     if (any(binstack == i)) cycle
     pouti = bin_info(ipert,i)
