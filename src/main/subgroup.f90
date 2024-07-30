@@ -74,7 +74,6 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
  logical      :: large_search
 
 
-
  large_search = present(dtext)
  n_group = 0
  n_ingroup = 0
@@ -115,14 +114,13 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  integer, intent(in)    :: n_group
  integer :: i,k,l,start_id,end_id,gsize
  real    :: akl,ekl,apokl,Tkl
- ! need to be zeroed for safety reasons
- bin_info(:,:) = 0.
 
 ! this loop could be parallelized...
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
     gsize    = (end_id - start_id) + 1
+    group_info(icomp,start_id:end_id) = -1
     if (gsize > 2) then
        call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                   gsize,start_id,end_id)
@@ -157,17 +155,19 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
  integer, allocatable :: r2min_id(:)
  real    :: akl,ekl,apokl,Tkl
  integer :: np,ns,j,k,l
+
+ group_info(icomp,start_id:end_id) = -1
  allocate(r2min_id(gsize))
  call get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
  do j=start_id,end_id
     np = (j-start_id) + 1
     k = group_info(igarg,j)
-    if (group_info(icomp,j) > 0) then
+    if (group_info(icomp,j) < 0) then
        ns = r2min_id(np)
        if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
-          l = group_info(igarg,ns+start_id)
-          group_info(icomp,np)          = l
-          group_info(icomp,ns+start_id) = k
+          l = group_info(igarg,ns+(start_id-1))
+          group_info(icomp,np)              = l
+          group_info(icomp,ns+(start_id-1)) = k
           !
           !-- Compute and store main orbital parameters needed for SDAR method
           !
@@ -181,12 +181,13 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
           bin_info(iorb,k)  = Tkl
           bin_info(iorb,l)  = Tkl
        else                       ! No matches... Only a single
-          group_info(icomp,k) = k
+          group_info(icomp,j) = k
           bin_info(:,k) = 0.
        endif
     endif
  enddo
  deallocate(r2min_id)
+
 
 end subroutine binaries_in_multiples
 
@@ -414,7 +415,7 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t1,tcpu1)
 
-    !call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
+    call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
        !$omp parallel do default(none)&
@@ -433,7 +434,6 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
     call get_timings(t2,tcpu2)
     call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
-
  endif
 
  call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
@@ -519,6 +519,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
     if (step_count_int > max_step) then
        print*,"MAX STEP NUMBER, ABORT !!!"
+       print*,step_count_int,step_count_tsyn,tcoord,tnext,ds_init
        call abort()
     endif
 
@@ -568,7 +569,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     endif
  enddo
 
- print*,step_count_int,step_count_tsyn,tcoord,tnext,ds_init
+ !print*,"integrate : ",step_count_int,step_count_tsyn,tcoord,tnext,ds_init
 
  deallocate(bdata)
 
@@ -675,11 +676,12 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
  real,    intent(in)    :: h,W
  integer, intent(in)    :: s_id,e_id,gsize
  integer, allocatable :: binstack(:)
- integer :: k,i,compi
+ integer :: k,i,compi,n
  real    :: dtd,vcom(3),m1,m2,mtot,kappa1i
 
  allocate(binstack((gsize/4)+1))
  binstack = 0
+ n = 0
 
  dtd = h/W
 
@@ -697,6 +699,8 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
        vcom(1) = (m1*vxyz_ptmass(1,i)+m2*vxyz_ptmass(1,compi))/mtot
        vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,compi))/mtot
        vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,compi))/mtot
+       n = n+1 ! stack level
+       binstack(n) = compi
 
        call correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1i,dtd,i,compi)
 
@@ -712,14 +716,14 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
 end subroutine drift_TTL
 
 subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,s_id,e_id)
- use part, only: igarg
+ use part, only: igarg,ikap
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real,    intent(inout) :: gtgrad(:,:),bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(in)    :: h
  real,    intent(inout) :: W
  integer, intent(in)    :: s_id,e_id
- real :: om,dw,dtk
+ real :: om,dw,dtk,kappa1,om_old
  integer :: i,k,gsize
 
  gsize = (e_id-s_id+1)
@@ -727,36 +731,40 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
  if (h==0.) then
     call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                gsize,s_id,e_id)
+    call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om_old,s_id,e_id,.true.)
     call update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
+    call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
+    W = W + (om-om_old) ! correct W after updating kappa...
+ else
+
+    call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
+
+    dtk = h/om
+    do k=s_id,e_id
+       i=group_info(igarg,k)
+       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + (0.5*dtk)*fxyz_ptmass(1,i)
+       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + (0.5*dtk)*fxyz_ptmass(2,i)
+       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + (0.5*dtk)*fxyz_ptmass(3,i)
+    enddo
+
+    dw = 0.
+    do k=s_id,e_id
+       i=group_info(igarg,k)
+       kappa1 = 1./bin_info(ikap,i)
+       dw = dw + kappa1*(vxyz_ptmass(1,i)*gtgrad(1,i) + &
+                      vxyz_ptmass(2,i)*gtgrad(2,i) + &
+                      vxyz_ptmass(3,i)*gtgrad(3,i))
+    enddo
+
+    W = W + dw*dtk
+
+    do k=s_id,e_id
+       i=group_info(igarg,k)
+       vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + (0.5*dtk)*fxyz_ptmass(1,i)
+       vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + (0.5*dtk)*fxyz_ptmass(2,i)
+       vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + (0.5*dtk)*fxyz_ptmass(3,i)
+    enddo
  endif
- call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
-
-
- dtk = h/om
- do k=s_id,e_id
-    i=group_info(igarg,k)
-    vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + (0.5*dtk)*fxyz_ptmass(1,i)
-    vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + (0.5*dtk)*fxyz_ptmass(2,i)
-    vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + (0.5*dtk)*fxyz_ptmass(3,i)
- enddo
-
- dw = 0.
- do k=s_id,e_id
-    i=group_info(igarg,k)
-    dw = dw + vxyz_ptmass(1,i)*gtgrad(1,i) + &
-              vxyz_ptmass(2,i)*gtgrad(2,i) + &
-              vxyz_ptmass(3,i)*gtgrad(3,i)
- enddo
-
- W = W + dw*dtk
-
- do k=s_id,e_id
-    i=group_info(igarg,k)
-    vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + (0.5*dtk)*fxyz_ptmass(1,i)
-    vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + (0.5*dtk)*fxyz_ptmass(2,i)
-    vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + (0.5*dtk)*fxyz_ptmass(3,i)
- enddo
-
 
 end subroutine kick_TTL
 
@@ -923,9 +931,9 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        if (.not.present(potonly)) then
           ddr3 = ddr*ddr*ddr
           if (j == compi) then
-             gravf = mj*(1./ddr3)*kappa1i
+             gravf = -mj*ddr3*kappa1i
           else
-             gravf = mj*(1./ddr3)
+             gravf = -mj*ddr3
           endif
           gravfi(1) = gravfi(1) + dx*gravf
           gravfi(2) = gravfi(2) + dy*gravf
@@ -960,54 +968,62 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
 end subroutine get_force_TTL
 
 subroutine update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
- use part, only:igarg,icomp,ipert,ikap,iapo
+ use part, only:igarg,icomp,ipert,ikap,iapo,iecc,isemi
  real   , intent(in)    :: xyzmh_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: group_info(:,:)
  integer, intent(in)    :: s_id,e_id,gsize
  integer, allocatable :: binstack(:)
- integer :: k,l,i,j,compi
+ integer :: k,l,i,j,compi,n
  real :: pouti,r2,dx,dy,dz,ddr,ddr3,xi,yi,zi,m1,m2,mj,mu
- real :: kappai,rapo,rapo3
+ real :: kappa,rapo,rapo3
 
  allocate(binstack(gsize))
+ binstack = 0
+ n = 0
 
  do k=s_id,e_id
     i     = group_info(igarg,k)
     compi = group_info(icomp,k)
-    if (compi == i) cycle
-    if (any(binstack == i)) cycle
-    pouti = bin_info(ipert,i)
-    xi = xyzmh_ptmass(1,i)
-    yi = xyzmh_ptmass(2,i)
-    zi = xyzmh_ptmass(3,i)
-    m1 = xyzmh_ptmass(4,i)
-    m2 = xyzmh_ptmass(4,compi)
-    do l=s_id,e_id
-       if (k == l) cycle
-       j = group_info(igarg,l)
-       if (j == compi) cycle
-       dx = xi - xyzmh_ptmass(1,j)
-       dy = yi - xyzmh_ptmass(2,j)
-       dz = zi - xyzmh_ptmass(3,j)
-       r2 = dx**2+dy**2+dz**2
-       ddr  = 1./sqrt(r2)
-       ddr3 = ddr*ddr*ddr
-       mj = xyzmh_ptmass(4,j)
-       pouti = pouti +mj*ddr3
-    enddo
-
-    mu = (m1*m2)/(m1+m2)
-    rapo = bin_info(iapo,i)
-    rapo3 = rapo*rapo*rapo
-    kappai = kref/((rapo3/mu)*pouti)
-
-    if (kappai>1.) then
-       bin_info(ikap,i)     = kappai
-       bin_info(ikap,compi) = kappai
+    if (compi == i) then
+       bin_info(ikap,i) = 1.
     else
-       bin_info(ikap,i)     = 1.
-       bin_info(ikap,compi) = 1.
+       if (any(binstack == i)) cycle
+       n = n+1 ! level of the stack
+       binstack(n) = compi
+       pouti = bin_info(ipert,i)
+       xi = xyzmh_ptmass(1,i)
+       yi = xyzmh_ptmass(2,i)
+       zi = xyzmh_ptmass(3,i)
+       m1 = xyzmh_ptmass(4,i)
+       m2 = xyzmh_ptmass(4,compi)
+       do l=s_id,e_id
+          if (k == l) cycle
+          j = group_info(igarg,l)
+          if (j == compi) cycle
+          dx = xi - xyzmh_ptmass(1,j)
+          dy = yi - xyzmh_ptmass(2,j)
+          dz = zi - xyzmh_ptmass(3,j)
+          r2 = dx**2+dy**2+dz**2
+          ddr  = 1./sqrt(r2)
+          ddr3 = ddr*ddr*ddr
+          mj = xyzmh_ptmass(4,j)
+          pouti = pouti + mj*ddr3
+       enddo
+
+       mu = (m1*m2)/(m1+m2)
+       rapo = bin_info(iapo,i)
+       rapo3 = rapo*rapo*rapo
+       kappa = kref/((rapo3/mu)*pouti)
+       !print*,pouti,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i),i
+
+       if (kappa>1.) then
+          bin_info(ikap,i)     = kappa
+          bin_info(ikap,compi) = kappa
+       else
+          bin_info(ikap,i)     = 1.
+          bin_info(ikap,compi) = 1.
+       endif
     endif
  enddo
 
@@ -1097,7 +1113,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  rapo = bin_info(iapo,i)
  rapo3 = rapo*rapo*rapo
  kappa = kref/((rapo3/mu)*pert)
- print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
+ !print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
  if (kappa > 1.) then
     bin_info(ikap,i) = kappa
     bin_info(ikap,j) = kappa

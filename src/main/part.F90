@@ -312,7 +312,7 @@ module part
  integer, parameter   :: iapo  = 3 ! apocenter
  integer, parameter   :: iorb  = 4 ! orbital period
  integer, parameter   :: ipert = 5 ! perturbation
- integer, parameter   :: ikap  = 6 ! kappa  slow down
+ integer, parameter   :: ikap  = 6 ! kappa slow down
 
 
  ! needed for group identification and sorting
@@ -517,7 +517,7 @@ subroutine allocate_part
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
  call allocate_array('group_info', group_info, 4, maxptmass)
- call allocate_array('bin_info', bin_info, 5, maxptmass)
+ call allocate_array('bin_info', bin_info, 6, maxptmass)
  call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
  call allocate_array("gtgrad", gtgrad, 3, maxptmass)
  call allocate_array('isionised', isionised, maxp)
