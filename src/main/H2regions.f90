@@ -8,7 +8,7 @@ module HIIRegion
 !
 ! HIIRegion
 !
-! :References: None
+! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
 ! :Owner: Yrisch
 !
@@ -17,15 +17,10 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
+! contains routines to model HII region expansion due to ionization and radiation pressure..
+! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! and adapted in Phantom by Yann Bernard
 
- !
- !
- ! contains routine for Stromgren radius calculation and Radiative pressure velocity kick
- ! routine originally made by Hopkins et al. (2012) Fujii et al. (2021)
- ! adapted in Phantom by Yann BERNARD
- ! reference : Fujii et al. 2021 SIRIUS Project Paper III
- !
- !
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
@@ -101,19 +96,19 @@ end subroutine initialize_H2R
 
 subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
- use units,  only:utime,umass
+ use units,  only:umass
  use part,   only:irateion,ihacc,irstrom
  use physcon,only:solarm
  integer, intent(in)    :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: h_acc
- real    :: logmi,log_Q,mi,hi,Q
+ real    :: logmi,log_Q,mi,hi
  integer :: i
  nHIIsources = 0
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,iprint,iverbose,umass)&
- !$omp shared(utime,Minmass,h_acc,nptmass)&
- !$omp private(logmi,log_Q,Q,mi,hi)&
+ !$omp shared(Minmass,h_acc,nptmass)&
+ !$omp private(logmi,log_Q,mi,hi)&
  !$omp reduction(+:nHIIsources)
  do i=1,nptmass
     mi = xyzmh_ptmass(4,i)
@@ -123,8 +118,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        ! caluclation of the ionizing photon rate  of each sources
        ! this calculation uses Fujii's formula derived from OSTAR2002 databases
        log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-       Q = (10.**log_Q)*utime
-       xyzmh_ptmass(irateion,i) = Q
+       xyzmh_ptmass(irateion,i) = log_Q
        xyzmh_ptmass(irstrom,i)  = -1.
        nHIIsources = nHIIsources + 1
        if (iverbose >= 0) then
@@ -144,13 +138,13 @@ end subroutine update_ionrates
 
 subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
- use units,  only:utime,umass
+ use units,  only:umass
  use part,   only:irateion,ihacc,irstrom
  use physcon,only:solarm
  integer, intent(in)    :: i
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: h_acc
- real    :: logmi,log_Q,mi,hi,Q
+ real    :: logmi,log_Q,mi,hi
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)
  if (mi > Minmass .and. hi < h_acc) then
@@ -158,8 +152,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
     ! caluclation of the ionizing photon rate  of each sources
     ! this calculation uses Fujii's formula derived from OSTAR2002 databases
     log_Q = (a+b*logmi+c*logmi**2+d*logmi**3+e*logmi**4+f*logmi**5)
-    Q = (10.**log_Q)*utime
-    xyzmh_ptmass(irateion,i) =  Q
+    xyzmh_ptmass(irateion,i) =  log_Q
     xyzmh_ptmass(irstrom,i)  = -1.
     nHIIsources = nHIIsources + 1
     if (iverbose >= 0) then
@@ -190,6 +183,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use physcon,    only:pc,pi
  use timing,     only:get_timings,increment_timer,itimer_HII
  use dim,        only:maxvxyzu
+ use units,      only:utime
  integer,          intent(in)    :: nptmass,npart
  real,             intent(in)    :: xyzh(:,:)
  real,             intent(inout) :: xyzmh_ptmass(:,:),vxyzu(:,:)
@@ -199,8 +193,8 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  real, save :: xyzcache(maxcache,3)
  integer            :: i,k,j,npartin,nneigh
  real(kind=4)       :: t1,t2,tcpu1,tcpu2
- real               :: pmass,Ndot,DNdot,taud,mHII,r,r_in,hcheck
- real               :: xi,yi,zi,Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
+ real               :: pmass,Ndot,DNdot,logNdiff,taud,mHII,r,r_in,hcheck
+ real               :: xi,yi,zi,log_Qi,stromi,xj,yj,zj,dx,dy,dz,vkx,vky,vkz
  logical            :: momflag
 
  momflag = .false.
@@ -220,9 +214,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  if (nHIIsources > 0) then
     do i=1,nptmass
        npartin=0
-       Qi = xyzmh_ptmass(irateion,i)
-       if (Qi <=0.) cycle
-       Ndot = Qi
+       log_Qi = xyzmh_ptmass(irateion,i)
+       if (log_Qi <=0.) cycle
+       Ndot = log_Qi ! instead of working with very large number, we'll work in logspace now
        xi = xyzmh_ptmass(1,i)
        yi = xyzmh_ptmass(2,i)
        zi = xyzmh_ptmass(3,i)
@@ -243,10 +237,11 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           j = listneigh(k)
           if (.not. isdead_or_accreted(xyzh(4,j))) then
              ! ionising photons needed to fully ionise the current particle
-             DNdot = (pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2)
+             DNdot = log10((((pmass*ar*rhoh(xyzh(4,j),pmass))/(mH**2))/utime))
              if (Ndot>DNdot) then
                 if (.not.(isionised(j))) then
-                   Ndot = Ndot - DNdot
+                   logNdiff = DNdot -Ndot
+                   Ndot = Ndot + log10(1-10**(logNdiff))
                    isionised(j)=.true.
                    if (maxvxyzu >= 4) vxyzu(4,j) = uIon
                 endif
@@ -275,7 +270,7 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           if (mHII>3*pmass) then
 !$omp parallel do default(none) &
 !$omp shared(mHII,listneigh,xyzh,sigd,dt) &
-!$omp shared(mH,vxyzu,Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
+!$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
 !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
              do k=1,npartin
                 j = listneigh(1)
@@ -288,9 +283,9 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 r = dx**2 + dy**2 + dz**2
                 taud = (rhoh(xyzh(4,j),pmass)/mH)*sigd*r
                 if (taud > 1.97) taud=1.97
-                vkx = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dx/r)
-                vky = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dy/r)
-                vkz = (1.+1.5*exp(-taud))*(QI/mHII)*hv_on_c*(dz/r)
+                vkz = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dz/r)
+                vkx = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dx/r)
+                vky = (1.+1.5*exp(-taud))*((10**log_Qi)/mHII)*hv_on_c*(dy/r)
                 vxyzu(1,j) = vxyzu(1,j) +  vkx*dt
                 vxyzu(2,j) = vxyzu(2,j) +  vky*dt
                 vxyzu(3,j) = vxyzu(3,j) +  vkz*dt

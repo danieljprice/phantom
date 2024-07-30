@@ -44,6 +44,8 @@ module dim
 #endif
  integer, parameter :: nsinkproperties = 22
 
+ logical :: store_ll_ptmass = .false.
+
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
  integer, parameter :: maxvxyzu = 3

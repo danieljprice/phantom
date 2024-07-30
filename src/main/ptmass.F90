@@ -2248,6 +2248,7 @@ end subroutine write_options_ptmass
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
  use subgroup,   only:r_neigh
+ use dim,        only:store_ll_ptmass
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -2331,6 +2332,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+
+ if (icreate_sinks ==2) store_ll_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then

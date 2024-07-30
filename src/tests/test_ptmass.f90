@@ -1198,7 +1198,7 @@ subroutine test_HIIregion(ntests,npass)
  h_acc = 0.002
 
  xyzmh_ptmass(4,1) = -1.
- xyzmh_ptmass(irateion,1) = (10.**49.)*utime ! rate_ion [s^-1]
+ xyzmh_ptmass(irateion,1) = 49. ! rate_ion [s^-1]
  nptmass = 1
  nHIIsources = 1
 
@@ -1247,7 +1247,7 @@ subroutine test_HIIregion(ntests,npass)
 
  rho0 = totmass/totvol
 
- Rstrom = ((3*xyzmh_ptmass(irateion,1)*mH**2)/(4*pi*ar*rho0**2))**(1./3.)
+ Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
  xyzmh_ptmass(irstrom,1) = -1.
  ci   = sqrt(polykion)
  k = 0.005

@@ -48,7 +48,8 @@ contains
 subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use dim,   only:maxp,maxvxyzu,maxalpha,ndivcurlv,ndivcurlB,maxgrav,gravity,use_dust,&
                  lightcurve,use_dustgrowth,store_dust_temperature,gr,do_nucleation,&
-                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi
+                 ind_timesteps,mhd_nonideal,use_krome,h2chemistry,update_muGamma,mpi,&
+                 store_ll_ptmass
  use eos,   only:ieos,eos_is_non_ideal,eos_outputs_mu,eos_outputs_gasP
  use io,    only:idump,iprint,real4,id,master,error,warning,nprocs
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
@@ -70,7 +71,6 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
- use ptmass,     only:icreate_sinks
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -306,7 +306,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           ilen(2) = int(nptmass,kind=8)
           call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,nerr)
           call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,nerr)
-          if (icreate_sinks == 2) then
+          if (store_ll_ptmass) then
              call write_array(2,linklist_ptmass,"linklist_ptmass",nptmass,k,ipass,idump,nums,nerr)
           endif
           if (nerr > 0) call error('write_dump','error writing sink particle arrays')
@@ -974,7 +974,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
                       use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature,&
-                      ind_timesteps,use_krome
+                      ind_timesteps,use_krome,store_ll_ptmass
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,linklist_ptmass, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
@@ -985,7 +985,6 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       ithick,ilambda,iorig,dt_in,krome_nmols,T_gas_cool
  use sphNGutils, only:mass_sphng,got_mass,set_gas_particle_mass
  use options,    only:use_porosity
- use ptmass,     only:icreate_sinks
  integer, intent(in)   :: i1,i2,noffset,narraylengths,nums(:,:),npartread,npartoftype(:),idisk1,iprint
  real,    intent(in)   :: massoftype(:)
  integer, intent(in)   :: nptmass,nsinkproperties
@@ -1122,7 +1121,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           case(2)
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
-             if (icreate_sinks == 2) then
+             if (store_ll_ptmass) then
                 call read_array(linklist_ptmass,'linklist_ptmass',got_sink_llist,ik,1,nptmass,0,idisk1,tag,match,ierr)
              endif
           end select

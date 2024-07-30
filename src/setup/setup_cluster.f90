@@ -37,6 +37,7 @@ module setup
  real              :: Rsink_au,Rcloud_pc,Mcloud_msun,Temperature,mu
  real(kind=8)      :: mass_fac,dist_fac
  character(len=32) :: default_cluster
+ logical           :: relax
 
 contains
 
@@ -102,6 +103,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
  mu          = 2.46          ! Mean molecular weight (required for polyK only)
+ relax       = .false.
+
  select case (icluster)
  case (1)
     ! from Bate, Bonnell & Bromm (2003)
@@ -194,9 +197,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_particle_type(i,igas)
  enddo
 
- call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rhozero,dmedium=0.,&
-                       is_setup=.true.,prefix=trim(fileprefix))
-
+ if (relax) then
+    call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rhozero,dmedium=0.,&
+                          is_setup=.true.,prefix=trim(fileprefix))
+ endif
  !--Set velocities (from pre-made velocity cubes)
  write(*,"(1x,a)") 'Setting up velocity field on the particles...'
  vxyzu(:,:) = 0.
@@ -277,6 +281,7 @@ subroutine get_input_from_prompts()
  call prompt('Enter the radius of the sink particles (in au)',Rsink_au)
  call prompt('Enter the Temperature of the cloud (used for initial sound speed)',Temperature)
  call prompt('Enter the mean molecular mass (used for initial sound speed)',mu)
+ call prompt('Do you want to relax your cloud',relax)
  if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion)',ieos_in)
 
 end subroutine get_input_from_prompts
@@ -301,6 +306,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# options for sphere'
  call write_inopt(Mcloud_msun,'M_cloud','mass of cloud in solar masses',iunit)
  call write_inopt(Rcloud_pc,'R_cloud','radius of cloud in pc',iunit)
+ call write_inopt(relax, 'relax', 'relax the cloud ?', iunit)
  write(iunit,"(/,a)") '# options required for initial sound speed'
  call write_inopt(Temperature,'Temperature','Temperature',iunit)
  call write_inopt(mu,'mu','mean molecular mass',iunit)
