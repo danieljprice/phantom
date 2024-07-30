@@ -83,8 +83,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax = 0.001
  use_fourthorder = .true.
  use_regnbody = .true.
- m_gas = 1.e-4
- ntot = 0
+ m_gas = 1.e-3
+ ntot = 2**20
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input

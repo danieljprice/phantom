@@ -975,7 +975,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !
 
  !$omp parallel default(none) &
- !$omp shared(maxp,maxphase) &
+ !$omp shared(maxp,maxphase,wsub,bin_info) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
@@ -1008,15 +1008,30 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           zi = xyzh(3,i)
        endif
        if (nptmass > 0) then
-          if (extrap) then
-             call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+          if(wsub) then
+             if (extrap) then
+                call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
-                                     dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
+                                     dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old,&
+                                     bin_info=bin_info)
+             else
+                call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+                  fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i,&
+                  bin_info=bin_info)
+                fonrmax = max(fonrmax,fonrmaxi)
+                dtphi2  = min(dtphi2,dtphi2i)
+             endif
           else
-             call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
-                  fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
-             fonrmax = max(fonrmax,fonrmaxi)
-             dtphi2  = min(dtphi2,dtphi2i)
+             if (extrap) then
+                call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+                                    fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
+                                    dsdt_ptmass,fonrmaxi,dtphi2i,extrapfac,fsink_old)
+             else
+                call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
+                 fextx,fexty,fextz,phii,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmaxi,dtphi2i)
+                fonrmax = max(fonrmax,fonrmaxi)
+                dtphi2  = min(dtphi2,dtphi2i)
+             endif
           endif
        endif
 

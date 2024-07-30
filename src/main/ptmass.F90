@@ -151,19 +151,21 @@ contains
 !----------------------------------------------------------------
 subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, &
                                        pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax, &
-                                       dtphi2,extrapfac,fsink_old)
+                                       dtphi2,extrapfac,fsink_old,bin_info)
 #ifdef FINVSQRT
  use fastmath,      only:finvsqrt
 #endif
  use kernel,        only:kernel_softening,radkern
  use vectorutils,   only:unitvec
  use extern_geopot, only:get_geopot_force
+ use part,          only:ipert
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    optional, intent(in)    :: pmassi,extrapfac
  real,    optional, intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,    optional, intent(inout) :: bin_info(6,nptmass)
  real,    optional, intent(in)    :: fsink_old(4,nptmass)
  real,    optional, intent(out)   :: fonrmax,dtphi2
  real                             :: ftmpxi,ftmpyi,ftmpzi
@@ -171,7 +173,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
- logical                          :: tofrom,extrap
+ logical                          :: tofrom,extrap,kappa
  !
  ! Determine if acceleration is from/to gas, or to gas
  !
@@ -187,6 +189,12 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
     extrap = .true.
  else
     extrap = .false.
+ endif
+
+ if (present(bin_info)) then
+    kappa = .true.
+ else
+    kappa = .false.
  endif
 
 
@@ -295,6 +303,10 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
+       if (kappa) then
+          ! add perturbation for
+          bin_info(ipert,j) = bin_info(ipert,j) + f2
+       endif
     endif
  enddo
  !
@@ -345,7 +357,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,              intent(out) :: dsdt_ptmass(3,nptmass)
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
- real,    optional, intent(out) :: bin_info(5,nptmass)
+ real,    optional, intent(out) :: bin_info(6,nptmass)
  integer, optional, intent(in)  :: group_info(4,nptmass)
  real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2

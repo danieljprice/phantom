@@ -24,6 +24,7 @@ module subgroup
  public :: evolve_groups
  public :: get_pot_subsys
  public :: init_subgroup
+ public :: init_kappa
  !
  !-- parameters for group identification
  !
@@ -1113,7 +1114,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  rapo = bin_info(iapo,i)
  rapo3 = rapo*rapo*rapo
  kappa = kref/((rapo3/mu)*pert)
- !print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
+ print*,xyzmh_ptmass(2,i),pert,kappa,rapo,bin_info(isemi,i),bin_info(iecc,i)
  if (kappa > 1.) then
     bin_info(ikap,i) = kappa
     bin_info(ikap,j) = kappa
@@ -1123,6 +1124,29 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  endif
 
 end subroutine get_kappa_bin
+
+
+subroutine init_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
+ use part, only:igcum,igarg
+ real,    intent(in)    :: xyzmh_ptmass(:,:)
+ real,    intent(inout) :: bin_info(:,:)
+ integer, intent(in)    :: group_info(:,:)
+ integer, intent(in)    :: n_group
+ integer :: i,start_id,end_id,prim,sec,gsize
+
+ do i=1,n_group
+    start_id = group_info(igcum,i) + 1
+    end_id   = group_info(igcum,i+1)
+    gsize    = (end_id - start_id) + 1
+    if (gsize>2) then
+       call update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,start_id,end_id)
+    else
+       prim = group_info(igarg,start_id)
+       sec = group_info(igarg,end_id)
+       call get_kappa_bin(xyzmh_ptmass,bin_info,prim,sec)
+    endif
+ enddo
+end subroutine init_kappa
 
 
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
