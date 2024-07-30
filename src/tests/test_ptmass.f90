@@ -14,11 +14,11 @@ module testptmass
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, deriv, dim, energies, eos,
-!   extern_binary, externalforces, gravwaveutils, io, kdtree, kernel,
-!   mpiutils, options, part, physcon, ptmass, random, setbinary, setdisc,
-!   spherical, step_lf_global, stretchmap, testutils, timestep, timing,
-!   units
+! :Dependencies: HIIRegion, boundary, checksetup, deriv, dim, energies,
+!   eos, eos_HIIR, extern_binary, externalforces, gravwaveutils, io,
+!   kdtree, kernel, mpiutils, options, part, physcon, ptmass, random,
+!   setbinary, setdisc, spherical, step_lf_global, stretchmap, testutils,
+!   timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none
@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
- logical :: do_test_chinese_coin,do_test_merger,do_test_potential
+ logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -52,6 +52,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_merger = .false.
  do_test_potential = .false.
  do_test_chinese_coin = .false.
+ do_test_HII = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -74,6 +75,9 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_binary = .true.
     do_test_softening = .true.
     do_test_merger = .true.
+ case('ptmassHII')
+    do_test_HII = .true.
+
  case default
     testall = .true.
  end select
@@ -129,6 +133,8 @@ subroutine test_ptmass(ntests,npass,string)
  !  Test sink particle creation
  !
  if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
+
+ if (do_test_HII) call test_HIIregion(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -628,7 +634,8 @@ subroutine test_accretion(ntests,npass,itest)
  use io,        only:id,master
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
-                     isdead_or_accreted,set_particle_type,ndptmass,hfact
+                     isdead_or_accreted,set_particle_type,ndptmass,hfact,&
+                     linklist_ptmass
  use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
@@ -708,7 +715,7 @@ subroutine test_accretion(ntests,npass,itest)
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                            igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
+                           accreted,dptmass_thread,linklist_ptmass,t,1.0,ibin_wakei,ibin_wakei)
     endif
  enddo
  !$omp enddo
@@ -773,17 +780,19 @@ subroutine test_createsink(ntests,npass)
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                      dptmass,fxyz_ptmass_sinksink
+                      dptmass,fxyz_ptmass_sinksink,linklist_ptmass
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
-                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs
+                      ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
+                      ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
+                      ptmass_create_seeds
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
  use stretchmap, only:rho_func
  integer, intent(inout) :: ntests,npass
- integer :: i,itest,itestp,nfailed(3),imin(1)
+ integer :: i,itest,itestp,nfailed(4),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
- real :: psep,totmass,r2min,r2,t
+ real :: psep,totmass,r2min,r2,t,coremass,starsmass
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
  procedure(rho_func), pointer :: density_func
 
@@ -792,8 +801,10 @@ subroutine test_createsink(ntests,npass)
  iverbose = 1
  rho_crit = rho_crit_cgs
 
- do itest=1,2
+ do itest=1,3
     select case(itest)
+    case(3)
+       if (id==master) write(*,"(/,a)") '--> testing sink particle creation (cores and stars prescription)'
     case(2)
        if (id==master) write(*,"(/,a)") '--> testing sink particle creation (sin)'
     case default
@@ -834,7 +845,16 @@ subroutine test_createsink(ntests,npass)
     ! and make sure that gravitational potential energy has been computed
     !
     tree_accuracy = 0.
-    icreate_sinks = 1
+    if (itest==3) then
+       icreate_sinks = 2
+       linklist_ptmass = -1
+       tmax_acc = 0.
+       tseeds = 0.
+       ipart_createseeds = 1
+       ipart_createstars = 1
+    else
+       icreate_sinks = 1
+    endif
 
     call get_derivs_global()
 
@@ -893,12 +913,31 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,0.)
+    if (itest==3) then
+       coremass = 0.
+       starsmass = 0.
+       xyzmh_ptmass(4,1) = xyzmh_ptmass(4,1)*6e33
+       coremass = xyzmh_ptmass(4,1)
+       call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,0.)
+       call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
+                                fxyz_ptmass_sinksink,linklist_ptmass,0.)
+       do i=1,nptmass
+          starsmass = starsmass + xyzmh_ptmass(4,i)
+       enddo
+       xyzmh_ptmass(4,1) = coremass/6e33
+       xyzmh_ptmass(4,:) = 0.
+    endif
     !
     ! check that creation succeeded
     !
     nfailed(:) = 0
-    call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
+    if (itest == 3) then
+       call checkval(nptmass,3,3,nfailed(1),'nptmass=nseeds')
+       call checkval(starsmass-coremass,0.,0.,nfailed(4),'Mass conservation')
+    else
+       call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
+    endif
     call update_test_scores(ntests,nfailed,npass)
     !
     ! check that linear and angular momentum and energy is conserved
@@ -1117,6 +1156,119 @@ subroutine test_merger(ntests,npass)
  r_merge_cond   = 0.
 
 end subroutine test_merger
+
+subroutine test_HIIregion(ntests,npass)
+ use dim,            only:maxp,maxphase,maxvxyzu
+ use io,             only:id,master,iverbose,iprint
+ use eos_HIIR,       only:polykion,init_eos_HIIR
+ use eos,            only:gmw,ieos,polyk,gamma
+ use deriv,          only:get_derivs_global
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass, &
+                            npart,ihacc,irstrom,xyzh,vxyzu,hfact,igas, &
+                            npartoftype,fxyzu,massoftype,isionised,init_part,&
+                            iphase,isetphase,irateion,irstrom
+ use ptmass,         only:h_acc
+ use step_lf_global, only:init_step,step
+ use spherical,      only:set_sphere
+ use units,          only:set_units,utime,unit_velocity,udist,umass
+ use physcon,        only:pc,solarm,years,pi,kboltz,mass_proton_cgs
+ use kernel,         only: hfact_default
+ use kdtree,         only:tree_accuracy
+ use testutils,      only: checkval,update_test_scores
+ use HIIRegion,      only:initialize_H2R,update_ionrate,HII_feedback,iH2R,nHIIsources,ar,mH
+ integer, intent(inout) :: ntests,npass
+ integer        :: np,i,nfailed(1)
+ real           :: totmass,psep
+ real           :: Rstrom,ci,k,rho0
+ real           :: totvol,nx,rmin,rmax,temp
+ if (id==master) write(iprint,"(/,a)") '--> testing HII region expansion around massive stars...'
+
+ call set_units(dist=pc,mass=solarm,G=1.d0)
+ call init_eos_HIIR()
+ iverbose = 0
+ !
+ ! initialise arrays to zero
+ !
+ call init_part()
+ gmw = 1.0
+
+ xyzmh_ptmass(:,:) = 0.
+ vxyz_ptmass(:,:)  = 0.
+
+ h_acc = 0.002
+
+ xyzmh_ptmass(4,1) = -1.
+ xyzmh_ptmass(irateion,1) = 49. ! rate_ion [s^-1]
+ nptmass = 1
+ nHIIsources = 1
+
+ hfact = 1.2
+ gamma = 1.
+ rmin  = 0.
+ rmax  = 2.91*pc/udist
+ ieos  = 21
+ tree_accuracy = 0.5
+ temp = 1000.
+!
+!--setup particles
+!
+ np       = 1000000
+ totvol   = 4./3.*pi*rmax**3
+ nx       = int(np**(1./3.))
+ psep     = totvol**(1./3.)/real(nx)
+ npart    = 0
+ ! only set up particles on master, otherwise we will end up with n duplicates
+ if (id==master) then
+    call set_sphere('cubic',id,master,rmin,rmax,psep,hfact,npart,xyzh,np_requested=np)
+ endif
+ np       = npart
+
+
+!
+!--set particle properties
+!
+ totmass        = 8.e3*solarm/umass
+ npartoftype(:) = 0
+ npartoftype(igas) = npart
+ massoftype(:)  = 0.0
+ massoftype(igas)  = totmass/npartoftype(igas)
+ if (maxphase==maxp) then
+    do i=1,npart
+       iphase(i) = isetphase(igas,iactive=.true.)
+    enddo
+ endif
+
+
+ iH2R = 1
+ if (id==master) then
+    call initialize_H2R
+    !call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+ endif
+
+ rho0 = totmass/totvol
+
+ Rstrom = 10**((1./3)*(log10(((3*mH**2)/(4*pi*ar*rho0**2)))+xyzmh_ptmass(irateion,1)+log10(utime)))
+ xyzmh_ptmass(irstrom,1) = -1.
+ ci   = sqrt(polykion)
+ k = 0.005
+
+ polyk = (kboltz*temp)/(gmw*mass_proton_cgs)*((unit_velocity)**2)
+ vxyzu(:,:) = 0.
+ fxyzu(:,:) = 0.
+ if (maxvxyzu >= 4) then
+    vxyzu(4,:) = polyk
+    ieos = 22
+ endif
+
+ call get_derivs_global()
+
+ call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyz_ptmass,isionised)
+
+ call checkval(xyzmh_ptmass(irstrom,1),Rstrom,1.e-2,nfailed(1),'Initial strömgren radius')
+
+ call update_test_scores(ntests,nfailed,npass)
+
+end subroutine test_HIIregion
 
 !-----------------------------------------------------------------------
 !+
