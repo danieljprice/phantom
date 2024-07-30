@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module inject
 !
-! Injection module for wind from an orbiting asteroid, as used
+! Injection module for wind from an orbiting body, as used
 ! in Trevascus et al. (2021)
 !
 ! :References:
@@ -25,7 +25,7 @@ module inject
  use io, only:error
  use physcon, only:pi
  implicit none
- character(len=*), parameter, public :: inject_type = 'asteroidwind'
+ character(len=*), parameter, public :: inject_type = 'randomwind'
  real, public :: mdot = 5.e8     ! mass injection rate in grams/second
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
@@ -73,16 +73,16 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real,    intent(out)   :: dtinject
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
  integer :: i,ipart,npinject,seed,pt
- real    :: dmdt,rasteroid,h,u,speed,inject_this_step
+ real    :: dmdt,rbody,h,u,speed,inject_this_step
  real    :: m1,m2,r
  real    :: dt
  real, save :: have_injected,t_old
  real, save :: semia
 
  if (nptmass < 2 .and. iexternalforce == 0) &
-    call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
+    call fatal('inject_randomwind','not enough point masses for random wind injection')
  if (nptmass > 2) &
-    call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
+    call fatal('inject_randomwind','too many point masses for random wind injection')
 
  if (nptmass == 2) then
     pt = 2
@@ -97,7 +97,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  r2        = xyzmh_ptmass(1:3,pt)
- rasteroid = xyzmh_ptmass(ihsoft,pt)
+ rbody     = xyzmh_ptmass(ihsoft,pt)
  m2        = xyzmh_ptmass(4,pt)
  v2        = vxyz_ptmass(1:3,pt)
 
@@ -130,14 +130,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  !
- !-- Randomly inject particles around the asteroids outer 'radius'.
- !   Only inject them on the side that is facing the central sink
+ !-- Randomly inject particles around the body's outer 'radius'.
  !
  do i=1,npinject
-    xyz       = r2 + rasteroid*get_random_pos_on_sphere(seed)
+    xyz       = r2 + rbody*get_random_pos_on_sphere(seed)
     vxyz      = (1.-vlag/100)*speed*vhat
     u         = 0. ! setup is isothermal so utherm is not stored
-    h         = hfact*(rasteroid/2.)
+    h         = hfact*(rbody/2.)
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
