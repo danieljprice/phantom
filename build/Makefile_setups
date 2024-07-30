@@ -206,7 +206,7 @@ ifeq ($(SETUP), grdisc)
 #   accretion disc around a Kerr black hole
     SETUPFILE= setup_grdisc.f90
     ANALYSIS= analysis_disc.f90
-    GR=yes
+    GR=no
     METRIC=kerr
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90
@@ -923,10 +923,11 @@ ifeq ($(SETUP), isosgdisc)
     SETUPFILE= setup_disc.f90
     GRAVITY=yes
     IND_TIMESTEPS=yes
-    ANALYSIS=analysis_dustydisc.f90
+    #ANALYSIS=analysis_dustydisc.f90
     ISOTHERMAL=yes
     KNOWN_SETUP=yes
     SRCINJECT= inject_keplerian.f90
+    ANALYSIS = utils_getneighbours.F90 utils_omp.F90 analysis_disc_stresses.f90
 endif
 
 ifeq ($(SETUP), dustyisosgdisc)

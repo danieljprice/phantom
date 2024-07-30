@@ -8,16 +8,18 @@ module inject
 !
 ! Injection of material at keplerian speed in an accretion disc
 !
-! :References: 
+! :References:
 !
-! :Owner: Daniel Price
+! :Owner: Cristiano Longarini
 !
 ! :Runtime parameters:
-!   - datafile       : *name of data file for wind injection*
-!   - outer_boundary : *kill gas particles outside this radius*
+!   - HonR_inj    : *aspect ratio to give temperature at rinj*
+!   - follow_sink : *injection radius is relative to sink particle 1*
+!   - mdot        : *mass injection rate [msun/yr]*
+!   - rinj        : *injection radius*
 !
-! :Dependencies: dim, eos, infile_utils, io, part, partinject, physcon,
-!   random, units
+! :Dependencies: eos, externalforces, infile_utils, io, options, part,
+!   partinject, physcon, random, units
 !
  implicit none
  character(len=*), parameter, public :: inject_type = 'keplerian'
@@ -28,6 +30,7 @@ module inject
  real :: mdot = 0.
  real :: rinj = 25.
  real :: HonR_inj = 0.05
+ logical :: follow_sink = .true.
  integer, private :: iseed=-888
 
 contains
@@ -98,8 +101,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  if (iexternalforce > 0) then
     mstar = mass1
  elseif (nptmass >= 1) then
-    x0 = xyzmh_ptmass(1:3,1)
-    v0 = vxyz_ptmass(1:3,1)
+    if (follow_sink) then
+       x0 = xyzmh_ptmass(1:3,1)
+       v0 = vxyz_ptmass(1:3,1)
+    endif
     mstar = xyzmh_ptmass(4,1)
  else
     mstar = 1.
@@ -111,7 +116,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  r2min = huge(r2min)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
-       r2 = xyzh(1,i)**2 + xyzh(2,i)**2
+       r2 = (xyzh(1,i)-x0(1))**2 + (xyzh(2,i)-x0(2))**2
        dr2 = abs(r2 - rinj*rinj)
        if (dr2 < r2min) then
           hguess = xyzh(4,i)
@@ -150,14 +155,14 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  ! for the residual, roll the dice
  !
- frac_extra = Minject/massoftype(igas) - ninject
- if (ran2(iseed) < frac_extra) ninject = ninject + 1
+ frac_extra = Minject/massoftype(igas) - 2*(ninject/2)
+ if (ran2(iseed) < 0.5*frac_extra) ninject = ninject + 2
 
  if (iverbose >= 2) print*,' injecting ',&
                     ninject,Minject/massoftype(igas),massoftype(igas)
 
  if (ninject > 0) then
-    do k=1,ninject
+    do k=1,ninject/2
        !
        ! get random position on ring
        !
@@ -171,13 +176,15 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
 
        vphi = vkep*(1. - (zi/rinj)**2)**(-0.75)  ! see Martire et al. (2024)
 
-       xyzi = (/rinj*cosphi,rinj*sinphi,zi/) + x0
-       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./) + v0
+       xyzi = (/rinj*cosphi,rinj*sinphi,zi/)
+       vxyz = (/-vphi*sinphi, vphi*cosphi, 0./)
 
        u = 1.5*cs**2
 
-       i_part = npart + 1 ! all particles are new
-       call add_or_update_particle(igas, xyzi, vxyz, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       i_part = npart + 1! all particles are new
+       call add_or_update_particle(igas, xyzi+x0, vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
+       i_part = npart + 1! all particles are new
+       call add_or_update_particle(igas, -xyzi+x0, -vxyz+v0, hguess, u, i_part, npart, npartoftype, xyzh, vxyzu)
     enddo
  endif
 
@@ -194,7 +201,7 @@ end subroutine inject_particles
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
-end subroutine
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+
@@ -203,14 +210,17 @@ end subroutine
 !-----------------------------------------------------------------------
 subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
- use part,         only:maxvxyzu
+ use part,         only:maxvxyzu,nptmass
  integer, intent(in) :: iunit
 
  call write_inopt(mdot,'mdot','mass injection rate [msun/yr]',iunit)
  call write_inopt(rinj,'rinj','injection radius',iunit)
  if (maxvxyzu >= 4) then
-   call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
-endif
+    call write_inopt(HonR_inj,'HonR_inj','aspect ratio to give temperature at rinj',iunit)
+ endif
+ if (nptmass >= 1) then
+    call write_inopt(follow_sink,'follow_sink','injection radius is relative to sink particle 1',iunit)
+ endif
 
 end subroutine write_options_inject
 
@@ -236,6 +246,8 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) rinj
  case('HonR_inj')
     read(valstring,*,iostat=ierr) HonR_inj
+ case('follow_sink')
+    read(valstring,*,iostat=ierr) follow_sink
  case default
     imatch = .false.
  end select
