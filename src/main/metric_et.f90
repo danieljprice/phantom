@@ -32,33 +32,37 @@ contains
 !+
 !----------------------------------------------------------------
 pure subroutine get_metric_cartesian(position,gcov,gcon,sqrtg)
- use einsteintk_utils, only:gridinit
+ use metric_et_utils, only:gridinit
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional :: gcon(0:3,0:3)
  real, intent(out), optional :: sqrtg
+ integer :: ierr
 
  ! The subroutine that computes the metric tensor for a given position
  ! In this case it is interpolated from the global grid values
 
  ! Perform trilenar interpolation
  if ( .not. gridinit) then
+    ierr = 1
     ! This is required for phantomsetup
     ! As no grid information has been passed to phantom from ET
     ! So interpolation cannot be performed
-    gcov = 0.
-    gcov(0,0) = -1.
-    gcov(1,1) = 1.
-    gcov(2,2) = 1.
-    gcov(3,3) = 1.
-    if (present(gcon)) then
-       gcon      = 0.
-       gcon(0,0) = -1.
-       gcon(1,1) = 1.
-       gcon(2,2) = 1.
-       gcon(3,3) = 1.
+    if (ierr /= 0) then
+       gcov = 0.
+       gcov(0,0) = -1.
+       gcov(1,1) = 1.
+       gcov(2,2) = 1.
+       gcov(3,3) = 1.
+       if (present(gcon)) then
+          gcon      = 0.
+          gcon(0,0) = -1.
+          gcon(1,1) = 1.
+          gcon(2,2) = 1.
+          gcon(3,3) = 1.
+       endif
+       if (present(sqrtg)) sqrtg   = -1.
     endif
-    if (present(sqrtg)) sqrtg   = -1.
  elseif (present(gcon) .and. present(sqrtg)) then
     call interpolate_metric(position,gcov,gcon,sqrtg)
  else
@@ -95,17 +99,26 @@ pure subroutine get_metric_spherical(position,gcov,gcon,sqrtg)
 
 end subroutine get_metric_spherical
 
+
 pure subroutine metric_cartesian_derivatives(position,dgcovdx, dgcovdy, dgcovdz)
- use einsteintk_utils, only:gridinit
- real,    intent(in)  :: position(3)
- real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
- if (.not. gridinit) then
-    dgcovdx = 0.
-    dgcovdy = 0.
-    dgcovdz = 0.
- else
-    call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
- endif
+   use metric_et_utils, only:gridinit
+!   use grid, only:read_tabulated_metric
+   real,    intent(in)  :: position(3)
+   real,    intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3), dgcovdz(0:3,0:3)
+   integer :: ierr
+   if (.not. gridinit) then
+      ierr  = 1
+       if (ierr /= 0) then
+          dgcovdx = 0.
+          dgcovdy = 0.
+          dgcovdz = 0.
+      else
+      !    gridinit = .true.
+          call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
+      endif
+   else
+      call interpolate_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
+   endif
 end subroutine metric_cartesian_derivatives
 
 pure subroutine metric_spherical_derivatives(position,dgcovdr, dgcovdtheta, dgcovdphi)
@@ -154,6 +167,7 @@ subroutine write_options_metric(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+ !call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (blank if used with einsteintk)',iunit)
 
 end subroutine write_options_metric
 
@@ -166,9 +180,17 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
+ integer, save :: ngot = 0
 
- ! imatch  = .true.
- ! igotall = .true.
+ select case(trim(name))
+ !case('metric_file')
+ !   read(valstring,*,iostat=ierr) metric_file
+ !   ngot = ngot + 1
+ case default
+    imatch = .false.
+ end select
+ !igotall = (ngot >= 1)
+ igotall = .true.
 
 end subroutine read_options_metric
 
@@ -181,8 +203,8 @@ end subroutine read_options_metric
 pure subroutine interpolate_metric(position,gcov,gcon,sqrtg)
  ! linear and cubic interpolators should be moved to their own subroutine
  ! away from eos_shen
- use eos_shen, only:linear_interpolator_one_d
- use einsteintk_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
+ use eos_shen,       only:linear_interpolator_one_d
+ use metric_et_utils, only:gcovgrid,gcongrid,sqrtggrid,dxgrid,gridorigin!,gridsize
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3)
  real, intent(out), optional ::  gcon(0:3,0:3), sqrtg
@@ -291,7 +313,7 @@ end subroutine interpolate_metric
 
 pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
  use eos_shen, only:linear_interpolator_one_d
- use einsteintk_utils, only:metricderivsgrid, dxgrid,gridorigin
+ use metric_et_utils, only:metricderivsgrid, dxgrid,gridorigin
  real, intent(out) :: dgcovdx(0:3,0:3), dgcovdy(0:3,0:3),dgcovdz(0:3,0:3)
  real, intent(in)  :: position(3)
  integer :: xlower,ylower,zlower!,xupper,yupper,zupper
@@ -389,7 +411,7 @@ pure subroutine interpolate_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
 end subroutine interpolate_metric_derivs
 
 pure subroutine get_grid_neighbours(position,dx,xlower,ylower,zlower)
- use einsteintk_utils, only:gridorigin
+ use metric_et_utils, only:gridorigin
  real, intent(in) :: position(3)
  real, intent(in) :: dx(3)
  integer, intent(out) :: xlower,ylower,zlower
@@ -414,3 +436,4 @@ end subroutine get_grid_neighbours
 
 
 end module metric
+
