@@ -43,6 +43,7 @@ module inject
  real         :: delta_theta   = 0.5      ! standard deviation for the gaussion distribution (random_type=1)
  real         :: have_injected = 0.
  real         :: t_old = 0.
+ real         :: r_ref = 1.
 
 contains
 !-----------------------------------------------------------------------
@@ -116,7 +117,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  ! Add any dependency on radius to mass injection rate (and convert to code units)
  !
  mdot = in_code_units(mdot_str,ierr)
- dmdt = mdot*mdot_func(r,rbody) ! Use rbody as r_ref, currently the softening length of the body
+ dmdt = mdot*mdot_func(r,r_ref) ! r_ref is the radius for which mdot_fund = mdot
 
  !
  !-- How many particles do we need to inject?
@@ -212,9 +213,14 @@ subroutine write_options_inject(iunit)
  call write_inopt(npartperorbit,'npartperorbit',&
                   'particle injection rate in particles/binary orbit',iunit)
  call write_inopt(vlag,'vlag','percentage lag in velocity of wind',iunit)
- call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 1=cos(t), 2=r^(-2))',iunit)
+ call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 2=r^(-2))',iunit)
+ if (mdot_type==2) then
+    call write_inopt(r_ref,'r_ref','radius at whieh Mdot=mdot for 1/r^2 injection type',iunit)
+ endif
  call write_inopt(random_type, 'random_type', 'random position on the surface, 0 for random, 1 for gaussian', iunit)
- call write_inopt(delta_theta, 'delta_theta', 'standard deviation for the gaussion distribution (random_type=1)', iunit)
+ if (random_type==1) then
+    call write_inopt(delta_theta, 'delta_theta', 'standard deviation for the gaussion distribution', iunit)
+ endif
 
 end subroutine write_options_inject
 
@@ -246,6 +252,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('mdot_type')
     read(valstring,*,iostat=ierr) mdot_type
+    ngot = ngot + 1
+ case('r_ref')
+    read(valstring,*,iostat=ierr) r_ref
     ngot = ngot + 1
  case('random_type')
     read(valstring,*,iostat=ierr) random_type
