@@ -1203,7 +1203,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        call get_k_fld(rhoi,eni,i,kfldi,Ti)
     endif
  endif
- 
+
  loop_over_neighbours2: do n = 1,nneigh
 
     j = abs(listneigh(n))
@@ -1606,7 +1606,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                       diffterm = 0d0
                       print *, "setting diffterm = 0", i, j, rhoj
                    elseif ((kfldj + kfldi) < tiny(0.)) then
-                      diffterm = 0d0                  
+                      diffterm = 0d0
                    else
                       diffterm = 4d0*pmassj/rhoi/rhoj
                       diffterm = diffterm * kfldi * kfldj / (kfldi+kfldj)
@@ -1621,7 +1621,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
                 endif
              endif
           endif
-          
+
           !--artificial thermal conductivity (need j term)
           if (maxvxyzu >= 4) then
              if (gr) then
@@ -1748,9 +1748,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           endif
 
           if (icooling == 9) then
-             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii 
+             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
           endif
-          
+
           !--add contribution to particle i's force
           if (mhd) then
              !--div B in symmetric form (for source term subtraction)
@@ -2008,7 +2008,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 
        !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
        if (iamtypej == igas .and. icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
-       
+
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
           fgravxi = fgravxi - dx*fgravj
@@ -2021,7 +2021,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  enddo loop_over_neighbours2
 
  if (icooling == 9) gradP_cool(i) = sqrt(gradpx*gradpx + gradpy*gradpy + gradpz*gradpz)
- 
+
  if (gr .and. gravity .and. ien_type == ien_etotal) then
     fsum(idudtdissi) = fsum(idudtdissi) + vxi*fgravxi + vyi*fgravyi + vzi*fgravzi
  endif

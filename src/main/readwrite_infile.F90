@@ -306,7 +306,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
  call write_options_H2R(iwritein)
- 
+
  if (iwritein /= iprint) close(unit=iwritein)
  if (iwritein /= iprint) write(iprint,"(/,a)") ' input file '//trim(infile)//' written successfully.'
 

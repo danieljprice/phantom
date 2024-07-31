@@ -32,17 +32,17 @@ module eos_stamatellos
 contains
 
 subroutine init_S07cool()
- use part, only:npart,maxradprop 
+ use part, only:npart,maxradprop
  print *, "Allocating cooling arrays"
  allocate(gradP_cool(npart))
  allocate(Gpot_cool(npart))
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
- allocate(urad_FLD(npart))    
- allocate(ttherm_store(npart))    
- allocate(teqi_store(npart))    
+ allocate(urad_FLD(npart))
+ allocate(ttherm_store(npart))
+ allocate(teqi_store(npart))
  allocate(opac_store(npart))
- allocate(duSPH(npart))    
+ allocate(duSPH(npart))
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
@@ -51,7 +51,7 @@ subroutine init_S07cool()
  ttherm_store(:) = 0d0
  opac_store(:) = 0d0
  duSPH(:) = 0d0
- open (unit=iunitst,file='EOSinfo.dat',status='replace')    
+ open (unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
  else
@@ -69,7 +69,7 @@ subroutine finish_S07cool()
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(teqi_store)) deallocate(teqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
-  if (allocated(duSPH)) deallocate(duSPH)
+ if (allocated(duSPH)) deallocate(duSPH)
  close(iunitst)
 end subroutine finish_S07cool
 
@@ -108,7 +108,7 @@ end subroutine read_optab
 ! Main subroutine for interpolating tables to get EOS values
 !
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
-  use io, only:fatal
+ use io, only:fatal
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
@@ -130,7 +130,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
     call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
  endif
-    
+
  if (rhoi <  rhomin) then
     rhoi_ = rhomin
  else
@@ -235,7 +235,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
  endif
 
- 
+
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 
  if (rhoi < 1.0e-24) then
@@ -254,7 +254,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
     j = j + 1
  enddo
 
- 
+
  m = (OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))/(OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))
  c = OPTABLE(i-1,j,3) - m*OPTABLE(i-1,j,2)
 
@@ -277,25 +277,25 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 end subroutine getintenerg_opdep
 
 subroutine get_k_fld(rhoi,eni,i,ki,Ti)
-  use physcon,  only:c,fourpi
-  use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
-  real,intent(in)    :: rhoi,eni
-  integer,intent(in) :: i
-  real               :: kappaBar,gmwi,kappaPart
-  real,intent(out)   :: ki,Ti
+ use physcon,  only:c,fourpi
+ use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
+ real,intent(in)    :: rhoi,eni
+ integer,intent(in) :: i
+ real               :: kappaBar,gmwi,kappaPart
+ real,intent(out)   :: ki,Ti
 
-  if (lambda_FLD(i) == 0d0) then
-     ki = 0.
-  else
-     call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
-     kappaPart = kappaPart/unit_opacity
-     ! steboltz constant = 4pi/c * arad
-     ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
-     if (isnan(ki)) then
-        print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
+ if (lambda_FLD(i) == 0d0) then
+    ki = 0.
+ else
+    call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+    kappaPart = kappaPart/unit_opacity
+    ! steboltz constant = 4pi/c * arad
+    ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
+    if (isnan(ki)) then
+       print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
              lambda_FLD(i), Ti, rhoi,kappaPart
-     endif
-  endif
+    endif
+ endif
 end subroutine get_k_fld
 
 end module eos_stamatellos

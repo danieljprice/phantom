@@ -50,7 +50,7 @@ module eos
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
  implicit none
- integer, parameter, public :: maxeos = 23 
+ integer, parameter, public :: maxeos = 23
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -154,7 +154,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
  if (present(isionised)) isionisedi = isionised
- 
+
  select case(eos_type)
  case(1)
 !
@@ -432,11 +432,11 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(gamma_local)) gamma_local = gammai
 
  case(21)
-       call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
-       
+    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
+
  case(22)
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
-    
+
  case(23)
 !
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=9
@@ -598,7 +598,7 @@ subroutine finish_eos(eos_type,ierr)
  case(23)
     ! Stamatellos deallocation
     call finish_S07cool
-    
+
  end select
  done_init_eos=.false.
 
@@ -1290,7 +1290,7 @@ logical function eos_outputs_mu(ieos)
     eos_outputs_mu = .true.
  case(23)
     eos_outputs_mu = .true.
-case default
+ case default
     eos_outputs_mu = .false.
  end select
 

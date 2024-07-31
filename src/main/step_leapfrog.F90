@@ -127,7 +127,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
- 
+
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
  real,    intent(in)    :: t,dtsph
@@ -322,7 +322,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        else
           vpred(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
        endif
- 
+
        !--floor the thermal energy if requested and required
        if (ufloor > 0.) then
           if (vpred(4,i) < ufloor) then
@@ -486,7 +486,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                       vxyzu(:,i) = vxyzu(:,i) + dti*fxyzu(:,i)
                    endif
                 endif
- 
+
                 if (use_dustgrowth .and. itype==idust) dustprop(:,i) = dustprop(:,i) + dti*ddustprop(:,i)
                 if (itype==igas) then
                    if (mhd)          Bevol(:,i) = Bevol(:,i) + dti*dBevol(:,i)
@@ -512,7 +512,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                    vxyzu(:,i) = vxyzu(:,i) + hdti*fxyzu(:,i)
                 endif
              endif
- 
+
              !--floor the thermal energy if requested and required
              if (ufloor > 0.) then
                 if (vxyzu(4,i) < ufloor) then

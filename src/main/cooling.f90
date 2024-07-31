@@ -144,7 +144,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
  use cooling_radapprox,      only:radcool_update_energ
- 
+
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
@@ -223,7 +223,7 @@ subroutine write_options_cooling(iunit)
  case(7)
     call write_options_cooling_gammie_PL(iunit)
  case(9)
-       call write_options_cooling_radapprox(iunit)
+    call write_options_cooling_radapprox(iunit)
  case default
     call write_options_cooling_solver(iunit)
  end select

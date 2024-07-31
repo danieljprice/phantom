@@ -437,11 +437,11 @@ subroutine get_opacity(opacity_type,density,temperature,kappa,u)
     kappa = kappa_cgs/unit_opacity
 
  case(3)
-	!
-	! opacity for Stamatellos/Lombardi EOS
-	!
-	call getopac_opdep(u*unit_ergg,density*unit_density,kapBar,kappaPart,Ti,gmwi)
-	kappa = kappaPart/unit_opacity
+    !
+    ! opacity for Stamatellos/Lombardi EOS
+    !
+    call getopac_opdep(u*unit_ergg,density*unit_density,kapBar,kappaPart,Ti,gmwi)
+    kappa = kappaPart/unit_opacity
  case default
     !
     ! infinite opacity
