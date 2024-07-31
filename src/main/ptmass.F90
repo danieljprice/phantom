@@ -2197,7 +2197,7 @@ subroutine write_options_ptmass(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
- call write_inopt(isink_potential,'isink_potential','sink potential(0=1/r,1=surf)',iunit)
+ call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -2219,8 +2219,10 @@ subroutine write_options_ptmass(iunit)
  endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
- call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
- call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ if (gravity .and. icreate_sinks) then
+    call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
+    call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ endif
  if (use_regnbody) then
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
@@ -2321,7 +2323,7 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (icreate_sinks ==2) store_ll_ptmass = .true.
+ if (icreate_sinks == 2) store_ll_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then
