@@ -86,7 +86,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real, save :: have_injected,t_old
  real, save :: semia
 
- if (nptmass < 2 .and. iexternalforce == 0) &
+ if (nptmass < 1 .and. iexternalforce == 0) &
     call fatal('inject_randomwind','not enough point masses for random wind injection')
  if (nptmass > 2) &
     call fatal('inject_randomwind','too many point masses for random wind injection')
