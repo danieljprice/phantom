@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module HIIRegion
 !
-! HIIRegion
+! Feedback from HII regions
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
@@ -17,7 +17,6 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
-
  implicit none
 
  public :: update_ionrates,update_ionrate, HII_feedback,initialize_H2R,read_options_H2R,write_options_H2R
@@ -49,17 +48,18 @@ module HIIRegion
 
 contains
 
- !-----------------------------------------------------------------------
- !+
- !  Initialise stellar feedbacks
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Initialise stellar feedbacks
+!+
+!-----------------------------------------------------------------------
 subroutine initialize_H2R
  use io,      only:iprint,iverbose,id,master
  use part,    only:isionised
  use units,   only:udist,umass,utime
  use physcon, only:mass_proton_cgs,kboltz,pc,eV,solarm
- use eos    , only:gmw,gamma
+ use eos,     only:gmw,gamma
+
  isionised(:)=.false.
  !calculate the useful constant in code units
  mH = gmw*mass_proton_cgs
@@ -82,7 +82,7 @@ subroutine initialize_H2R
     write(iprint,"(a,es18.10,es18.10)") " Max strögrem radius (code/pc)   : ", Rst_max, Rmax
     write(iprint,"(a,es18.10,es18.10)") " Min feedback mass   (code/Msun) : ", Minmass, Mmin
  endif
- return
+
 end subroutine initialize_H2R
 
 !-----------------------------------------------------------------------
@@ -90,7 +90,6 @@ end subroutine initialize_H2R
 !  Calculation of the the ionizing photon rate of all stars (Only for restart)
 !+
 !-----------------------------------------------------------------------
-
 subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:umass
@@ -101,6 +100,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  real,    intent(in)    :: h_acc
  real    :: logmi,log_Q,mi,hi
  integer :: i
+
  nHIIsources = 0
  !$omp parallel do default(none) &
  !$omp shared(xyzmh_ptmass,iprint,iverbose,umass)&
@@ -119,7 +119,7 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
        xyzmh_ptmass(irstrom,i)  = -1.
        nHIIsources = nHIIsources + 1
        if (iverbose >= 0) then
-          write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
+          write(iprint,"(/a,es18.10,es18.10/)") "Massive stars detected : Log Q, Mass : ",log_Q,mi
        endif
     else
        xyzmh_ptmass(irateion,i) = -1.
@@ -130,9 +130,14 @@ subroutine update_ionrates(nptmass,xyzmh_ptmass,h_acc)
  if (iverbose > 1) then
     write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
  endif
- return
+
 end subroutine update_ionrates
 
+!-----------------------------------------------------------------------
+!+
+!  update the ionizing photon rate
+!+
+!-----------------------------------------------------------------------
 subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  use io,     only:iprint,iverbose
  use units,  only:umass
@@ -142,6 +147,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  real,    intent(inout) :: xyzmh_ptmass(:,:)
  real,    intent(in)    :: h_acc
  real    :: logmi,log_Q,mi,hi
+
  mi = xyzmh_ptmass(4,i)
  hi = xyzmh_ptmass(ihacc,i)
  if (mi > Minmass .and. hi < h_acc) then
@@ -153,7 +159,7 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
     xyzmh_ptmass(irstrom,i)  = -1.
     nHIIsources = nHIIsources + 1
     if (iverbose >= 0) then
-       write(iprint,"(/a,es18.10,es18.10/)")"Massive stars detected : Log Q, Mass : ",log_Q,mi
+       write(iprint,"(/a,es18.10,es18.10/)") "Massive stars detected : Log Q, Mass : ",log_Q,mi
     endif
  else
     xyzmh_ptmass(irateion,i) = -1.
@@ -163,15 +169,14 @@ subroutine update_ionrate(i,xyzmh_ptmass,h_acc)
  if (iverbose > 1) then
     write(iprint,"(/a,i8/)") "nb_feedback sources : ",nHIIsources
  endif
- return
+
 end subroutine update_ionrate
 
- !-----------------------------------------------------------------------
- !+
- !  Main subroutine : Application of the HII feedback using Hopkins's like prescription
- !+
- !-----------------------------------------------------------------------
-
+!-----------------------------------------------------------------------
+!+
+!  Main subroutine : Application of the HII feedback using Hopkins's like prescription
+!+
+!-----------------------------------------------------------------------
 subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
  use part,       only:rhoh,massoftype,ihsoft,igas,irateion,isdead_or_accreted,&
                       irstrom
@@ -265,10 +270,10 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
           r_in = sqrt((xi-xyzh(1,j))**2 + (yi-xyzh(2,j))**2 + (zi-xyzh(3,j))**2)
           mHII = ((4.*pi*(r**3-r_in**3)*rhoh(xyzh(4,j),pmass))/3)
           if (mHII>3*pmass) then
-!$omp parallel do default(none) &
-!$omp shared(mHII,listneigh,xyzh,sigd,dt) &
-!$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
-!$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
+             !$omp parallel do default(none) &
+             !$omp shared(mHII,listneigh,xyzh,sigd,dt) &
+             !$omp shared(mH,vxyzu,log_Qi,hv_on_c,npartin,pmass,xi,yi,zi) &
+             !$omp private(j,dx,dy,dz,vkx,vky,vkz,xj,yj,zj,r,taud)
              do k=1,npartin
                 j = listneigh(1)
                 xj = xyzh(1,j)
@@ -287,28 +292,40 @@ subroutine HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised,dt)
                 vxyzu(2,j) = vxyzu(2,j) +  vky*dt
                 vxyzu(3,j) = vxyzu(3,j) +  vkz*dt
              enddo
-!$omp end parallel do
+             !$omp end parallel do
           endif
        endif
     enddo
  endif
  call get_timings(t2,tcpu2)
  call increment_timer(itimer_HII,t2-t1,tcpu2-tcpu1)
- return
+
 end subroutine HII_feedback
 
+!-----------------------------------------------------------------------
+!+
+!  write options to input file
+!+
+!-----------------------------------------------------------------------
 subroutine write_options_H2R(iunit)
  use infile_utils, only:write_inopt
  use physcon,      only:solarm
  integer, intent(in) :: iunit
- write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
- if (iH2R>0) then
+
+ if (iH2R > 0) then
+    write(iunit,"(/,a)") '# options controlling HII region expansion feedback'
     call write_inopt(iH2R, 'iH2R', "enable the HII region expansion feedback in star forming reigon", iunit)
     call write_inopt(Mmin, 'Mmin', "Minimum star mass to trigger HII region (MSun)", iunit)
     call write_inopt(Rmax, 'Rmax', "Maximum radius for HII region (pc)", iunit)
  endif
+
 end subroutine write_options_H2R
 
+!-----------------------------------------------------------------------
+!+
+!  read options from input file
+!+
+!-----------------------------------------------------------------------
 subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
  use io,         only:fatal
  character(len=*), intent(in)  :: name,valstring
@@ -316,6 +333,7 @@ subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
  character(len=30), parameter  :: label = 'read_options_H2R'
+
  imatch = .true.
  select case(trim(name))
  case('iH2R')
@@ -334,6 +352,7 @@ subroutine read_options_H2R(name,valstring,imatch,igotall,ierr)
     imatch = .true.
  end select
  igotall = (ngot >= 3)
+
 end subroutine read_options_H2R
 
 end module HIIRegion
