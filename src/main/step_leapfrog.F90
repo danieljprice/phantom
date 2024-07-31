@@ -98,13 +98,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev
+                          filfac,filfacpred,mprev,filfacprev,isionised
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,linklist_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
@@ -118,7 +118,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step,Tfloor
- use timing,         only:increment_timer,get_timings,itimer_extf
+ use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
  use options,        only:use_porosity,icooling
  use porosity,       only:get_filfac
@@ -253,14 +253,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                    nmatrix,n_group,n_ingroup,n_sing)
+                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                    nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
  endif
  call get_timings(t2,tcpu2)
- call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_substep,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0

@@ -64,24 +64,22 @@ end subroutine init_star
 ! Do cooling calculation
 !
 ! update energy to return evolved energy array. Called from substep 
-subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,Tfloor)
+subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           duFLD,doFLD,ttherm_store,teqi_store,opac_store,duSPH
- use part,       only:xyzmh_ptmass,rhoh,massoftype,igas
- use timestep_ind, only:get_dt
+ use part,       only:xyzmh_ptmass,igas
  integer,intent(in) :: i
- integer(kind=1),intent(in) :: ibini
- real,intent(in) :: xyzhi(:),dtsph,Tfloor
- real,intent(inout) :: ui
- real            :: dti,rhoi,coldensi,kappaBari,kappaParti,ri2
+ real,intent(in) :: xi,yi,zi,rhoi,Tfloor
+ real,intent(in) :: ui,dt
+ real,intent(out)::dudti_cool
+ real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
  real            :: cs2,Om2,Hmod2
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
-  dti = get_dt(dtsph,ibini)
   coldensi = huge(coldensi)
   poti = Gpot_cool(i)
   du_FLDi = duFLD(i)
@@ -91,14 +89,13 @@ subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,Tfloor)
   tthermi = huge(tthermi)
   opaci = epsilon(opaci)
   if (abs(ui) < epsilon(ui)) print *, "ui zero", i
-  rhoi =  rhoh(xyzhi(4),massoftype(igas))
-  
+
   if (isink_star > 0) then
-     ri2 = (xyzhi(1)-xyzmh_ptmass(1,isink_star))**2d0 &
-          + (xyzhi(2)-xyzmh_ptmass(2,isink_star))**2d0 &
-          + (xyzhi(3)-xyzmh_ptmass(3,isink_star))**2d0  
+     ri2 = (xi-xyzmh_ptmass(1,isink_star))**2d0 &
+          + (yi-xyzmh_ptmass(2,isink_star))**2d0 &
+          + (zi-xyzmh_ptmass(3,isink_star))**2d0  
   else
-     ri2 = xyzhi(1)**2d0 + xyzhi(2)**2d0 + xyzhi(3)**2d0  
+     ri2 = xi**2d0 + yi**2d0 + zi**2d0  
   endif
 
     ! get opacities & Ti for ui
@@ -164,11 +161,11 @@ subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,Tfloor)
    
    ! If radiative cooling is negligible compared to hydrodynamical heating
     ! don't use this method to update energy, just use hydro du/dt. Does it conserve u alright?
-    if (abs(dudti_rad/du_tot) < dtcool_crit) then
+   
+    if (abs(du_tot) > epsilon(du_tot) .and.  abs(dudti_rad/du_tot) < dtcool_crit) then
        !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
        !                 dusph(i)
-       ui = ui + du_tot*dti
-       if (ui < umini) ui = umini 
+       dudti_cool = du_tot
        return
     endif
     
@@ -186,7 +183,7 @@ subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,Tfloor)
     if (Teqi > 9e5) then
        print *,"i=",i, "duSPH(i)=", duSPH(i), "duradi=", dudti_rad, "Ti=", Ti, &
             "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dti=", dusph(i)*dti
+            "dudt_sph * dti=", dusph(i)*dt
     elseif (Teqi < epsilon(Teqi)) then
        print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
@@ -209,21 +206,21 @@ subroutine radcool_update_energ(i,ibini,dtsph,xyzhi,ui,Tfloor)
     
     ! evolve energy
     if (tthermi == 0d0) then
-       ui = ui ! condition if denominator above is zero
-    elseif ( (dti/tthermi) < TINY(ui) ) then
-       ui = ui
+       dudti_cool = 0d0 ! condition if denominator above is zero
+    elseif ( (dt/tthermi) < TINY(ui) ) then
+       dudti_cool = 0d0
     else
-       ui = ui*exp(-dti/tthermi) + ueqi*(1.d0-exp(-dti/tthermi))  !code units
+       dudti_cool = ( ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) - ui) / dt !code units
     endif
     
-    if (isnan(ui) .or. ui < epsilon(ui)) then
+    if (isnan(dudti_cool)) then
        !    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
        print *, "rhoi=",rhoi*unit_density, "Ti=", Ti, "Teqi=", Teqi
        print *, "Tmini=",Tmini4**(1.0/4.0), "ri=", ri2**(0.5)
        print *, "opaci=",opaci,"coldensi=",coldensi,"dusph(i)",duSPH(i)
-       print *,  "dt=",dti,"tthermi=", tthermi,"umini=", umini
+       print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
        print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
-       call warning("In Stamatellos cooling","energ=NaN or 0. ui",val=ui)
+       call warning("In Stamatellos cooling","energ=NaN or 0. ui=",val=ui)
        stop
     endif
 

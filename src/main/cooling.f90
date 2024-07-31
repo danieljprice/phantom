@@ -132,7 +132,7 @@ end subroutine init_cooling
 !
 !-----------------------------------------------------------------------
 
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in)
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,ipart)
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
@@ -143,11 +143,13 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
-
+ use cooling_radapprox,      only:radcool_update_energ
+ 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
  real, intent(in), optional :: abund_in(nabn)
+ integer,intent(in),optional:: ipart
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
  real :: abundi(nabn)
@@ -184,6 +186,8 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
     call cooling_Gammie_explicit(xi,yi,zi,ui,dudt)
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
+ case (9)
+    call radcool_update_energ(ipart,xi,yi,zi,rho,ui,Tfloor,dt,dudt)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
  end select
