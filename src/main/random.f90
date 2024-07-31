@@ -20,7 +20,7 @@ module random
  implicit none
  public :: ran2,get_random,rayleigh_deviate
  public :: get_random_pos_on_sphere,get_gaussian_pos_on_sphere
- public :: gauss_random,divide_unit_seq
+ public :: gauss_random,divide_unit_seg
  real, parameter :: pi = 4.*atan(1.)
 
  private

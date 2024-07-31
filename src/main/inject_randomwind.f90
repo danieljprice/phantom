@@ -68,7 +68,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use partinject,    only:add_or_update_particle
  use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
  use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere
- use units,         only:umass, utime, in_code_units
+ use units,         only:in_code_units
  use options,       only:iexternalforce
  use externalforces,only:mass1
  use binaryutils,   only:get_orbit_bits
