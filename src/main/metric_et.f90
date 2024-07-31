@@ -189,7 +189,7 @@ subroutine write_options_metric(iunit)
  !use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
+ !write(iunit,"(/,a)") '# There are no options relating to the '//trim(metric_type)//' metric'
  !call write_inopt(metric_file,'metric_file','file from which to read tabulated metric (blank if used with einsteintk)',iunit)
 
 end subroutine write_options_metric

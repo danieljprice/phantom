@@ -6,9 +6,9 @@
 !--------------------------------------------------------------------------!
 module metric_et_utils
 !
-! metric_et_utils
+! Utilities for handling tabulated metrics from the Einstein Toolkit
 !
-! :References: None
+! :References: Magnall et al. (2023), Phys. Rev. D 108, 103534
 !
 ! :Owner: Daniel Price
 !
@@ -35,6 +35,11 @@ module metric_et_utils
 
 contains
 
+!---------------------------------------------------------------
+!+
+!  allocate memory for the metric grid
+!+
+!---------------------------------------------------------------
 subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
  integer, intent(in) :: nxin,nyin,nzin
  real, intent(in) :: dx,dy,dz,originx,originy,originz
@@ -67,6 +72,12 @@ subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
 
 end subroutine allocate_grid
 
+!---------------------------------------------------------------
+!+
+!  initialise a metric grid with a uniform grid
+!  (currently size is hardwired but just for testing...)
+!+
+!---------------------------------------------------------------
 subroutine initialize_grid()
  ! Local variable declarations
  real :: dx, dy, dz, x0(3)
@@ -87,8 +98,12 @@ subroutine initialize_grid()
 
 end subroutine initialize_grid
 
+!---------------------------------------------------------------
+!+
+!  print information about the metric grid
+!+
+!---------------------------------------------------------------
 subroutine print_metric_grid()
- ! Subroutine for printing quantities of the ET grid
 
  print*, "Grid spacing (x,y,z) is : ", dxgrid
  print*, "Grid origin (x,y,z) is: ", gridorigin
@@ -96,6 +111,11 @@ subroutine print_metric_grid()
 
 end subroutine print_metric_grid
 
+!---------------------------------------------------------------
+!+
+!  write tabulated metric to file
+!+
+!---------------------------------------------------------------
 subroutine write_tabulated_metric(metric_file, ierr)
  character(len=*), intent(in) :: metric_file
  integer, intent(out) :: ierr
@@ -124,16 +144,21 @@ subroutine write_tabulated_metric(metric_file, ierr)
  ! Close the file
  close(iunit)
  ierr = 0
+
 end subroutine write_tabulated_metric
 
+!---------------------------------------------------------------
+!+
+!  read tabulated metric from file
+!+
+!---------------------------------------------------------------
 subroutine read_tabulated_metric(metric_file, ierr)
  character(len=*), intent(in) :: metric_file
  integer, intent(out) :: ierr
  integer :: iunit
 
-
  ! Open the file for reading
- open(newunit=iunit,file=metric_file,status='old',  form='unformatted',action='read',iostat=ierr)
+ open(newunit=iunit,file=metric_file,status='old',form='unformatted',action='read',iostat=ierr)
  if (ierr /= 0) return
 
  ! Read the dimensions of the grid
@@ -162,6 +187,7 @@ subroutine read_tabulated_metric(metric_file, ierr)
  ! Close the file
  close(iunit)
  ierr = 0
+
 end subroutine read_tabulated_metric
 
 end module metric_et_utils

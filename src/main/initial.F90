@@ -106,7 +106,7 @@ subroutine initialise()
 !
  if (gr  .and. metric_type=='et') then
     call read_tabulated_metric('tabuled_metric.dat',ierr)
-    gridinit = .true.
+    if (ierr == 0) gridinit = .true.
  endif
 
  call init_readwrite_dumps()
