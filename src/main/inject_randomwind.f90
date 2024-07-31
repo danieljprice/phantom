@@ -41,6 +41,8 @@ module inject
  integer      :: mdot_type     = 0        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
  integer      :: random_type   = 0        ! random position on the surface, 0 for random, 1 for gaussian
  real         :: delta_theta   = 0.5      ! standard deviation for the gaussion distribution (random_type=1)
+ real         :: have_injected = 0.
+ real         :: t_old = 0.
 
 contains
 !-----------------------------------------------------------------------
@@ -82,8 +84,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real    :: dmdt,rbody,h,u,speed,inject_this_step
  real    :: m1,m2,r
  real    :: dt
- real, save :: have_injected,t_old
- real, save :: semia
 
  if (nptmass < 1 .and. iexternalforce == 0) &
     call fatal('inject_randomwind','not enough point masses for random wind injection')
@@ -116,7 +116,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  ! Add any dependency on radius to mass injection rate (and convert to code units)
  !
  mdot = in_code_units(mdot_str,ierr)
- dmdt = mdot*mdot_func(r,semia) ! Use semi-major axis as r_ref
+ dmdt = mdot*mdot_func(r,rbody) ! Use rbody as r_ref, currently the softening length of the body
 
  !
  !-- How many particles do we need to inject?
