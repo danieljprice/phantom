@@ -383,7 +383,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
     extrap = .false.
  endif
 
- if (present(group_info)) then
+ if (present(group_info) .and. present(bin_info)) then
     subsys = .true.
  else
     subsys = .false.

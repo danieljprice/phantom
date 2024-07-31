@@ -116,6 +116,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  integer :: i,k,l,start_id,end_id,gsize
  real    :: akl,ekl,apokl,Tkl
 
+ bin_info(isemi,:) = 0.
+ bin_info(iecc,:) = 0.
+ bin_info(iapo,:) = 0.
+ bin_info(iorb,:) = 0.
+
 ! this loop could be parallelized...
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
