@@ -158,7 +158,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  use kernel,        only:kernel_softening,radkern
  use vectorutils,   only:unitvec
  use extern_geopot, only:get_geopot_force
- use part,          only:ipert
+ use part,          only:ipert,isemi
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xi,yi,zi,hi
  real,              intent(inout) :: fxi,fyi,fzi,phi
@@ -303,7 +303,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
-       if (kappa) then
+       if (kappa .and. abs(bin_info(isemi,j))>tiny(f2)) then
           ! add perturbation for
           bin_info(ipert,j) = bin_info(ipert,j) + f2
        endif

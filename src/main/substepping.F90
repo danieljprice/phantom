@@ -975,7 +975,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !
 
  !$omp parallel default(none) &
- !$omp shared(maxp,maxphase,wsub,bin_info) &
+ !$omp shared(maxp,maxphase,wsub) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
@@ -987,7 +987,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp firstprivate(pmassi,itype) &
  !$omp reduction(min:dtextforcenew,dtphi2) &
  !$omp reduction(max:fonrmax) &
- !$omp reduction(+:fxyz_ptmass,dsdt_ptmass)
+ !$omp reduction(+:fxyz_ptmass,dsdt_ptmass,bin_info)
  !$omp do
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
