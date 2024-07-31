@@ -19,7 +19,8 @@ module random
 !
  implicit none
  public :: ran2,get_random,rayleigh_deviate
- public :: get_random_pos_on_sphere,gauss_random,divide_unit_seg
+ public :: get_random_pos_on_sphere,get_gaussian_pos_on_sphere
+ public :: gauss_random,divide_unit_seq
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -151,6 +152,31 @@ end function get_random_pos_on_sphere
 
 !-------------------------------------------------------------------------
 !
+! get Gaussian random position on sphere
+!
+!-------------------------------------------------------------------------
+function get_gaussian_pos_on_sphere(iseed, deltheta) result(dx)
+ integer, intent(inout) :: iseed
+ real, intent(in) :: deltheta
+ real  :: phi,theta,sintheta,costheta,sinphi,cosphi,gauss_theta
+ real  :: dx(3)
+
+ phi = 2.*pi*(ran2(iseed) - 0.5)
+ gauss_theta = gauss_random(iseed) * deltheta
+ do while (abs(gauss_theta) > 1.0)
+    gauss_theta = gauss_random(iseed) * deltheta
+ end do
+ theta = acos(gauss_theta)
+ sintheta = sin(theta)
+ costheta = cos(theta)
+ sinphi   = sin(phi)
+ cosphi   = cos(phi)
+ dx = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+end function get_gaussian_pos_on_sphere
+
+!-------------------------------------------------------------------------
+!
 ! get random number from gaussian
 ! Using Box-Muller transformation.
 ! Resulting gaussian has std deviation of unity
@@ -167,7 +193,11 @@ real function gauss_random(iseed)
 
 end function gauss_random
 
-
+!-------------------------------------------------------------------------
+!
+! divide a unit segment into nlengths segments of random length
+!
+!-------------------------------------------------------------------------
 subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  use sortutils, only:indexx
  integer, intent(in)    :: nlengths
@@ -192,7 +222,6 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
     mindist = 0.01  ! we'll have stars less massive than 0.08 solarmasses but it will assure to never brick the sim...
  endif
 
-
  do i=2,nlengths
     close =  .true.
     do while (close)
@@ -216,6 +245,5 @@ subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
  deallocate(idx)
 
 end subroutine divide_unit_seg
-
 
 end module random
