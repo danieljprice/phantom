@@ -165,7 +165,7 @@ function get_gaussian_pos_on_sphere(iseed, deltheta) result(dx)
  gauss_theta = gauss_random(iseed) * deltheta
  do while (abs(gauss_theta) > 1.0)
     gauss_theta = gauss_random(iseed) * deltheta
- end do
+ enddo
  theta = acos(gauss_theta)
  sintheta = sin(theta)
  costheta = cos(theta)

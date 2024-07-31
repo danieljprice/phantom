@@ -102,7 +102,7 @@ module metric_et_utils
     integer :: iunit
 
     ! Open the file for writing
-    open(newunit=iunit, file=metric_file, status='replace', form='unformatted',action='write', iostat=ierr)
+    open(newunit=iunit,file=metric_file,status='replace',form='unformatted',action='write',iostat=ierr)
     if (ierr /= 0) then
         ierr = 1
         return
@@ -133,7 +133,7 @@ module metric_et_utils
 
 
     ! Open the file for reading
-    open(newunit=iunit, file=metric_file, status='old',  form='unformatted', action='read', iostat=ierr)
+    open(newunit=iunit,file=metric_file,status='old',  form='unformatted',action='read',iostat=ierr)
     if (ierr /= 0) return
 
     ! Read the dimensions of the grid

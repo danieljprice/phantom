@@ -75,9 +75,9 @@ subroutine fill_grid()
             metricderivsgrid(:,:,1,i,j,k) = dgcovdx
             metricderivsgrid(:,:,2,i,j,k) = dgcovdy
             metricderivsgrid(:,:,3,i,j,k) = dgcovdz
-          end do
-        end do
-      end do
+          enddo
+        enddo
+      enddo
 end subroutine fill_grid
 
 end program tabulate_metric
