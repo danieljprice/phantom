@@ -167,7 +167,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  store_itype = (maxphase==maxp .and. ntypes > 1)
  ialphaloc = 2
  nvfloorp  = 0
-! print *, "L197 predictor, maxmin abs fxyzu=", maxval(abs(fxyzu(4,1:npart))),minval(abs(fxyzu(4,1:npart)))
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,vxyzu,fxyzu,iphase,hdtsph,store_itype) &
  !$omp shared(rad,drad,pxyzu) &
@@ -405,7 +404,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        call fatal('step','step too small: bin would exceed maximum')
     endif
  endif
-! print *, "line 407", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:)), "nactive=", nactive
+
 !
 ! if using super-timestepping, determine what dt will be used on the next loop
 !
@@ -422,7 +421,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !  forces we must iterate until velocities agree.
 !-------------------------------------------------------------------------
 
-! print *, "line 423", "max u=", maxval(vxyzu(4,:)), "max pred", maxval(vpred(4,:))
  its        = 0
  converged  = .false.
  errmaxmean = 0.0
@@ -697,11 +695,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
           print *, "after 2nd derivs:vpred", maxval(vpred(4,:)), minval(vpred(4,:))
        endif
     endif
-    if (icooling == 9) then
+    if (icooling == 9 .and. iverbose >=2) then
        print *, "end of iteration", maxval(vpred(4,:)), minval(vpred(4,:))
-              print *, "end of iteration", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
-       print *, "end of iteration, dudt", maxval(fxyzu(4,1:npart)), minval(fxyzu(4,1:npart))
-       print *, "End of iteration, nactive=", nactive
+       print *, "end of iteration", maxval(vxyzu(4,:)), minval(vxyzu(4,:))
     endif
  enddo iterations
 

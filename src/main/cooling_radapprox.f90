@@ -467,7 +467,7 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallstam,ierr
     ngot = ngot + 1
  case('ieos')
     read(valstring,*,iostat=ierr) ieosread
-    if (ieosread /= 21) call fatal('ieosread','For icooling=9, you need ieos=21')
+    if (ieosread /= 23) call fatal('ieosread','For icooling=9, you need ieos=23')
  case default
     imatch = .false.
  end select

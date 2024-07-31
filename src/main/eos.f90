@@ -27,7 +27,7 @@ module eos
 !    16 = Shen eos
 !    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
-!    21 = read tabulated eos (for use with icooling == 9)
+!    23 = read tabulated eos (for use with icooling == 9)
 !
 ! :References:
 !    Lodato & Pringle (2007)
@@ -50,7 +50,7 @@ module eos
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
  implicit none
- integer, parameter, public :: maxeos = 22 
+ integer, parameter, public :: maxeos = 23 
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -431,13 +431,13 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
 
-!    case(21)
- !      call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
+ case(21)
+       call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
        
  case(22)
     call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
     
- case(21)
+ case(23)
 !
 !--interpolate tabulated eos from Stamatellos+(2007). For use with icooling=9
 !
@@ -556,14 +556,14 @@ subroutine init_eos(eos_type,ierr)
        ierr = ierr_option_conflict
     endif
 
- case(21)
+ case(21,22)
+    call init_eos_HIIR()
+
+ case(23)
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool
 
-!    - case(21,22)
- case(22)
-    call init_eos_HIIR()
  end select
  done_init_eos = .true.
 
@@ -595,7 +595,7 @@ subroutine finish_eos(eos_type,ierr)
     !
     call finish_eos_mesa
 
- case(21)
+ case(23)
     ! Stamatellos deallocation
     call finish_S07cool
     
@@ -1288,7 +1288,7 @@ logical function eos_outputs_mu(ieos)
  select case(ieos)
  case(20)
     eos_outputs_mu = .true.
- case(21)
+ case(23)
     eos_outputs_mu = .true.
 case default
     eos_outputs_mu = .false.
@@ -1374,7 +1374,7 @@ subroutine eosinfo(eos_type,iprint)
        write(*,'(1x,a,f10.6,a,f10.6)') 'Using fixed composition X = ',X_in,", Z = ",Z_in
     endif
 
- case(21)
+ case(23)
     write(iprint,"(/,a,a)") 'Using tabulated Eos from file:', eos_file, 'and calculated gamma.'
  end select
  write(iprint,*)
@@ -1430,7 +1430,7 @@ subroutine read_headeropts_eos(ieos,hdr,ierr)
     if (maxvxyzu >= 4) then
        if (use_krome) then
           write(iprint,*) 'KROME eos: initial gamma = 1.666667'
-       elseif (ieos==21) then
+       elseif (ieos==23) then
           write(iprint,*) 'Tabulated eos with derived gamma'
        else
           write(iprint,*) 'adiabatic eos: gamma = ',gamma
