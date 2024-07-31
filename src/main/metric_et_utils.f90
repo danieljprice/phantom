@@ -10,7 +10,7 @@ module metric_et_utils
 !
 ! :References: None
 !
-! :Owner: DavidBamba
+! :Owner: Daniel Price
 !
 ! :Runtime parameters: None
 !

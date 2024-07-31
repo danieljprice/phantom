@@ -10,7 +10,7 @@ program tabulate_metric
 !
 ! :References: None
 !
-! :Owner: DavidBamba
+! :Owner: Daniel Price
 !
 ! :Usage: tabulate_metric [no arguments]
 !

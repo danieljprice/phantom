@@ -10,7 +10,7 @@ module HIIRegion
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
