@@ -17,9 +17,6 @@ module HIIRegion
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
-! contains routines to model HII region expansion due to ionization and radiation pressure..
-! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
-! and adapted in Phantom by Yann Bernard
 
  implicit none
 

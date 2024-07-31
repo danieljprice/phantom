@@ -14,7 +14,7 @@ module einsteintk_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: metric_et_utils, part
 !
  use metric_et_utils, only:gridorigin,dxgrid,gridsize
  implicit none

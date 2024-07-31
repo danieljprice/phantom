@@ -1,4 +1,21 @@
+!--------------------------------------------------------------------------!
+! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
+! See LICENCE file for usage and distribution conditions                   !
+! http://phantomsph.github.io/                                             !
+!--------------------------------------------------------------------------!
 program tabulate_metric
+!
+! tabulate_metric
+!
+! :References: None
+!
+! :Owner: DavidBamba
+!
+! :Usage: tabulate_metric [no arguments]
+!
+! :Dependencies: metric, metric_et_utils
+!
     use metric_et_utils
     !use metric
 

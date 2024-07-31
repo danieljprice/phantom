@@ -15,12 +15,11 @@ module inject
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - mdot_str  : *mdot with unit*
-!   - mdot      : *mass injection rate in grams/second*
-!   - mdot_type : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
-!   - vlag      : *percentage lag in velocity of wind*
-!   - random_type : random position on the surface, 0 for random, 1 for gaussian
-!   - delta_theta : standard deviation for the gaussion distribution (random_type=1)
+!   - delta_theta : *standard deviation for the gaussion distribution (random_type=1)*
+!   - mdot        : *mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr*
+!   - mdot_type   : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
+!   - random_type : *random position on the surface, 0 for random, 1 for gaussian*
+!   - vlag        : *percentage lag in velocity of wind*
 !
 ! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
 !   part, partinject, physcon, random, units
