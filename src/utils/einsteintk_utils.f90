@@ -58,9 +58,9 @@ end subroutine init_etgrid
 
 subroutine print_etgrid()
  use metric_et_utils, only:print_metric_grid
- 
+
  call print_metric_grid()
- 
+
 end subroutine print_etgrid
 
 subroutine get_particle_rhs(i,vx,vy,vz,fx,fy,fz,e_rhs)

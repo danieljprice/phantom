@@ -32,9 +32,9 @@ module metric_et_utils
   real, parameter :: ymin = -10.0, ymax = 10.0
   real, parameter :: zmin = -10.0, zmax = 10.0
   real, parameter :: mass = 1.0  ! Mass of the central object
-  
+
   contains
-  
+
   subroutine allocate_grid(nxin,nyin,nzin,dx,dy,dz,originx,originy,originz)
     integer, intent(in) :: nxin,nyin,nzin
     real, intent(in) :: dx,dy,dz,originx,originy,originz
@@ -45,11 +45,11 @@ module metric_et_utils
     gridsize(1) = nx
     gridsize(2) = ny
     gridsize(3) = nz
-   
+
     dxgrid(1) = dx
     dxgrid(2) = dy
     dxgrid(3) = dz
-   
+
     gridorigin(1) = originx
     gridorigin(2) = originy
     gridorigin(3) = originz
@@ -57,14 +57,14 @@ module metric_et_utils
    allocate(gcovgrid(0:3,0:3,nx,ny,nz))
    allocate(gcongrid(0:3,0:3,nx,ny,nz))
    allocate(sqrtggrid(nx,ny,nz))
-  
+
    !metric derivs are stored in the form
    ! mu comp, nu comp, deriv, gridx,gridy,gridz
    ! Note that this is only the spatial derivs of
    ! the metric and we will need an additional array
    ! for time derivs
    allocate(metricderivsgrid(0:3,0:3,3,nx,ny,nz))
-  
+
   end subroutine allocate_grid
 
   subroutine initialize_grid()
@@ -89,11 +89,11 @@ module metric_et_utils
 
   subroutine print_metric_grid()
     ! Subroutine for printing quantities of the ET grid
-   
+
     print*, "Grid spacing (x,y,z) is : ", dxgrid
     print*, "Grid origin (x,y,z) is: ", gridorigin
     print*, "Covariant metric tensor of the grid is: ", gcovgrid(:,:,1,1,1)
-   
+
   end subroutine print_metric_grid
 
   subroutine write_tabulated_metric(metric_file, ierr)
@@ -130,7 +130,7 @@ module metric_et_utils
     character(len=*), intent(in) :: metric_file
     integer, intent(out) :: ierr
     integer :: iunit
-  
+
 
     ! Open the file for reading
     open(newunit=iunit, file=metric_file, status='old',  form='unformatted', action='read', iostat=ierr)

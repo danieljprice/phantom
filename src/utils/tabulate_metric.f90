@@ -20,14 +20,14 @@ program tabulate_metric
     !use metric
 
     implicit none
-  
-    integer :: ierr 
+
+    integer :: ierr
     character(len=64) :: metric_file = 'tabuled_metric.dat'
 
 
     ! Init grid and tabulated metric
     call initialize_grid()
-    
+
     ! Fill and interpolate metric in the grid
     call fill_grid()
 
