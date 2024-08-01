@@ -1719,7 +1719,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir
 
 
- write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
  !! save xcom and vcom before placing stars
  xi(1) = xyzmh_ptmass(1,itest)
  xi(2) = xyzmh_ptmass(2,itest)
@@ -1729,6 +1728,8 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  vi(1) = vxyz_ptmass(1,itest)
  vi(2) = vxyz_ptmass(2,itest)
  vi(3) = vxyz_ptmass(3,itest)
+
+ write(iprint,"(a,es18.10,a,es18.10)") "ptmass_create_stars : new stars formed at : ",time,"Mass : ",mi
 
  !! masses sampling method
  call ptmass_endsize_lklist(itest,l,n,linklist_ptmass)

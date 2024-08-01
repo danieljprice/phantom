@@ -108,7 +108,6 @@ end subroutine group_identify
 
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,         only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
-
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
@@ -126,11 +125,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
     gsize    = (end_id - start_id) + 1
-    group_info(icomp,start_id:end_id) = -1
     if (gsize > 2) then
        call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                   gsize,start_id,end_id)
     else
+       group_info(icomp,start_id:end_id) = -1
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
        group_info(icomp,end_id)   = k
@@ -172,7 +171,7 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
        ns = r2min_id(np)
        if (r2min_id(ns) == np) then ! We found a binary into a subgroup : tag as binary component and compute parameters
           l = group_info(igarg,ns+(start_id-1))
-          group_info(icomp,np)              = l
+          group_info(icomp,j)               = l
           group_info(icomp,ns+(start_id-1)) = k
           !
           !-- Compute and store main orbital parameters needed for SDAR method
