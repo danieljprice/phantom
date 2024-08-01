@@ -166,6 +166,9 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
     !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
     !                 dusph(i)
     dudti_cool = du_tot
+    if ( (dudti_cool*dt + ui) < umini) then
+       dudti_cool = (umini - ui)/dt
+    endif
     return
  endif
 

@@ -348,7 +348,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-    if (icooling==9 .and. doFLD) then
+    if (icooling==9 .and. doFLD .and. icall==1) then
        call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
     endif
     if (do_export) then
@@ -1706,6 +1706,9 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(icell),iactivei,iamgasi,iamdusti,iamtypei)
+       if (.not. iamgasi) then
+          print *, "error not gas", i
+       endif
     else
        iactivei = .true.
        iamtypei = igas
@@ -1729,6 +1732,10 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
     !calculate rhoi
     call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
     ! get Ti from tabulated eos
+    if (vxyzu(4,i) < epsilon(vxyzu(4,i))) then
+       print *, "u=0 in FLD calc", vxyzu(4,i), i,rhoi*unit_density,Ti,&
+            cell%xpartvec(ixi,icell),cell%xpartvec(iyi,icell)
+    endif
     call getopac_opdep(vxyzu(4,i)*unit_ergg,rhoi*unit_density,kappabari, &
      kappaparti,Ti,gmwi)
 

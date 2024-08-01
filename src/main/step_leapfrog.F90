@@ -384,6 +384,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  if (npart > 0) then
     if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
+    if (icooling == 9) vpred(4,:) = vxyzu(4,:)
     dt_too_small = .false.
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
