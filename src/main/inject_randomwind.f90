@@ -180,7 +180,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  sinp = sin(phi_rad)
  vecz = (/0.,0.,1./) 
  veczprime = (/sint*cosp,sint*sinp,cost/)
- call cross_product3D(vecz, veczprime, rotaxis)
+ if (abs(theta_rad-0)<1e-6) then
+   rotaxis = (/0.,0.,1./) 
+ else
+    call cross_product3D(vecz, veczprime, rotaxis)
+ endif 
  !
  !-- Randomly inject particles around the asteroids outer 'radius'.
  !   Only inject them on the side that is facing the central sink
@@ -269,8 +273,7 @@ subroutine write_options_inject(iunit)
  call write_inopt(delta_theta, 'delta_theta', 'standard deviation for the gaussion distribution (random_type=1)', iunit)
  call write_inopt(theta, 'theta', 'the tilt inclination of the star or planet (random_type=1)', iunit)
  call write_inopt(phi, 'phi', 'the tilt orientation of the star, (random_type=1)', iunit)
- call write_inopt(inject_pt, 'inject_pt', 'the partical that produce wind (when wind_type=1)', iunit)
-
+ call write_inopt(inject_pt, 'inject_pt', 'the particle that excites wind (when wind_type=1)', iunit)
  call write_inopt(wind_speed_factor, & 
                   & 'wind_speed_factor', 'factor to scale the wind speed based on the Keplerian speed at rinject', iunit)
  call write_inopt(r_inject_str, 'r_inject', 'inject radius with units, e.g. 1*AU, 1e8m, (when wind_type=1)', iunit)
