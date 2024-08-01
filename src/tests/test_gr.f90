@@ -279,13 +279,14 @@ subroutine test_combinations(ntests,npass)
  use utils_gr,        only:dot_product_gr
  use metric_tools,    only:get_metric,get_metric_derivs,imetric,imet_kerr
  use metric,          only:metric_type
+ use part,            only:mhd
  integer, intent(inout) :: ntests,npass
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(7),density(7),errmax,errmaxg,errmaxc,errmaxd
+ real    :: utherm(7),density(7),bmag(4),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,t,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
- integer :: i,j,k,l,m,n,ii,jj
+ integer :: i,j,k,l,m,n,ii,jj,bi,bj,bk
  integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim
  integer :: ncheckg,nfailg,ncheckd,nfaild
  real, parameter :: tol = 2.e-15
@@ -323,6 +324,8 @@ subroutine test_combinations(ntests,npass)
 
  utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
  density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
+
+ if (mhd) bmag = (/0.,1.e-20,1.e-10,1.e-5/)
 
  t = -1. ! initial temperature guess to avoid complier warning
 
@@ -367,7 +370,19 @@ subroutine test_combinations(ntests,npass)
                             dens = density(jj)
                             call equationofstate(ieos,pondens,spsound,dens,x,y,z,t,u)
                             p = pondens*dens
-                            call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+                            if (mhd) then
+                               do bi=1,size(bmag)
+                                  do bj=1,size(bmag)
+                                     do bk=1,size(bmag)
+                                       call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,&
+                                                              nfail_cons2prim,errmaxc,tolc,&
+                                                              b=(/bmag(bi),bmag(bj),bmag(bk)/))
+                                     enddo
+                                  enddo
+                               enddo
+                            else
+                               call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+                            endif
                          enddo
                       enddo
                    endif
@@ -463,7 +478,7 @@ end subroutine test_metric_derivs_i
 !  Test of the conservative to primitive variable solver
 !+
 !----------------------------------------------------------------
-subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
+subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,b)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use part,            only:ien_entropy,ien_etotal,ien_entropy_s
  use metric_tools,    only:pack_metric,unpack_metric
@@ -471,6 +486,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use physcon,         only:radconst,kb_on_mh
 
  real, intent(in) :: x(1:3),v(1:3),dens,p,tol
+ real, intent(in), optional :: b(1:3)
  real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
@@ -479,6 +495,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  real :: p2,u2,t2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
+ real :: bcon(1:3),b_out(1:3)
  real :: toli
  integer :: ierr,i,j,nfailprev,ien_type
  real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
@@ -490,7 +507,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
 
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
  P2 = pondens2 * dens2
- v2 = v
+ v2 = 0.5*v
 
  over_energy_variables: do i = 1,3
     ! Used for initial guess in conservative2primitive
@@ -515,12 +532,18 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
        ien_type = ien_etotal
        toli = 1.5e-9
     else
+       if (present(b)) cycle
        ien_type = ien_entropy_s
        toli = 1.5e-11
     endif
 
-    call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
-    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type)
+    if (present(b)) then
+       call primitive2conservative(x,metrici,v2,dens2,u2,P2,rho2,pmom2,en2,ien_type,b,bcon)
+       call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type,b_out,bcon)
+    else
+       call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
+       call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type)
+    endif
 
     call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
     do j=1,3
