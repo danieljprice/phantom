@@ -35,7 +35,7 @@ subroutine check_compile_time_settings(ierr)
  use io,       only:error,id,master,fatal,warning
  use mpiutils, only:barrier_mpi
 #ifdef GR
- use metric_tools, only:icoordinate,icoord_cartesian
+ use metric_tools, only:icoordinate,icoord_cartesian,imet_minkowski,imetric
  use dim,          only:maxsts
 #endif
  integer, intent(out) :: ierr
@@ -100,7 +100,7 @@ subroutine check_compile_time_settings(ierr)
 #endif
 
 #ifdef GR
- if (mhd) then
+ if (mhd .and. imetric /= imet_minkowski) then
     call error(string,'General relativity not compatible with MHD.')
     ierr = 6
  endif
