@@ -119,7 +119,7 @@ end subroutine
 !  conserved variables are (rho,pmom_i,en)
 !+
 !----------------------------------------------------------------
-subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,B,Bcon)
+subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,B,Bevol)
  use utils_gr,     only:get_u0,get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use io,           only:error
@@ -129,7 +129,7 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,B,Bc
  real, intent(in)  :: dens,v(1:3),u,P
  real, intent(out) :: rho,pmom(1:3),en
  real, intent(in), optional :: B(1:3)
- real, intent(out), optional :: Bcon(1:3)
+ real, intent(out), optional :: Bevol(1:3)
 
  integer, intent(in) :: ien_type
  real, dimension(0:3,0:3) :: gcov
@@ -172,7 +172,7 @@ subroutine primitive2conservative(x,metrici,v,dens,u,P,rho,pmom,en,ien_type,B,Bc
 
     call pmom_comp(sqrt_gamma,eup,b,rho,pmom,pmag)
     pmom = pmom + pmag
-    bcon = sqrt_gamma*b
+    bevol = sqrt_gamma*b/rho
  endif
 
  gvv = 0.
@@ -204,7 +204,7 @@ end subroutine primitive2conservative
 !  for equations of state where gamma is constant
 !+
 !----------------------------------------------------------------
-subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type,B,Bcon)
+subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ierr,ien_type,B,Bevol)
  use utils_gr,     only:get_sqrtg,get_sqrt_gamma
  use metric_tools, only:unpack_metric
  use eos,          only:ieos,gmw,get_entropy,get_p_from_rho_s,gamma_global=>gamma
@@ -217,8 +217,8 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  real, intent(inout) :: dens,P,u,temp,gamma
  real, intent(out)   :: v(1:3)
  real, intent(in)    :: rho,pmom(1:3),en
- real, intent(inout), optional :: B(1:3)
- real, intent(in), optional :: Bcon(1:3)
+ real, intent(out), optional :: B(1:3)
+ real, intent(in), optional :: Bevol(1:3)
  integer, intent(out) :: ierr
  integer, intent(in)  :: ien_type
  real, dimension(1:3,1:3) :: gammaijUP,gammaijdown
@@ -257,7 +257,7 @@ subroutine conservative2primitive(x,metrici,v,dens,u,P,temp,gamma,rho,pmom,en,ie
  pm_dot_b = dot_product(pmom,betaUP)
 
  if (mhd) then
-    b = bcon*sqrt_gamma_inv
+    b = bevol*sqrt_gamma_inv*rho
     vlocal = (v + betaup)/alpha
 
     b2 = 0.
