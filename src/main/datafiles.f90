@@ -73,6 +73,8 @@ function map_dir_to_web(search_dir) result(url)
     url = 'https://zenodo.org/records/13162515/files/'
  case('data/galaxy_merger')
     url = 'https://zenodo.org/records/13162815/files/'
+ case('data/starcluster')
+    url = 'https://zenodo.org/records/13164858/files/'
  case default
     url = 'https://users.monash.edu.au/~dprice/'//trim(search_dir)
  end select
