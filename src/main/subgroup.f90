@@ -185,9 +185,12 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
           bin_info(iapo,l)  = apokl
           bin_info(iorb,k)  = Tkl
           bin_info(iorb,l)  = Tkl
-       else                       ! No matches... Only a single
+       else  ! No matches... Only a single
           group_info(icomp,j) = k
-          bin_info(:,k) = 0.
+          bin_info(isemi,k) = 0.
+          bin_info(iecc,k)  = 0.
+          bin_info(iapo,k)  = 0.
+          bin_info(iorb,k)  = 0.
        endif
     endif
  enddo
@@ -1210,7 +1213,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,g
                 kappa1 = 1./bin_info(ikap,prim)
              else
                 kappa1 = 1.
-                call fatal('subgroup','kappa value bellow 1... something wrong here!',var='kappa',val=bin_info(ikap,prim))
+                call fatal('subgroup','kappa value bellow 1... something wrong here!(energy)',var='kappa',val=bin_info(ikap,prim))
              endif
              call get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,phigroup,kappa1,prim,sec,.true.)
           endif
