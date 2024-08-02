@@ -143,7 +143,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
- integer         :: dummy,istepHII
+ integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
 
@@ -279,7 +279,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !  across all nodes
     nskip = int(ntot)
 #endif
-
+    nptmass_old = nptmass
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
@@ -310,13 +310,13 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           istepHII = 2**nbinmax/HIIuprate
           if (istepHII==0) istepHII = 1
        endif
-       if (mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
+       if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
     endif
 
     ! Need to recompute the force when sink or stars are created
-    if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
+    if (nptmass > nptmass_old .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
        if (use_regnbody) then
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&

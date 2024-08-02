@@ -944,8 +944,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                        group_info=group_info,bin_info=bin_info)
-                if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
+             if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              fxyz_ptmass_sinksink(:,1:nptmass) = fxyz_ptmass (:,1:nptmass)
              dsdt_ptmass_sinksink(:,1:nptmass) = dsdt_ptmass (:,1:nptmass)
           else
@@ -955,8 +955,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
-                if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
+             if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              fxyz_ptmass_sinksink(:,1:nptmass) = fxyz_ptmass (:,1:nptmass)
              dsdt_ptmass_sinksink(:,1:nptmass) = dsdt_ptmass (:,1:nptmass)
           endif
