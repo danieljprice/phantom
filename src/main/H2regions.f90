@@ -7,19 +7,19 @@
 module HIIRegion
 !
 ! HIIRegion
+! contains routines to model HII region expansion due to ionization and radiation pressure..
+! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
+! and adapted in Phantom by Yann Bernard
 !
 ! :References: Fujii et al. (2021), Hopkins et al. (2012)
 !
-! :Owner: Yrisch
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !
 ! :Dependencies: dim, eos, infile_utils, io, linklist, part, physcon,
 !   sortutils, timing, units
 !
-! contains routines to model HII region expansion due to ionization and radiation pressure..
-! routine originally made by Hopkins et al. (2012),reused by Fujii et al. (2021)
-! and adapted in Phantom by Yann Bernard
 
  implicit none
 

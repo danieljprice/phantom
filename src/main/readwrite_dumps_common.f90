@@ -16,7 +16,7 @@ module readwrite_dumps_common
 !
 ! :Dependencies: boundary, boundary_dyn, checkconserved, dim, dump_utils,
 !   dust, dust_formation, eos, externalforces, fileutils, gitinfo, io,
-!   options, part, ptmass, setup_params, sphNGutils, timestep, units
+!   options, part, setup_params, sphNGutils, timestep, units
 !
  use dump_utils, only:lenid
  implicit none

@@ -10,7 +10,7 @@ module eos_HIIR
 !
 ! :References: None
 !
-! :Owner: Yrisch
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !

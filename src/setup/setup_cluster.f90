@@ -22,6 +22,7 @@ module setup
 !   - mass_fac    : *mass unit in Msun*
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
+!   - relax       : *relax the cloud ?*
 !
 ! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
 !   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,

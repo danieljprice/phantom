@@ -529,7 +529,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (ntypes > 1 .and. maxphase==maxp) then
              pmassi = massoftype(iamtype(iphase(i)))
           endif
-          if (use_regnbody)then
+          if (use_regnbody) then
              call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
                                      fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
                                      dsdt_ptmass,fonrmax,dtphi2,bin_info=bin_info)

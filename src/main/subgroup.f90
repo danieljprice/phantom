@@ -11,7 +11,7 @@ module subgroup
 !
 ! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Yrisch
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !
@@ -815,7 +815,7 @@ subroutine oneStep_bin(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,g
     vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,j))/mtot
 
 
-    if(kappa1 < 1.0) then
+    if (kappa1 < 1.0) then
        call correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
     else
        xyzmh_ptmass(1,i) = xyzmh_ptmass(1,i) + dtd*vxyz_ptmass(1,i)
@@ -985,7 +985,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
     endif
 
     if (init) then
-       if(compi /=i) then
+       if (compi /=i) then
           Ti = bin_info(iorb,i)
           dt_init = min(dt_init,0.002*Ti)
        endif

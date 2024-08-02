@@ -21,7 +21,7 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Yrisch
+! :Owner: Yann BERNARD
 !
 ! :Runtime parameters: None
 !
@@ -1008,7 +1008,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           zi = xyzh(3,i)
        endif
        if (nptmass > 0) then
-          if(wsub) then
+          if (wsub) then
              if (extrap) then
                 call get_accel_sink_gas(nptmass,xi,yi,zi,xyzh(4,i),xyzmh_ptmass,&
                                      fextx,fexty,fextz,phii,pmassi,fxyz_ptmass, &
