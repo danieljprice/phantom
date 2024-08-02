@@ -61,27 +61,33 @@ end subroutine init_subgroup
 !
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass, &
-                          group_info,bin_info,nmatrix,dtext)
+                          group_info,bin_info,nmatrix,dtext,new_ptmass)
  use io,     only:id,master,iverbose,iprint
  use timing, only:get_timings,increment_timer,itimer_sg_id
- integer,         intent(in)    :: nptmass
- real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- real,            intent(inout) :: bin_info(:,:)
- integer,         intent(inout) :: group_info(4,nptmass)
- integer,         intent(inout) :: n_group,n_ingroup,n_sing
- integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
- real, optional,  intent(in)    :: dtext
+ use part, only: igarg,igcum,igid
+ integer,           intent(in)    :: nptmass
+ real,              intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,              intent(inout) :: bin_info(:,:)
+ integer,           intent(inout) :: group_info(4,nptmass)
+ integer,           intent(inout) :: n_group,n_ingroup,n_sing
+ integer(kind=1),   intent(inout) :: nmatrix(nptmass,nptmass)
+ logical, optional, intent(in)    :: new_ptmass
+ real, optional,    intent(in)    :: dtext
  real(kind=4) :: t1,t2,tcpu1,tcpu2
- logical      :: large_search
+ logical      :: large_search,reset_nm
 
 
  large_search = present(dtext)
+ reset_nm     = present(new_ptmass)
  n_group = 0
  n_ingroup = 0
  n_sing = 0
  if (nptmass > 0) then
 
     call get_timings(t1,tcpu1)
+    group_info(:,:) = 0
+
+    if (reset_nm) nmatrix = 0
 
     if (large_search) then
        call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
@@ -331,7 +337,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  real,            intent(in) :: vxyz_ptmass(:,:)
  integer(kind=1), intent(out):: nmatrix(nptmass,nptmass)
  real, optional,  intent(in) :: dtext
- real :: xi,yi,zi,vxi,vyi,vzi,mi
+ real :: xi,yi,zi,vxi,vyi,vzi,mi,mj
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
  real :: aij,eij,B,rperi,dtexti
  integer :: i,j
@@ -348,7 +354,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
- !$omp private(dx,dy,dz,r,r2) &
+ !$omp private(dx,dy,dz,r,r2,mj) &
  !$omp private(dvx,dvy,dvz,v2) &
  !$omp private(mu,aij,eij,B,rperi)
  do i=1,nptmass
@@ -359,12 +365,20 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     vxi = vxyz_ptmass(1,i)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
-    if (mi < 0 ) cycle
+    if (mi < 0 ) then
+       nmatrix(i,:) = 0
+       cycle
+    endif
     do j=1,nptmass
        if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
        dy = yi - xyzmh_ptmass(2,j)
        dz = zi - xyzmh_ptmass(3,j)
+       mj = xyzmh_ptmass(4,j)
+       if (mj < 0 ) then
+          nmatrix(i,j) = 0
+          cycle
+       endif
        r2 = dx**2+dy**2+dz**2
        r = sqrt(r2)
        if (r<r_neigh) then
