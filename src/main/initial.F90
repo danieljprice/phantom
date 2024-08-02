@@ -212,7 +212,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
- use subgroup,         only:group_identify,init_subgroup,init_kappa
+ use subgroup,         only:group_identify,init_subgroup,update_kappa
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -551,7 +551,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
-    if (use_regnbody) call init_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
+    if (use_regnbody) call update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0 .and. id==master) then

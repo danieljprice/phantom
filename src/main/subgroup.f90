@@ -24,7 +24,7 @@ module subgroup
  public :: evolve_groups
  public :: get_pot_subsys
  public :: init_subgroup
- public :: init_kappa
+ public :: update_kappa
  !
  !-- parameters for group identification
  !
@@ -476,7 +476,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
  ismultiple = gsize > 2
 
  if (ismultiple) then
-    call update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,start_id,end_id)
+    call get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,start_id,end_id)
     call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,W,start_id,end_id,ds_init=ds_init)
  else
     prim = group_info(igarg,start_id)
@@ -753,7 +753,7 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
     call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                gsize,s_id,e_id)
     call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om_old,s_id,e_id,.true.)
-    call update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
+    call get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
     call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id)
     W = W + (om-om_old) ! correct W after updating kappa...
  else
@@ -1001,7 +1001,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
 
 end subroutine get_force_TTL
 
-subroutine update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
+subroutine get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
  use part, only:igarg,icomp,ipert,ikap,iapo,iecc,isemi
  real   , intent(in)    :: xyzmh_ptmass(:,:)
  real   , intent(inout) :: bin_info(:,:)
@@ -1063,7 +1063,7 @@ subroutine update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
 
  deallocate(binstack)
 
-end subroutine update_kappa
+end subroutine get_kappa
 
 subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,potonly,ds_init,Tij)
  real,    intent(in)    :: xyzmh_ptmass(:,:)
@@ -1159,7 +1159,7 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
 end subroutine get_kappa_bin
 
 
-subroutine init_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
+subroutine update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
  use part, only:igcum,igarg
  real,    intent(in)    :: xyzmh_ptmass(:,:)
  real,    intent(inout) :: bin_info(:,:)
@@ -1172,14 +1172,14 @@ subroutine init_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
     end_id   = group_info(igcum,i+1)
     gsize    = (end_id - start_id) + 1
     if (gsize>2) then
-       call update_kappa(xyzmh_ptmass,group_info,bin_info,gsize,start_id,end_id)
+       call get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,start_id,end_id)
     else
        prim = group_info(igarg,start_id)
        sec = group_info(igarg,end_id)
        call get_kappa_bin(xyzmh_ptmass,bin_info,prim,sec)
     endif
  enddo
-end subroutine init_kappa
+end subroutine update_kappa
 
 
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
@@ -1193,6 +1193,9 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,g
  integer :: i,start_id,end_id,gsize,prim,sec
  real :: phitot,phigroup,kappa1
  phitot = 0.
+
+ call update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
+
  if (n_group>0) then
     if (id==master) then
        !$omp parallel do default(none)&
