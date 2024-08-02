@@ -434,7 +434,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use part,           only:fxyz_ptmass_sinksink,ndptmass
  use io_summary,     only:summary_variable,iosumextr,iosumextt
  use externalforces, only:is_velocity_dependent
- use ptmass,         only:use_fourthorder,use_regnbody,ck,dk
+ use ptmass,         only:use_fourthorder,use_regnbody,ck,dk,ptmass_check_stars,icreate_sinks
  use subgroup,     only:group_identify,evolve_groups
  integer,         intent(in)    :: npart,ntypes,nptmass
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
@@ -573,6 +573,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        endif
     endif
  enddo substeps
+
+ if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,timei)
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then

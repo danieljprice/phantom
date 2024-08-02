@@ -53,7 +53,7 @@ module ptmass
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
- public :: ptmass_create_stars,ptmass_create_seeds
+ public :: ptmass_create_stars,ptmass_create_seeds,ptmass_check_stars
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
  public :: calculate_mdot
@@ -691,6 +691,7 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(in)    :: fxyz_ptmass(4,nptmass)
  real,    intent(in)    :: dsdt_ptmass(3,nptmass)
+
  integer :: i
 
 
@@ -864,18 +865,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
     if (mpt < 0.) cycle
     if (icreate_sinks==2) then
        if (hacc < h_acc ) cycle
-       if (tbirthi + tmax_acc < time) then
-          !$omp master
-          if (ipart_createstars == 0) ipart_createstars = i
-          !$omp end master
-          cycle
-       endif
-       if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
-          (ipart_createseeds == 0)) then
-          !$omp master
-          ipart_createseeds = i
-          !$omp end master
-       endif
+       if (tbirthi + tmax_acc < time) cycle
     endif
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
@@ -1822,6 +1812,28 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  deallocate(masses)
 
 end subroutine ptmass_create_stars
+
+subroutine ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,time)
+ use part, only : itbirth
+ real,    intent(in) :: time
+ integer, intent(in) :: nptmass
+ real,    intent(in) :: xyzmh_ptmass(:,:)
+ integer, intent(in) :: linklist_ptmass(:)
+ integer :: i
+ real    :: tbirthi,hacci
+ do i=1,nptmass
+    hacci = xyzmh_ptmass(ihacc,i)
+    tbirthi = xyzmh_ptmass(itbirth,i)
+    if (hacci < h_acc ) cycle
+    if (tbirthi + tmax_acc < time) then
+       if (ipart_createstars == 0) ipart_createstars = i
+    endif
+    if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
+        (ipart_createseeds == 0)) then
+       ipart_createseeds = i
+    endif
+ enddo
+end subroutine ptmass_check_stars
 
 !-----------------------------------------------------------------------
 !+
