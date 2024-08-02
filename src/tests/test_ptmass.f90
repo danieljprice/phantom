@@ -635,7 +635,6 @@ subroutine test_accretion(ntests,npass,itest)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,massoftype, &
                      npart,npartoftype,xyzh,vxyzu,fxyzu,igas,ihacc,&
                      isdead_or_accreted,set_particle_type,ndptmass,hfact,&
-                     linklist_ptmass
  use ptmass,    only:ptmass_accrete,update_ptmass
  use energies,  only:compute_energies,angtot,etot,totmom
  use mpiutils,  only:bcast_mpi,reduce_in_place_mpi
@@ -715,7 +714,7 @@ subroutine test_accretion(ntests,npass,itest)
        call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                            vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxyzu(1,i),fxyzu(2,i),fxyzu(3,i), &
                            igas,massoftype(igas),xyzmh_ptmass,vxyz_ptmass, &
-                           accreted,dptmass_thread,linklist_ptmass,t,1.0,ibin_wakei,ibin_wakei)
+                           accreted,dptmass_thread,t,1.0,ibin_wakei,ibin_wakei)
     endif
  enddo
  !$omp enddo

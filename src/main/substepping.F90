@@ -485,7 +485,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 ! Main integration scheme
 !
     call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-              fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
+              fext,fxyz_ptmass,dsdt_ptmass,dptmass)
 
     if (use_regnbody) then
        call evolve_groups(n_group,nptmass,time_par,time_par+ck(1)*dt,group_info,bin_info, &
@@ -512,7 +512,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                          fsink_old,group_info=group_info,bin_info=bin_info)
 
           call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                    fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
+                    fext,fxyz_ptmass,dsdt_ptmass,dptmass)
 
           call evolve_groups(n_group,nptmass,time_par,time_par+ck(2)*dt,group_info,bin_info, &
                              xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
@@ -527,7 +527,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
                          fsink_old)
           call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                    fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
+                    fext,fxyz_ptmass,dsdt_ptmass,dptmass)
 
           call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
@@ -538,7 +538,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        endif
 
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                 fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake,nbinmax,timei, &
+                 fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
                  fxyz_ptmass_sinksink,accreted)
 
        if (use_regnbody) then
@@ -553,7 +553,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     else  !! standard leapfrog scheme
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake,nbinmax,timei, &
+                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei, &
                 fxyz_ptmass_sinksink,accreted)
        if (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
@@ -647,7 +647,7 @@ end subroutine drift
  !----------------------------------------------------------------
 
 subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-                fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake, &
+                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake, &
                 nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
@@ -664,7 +664,6 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real,                      intent(inout) :: vxyzu(:,:),fext(:,:)
  real,                      intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,                      intent(inout) :: dptmass(ndptmass,nptmass)
- integer,                   intent(in)    :: linklist_ptmass(:)
  real,            optional, intent(inout) :: fxyz_ptmass_sinksink(:,:)
  real,            optional, intent(in)    :: timei
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
@@ -731,7 +730,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp parallel do default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,f_acc) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
@@ -778,7 +777,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                               vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
                               itype,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                              dptmass,linklist_ptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+                              dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
                 cycle accreteloop

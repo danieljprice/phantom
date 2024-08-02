@@ -821,7 +821,7 @@ end function ptmass_not_obscured
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                          dptmass,linklist_ptmass,time,facc,nbinmax,ibin_wakei,nfaili)
+                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
  use part,       only: ihacc,itbirth,ndptmass
@@ -833,7 +833,6 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(inout) :: hi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(in)    :: vxyz_ptmass(3,nptmass)
- integer,           intent(in)    :: linklist_ptmass(nptmass)
  logical,           intent(out)   :: accreted
  real,              intent(inout) :: dptmass(ndptmass,nptmass)
  integer(kind=1),   intent(in)    :: nbinmax
@@ -1604,7 +1603,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                           dptmass,linklist_ptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
+                           dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
 
        if (accreted) nacc = nacc + 1
     enddo
