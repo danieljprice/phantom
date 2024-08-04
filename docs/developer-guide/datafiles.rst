@@ -8,7 +8,7 @@ order for your modules to be portable.
 Small files
 -----------
 
-For *very small files* (under 1Mb), you can simply add these to the git
+For *very small files* (under 100Kb), you can simply add these to the git
 repository in a subdirectory of the phantom/data directory:
 
 ::
