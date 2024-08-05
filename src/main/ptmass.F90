@@ -1639,6 +1639,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 end subroutine ptmass_create
 
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of star "seeds" inside a sink particle
+!+
+!-------------------------------------------------------------------------
 subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
  use part,   only:itbirth,ihacc
  use random, only:ran2
@@ -1675,7 +1680,13 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
 
 end subroutine ptmass_create_seeds
 
-subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of stars inside a sink particle
+!+
+!-------------------------------------------------------------------------
+subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                               fxyz_ptmass_sinksink,linklist_ptmass,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
@@ -1923,22 +1934,34 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
 
 end subroutine merge_sinks
 
+!-----------------------------------------------------------------------
+!+
+!  helper routine for managing the sink particle linked list
+!+
+!-----------------------------------------------------------------------
 subroutine ptmass_endsize_lklist(i,k,n,linklist_ptmass)
  integer, intent(in)  :: linklist_ptmass(:)
  integer, intent(in)  :: i
  integer, intent(out) :: k,n
  integer :: l,g
- g=i
+
+ g = i
  n = 0
  do while (g>0)
     l = g
     g = linklist_ptmass(l)
     n = n + 1
  enddo
- k=l
+ k = l
+
 end subroutine ptmass_endsize_lklist
 
-
+!-----------------------------------------------------------------------
+!+
+!  Swap between leapfrog and 4th order forward sympletic integrator
+!  for evolving sink particles
+!+
+!-----------------------------------------------------------------------
 subroutine set_integration_precision
 
  if (use_fourthorder) then
@@ -2197,7 +2220,7 @@ subroutine write_options_ptmass(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
- call write_inopt(isink_potential,'isink_potential','sink potential(0=1/r,1=surf)',iunit)
+ call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -2219,8 +2242,10 @@ subroutine write_options_ptmass(iunit)
  endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
- call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
- call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ if (gravity .and. icreate_sinks > 0) then
+    call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
+    call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ endif
  if (use_regnbody) then
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
@@ -2321,7 +2346,7 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (icreate_sinks ==2) store_ll_ptmass = .true.
+ if (icreate_sinks == 2) store_ll_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then
@@ -2331,5 +2356,5 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_options_ptmass
-!-----------------------------------------------------------------------
+
 end module ptmass

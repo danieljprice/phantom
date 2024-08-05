@@ -34,7 +34,7 @@ module units
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
- public :: is_time_unit, is_length_unit
+ public :: is_time_unit, is_length_unit, is_mdot_unit
  public :: in_solarr, in_solarm, in_solarl
 
 contains
@@ -226,6 +226,12 @@ subroutine select_unit(string,unit,ierr)
     unit = minutes
  case('s','sec','second','seconds')
     unit = seconds
+ case("g/s","grams/second","g/second","grams/s","g/sec","grams/sec")
+    unit = 1.d0/seconds
+ case("Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
+      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
+      "M_sun/year","Msolar/year","M_solar/year")
+    unit = solarm/years
  case default
     ierr = 1
     unit = 1.d0
@@ -287,6 +293,32 @@ end function is_length_unit
 
 !------------------------------------------------------------------------------------
 !+
+!  check if string is a unit of mdot
+!+
+!------------------------------------------------------------------------------------
+logical function is_mdot_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case("g/s","gram/second","g/second","gram/s","g/sec","gram/sec",&
+      "Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
+      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
+      "M_sun/year","Msolar/year","M_solar/year")
+    is_mdot_unit = .true.
+ case default
+    is_mdot_unit = .false.
+ end select
+
+end function is_mdot_unit
+
+!------------------------------------------------------------------------------------
+!+
 !  parse a string like "10.*days" or "10*au" and return the value in code units
 !  if there is no recognisable units, the value is returned unscaled
 !+
@@ -301,6 +333,8 @@ real function in_code_units(string,ierr) result(rval)
     rval = real(val/utime)
  elseif (is_length_unit(string) .and. ierr == 0) then
     rval = real(val/udist)
+ elseif (is_mdot_unit(string) .and. ierr == 0) then
+    rval = real(val/(umass/utime))
  else
     rval = real(val)  ! no unit conversion
  endif

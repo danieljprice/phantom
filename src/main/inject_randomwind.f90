@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module inject
 !
-! Injection module for wind from an orbiting asteroid, as used
+! Injection module for wind from an orbiting body, as used
 ! in Trevascus et al. (2021)
 !
 ! :References:
@@ -15,9 +15,11 @@ module inject
 ! :Owner: David Liptai
 !
 ! :Runtime parameters:
-!   - mdot      : *mass injection rate in grams/second*
-!   - mdot_type : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
-!   - vlag      : *percentage lag in velocity of wind*
+!   - delta_theta : *standard deviation for the gaussion distribution (random_type=1)*
+!   - mdot        : *mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr*
+!   - mdot_type   : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
+!   - random_type : *random position on the surface, 0 for random, 1 for gaussian*
+!   - vlag        : *percentage lag in velocity of wind*
 !
 ! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
 !   part, partinject, physcon, random, units
@@ -25,8 +27,9 @@ module inject
  use io, only:error
  use physcon, only:pi
  implicit none
- character(len=*), parameter, public :: inject_type = 'asteroidwind'
- real, public :: mdot = 5.e8     ! mass injection rate in grams/second
+ character(len=*), parameter, public :: inject_type = 'randomwind'
+ character(len=20), public :: mdot_str = "5.e8*g/s"
+ real, public :: mdot = 1.e8     ! mass injection rate in grams/second
 
  public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
       set_default_options_inject,update_injected_par
@@ -35,7 +38,12 @@ module inject
 
  real         :: npartperorbit = 1000.     ! particle injection rate in particles per orbit
  real         :: vlag          = 0.0      ! percentage lag in velocity of wind
- integer      :: mdot_type     = 2        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
+ integer      :: mdot_type     = 0        ! injection rate (0=const, 1=cos(t), 2=r^(-2))
+ integer      :: random_type   = 0        ! random position on the surface, 0 for random, 1 for gaussian
+ real         :: delta_theta   = 0.5      ! standard deviation for the gaussion distribution (random_type=1)
+ real         :: have_injected = 0.
+ real         :: t_old = 0.
+ real         :: r_ref = 1.
 
 contains
 !-----------------------------------------------------------------------
@@ -61,8 +69,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use part,          only:nptmass,massoftype,igas,hfact,ihsoft
  use partinject,    only:add_or_update_particle
  use physcon,       only:twopi,gg,kboltz,mass_proton_cgs
- use random,        only:get_random_pos_on_sphere
- use units,         only:umass, utime
+ use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere
+ use units,         only:in_code_units
  use options,       only:iexternalforce
  use externalforces,only:mass1
  use binaryutils,   only:get_orbit_bits
@@ -71,18 +79,17 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
+ integer :: ierr
  real,    dimension(3)  :: xyz,vxyz,r1,r2,v2,vhat,v1
  integer :: i,ipart,npinject,seed,pt
- real    :: dmdt,rasteroid,h,u,speed,inject_this_step
+ real    :: dmdt,rbody,h,u,speed,inject_this_step
  real    :: m1,m2,r
  real    :: dt
- real, save :: have_injected,t_old
- real, save :: semia
 
- if (nptmass < 2 .and. iexternalforce == 0) &
-    call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
+ if (nptmass < 1 .and. iexternalforce == 0) &
+    call fatal('inject_randomwind','not enough point masses for random wind injection')
  if (nptmass > 2) &
-    call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
+    call fatal('inject_randomwind','too many point masses for random wind injection')
 
  if (nptmass == 2) then
     pt = 2
@@ -97,7 +104,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  r2        = xyzmh_ptmass(1:3,pt)
- rasteroid = xyzmh_ptmass(ihsoft,pt)
+ rbody     = xyzmh_ptmass(ihsoft,pt)
  m2        = xyzmh_ptmass(4,pt)
  v2        = vxyz_ptmass(1:3,pt)
 
@@ -109,7 +116,8 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !
  ! Add any dependency on radius to mass injection rate (and convert to code units)
  !
- dmdt      = mdot*mdot_func(r,semia)/(umass/utime) ! Use semi-major axis as r_ref
+ mdot = in_code_units(mdot_str,ierr)
+ dmdt = mdot*mdot_func(r,r_ref) ! r_ref is the radius for which mdot_fund = mdot
 
  !
  !-- How many particles do we need to inject?
@@ -120,7 +128,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  else
     ! Calculate how many extra particles from previous step to now
     dt = time - t_old
-    inject_this_step = dt*mdot/massoftype(igas)/(umass/utime)
+    inject_this_step = dt*dmdt/massoftype(igas)
 
     npinject = max(0, int(0.5 + have_injected + inject_this_step - npartoftype(igas) ))
 
@@ -130,14 +138,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  endif
 
  !
- !-- Randomly inject particles around the asteroids outer 'radius'.
- !   Only inject them on the side that is facing the central sink
+ !-- Randomly inject particles around the body's outer 'radius'.
  !
  do i=1,npinject
-    xyz       = r2 + rasteroid*get_random_pos_on_sphere(seed)
+    xyz       = r2 + rbody*get_pos_on_sphere(seed, delta_theta)
     vxyz      = (1.-vlag/100)*speed*vhat
     u         = 0. ! setup is isothermal so utherm is not stored
-    h         = hfact*(rasteroid/2.)
+    h         = hfact*(rbody/2.)
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
  enddo
@@ -175,6 +182,26 @@ end function mdot_func
 
 !-----------------------------------------------------------------------
 !+
+!  Returns a random location on a sperical surface
+!+
+!-----------------------------------------------------------------------
+function get_pos_on_sphere(iseed, delta_theta) result(dx)
+ use random,        only:get_random_pos_on_sphere, get_gaussian_pos_on_sphere
+ integer, intent(inout) :: iseed
+ real, intent(inout) :: delta_theta
+ real  :: dx(3)
+
+ select case (random_type)
+ case(1)
+    dx = get_gaussian_pos_on_sphere(iseed, delta_theta)
+ case(0)
+    dx = get_random_pos_on_sphere(iseed)
+ end select
+
+end function get_pos_on_sphere
+
+!-----------------------------------------------------------------------
+!+
 !  Writes input options to the input file.
 !+
 !-----------------------------------------------------------------------
@@ -182,11 +209,18 @@ subroutine write_options_inject(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(mdot,'mdot','mass injection rate in grams/second',iunit)
+ call write_inopt(mdot_str,'mdot','mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr',iunit)
  call write_inopt(npartperorbit,'npartperorbit',&
                   'particle injection rate in particles/binary orbit',iunit)
  call write_inopt(vlag,'vlag','percentage lag in velocity of wind',iunit)
- call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 1=cos(t), 2=r^(-2))',iunit)
+ call write_inopt(mdot_type,'mdot_type','injection rate (0=const, 2=r^(-2))',iunit)
+ if (mdot_type==2) then
+    call write_inopt(r_ref,'r_ref','radius at whieh Mdot=mdot for 1/r^2 injection type',iunit)
+ endif
+ call write_inopt(random_type, 'random_type', 'random position on the surface, 0 for random, 1 for gaussian', iunit)
+ if (random_type==1) then
+    call write_inopt(delta_theta, 'delta_theta', 'standard deviation for the gaussion distribution', iunit)
+ endif
 
 end subroutine write_options_inject
 
@@ -206,9 +240,9 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  select case(trim(name))
  case('mdot')
-    read(valstring,*,iostat=ierr) mdot
+    read(valstring,'(A)',iostat=ierr) mdot_str
     ngot = ngot + 1
-    if (mdot  <  0.) call fatal(label,'mdot < 0 in input options')
+    ! if (mdot  <  0.) call fatal(label,'mdot < 0 in input options')
  case('npartperorbit')
     read(valstring,*,iostat=ierr) npartperorbit
     ngot = ngot + 1
@@ -218,6 +252,15 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('mdot_type')
     read(valstring,*,iostat=ierr) mdot_type
+    ngot = ngot + 1
+ case('r_ref')
+    read(valstring,*,iostat=ierr) r_ref
+    ngot = ngot + 1
+ case('random_type')
+    read(valstring,*,iostat=ierr) random_type
+    ngot = ngot + 1
+ case('delta_theta')
+    read(valstring,*,iostat=ierr) delta_theta
     ngot = ngot + 1
  case default
     imatch = .false.

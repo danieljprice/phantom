@@ -22,7 +22,7 @@ module setup
 !   - ipot          : *wd modelled by 0=sink or 1=externalforce*
 !   - m1            : *mass of white dwarf (solar mass)*
 !   - m2            : *mass of asteroid (ceres mass)*
-!   - mdot          : *mass injection rate (g/s)*
+!   - mdot          : *mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr (from setup)*
 !   - norbits       : *number of orbits*
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rasteroid     : *radius of asteroid (km)*
@@ -33,6 +33,7 @@ module setup
 !   timestep, units
 !
  use inject, only:mdot
+ use inject, only:mdot_str
  implicit none
  public :: setpart
 
@@ -47,7 +48,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,idust,set_particle_type,igas
  use setbinary, only:set_binary,get_a_from_period
  use spherical, only:set_sphere
- use units,     only:set_units,umass,udist,utime,unit_velocity
+ use units,     only:set_units,umass,udist,unit_velocity,in_code_units
  use physcon,   only:solarm,au,pi,solarr,ceresm,km,kboltz,mass_proton_cgs
  use externalforces,   only:iext_binary, iext_einsteinprec, update_externalforce, &
                             mass1,accradius1
@@ -84,7 +85,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  rasteroid     = 2338.3      ! (km)
  gastemp       = 5000.     ! (K)
  norbits       = 1000.
- mdot          = 5.e8      ! Mass injection rate (g/s)
+ mdot          = 5.e8      ! Mass injection rate (will change later by the mdot_str)
+ mdot_str      = "5.e8*g/s"   ! Mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr
  npart_at_end  = 1.0e6       ! Number of particles after norbits
  dumpsperorbit = 1
 
@@ -180,7 +182,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  endif
 
  ! we use the estimated injection rate and the final time to set the particle mass
- massoftype(igas) = tmax*mdot/(umass/utime)/npart_at_end
+ mdot = in_code_units(mdot_str,ierr)
+ massoftype(igas) = tmax*mdot/npart_at_end
  hfact = hfact_default
  !npart_old = npart
  !call inject_particles(time,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinj)
@@ -219,7 +222,7 @@ subroutine write_setupfile(filename)
  call write_inopt(norbits,      'norbits',      'number of orbits',                                 iunit)
  call write_inopt(dumpsperorbit,'dumpsperorbit','number of dumps per orbit',                        iunit)
  call write_inopt(npart_at_end,'npart_at_end','number of particles injected after norbits',iunit)
- call write_inopt(mdot,'mdot','mass injection rate (g/s)',iunit)
+ call write_inopt(mdot_str,     'mdot',         'mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr (from setup)',iunit)
  close(iunit)
 
 end subroutine write_setupfile
@@ -227,6 +230,7 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error
+ use units,         only:in_code_units
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
  integer, parameter :: iunit = 21
@@ -248,7 +252,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(norbits,      'norbits',      db,min=0.,errcount=nerr)
  call read_inopt(dumpsperorbit,'dumpsperorbit',db,min=0 ,errcount=nerr)
  call read_inopt(npart_at_end, 'npart_at_end', db,min=0 ,errcount=nerr)
- call read_inopt(mdot,         'mdot',         db,min=0.,errcount=nerr)
+ call read_inopt(mdot_str,     'mdot',         db,errcount=nerr)
  call close_db(db)
  if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
