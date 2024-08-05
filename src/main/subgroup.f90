@@ -64,7 +64,6 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
                           group_info,bin_info,nmatrix,dtext,new_ptmass)
  use io,     only:id,master,iverbose,iprint
  use timing, only:get_timings,increment_timer,itimer_sg_id
- use part, only: igarg,igcum,igid
  integer,           intent(in)    :: nptmass
  real,              intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,              intent(inout) :: bin_info(:,:)
@@ -331,7 +330,7 @@ end subroutine dfs
 
 
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
- use utils_kepler, only: Espec,extract_a,extract_e,extract_ea
+ use utils_kepler, only: extract_a,extract_e,extract_ea
  integer,         intent(in) :: nptmass
  real,            intent(in) :: xyzmh_ptmass(:,:)
  real,            intent(in) :: vxyz_ptmass(:,:)
@@ -339,7 +338,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  real, optional,  intent(in) :: dtext
  real :: xi,yi,zi,vxi,vyi,vzi,mi,mj
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
- real :: aij,eij,B,rperi,dtexti
+ real :: aij,eij,rperi,dtexti
  integer :: i,j
  if (present(dtext)) then
     dtexti = dtext
@@ -356,7 +355,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
  !$omp private(dx,dy,dz,r,r2,mj) &
  !$omp private(dvx,dvy,dvz,v2) &
- !$omp private(mu,aij,eij,B,rperi)
+ !$omp private(mu,aij,eij,rperi)
  do i=1,nptmass
     xi = xyzmh_ptmass(1,i)
     yi = xyzmh_ptmass(2,i)
@@ -365,8 +364,8 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     vxi = vxyz_ptmass(1,i)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
-    if (mi < 0 ) then
-       nmatrix(i,:) = 0
+    if (mi <= 0. ) then
+       nmatrix(i,:) = 0 ! killed point masses can't be in a group
        cycle
     endif
     do j=1,nptmass
@@ -375,36 +374,41 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
        dy = yi - xyzmh_ptmass(2,j)
        dz = zi - xyzmh_ptmass(3,j)
        mj = xyzmh_ptmass(4,j)
-       if (mj < 0 ) then
-          nmatrix(i,j) = 0
+       if (mj <= 0. ) then
+          nmatrix(i,j) = 0 ! killed point masses can't be in a group
           cycle
        endif
        r2 = dx**2+dy**2+dz**2
        r = sqrt(r2)
-       if (r<r_neigh) then
+       !
+       !-- searching routine
+       !
+       if (r<r_neigh) then ! if inside neighbour radius set to 1
           nmatrix(i,j) = 1
-          cycle
-       elseif (r>r_search) then
-          nmatrix(i,j) = 0
-          cycle
-       endif
-       mu = mi + xyzmh_ptmass(4,j)
-       dvx = vxi - vxyz_ptmass(1,j)
-       dvy = vyi - vxyz_ptmass(2,j)
-       dvz = vzi - vxyz_ptmass(3,j)
-       v2 = dvx**2+dvy**2+dvz**2
-       call Espec(v2,r,mu,B)
-       call extract_a(r,mu,v2,aij)
-       if (B<0) then
-          if (aij<r_neigh) then
-             nmatrix(i,j) = 1
+       elseif (r<r_search) then ! if inside searching radius need to check
+          mu = mi + xyzmh_ptmass(4,j)
+          dvx = vxi - vxyz_ptmass(1,j)
+          dvy = vyi - vxyz_ptmass(2,j)
+          dvz = vzi - vxyz_ptmass(3,j)
+          v2 = dvx**2+dvy**2+dvz**2
+          call extract_a(r,mu,v2,aij)
+          if (aij>0) then ! check if the system is bounded
+             if (aij<r_neigh) then ! if yes then check on the semi major axis
+                nmatrix(i,j) = 1
+             else
+                nmatrix(i,j) = 0
+             endif
+          else ! if hyperbolic encounter, then check the periapsis
+             call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
+             rperi = aij*(1-eij)
+             if ((rperi < r_neigh) .and. (C_bin*sqrt(r2/v2) < dtexti)) then
+                nmatrix(i,j) = 1
+             else
+                nmatrix(i,j) = 0
+             endif
           endif
        else
-          call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
-          rperi = aij*(1-eij)
-          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<dtexti) then
-             nmatrix(i,j) = 1
-          endif
+          nmatrix(i,j) = 0
        endif
     enddo
  enddo
