@@ -25,7 +25,7 @@ module setup
 !   - mdot          : *mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr (from setup)*
 !   - norbits       : *number of orbits*
 !   - npart_at_end  : *number of particles injected after norbits*
-!   - rinject     : *radius of asteroid (km)*
+!   - rinject       : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,

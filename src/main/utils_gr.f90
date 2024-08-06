@@ -14,7 +14,7 @@ module utils_gr
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, io, metric, metric_tools, part
+! :Dependencies: io, metric, metric_tools, part
 !
  implicit none
 

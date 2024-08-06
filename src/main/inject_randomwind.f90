@@ -12,27 +12,23 @@ module inject
 ! :References:
 !   Trevascus et al. (2021), MNRAS 505, L21-L25
 !
-! :Owner: David Liptai
+! :Owner: Shunquan Huang
 !
 ! :Runtime parameters:
-!   - mdot_str  : *mdot with unit*
-!   - wind_type : wind setup (0=asteroidwind, 1=randomwind)
-!   - mdot      : *mass injection rate in grams/second*
-!   - mdot_type : *injection rate (0=const, 1=cos(t), 2=r^(-2))*
-!   - vlag      : *percentage lag in velocity of wind* 
-!   - random_type : random position on the surface, 0 for random, 1 for gaussian
-!   - delta_theta : standard deviation for the gaussion distribution (random_type=1)
-!   - theta       : the inclination of the star or planet (random_type=1, 
-!                   if theta = 90, more particles are injected in z direction)
-!   - phi         : the orientation of the star, (random_type=1, 
-!                   if theta=90 and phi=90 more particles are injected in x-z plane)
-!   - inject_pt   : the partical that produce wind (when wind_type=1)
-!   - wind_speed_factor : factor to scale the wind speed based on the Keplerian speed at rinject (when wind_type=1)
-!   - wind_speed     : wind speed  
-!   - r_inject_str   : rinject with unit (when wind_type=1)
+!   - delta_theta : *standard deviation for the gaussion distribution*
+!   - inject_pt   : *the particle that excites wind (when wind_type=1)*
+!   - mdot        : *mass injection rate with unit, e.g. 1e8*g/s, 1e-7M_s/yr*
+!   - mdot_type   : *injection rate (0=const, 2=r^(-2))*
+!   - phi         : *the tilt orientation of the star, (random_type=1)*
+!   - r_inject    : *inject radius with units, e.g. 1*AU, 1e8m, (when wind_type=1)*
+!   - r_ref       : *radius at whieh Mdot=mdot for 1/r^2 injection type*
+!   - random_type : *random position on the surface, 0 for random, 1 for gaussian*
+!   - theta       : *the tilt inclination of the star or planet (random_type=1)*
+!   - vlag        : *percentage lag in velocity of wind*
+!   - wind_type   : *wind setup (0=asteroidwind, 1=randomwind)*
 !
 ! :Dependencies: binaryutils, externalforces, infile_utils, io, options,
-!   part, partinject, physcon, random, units
+!   part, partinject, physcon, random, units, vectorutils
 !
  use io, only:error
  use physcon, only:pi
