@@ -1444,8 +1444,6 @@ subroutine write_options_eos(iunit)
  endif
 
  select case(ieos)
- case(2)
-    call write_inopt(gamma,'gamma','Adiabatic index',iunit)
  case(8)
     call write_options_eos_barotropic(iunit)
  case(9)
@@ -1453,8 +1451,6 @@ subroutine write_options_eos(iunit)
  case(10)
     call write_inopt(X_in,'X','hydrogen mass fraction',iunit)
     call write_inopt(Z_in,'Z','metallicity',iunit)
- case(12)
-    call write_inopt(gamma,'gamma','Adiabatic index',iunit) 
  case(15) ! helmholtz eos
     call eos_helmholtz_write_inopt(iunit)
  case(20)
