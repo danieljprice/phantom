@@ -19,7 +19,7 @@ module metric_tools
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, inverse4x4, metric
+! :Dependencies: inverse4x4, metric
 !
  use metric, only:imetric
  implicit none
