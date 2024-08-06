@@ -109,39 +109,39 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  ! calculate the wind velocity and other quantities for different wind type
  select case (wind_type)
  case(1) ! set up random wind
-   if (inject_pt > nptmass) call fatal('inject_randomwind', 'not enough point masses for inject target, check inject_pt')
-   r2 = xyzmh_ptmass(1:3,inject_pt)
-   rinject   = in_code_units(r_inject_str, ierr)
-   v2        = vxyz_ptmass(1:3,pt)
-   wind_speed = wind_speed_factor*sqrt(xyzmh_ptmass(4, inject_pt)/rinject)
-   u         = 0. ! setup is isothermal so utherm is not stored
-   h         = hfact
+    if (inject_pt > nptmass) call fatal('inject_randomwind', 'not enough point masses for inject target, check inject_pt')
+    r2 = xyzmh_ptmass(1:3,inject_pt)
+    rinject   = in_code_units(r_inject_str, ierr)
+    v2        = vxyz_ptmass(1:3,pt)
+    wind_speed = wind_speed_factor*sqrt(xyzmh_ptmass(4, inject_pt)/rinject)
+    u         = 0. ! setup is isothermal so utherm is not stored
+    h         = hfact
  case default ! set up asteroid wind
-   if (nptmass < 1 .and. iexternalforce == 0) &
+    if (nptmass < 1 .and. iexternalforce == 0) &
       call fatal('inject_asteroidwind','not enough point masses for asteroid wind injection')
-   if (nptmass > 2) &
+    if (nptmass > 2) &
       call fatal('inject_asteroidwind','too many point masses for asteroid wind injection')
-   if (nptmass == 2) then
-    pt = 2
-    r1 = xyzmh_ptmass(1:3,1)
-    m1 = xyzmh_ptmass(4,1)
-    v1 = vxyz_ptmass(1:3,1)
-   else
-    pt = 1
-    r1 = 0.
-    m1 = mass1
-    v1 = 0.
-   endif
-   r2        = xyzmh_ptmass(1:3,pt)
-   rinject   = xyzmh_ptmass(ihsoft,pt)
-   m2        = xyzmh_ptmass(4,pt)
-   v2        = vxyz_ptmass(1:3,pt)
-   speed     = sqrt(dot_product(v2,v2))
-   vhat      = v2/speed
-   r         = sqrt(dot_product(r1-r2,r1-r2))
-   wind_speed  = (1.-vlag/100)*speed
-   u         = 0. ! setup is isothermal so utherm is not stored
-   h         = hfact*(rinject/2.)
+    if (nptmass == 2) then
+       pt = 2
+       r1 = xyzmh_ptmass(1:3,1)
+       m1 = xyzmh_ptmass(4,1)
+       v1 = vxyz_ptmass(1:3,1)
+    else
+       pt = 1
+       r1 = 0.
+       m1 = mass1
+       v1 = 0.
+    endif
+    r2        = xyzmh_ptmass(1:3,pt)
+    rinject   = xyzmh_ptmass(ihsoft,pt)
+    m2        = xyzmh_ptmass(4,pt)
+    v2        = vxyz_ptmass(1:3,pt)
+    speed     = sqrt(dot_product(v2,v2))
+    vhat      = v2/speed
+    r         = sqrt(dot_product(r1-r2,r1-r2))
+    wind_speed  = (1.-vlag/100)*speed
+    u         = 0. ! setup is isothermal so utherm is not stored
+    h         = hfact*(rinject/2.)
  end select
 
  !
@@ -177,7 +177,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  vecz = (/0.,0.,1./)
  veczprime = (/sint*cosp,sint*sinp,cost/)
  if (abs(theta_rad-0)<1e-6) then
-   rotaxis = (/0.,0.,1./)
+    rotaxis = (/0.,0.,1./)
  else
     call cross_product3D(vecz, veczprime, rotaxis)
  endif
@@ -187,13 +187,13 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  do i=1,npinject
     select case (wind_type)
     case (1)
-      dx = get_pos_on_sphere(seed, delta_theta)
-      call rotatevec(dx, rotaxis, theta_rad)
-      call cross_product3D(veczprime, dx, vhat)
-      vxyz      = v2 + wind_speed*vhat
+       dx = get_pos_on_sphere(seed, delta_theta)
+       call rotatevec(dx, rotaxis, theta_rad)
+       call cross_product3D(veczprime, dx, vhat)
+       vxyz      = v2 + wind_speed*vhat
     case default
-      xyz       = r2 + rinject*get_pos_on_sphere(seed, delta_theta)
-      vxyz      = wind_speed*vhat
+       xyz       = r2 + rinject*get_pos_on_sphere(seed, delta_theta)
+       vxyz      = wind_speed*vhat
     end select
     ipart     = npart + 1
     call add_or_update_particle(igas,xyz,vxyz,h,u,ipart,npart,npartoftype,xyzh,vxyzu)
@@ -279,7 +279,7 @@ subroutine write_options_inject(iunit)
     call write_inopt(r_inject_str, 'r_inject', 'inject radius with units, e.g. 1*AU, 1e8m, (when wind_type=1)', iunit)
  endif
  call write_inopt(wind_speed_factor, &
-                  & 'wind_speed_factor', 'factor to scale the wind speed based on the Keplerian speed at rinject', iunit)
+ & 'wind_speed_factor', 'factor to scale the wind speed based on the Keplerian speed at rinject', iunit)
 
 end subroutine write_options_inject
 
