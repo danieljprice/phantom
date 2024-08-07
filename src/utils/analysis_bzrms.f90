@@ -51,7 +51,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  logical                      :: iexist
  !
  !--Open file (appendif exists)
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_bzrms.dat'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_bzrms.dat'
  inquire(file=fileout,exist=iexist)
  if ( .not.iexist .or. firstcall ) then
     firstcall = .false.
@@ -83,7 +83,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  !
  !--Read the setup file to get the values of interest
- filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
+ filename=trim(dumpfile(1:index(dumpfile,'_')-1))//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) then
     call read_setupfile(filename,mhd)
@@ -95,7 +95,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  endif
  !
  !--Get coefficient values from the .in file
- filename=trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.in'
+ filename=trim(dumpfile(1:index(dumpfile,'_')-1))//'.in'
  inquire(file=filename,exist=iexist)
  C_AD = 0.0
  C_HE = 0.0

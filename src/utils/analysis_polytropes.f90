@@ -61,7 +61,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  character(len=200)              :: fileout
  !
  !--from .setup, determine if binary or not
- fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'.setup'
+ fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'.setup'
  inquire(file=fileout,exist=iexist)
  if ( iexist ) then
     write(*,'(2a)') "reading setup file: ",trim(fileout)
@@ -78,7 +78,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  if ( binary ) then
     !
     !--Open file (appendif exists)
-    fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_centres.dat'
+    fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_centres.dat'
     inquire(file=fileout,exist=iexist)
     if ( .not.iexist .or. firstcall ) then
        open(iunit,file=fileout,status='replace')
@@ -252,7 +252,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     !
     !--print period tracking to file (overwriting anything in existance)
     if ( binary ) then
-       fileout = trim(dumpfile(1:INDEX(dumpfile,'_')-1))//'_period.dat'
+       fileout = trim(dumpfile(1:index(dumpfile,'_')-1))//'_period.dat'
        fileout=trim(fileout)
        open(iunit,file=fileout)
        write(iunit,"('#',4(1x,'[',i2.2,1x,a11,']',2x))") &

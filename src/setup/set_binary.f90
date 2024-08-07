@@ -34,6 +34,7 @@ module setbinary
  end interface get_eccentricity_vector
 
  real, parameter :: pi = 4.*atan(1.)
+ real, parameter :: deg_to_rad = pi/180.
  integer, parameter :: &
    ierr_m1   = 1, &
    ierr_m2   = 2, &
@@ -186,19 +187,19 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
  if (present(posang_ascnode) .and. present(arg_peri) .and. present(incl)) then
     ! Campbell elements
     ecc = eccentricity
-    omega     = arg_peri*pi/180.
+    omega     = arg_peri*deg_to_rad
     ! our conventions here are Omega is measured East of North
-    big_omega = posang_ascnode*pi/180. + 0.5*pi
-    inc       = incl*pi/180.
+    big_omega = posang_ascnode*deg_to_rad + 0.5*pi
+    inc       = incl*deg_to_rad
 
     if (present(f)) then
        ! get eccentric, parabolic or hyperbolic anomaly from true anomaly
        ! (https://en.wikipedia.org/wiki/Eccentric_anomaly#From_the_true_anomaly)
-       theta = f*pi/180.
+       theta = f*deg_to_rad
        E = get_E_from_true_anomaly(theta,ecc)
     elseif (present(mean_anomaly)) then
        ! get eccentric anomaly from mean anomaly by solving Kepler equation
-       bigM = mean_anomaly*pi/180.
+       bigM = mean_anomaly*deg_to_rad
        E = get_E_from_mean_anomaly(bigM,ecc)
     else
        ! set binary at apastron
@@ -324,7 +325,7 @@ subroutine set_binary(m1,m2,semimajoraxis,eccentricity, &
 ! rotate if inclination is non-zero
 !
  if (present(incl) .and. .not.(present(arg_peri) .and. present(posang_ascnode))) then
-    xangle = incl*pi/180.
+    xangle = incl*deg_to_rad
     cosi = cos(xangle)
     sini = sin(xangle)
     do i=i1,i2

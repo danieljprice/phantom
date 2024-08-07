@@ -21,7 +21,7 @@ module extern_gnewton
 !
  implicit none
  public  :: get_gnewton_spatial_force, get_gnewton_vdependent_force
- public  :: update_gnewton_leapfrog
+ public  :: update_gnewton
  public  :: get_gnewton_energy
 
  private
@@ -99,18 +99,18 @@ subroutine get_gnewton_vdependent_force(xyzi,veli,mass,fexti)
 
 end subroutine get_gnewton_vdependent_force
 
-subroutine update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass)
+subroutine update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass)
  use io,             only:fatal
- real, intent(in)    :: dt,xi,yi,zi, mass
+ real, intent(in)    :: dkdt,xi,yi,zi, mass
  real, intent(in)    :: vhalfx,vhalfy,vhalfz
  real, intent(inout) :: fxi,fyi,fzi
  real, intent(inout) :: fexti(3)
  real                :: fextv(3)
- real                :: v1x, v1y, v1z, v1xold, v1yold, v1zold, vhalf2, erri, dton2
+ real                :: v1x, v1y, v1z, v1xold, v1yold, v1zold, vhalf2, erri
  logical             :: converged
  integer             :: its, itsmax
  integer, parameter  :: maxitsext = 50 ! maximum number of iterations on external force
- character(len=30), parameter :: label = 'update_gnewton_leapfrog'
+ character(len=30), parameter :: label = 'update_gnewton'
  real, parameter :: tolv = 1.e-2
  real, parameter :: tolv2 = tolv*tolv
  real,dimension(3) :: pos,vel
@@ -118,7 +118,6 @@ subroutine update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
  itsmax = maxitsext
  its = 0
  converged = .false.
- dton2 = 0.5*dt
 
  v1x = vhalfx
  v1y = vhalfy
@@ -142,9 +141,9 @@ subroutine update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
     v1y = vel(2)
     v1z = vel(3)
 
-    v1x = vhalfx + dton2*(fxi + fextv(1))
-    v1y = vhalfy + dton2*(fyi + fextv(2))
-    v1z = vhalfz + dton2*(fzi + fextv(3))
+    v1x = vhalfx + dkdt*(fxi + fextv(1))
+    v1y = vhalfy + dkdt*(fyi + fextv(2))
+    v1z = vhalfz + dkdt*(fzi + fextv(3))
 
     erri = (v1x - v1xold)**2 + (v1y - v1yold)**2 + (v1z - v1zold)**2
     erri = erri / vhalf2
@@ -162,7 +161,7 @@ subroutine update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,
  fyi = fyi + fexti(2)
  fzi = fzi + fexti(3)
 
-end subroutine update_gnewton_leapfrog
+end subroutine update_gnewton
 
 
 !-----------------------------------------------------------------------

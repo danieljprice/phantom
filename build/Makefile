@@ -96,7 +96,7 @@ ifndef SRCNIMHD
 endif
 
 ifndef SRCDUST
-    SRCDUST = dust.f90 growth.F90
+    SRCDUST = dust.f90 growth.f90 porosity.f90
 endif
 
 ifdef SMOL
@@ -110,10 +110,6 @@ else
     # is still optional in the setup block
     SRCINJECT=utils_binary.f90 set_binary.f90 inject_wind.f90
 endif
-
-#ifndef SRCGROWTH
-#    SRCGROWTH = growth.F90
-#endif
 
 #---  live feedback from mcfost
 ifeq ($(MCFOST), yes)
@@ -469,7 +465,7 @@ SRCPOTS= extern_gr.F90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.f90 \
-         lumin_nsdisc.F90 extern_prdrag.f90 \
+         extern_prdrag.f90 \
          extern_Bfield.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
@@ -492,7 +488,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
+SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
 #
@@ -509,12 +505,15 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
 # equations of state
 #
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
-SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos.f90
+
+SRCEOS = eos_tillotson.f90 eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} \
+         eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 \
+         ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos.f90
 
 ifeq ($(HDF5), yes)
-    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= utils_hdf5.f90 utils_dumpfiles_hdf5.f90 readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps_hdf5.F90 readwrite_dumps.F90
 else
-    SRCREADWRITE_DUMPS= readwrite_dumps_common.F90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
+    SRCREADWRITE_DUMPS= readwrite_dumps_common.f90 readwrite_dumps_fortran.F90 readwrite_dumps.F90
 endif
 
 ifeq ($(KROME), krome)
@@ -537,13 +536,14 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
-         ${SRCINJECT_DEPS} wind_equations.f90 wind.F90 ${SRCINJECT} \
-         ${SRCKROME} memory.F90 ${SRCREADWRITE_DUMPS}  \
-         quitdump.f90 ptmass.F90 \
+         ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
+         ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
+         H2regions.f90 utils_subgroup.f90 utils_kepler.f90 subgroup.f90 \
+         quitdump.f90 ptmass.F90\
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
-         utils_shuffleparticles.F90 evwrite.f90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
+         utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
-         checksetup.F90 initial.F90
+         checksetup.f90 initial.F90
 
 # Needed as einsteintk_wrapper depends on initial
 ifeq ($(GR),yes)
@@ -610,20 +610,19 @@ edit: checksetup
 #----------------------------------------------------
 # these are the sources for anything which uses the readwrite_dumps module
 #
-SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 \
-         boundary.f90 boundary_dynamic.f90 mpi_utils.F90 \
+SRCDUMP= physcon.f90 ${CONFIG} ${SRCKERNEL} utils_omp.F90 io.F90 units.f90 mpi_utils.F90 \
          utils_timing.f90 utils_infiles.f90 dtype_kdtree.f90 utils_allocate.f90 part.F90 \
-         ${DOMAIN} mpi_dens.F90 mpi_force.F90 \
+         ${DOMAIN} mpi_dens.F90 mpi_force.F90 boundary.f90 boundary_dynamic.f90 \
          mpi_balance.F90 mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 \
          utils_dumpfiles.f90 utils_vectors.f90 utils_mathfunc.f90 \
          utils_datafiles.f90 utils_filenames.f90 utils_system.f90 utils_tables.f90 datafiles.f90 gitinfo.f90 \
          centreofmass.f90 \
          timestep.f90 ${SRCEOS} cullendehnen.f90 dust_formation.f90 \
          ${SRCGR} ${SRCPOT} \
-         memory.F90 \
+         memory.f90 \
          utils_sphNG.f90 \
          setup_params.f90 ${SRCFASTMATH} checkoptions.F90 \
-         viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 ${SRCDUST} \
+         viscosity.f90 damping.f90 options.f90 checkconserved.f90 prompting.f90 dust.f90 \
          ${SRCREADWRITE_DUMPS} \
          utils_sort.f90 sort_particles.f90
 OBJDUMP1= $(SRCDUMP:.f90=.o)
@@ -634,7 +633,7 @@ OBJDUMP= $(OBJDUMP1:.F90=.o)
 # must NOT contain .F90 files or pre-processing options
 #
 LIBSETUP=$(BINDIR)/libphantomsetup.a
-SRCLIBSETUP=physcon.f90 geometry.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
+SRCLIBSETUP=physcon.f90 geometry.f90 utils_sort.f90 random.f90 utils_tables.f90 utils_vectors.f90 stretchmap.f90 \
             utils_binary.f90 set_binary.f90 set_flyby.f90 \
             set_hierarchical_utils.f90 \
             set_unifdis.f90 set_sphere.f90 set_shock.f90 \
@@ -657,7 +656,7 @@ phantomsetup: setup
 SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
           set_dust_options.f90 set_units.f90 \
           density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
-          set_slab.f90 set_disc.F90 \
+          set_slab.f90 set_disc.F90 set_orbit.f90 \
           set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
           set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
@@ -684,8 +683,9 @@ else
     SRCTESTMPI =
 endif
 
+# 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.F90 test_growth.f90 test_smol.F90 \
+         test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
@@ -694,7 +694,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \
          ${SRCTESTMPI} test_sedov.F90 test_poly.f90 test_radiation.F90 \
-         testsuite.F90 phantomtest.f90
+         testsuite.F90 setup_params.f90 phantomtest.f90
 
 ifeq (X$(SRCTEST), X)
 SRCTEST=${SRCTESTS}
@@ -871,7 +871,7 @@ pyanalysis: libphantom.so
 #
 .PHONY: phantom2struct
 phantom2struct:
-	${MAKE} phantomanalysis ANALYSIS="utils_timing.f90 io_structurefn.f90 random.f90 struct_part.f90 analysis_structurefn.f90"\
+	${MAKE} phantomanalysis ANALYSIS="utils_timing.f90 io_structurefn.f90 utils_sort.f90 random.f90 struct_part.f90 analysis_structurefn.f90"\
         ANALYSISBIN=$@ ANALYSISONLY=yes
 
 cleanphantom2struct:
@@ -1233,6 +1233,24 @@ combinedustdumps: checksys checkparams $(OBJCDD)
 cleancombinedustdumps:
 	rm -f $(BINDIR)/combinedustdumps
 
+#----------------------------------------------------
+# these are the sources for the tabulate_metric tility
+.PHONY: tabulate_metric
+SRCTAB= io.F90 utils_infiles.f90 metric_${METRIC}.f90 metric_et_utils.f90 tabulate_metric.f90 #metric_tools.F90
+OBJTAB1= $(SRCTAB:.F90=.o)
+OBJTAB= $(OBJTAB1:.f90=.o)
+
+tabulate_metric: checksys $(OBJTAB)
+	@echo ""
+	@echo "tabulate_metric: Because grids are great"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTAB)
+
+cleantabulatemetric:
+	rm -f $(BINDIR)/tabulate_metric
+
+
+
 
 include Makefile_qscripts
 
@@ -1289,6 +1307,7 @@ giza-fortran.o : $(SPLASH_DIR)/giza/interface/giza-fortran.F90 $(SPLASH_DIR)/giz
 
 compilers:
 	@echo "I suggest one of the following, based on detected Fortran compilers..."; echo;
+	@if type -p ifx > /dev/null; then echo "make SYSTEM=ifx"; fi;
 	@if type -p ifort > /dev/null; then echo "make SYSTEM=ifort"; fi;
 	@if type -p pathf90 > /dev/null; then echo "make SYSTEM=pathf90"; fi;
 	@if type -p pgf90 > /dev/null; then echo "make SYSTEM=pgf90"; fi;

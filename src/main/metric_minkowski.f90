@@ -202,8 +202,9 @@ subroutine read_options_metric(name,valstring,imatch,igotall,ierr)
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
 
- ! imatch  = .true.
- ! igotall = .true.
+ imatch  = .true.
+ igotall = .true.
+ ierr = 0
 
 end subroutine read_options_metric
 

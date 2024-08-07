@@ -97,6 +97,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
        write(*,"(14x,a,/)") '-- Richard West (former UKAFF manager)'
        write(*,"(2x,a)") '"Trace, test and treat"'
        write(*,"(14x,a,/)") '-- South Korea'
+       write(*,"(2x,a)") '"Testing a program demonstrates that it contains errors, never that it is correct"'
+       write(*,"(14x,a,/)") '-- E. W. Dijkstra'
     endif
     ntests = 0
     npass  = 0
@@ -156,6 +158,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'damp')      /= 0) dodamp    = .true.
  if (index(string,'wind')      /= 0) dowind    = .true.
  if (index(string,'iorig')     /= 0) doiorig   = .true.
+ if (index(string,'ptmass')    /= 0) doptmass  = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
@@ -170,7 +173,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dokdtree = .true.
  case('step')
     dostep = .true.
- case('ptmass','sink')
+ case('ptmass','sink','fsi','chinchen','coin')
     doptmass = .true.
  case('gnewton')
     dognewton = .true.
@@ -327,7 +330,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !--test of ptmass module
 !
  if (doptmass.or.testall) then
-    call test_ptmass(ntests,npass)
+    call test_ptmass(ntests,npass,string)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 
@@ -444,7 +447,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
           "|_| /_/   \_\____/____/ "
 
        write(*,"(a)") 'TEST SUITE PASSED'
-       call system("say OK")
+       call system("say fantastic!")
     else
        write(*,"(5(a,/))") &
           " _____ _    ___ _     ", &

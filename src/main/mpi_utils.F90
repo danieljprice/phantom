@@ -110,6 +110,7 @@ module mpiutils
  public :: fill_buffer, unfill_buf
  public :: reduceloc_mpi
  public :: waitmyturn,endmyturn
+ public :: start_threadwrite,end_threadwrite
 
  private
 
@@ -226,6 +227,64 @@ subroutine endmyturn(myid)
 #endif
 
 end subroutine endmyturn
+
+!--------------------------------------------------------------------
+!+
+!  utility for initialising each thread
+!+
+!--------------------------------------------------------------------
+subroutine start_threadwrite(id,iunit,filename)
+#ifdef MPI
+ use mpi
+#endif
+ use io, only:error,iverbose
+ implicit none
+ integer, intent(in) :: id, iunit
+ character(len=*), intent(in) :: filename
+ integer :: nowgo,ierr
+
+ if (iverbose >= 3) print *,id,' : starting write...'
+ nowgo = 0
+ if (id  >  0) then
+#ifdef MPI
+    call MPI_RECV(nowgo,1,MPI_INTEGER,id-1,99,MPI_COMM_WORLD,status,mpierr)
+#endif
+    open(unit=iunit,file=filename,status='old',form='unformatted',position='append',iostat=ierr)
+    if (ierr /= 0) then
+       call error('start_threadwrite','can''t append to dumpfile '//trim(filename))
+    else
+       if (iverbose >= 3) print*,'thread ',id,': opened file '//trim(filename)
+    endif
+ endif
+
+end subroutine start_threadwrite
+
+!--------------------------------------------------------------------
+!+
+!  utility for finalising each thread
+!+
+!--------------------------------------------------------------------
+subroutine end_threadwrite(id)
+ use io,       only:iverbose
+#ifdef MPI
+ use mpi
+ use io,       only:nprocs
+#endif
+ implicit none
+ integer, intent(in) :: id
+#ifdef MPI
+ integer :: nowgo
+#endif
+
+ if (iverbose >= 3) print *,' thread ',id,' : finished write.'
+#ifdef MPI
+ if (id  <  nprocs-1) then
+    nowgo = 1
+    call MPI_SEND(nowgo,1,MPI_INTEGER,id+1,99,MPI_COMM_WORLD,mpierr)
+ endif
+#endif
+
+end subroutine end_threadwrite
 
 !--------------------------------------------------------------------
 !+

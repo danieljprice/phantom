@@ -19,6 +19,7 @@ module extern_binary
 !   - accradius2 : *accretion radius of secondary (if iexternalforce=binary)*
 !   - eps_soft1  : *Plummer softening of primary*
 !   - eps_soft2  : *Plummer softening of secondary*
+!   - mass1      : *m1 of central binary system (if iexternalforce=binary)*
 !   - mass2      : *m2 of central binary system (if iexternalforce=binary)*
 !   - ramp       : *ramp up mass of secondary over first 5 orbits?*
 !
@@ -234,6 +235,7 @@ subroutine write_options_externbinary(iunit)
  use infile_utils,   only:write_inopt
  integer, intent(in) :: iunit
 
+ call write_inopt(mass1,'mass1','m1 of central binary system (if iexternalforce=binary)',iunit)
  call write_inopt(mass2,'mass2','m2 of central binary system (if iexternalforce=binary)',iunit)
  call write_inopt(accradius1,'accradius1','accretion radius of primary',iunit)
  call write_inopt(accradius2,'accradius2','accretion radius of secondary (if iexternalforce=binary)',iunit)
@@ -259,6 +261,12 @@ subroutine read_options_externbinary(name,valstring,imatch,igotall,ierr)
  imatch  = .true.
  igotall = .false.
  select case(trim(name))
+ case('mass1')
+    read(valstring,*,iostat=ierr) mass1
+    ngot = ngot + 1
+    if (mass1 < 0.) then
+       call fatal(where,'invalid setting for m1 (<0)')
+    endif
  case('mass2')
     read(valstring,*,iostat=ierr) mass2
     ngot = ngot + 1

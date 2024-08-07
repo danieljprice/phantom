@@ -296,11 +296,11 @@ subroutine map_stratified_temps(ntests, npass)
 
  call eosinfo(ieos,stdout)
 
- open(1, file='HD1632996_temps.txt', status = 'replace')
- open(2, file='IMLup_temps.txt', status = 'replace')
- open(3, file='GMAur_temps.txt', status = 'replace')
- open(4, file='AS209_temps.txt', status = 'replace')
- open(5, file='MWC480_temps.txt', status = 'replace')
+ open(1,file='HD1632996_temps.txt',status='replace')
+ open(2,file='IMLup_temps.txt',status='replace')
+ open(3,file='GMAur_temps.txt',status='replace')
+ open(4,file='AS209_temps.txt',status='replace')
+ open(5,file='MWC480_temps.txt',status='replace')
 
  do i=1,n
     call get_disc_params(i,gmw,qfacdisc,qfacdisc2,alpha_z,beta_z,z0,polyk,polyk2, &

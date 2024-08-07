@@ -70,12 +70,20 @@ module part
 !
 !--storage of dust growth properties
 !
- real, allocatable :: dustprop(:,:) !- size and intrinsic density
+ real, allocatable :: dustprop(:,:)    !- mass and intrinsic density
  real, allocatable :: dustgasprop(:,:) !- gas related quantites interpolated on dust particles (see Force.F90)
  real, allocatable :: VrelVf(:)
- character(len=*), parameter :: dustprop_label(2) = (/'grainsize','graindens'/)
+ character(len=*), parameter :: dustprop_label(2) = (/'grainmass','graindens'/)
  character(len=*), parameter :: dustgasprop_label(4) = (/'csound','rhogas','St    ','dv    '/)
  character(len=*), parameter :: VrelVf_label = 'Vrel/Vfrag'
+
+ !- porosity
+ integer, allocatable :: dragreg(:)    !- drag regime
+ real, allocatable    :: mprev(:)      !- previous mass
+ real, allocatable    :: filfac(:)     !- filling factor
+ real, allocatable    :: filfacprev(:) !- previous filling factor needed for minimum St condition
+ real, allocatable    :: probastick(:) !-probabily of sticking, when bounce is on
+ character(len=*), parameter :: filfac_label = 'filfac'
  !- options
  logical, public             :: this_is_a_test  = .false.
  logical, public             :: this_is_a_flyby = .false.
@@ -196,17 +204,24 @@ module part
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
- real, allocatable :: xyzmh_ptmass(:,:)
- real, allocatable :: vxyz_ptmass(:,:)
- real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:)
- real, allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
+ integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
+ integer, parameter :: itbirth = 22  ! birth time of the new sink
+ integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
+ integer, allocatable :: linklist_ptmass(:)
+ real,    allocatable :: xyzmh_ptmass(:,:)
+ real,    allocatable :: vxyz_ptmass(:,:)
+ real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
+ real,    allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
+ real,    allocatable :: dptmass(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    ','massenc  ','J2       '/)
+    'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
+    'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -281,6 +296,24 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
+!-- Regularisation algorithm allocation
+!
+ integer,         allocatable :: group_info(:,:)
+ integer(kind=1), allocatable :: nmatrix(:,:)
+ integer, parameter :: igarg  = 1 ! idx of the particle member of a group
+ integer, parameter :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
+ integer, parameter :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
+ ! needed for group identification and sorting
+ integer  :: n_group = 0
+ integer  :: n_ingroup = 0
+ integer  :: n_sing = 0
+ ! Gradient of the time transformation function
+ real, allocatable :: gtgrad(:,:)
+ !
+!-- Regularisation algorithm allocation
+!
+ logical, allocatable :: isionised(:)
+!
 !--derivatives (only needed if derivs is called)
 !
  real, allocatable         :: fxyzu(:,:)
@@ -290,9 +323,9 @@ module part
  real(kind=4), allocatable :: divBsymm(:)
  real, allocatable         :: fext(:,:)
  real, allocatable         :: ddustevol(:,:)
- real, allocatable         :: ddustprop(:,:) !--grainsize is the only prop that evolves for now
+ real, allocatable         :: ddustprop(:,:) !--grainmass is the only prop that evolves for now
  real, allocatable         :: drad(:,:)
- character(len=*), parameter :: ddustprop_label(2) = (/' ds/dt ','drho/dt'/)
+ character(len=*), parameter :: ddustprop_label(2) = (/' dm/dt ','drho/dt'/)
 !
 !--storage associated with/dependent on timestepping
 !
@@ -301,6 +334,7 @@ module part
  real, allocatable   :: dustpred(:,:)
  real, allocatable   :: Bpred(:,:)
  real, allocatable   :: dustproppred(:,:)
+ real, allocatable   :: filfacpred(:)
  real, allocatable   :: radpred(:,:)
  integer(kind=1), allocatable :: ibin(:)
  integer(kind=1), allocatable :: ibin_old(:)
@@ -334,7 +368,7 @@ module part
 !  information between MPI threads
 !
  integer, parameter, private :: usedivcurlv = min(ndivcurlv,1)
- integer, parameter :: ipartbufsize = 128
+ integer, parameter :: ipartbufsize = 129
 
  real            :: hfact,Bextx,Bexty,Bextz
  integer         :: npart
@@ -406,6 +440,11 @@ subroutine allocate_part
  call allocate_array('dustevol', dustevol, maxdustsmall, maxp_dustfrac)
  call allocate_array('ddustevol', ddustevol, maxdustsmall, maxdustan)
  call allocate_array('ddustprop', ddustprop, 2, maxp_growth)
+ call allocate_array('dragreg', dragreg, maxp_growth)
+ call allocate_array('filfac', filfac, maxp_growth)
+ call allocate_array('mprev', mprev, maxp_growth)
+ call allocate_array('probastick', probastick, maxp_growth)
+ call allocate_array('filfacprev', filfacprev, maxp_growth)
  call allocate_array('deltav', deltav, 3, maxdustsmall, maxp_dustfrac)
  call allocate_array('pxyzu', pxyzu, maxvxyzu, maxgr)
  call allocate_array('dens', dens, maxgr)
@@ -417,6 +456,9 @@ subroutine allocate_part
  call allocate_array('vxyz_ptmass', vxyz_ptmass, 3, maxptmass)
  call allocate_array('fxyz_ptmass', fxyz_ptmass, 4, maxptmass)
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
+ call allocate_array('fsink_old', fsink_old, 4, maxptmass)
+ call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
+ call allocate_array('linklist_ptmass', linklist_ptmass, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -434,6 +476,7 @@ subroutine allocate_part
  call allocate_array('dustpred', dustpred, maxdustsmall, maxdustan)
  call allocate_array('Bpred', Bpred, maxBevol, maxmhdan)
  call allocate_array('dustproppred', dustproppred, 2, maxp_growth)
+ call allocate_array('filfacpred', filfacpred, maxp_growth)
  call allocate_array('dust_temp',dust_temp,maxTdust)
  call allocate_array('rad', rad, maxirad, maxprad)
  call allocate_array('radpred', radpred, maxirad, maxprad)
@@ -461,6 +504,10 @@ subroutine allocate_part
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
+ call allocate_array('group_info', group_info, 3, maxptmass)
+ call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("gtgrad", gtgrad, 3, maxptmass)
+ call allocate_array('isionised', isionised, maxp)
 
 
 end subroutine allocate_part
@@ -486,6 +533,11 @@ subroutine deallocate_part
  if (allocated(dustevol))     deallocate(dustevol)
  if (allocated(ddustevol))    deallocate(ddustevol)
  if (allocated(ddustprop))    deallocate(ddustprop)
+ if (allocated(dragreg))      deallocate(dragreg)
+ if (allocated(filfac))       deallocate(filfac)
+ if (allocated(mprev))        deallocate(mprev)
+ if (allocated(filfacprev))   deallocate(filfacprev)
+ if (allocated(probastick))   deallocate(probastick)
  if (allocated(deltav))       deallocate(deltav)
  if (allocated(pxyzu))        deallocate(pxyzu)
  if (allocated(dens))         deallocate(dens)
@@ -497,6 +549,9 @@ subroutine deallocate_part
  if (allocated(vxyz_ptmass))  deallocate(vxyz_ptmass)
  if (allocated(fxyz_ptmass))  deallocate(fxyz_ptmass)
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
+ if (allocated(fsink_old))    deallocate(fsink_old)
+ if (allocated(dptmass))      deallocate(dptmass)
+ if (allocated(linklist_ptmass)) deallocate(linklist_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -514,6 +569,7 @@ subroutine deallocate_part
  if (allocated(dustpred))     deallocate(dustpred)
  if (allocated(Bpred))        deallocate(Bpred)
  if (allocated(dustproppred)) deallocate(dustproppred)
+ if (allocated(filfacpred))   deallocate(filfacpred)
  if (allocated(ibin))         deallocate(ibin)
  if (allocated(ibin_old))     deallocate(ibin_old)
  if (allocated(ibin_wake))    deallocate(ibin_wake)
@@ -533,6 +589,10 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(group_info))   deallocate(group_info)
+ if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(gtgrad))       deallocate(gtgrad)
+ if (allocated(isionised))    deallocate(isionised)
 
 end subroutine deallocate_part
 
@@ -550,10 +610,12 @@ subroutine init_part
  npartoftype(:) = 0
  npartoftypetot(:) = 0
  massoftype(:)  = 0.
+ isionised(:) = .false.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
+ linklist_ptmass = -1
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then
@@ -1256,6 +1318,7 @@ subroutine copy_particle_all(src,dst,new_part)
        dustgasprop(:,dst) = dustgasprop(:,src)
        VrelVf(dst) = VrelVf(src)
        dustproppred(:,dst) = dustproppred(:,src)
+       filfacpred(dst) = filfacpred(src)
     endif
     fxyz_drag(:,dst) = fxyz_drag(:,src)
     fxyz_dragold(:,dst) = fxyz_dragold(:,src)
@@ -1710,18 +1773,44 @@ end subroutine delete_particles_outside_box
 !  Delete particles outside (or inside) of a defined sphere
 !+
 !----------------------------------------------------------------
-subroutine delete_particles_outside_sphere(center,radius,np)
+subroutine delete_particles_outside_sphere(center,radius,np,revert,mytype)
  use io, only:fatal
  real,    intent(in)    :: center(3), radius
  integer, intent(inout) :: np
+ logical, intent(in), optional :: revert
+ integer, intent(in), optional :: mytype
+
  integer :: i
- real :: r(3), radius_squared
+ real    :: r(3), radius_squared
+ logical :: use_revert
+
+ if (present(revert)) then
+    use_revert = revert
+ else
+    use_revert = .false.
+ endif
 
  radius_squared = radius**2
- do i=1,np
-    r = xyzh(1:3,i) - center
-    if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
- enddo
+
+ if (present(mytype)) then
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared .and. iamtype(iphase(i)) == mytype) call kill_particle(i,npartoftype)
+       endif
+    enddo
+ else
+    do i=1,np
+       r = xyzh(1:3,i) - center
+       if (use_revert) then
+          if (dot_product(r,r) < radius_squared) call kill_particle(i,npartoftype)
+       else
+          if (dot_product(r,r) > radius_squared) call kill_particle(i,npartoftype)
+       endif
+    enddo
+ endif
  call shuffle_part(np)
  if (np /= sum(npartoftype)) call fatal('del_part_outside_sphere','particles not conserved')
 

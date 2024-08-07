@@ -19,7 +19,7 @@ module metric_tools
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, inverse4x4, metric
+! :Dependencies: inverse4x4, metric
 !
  use metric, only:imetric
  implicit none
@@ -29,23 +29,21 @@ module metric_tools
     icoord_cartesian  = 1,     &    ! Cartesian coordinates
     icoord_spherical  = 2           ! Spherical coordinates
 
-!--- List of metrics
+ !--- List of metrics
  integer, public, parameter :: &
     imet_minkowski      = 1,   &    ! Minkowski metric
     imet_schwarzschild  = 2,   &    ! Schwarzschild metric
     imet_kerr           = 3,   &    ! Kerr metric
     imet_et             = 6         ! Tabulated metric from Einstein toolkit
 
-!--- Choice of coordinate system
-!    (When using this with PHANTOM, it should always be set to cartesian)
+ !--- Choice of coordinate system
+ !    (When using this with PHANTOM, it should always be set to cartesian)
  integer, public, parameter :: icoordinate = icoord_cartesian
 
-!--- Choice for contravariant metric
-!    false  ->  use analytic contravariant metric
-!    true   ->  invert the covariant metric
+ !--- Choice for contravariant metric
+ !    false  ->  use analytic contravariant metric
+ !    true   ->  invert the covariant metric
  logical, private, parameter :: useinv4x4 = .true.
-
-!-------------------------------------------------------------------------------
 
  public :: get_metric, get_metric_derivs, print_metricinfo, init_metric, pack_metric, unpack_metric
  public :: pack_metricderivs
@@ -63,8 +61,8 @@ contains
 !+
 !-------------------------------------------------------------------------------
 pure subroutine get_metric(position,gcov,gcon,sqrtg)
- use metric,     only: get_metric_cartesian,get_metric_spherical,cartesian2spherical
- use inverse4x4, only: inv4x4
+ use metric,     only:get_metric_cartesian,get_metric_spherical,cartesian2spherical
+ use inverse4x4, only:inv4x4
  real, intent(in)  :: position(3)
  real, intent(out) :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg
  real :: det
@@ -95,8 +93,8 @@ end subroutine get_metric
 !  of metric.
 !+
 !-------------------------------------------------------------------------------
-subroutine get_metric_derivs(position,dgcovdx1, dgcovdx2, dgcovdx3)
- use metric, only: metric_cartesian_derivatives, metric_spherical_derivatives, imetric
+subroutine get_metric_derivs(position,dgcovdx1,dgcovdx2,dgcovdx3)
+ use metric, only:metric_cartesian_derivatives,metric_spherical_derivatives,imetric
  real, intent(in)  :: position(3)
  real, intent(out) :: dgcovdx1(0:3,0:3), dgcovdx2(0:3,0:3), dgcovdx3(0:3,0:3)
 
@@ -114,7 +112,7 @@ end subroutine get_metric_derivs
 !  Numerical derivatives of the covariant metric tensor
 !+
 !-------------------------------------------------------------------------------
-pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
+pure subroutine numerical_metric_derivs(position,dgcovdx,dgcovdy,dgcovdz)
  real, intent(in) :: position(3)
  real, intent(out), dimension(0:3,0:3) :: dgcovdx,dgcovdy,dgcovdz
  real :: gblah(0:3,0:3), temp(3), gplus(0:3,0:3),gminus(0:3,0:3),dx,dy,dz,di,sqrtgblag
@@ -150,29 +148,10 @@ pure subroutine numerical_metric_derivs(position,dgcovdx, dgcovdy, dgcovdz)
 end subroutine numerical_metric_derivs
 
 !-------------------------------------------------------------------------------
-
-! This is not being used at the moment...
-!-- Do a coordinate transformation of a 4x4 rank-2 tensor with both indices down
-! subroutine tensortransform_dd(position,T_old,T_new)
-!  use metric, only: get_jacobian
-!  real, intent(in), dimension(3) :: position
-!  real, intent(in), dimension(0:3,0:3) :: T_old
-!  real, intent(out), dimension(0:3,0:3) :: T_new
-!  real, dimension(0:3,0:3) :: dxdx
-!  integer :: i,j,k,l
-!  call get_jacobian(position,dxdx)
-!  T_new = 0.
-!  do i=0,3
-!     do j=0,3
-!        do k=0,3
-!           do l=0,3
-!              T_new(i,j) = T_new(i,j)+dxdx(k,i)*dxdx(l,j)*T_old(k,l)
-!           enddo
-!        enddo
-!     enddo
-!  enddo
-! end subroutine tensortransform_dd
-
+!+
+!  print the metric type
+!+
+!-------------------------------------------------------------------------------
 subroutine print_metricinfo(iprint)
  use metric, only:metric_type
  integer, intent(in) :: iprint
@@ -181,13 +160,17 @@ subroutine print_metricinfo(iprint)
 
 end subroutine print_metricinfo
 
+!-------------------------------------------------------------------------------
+!+
+!  initialise arrays for the metric and metric derivatives
+!+
+!-------------------------------------------------------------------------------
 subroutine init_metric(npart,xyzh,metrics,metricderivs)
  integer,         intent(in)  :: npart
  real,            intent(in)  :: xyzh(:,:)
  real,            intent(out) :: metrics(:,:,:,:)
  real, optional,  intent(out) :: metricderivs(:,:,:,:)
  integer :: i
-
 
  !$omp parallel do default(none) &
  !$omp shared(npart,xyzh,metrics) &
@@ -209,9 +192,11 @@ subroutine init_metric(npart,xyzh,metrics,metricderivs)
 
 end subroutine init_metric
 
-!
-!--- Subroutine to pack the metric (cov and con) into a single array
-!
+!-------------------------------------------------------------------------------
+!+
+!  subroutine to pack the metric into a 4x4x2 array
+!+
+!-------------------------------------------------------------------------------
 pure subroutine pack_metric(xyz,metrici)
  real, intent(in)  :: xyz(3)
  real, intent(out) :: metrici(:,:,:)
@@ -221,6 +206,11 @@ pure subroutine pack_metric(xyz,metrici)
 
 end subroutine pack_metric
 
+!-------------------------------------------------------------------------------
+!+
+!  subroutine to pack the metric derivatives into a 4x4x3 array
+!+
+!-------------------------------------------------------------------------------
 subroutine pack_metricderivs(xyzi,metricderivsi)
  real, intent(in)  :: xyzi(3)
  real, intent(out) :: metricderivsi(0:3,0:3,3)
@@ -229,24 +219,19 @@ subroutine pack_metricderivs(xyzi,metricderivsi)
 
 end subroutine pack_metricderivs
 
-!
-!--- Subroutine to return metric/components from metrici array
-!
+!-------------------------------------------------------------------------------
+!+
+!  Subroutine to return metric/components from metrici array
+!+
+!-------------------------------------------------------------------------------
 pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,betadown,betaUP)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  real, intent(in), dimension(0:3,0:3,2) :: metrici
  real, intent(out), dimension(0:3,0:3), optional :: gcov,gcon
  real, intent(out), dimension(1:3,1:3), optional :: gammaijdown,gammaijUP
  real, intent(out),                     optional :: alpha,betadown(3),betaUP(3)
  integer :: i
 
-#ifdef FINVSQRT
- if (present(alpha)) alpha  = finvsqrt(-metrici(0,0,2))
-#else
  if (present(alpha)) alpha  = sqrt(-1./metrici(0,0,2))
-#endif
 
  if (present(betaUP)) betaUP = metrici(0,1:3,2) * (-1./metrici(0,0,2)) ! = gcon(0,1:3)*alpha**2
 
@@ -263,7 +248,5 @@ pure subroutine unpack_metric(metrici,gcov,gcon,gammaijdown,gammaijUP,alpha,beta
  if (present(betadown))    betadown    = metrici(0,1:3,1)
 
 end subroutine unpack_metric
-
-
 
 end module metric_tools

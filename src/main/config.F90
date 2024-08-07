@@ -42,7 +42,9 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 19
+ integer, parameter :: nsinkproperties = 22
+
+ logical :: store_ll_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -121,7 +123,6 @@ module dim
 #else
  logical, parameter :: do_radiation = .false.
 #endif
-
  ! rhosum
  integer, parameter :: maxrhosum = 39 + &
                                    maxdustlarge - 1 + &
@@ -137,7 +138,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
