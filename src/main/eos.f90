@@ -115,6 +115,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_tillotson, only:equationofstate_tillotson
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -421,6 +422,19 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = real(cgsspsoundi / unit_velocity)
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
+    if (present(gamma_local)) gamma_local = gammai
+
+ case(21)
+ !
+ !-- Tillotson EOS
+ !
+ ! from Tillotson (1962)
+ !
+    call equationofstate_tillotson(cgsrhoi,cgseni*cgsrhoi,temperaturei,mui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi,gammai)
+    ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
+    spsoundi = real(cgsspsoundi / unit_velocity)
+    tempi    = temperaturei
+    if (present(mu_local)) mu_local = mui
     if (present(gamma_local)) gamma_local = gammai
 
  case default
@@ -1433,6 +1447,7 @@ subroutine write_options_eos(iunit)
  use eos_barotropic, only:write_options_eos_barotropic
  use eos_piecewise,  only:write_options_eos_piecewise
  use eos_gasradrec,  only:write_options_eos_gasradrec
+ use eos_tillotson,  only:write_options_eos_tillotson
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling equation of state'
