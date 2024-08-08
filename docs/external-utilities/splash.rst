@@ -9,19 +9,23 @@ Splash is a free and open source visualisation tool for SPH data, developed clos
 Examples
 --------
 
-Plot column density render of all snapshots from a simulation:
+Plot column density render of all snapshots from a simulation::
 
     splash -r density dump_0*
 
-Make an mp4 movie of the above, like so:
+Make an mp4 movie of the above, like so::
 
     splash -r density dump_0* --movie
 
-which produces something like:
+which produces something like
 
-   https://zenodo.org/records/11438154/files/Priceetal24_figure1_logdensity_schwarzschild_4m_adiabatic.mp4
+.. raw:: html
 
-splash can also be used to plot the energy vs time files:
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+       <iframe width="560" height="315" src="https://www.youtube.com/embed/bPurbeQNgvI" title="YouTube video player" frameborder="0" allow="accelerometer; encrypted-media; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    </div>
+
+splash can also be used to plot the energy vs time files::
 
    splash *.ev
 
