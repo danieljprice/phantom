@@ -10,24 +10,18 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Ana Lourdes Juarez
 !
 ! :Runtime parameters:
-!   - a            : *semi-major axis*
-!   - mdon         : *donor/primary star mass*
-!   - macc         : *accretor/companion star mass* 
-!   - corotate     : *set stars in corotation*
-!   - eccentricity : *eccentricity*
-!   - f            : *initial true anomaly (180=apoastron)*
-!   - inc          : *inclination (deg)*
-!   - relax        : *relax stars into equilibrium*
-!   - w            : *argument of periapsis (deg)*
+!   - a    : *semi-major axis*
+!   - hacc : *accretion radius of the companion star*
+!   - macc : *mass of the companion star*
+!   - mdon : *mass of the donor star*
 !
-! :Dependencies: centreofmass, dim, eos, externalforces, infile_utils, io,
-!   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
-!   setunits, setup_params, units
+! :Dependencies: centreofmass, eos, extern_corotate, externalforces,
+!   infile_utils, io, options, part, setbinary, setunits, timestep
 !
- 
+
  implicit none
  public :: setpart
  real    :: a,mdon,macc,hacc
@@ -45,7 +39,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                    polyk,gamma,hfact,time,fileprefix)
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc
  use setbinary,      only:set_binary,get_period_from_a
-use centreofmass,    only:reset_centreofmass
+ use centreofmass,    only:reset_centreofmass
  use options,        only:iexternalforce
  use externalforces, only:iext_corotate,omega_corotate
  use extern_corotate, only:icompanion_grav,companion_xpos,companion_mass,hsoft
@@ -113,7 +107,7 @@ use centreofmass,    only:reset_centreofmass
  !
  !--if a is negative or is given time units, interpret this as a period
  !
- 
+
  period = get_period_from_a(mdon,macc,a)
  tmax = 10.*period
  dtmax = tmax/200.
@@ -125,24 +119,24 @@ use centreofmass,    only:reset_centreofmass
 
  call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 
- 
+
  if (ierr /= 0) call fatal ('setup_binary','error in call to set_binary')
- 
+
  companion_mass = mdon
  companion_xpos = xyzmh_ptmass(1,1)
  mass_ratio = mdon / macc
  hsoft = 0.1 * 0.49 * mass_ratio**(2./3.) / (0.6*mass_ratio**(2./3.) + &
                log( 1. + mass_ratio**(1./3.) ) ) * a
  !
- !--delete donor sink 
+ !--delete donor sink
  !
  nptmass=1
  xyzmh_ptmass(:,1) = xyzmh_ptmass(:,2)
  vxyz_ptmass(1:3,1) = 0.
-  
+
  !--restore options
  !
- 
+
 
 end subroutine setpart
 
@@ -193,7 +187,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  type(inopts), allocatable :: db(:)
 
  nerr = 0
- ierr = 0 
+ ierr = 0
 
  call open_db_from_file(db,filename,iunit,ierr)
  call read_options_and_set_units(db,nerr)
@@ -205,7 +199,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  call read_inopt(hacc,'hacc',db,errcount=nerr)
  call close_db(db)
 
-  if (nerr > 0) then
+ if (nerr > 0) then
     print "(1x,i2,a)",nerr,' error(s) during read of setup file: re-writing...'
     ierr = nerr
  endif
