@@ -19,11 +19,11 @@ module initial
 !   damping, densityforce, deriv, dim, dust, dust_formation,
 !   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
-!   timestep_sts, timing, tmunu2grid, units, writeheader
+!   krome_interface, linklist, metric, metric_et_utils, metric_tools,
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, porosity, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, subgroup, timestep,
+!   timestep_ind, timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
  implicit none
@@ -41,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:mpi
+ use dim,              only:mpi,gr
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -56,6 +56,8 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use readwrite_dumps,  only:init_readwrite_dumps
+ use metric,           only:metric_type
+ use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -99,6 +101,13 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+!
+!--initialise metric if tabulated
+!
+ if (gr  .and. metric_type=='et') then
+    call read_tabulated_metric('tabuled_metric.dat',ierr)
+    if (ierr == 0) gridinit = .true.
+ endif
 
  call init_readwrite_dumps()
 

@@ -37,7 +37,6 @@ subroutine set_defaults_viscosity
  shearparam = 0.1  ! alphadisc (if irealvisc=2) or nu if irealvisc=1
  bulkvisc = 0.0   ! bulk viscosity parameter in code units
 
- return
 end subroutine set_defaults_viscosity
 
 !----------------------------------------------------------------

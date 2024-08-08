@@ -25,7 +25,7 @@ module setbinary
 ! :Dependencies: binaryutils
 !
  implicit none
- public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period
+ public :: set_binary,Rochelobe_estimate,L1_point,get_a_from_period,get_period_from_a
  public :: get_mean_angmom_vector,get_eccentricity_vector
 
  private
@@ -405,6 +405,17 @@ function get_a_from_period(m1,m2,period) result(a)
  a = ((m1 + m2)*(period/(2.*pi))**2)**(1./3.)
 
 end function get_a_from_period
+
+!-------------------------------------------------------------
+! Function to determine the period given the semi-major axis
+!-------------------------------------------------------------
+function get_period_from_a(m1,m2,a) result(period)
+ real, intent(in) :: m1,m2,a
+ real :: period
+
+period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
+
+end function get_period_from_a
 
 !----------------------------------------------------
 ! Eccentricity vector, for second body

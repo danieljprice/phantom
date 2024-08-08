@@ -11,7 +11,7 @@ module subgroup
 !
 ! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Yann BERNARD
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
