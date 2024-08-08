@@ -1717,6 +1717,8 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  vi(1) = vxyz_ptmass(1,itest)
  vi(2) = vxyz_ptmass(2,itest)
  vi(3) = vxyz_ptmass(3,itest)
+ vcom = 0.
+ xcom = 0.
 
  write(iprint,"(a,es18.10,a,es18.10)") "ptmass_create_stars : new stars formed at : ",time,"Mass : ",mi
 
@@ -1785,12 +1787,12 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  enddo
  k = itest
  do while(k>0)
-    xcom(1) = xyzmh_ptmass(4,k)*xyzmh_ptmass(1,k)
-    xcom(2) = xyzmh_ptmass(4,k)*xyzmh_ptmass(2,k)
-    xcom(3) = xyzmh_ptmass(4,k)*xyzmh_ptmass(3,k)
-    vcom(1) = xyzmh_ptmass(4,k)*vxyz_ptmass(1,k)
-    vcom(2) = xyzmh_ptmass(4,k)*vxyz_ptmass(2,k)
-    vcom(3) = xyzmh_ptmass(4,k)*vxyz_ptmass(3,k)
+    xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
+    xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
+    xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
+    vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
+    vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
+    vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
