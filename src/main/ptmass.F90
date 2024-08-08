@@ -1654,7 +1654,7 @@ end subroutine ptmass_create
 
 !-------------------------------------------------------------------------
 !+
-!  subroutine to create a bundh of star "seeds" inside a sink particle
+!  subroutine to create a bunch of star "seeds" inside a sink particle
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
@@ -1695,7 +1695,7 @@ end subroutine ptmass_create_seeds
 
 !-------------------------------------------------------------------------
 !+
-!  subroutine to create a bundh of stars inside a sink particle
+!  subroutine to create a bunch of stars inside a sink (core) particle
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
@@ -1743,8 +1743,10 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
 
 
  k=itest
+ !
+ !-- Position and velocity sampling using Plummer methods
+ !
  do while(k>0)
-    !! Position and velocity sampling methods
     a(:) = 0.
     rvir = 0.7*h_acc
     mcutoff = 0.55
@@ -1796,6 +1798,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
     n = n - 1
  enddo
+ !
+ !-- Center the system on CoM and add bulk motion from the parental sink
+ !
  k = itest
  do while(k>0)
     xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
@@ -1825,6 +1830,11 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
 
 end subroutine ptmass_create_stars
 
+!-------------------------------------------------------------------------
+!+
+!  subroutine to check if a core needs to create seeds or stars
+!+
+!-------------------------------------------------------------------------
 subroutine ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,time)
  use part, only : itbirth
  real,    intent(in) :: time

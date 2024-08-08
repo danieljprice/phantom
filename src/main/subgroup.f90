@@ -6,10 +6,13 @@
 !--------------------------------------------------------------------------!
 module subgroup
 !
-! this module contains everything to identify
-! and integrate regularized groups...
+! This module contains everything to identify and integrate regularized groups.
+! TTL (Mikkola and Aarseth 2002) is used to regularize this subgroups. Indentification is done
+! using a fixed searching radius and few arguments on bounding systems (see Rantala et al. 2023)
+! Slow down method is now directly implemented in the integration. Kappa is computed using Mikkola
+! Aarseth (1996) criterion...
 !
-! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
+! :References: Mikkola et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
 ! :Owner: Yann Bernard
 !
@@ -57,7 +60,7 @@ end subroutine init_subgroup
 
 !-----------------------------------------------
 !
-! Group identification routines
+! Group identification routines (Subgroups + binary orbital parameters)
 !
 !-----------------------------------------------
 subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass, &
@@ -111,6 +114,11 @@ subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptm
 
 end subroutine group_identify
 
+!------------------------------------------------------------------
+!
+! routine to find binary properties in multiple and binary systems
+!
+!------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,         only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -156,6 +164,11 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
 end subroutine find_binaries
 
+!--------------------------------------------------------------------------
+!
+! specialized routine to find orbital parameters of binaries in multiples
+!
+!--------------------------------------------------------------------------
 subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,start_id,end_id)
  use part,         only: igarg,icomp,isemi,iecc,iapo,iorb
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -204,6 +217,11 @@ subroutine binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gs
 
 end subroutine binaries_in_multiples
 
+!--------------------------------------------
+!
+! routine to find common nearest neighbours
+!
+!--------------------------------------------
 subroutine get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
  use part, only : igarg,igcum
  real   , intent(in)    :: xyzmh_ptmass(:,:)
@@ -234,6 +252,11 @@ subroutine get_r2min(xyzmh_ptmass,group_info,r2min_id,start_id,end_id)
 
 end subroutine get_r2min
 
+!----------------------------------------------------------
+!
+! routine to extract main orbital parameters needed for SD
+!
+!----------------------------------------------------------
 subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
  use utils_kepler, only: extract_e,extract_a,extract_T
  real, intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
@@ -241,13 +264,14 @@ subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
  integer, intent(in) :: i,j
  real :: dv(3),dr(3),mu,r,v2
 
- dv(1) = vxyz_ptmass(1,j)-vxyz_ptmass(1,i)
- dv(2) = vxyz_ptmass(2,j)-vxyz_ptmass(2,i)
- dv(3) = vxyz_ptmass(3,j)-vxyz_ptmass(3,i)
- dr(1) = xyzmh_ptmass(1,j)-xyzmh_ptmass(1,i)
- dr(2) = xyzmh_ptmass(2,j)-xyzmh_ptmass(2,i)
- dr(3) = xyzmh_ptmass(3,j)-xyzmh_ptmass(3,i)
- mu = xyzmh_ptmass(4,i) + xyzmh_ptmass(4,j)
+ dv(1) = vxyz_ptmass(1,j)  - vxyz_ptmass(1,i)
+ dv(2) = vxyz_ptmass(2,j)  - vxyz_ptmass(2,i)
+ dv(3) = vxyz_ptmass(3,j)  - vxyz_ptmass(3,i)
+ dr(1) = xyzmh_ptmass(1,j) - xyzmh_ptmass(1,i)
+ dr(2) = xyzmh_ptmass(2,j) - xyzmh_ptmass(2,i)
+ dr(3) = xyzmh_ptmass(3,j) - xyzmh_ptmass(3,i)
+ mu    = xyzmh_ptmass(4,i) + xyzmh_ptmass(4,j)
+
  r = sqrt(dr(1)**2+dr(2)**2+dr(3)**2)
  v2 = dv(1)**2+dv(2)**2+dv(3)**2
 
@@ -261,7 +285,11 @@ subroutine get_orbparams(xyzmh_ptmass,vxyz_ptmass,aij,eij,apoij,Tij,i,j)
 
 end subroutine get_orbparams
 
-
+!--------------------------------------------------------------------------
+!
+! interface routine to read the adjacency matrix to identify groups member
+!
+!--------------------------------------------------------------------------
 subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  use part, only : igarg,igcum,igid,icomp
  integer,         intent(in)    :: nptmass
@@ -290,6 +318,11 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  enddo
 end subroutine form_group
 
+!--------------------------------------------------------------------------
+!
+! simple deep first search algorithm to form subgroups of point masses
+!
+!--------------------------------------------------------------------------
 subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  use part, only : igarg,igid,icomp
  integer,         intent(in)    :: nptmass,iroot
@@ -328,7 +361,11 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  enddo
 end subroutine dfs
 
-
+!------------------------------------------------------------------------------------------
+!
+! Adjacency matrix construction routine using fixed searching radius (Rantala et al. 2023)
+!
+!------------------------------------------------------------------------------------------
 subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  use utils_kepler, only: extract_a,extract_e,extract_ea
  integer,         intent(in) :: nptmass
@@ -417,10 +454,9 @@ end subroutine matrix_construction
 
 !---------------------------------------------
 !
-! Routines needed to integrate subgroups
+! Interface routine to integrate subgroups
 !
 !---------------------------------------------
-
 subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
                          xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
  use part,     only:igarg,igcum
@@ -469,6 +505,12 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
 
 end subroutine evolve_groups
 
+!------------------------------------------------------------------------------------
+!
+! Main integration routine to evolve subgroups, containing Kick and Drift routines
+! and time synchronisation algorithm. cf : Wang et al. (2020)
+!
+!------------------------------------------------------------------------------------
 subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
                             bin_info,group_info,fxyz_ptmass,gtgrad)
  use part, only: igarg,ikap,iorb
@@ -699,6 +741,11 @@ subroutine restore_state(start_id,end_id,xyzmh_ptmass,vxyz_ptmass,group_info,tco
 end subroutine restore_state
 
 
+!---------------------------------------
+!
+! TTL Drift routine for multiples only.
+!
+!---------------------------------------
 subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsize,s_id,e_id)
  use part, only: igarg,icomp,ikap
  use io,   only: fatal
@@ -753,6 +800,11 @@ subroutine drift_TTL(tcoord,W,h,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,gsi
 
 end subroutine drift_TTL
 
+!---------------------------------------
+!
+! TTL Kick routine for multiples only.
+!
+!---------------------------------------
 subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,s_id,e_id)
  use part, only: igarg,ikap
  use io,   only: fatal
@@ -813,6 +865,11 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
 
 end subroutine kick_TTL
 
+!--------------------------------------------------------------------------
+!
+! Compressed and optimized Drift-Kick routine for binaries (group size = 2)
+!
+!--------------------------------------------------------------------------
 subroutine oneStep_bin(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad,time_table,i,j)
  real, intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:),time_table(:)
  real, intent(in)    :: ds,kappa1
@@ -887,6 +944,13 @@ subroutine oneStep_bin(tcoord,W,ds,kappa1,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,g
 
 end subroutine oneStep_bin
 
+!------------------------------------------------------------------
+!
+! SD method alters binary intrinsec motion but conserve CoM motion.
+! this routine will update the position of binaries by slowing down
+! the internal motion but correct the CoM drift operation...
+!
+!------------------------------------------------------------------
 subroutine correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
  real, intent(inout) :: xyzmh_ptmass(:,:)
  real, intent(in)    :: vxyz_ptmass(:,:),vcom(3)
@@ -915,7 +979,13 @@ subroutine correct_com_drift(xyzmh_ptmass,vxyz_ptmass,vcom,kappa1,dtd,i,j)
 
 end subroutine correct_com_drift
 
-
+!---------------------------------------
+!
+! TTL Force routine for multiples only.
+! Potential and initial time step are
+! computed here as well.
+!
+!---------------------------------------
 subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,ds_init)
  use part, only: igarg,iorb,ikap,icomp
  use io,   only: fatal
@@ -1019,6 +1089,12 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
 
 end subroutine get_force_TTL
 
+!--------------------------------------------------------
+!
+! routine that compute the slowing down factor depending
+! on outside pertubartions for multiples only
+!
+!--------------------------------------------------------
 subroutine get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
  use part, only:igarg,icomp,ipert,ikap,iapo,iecc,isemi
  real   , intent(in)    :: xyzmh_ptmass(:,:)
@@ -1083,6 +1159,14 @@ subroutine get_kappa(xyzmh_ptmass,group_info,bin_info,gsize,s_id,e_id)
 
 end subroutine get_kappa
 
+
+!---------------------------------------
+!
+! TTL Force routine for binaries only.
+! Potential and initial time step are
+! computed here as well.
+!
+!---------------------------------------
 subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,potonly,ds_init,Tij)
  real,    intent(in)    :: xyzmh_ptmass(:,:)
  real,    intent(inout) :: fxyz_ptmass(:,:),gtgrad(:,:)
@@ -1149,6 +1233,13 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
 
 end subroutine get_force_TTL_bin
 
+
+!--------------------------------------------------------
+!
+! routine that compute the slowing down factor depending
+! on outside pertubartions for binaries only
+!
+!--------------------------------------------------------
 subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
  use part, only:ipert,iapo,ikap,isemi,iecc
  real, intent(inout) :: bin_info(:,:)
@@ -1176,7 +1267,12 @@ subroutine get_kappa_bin(xyzmh_ptmass,bin_info,i,j)
 
 end subroutine get_kappa_bin
 
-
+!--------------------------------------------------------
+!
+! interface routine that update the slowing down factor
+! for each subgroups in the simulation
+!
+!--------------------------------------------------------
 subroutine update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
  use part, only:igcum,igarg
  real,    intent(in)    :: xyzmh_ptmass(:,:)
@@ -1199,7 +1295,11 @@ subroutine update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
  enddo
 end subroutine update_kappa
 
-
+!--------------------------------------------------------
+!
+! Routine to compute potential energy in subgroups
+!
+!--------------------------------------------------------
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,fxyz_ptmass,gtgrad,epot_sinksink)
  use part, only: igarg,igcum,ikap
  use io, only: id,master,fatal
