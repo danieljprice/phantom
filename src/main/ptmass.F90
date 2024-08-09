@@ -303,9 +303,10 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
-       if (kappa .and. abs(bin_info(isemi,j))>tiny(f2)) then
-          ! add perturbation for
-          bin_info(ipert,j) = bin_info(ipert,j) + f2
+       if (kappa) then
+          if(abs(bin_info(isemi,j))>tiny(f2)) then
+             bin_info(ipert,j) = bin_info(ipert,j) + f2
+          endif
        endif
     endif
  enddo
