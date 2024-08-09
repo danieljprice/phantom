@@ -23,9 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
-!   damping, deriv, dim, eos, extern_gr, growth, io, io_summary,
-!   metric_tools, mpiutils, options, part, porosity, substepping, timestep,
-!   timestep_ind, timestep_sts, timing
+!   damping, deriv, dim, extern_gr, growth, io, io_summary, metric_tools,
+!   mpiutils, options, part, porosity, substepping, timestep, timestep_ind,
+!   timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -117,16 +117,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use metric_tools,   only:imet_minkowski,imetric
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
- use cooling,        only:ufloor,cooling_in_step,Tfloor
+ use cooling,        only:ufloor,cooling_in_step
  use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
  use options,        only:use_porosity,icooling
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
- use eos,             only:equationofstate
+<<<<<<< HEAD
  use substepping,     only:substep,substep_gr, &
                           substep_sph_gr,substep_sph
+=======
+ use substepping,     only:substep,substep_gr, &
+                           substep_sph_gr,substep_sph
+>>>>>>> upstream/master
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -250,10 +254,18 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
+<<<<<<< HEAD
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                     dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                     nmatrix,n_group,n_ingroup,n_sing,isionised)
+=======
+
+       call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
+                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
+                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                    group_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
+>>>>>>> upstream/master
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
@@ -263,6 +275,9 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
  timei = timei + dtsph
  nvfloorps  = 0
+
+
+
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph
@@ -448,7 +463,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp shared(ibin,ibin_old,ibin_sts,twas,timei,use_sts,dtsph_next,ibin_wake,sts_it_n) &
 !$omp shared(ibin_dts,nbinmax) &
 !$omp private(dti,hdti) &
-!$omp shared(rad,radpred,drad,Tfloor)&
+!$omp shared(rad,radpred,drad)&
 !$omp private(i,vxi,vyi,vzi) &
 !$omp private(pxi,pyi,pzi,p2i) &
 !$omp private(erri,v2i,eni) &

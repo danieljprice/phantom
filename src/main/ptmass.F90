@@ -28,7 +28,7 @@ module ptmass
 !   - h_soft_sinkgas  : *softening length for new sink particles*
 !   - h_soft_sinksink : *softening length between sink particles*
 !   - icreate_sinks   : *allow automatic sink particle creation*
-!   - isink_potential : *sink potential(0=1/r,1=surf)*
+!   - isink_potential : *sink potential (0=1/r,1=surf)*
 !   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
 !   - r_merge_cond    : *sinks will merge if bound within this radius*
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
@@ -1639,6 +1639,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 end subroutine ptmass_create
 
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of star "seeds" inside a sink particle
+!+
+!-------------------------------------------------------------------------
 subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
  use part,   only:itbirth,ihacc
  use random, only:ran2
@@ -1675,7 +1680,13 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
 
 end subroutine ptmass_create_seeds
 
-subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,time)
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of stars inside a sink particle
+!+
+!-------------------------------------------------------------------------
+subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                               fxyz_ptmass_sinksink,linklist_ptmass,time)
  use dim,       only:maxptmass
  use physcon,   only:solarm,pi
  use io,        only:iprint,iverbose
@@ -1959,6 +1970,52 @@ end subroutine set_integration_precision
 
 !-----------------------------------------------------------------------
 !+
+!  helper routine for managing the sink particle linked list
+!+
+!-----------------------------------------------------------------------
+subroutine ptmass_endsize_lklist(i,k,n,linklist_ptmass)
+ integer, intent(in)  :: linklist_ptmass(:)
+ integer, intent(in)  :: i
+ integer, intent(out) :: k,n
+ integer :: l,g
+
+ g = i
+ n = 0
+ do while (g>0)
+    l = g
+    g = linklist_ptmass(l)
+    n = n + 1
+ enddo
+ k = l
+
+end subroutine ptmass_endsize_lklist
+
+!-----------------------------------------------------------------------
+!+
+!  Swap between leapfrog and 4th order forward sympletic integrator
+!  for evolving sink particles
+!+
+!-----------------------------------------------------------------------
+subroutine set_integration_precision
+
+ if (use_fourthorder) then
+    n_force_order = 3
+    ck = ck4
+    dk = dk4
+    dtfacphi = dtfacphifsi
+    dtfacphi2 = dtfacphi2fsi
+ else
+    n_force_order = 1
+    ck = ck2
+    dk = dk2
+    dtfacphi = dtfacphilf
+    dtfacphi2 = dtfacphi2lf
+ endif
+
+end subroutine set_integration_precision
+
+!-----------------------------------------------------------------------
+!+
 !  Open files to track sink particle data
 !+
 !-----------------------------------------------------------------------
@@ -2197,7 +2254,7 @@ subroutine write_options_ptmass(iunit)
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
- call write_inopt(isink_potential,'isink_potential','sink potential(0=1/r,1=surf)',iunit)
+ call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -2219,8 +2276,10 @@ subroutine write_options_ptmass(iunit)
  endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
- call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
- call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ if (gravity .and. icreate_sinks > 0) then
+    call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
+    call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ endif
  if (use_regnbody) then
     call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
@@ -2321,7 +2380,7 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     imatch = .false.
  end select
 
- if (icreate_sinks ==2) store_ll_ptmass = .true.
+ if (icreate_sinks == 2) store_ll_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then
@@ -2331,5 +2390,5 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_options_ptmass
-!-----------------------------------------------------------------------
+
 end module ptmass

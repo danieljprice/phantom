@@ -42,7 +42,7 @@ module eos
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
 !   units
@@ -135,7 +135,6 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: uthermconst,kappaBar,kappaPart
  real    :: enthi,pondensi
  logical :: isionisedi
-
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
@@ -430,6 +429,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
+ case(21)
+
+    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
+ case(22)
+
+    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
+
+
 
  case(21)
     call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
@@ -478,6 +485,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use eos_stamatellos,only:read_optab,init_S07cool,eos_file
+ use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  use eos_HIIR,       only:init_eos_HIIR
  integer, intent(in)  :: eos_type
@@ -557,9 +565,11 @@ subroutine init_eos(eos_type,ierr)
     endif
 
  case(21,22)
+
     call init_eos_HIIR()
 
  case(23)
+
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
     call init_S07cool

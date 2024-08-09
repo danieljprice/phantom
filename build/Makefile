@@ -465,7 +465,7 @@ SRCPOTS= extern_gr.F90 \
          extern_spiral.f90 \
          extern_lensethirring.f90 \
          extern_gnewton.f90 \
-	 extern_prdrag.f90 \
+         extern_prdrag.f90 \
          extern_Bfield.f90 \
          extern_densprofile.f90 \
          extern_staticsine.f90 \
@@ -488,7 +488,7 @@ ifdef METRIC
 else
     SRCMETRIC= metric_minkowski.f90
 endif
-SRCGR=inverse4x4.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
+SRCGR=inverse4x4.f90 metric_et_utils.f90 einsteintk_utils.f90 $(SRCMETRIC) metric_tools.f90 utils_gr.f90 interpolate3D.f90 tmunu2grid.f90
 #
 # chemistry and cooling
 #
@@ -506,6 +506,7 @@ SRCCHEM= fs_data.f90 mol_data.f90 utils_spline.f90 \
 # equations of state
 #
 SRCMESA= eos_mesa_microphysics.f90 eos_mesa.f90
+
 SRCEOS = eos_barotropic.f90 eos_stratified.f90 eos_piecewise.f90 ${SRCMESA} eos_shen.f90 eos_helmholtz.f90 eos_idealplusrad.f90 ionization.F90 eos_gasradrec.f90 eos_HIIR.f90 eos_stamatellos.f90 eos.f90
 
 ifeq ($(HDF5), yes)
@@ -534,10 +535,10 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          mpi_memory.f90 mpi_derivs.F90 mpi_tree.F90 kdtree.F90 linklist_kdtree.F90 utils_healpix.f90 utils_raytracer.f90 \
          partinject.F90 utils_inject.f90 dust_formation.f90 ptmass_radiation.f90 ptmass_heating.f90 \
          utils_deriv.f90 utils_implicit.f90 radiation_implicit.f90 ${SRCTURB} \
-	  ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
-	  ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT}  \
-	  H2regions.f90 utils_subgroup.f90 utils_kepler.f90 subgroup.f90 \
-         quitdump.f90 ptmass.F90 \
+         ${SRCINJECT_DEPS} wind_equations.f90 wind.F90  \
+         ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
+         H2regions.f90 utils_subgroup.f90 utils_kepler.f90 subgroup.f90 \
+         quitdump.f90 ptmass.F90\
          readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
@@ -1230,6 +1231,24 @@ combinedustdumps: checksys checkparams $(OBJCDD)
 
 cleancombinedustdumps:
 	rm -f $(BINDIR)/combinedustdumps
+
+#----------------------------------------------------
+# these are the sources for the tabulate_metric tility
+.PHONY: tabulate_metric
+SRCTAB= io.F90 utils_infiles.f90 metric_${METRIC}.f90 metric_et_utils.f90 tabulate_metric.f90 #metric_tools.F90
+OBJTAB1= $(SRCTAB:.F90=.o)
+OBJTAB= $(OBJTAB1:.f90=.o)
+
+tabulate_metric: checksys $(OBJTAB)
+	@echo ""
+	@echo "tabulate_metric: Because grids are great"
+	@echo ""
+	$(FC) $(FFLAGS) -o $(BINDIR)/$@ $(OBJTAB)
+
+cleantabulatemetric:
+	rm -f $(BINDIR)/tabulate_metric
+
+
 
 
 include Makefile_qscripts
