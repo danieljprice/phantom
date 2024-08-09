@@ -1934,40 +1934,6 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
 
 end subroutine merge_sinks
 
-subroutine ptmass_endsize_lklist(i,k,n,linklist_ptmass)
- integer, intent(in)  :: linklist_ptmass(:)
- integer, intent(in)  :: i
- integer, intent(out) :: k,n
- integer :: l,g
- g=i
- n = 0
- do while (g>0)
-    l = g
-    g = linklist_ptmass(l)
-    n = n + 1
- enddo
- k=l
-end subroutine ptmass_endsize_lklist
-
-
-subroutine set_integration_precision
-
- if (use_fourthorder) then
-    n_force_order = 3
-    ck = ck4
-    dk = dk4
-    dtfacphi = dtfacphifsi
-    dtfacphi2 = dtfacphi2fsi
- else
-    n_force_order = 1
-    ck = ck2
-    dk = dk2
-    dtfacphi = dtfacphilf
-    dtfacphi2 = dtfacphi2lf
- endif
-
-end subroutine set_integration_precision
-
 !-----------------------------------------------------------------------
 !+
 !  helper routine for managing the sink particle linked list

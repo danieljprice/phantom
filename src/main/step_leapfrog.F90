@@ -124,13 +124,8 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
-<<<<<<< HEAD
- use substepping,     only:substep,substep_gr, &
-                          substep_sph_gr,substep_sph
-=======
  use substepping,     only:substep,substep_gr, &
                            substep_sph_gr,substep_sph
->>>>>>> upstream/master
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -254,18 +249,10 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     endif
  else
     if (nptmass > 0 .or. iexternalforce > 0 .or. h2chemistry .or. cooling_in_step .or. idamp > 0) then
-<<<<<<< HEAD
-       call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
-                    fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                    nmatrix,n_group,n_ingroup,n_sing,isionised)
-=======
-
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
                     dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                     group_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
->>>>>>> upstream/master
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
