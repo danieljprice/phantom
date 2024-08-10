@@ -903,7 +903,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
- use eos_stamatellos, only:gradP_cool,duFLD,doFLD,getopac_opdep,get_k_fld
+ use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -1024,7 +1024,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,kfldi,kfldj,Ti,Tj,diffterm
+ real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
@@ -1187,20 +1187,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravzi = 0.
  if (icooling == 9) then
     gradP_cool(i) = 0d0
-    if (doFLD) then
-       duFLD(i) = 0d0
-       kfldi = 0d0
-       kfldj = 0d0
-    endif
     gradpx = 0d0
     gradpy = 0d0
     gradpz = 0d0
-    diffterm = 0d0
-    Ti=0
-    Tj=0
-    if (doFLD .and. dt > 0d0) then
-       call get_k_fld(rhoi,eni,i,kfldi,Ti)
-    endif
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1599,25 +1588,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              gradP_coolj = 0d0
              if (usej) then
                 gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
-                if (doFLD .and. dt > 0.) then
-                   call get_k_fld(rhoj,enj,j,kfldj,Tj)
-                   if (rhoj == 0d0) then
-                      diffterm = 0d0
-                      print *, "setting diffterm = 0", i, j, rhoj
-                   elseif ((kfldj + kfldi) < tiny(0.)) then
-                      diffterm = 0d0
-                   else
-                      diffterm = 4d0*pmassj/rhoi/rhoj
-                      diffterm = diffterm * kfldi * kfldj / (kfldi+kfldj)
-                      diffterm = diffterm * (Ti - Tj) / rij2
-                      diffterm = diffterm*cnormk*grkerni*(runix*dx + runiy*dy + runiz*dz)
-                   endif
-                   duFLD(i) = duFLD(i) + diffterm
-                   if (isnan(duFLD(i))) then
-                      print *, "kfldi, kfldj, Ti,Tj,diffterm", kfldi,kfldj, Ti,Tj,diffterm
-                      call fatal('force','duFLD is nan')
-                   endif
-                endif
              endif
           endif
 

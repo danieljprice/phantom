@@ -71,7 +71,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use timestep,   only:dtmax,idtmax_n,idtmax_frac
  use part,       only:ibin,krome_nmols,T_gas_cool
  use metric_tools, only:imetric, imet_et
- use eos_stamatellos, only:gradP_cool,doFLD,urad_FLD,ttherm_store,teqi_store,opac_store
+ use eos_stamatellos, only:ttherm_store,teqi_store,opac_store
  real,             intent(in) :: t
  character(len=*), intent(in) :: dumpfile
  integer,          intent(in), optional :: iorder(:)
@@ -249,8 +249,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           endif
        endif
        ! write stamatellos cooling values
-       if (icooling == 9) then ! .and. doFLD) then
-!         call write_array(1,urad_FLD,'urad',npart,k,ipass,idump,nums,ierrs(13))
+       if (icooling == 9) then
           call write_array(1,teqi_store,'teqi',npart,k,ipass,idump,nums,nerr)
           call write_array(1,ttherm_store,'ttherm',npart,k,ipass,idump,nums,nerr)
           call write_array(1,opac_store,'opacity',npart,k,ipass,idump,nums,nerr)

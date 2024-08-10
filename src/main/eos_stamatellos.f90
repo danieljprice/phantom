@@ -19,15 +19,13 @@ module eos_stamatellos
 
  implicit none
  real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
+ real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
  real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
- logical,public :: doFLD = .True., floor_energy = .False.
- integer,public :: iunitst=19
+ logical,public :: floor_energy = .False.
  integer,save :: nx,ny ! dimensions of optable read in
 
  public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
- public :: get_k_fld
 
 contains
 
@@ -35,39 +33,26 @@ subroutine init_coolra()
  use part, only:npart,maxradprop
  print *, "Allocating cooling arrays"
  allocate(gradP_cool(npart))
- allocate(duFLD(npart))
- allocate(lambda_fld(npart))
- allocate(urad_FLD(npart))
  allocate(ttherm_store(npart))
  allocate(teqi_store(npart))
  allocate(opac_store(npart))
  allocate(duSPH(npart))
  gradP_cool(:) = 0d0
- urad_FLD(:) = 0d0
- duFLD(:) = 0d0
  teqi_store(:) = 0d0
  ttherm_store(:) = 0d0
  opac_store(:) = 0d0
  duSPH(:) = 0d0
- open (unit=iunitst,file='EOSinfo.dat',status='replace')
- if (doFLD) then
-    print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
- else
-    print *, "NOT using FLD. Using cooling only"
- endif
+ print *, "NOT using FLD. Using cooling only"
+
 end subroutine init_coolra
 
 subroutine finish_coolra()
  deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
- if (allocated(duFLD)) deallocate(duFLD)
- if (allocated(lambda_fld)) deallocate(lambda_fld)
- if (allocated(urad_FLD)) deallocate(urad_FLD)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(teqi_store)) deallocate(teqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
  if (allocated(duSPH)) deallocate(duSPH)
- close(iunitst)
 end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
@@ -272,28 +257,6 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 
  ueqi = m*rhoi_ + c
 end subroutine getintenerg_opdep
-
-subroutine get_k_fld(rhoi,eni,i,ki,Ti)
- use physcon,  only:c,fourpi
- use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
- real,intent(in)    :: rhoi,eni
- integer,intent(in) :: i
- real               :: kappaBar,gmwi,kappaPart
- real,intent(out)   :: ki,Ti
-
- if (lambda_FLD(i) == 0d0) then
-    ki = 0.
- else
-    call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
-    kappaPart = kappaPart/unit_opacity
-    ! steboltz constant = 4pi/c * arad
-    ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
-    if (isnan(ki)) then
-       print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
-             lambda_FLD(i), Ti, rhoi,kappaPart
-    endif
- endif
-end subroutine get_k_fld
 
 end module eos_stamatellos
 

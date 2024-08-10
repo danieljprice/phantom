@@ -23,7 +23,6 @@ module cooling_radapprox
  real  :: Lstar = 0d0 ! in units of L_sun
  real,parameter :: dtcool_crit = 0.0001 ! critical dt_rad/dt_hydro for not applying cooling
  integer :: isink_star ! index of sink to use as illuminating star
- integer :: fld_opt = 1 ! by default FLD is switched on
  public :: radcool_update_energ,write_options_cooling_radapprox,read_options_cooling_radapprox
  public :: init_star
 
@@ -68,19 +67,18 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,&
-          duFLD,doFLD,ttherm_store,teqi_store,opac_store,duSPH
+          ttherm_store,teqi_store,opac_store,duSPH
  use part,       only:xyzmh_ptmass,igas
  integer,intent(in) :: i
  real,intent(in) :: xi,yi,zi,rhoi,Tfloor
  real,intent(in) :: ui,dt
  real,intent(out)::dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
- real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
+ real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,HLom,du_tot
  real            :: cs2,Om2,Hmod2
- real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
+ real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb
 
  coldensi = huge(coldensi)
- du_FLDi = duFLD(i)
  kappaBari = 0d0
  kappaParti = 0d0
  Teqi = huge(Teqi)
@@ -128,11 +126,8 @@ coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
  opac_store(i) = opaci
  dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
- if (doFLD) then
-    du_tot = duSPH(i) + du_FLDi
- else
-    du_tot = duSPH(i)
- endif
+ du_tot = duSPH(i)
+
 
  ! If radiative cooling is negligible compared to hydrodynamical heating
  ! don't use this method to update energy, just use hydro du/dt. Does it conserve u alright?
@@ -183,7 +178,7 @@ coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
     print *, "Tmini=",Tmini4**(1.0/4.0), "ri=", ri2**(0.5)
     print *, "opaci=",opaci,"coldensi=",coldensi,"dusph(i)",duSPH(i)
     print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
-    print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
+    print *, "dudti_rad=", dudti_rad ,"ueqi=",ueqi,"ui=",ui
     call warning("In Stamatellos cooling","energ=NaN or 0. ui=",val=ui)
     stop
  endif
@@ -199,14 +194,13 @@ subroutine write_options_cooling_radapprox(iunit)
  !N.B. Tfloor handled in cooling.F90
  call write_inopt(eos_file,'EOS_file','File containing tabulated EOS values',iunit)
  call write_inopt(Lstar,'Lstar','Luminosity of host star for calculating Tmin (Lsun)',iunit)
- call write_inopt(FLD_opt,'do FLD','Do FLD? (1) yes (0) no',iunit)
 
 end subroutine write_options_cooling_radapprox
 
 
 subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallra,ierr)
  use io, only:warning,fatal
- use eos_stamatellos, only: eos_file,doFLD
+ use eos_stamatellos, only: eos_file
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotallra
  integer,          intent(out) :: ierr
@@ -223,15 +217,6 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallra,ierr)
  case('EOS_file')
     read(valstring,*,iostat=ierr) eos_file
     ngot = ngot + 1
- case('do FLD')
-    read(valstring,*,iostat=ierr) FLD_opt
-    if (FLD_opt < 0) call fatal('FLD_opt','FLD option out of range')
-    if (FLD_opt == 0) then
-       doFLD = .false.
-    elseif (FLD_opt == 1) then
-       doFLD = .true.
-    endif
-    ngot = ngot + 1
  case('ieos')
     read(valstring,*,iostat=ierr) ieosread
     if (ieosread /= 23) call fatal('ieosread','For icooling=9, you need ieos=23')
@@ -239,7 +224,7 @@ subroutine read_options_cooling_radapprox(name,valstring,imatch,igotallra,ierr)
     imatch = .false.
  end select
 
- if (ngot >= 3) igotallra = .true.
+ if (ngot >= 2) igotallra = .true.
 
 end subroutine read_options_cooling_radapprox
 
