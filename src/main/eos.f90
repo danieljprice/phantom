@@ -476,7 +476,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
- use eos_stamatellos,only:read_optab,init_S07cool,eos_file
+ use eos_stamatellos,only:read_optab,init_coolra,eos_file
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  use eos_HIIR,       only:init_eos_HIIR
@@ -564,7 +564,7 @@ subroutine init_eos(eos_type,ierr)
 
     call read_optab(eos_file,ierr)
     if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
-    call init_S07cool
+    call init_coolra
 
  end select
  done_init_eos = .true.
@@ -584,7 +584,7 @@ end subroutine init_eos
 !-----------------------------------------------------------------------
 subroutine finish_eos(eos_type,ierr)
  use eos_mesa, only: finish_eos_mesa
- use eos_stamatellos, only: finish_S07cool
+ use eos_stamatellos, only: finish_coolra
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
 
@@ -599,7 +599,7 @@ subroutine finish_eos(eos_type,ierr)
 
  case(23)
     ! Stamatellos deallocation
-    call finish_S07cool
+    call finish_coolra
 
  end select
  done_init_eos=.false.

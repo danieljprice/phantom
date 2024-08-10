@@ -19,23 +19,22 @@ module eos_stamatellos
 
  implicit none
  real,allocatable,public :: optable(:,:,:)
- real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
+ real,allocatable,public :: duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
  real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
  integer,save :: nx,ny ! dimensions of optable read in
 
- public :: read_optab,getopac_opdep,init_S07cool,getintenerg_opdep,finish_S07cool
+ public :: read_optab,getopac_opdep,init_coolra,getintenerg_opdep,finish_coolra
  public :: get_k_fld
 
 contains
 
-subroutine init_S07cool()
+subroutine init_coolra()
  use part, only:npart,maxradprop
  print *, "Allocating cooling arrays"
  allocate(gradP_cool(npart))
- allocate(Gpot_cool(npart))
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
  allocate(urad_FLD(npart))
@@ -43,7 +42,6 @@ subroutine init_S07cool()
  allocate(teqi_store(npart))
  allocate(opac_store(npart))
  allocate(duSPH(npart))
- Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
  duFLD(:) = 0d0
@@ -57,12 +55,11 @@ subroutine init_S07cool()
  else
     print *, "NOT using FLD. Using cooling only"
  endif
-end subroutine init_S07cool
+end subroutine init_coolra
 
-subroutine finish_S07cool()
+subroutine finish_coolra()
  deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
- if (allocated(Gpot_cool)) deallocate(Gpot_cool)
  if (allocated(duFLD)) deallocate(duFLD)
  if (allocated(lambda_fld)) deallocate(lambda_fld)
  if (allocated(urad_FLD)) deallocate(urad_FLD)
@@ -71,7 +68,7 @@ subroutine finish_S07cool()
  if (allocated(opac_store)) deallocate(opac_store)
  if (allocated(duSPH)) deallocate(duSPH)
  close(iunitst)
-end subroutine finish_S07cool
+end subroutine finish_coolra
 
 subroutine read_optab(eos_file,ierr)
  use datafiles, only:find_phantom_datafile
