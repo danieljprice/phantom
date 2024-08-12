@@ -88,13 +88,17 @@ subroutine construct_horizons_api_url(object,url,ierr)
  case('mars')
     cmd = '499' ! mars barycentre
  case('earth')
-    cmd = '399' ! earth-moon barycentre
+    cmd = '399' ! earth
  case('venus')
     cmd = '299' ! venus barycentre
  case('mercury')
     cmd = '199' ! mercury barycentre
+ case('moon')
+    cmd = '301' ! moon
+ case('apophis')
+    cmd = '2004 MN4' ! 99942 Apophis
  case default
-    ierr = 1
+    cmd = trim(object)
  end select
 
  !if (present(epoch)) then

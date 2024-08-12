@@ -36,10 +36,10 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
-                        grainsize,graindens,ndustlarge,ndusttypes
+                        grainsize,graindens,ndustlarge,ndusttypes,ihacc
  use setbinary,    only:set_binary
  use units,        only:set_units,umass,udist,unit_density
- use physcon,      only:solarm,au,pi,km
+ use physcon,      only:solarm,au,pi,km,solarr
  use io,           only:master,fatal
  use timestep,     only:tmax,dtmax
  use mpc,          only:read_mpc,mpc_entry
@@ -106,8 +106,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  tmax   = norbits*period
  dtmax  = period/dumpsperorbit
 
- filename = find_datafile('Distant.txt',url='https://www.minorplanetcenter.net/iau/MPCORB/')
- call read_mpc(filename,nbodies,dat=dat)
+ nbodies = 0
+! filename = find_datafile('Distant.txt',url='https://www.minorplanetcenter.net/iau/MPCORB/')
+! call read_mpc(filename,nbodies,dat=dat)
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
  n = 0
@@ -145,6 +146,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! restore the Sun
  !
  nptmass = 1
+ xyzmh_ptmass(ihacc,1) = solarr/udist
  !
  ! set mass of all the minor bodies equal
  !
