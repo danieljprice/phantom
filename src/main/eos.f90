@@ -27,6 +27,7 @@ module eos
 !    16 = Shen eos
 !    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
+!    23 = Hypervelocity Impact of solids-fluids from Tillotson EOS (Tillotson 1962 - implemented by Brundage A. 2013
 !
 ! :References:
 !    Lodato & Pringle (2007)
