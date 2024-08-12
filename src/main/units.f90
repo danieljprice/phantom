@@ -192,6 +192,8 @@ subroutine select_unit(string,unit,ierr)
  select case(trim(unitstr))
  case('solarr','rsun')
     unit = solarr
+ case('earthr','rearth')
+    unit = earthr
  case('au')
     unit = au
  case('ly','lightyear')
@@ -281,9 +283,9 @@ logical function is_length_unit(string)
  call get_unit_multiplier(string,unitstr,fac,ierr)
 
  select case(trim(unitstr))
- case('solarr','rsun','au','ly','lightyear','pc','parsec',&
-      'kpc','kiloparsec','mpc','megaparsec','km','kilometres',&
-      'kilometers','cm','centimetres','centimeters')
+ case('solarr','rsun','rearth','earthr','au','ly','lightyear',&
+      'pc','parsec','kpc','kiloparsec','mpc','megaparsec','km',&
+      'kilometres','kilometers','cm','centimetres','centimeters')
     is_length_unit = .true.
  case default
     is_length_unit = .false.
