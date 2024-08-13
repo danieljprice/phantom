@@ -79,6 +79,18 @@ subroutine equationofstate_tillotson(rho,energy,temperature,mu,X,Z,pressure,spso
 ! Define: a, b, A
 ! pressure(rho,E) = [ a + [ b / ( E / ( E_0 * eta**2 ) + 1 ) ] ] * rho*E + A*mu  (same eq as compressed but without B*mu**2 term)
 ! 
+! ---Tillotson EOS params [new subroutine?]---
+! From Benz and Asphaug 1999 [Table 2] DOI: 10.1006/icar.1999.6204
+! ---Basalt---
+! rho_0 = 2.7 [g/cm3]; A = 2.67e11 [erg/cm3]; B = 2.67e11[erg/cm3]; 
+! E_0 = 4.87e12 [erg/g]; E_IV = 4.72e10 [erg/g]; E_CV = 1.82e11 [erg/g]; 
+! a = 0.5; b = 1.5; alpha = 5.0; beta = 5.0
+!
+! ---Ice---
+! rho_0 = 0.917 [g/cm3]; A = 9.47e10 [erg/cm3]; B = 9.47e10[erg/cm3]; 
+! E_0 = 1.00e11 [erg/g]; E_IV = 7.73e9 [erg/g]; E_CV = 3.04e10 [erg/g]; 
+! a = 0.3; b = 0.1; alpha = 10.0; beta = 5.0
+! 
 end subroutine equationofstate_tillotson
 
 !----------------------------------------------------------------
