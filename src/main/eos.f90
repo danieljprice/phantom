@@ -442,10 +442,12 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  !
  ! from Tillotson (1962)
  !
-    call equationofstate_tillotson(cgsrhoi,cgseni*cgsrhoi,temperaturei,mui,X_i,1.-X_i-Z_i,cgspresi,cgsspsoundi,gammai)
+    cgsrhoi = rhoi * unit_density
+    cgseni  = eni * unit_ergg
+    call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
     ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
     spsoundi = real(cgsspsoundi / unit_velocity)
-    tempi    = temperaturei
+    tempi    = 0. !temperaturei
     if (present(mu_local)) mu_local = mui
     if (present(gamma_local)) gamma_local = gammai
 
