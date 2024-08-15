@@ -33,6 +33,10 @@ contains
 !  EoS from Tillotson et al. (1962) ; Implementation from Benz and Asphaug (1999)
 !+
 !-----------------------------------------------------------------------
+subroutine init_eos_tillotson(ierr)
+ integer, intent(out) :: ierr
+end subroutine init_eos_tillotson
+
 subroutine equationofstate_tillotson(rho,energy,pressure,spsound,gamma)
  real, intent(in) :: rho,energy
  real, intent(out) :: pressure,spsound,gamma

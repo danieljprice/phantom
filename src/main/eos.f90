@@ -477,6 +477,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_gasradrec,  only:init_eos_gasradrec
  use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
+ use eos_tillotson,  only:init_eos_tillotson
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp
@@ -556,7 +557,8 @@ subroutine init_eos(eos_type,ierr)
  case(21,22)
 
     call init_eos_HIIR()
-
+ case(23)
+   call init_eos_tillotson(ierr)
  end select
  done_init_eos = .true.
 
