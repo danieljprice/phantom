@@ -18,6 +18,7 @@ module eos_tillotson
 !
 ! :Dependencies: 
 !
+ use units, only: unit_density, unit_energ, umass, udist
  implicit none
  real :: rho0 = 2.7 ! g/cm^3 zero-pressure density (Basalt) from Benz & Asphaug 1999
 ! aparam, bparam, A, B, energy0 material-dependent Tillotson parameters (Basalt)
@@ -35,6 +36,20 @@ contains
 !-----------------------------------------------------------------------
 subroutine init_eos_tillotson(ierr)
  integer, intent(out) :: ierr
+
+! call write_options_eos_tillotson(iunit)
+! 
+! Convert to code units
+!
+rho0 = real(rho0/unit_density)
+A = real((A/unit_energ)*(udist**3)) ! erg/cm^3
+B = real((B/unit_energ)*(udist**3)) ! erg/cm^3
+energy0 = real((energy0/unit_energ) *umass) ! erg/g
+
+! call read_options_eos_tillotson(name,valstring,imatch,igotall,ierr)
+! call equationofstate_tillotson(rho,energy,pressure,spsound,gamma)
+
+
 end subroutine init_eos_tillotson
 
 subroutine equationofstate_tillotson(rho,energy,pressure,spsound,gamma)
@@ -104,7 +119,16 @@ subroutine write_options_eos_tillotson(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(rho0,'rho0','reference density',iunit)
+ call write_inopt(rho0,'rho0','reference density g/cm^3',iunit)
+ call write_inopt(aparam,'aparam','material-dependent Tillotson parameter, unitless',iunit)
+ call write_inopt(bparam,'bparam','material-dependent Tillotson parameter, unitless',iunit)
+ call write_inopt(A,'A','material-dependent Tillotson parameter, erg/cm^3',iunit)
+ call write_inopt(B,'B','material-dependent Tillotson parameter, erg/cm^3',iunit)
+ call write_inopt(alpha,'alpha','material-dependent Tillotson parameter, unitless',iunit)
+ call write_inopt(beta,'beta','material-dependent Tillotson parameter, unitless',iunit)
+ call write_inopt(energy0,'energy0','material-dependent Tillotson parameter, erg/g',iunit)
+ call write_inopt(eta,'eta','compression, (rho/rho0), unitless',iunit)
+ call write_inopt(mu,'mu','strain, (eta-1), unitless',iunit)
 
 end subroutine write_options_eos_tillotson
 
