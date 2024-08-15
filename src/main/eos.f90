@@ -438,18 +438,16 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
 
  case(23)
  !
- !-- Tillotson EOS
+ !-- Tillotson EOS from Tillotson (1962); Implementation from Benz and Asphaug (1999)
  !
- ! from Tillotson (1962)
- !
-    cgsrhoi = rhoi * unit_density
-    cgseni  = eni * unit_ergg
-    call equationofstate_tillotson(cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai)
-    ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
-    spsoundi = real(cgsspsoundi / unit_velocity)
-    tempi    = 0. !temperaturei
-    if (present(mu_local)) mu_local = mui
-    if (present(gamma_local)) gamma_local = gammai
+   !  cgsrhoi = rhoi * unit_density
+   !  cgseni  = eni * unit_ergg
+    call equationofstate_tillotson(rhoi,eni,presi,spsoundi,gammai)  !cgsrhoi,cgseni,cgspresi,cgsspsoundi,gammai
+   !  ponrhoi  = real(cgspresi / (unit_pressure * rhoi))
+   !  spsoundi = real(cgsspsoundi / unit_velocity)
+   !  tempi    = 0. !temperaturei
+   !  if (present(mu_local)) mu_local = mui
+   !  if (present(gamma_local)) gamma_local = gammai
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -557,8 +555,11 @@ subroutine init_eos(eos_type,ierr)
  case(21,22)
 
     call init_eos_HIIR()
+
  case(23)
+   
    call init_eos_tillotson(ierr)
+
  end select
  done_init_eos = .true.
 
@@ -1509,6 +1510,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  use eos_barotropic, only:read_options_eos_barotropic
  use eos_piecewise,  only:read_options_eos_piecewise
  use eos_gasradrec,  only:read_options_eos_gasradrec
+ use eos_tillotson,  only:read_options_eos_tillotson
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -1548,6 +1550,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
  if (.not.imatch .and. ieos== 8) call read_options_eos_barotropic(name,valstring,imatch,igotall_barotropic,ierr)
  if (.not.imatch .and. ieos== 9) call read_options_eos_piecewise( name,valstring,imatch,igotall_piecewise, ierr)
  if (.not.imatch .and. ieos==20) call read_options_eos_gasradrec( name,valstring,imatch,igotall_gasradrec, ierr)
+ if (.not.imatch .and. ieos==23) call read_options_eos_tillotson(name,valstring,imatch,igotall,ierr)
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  igotall = (ngot >= 1) .and. igotall_piecewise .and. igotall_barotropic .and. igotall_gasradrec
