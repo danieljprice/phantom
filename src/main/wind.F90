@@ -207,7 +207,7 @@ subroutine wind_step(state)
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
- use units,            only:unit_ergg,unit_density
+ use units,            only:unit_ergg,unit_density,utime
  use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
@@ -314,7 +314,7 @@ subroutine wind_step(state)
     Q_old = state%Q
     call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
-    state%Q = Q_code*unit_ergg
+    state%Q = Q_code*unit_ergg/utime
     state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
@@ -349,7 +349,7 @@ subroutine wind_step(state)
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
- use units,            only:unit_ergg,unit_density
+ use units,            only:unit_ergg,unit_density,utime
  use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
@@ -447,7 +447,7 @@ subroutine wind_step(state)
     Q_old = state%Q
     call calc_cooling_rate(Q_code,dlnQ_dlnT,real(state%rho/unit_density),state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
-    state%Q = Q_code*unit_ergg
+    state%Q = Q_code*unit_ergg/utime
     state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
