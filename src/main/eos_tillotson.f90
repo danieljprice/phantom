@@ -119,17 +119,6 @@ subroutine write_options_eos_tillotson(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(rho0,'rho0','reference density g/cm^3',iunit)
- call write_inopt(aparam,'aparam','material-dependent Tillotson parameter, unitless',iunit)
- call write_inopt(bparam,'bparam','material-dependent Tillotson parameter, unitless',iunit)
- call write_inopt(A,'A','material-dependent Tillotson parameter, erg/cm^3',iunit)
- call write_inopt(B,'B','material-dependent Tillotson parameter, erg/cm^3',iunit)
- call write_inopt(alpha,'alpha','material-dependent Tillotson parameter, unitless',iunit)
- call write_inopt(beta,'beta','material-dependent Tillotson parameter, unitless',iunit)
- call write_inopt(energy0,'energy0','material-dependent Tillotson parameter, erg/g',iunit)
- call write_inopt(eta,'eta','compression, (rho/rho0), unitless',iunit)
- call write_inopt(mu,'mu','strain, (eta-1), unitless',iunit)
-
 end subroutine write_options_eos_tillotson
 
 end module eos_tillotson
