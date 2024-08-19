@@ -49,8 +49,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
 
  print "(29(a,/))", &
-      ' 1) get rate', &
-      ' 2) generate table', &
+      ' 1) get rate (for winds)', &
+      ' 2) generate table (for winds)', &
       ' 3) test integration'
 
  analysis_to_perform = 1
@@ -112,7 +112,8 @@ subroutine test_cooling_solvers
       ' 2) Q = -b*T', &
       ' 3) Q = -c*T**3', &
       ' 4) Q = -d/T**3', &
-      ' 5) HI cooling'
+      ' 5) HI cooling', &
+      ' 6) piecewise law'
 
  irate = 0
  call prompt('Choose cooling rate ',irate)
@@ -133,6 +134,10 @@ subroutine test_cooling_solvers
  case(5)
     excitation_HI = 1
     label = '_HI.dat'
+ case(6)
+    shock_problem = 1
+    excitation_HI = 98
+    label = '_piece.dat'
  case default
     ifunct = 0  !cst coolint rate
     label = '_linear.dat'
@@ -192,10 +197,10 @@ subroutine test_cooling_solvers
  call integrate_cooling('test_cooling_explicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
  !perform implicit integration
- icool_method = 1
+ icool_method = 0
  call integrate_cooling('test_cooling_implicit'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
- !perform implicit integration
+ !perform exact integration
  icool_method = 2
  call integrate_cooling('test_cooling_exact'//trim(label),ifunct,T_gas,T_floor,tcool0,tstart,ui,rho,mu,gamma)
 
