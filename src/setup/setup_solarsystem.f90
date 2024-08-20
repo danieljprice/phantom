@@ -146,7 +146,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! restore the Sun
  !
  nptmass = 1
+ xyzmh_ptmass(1:3,1) = 0.
  xyzmh_ptmass(ihacc,1) = solarr/udist
+ xyzmh_ptmass(4,1) = solarm/umass
  !
  ! set mass of all the minor bodies equal
  !
