@@ -10,7 +10,7 @@ module utils_subgroup
 !
 ! :References: None
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !

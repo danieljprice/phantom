@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,&
                 rhozero,npart_total,i_belong,ierr)
 
  nptmass_in = 0
- if (iexternalforce==iext_corotate) then
+ if (iextern_prev==iext_corotate) then
     call set_orbit(orbit,star(1)%mstar,star(2)%mstar,star(1)%hacc,star(2)%hacc,&
                    xyzmh_ptmass_in,vxyz_ptmass_in,nptmass_in,(id==master),ierr,omega_corotate)
     add_spin = .false.

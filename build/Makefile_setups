@@ -77,7 +77,17 @@ endif
 ifeq ($(SETUP), asteroidwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_asteroidwind.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), randomwind)
+#   asteroid emitting a wind (Trevascus et al. 2021)
+    SETUPFILE=setup_disc.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -206,7 +216,7 @@ ifeq ($(SETUP), grdisc)
 #   accretion disc around a Kerr black hole
     SETUPFILE= setup_grdisc.f90
     ANALYSIS= analysis_disc.f90
-    GR=yes
+    GR=no
     METRIC=kerr
     KNOWN_SETUP=yes
     MULTIRUNFILE= multirun.f90

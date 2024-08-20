@@ -23,9 +23,9 @@ module step_lf_global
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary_dyn, cons2prim, cons2primsolver, cooling,
-!   damping, deriv, dim, eos, extern_gr, growth, io, io_summary,
-!   metric_tools, mpiutils, options, part, porosity, substepping, timestep,
-!   timestep_ind, timestep_sts, timing
+!   damping, deriv, dim, extern_gr, growth, io, io_summary, metric_tools,
+!   mpiutils, options, part, porosity, substepping, timestep, timestep_ind,
+!   timestep_sts, timing
 !
  use dim,  only:maxp,maxvxyzu,do_radiation,ind_timesteps
  use part, only:vpred,Bpred,dustpred,ppred
@@ -98,13 +98,13 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
                           iamboundary,get_ntypes,npartoftypetot,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev
+                          filfac,filfacpred,mprev,filfacprev,isionised
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,linklist_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
@@ -118,15 +118,14 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use cons2prim,      only:cons2primall
  use extern_gr,      only:get_grforce_all
  use cooling,        only:ufloor,cooling_in_step
- use timing,         only:increment_timer,get_timings,itimer_extf
+ use timing,         only:increment_timer,get_timings,itimer_substep
  use growth,         only:check_dustprop
  use options,        only:use_porosity
  use porosity,       only:get_filfac
  use damping,        only:idamp
  use cons2primsolver, only:conservative2primitive,primitive2conservative
- use eos,             only:equationofstate
  use substepping,     only:substep,substep_gr, &
-                          substep_sph_gr,substep_sph
+                           substep_sph_gr,substep_sph
 
  integer, intent(inout) :: npart
  integer, intent(in)    :: nactive
@@ -251,17 +250,20 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
-                    nmatrix,n_group,n_ingroup,n_sing)
+                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                    group_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
     endif
  endif
  call get_timings(t2,tcpu2)
- call increment_timer(itimer_extf,t2-t1,tcpu2-tcpu1)
+ call increment_timer(itimer_substep,t2-t1,tcpu2-tcpu1)
 
  timei = timei + dtsph
  nvfloorps  = 0
+
+
+
 !----------------------------------------------------
 ! interpolation of SPH quantities needed in the SPH
 ! force evaluations, using dtsph

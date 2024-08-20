@@ -15,7 +15,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: energies, evwrite, metric_tools, options, part
 !
  implicit none
  character(len=20), parameter, public :: analysistype = 'energies'
@@ -37,7 +37,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  integer,          intent(in) :: num,npart,iunit
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
  real,             intent(in) :: particlemass,time
- 
+
  if (gr) then
     call init_metric(npart,xyzh,metrics,metricderivs)
     iexternalforce = 1
