@@ -65,18 +65,23 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
  case(2)
     call generate_grid()
  case(3)
-    call test_cooling_solvers
+    call test_cooling_solvers(dumpfile)
  end select
 
 end subroutine do_analysis
 
 
-subroutine test_cooling_solvers
+subroutine test_cooling_solvers(dumpfile)
 
  use prompting, only:prompt
  use physcon,   only:Rg
  use units,     only:unit_ergg,unit_density
  use options,   only:icooling
+ ! For reading the input file:
+ use units,            only:utime,umass,udist,set_units
+ use infile_utils,     only:open_db_from_file,inopts,read_inopt,close_db
+ use initial,          only:initialise
+ use readwrite_infile, only:read_infile
 
  integer, parameter :: ndt = 100
  real :: tstart,tlast,dtstep,dti(ndt),tcool
@@ -86,6 +91,11 @@ subroutine test_cooling_solvers
  real :: Q, dlnQ_dlnT
  real :: u,ui,dudt,T_on_u,Tout,dt,tcool0
  real :: T_floor
+ ! For reading the input file:
+ real :: utime_tmp,umass_tmp,udist_tmp
+ character(len=*), intent(in)  ::   dumpfile
+ character(len=120)            ::   infile,logfile,evfile,dfile
+
 
  integer :: i,imethod,ierr,iunit,ifunct,irate
  character(len=11) :: label
@@ -101,6 +111,23 @@ subroutine test_cooling_solvers
  T_gas   = 1.d6
  rho_gas = 1.d-20 !cgs
  rho     = rho_gas/unit_density
+
+
+ !
+ !--store units, otherwise initialise() put them to 1
+ !
+ utime_tmp = utime
+ umass_tmp = umass
+ udist_tmp = udist
+
+ !
+ ! Read input file
+ !
+ infile = dumpfile(1:index(dumpfile,'_')-1)//'.in'
+ call initialise()
+ call set_units(udist_tmp,umass_tmp,utime_tmp)
+ call read_infile(infile,logfile,evfile,dfile)
+
 
  call init_cooling_solver(ierr)
  call set_abundances
