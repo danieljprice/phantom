@@ -69,8 +69,7 @@ subroutine init_cooling_solver(ierr)
     print *,'ERROR: no cooling prescription activated'
     ierr = 2
  endif
- !for the exact scheme, define temperature grid
- if (icool_method == 2) call set_Tgrid
+ call set_Tgrid
 
 end subroutine init_cooling_solver
 
