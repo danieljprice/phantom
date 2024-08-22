@@ -137,9 +137,10 @@ subroutine test_ptmass(ntests,npass,string)
  !
  if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
 
+ if (do_test_SDAR .or. testall) call test_SDAR(ntests,npass)
+
  if (do_test_HII) call test_HIIregion(ntests,npass)
 
- if (do_test_SDAR) call test_SDAR(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -1291,7 +1292,7 @@ subroutine test_SDAR(ntests,npass)
  use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
                         get_accel_sink_gas,f_acc,use_fourthorder,use_regnbody
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
-                        npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
+                        npart,npartoftype,massoftype,xyzh,vxyzu,&
                         igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
  use part,       only:group_info,bin_info,n_group,n_ingroup,n_sing,nmatrix
  use energies,   only:angtot,etot,totmom,compute_energies
@@ -1312,8 +1313,8 @@ subroutine test_SDAR(ntests,npass)
  integer,          intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(3),nerr,nwarn
  integer :: merge_ij(3),merge_n
- real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang
- real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax
+ real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang,tolecc
+ real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax,eccfin,decc
  real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
  real :: xsec(3),vsec(3)
  real(kind=4) :: t1
@@ -1385,7 +1386,7 @@ subroutine test_SDAR(ntests,npass)
  !
  nfailed = 0
  call check_setup(nerr,nwarn)
- call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
+ call checkval(nerr,0,0,nfailed(1),'no errors during setup')
  call update_test_scores(ntests,nfailed,npass)
 
  tolv = 1.e-2
@@ -1418,19 +1419,12 @@ subroutine test_SDAR(ntests,npass)
  call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
  call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
 
- !
- !--take the sink-sink timestep specified by the get_forces routine
- !
+
  dt = 0.01
 
  dtmax = dt  ! required prior to derivs call, as used to set ibin
- !
- !--compute SPH forces
- !
- if (npart > 0) then
-    fxyzu(:,:) = 0.
-    call get_derivs_global()
- endif
+
+
  !
  !--evolve this for a number of orbits
  !
@@ -1438,20 +1432,10 @@ subroutine test_SDAR(ntests,npass)
  etotin   = etot
  totmomin = totmom
  angmomin = angtot
- !
- !--check that initial potential on the two sinks is correct
- !
-!  nfailed(:) = 0
-!  if (itest==1) then
-!     call checkval(epot_sinksink,-m1*m2/a,epsilon(0.),nfailed(1),'potential energy')
-!     call update_test_scores(ntests,nfailed,npass)
-!     !
-!     !--check initial angular momentum on the two sinks is correct
-!     !
-!     call checkval(angtot,m1*m2*sqrt(a/(m1 + m2)),1e6*epsilon(0.),nfailed(1),'angular momentum')
-!     call update_test_scores(ntests,nfailed,npass)
-!  endif
- tmax = 45.*3
+ ecc      = bin_info(2,2)
+ decc     = 0.09618
+
+ tmax = 7.*3.63 ! 7 out binary periods
  t    = 0.
  errmax = 0.
  f_acc = 1.
@@ -1463,7 +1447,6 @@ subroutine test_SDAR(ntests,npass)
  do while (t < tmax)
     dtext = dt
     call step(npart,npart,t,dt,dtext,dtnew)
-    write(1,*) t+dt,bin_info(:,2)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
     t = t + dt
@@ -1473,14 +1456,18 @@ subroutine test_SDAR(ntests,npass)
 
  if (id==master) call printused(t1)
  nfailed(:) = 0
- tolmom = 2.e-14
- tolang = 2.e-14
+ eccfin = 0.99617740539553523
+ tolecc = 3e-5
+ tolmom = 2.e-11
+ tolang = 2.e-11
+ tolen  = 5.e-6
  !
  !--check energy conservation
  !
  call checkval(angtot,angmomin,tolang,nfailed(1),'angular momentum')
  call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
  call checkval(etotin+errmax,etotin,tolen,nfailed(3),'total energy')
+ call checkval(eccfin-ecc,decc,tolecc,nfailed(3),'eccentricity')
  do i=1,3
     call update_test_scores(ntests,nfailed(i:i),npass)
  enddo

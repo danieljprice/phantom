@@ -1031,7 +1031,7 @@ end subroutine correct_W_SD
 ! computed here as well.
 !
 !---------------------------------------
-subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,ds_init)
+subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,s_id,e_id,potonly,energ,ds_init)
  use part, only: igarg,ikap,icomp,isemi
  use io,   only: fatal
  real,              intent(in)    :: xyzmh_ptmass(:,:)
@@ -1040,6 +1040,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
  real,              intent(out)   :: om
  integer,           intent(in)    :: s_id,e_id
  logical, optional, intent(in)    :: potonly
+ logical, optional, intent(in)    :: energ
  real,    optional, intent(out)   :: ds_init
  real    :: mi,mj,xi,yi,zi,dx,dy,dz,r2,ddr,ddr3,dsi,mcomp,semii
  real    :: gravf,gtk,gtki,gravfi(3),gtgradi(3),kappa1i,kappai
@@ -1087,7 +1088,11 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        ddr  = 1./sqrt(r2)
        mj = xyzmh_ptmass(4,j)
        if (j == compi) then
-          gtk = mj*ddr*kappa1i
+          if(present(potonly) .and. present(energ)) then
+             gtk = mj*ddr
+          else
+             gtk = mj*ddr*kappa1i
+          endif
        else
           gtk = mj*ddr
        endif
@@ -1107,8 +1112,8 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
           gtgradi(3) = gtgradi(3) + dz*gravf*mi
        endif
     enddo
-    fxyz_ptmass(4,i) = -gtki
     if (.not.present(potonly)) then
+       fxyz_ptmass(4,i) = -gtki
        fxyz_ptmass(1,i) = gravfi(1)
        fxyz_ptmass(2,i) = gravfi(2)
        fxyz_ptmass(3,i) = gravfi(3)
@@ -1252,7 +1257,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
  ddr  = 1./sqrt(r2)
  ddr3 = ddr*ddr*ddr
 
- if (kappa1<1.0) then
+ if (kappa1<1.0 .and. .not.present(potonly)) then
     gravfi = kappa1*mj*ddr3
     gravfj = kappa1*mi*ddr3
     gtki   = kappa1*mj*ddr
@@ -1265,8 +1270,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
  endif
 
 
- fxyz_ptmass(4,i) = -gtki
- fxyz_ptmass(4,j) = -gtkj
+
  if (.not.present(potonly)) then
     fxi = -dx*gravfi
     fyi = -dy*gravfi
@@ -1274,6 +1278,8 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
     fxj =  dx*gravfj
     fyj =  dy*gravfj
     fzj =  dz*gravfj
+    fxyz_ptmass(4,i) = -gtki
+    fxyz_ptmass(4,j) = -gtkj
     fxyz_ptmass(1,i) = fxi
     fxyz_ptmass(2,i) = fyi
     fxyz_ptmass(3,i) = fzi
@@ -1418,7 +1424,7 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
           end_id   = group_info(igcum,i+1)
           gsize    = (end_id - start_id) + 1
           if (gsize>2) then
-             call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,phigroup,start_id,end_id,.true.)
+             call get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,phigroup,start_id,end_id,.true.,.true.)
           else
              prim = group_info(igarg,start_id)
              sec = group_info(igarg,end_id)
