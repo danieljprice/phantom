@@ -597,9 +597,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
     endif
 
     if ((.not.t_end_flag).and.(dt<0.)) then
-       print*,"neg dt !!!",tnext,dt,step_count_int
-       print*, sqrt(dot_product(xyzmh_ptmass(1:3,3)-xyzmh_ptmass(1:3,2),xyzmh_ptmass(1:3,3)-xyzmh_ptmass(1:3,2))),&
-       bin_info(1,2),bin_info(3,2)
+       !print*,"neg dt !!!",tnext,dt,step_count_int
        call regularstepfactor((abs(tnext/dt))**(1./6.),step_modif)
        step_modif = min(max(step_modif,0.0625),0.5)
        ds(switch) = ds(switch)*step_modif
