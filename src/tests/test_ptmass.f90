@@ -1292,9 +1292,9 @@ subroutine test_SDAR(ntests,npass)
                         get_accel_sink_gas,f_acc,use_fourthorder,use_regnbody
  use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
                         npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
-                        hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
+                        igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
  use part,       only:group_info,bin_info,n_group,n_ingroup,n_sing,nmatrix
- use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
+ use energies,   only:angtot,etot,totmom,compute_energies
  use timestep,   only:dtmax,C_force,tolv
  use kdtree,     only:tree_accuracy
  use eos,        only:ieos
@@ -1311,7 +1311,7 @@ subroutine test_SDAR(ntests,npass)
  use centreofmass,   only:reset_centreofmass
  integer,          intent(inout) :: ntests,npass
  integer :: i,ierr,nfailed(3),nerr,nwarn
- integer :: merge_ij(3),merge_n,nparttot
+ integer :: merge_ij(3),merge_n
  real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang
  real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax
  real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
