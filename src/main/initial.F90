@@ -560,7 +560,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
-    if (use_regnbody) call update_kappa(xyzmh_ptmass,bin_info,group_info,n_group)
+    if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0 .and. id==master) then
