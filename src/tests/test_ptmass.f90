@@ -1472,6 +1472,9 @@ subroutine test_SDAR(ntests,npass)
     call update_test_scores(ntests,nfailed(i:i),npass)
  enddo
 
+ use_regnbody = .false.
+ use_fourthorder = .false.
+
 end subroutine test_SDAR
 
 !-----------------------------------------------------------------------
