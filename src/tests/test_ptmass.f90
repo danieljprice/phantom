@@ -1473,7 +1473,7 @@ subroutine test_SDAR(ntests,npass)
  enddo
 
  use_regnbody = .false.
- use_fourthorder = .false.
+ call init_part()
 
 end subroutine test_SDAR
 
