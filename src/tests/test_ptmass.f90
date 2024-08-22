@@ -40,7 +40,7 @@ subroutine test_ptmass(ntests,npass,string)
  integer, intent(inout) :: ntests,npass
  integer :: itmp,ierr,itest,istart
  logical :: do_test_binary,do_test_accretion,do_test_createsink,do_test_softening
- logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII
+ logical :: do_test_chinese_coin,do_test_merger,do_test_potential,do_test_HII,do_test_SDAR
  logical :: testall
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING PTMASS MODULE'
@@ -53,6 +53,7 @@ subroutine test_ptmass(ntests,npass,string)
  do_test_potential = .false.
  do_test_chinese_coin = .false.
  do_test_HII = .false.
+ do_test_SDAR = .false.
  testall = .false.
  istart = 1
  select case(trim(string))
@@ -77,6 +78,8 @@ subroutine test_ptmass(ntests,npass,string)
     do_test_merger = .true.
  case('ptmassHII')
     do_test_HII = .true.
+ case('ptmassSDAR')
+    do_test_SDAR = .true.
 
  case default
     testall = .true.
@@ -135,6 +138,8 @@ subroutine test_ptmass(ntests,npass,string)
  if (do_test_createsink .or. testall) call test_createsink(ntests,npass)
 
  if (do_test_HII) call test_HIIregion(ntests,npass)
+
+ if (do_test_SDAR) call test_SDAR(ntests,npass)
 
  !reset stuff and clean up temporary files
  itmp    = 201
@@ -1156,6 +1161,11 @@ subroutine test_merger(ntests,npass)
 
 end subroutine test_merger
 
+!-----------------------------------------------------------------------
+!+
+!  Test HII region expansion around sink particles
+!+
+!-----------------------------------------------------------------------
 subroutine test_HIIregion(ntests,npass)
  use dim,            only:maxp,maxphase,maxvxyzu
  use io,             only:id,master,iverbose,iprint
@@ -1268,6 +1278,214 @@ subroutine test_HIIregion(ntests,npass)
  call update_test_scores(ntests,nfailed,npass)
 
 end subroutine test_HIIregion
+
+!-----------------------------------------------------------------------
+!+
+!  Test SDAR integration method on a stable triple system
+!+
+!-----------------------------------------------------------------------
+subroutine test_SDAR(ntests,npass)
+ use dim,        only:periodic,gravity,ind_timesteps
+ use io,         only:id,master,iverbose
+ use physcon,    only:pi,deg_to_rad
+ use ptmass,     only:get_accel_sink_sink,h_soft_sinksink, &
+                        get_accel_sink_gas,f_acc,use_fourthorder,use_regnbody
+ use part,       only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,fext,&
+                        npart,npartoftype,massoftype,xyzh,vxyzu,fxyzu,&
+                        hfact,igas,epot_sinksink,init_part,iJ2,ispinx,ispiny,ispinz,iReff,istar
+ use part,       only:group_info,bin_info,n_group,n_ingroup,n_sing,nmatrix
+ use energies,   only:angtot,etot,totmom,compute_energies,hp,hx
+ use timestep,   only:dtmax,C_force,tolv
+ use kdtree,     only:tree_accuracy
+ use eos,        only:ieos
+ use setbinary,  only:set_binary
+ use units,      only:set_units
+ use mpiutils,   only:bcast_mpi,reduce_in_place_mpi
+ use step_lf_global, only:init_step,step
+ use testutils,      only:checkvalf,checkvalbuf,checkvalbuf_end
+ use checksetup,     only:check_setup
+ use deriv,          only:get_derivs_global
+ use timing,         only:getused,printused
+ use options,        only:ipdv_heating,ishock_heating
+ use subgroup,       only:group_identify,r_neigh
+ use centreofmass,   only:reset_centreofmass
+ integer,          intent(inout) :: ntests,npass
+ integer :: i,ierr,nfailed(3),nerr,nwarn
+ integer :: merge_ij(3),merge_n,nparttot
+ real :: m1,m2,a,ecc,incl,hacc1,hacc2,dt,dtext,t,dtnew,tolen,tolmom,tolang
+ real :: angmomin,etotin,totmomin,dum,dum2,omega,errmax,dtsinksink,tmax
+ real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
+ real :: xsec(3),vsec(3)
+ real(kind=4) :: t1
+ !
+ !--no gas particles
+ !
+ call init_part()
+ iverbose = 0
+ tree_accuracy = 0.
+ h_soft_sinksink = 0.
+ ipdv_heating = 0
+ ishock_heating = 0
+ use_regnbody = .true.
+ r_neigh = 10.
+ use_fourthorder = .true.
+
+ tolv = 1e-2
+
+ !
+ !--setup triple system with Kozai-Lidov resonance
+ !
+ npart = 0
+ npartoftype = 0
+ nptmass = 0
+ m1    = 2.0
+ m2    = 1.0
+ a     = 1.0000
+ ecc = 0.990000
+ incl = 0.10/deg_to_rad
+ hacc1  = 1e-4
+ hacc2  = 1e-4
+ C_force = 0.25
+ omega = sqrt((m1+m2)/a**3)
+ t = 0.
+ call set_units(mass=1.d0,dist=1.d0,G=1.d0)
+ call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+                 posang_ascnode=0.0,arg_peri=0.0,incl=incl,mean_anomaly=179.999999,verbose=.false.)
+
+
+ xsec(1:3) = xyzmh_ptmass(1:3,2)
+ vsec(1:3) = vxyz_ptmass(1:3,2)
+ m1 = 0.90
+ m2 = 0.10
+ a  = 0.00099431556644
+ ecc = 0.90000
+ incl = 1.5/deg_to_rad
+
+ nptmass = nptmass - 1
+ xyzmh_ptmass(:,2) = 0.
+ vxyz_ptmass(:,2)  = 0.
+
+ call set_binary(m1,m2,a,ecc,hacc1,hacc2,xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,&
+                 posang_ascnode=0.0,arg_peri=0.0,incl=incl,mean_anomaly=179.999999,verbose=.false.)
+
+ xyzmh_ptmass(1:3,2) =  xyzmh_ptmass(1:3,2) + xsec(1:3)
+ vxyz_ptmass(1:3,2)  =  vxyz_ptmass(1:3,2) + vsec(1:3)
+ xyzmh_ptmass(1:3,3) =  xyzmh_ptmass(1:3,3) + xsec(1:3)
+ vxyz_ptmass(1:3,3)  =  vxyz_ptmass(1:3,3) + vsec(1:3)
+
+
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
+
+
+
+ if (ierr /= 0) nerr = nerr + 1
+
+ !
+ ! check that no errors occurred when setting up initial conditions
+ !
+ nfailed = 0
+ call check_setup(nerr,nwarn)
+ call checkval(nerr,0,0,nfailed(1),'no errors during disc setup')
+ call update_test_scores(ntests,nfailed,npass)
+
+ tolv = 1.e-2
+ iverbose = 0
+ ieos = 1
+ !
+ ! initialise forces
+ !
+ if (id==master) then
+    call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,&
+                        group_info,bin_info,nmatrix)
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_sinksink,epot_sinksink,&
+                                  dtsinksink,0,0.,merge_ij,merge_n,dsdt_sinksink,&
+                                  group_info=group_info,bin_info=bin_info)
+ endif
+ fxyz_ptmass(:,1:nptmass) = 0.
+ dsdt_ptmass(:,1:nptmass) = 0.
+ call bcast_mpi(epot_sinksink)
+ call bcast_mpi(dtsinksink)
+
+ fext(:,:) = 0.
+ do i=1,npart
+    call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass,&
+                  fext(1,i),fext(2,i),fext(3,i),dum,massoftype(igas),fxyz_ptmass,dsdt_ptmass,dum,dum2)
+ enddo
+ if (id==master) then
+    fxyz_ptmass(:,1:nptmass) = fxyz_ptmass(:,1:nptmass) + fxyz_sinksink(:,1:nptmass)
+    dsdt_ptmass(:,1:nptmass) = dsdt_ptmass(:,1:nptmass) + dsdt_sinksink(:,1:nptmass)
+ endif
+ call reduce_in_place_mpi('+',fxyz_ptmass(:,1:nptmass))
+ call reduce_in_place_mpi('+',dsdt_ptmass(:,1:nptmass))
+
+ !
+ !--take the sink-sink timestep specified by the get_forces routine
+ !
+ dt = 0.01
+
+ dtmax = dt  ! required prior to derivs call, as used to set ibin
+ !
+ !--compute SPH forces
+ !
+ if (npart > 0) then
+    fxyzu(:,:) = 0.
+    call get_derivs_global()
+ endif
+ !
+ !--evolve this for a number of orbits
+ !
+ call compute_energies(t)
+ etotin   = etot
+ totmomin = totmom
+ angmomin = angtot
+ !
+ !--check that initial potential on the two sinks is correct
+ !
+!  nfailed(:) = 0
+!  if (itest==1) then
+!     call checkval(epot_sinksink,-m1*m2/a,epsilon(0.),nfailed(1),'potential energy')
+!     call update_test_scores(ntests,nfailed,npass)
+!     !
+!     !--check initial angular momentum on the two sinks is correct
+!     !
+!     call checkval(angtot,m1*m2*sqrt(a/(m1 + m2)),1e6*epsilon(0.),nfailed(1),'angular momentum')
+!     call update_test_scores(ntests,nfailed,npass)
+!  endif
+ tmax = 45.*3
+ t    = 0.
+ errmax = 0.
+ f_acc = 1.
+ !
+ !--integration loop
+ !
+ if (id==master) call getused(t1)
+ call init_step(npart,t,dtmax)
+ do while (t < tmax)
+    dtext = dt
+    call step(npart,npart,t,dt,dtext,dtnew)
+    write(1,*) t+dt,bin_info(:,2)
+    call compute_energies(t)
+    errmax = max(errmax,abs(etot - etotin))
+    t = t + dt
+ enddo
+
+ call compute_energies(t)
+
+ if (id==master) call printused(t1)
+ nfailed(:) = 0
+ tolmom = 2.e-14
+ tolang = 2.e-14
+ !
+ !--check energy conservation
+ !
+ call checkval(angtot,angmomin,tolang,nfailed(1),'angular momentum')
+ call checkval(totmom,totmomin,tolmom,nfailed(2),'linear momentum')
+ call checkval(etotin+errmax,etotin,tolen,nfailed(3),'total energy')
+ do i=1,3
+    call update_test_scores(ntests,nfailed(i:i),npass)
+ enddo
+
+end subroutine test_SDAR
 
 !-----------------------------------------------------------------------
 !+
