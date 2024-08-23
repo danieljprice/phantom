@@ -247,14 +247,15 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     do while (Tgrid(k) > T)
        k = k-1
        call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
+
        if ((Qi /= 0.) .and. (Q /= 0.)) then
           dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
           dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
        else
          dlnQ_dlnT = 0.
        endif
+       Q = Q-1.d-80 !enforce Q /=0
 
-       Q = Q+1.d-80 !enforce Q /=0
        Qi = Q
        ! eqs A6 to get Yk
        if (abs(dlnQ_dlnT-1.) < tol) then
@@ -273,13 +274,34 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     !argument of Y^(-1) in eq 26
     dy = -Qref*dt*T_on_u/Tref
     y  = y + dy
+    !find new k for eq A7 (not necessarily the same as k for eq A5)
+    do while(y>yk .AND. k>1)
+       k = k-1
+       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
+
+       if ((Qi /= 0.) .and. (Q /= 0.)) then
+          dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+          dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
+       else
+         dlnQ_dlnT = 0.
+       endif
+       Q = Q-1.d-80 !enforce Q /=0
+
+       Qi = Q
+       ! eqs A6 to get Yk
+       if (abs(dlnQ_dlnT-1.) < tol) then
+          yk = yk - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
+       else
+          yk = yk - Qref*Tgrid(k)/(Q*Tref*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/Tgrid(k+1))**(dlnQ_dlnT-1.))
+       endif
+    enddo
    !compute Yinv (eqs A7)
     if (abs(dlnQ_dlnT-1.) < tol) then
        Temp = max(Tgrid(k)*exp(-Q*Tref*(y-yk)/(Qref*Tgrid(k))),T_floor)
     else
        Yinv = 1.-(1.-dlnQ_dlnT)*Q*Tref/(Qref*Tgrid(k))*(y-yk)
        if (Yinv > 0.) then
-          Temp = Tgrid(k)*(Yinv**(1./(1.-dlnQ_dlnT)))
+          Temp = max(Tgrid(k)*(Yinv**(1./(1.-dlnQ_dlnT))),T_floor)
        else
           Temp = T_floor
        endif

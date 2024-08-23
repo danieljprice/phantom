@@ -147,6 +147,7 @@ subroutine test_cooling_solvers(dumpfile)
  print *,''
 
  excitation_HI  = 99
+ shock_problem = 0
  ifunct = 0
  select case(irate)
  case(2)
