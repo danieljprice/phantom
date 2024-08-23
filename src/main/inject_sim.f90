@@ -276,7 +276,7 @@ subroutine read_injected_par()
     injected = .false.
  endif
 
-end subroutine
+end subroutine read_injected_par
 
 subroutine update_injected_par()
  use io, only:error
@@ -298,7 +298,7 @@ subroutine update_injected_par()
     enddo
     close(iunit)
  endif
-end subroutine
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+

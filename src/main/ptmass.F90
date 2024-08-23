@@ -28,15 +28,18 @@ module ptmass
 !   - h_soft_sinkgas  : *softening length for new sink particles*
 !   - h_soft_sinksink : *softening length between sink particles*
 !   - icreate_sinks   : *allow automatic sink particle creation*
+!   - isink_potential : *sink potential (0=1/r,1=surf)*
 !   - r_crit          : *critical radius for point mass creation (no new sinks < r_crit from existing sink)*
 !   - r_merge_cond    : *sinks will merge if bound within this radius*
 !   - r_merge_uncond  : *sinks will unconditionally merge within this separation*
+!   - r_neigh         : *searching radius to detect subgroups*
 !   - rho_crit_cgs    : *density above which sink particles are created (g/cm^3)*
+!   - use_regnbody    : *allow subgroup integration method*
 !
-! :Dependencies: boundary, dim, eos, eos_barotropic, eos_piecewise,
-!   extern_geopot, externalforces, fastmath, infile_utils, io, io_summary,
-!   kdtree, kernel, linklist, mpidomain, mpiutils, options, part,
-!   ptmass_heating, units, vectorutils
+! :Dependencies: HIIRegion, boundary, dim, eos, eos_barotropic,
+!   eos_piecewise, extern_geopot, externalforces, fastmath, infile_utils,
+!   io, io_summary, kdtree, kernel, linklist, mpidomain, mpiutils, options,
+!   part, physcon, ptmass_heating, random, subgroup, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
                 ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
@@ -50,6 +53,7 @@ module ptmass
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
+ public :: ptmass_create_stars,ptmass_create_seeds
  public :: write_options_ptmass, read_options_ptmass
  public :: update_ptmass
  public :: calculate_mdot
@@ -58,17 +62,22 @@ module ptmass
  public :: set_integration_precision
 
  ! settings affecting routines in module (read from/written to input file)
- integer, public :: icreate_sinks = 0
+ integer, public :: icreate_sinks = 0 ! 1-standard sink creation scheme 2-Star formation scheme using core prescription
+ integer, public :: iseed_sf = 313    ! seed used to sample random value for icreate == 2 prescription...
+ integer, public :: ipart_createstars = 0 ! particle id that needs to create stars after reaching tmax_acc
+ integer, public :: ipart_createseeds = 0 ! particle id that needs to create seeds after reaching tseeds
+ integer, public :: isink_potential = 0
  real,    public :: rho_crit_cgs  = 1.e-10
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
+ real,    public :: tmax_acc = huge(f_acc)
+ real,    public :: tseeds    = huge(f_acc)
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0     ! 1000.
-
 
  logical, public :: use_regnbody    = .false. ! subsystems switch
  logical, public :: use_fourthorder = .true.
@@ -160,7 +169,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
  real                             :: ftmpxi,ftmpyi,ftmpzi
  real                             :: dx,dy,dz,rr2,ddr,dr3,f1,f2,pmassj,J2,shat(3),Rsink
  real                             :: hsoft,hsoft1,hsoft21,q2i,qi,psoft,fsoft
- real                             :: fxj,fyj,fzj,dsx,dsy,dsz
+ real                             :: fxj,fyj,fzj,dsx,dsy,dsz,fac,r
  integer                          :: j
  logical                          :: tofrom,extrap
  !
@@ -241,13 +250,29 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
 
        ! acceleration of gas due to point mass particle
        f1     = pmassj*dr3
+
+       ! acceleration of sink from gas
+       if (tofrom) f2 = pmassi*dr3
+
+       ! modified potential
+       select case (isink_potential)
+       case(1)
+          ! Ayliffe & Bate (2010) equation 2 (prevent accretion on to sink)
+          Rsink = xyzmh_ptmass(iReff,j)
+          r=1./ddr
+          if (Rsink > 0. .and. r < 2*Rsink) then
+             fac = (1. - (2. - r/Rsink)**4)
+             f1 = f1*fac
+             f2 = f2*fac
+             phi = phi - pmassj*(r**3/3.-4.*r**2*Rsink+24.*r*Rsink**2 &
+                  -16.*Rsink**4/r-32.*Rsink**3*log(r))/Rsink**4
+          endif
+       end select
+
        ftmpxi = ftmpxi - dx*f1
        ftmpyi = ftmpyi - dy*f1
        ftmpzi = ftmpzi - dz*f1
        phi    = phi    - pmassj*ddr      ! potential (GM/r)
-
-       ! acceleration of sink from gas
-       if (tofrom) f2 = pmassi*dr3
 
        ! additional accelerations due to oblateness
        if (abs(J2) > 0.) then
@@ -308,7 +333,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  use extern_geopot,  only:get_geopot_force
  use kernel,         only:kernel_softening,radkern
  use vectorutils,    only:unitvec
- use part,           only:igarg,igid
+ use part,           only:igarg,igid,ihacc
  integer,           intent(in)  :: nptmass
  real,              intent(in)  :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(out) :: fxyz_ptmass(4,nptmass)
@@ -320,7 +345,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  real,    optional, intent(in)  :: extrapfac
  real,    optional, intent(in)  :: fsink_old(4,nptmass)
  integer, optional, intent(in)  :: group_info(3,nptmass)
- real    :: xi,yi,zi,pmassi,pmassj,fxi,fyi,fzi,phii
+ real    :: xi,yi,zi,pmassi,pmassj,hacci,haccj,fxi,fyi,fzi,phii
  real    :: ddr,dx,dy,dz,rr2,rr2j,dr3,f1,f2
  real    :: hsoft1,hsoft21,q2i,qi,psoft,fsoft
  real    :: fextx,fexty,fextz,phiext !,hsofti
@@ -367,8 +392,8 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  !$omp parallel do default(none) &
  !$omp shared(nptmass,xyzmh_ptmass,fxyz_ptmass,merge_ij,r_merge2,dsdt_ptmass,group_info,subsys) &
  !$omp shared(iexternalforce,ti,h_soft_sinksink,potensoft0,hsoft1,hsoft21) &
- !$omp shared(extrapfac,extrap,fsink_old) &
- !$omp private(i,j,xi,yi,zi,pmassi,pmassj) &
+ !$omp shared(extrapfac,extrap,fsink_old,h_acc,icreate_sinks) &
+ !$omp private(i,j,xi,yi,zi,pmassi,pmassj,hacci,haccj) &
  !$omp private(gidi,gidj) &
  !$omp private(dx,dy,dz,rr2,rr2j,ddr,dr3,f1,f2) &
  !$omp private(fxi,fyi,fzi,phii,dsx,dsy,dsz) &
@@ -394,7 +419,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
        zi     = xyzmh_ptmass(3,i)
     endif
     pmassi = xyzmh_ptmass(4,i)
-    !hsofti = xyzmh_ptmass(5,i)
+    hacci  = xyzmh_ptmass(ihacc,i)
     if (pmassi < 0.) cycle
     J2i    = xyzmh_ptmass(iJ2,i)
 
@@ -424,7 +449,7 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           dz     = zi - xyzmh_ptmass(3,j)
        endif
        pmassj = xyzmh_ptmass(4,j)
-       !hsoftj = xyzmh_ptmass(5,j)
+       haccj  = xyzmh_ptmass(ihacc,j)
        if (pmassj < 0.) cycle
        J2j = xyzmh_ptmass(iJ2,j)
 
@@ -478,16 +503,32 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
           endif
        endif
        if (rr2 < r_merge2) then
-          if (merge_ij(i)==0) then
-             merge_n = merge_n + 1
-             merge_ij(i) = j
+          if (icreate_sinks == 2) then
+             if (hacci==h_acc .and. haccj==h_acc) then
+                if (merge_ij(i)==0) then
+                   merge_n = merge_n + 1
+                   merge_ij(i) = j
+                else
+                   ! if we have already identified a nearby sink, replace the tag with the nearest sink
+                   dx   = xi - xyzmh_ptmass(1,merge_ij(i))
+                   dy   = yi - xyzmh_ptmass(2,merge_ij(i))
+                   dz   = zi - xyzmh_ptmass(3,merge_ij(i))
+                   rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
+                   if (rr2 < rr2j) merge_ij(i) = j
+                endif
+             endif
           else
-             ! if we have already identified a nearby sink, replace the tag with the nearest sink
-             dx   = xi - xyzmh_ptmass(1,merge_ij(i))
-             dy   = yi - xyzmh_ptmass(2,merge_ij(i))
-             dz   = zi - xyzmh_ptmass(3,merge_ij(i))
-             rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
-             if (rr2 < rr2j) merge_ij(i) = j
+             if (merge_ij(i)==0) then
+                merge_n = merge_n + 1
+                merge_ij(i) = j
+             else
+                ! if we have already identified a nearby sink, replace the tag with the nearest sink
+                dx   = xi - xyzmh_ptmass(1,merge_ij(i))
+                dy   = yi - xyzmh_ptmass(2,merge_ij(i))
+                dz   = zi - xyzmh_ptmass(3,merge_ij(i))
+                rr2j = dx*dx + dy*dy + dz*dz + epsilon(rr2j)
+                if (rr2 < rr2j) merge_ij(i) = j
+             endif
           endif
        endif
     enddo
@@ -584,22 +625,22 @@ subroutine ptmass_drift(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass,group_info,n_ingro
  integer, optional, intent(in)    :: n_ingroup
  integer, optional, intent(in)    :: group_info(:,:)
  integer :: i,k,istart_ptmass
- logical :: woutsub
+ logical :: wsub
 
  if (present(n_ingroup)) then
     istart_ptmass = n_ingroup + 1
-    woutsub = .true.
+    wsub = .true.
  else
     istart_ptmass = 1
-    woutsub = .false.
+    wsub = .false.
  endif
 
  !$omp parallel do schedule(static) default(none) &
  !$omp shared(nptmass,ckdt,xyzmh_ptmass,vxyz_ptmass) &
- !$omp shared(n_ingroup,group_info,woutsub,istart_ptmass) &
+ !$omp shared(n_ingroup,group_info,wsub,istart_ptmass) &
  !$omp private(i,k)
  do k=istart_ptmass,nptmass
-    if (woutsub) then
+    if (wsub) then
        i = group_info(igarg,k)
     else
        i = k
@@ -620,6 +661,7 @@ end subroutine ptmass_drift
 !+
 !----------------------------------------------------------------
 subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_ptmass)
+ use part, only:iJ2
  integer, intent(in)    :: nptmass
  real,    intent(in)    :: dkdt
  real,    intent(inout) :: vxyz_ptmass(3,nptmass), xyzmh_ptmass(nsinkproperties,nptmass)
@@ -636,9 +678,11 @@ subroutine ptmass_kick(nptmass,dkdt,vxyz_ptmass,fxyz_ptmass,xyzmh_ptmass,dsdt_pt
        vxyz_ptmass(1,i) = vxyz_ptmass(1,i) + dkdt*fxyz_ptmass(1,i)
        vxyz_ptmass(2,i) = vxyz_ptmass(2,i) + dkdt*fxyz_ptmass(2,i)
        vxyz_ptmass(3,i) = vxyz_ptmass(3,i) + dkdt*fxyz_ptmass(3,i)
-       xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
-       xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
-       xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+       if (xyzmh_ptmass(iJ2,i) > 0.) then
+          xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + dkdt*dsdt_ptmass(1,i)
+          xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + dkdt*dsdt_ptmass(2,i)
+          xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + dkdt*dsdt_ptmass(3,i)
+       endif
     endif
  enddo
  !$omp end parallel do
@@ -752,10 +796,10 @@ end function ptmass_not_obscured
 !----------------------------------------------------------------
 subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
                           itypei,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                          dptmass,time,facc,nbinmax,ibin_wakei,nfaili)
+                          dptmass,linklist_ptmass,time,facc,nbinmax,ibin_wakei,nfaili)
 
 !$ use omputils, only:ipart_omp_lock
- use part,       only: ihacc,ndptmass
+ use part,       only: ihacc,itbirth,ndptmass
  use kernel,     only: radkern2
  use io,         only: iprint,iverbose,fatal
  use io_summary, only: iosum_ptmass,maxisink,print_acc
@@ -764,6 +808,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real,              intent(inout) :: hi
  real,              intent(in)    :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,              intent(in)    :: vxyz_ptmass(3,nptmass)
+ integer,           intent(in)    :: linklist_ptmass(nptmass)
  logical,           intent(out)   :: accreted
  real,              intent(inout) :: dptmass(ndptmass,nptmass)
  integer(kind=1),   intent(in)    :: nbinmax
@@ -773,7 +818,7 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  real               :: dx,dy,dz,r2,dvx,dvy,dvz,v2,hacc
  logical, parameter :: iofailreason=.false.
  integer            :: j
- real               :: mpt,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
+ real               :: mpt,tbirthi,drdv,angmom2,angmomh2,epart,dxj,dyj,dzj,dvxj,dvyj,dvzj,rj2,vj2,epartj
  logical            :: mostbound
 !$ external         :: omp_set_lock,omp_unset_lock
 
@@ -791,7 +836,23 @@ subroutine ptmass_accrete(is,nptmass,xi,yi,zi,hi,vxi,vyi,vzi,fxi,fyi,fzi, &
  sinkloop : do i=is,nptmass
     hacc = xyzmh_ptmass(ihacc,i)
     mpt  = xyzmh_ptmass(4,i)
+    tbirthi  = xyzmh_ptmass(itbirth,i)
     if (mpt < 0.) cycle
+    if (icreate_sinks==2) then
+       if (hacc < h_acc ) cycle
+       if (tbirthi + tmax_acc < time) then
+          !$omp master
+          if (ipart_createstars == 0) ipart_createstars = i
+          !$omp end master
+          cycle
+       endif
+       if ((tbirthi + tseeds < time) .and. (linklist_ptmass(i) == 0) .and. &
+          (ipart_createseeds == 0)) then
+          !$omp master
+          ipart_createseeds = i
+          !$omp end master
+       endif
+    endif
     dx = xi - xyzmh_ptmass(1,i)
     dy = yi - xyzmh_ptmass(2,i)
     dz = zi - xyzmh_ptmass(3,i)
@@ -1001,8 +1062,8 @@ end subroutine update_ptmass
 !+
 !-------------------------------------------------------------------------
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
- use part,   only:ihacc,ihsoft,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
+                         massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+ use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
                   ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass
  use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
  use kdtree, only:getneigh
@@ -1029,6 +1090,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
  real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ integer,         intent(inout) :: linklist_ptmass(maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
@@ -1045,7 +1107,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real    :: q2i,qi,psofti,psoftj,psoftk,fsoft,epot_mass,epot_rad,pmassgas1
  real    :: hcheck,hcheck2,f_acc_local
  real(4) :: divvi,potenj_min,poteni
- integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax,nneigh_act
+ integer :: ifail,nacc,j,k,n,nk,itype,itypej,itypek,ifail_array(inosink_max),id_rhomax,nneigh_act,new_nptmass
  logical :: accreted,iactivej,isgasj,isdustj,calc_exact_epot,ForceCreation
 
  ifail       = 0
@@ -1499,15 +1561,15 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  ! create new point mass, at position of original particle but with zero mass. Then accrete particles within hacc to form sink
  !
  if (ifail==0) then
-    nptmass = nptmass + 1
-    if (nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
-    n = nptmass
-    xyzmh_ptmass(:,n)      = 0.              ! zero all quantities by default
-    xyzmh_ptmass(1:3,n)    = (/xi,yi,zi/)
-    xyzmh_ptmass(4,n)      = 0.              ! zero mass
-    xyzmh_ptmass(ihacc,n)  = h_acc
-    xyzmh_ptmass(ihsoft,n) = h_soft_sinkgas
-    vxyz_ptmass(:,n)       = 0.              ! zero velocity, get this by accreting
+    new_nptmass = nptmass + 1
+    if (new_nptmass > maxptmass) call fatal('ptmass_create','nptmass > maxptmass')
+    xyzmh_ptmass(:,new_nptmass)         = 0.              ! zero all quantities by default
+    xyzmh_ptmass(1:3,new_nptmass)       = (/xi,yi,zi/)
+    xyzmh_ptmass(4,new_nptmass)         = 0.              ! zero mass
+    xyzmh_ptmass(ihacc,new_nptmass)     = h_acc
+    xyzmh_ptmass(ihsoft,new_nptmass)    = h_soft_sinkgas
+    xyzmh_ptmass(itbirth,new_nptmass)   = time
+    vxyz_ptmass(:,new_nptmass)       = 0.              ! zero velocity, get this by accreting
     itypej = igas                            ! default particle type to be accreted
     pmassj = massoftype(igas)                ! default particle mass to be accreted
     !
@@ -1525,28 +1587,33 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
        fzj = fxyzu(3,j) + fext(3,j)
-       call ptmass_accrete(nptmass,nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
+       call ptmass_accrete(new_nptmass,new_nptmass,xyzh(1,j),xyzh(2,j),xyzh(3,j),xyzh(4,j),&
                            vxyzu(1,j),vxyzu(2,j),vxyzu(3,j),fxj,fyj,fzj, &
                            itypej,pmassj,xyzmh_ptmass,vxyz_ptmass,accreted, &
-                           dptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
+                           dptmass,linklist_ptmass,time,f_acc_local,ibin_wakei,ibin_wakei)
 
        if (accreted) nacc = nacc + 1
     enddo
 
     ! perform reduction just for this sink
-    dptmass(:,nptmass) = reduceall_mpi('+',dptmass(:,nptmass))
+    dptmass(:,new_nptmass) = reduceall_mpi('+',dptmass(:,new_nptmass))
     nacc = int(reduceall_mpi('+', nacc))
 
     ! update ptmass position, spin, velocity, acceleration, and mass
-    fxyz_ptmass(1:4,n) = 0.0
-    fxyz_ptmass_sinksink(1:4,n) = 0.0
-    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,nptmass)
+    fxyz_ptmass(1:4,new_nptmass) = 0.0
+    fxyz_ptmass_sinksink(1:4,new_nptmass) = 0.0
+    call update_ptmass(dptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,new_nptmass)
 
     if (id==id_rhomax) then
-       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',nptmass,&
-       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,nptmass)
+       write(iprint,"(a,i3,a,4(es10.3,1x),a,i6,a,es10.3)") ' created ptmass #',new_nptmass,&
+       ' at (x,y,z,t)=(',xyzmh_ptmass(1:3,new_nptmass),time,') by accreting ',nacc,' particles: M=',xyzmh_ptmass(4,new_nptmass)
     endif
     if (nacc <= 0) call fatal('ptmass_create',' created ptmass but failed to accrete anything')
+    nptmass = new_nptmass
+    ! link the new sink to nothing (waiting for age > tseeds)
+    if (icreate_sinks == 2) then
+       linklist_ptmass(nptmass) = 0
+    endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
     ! fxyz_ptmass, fxyz_ptmass_sinksink are total force on sinks and sink-sink forces.
@@ -1572,6 +1639,176 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 
 end subroutine ptmass_create
 
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of star "seeds" inside a sink particle
+!+
+!-------------------------------------------------------------------------
+subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
+ use part,   only:itbirth,ihacc
+ use random, only:ran2
+ use io,     only:iprint
+ integer, intent(inout) :: nptmass
+ integer, intent(in)    :: itest
+ integer, intent(inout) :: linklist_ptmass(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:)
+ real,    intent(in)    :: time
+ integer :: j,nseed,n
+!
+!-- Draw the number of star seeds in the core
+!
+ nseed = floor(4*ran2(iseed_sf))
+ if (nseed > 0) then
+    n = nptmass
+    linklist_ptmass(itest) = n + 1 !! link the core to the seeds
+    do j=1,nseed
+       n = n + 1
+       xyzmh_ptmass(:,n)     = 0.
+       xyzmh_ptmass(4,n)     = -1.
+       xyzmh_ptmass(ihacc,n) = -1.
+       linklist_ptmass(n)    = n + 1 !! link this new seed to the next one
+    enddo
+    linklist_ptmass(n) = -1 !! null pointer to end the link list
+    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+                                           nseed+1, ' seeds in sink n° :', itest, " t= ",time
+    nptmass = n
+ else
+    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+                                           1, ' seeds in sink n° :', itest, " t= ",time
+    linklist_ptmass(itest) = -1 !! null pointer to differentiate mono seed to gas clump
+ endif
+
+end subroutine ptmass_create_seeds
+
+!-------------------------------------------------------------------------
+!+
+!  subroutine to create a bundh of stars inside a sink particle
+!+
+!-------------------------------------------------------------------------
+subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
+                               fxyz_ptmass_sinksink,linklist_ptmass,time)
+ use dim,       only:maxptmass
+ use physcon,   only:solarm,pi
+ use io,        only:iprint,iverbose
+ use units,     only:umass
+ use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz
+ use random ,   only:ran2,gauss_random,divide_unit_seg
+ use HIIRegion, only:update_ionrate,iH2R
+ integer, intent(in)    :: nptmass,itest
+ integer, intent(in)    :: linklist_ptmass(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
+ real,    intent(in)    :: time
+ real, allocatable :: masses(:)
+ real              :: xi(3),vi(3)
+ integer           :: k,n,l
+ real              :: mi,hacci,minmass,mcutoff
+ real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir
+
+
+ write(iprint,"(a,es18.10)") "ptmass_create_stars : new stars formed at : ",time
+ !! save xcom and vcom before placing stars
+ xi(1) = xyzmh_ptmass(1,itest)
+ xi(2) = xyzmh_ptmass(2,itest)
+ xi(3) = xyzmh_ptmass(3,itest)
+ mi    = xyzmh_ptmass(4,itest)
+ hacci = xyzmh_ptmass(ihacc,itest)
+ vi(1) = vxyz_ptmass(1,itest)
+ vi(2) = vxyz_ptmass(2,itest)
+ vi(3) = vxyz_ptmass(3,itest)
+
+ !! masses sampling method
+ call ptmass_endsize_lklist(itest,l,n,linklist_ptmass)
+ allocate(masses(n))
+ minmass  = 0.08/(mi*(umass/solarm))
+ call divide_unit_seg(masses,minmass,n,iseed_sf)
+ masses = masses*mi
+ if (iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+
+
+ k=itest
+ do while(k>0)
+    !! Position and velocity sampling methods
+    a(:) = 0.
+    rvir = 0.7*h_acc
+    mcutoff = 0.55
+    !
+    !-- Positions
+    !
+    a(1)  = ran2(iseed_sf)*mcutoff
+    rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
+    a(2)  = ran2(iseed_sf)
+    a(3)  = ran2(iseed_sf)
+    xk(3) = (1.0-2.0*a(2))*rk
+    xk(2) = sqrt(rk**2-xk(3)**2)*sin(2*pi*a(3))
+    xk(1) = sqrt(rk**2-xk(3)**2)*cos(2*pi*a(3))
+    !
+    !-- Velocities
+    !
+    a(5) = 1.
+    do while(0.1*a(5)> a(6))
+       a(4) = ran2(iseed_sf)
+       a(5) = ran2(iseed_sf)
+       a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
+    enddo
+
+    velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)*sqrt(2.0*mi/rvir)
+    a(7)  = ran2(iseed_sf)
+    a(8)  = ran2(iseed_sf)
+    vk(3) = (1.0-2.0*a(7))*velk
+    vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
+    vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
+    !
+    !-- Star creation
+    !
+    xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+    xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
+    xyzmh_ptmass(4,k)           = masses(n)
+    xyzmh_ptmass(3,k)           = xk(3)
+    xyzmh_ptmass(2,k)           = xk(2)
+    xyzmh_ptmass(1,k)           = xk(1)
+    xyzmh_ptmass(ispinx,k)      = 0. !
+    xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
+    xyzmh_ptmass(ispinz,k)      = 0. !
+    vxyz_ptmass(1,k)            = vk(1)
+    vxyz_ptmass(2,k)            = vk(2)
+    vxyz_ptmass(3,k)            = vk(3)
+    fxyz_ptmass(1:4,k)          = 0.
+    fxyz_ptmass_sinksink(1:4,k) = 0.
+    if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
+
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+    n = n - 1
+ enddo
+ k = itest
+ do while(k>0)
+    xcom(1) = xyzmh_ptmass(4,k)*xyzmh_ptmass(1,k)
+    xcom(2) = xyzmh_ptmass(4,k)*xyzmh_ptmass(2,k)
+    xcom(3) = xyzmh_ptmass(4,k)*xyzmh_ptmass(3,k)
+    vcom(1) = xyzmh_ptmass(4,k)*vxyz_ptmass(1,k)
+    vcom(2) = xyzmh_ptmass(4,k)*vxyz_ptmass(2,k)
+    vcom(3) = xyzmh_ptmass(4,k)*vxyz_ptmass(3,k)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+ xcom = xcom/mi
+ vcom = vcom/mi
+
+ k = itest
+ do while(k>0)
+    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
+    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
+    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
+    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
+    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
+    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+ deallocate(masses)
+
+end subroutine ptmass_create_stars
+
 !-----------------------------------------------------------------------
 !+
 !  Merge sinks
@@ -1595,15 +1832,17 @@ end subroutine ptmass_create
 !  negative mass.
 !+
 !-----------------------------------------------------------------------
-subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
  use io,    only:iprint,warning,iverbose,id,master
+ use part,  only:itbirth
  real,    intent(in)    :: time
  integer, intent(in)    :: nptmass,merge_ij(nptmass)
+ integer, intent(inout) :: linklist_ptmass(nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
- integer :: i,j
+ integer :: i,j,k,l,n
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
- real    :: mij,mij1
+ real    :: mij,mij1,tbirthi,tbirthj
  logical :: lmerge
  character(len=15) :: typ
 
@@ -1612,17 +1851,25 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
        j = merge_ij(i)
        if (merge_ij(j) == i .and. xyzmh_ptmass(4,j) > 0.) then
           lmerge = .false.
-          xi  = xyzmh_ptmass(1,i)
-          yi  = xyzmh_ptmass(2,i)
-          zi  = xyzmh_ptmass(3,i)
-          mi  = xyzmh_ptmass(4,i)
+          tbirthi = xyzmh_ptmass(itbirth,i)
+          tbirthj = xyzmh_ptmass(itbirth,j)
+          if (tbirthj<tbirthi) then
+             k=j
+             j=i !-- Inverse index to be sure that it's always the oldest sink that survive !
+          else
+             k=i
+          endif
+          xi  = xyzmh_ptmass(1,k)
+          yi  = xyzmh_ptmass(2,k)
+          zi  = xyzmh_ptmass(3,k)
+          mi  = xyzmh_ptmass(4,k)
           xj  = xyzmh_ptmass(1,j)
           yj  = xyzmh_ptmass(2,j)
           zj  = xyzmh_ptmass(3,j)
           mj  = xyzmh_ptmass(4,j)
-          vxi = vxyz_ptmass(1,i)
-          vyi = vxyz_ptmass(2,i)
-          vzi = vxyz_ptmass(3,i)
+          vxi = vxyz_ptmass(1,k)
+          vyi = vxyz_ptmass(2,k)
+          vzi = vxyz_ptmass(3,k)
           vxj = vxyz_ptmass(1,j)
           vyj = vxyz_ptmass(2,j)
           vzj = vxyz_ptmass(3,j)
@@ -1637,46 +1884,84 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_i
              typ    = 'conditionally'
           endif
           if (lmerge) then
-             ! Add angular momentum of sink particle i using old properties (taken about the origin)
-             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + mi*(yi*vzi - zi*vyi)
-             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + mi*(zi*vxi - xi*vzi)
-             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + mi*(xi*vyi - yi*vxi)
+             ! Add angular momentum of sink particle k using old properties (taken about the origin)
+             xyzmh_ptmass(ispinx,k) = xyzmh_ptmass(ispinx,k) + mi*(yi*vzi - zi*vyi)
+             xyzmh_ptmass(ispiny,k) = xyzmh_ptmass(ispiny,k) + mi*(zi*vxi - xi*vzi)
+             xyzmh_ptmass(ispinz,k) = xyzmh_ptmass(ispinz,k) + mi*(xi*vyi - yi*vxi)
              ! Calculate new masses
              mij  = mi + mj
              mij1 = 1.0/mij
              ! Update quantities
-             xyzmh_ptmass(1:3,i)    = (xyzmh_ptmass(1:3,i)*mi + xyzmh_ptmass(1:3,j)*mj)*mij1
-             xyzmh_ptmass(4,i)      = mij
-             xyzmh_ptmass(imacc,i)  = xyzmh_ptmass(imacc,i)  + xyzmh_ptmass(imacc,j)
-             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) + xyzmh_ptmass(ispinx,j) + mj*(yj*vzj - zj*vyj)
-             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) + xyzmh_ptmass(ispiny,j) + mj*(zj*vxj - xj*vzj)
-             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) + xyzmh_ptmass(ispinz,j) + mj*(xj*vyj - yj*vxj)
-             vxyz_ptmass(1:3,i)     = (vxyz_ptmass(1:3,i)*mi + vxyz_ptmass(1:3,j)*mj)*mij1
-             fxyz_ptmass(1:3,i)     = (fxyz_ptmass(1:3,i)*mi + fxyz_ptmass(1:3,j)*mj)*mij1
+             xyzmh_ptmass(1:3,k)    = (xyzmh_ptmass(1:3,k)*mi + xyzmh_ptmass(1:3,j)*mj)*mij1
+             xyzmh_ptmass(4,k)      = mij
+             xyzmh_ptmass(imacc,k)  = xyzmh_ptmass(imacc,k)  + xyzmh_ptmass(imacc,j)
+             xyzmh_ptmass(ispinx,k) = xyzmh_ptmass(ispinx,k) + xyzmh_ptmass(ispinx,j) + mj*(yj*vzj - zj*vyj)
+             xyzmh_ptmass(ispiny,k) = xyzmh_ptmass(ispiny,k) + xyzmh_ptmass(ispiny,j) + mj*(zj*vxj - xj*vzj)
+             xyzmh_ptmass(ispinz,k) = xyzmh_ptmass(ispinz,k) + xyzmh_ptmass(ispinz,j) + mj*(xj*vyj - yj*vxj)
+             vxyz_ptmass(1:3,k)     = (vxyz_ptmass(1:3,k)*mi + vxyz_ptmass(1:3,j)*mj)*mij1
+             fxyz_ptmass(1:3,k)     = (fxyz_ptmass(1:3,k)*mi + fxyz_ptmass(1:3,j)*mj)*mij1
              ! Subtract angular momentum of sink particle using new properties (taken about the origin)
-             xyzmh_ptmass(ispinx,i) = xyzmh_ptmass(ispinx,i) &
-                                    - mij*(xyzmh_ptmass(2,i)*vxyz_ptmass(3,i) - xyzmh_ptmass(3,i)*vxyz_ptmass(2,i))
-             xyzmh_ptmass(ispiny,i) = xyzmh_ptmass(ispiny,i) &
-                                    - mij*(xyzmh_ptmass(3,i)*vxyz_ptmass(1,i) - xyzmh_ptmass(1,i)*vxyz_ptmass(3,i))
-             xyzmh_ptmass(ispinz,i) = xyzmh_ptmass(ispinz,i) &
-                                    - mij*(xyzmh_ptmass(1,i)*vxyz_ptmass(2,i) - xyzmh_ptmass(2,i)*vxyz_ptmass(1,i))
+             xyzmh_ptmass(ispinx,k) = xyzmh_ptmass(ispinx,k) &
+                                    - mij*(xyzmh_ptmass(2,k)*vxyz_ptmass(3,k) - xyzmh_ptmass(3,k)*vxyz_ptmass(2,k))
+             xyzmh_ptmass(ispiny,k) = xyzmh_ptmass(ispiny,k) &
+                                    - mij*(xyzmh_ptmass(3,k)*vxyz_ptmass(1,k) - xyzmh_ptmass(1,k)*vxyz_ptmass(3,k))
+             xyzmh_ptmass(ispinz,k) = xyzmh_ptmass(ispinz,k) &
+                                    - mij*(xyzmh_ptmass(1,k)*vxyz_ptmass(2,k) - xyzmh_ptmass(2,k)*vxyz_ptmass(1,k))
              ! Kill sink j by setting negative mass
              xyzmh_ptmass(4,j)      = -abs(mj)
+             xyzmh_ptmass(ihacc,j)  = -1.
+             if (icreate_sinks == 2) then
+                ! Connect linked list of the merged sink to the survivor
+                call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
+                if (linklist_ptmass(j)/=0) then
+                   linklist_ptmass(l) = j
+                else
+                   linklist_ptmass(j) = -2 ! special null pointer for dead gas clump
+                endif
+             endif
              ! print success
-             write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',i,' & ',j,' at time = ',time
+             write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',k,' & ',j,' at time = ',time
           elseif (id==master .and. iverbose>=1) then
              write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
-             'merge_sinks: failed to conditionally merge sinks ',i,' & ',j,' at time = ',time
+             'merge_sinks: failed to conditionally merge sinks ',k,' & ',j,' at time = ',time
           endif
        elseif (xyzmh_ptmass(4,j) > 0. .and. id==master .and. iverbose>=1) then
           write(iprint,"(/,1x,a,I8,a,I8,a,F10.4)") &
-          'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',i,' & ',j,' at time = ',time
+          'merge_sinks: There is a mismatch in sink indicies and relative proximity for ',k,' & ',j,' at time = ',time
        endif
     endif
  enddo
 
 end subroutine merge_sinks
 
+!-----------------------------------------------------------------------
+!+
+!  helper routine for managing the sink particle linked list
+!+
+!-----------------------------------------------------------------------
+subroutine ptmass_endsize_lklist(i,k,n,linklist_ptmass)
+ integer, intent(in)  :: linklist_ptmass(:)
+ integer, intent(in)  :: i
+ integer, intent(out) :: k,n
+ integer :: l,g
+
+ g = i
+ n = 0
+ do while (g>0)
+    l = g
+    g = linklist_ptmass(l)
+    n = n + 1
+ enddo
+ k = l
+
+end subroutine ptmass_endsize_lklist
+
+!-----------------------------------------------------------------------
+!+
+!  Swap between leapfrog and 4th order forward sympletic integrator
+!  for evolving sink particles
+!+
+!-----------------------------------------------------------------------
 subroutine set_integration_precision
 
  if (use_fourthorder) then
@@ -1931,9 +2216,11 @@ end subroutine ptmass_calc_enclosed_mass
 !-----------------------------------------------------------------------
 subroutine write_options_ptmass(iunit)
  use infile_utils, only:write_inopt
+ use subgroup,     only:r_neigh
  integer, intent(in) :: iunit
 
  write(iunit,"(/,a)") '# options controlling sink particles'
+ call write_inopt(isink_potential,'isink_potential','sink potential (0=1/r,1=surf)',iunit)
  if (gravity) then
     call write_inopt(icreate_sinks,'icreate_sinks','allow automatic sink particle creation',iunit)
     if (icreate_sinks > 0) then
@@ -1941,6 +2228,11 @@ subroutine write_options_ptmass(iunit)
        call write_inopt(r_crit,'r_crit','critical radius for point mass creation (no new sinks < r_crit from existing sink)', &
                         iunit)
        call write_inopt(h_acc, 'h_acc' ,'accretion radius for new sink particles',iunit)
+       if (icreate_sinks==2) then
+          call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
+          call write_inopt(tseeds, "tseeds", "delay between sink creation and its seeds", iunit)
+          call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
+       endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
                            iunit)
@@ -1950,8 +2242,14 @@ subroutine write_options_ptmass(iunit)
  endif
  call write_inopt(h_soft_sinksink,'h_soft_sinksink','softening length between sink particles',iunit)
  call write_inopt(f_acc,'f_acc','particles < f_acc*h_acc accreted without checks',iunit)
- call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
- call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ if (gravity .and. icreate_sinks > 0) then
+    call write_inopt(r_merge_uncond,'r_merge_uncond','sinks will unconditionally merge within this separation',iunit)
+    call write_inopt(r_merge_cond,'r_merge_cond','sinks will merge if bound within this radius',iunit)
+ endif
+ if (use_regnbody) then
+    call write_inopt(use_regnbody, 'use_regnbody', 'allow subgroup integration method', iunit)
+    call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
+ endif
 
 end subroutine write_options_ptmass
 
@@ -1962,6 +2260,8 @@ end subroutine write_options_ptmass
 !-----------------------------------------------------------------------
 subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  use io,         only:warning,fatal
+ use subgroup,   only:r_neigh
+ use dim,        only:store_ll_ptmass
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall
  integer,          intent(out) :: ierr
@@ -1980,6 +2280,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) icreate_sinks
     ngot = ngot + 1
     if (icreate_sinks < 0) call fatal(label,'sink creation option out of range')
+ case('isink_potential')
+    read(valstring,*,iostat=ierr) isink_potential
+    ngot = ngot + 1
  case('rho_crit_cgs')
     read(valstring,*,iostat=ierr) rho_crit_cgs
     if (rho_crit_cgs < 0.) call fatal(label,'rho_crit < 0')
@@ -1998,7 +2301,7 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  case('f_crit_override')
     read(valstring,*,iostat=ierr) f_crit_override
     if (f_crit_override < 0.) f_crit_override = 0.  ! reset to zero since a negative value does not make sense
-    if (f_crit_override > 0. .and. f_crit_override < 100. ) call fatal(label,'Give star formation a chance! Reset to > 100')
+    if (f_crit_override > 0. .and. f_crit_override < 10. ) call fatal(label,'Give star formation a chance! Reset to > 10')
     l_crit_override = .true.
  case('h_soft')  ! to ensure backwards compatibility
     read(valstring,*,iostat=ierr) h_soft
@@ -2026,9 +2329,24 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) r_merge_cond
     if (r_merge_cond > 0. .and. r_merge_cond < r_merge_uncond) call fatal(label,'0 < r_merge_cond < r_merge_uncond')
     ngot = ngot + 1
+ case('tmax_acc')
+    read(valstring,*,iostat=ierr) tmax_acc
+    ngot = ngot + 1
+ case('tseeds')
+    read(valstring,*,iostat=ierr) tseeds
+    ngot = ngot + 1
+ case('iseed_sf')
+    read(valstring,*,iostat=ierr) iseed_sf
+    ngot = ngot + 1
+ case('use_regnbody')
+    read(valstring,*,iostat=ierr) use_regnbody
+ case('r_neigh')
+    read(valstring,*,iostat=ierr) r_neigh
  case default
     imatch = .false.
  end select
+
+ if (icreate_sinks == 2) store_ll_ptmass = .true.
 
  !--make sure we have got all compulsory options (otherwise, rewrite input file)
  if (icreate_sinks > 0) then
@@ -2038,5 +2356,5 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
  endif
 
 end subroutine read_options_ptmass
-!-----------------------------------------------------------------------
+
 end module ptmass

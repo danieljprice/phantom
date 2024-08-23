@@ -13,12 +13,12 @@ module setorbit
 !   0) Campbell elements for bound or unbound orbit (aeiOwf)
 !   1) Flyby parameters (periapsis, initial separation, argument of periapsis, inclination)
 !   2) position and velocity for both bodies
-
-!  While Campbell elements can be used for unbound orbits, they require
-!  specifying the true anomaly at the start of the simulation. This is
-!  not always easy to determine, so the flyby option is provided as an
-!  alternative. There one specifies the initial separation instead, however
-!  the choice of angles is more restricted
+!
+! While Campbell elements can be used for unbound orbits, they require
+! specifying the true anomaly at the start of the simulation. This is
+! not always easy to determine, so the flyby option is provided as an
+! alternative. There one specifies the initial separation instead, however
+! the choice of angles is more restricted
 !
 ! :References: None
 !
@@ -27,36 +27,6 @@ module setorbit
 ! :Runtime parameters: None
 !
 ! :Dependencies: infile_utils, physcon, setbinary, setflyby, units
-!
-
-!  While Campbell elements can be used for unbound orbits, they require
-!  specifying the true anomaly at the start of the simulation. This is
-!  not always easy to determine, so the flyby option is provided as an
-!  alternative. There one specifies the initial separation instead, however
-!  the choice of angles is more restricted
-!
-! :References: None
-!
-! :Owner: Daniel Price
-!
-! :Runtime parameters: None
-!
-! :Dependencies: infile_utils, physcon, setbinary, setflyby, units
-!
-
-!  While Campbell elements can be used for unbound orbits, they require
-!  specifying the true anomaly at the start of the simulation. This is
-!  not always easy to determine, so the flyby option is provided as an
-!  alternative. There one specifies the initial separation instead, however
-!  the choice of angles is more restricted
-!
-! :References: None
-!
-! :Owner: Daniel Price
-!
-! :Runtime parameters: None
-!
-! :Dependencies: physcon
 !
  implicit none
  public :: set_orbit

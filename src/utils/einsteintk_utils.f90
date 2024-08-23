@@ -14,24 +14,20 @@ module einsteintk_utils
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: part
+! :Dependencies: metric_et_utils, part
 !
+ use metric_et_utils, only:gridorigin,dxgrid,gridsize
  implicit none
- real, allocatable :: gcovgrid(:,:,:,:,:)
- real, allocatable :: gcongrid(:,:,:,:,:)
- real, allocatable :: sqrtggrid(:,:,:)
  real, allocatable :: tmunugrid(:,:,:,:,:)
  real, allocatable :: rhostargrid(:,:,:)
  real, allocatable :: pxgrid(:,:,:,:)
  real, allocatable :: entropygrid(:,:,:)
- real, allocatable :: metricderivsgrid(:,:,:,:,:,:)
- real              :: dxgrid(3), gridorigin(3), boundsize(3)
- integer           :: gridsize(3)
- logical           :: gridinit = .false.
+ real              :: boundsize(3)
  logical           :: exact_rendering
  character(len=128)  :: logfilestor,evfilestor,dumpfilestor,infilestor
 contains
 subroutine init_etgrid(nx,ny,nz,dx,dy,dz,originx,originy,originz)
+ use metric_et_utils, only:allocate_grid,gridsize,dxgrid,gridorigin
  integer, intent(in) :: nx,ny,nz
  real,    intent(in) :: dx,dy,dz,originx,originy,originz
 
@@ -47,39 +43,23 @@ subroutine init_etgrid(nx,ny,nz,dx,dy,dz,originx,originy,originz)
  gridorigin(2) = originy
  gridorigin(3) = originz
 
-
- allocate(gcovgrid(0:3,0:3,nx,ny,nz))
- allocate(gcongrid(0:3,0:3,nx,ny,nz))
- allocate(sqrtggrid(nx,ny,nz))
+ call allocate_grid(nx,ny,nz,dx,dy,dz,originx,originy,originz)
 
  ! Will need to delete this at somepoint
  ! For now it is the simplest way
  allocate(tmunugrid(0:3,0:3,nx,ny,nz))
-
  allocate(pxgrid(3,nx,ny,nz))
-
  allocate(rhostargrid(nx,ny,nz))
-
  allocate(entropygrid(nx,ny,nz))
 
- ! metric derivs are stored in the form
- ! mu comp, nu comp, deriv, gridx,gridy,gridz
- ! Note that this is only the spatial derivs of
- ! the metric and we will need an additional array
- ! for time derivs
- allocate(metricderivsgrid(0:3,0:3,3,nx,ny,nz))
-
- gridinit = .true.
  !exact_rendering = exact
 
 end subroutine init_etgrid
 
 subroutine print_etgrid()
- ! Subroutine for printing quantities of the ET grid
+ use metric_et_utils, only:print_metric_grid
 
- print*, "Grid spacing (x,y,z) is : ", dxgrid
- print*, "Grid origin (x,y,z) is: ", gridorigin
- print*, "Covariant metric tensor of the grid is: ", gcovgrid(:,:,1,1,1)
+ call print_metric_grid()
 
 end subroutine print_etgrid
 

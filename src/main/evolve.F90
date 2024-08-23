@@ -16,12 +16,12 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary_dyn, centreofmass, checkconserved, dim,
-!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
-!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: HIIRegion, analysis, boundary_dyn, centreofmass,
+!   checkconserved, dim, energies, evwrite, externalforces, fileutils,
+!   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
+!   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
+!   readwrite_infile, step_lf_global, subgroup, substepping, supertimestep,
+!   timestep, timestep_ind, timestep_sts, timing
 !
  implicit none
  public :: evol
@@ -41,7 +41,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,ind_timesteps
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -89,13 +89,19 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
+                            linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
+ use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
-                            set_integration_precision
+                            set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
+                            ipart_createseeds,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
+ use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
+ use subgroup,         only:group_identify
+ use substepping,      only:get_force
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -137,6 +143,9 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
+ integer         :: dummy,istepHII
+
+ dummy = 0
 
  tprint    = 0.
  nsteps    = 0
@@ -276,7 +285,49 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+    endif
+
+    if (icreate_sinks == 2) then
+       !
+       ! creation of new seeds into evolved sinks
+       !
+       if (ipart_createseeds /= 0) then
+          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,time)
+       endif
+       !
+       ! creation of new stars from sinks (cores)
+       !
+       if (ipart_createstars /= 0) then
+          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
+                               linklist_ptmass,time)
+       endif
+    endif
+
+    if (iH2R > 0 .and. id==master) then
+       istepHII = 1
+       if (ind_timesteps) then
+          istepHII = 2**nbinmax/HIIuprate
+          if (istepHII==0) istepHII = 1
+       endif
+       if (mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+       endif
+    endif
+
+    ! Need to recompute the force when sink or stars are created
+    if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
+       if (use_regnbody) then
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
+       else
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
+       endif
+       if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
+       if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
+       dummy = 0
     endif
     !
     ! Strang splitting: implicit update for half step
@@ -284,6 +335,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
+
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep
@@ -641,7 +693,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_link,itimer_balance,itimer_dens,&
-                  itimer_force,itimer_extf,itimer_ev,itimer_io,ntimers
+                  itimer_force,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep

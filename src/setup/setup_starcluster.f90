@@ -11,7 +11,7 @@ module setup
 !
 ! :References: Paumard et al. (2006)
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters:
 !   - datafile : *filename for star data (m,x,y,z,vx,vy,vz)*

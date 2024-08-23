@@ -281,7 +281,7 @@ end subroutine phi_derivs
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
-end subroutine
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+
