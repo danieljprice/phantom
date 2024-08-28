@@ -685,7 +685,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     is_accretion = .false.
  endif
 
- itype = iphase(igas)
+ itype = igas
  pmassi = massoftype(igas)
 
  dkdt = dki*dt
