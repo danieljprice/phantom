@@ -495,7 +495,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                       vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
-                      bin_info,group_info=group_info)
+                      bin_info,group_info=group_info,nmatrix=nmatrix)
     else
        call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
@@ -510,7 +510,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        if (use_regnbody) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass, &
-                         bin_info,fsink_old,group_info=group_info)
+                         bin_info,fsink_old,group_info=group_info,nmatrix=nmatrix)
 
           call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                     fext,fxyz_ptmass,dsdt_ptmass,dptmass)
@@ -522,7 +522,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
-                         bin_info,group_info=group_info,isionised=isionised)
+                         bin_info,group_info=group_info,nmatrix=nmatrix,isionised=isionised)
        else
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
@@ -544,10 +544,10 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
        if (use_regnbody) then
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
-                              dtext=dtextforce)
+                              dtext=dt)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
-                         bin_info,group_info=group_info)
+                         bin_info,group_info=group_info,nmatrix=nmatrix)
        elseif (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass,&
@@ -844,7 +844,7 @@ end subroutine kick
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
                      force_count,extf_vdep_flag,linklist_ptmass,bin_info,fsink_old,&
-                     group_info,isionised)
+                     group_info,nmatrix,isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
@@ -853,25 +853,28 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
-                           nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
+                           nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,n_group,n_ingroup,n_sing
  use cooling_ism,     only:dphot0,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
  use damping,         only:apply_damp,idamp,calc_damp
  use externalforces,  only:update_externalforce
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
- integer,           intent(in)    :: nptmass,npart,nsubsteps,ntypes
- integer,           intent(inout) :: force_count
- integer,           intent(inout) :: linklist_ptmass(:)
- real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
- real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
- real,              intent(inout) :: dtextforce
- real,              intent(in)    :: timei,dki,dt
- logical,           intent(in)    :: extf_vdep_flag
- real,              intent(inout) :: bin_info(:,:)
- real,    optional, intent(inout) :: fsink_old(4,nptmass)
- integer, optional, intent(in)    :: group_info(:,:)
- logical, optional, intent(in)    :: isionised(:)
+ use subgroup,        only:group_identify
+ integer,                  intent(in)    :: nptmass,npart,nsubsteps,ntypes
+ integer,                  intent(inout) :: force_count
+ integer,                  intent(inout) :: linklist_ptmass(:)
+ real,                     intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
+ real,                     intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ real,                     intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
+ real,                     intent(inout) :: dtextforce
+ real,                     intent(in)    :: timei,dki,dt
+ logical,                  intent(in)    :: extf_vdep_flag
+ real,                     intent(inout) :: bin_info(:,:)
+ real,           optional, intent(inout) :: fsink_old(4,nptmass)
+ integer,        optional, intent(inout) :: group_info(:,:)
+ integer(kind=1),optional, intent(inout) :: nmatrix(:,:)
+ logical,        optional, intent(in)    :: isionised(:)
  integer         :: merge_ij(nptmass)
  integer         :: merge_n
  integer         :: i,itype
@@ -924,6 +927,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                     extrapfac,fsink_old,group_info,bin_info)
              if (merge_n > 0) then
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,&
+                                    bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                        extrapfac,fsink_old,group_info,bin_info)
@@ -946,6 +951,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                     group_info=group_info,bin_info=bin_info)
              if (merge_n > 0) then
                 call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,&
+                                    bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                        group_info=group_info,bin_info=bin_info)
