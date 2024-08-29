@@ -157,6 +157,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  np_cs_eq_0 = 0
  np_e_eq_0  = 0
  abortrun_bdy = .false.
+ dumpfile_orig = trim(dumpfile)
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
                                should_conserve_angmom,should_conserve_dustmass)
