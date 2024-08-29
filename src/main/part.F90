@@ -1908,14 +1908,24 @@ subroutine accrete_particles_outside_sphere(radius)
  !
  ! accrete particles outside some outer radius
  !
- !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,radius) &
+ !$omp parallel default(none) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,radius) &
  !$omp private(i,r2)
+ !$omp do
  do i=1,npart
     r2 = xyzh(1,i)**2 + xyzh(2,i)**2 + xyzh(3,i)**2
     if (r2 > radius**2) xyzh(4,i) = -abs(xyzh(4,i))
  enddo
- !$omp end parallel do
+ !$omp end do
+
+ !$omp do
+ do i=1,nptmass
+    r2 = xyzmh_ptmass(1,i)**2 + xyzmh_ptmass(2,i)**2 + xyzmh_ptmass(3,i)**2
+    if (r2 > radius**2) xyzmh_ptmass(4,i) = -abs(xyzmh_ptmass(4,i))
+ enddo
+!$omp end do
+
+ !$omp end parallel
 
 end subroutine accrete_particles_outside_sphere
 
