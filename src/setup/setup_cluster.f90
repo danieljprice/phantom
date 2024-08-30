@@ -338,6 +338,7 @@ subroutine read_setupfile(filename,ierr)
  call read_inopt(Mcloud_msun,'M_cloud',db,ierr)
  call read_inopt(Rcloud_pc,'R_cloud',db,ierr)
  call read_inopt(Temperature,'Temperature',db,ierr)
+ call read_inopt(relax, 'relax',db,ierr)
  call read_inopt(mu,'mu',db,ierr)
  call close_db(db)
 
