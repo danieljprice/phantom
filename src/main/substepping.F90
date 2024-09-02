@@ -773,10 +773,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              fxi = fext(1,i)
              fyi = fext(2,i)
              fzi = fext(3,i)
-             if (ind_timesteps) then
-                ibin_wakei = ibin_wake(i)
-                itype = iphase(i)
-             endif
+             if (ind_timesteps) ibin_wakei = ibin_wake(i)
 
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                               vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
