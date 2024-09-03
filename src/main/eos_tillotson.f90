@@ -105,6 +105,37 @@ end subroutine eos_info_tillotson
 
 !-----------------------------------------------------------------------
 !+
+!  calc internal energy from pressure and density
+!+
+!-----------------------------------------------------------------------
+subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
+  real, intent(in) :: rho,pres
+  real, intent(out) :: temp,u
+  integer, intent(out) :: ierr
+  real :: eta, mu, neu, omega, expterm
+ 
+ eta = rho / rho0
+ mu = eta - 1.
+ neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
+ omega = (u / (u0*eta**2) + 1.)
+
+  if (rho >= rho0) then ! Condensed state
+    u = (pres - A*mu - B*mu**2) / ( aparam + ( bparam / omega )  * rho)
+  else
+    expterm = exp(-alpha*(neu**2))
+    u = (pres - A*mu*exp(-beta*neu)*expterm ) &
+        / (aparam*rho + ((bparam*rho)/omega)*expterm)
+  endif
+  temp = 300.
+  ierr = 0
+  if (u<0.) then
+    u = 0.
+    ierr = 1
+  endif
+
+end subroutine calc_uT_from_rhoP_tillotson  
+!-----------------------------------------------------------------------
+!+
 !  reads equation of state options from the input file
 !+
 !-----------------------------------------------------------------------
