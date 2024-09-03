@@ -69,7 +69,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  character(len=*), intent(in)  :: object  ! name of the solar system object
  character(len=*), intent(out) :: url     ! url for query
  integer,          intent(out) :: ierr
- character(len=3)  :: cmd
+ character(len=6)  :: cmd
  character(len=10) :: start_epoch,end_epoch
  integer           :: values(8),year,month,day
 
@@ -96,7 +96,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  case('moon')
     cmd = '301' ! moon
  case('apophis')
-    cmd = '2004 MN4' ! 99942 Apophis
+    cmd = '99942' ! 99942 Apophis
  case default
     cmd = trim(object)
  end select

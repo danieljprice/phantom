@@ -196,7 +196,7 @@ subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
        'saturn ', &
        'uranus ', &
        'neptune', &
-       'pluto  '/)  ! for nostalgia's sake
+       'apophis'/)  ! 'moon   ','apophis', 'pluto  ' for nostalgia's sake
  real    :: elems(nelem),xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
  real    :: msun,mplanet,a,e,inc,O,w,f
  integer :: i,ierr,ntmp
