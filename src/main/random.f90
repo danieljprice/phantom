@@ -15,11 +15,12 @@ module random
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: None
+! :Dependencies: sortutils
 !
  implicit none
  public :: ran2,get_random,rayleigh_deviate
- public :: get_random_pos_on_sphere,gauss_random
+ public :: get_random_pos_on_sphere,get_gaussian_pos_on_sphere
+ public :: gauss_random,divide_unit_seg
  real, parameter :: pi = 4.*atan(1.)
 
  private
@@ -151,6 +152,31 @@ end function get_random_pos_on_sphere
 
 !-------------------------------------------------------------------------
 !
+! get Gaussian random position on sphere
+!
+!-------------------------------------------------------------------------
+function get_gaussian_pos_on_sphere(iseed, deltheta) result(dx)
+ integer, intent(inout) :: iseed
+ real, intent(in) :: deltheta
+ real  :: phi,theta,sintheta,costheta,sinphi,cosphi,gauss_theta
+ real  :: dx(3)
+
+ phi = 2.*pi*(ran2(iseed) - 0.5)
+ gauss_theta = gauss_random(iseed) * deltheta
+ do while (abs(gauss_theta) > 1.0)
+    gauss_theta = gauss_random(iseed) * deltheta
+ enddo
+ theta = acos(gauss_theta)
+ sintheta = sin(theta)
+ costheta = cos(theta)
+ sinphi   = sin(phi)
+ cosphi   = cos(phi)
+ dx = (/sintheta*cosphi,sintheta*sinphi,costheta/)
+
+end function get_gaussian_pos_on_sphere
+
+!-------------------------------------------------------------------------
+!
 ! get random number from gaussian
 ! Using Box-Muller transformation.
 ! Resulting gaussian has std deviation of unity
@@ -166,5 +192,58 @@ real function gauss_random(iseed)
  gauss_random = sqrt(2.*log(1./x1))*cos(2.*pi*x2)
 
 end function gauss_random
+
+!-------------------------------------------------------------------------
+!
+! divide a unit segment into nlengths segments of random length
+!
+!-------------------------------------------------------------------------
+subroutine divide_unit_seg(lengths,mindist,nlengths,iseed)
+ use sortutils, only:indexx
+ integer, intent(in)    :: nlengths
+ integer, intent(inout) :: iseed
+ real,    intent(inout) :: lengths(nlengths)
+ real,    intent(inout)    :: mindist
+ real,    allocatable :: points(:)
+ integer, allocatable :: idx(:)
+ integer              :: i,j,np
+ logical              :: close
+ real                 :: tmp,dist
+
+ np = nlengths+1
+
+ allocate(points(np))
+ allocate(idx(np))
+ points(np) = 1.
+ points(1)  = 0.
+ tmp        = 0.
+
+ if (mindist >= 0.1) then ! override the minimum distance if we are in a bricked situation...
+    mindist = 0.01  ! we'll have stars less massive than 0.08 solarmasses but it will assure to never brick the sim...
+ endif
+
+ do i=2,nlengths
+    close =  .true.
+    do while (close)
+       tmp = ran2(iseed)
+       dist = tmp
+       do j=2,i-1
+          dist = min(abs(points(j)-tmp),dist)
+       enddo
+       dist = min(abs(points(np)-tmp),dist)
+       close = dist<mindist
+    enddo
+    points(i) = tmp
+ enddo
+
+ call indexx(np,points,idx)
+
+ do i=2,np
+    lengths(i-1) = points(idx(i)) - points(idx(i-1))
+ enddo
+ deallocate(points)
+ deallocate(idx)
+
+end subroutine divide_unit_seg
 
 end module random

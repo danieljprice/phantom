@@ -372,7 +372,8 @@ end subroutine evol_K
 !----------------------------------------
 subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
 ! all quantities are in cgs
- use io, only:fatal
+ use io,  only:fatal
+ use eos, only:ieos
 
  real, intent(in)    :: rho_cgs
  real, intent(inout) :: T, mu, gamma
@@ -388,8 +389,8 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
  T_old = T
  if (T > 1.d4) then
     mu     = (1.+4.*eps(iHe))/(1.+eps(iHe))
-    gamma  = 5./3.
     pH     = pH_tot
+    if (ieos /= 17) gamma  = 5./3.
  elseif (T > 450.) then
 ! iterate to get consistently pH, T, mu and gamma
     tol       = 1.d-3
@@ -404,6 +405,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
        pH        = solve_q(2.*KH2, 1., -pH_tot)
        pH2       = KH2*pH**2
        mu        = (1.+4.*eps(iHe))/(.5+eps(iHe)+0.5*pH/pH_tot)
+       if (ieos == 17) exit !only update mu, keep gamma constant
        x         = 2.*(1.+4.*eps(iHe))/mu
        gamma     = (3.*x+4.+4.*eps(iHe))/(x+4.+4.*eps(iHe))
        converged = (abs(T-T_old)/T_old) < tol
@@ -411,7 +413,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
           mu_old = mu
           gamma_old = gamma
        else
-          T = 2.*T_old*mu/mu_old/(gamma_old-1.)*(x-eps(iHe))/(x+4.-eps(iHe))
+          T = T_old*mu/mu_old/(gamma_old-1.)*2.*x/(x+4.+4.*eps(iHe))
           if (i>=itermax .and. .not.converged) then
              if (isolve==0) then
                 isolve = isolve+1
@@ -431,7 +433,7 @@ subroutine calc_muGamma(rho_cgs, T, mu, gamma, pH, pH_tot)
     pH2    = pH_tot/2.
     pH     = 0.
     mu     = (1.+4.*eps(iHe))/(0.5+eps(iHe))
-    gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
+    if (ieos /= 17)  gamma  = (5.*eps(iHe)+3.5)/(3.*eps(iHe)+2.5)
  endif
 
 end subroutine calc_muGamma

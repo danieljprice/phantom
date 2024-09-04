@@ -397,7 +397,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real    :: rho_cgs,p_cgs
  integer :: i1
 
- i1 = 0
+ i1  = 0
+ eni = 0.
  if (present(npin)) i1 = npin  ! starting position in particle array
 
  if (do_radiation) then

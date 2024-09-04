@@ -12,7 +12,7 @@ module eos
 !     2 = adiabatic/polytropic eos
 !     3 = eos for a locally isothermal disc as in Lodato & Pringle (2007)
 !     4 = GR isothermal
-!     5 = polytropic EOS with vary mu and gamma depending on H2 formation
+!     5 = polytropic EOS with varying mu and gamma depending on H2 formation
 !     6 = eos for a locally isothermal disc as in Lodato & Pringle (2007),
 !         centered on a sink particle
 !     7 = z-dependent locally isothermal eos
@@ -25,6 +25,7 @@ module eos
 !    14 = locally isothermal prescription from Farris et al. (2014) for binary system
 !    15 = Helmholtz free energy eos
 !    16 = Shen eos
+!    17 = polytropic EOS with varying mu (depending on H2 formation)
 !    20 = Ideal gas + radiation + various forms of recombination energy from HORMONE (Hirai et al., 2020)
 !
 ! :References:
@@ -40,7 +41,7 @@ module eos
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
 !   units
@@ -48,7 +49,7 @@ module eos
  use part, only:ien_etotal,ien_entropy,ien_type
  use dim,  only:gr
  implicit none
- integer, parameter, public :: maxeos = 20
+ integer, parameter, public :: maxeos = 22
  real,               public :: polyk, polyk2, gamma
  real,               public :: qfacdisc = 0.75, qfacdisc2 = 0.75
  logical,            public :: extract_eos_from_hdr = .false.
@@ -102,7 +103,7 @@ contains
 !  (and position in the case of the isothermal disc)
 !+
 !----------------------------------------------------------------
-subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal)
+subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gamma_local,mu_local,Xlocal,Zlocal,isionised)
  use io,            only:fatal,error,warning
  use part,          only:xyzmh_ptmass, nptmass
  use units,         only:unit_density,unit_pressure,unit_ergg,unit_velocity
@@ -115,6 +116,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  use eos_stratified, only:get_eos_stratified
  use eos_barotropic, only:get_eos_barotropic
  use eos_piecewise,  only:get_eos_piecewise
+ use eos_HIIR,       only:get_eos_HIIR_iso,get_eos_HIIR_adiab
  integer, intent(in)    :: eos_type
  real,    intent(in)    :: rhoi,xi,yi,zi
  real,    intent(out)   :: ponrhoi,spsoundi
@@ -122,6 +124,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real,    intent(in),    optional :: eni
  real,    intent(inout), optional :: mu_local,gamma_local
  real,    intent(in)   , optional :: Xlocal,Zlocal
+ logical, intent(in),    optional :: isionised
  integer :: ierr, i
  real    :: r1,r2
  real    :: mass_r, mass ! defined for generalised Farris prescription
@@ -129,6 +132,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  real    :: cgsrhoi,cgseni,cgspresi,presi,gam1,cgsspsoundi
  real    :: uthermconst
  real    :: enthi,pondensi
+ logical :: isionisedi
  !
  ! Check to see if equation of state is compatible with GR cons2prim routines
  !
@@ -146,6 +150,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
  if (present(mu_local)) mui = mu_local
  if (present(Xlocal)) X_i = Xlocal
  if (present(Zlocal)) Z_i = Zlocal
+ if (present(isionised)) isionisedi = isionised
 
  select case(eos_type)
  case(1)
@@ -160,7 +165,7 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     spsoundi = sqrt(ponrhoi)
     tempi    = temperature_coef*mui*ponrhoi
 
- case(2,5)
+ case(2,5,17)
 !
 !--Adiabatic equation of state (code default)
 !
@@ -422,6 +427,14 @@ subroutine equationofstate(eos_type,ponrhoi,spsoundi,rhoi,xi,yi,zi,tempi,eni,gam
     tempi    = temperaturei
     if (present(mu_local)) mu_local = 1./imui
     if (present(gamma_local)) gamma_local = gammai
+ case(21)
+
+    call get_eos_HIIR_iso(polyk,temperature_coef,mui,tempi,ponrhoi,spsoundi,isionisedi)
+ case(22)
+
+    call get_eos_HIIR_adiab(polyk,temperature_coef,mui,tempi,ponrhoi,rhoi,eni,gammai,spsoundi,isionisedi)
+
+
 
  case default
     spsoundi = 0. ! avoids compiler warnings
@@ -447,6 +460,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_barotropic, only:init_eos_barotropic
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
+ use eos_HIIR,       only:init_eos_HIIR
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
@@ -523,6 +537,10 @@ subroutine init_eos(eos_type,ierr)
        call error('eos','ieos=20, cannot use eos with radiation, will double count radiation pressure')
        ierr = ierr_option_conflict
     endif
+
+ case(21,22)
+
+    call init_eos_HIIR()
 
  end select
  done_init_eos = .true.
@@ -816,7 +834,7 @@ end subroutine calc_rec_ene
 !  pressure and density. Inputs and outputs are in cgs units.
 !
 !  Note on composition:
-!  For ieos=2, 5 and 12, mu_local is an input, X & Z are not used
+!  For ieos=2, 5, 12 and 17, mu_local is an input, X & Z are not used
 !  For ieos=10, mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
@@ -842,7 +860,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(X_local))  X  = X_local
  if (present(Z_local))  Z  = Z_local
  select case(eos_type)
- case(2,5) ! Ideal gas
+ case(2,5,17) ! Ideal gas
     temp = pres / (rho * kb_on_mh) * mu
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal gas + radiation
@@ -865,7 +883,7 @@ end subroutine calc_temp_and_ene
 !  are in cgs units.
 !
 !  Note on composition:
-!  For ieos=2 and 12, mu_local is an input, X & Z are not used
+!  For ieos=2, 5, 12 and 17, mu_local is an input, X & Z are not used
 !  For ieos=10, mu_local is not used
 !  For ieos=20, mu_local is not used but available as an output
 !+
@@ -1049,7 +1067,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
 
  niter = 0
  select case (ieos)
- case (2,5)
+ case (2,5,17)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
     cgsP = cgsrho*kb_on_mh*temp / mu
  case (12)
@@ -1154,7 +1172,7 @@ subroutine setpolyk(eos_type,iprint,utherm,xyzhi,npart)
        write(iprint,*) 'WARNING! different utherms but run is isothermal'
     endif
 
- case(2,5)
+ case(2,5,17)
 !
 !--adiabatic/polytropic eos
 !  this routine is ONLY called if utherm is NOT stored, so polyk matters
@@ -1308,11 +1326,11 @@ subroutine eosinfo(eos_type,iprint)
     endif
  case(3)
     write(iprint,"(/,a,f10.6,a,f10.6)") ' Locally isothermal eq of state (R_sph): cs^2_0 = ',polyk,' qfac = ',qfacdisc
- case(5)
+ case(5,17)
     if (maxvxyzu >= 4) then
        write(iprint,"(' Adiabatic equation of state: P = (gamma-1)*rho*u, where gamma & mu depend on the formation of H2')")
     else
-       stop '[stop eos] eos = 5 cannot assume isothermal conditions'
+       stop '[stop eos] eos = 5,17 cannot assume isothermal conditions'
     endif
  case(6)
     write(iprint,"(/,a,i2,a,f10.6,a,f10.6)") ' Locally (on sink ',isink, &
@@ -1499,7 +1517,7 @@ subroutine read_options_eos(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) ieos
     ngot = ngot + 1
     if (ieos <= 0 .or. ieos > maxeos) call fatal(label,'equation of state choice out of range')
-    if (ieos == 5) then
+    if (ieos == 5 .or. ieos == 17) then
        store_dust_temperature = .true.
        update_muGamma = .true.
     endif

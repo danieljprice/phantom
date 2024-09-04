@@ -23,7 +23,8 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    - uses: fortran-lang/setup-fortran@v1
+    - name: install gfortran compiler
+      uses: fortran-lang/setup-fortran@v1
       with:
          compiler: gcc
 
