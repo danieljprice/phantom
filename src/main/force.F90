@@ -213,8 +213,8 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
  use kernel,       only:kernel_softening
  use kdtree,       only:expand_fgrav_in_taylor_series
  use linklist,     only:get_distance_from_centre_of_mass
- use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable
- use ptmass,       only:icreate_sinks,rho_crit,r_crit2
+ use part,         only:xyzmh_ptmass,nptmass,massoftype,maxphase,is_accretable,ihacc
+ use ptmass,       only:icreate_sinks,rho_crit,r_crit2,h_acc
  use units,        only:unit_density
 #endif
 #ifdef DUST
@@ -435,7 +435,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
 !$omp private(iactivei,iamdusti,iamtypei) &
 !$omp private(dx,dy,dz,poti,fxi,fyi,fzi,potensoft0,dum,epoti) &
 !$omp shared(xyzmh_ptmass,nptmass) &
-!$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2) &
+!$omp shared(rhomax,ipart_rhomax,icreate_sinks,rho_crit,r_crit2,h_acc) &
 !$omp private(rhomax_thread,ipart_rhomax_thread,use_part,j) &
 #endif
 !$omp shared(id) &
@@ -682,6 +682,7 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
                 !
                 use_part = .true.
                 over_ptmass: do j=1,nptmass
+                   if (icreate_sinks==2 .and. xyzmh_ptmass(ihacc,j)<h_acc ) cycle
                    if (xyzmh_ptmass(4,j) > 0. .and.       &
                        (xyzh(1,i) - xyzmh_ptmass(1,j))**2 &
                      + (xyzh(2,i) - xyzmh_ptmass(2,j))**2 &

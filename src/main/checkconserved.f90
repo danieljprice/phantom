@@ -132,10 +132,10 @@ subroutine check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
  real, intent(in) :: hdivBonB_ave,hdivBonB_max
 
  if (hdivBonB_max > 100 .or. hdivBonB_ave > 0.1) then
-   ! Tricco, Price & Bate (2016) suggest the average should remain lower than 0.01,
-   ! but we will increase it here due to the nature of the exiting the code
-   ! The suggestion of 512 was empirically determined in Dobbs & Wurster (2021)
-   call do_not_publish_crap('evolve','h|divb|/b is too large; recommend to increase the overcleanfac')
+    ! Tricco, Price & Bate (2016) suggest the average should remain lower than 0.01,
+    ! but we will increase it here due to the nature of the exiting the code
+    ! The suggestion of 512 was empirically determined in Dobbs & Wurster (2021)
+    call do_not_publish_crap('evolve','h|divb|/b is too large; recommend to increase the overcleanfac')
  endif
 
 end subroutine check_magnetic_stability

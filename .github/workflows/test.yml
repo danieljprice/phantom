@@ -53,38 +53,9 @@ jobs:
 
     - name: Setup Intel repo
       if: matrix.system == 'ifort'
-      id: intel-repo
-      run: |
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
-        INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
-        echo "::set-output name=intelversion::$INTELVERSION"
-
-    - name: Cache intel installation
-      if: matrix.system == 'ifort'
-      id: cache-intel
-      uses: actions/cache@v4
+      uses: fortran-lang/setup-fortran@v1
       with:
-        path: |
-          /opt/intel
-        key: ${{ steps.intel-repo.outputs.intelversion }}
-
-    - name: Install Intel compilers
-      if: ${{ steps.cache-intel.outputs.cache-hit != 'true' && matrix.system == 'ifort' }}
-      run: |
-        sudo apt-get install -y intel-oneapi-common-vars
-        sudo apt-get install -y intel-oneapi-compiler-fortran
-        sudo apt-get install -y intel-oneapi-mpi
-        sudo apt-get install -y intel-oneapi-mpi-devel
-
-    - name: Setup Intel oneAPI environment
-      if: matrix.system == 'ifort'
-      run: |
-        source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
+          compiler: intel-classic
 
     - name: "Clone phantom"
       uses: actions/checkout@v4

@@ -19,7 +19,7 @@ module table_utils
  implicit none
 
  public :: yinterp, linspace, logspace, diff, flip_array, interpolator
- public :: find_nearest_index, interp_1d
+ public :: find_nearest_index, interp_1d, linear_interpolator_one_d
 
  private
 
@@ -201,11 +201,25 @@ end subroutine find_nearest_index
 !  1D linear interpolation routine
 !+
 !-----------------------------------------------------------------------
-real function interp_1d(x,x1,x2,y1,y2)
+pure real function interp_1d(x,x1,x2,y1,y2)
  real, intent(in)  :: x, x1, x2, y1, y2
 
  interp_1d = y1 + (x-x1)*(y2-y1)/(x2-x1)
 
 end function interp_1d
+
+!-----------------------------------------------------------------------
+!+
+!  similar but just interpolates between two values
+!  val0 and val1 where u is the fraction of the way
+!+
+!-----------------------------------------------------------------------
+pure subroutine linear_interpolator_one_d(val0,val1,u,val)
+ real, intent(out) :: val
+ real, intent(in)  :: val0,val1,u
+
+ val=(1.-u)*val0+u*val1
+
+end subroutine linear_interpolator_one_d
 
 end module table_utils

@@ -11,7 +11,7 @@ module setup
 !
 ! :References: Paumard et al. (2006)
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters:
 !   - datafile : *filename for star data (m,x,y,z,vx,vy,vz)*
@@ -42,14 +42,14 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,        only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
- use units,       only:set_units,umass !,udist
+ use units,       only:set_units,umass,unit_velocity !,udist
  use physcon,     only:solarm,kpc,pi,au,years,pc
  use io,          only:fatal,iprint,master
  use eos,         only:gmw
- use timestep,    only:dtmax
+ use timestep,    only:dtmax,tmax
  use spherical,   only:set_sphere
  use datafiles,   only:find_phantom_datafile
- use ptmass,      only:use_fourthorder
+ use ptmass,      only:use_fourthorder,use_regnbody
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -61,6 +61,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(out)   :: vxyzu(:,:)
  character(len=len(fileprefix)+6) :: setupfile
  character(len=len(datafile)) :: filename
+ integer :: ntot
  integer :: ierr,i
  real    :: xcom(3),vcom(3),mtot
  real    :: psep
@@ -78,9 +79,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  polyk = 0.
  gamma = 5./3.
  gmw = 0.6  ! completely ionized, solar abu; eventually needs to be WR abu
- dtmax = 0.01
+ dtmax = 1.e-5
+ tmax = 0.001
  use_fourthorder = .true.
- m_gas = 1.e-20
+ use_regnbody = .true.
+ m_gas = 1.e-3
+ ntot = 2**20
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input
@@ -118,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vcom = vcom/mtot
 
  print*,"xcom",xcom
- print*,"vcom",vcom
+ print*,"vcom",vcom/1e5*unit_velocity
 
  do i=1,nptmass
     xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - xcom(1:3)
@@ -132,7 +136,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 ! setup initial sphere of particles to prevent initialisation problems
 !
  psep = 1.0
- call set_sphere('cubic',id,master,0.,10.0,psep,hfact,npart,xyzh)
+ call set_sphere('random',id,master,0.,10.,psep,hfact,npart,xyzh,np_requested=ntot)
  vxyzu(4,:) = 5.317e-4
  npartoftype(igas) = npart
 

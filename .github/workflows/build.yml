@@ -11,8 +11,6 @@ on:
     paths-ignore:
       - 'docs/**'
       - 'README.md'
-#  schedule:
-#    - cron: "0 0 * * *"
 
 env:
   OMP_STACKSIZE: 512M
@@ -22,13 +20,10 @@ env:
   WEB_SERVER: data.phantom.cloud.edu.au
   WEB_HTML_DIR: /var/www/html
   BUILD_LOG_DIR: /ci/build/logs
-  RSYNC_RSH: ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null"
   NPARALLEL: 32
 
 jobs:
   matrix_prep:
-    # Skip scheduled runs on forks
-    if: ${{ github.event_name != 'schedule' || github.repository == 'danieljprice/phantom' }}
     runs-on: ubuntu-latest
     outputs:
       batch: ${{ steps.set-sequence.outputs.batch }}
@@ -70,40 +65,11 @@ jobs:
     - name: Update package list
       run: sudo apt-get update
 
-    - name: Setup Intel repo
+    - name: Setup Intel compiler
       if: matrix.system == 'ifort'
-      id: intel-repo
-      run: |
-        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
-        sudo echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
-        INTELVERSION=$(apt-cache show intel-oneapi-compiler-fortran | grep Version | head -1)
-        echo "::set-output name=intelversion::$INTELVERSION"
-
-    - name: Cache intel installation
-      if: matrix.system == 'ifort'
-      id: cache-intel
-      uses: actions/cache@v4
+      uses: fortran-lang/setup-fortran@v1
       with:
-        path: |
-          /opt/intel
-        key: ${{ steps.intel-repo.outputs.intelversion }}
-
-    - name: Install Intel compilers
-      if: ${{ steps.cache-intel.outputs.cache-hit != 'true' && matrix.system == 'ifort' }}
-      run: |
-        sudo apt-get install -y intel-oneapi-common-vars
-        sudo apt-get install -y intel-oneapi-compiler-fortran
-        sudo apt-get install -y intel-oneapi-mpi
-        sudo apt-get install -y intel-oneapi-mpi-devel
-
-    - name: Setup Intel oneAPI environment
-      if: matrix.system == 'ifort'
-      run: |
-        source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
+          compiler: intel-classic
 
     - name: Install numpy and matplotlib for analysis unit tests
       run: |
@@ -123,35 +89,12 @@ jobs:
       if: github.event_name == 'schedule'
       run: mkdir logs
 
-#    - name: "Grab previous build logs from web server"
-#      if: github.event_name == 'schedule'
-#      env:
-#        WGET: wget --recursive --no-parent --reject "index.html*" --cut-dirs=2 --no-host-directories
-#      run: ${WGET} -A '*${{ matrix.system[1] }}.txt' http://${WEB_SERVER}${BUILD_LOG_DIR}/ || true
-
     - name: "Run buildbot.sh"
       run: ./buildbot.sh --maxdim 17000000 --url http://${WEB_SERVER}/${BUILD_LOG_DIR} --parallel ${{ matrix.batch }} ${{ env.NPARALLEL }}
       working-directory: scripts
       env:
         SYSTEM: ${{ matrix.system }}
         RETURN_ERR: yes
-
-#    - name: "Install SSH Key"
-#      if: github.event_name == 'schedule'
-#      uses: webfactory/ssh-agent@v0.5.3
-#      with:
-#        ssh-private-key: ${{ secrets.RUNNER_PRIVATE_KEY }}
-
-#    - name: "Copy new build logs to web server"
-#      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
-#      run: rsync -vau logs/*.txt ${WEB_USER}@${WEB_SERVER}:${WEB_HTML_DIR}/${BUILD_LOG_DIR}
-
-#    - name: "Copy HTML files to web server"
-#      if: ${{ (success() || failure()) && github.event_name == 'schedule' }}
-#      run: |
-#        export WEB_BUILD_DIR=${WEB_HTML_DIR}/nightly/build/$(date "+%Y%m%d")
-#        ssh -o "StrictHostKeyChecking=no" -o "UserKnownHostsFile=/dev/null" ${WEB_USER}@${WEB_SERVER} -- mkdir -p ${WEB_BUILD_DIR}
-#        rsync -vau logs/*.html ${WEB_USER}@${WEB_SERVER}:${WEB_BUILD_DIR}/
 
     - name: logs/build-failures-${{ matrix.system }}.txt
       if: always()

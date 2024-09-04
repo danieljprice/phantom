@@ -204,19 +204,24 @@ module part
  integer, parameter :: i_mlast = 17 ! accreted mass of last time
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
+ integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
+ integer, parameter :: itbirth = 22  ! birth time of the new sink
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
- real, allocatable :: xyzmh_ptmass(:,:)
- real, allocatable :: vxyz_ptmass(:,:)
- real, allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
- real, allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
- real, allocatable :: dptmass(:,:)
+ integer, allocatable :: linklist_ptmass(:)
+ real,    allocatable :: xyzmh_ptmass(:,:)
+ real,    allocatable :: vxyz_ptmass(:,:)
+ real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
+ real,    allocatable :: dsdt_ptmass(:,:),dsdt_ptmass_sinksink(:,:)
+ real,    allocatable :: dptmass(:,:)
  integer :: nptmass = 0   ! zero by default
  real    :: epot_sinksink
  character(len=*), parameter :: xyzmh_ptmass_label(nsinkproperties) = &
   (/'x        ','y        ','z        ','m        ','h        ',&
     'hsoft    ','maccreted','spinx    ','spiny    ','spinz    ',&
     'tlast    ','lum      ','Teff     ','Reff     ','mdotloss ',&
-    'mdotav   ','mprev    ','massenc  ','J2       '/)
+    'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
+    'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
 !
 !--self-gravity
@@ -290,6 +295,36 @@ module part
 !--lightcurves
 !
  real(kind=4), allocatable :: luminosity(:)
+!
+!-- Regularisation algorithm allocation
+!
+ integer(kind=1), allocatable :: nmatrix(:,:)    ! adjacency matrix used to construct each groups
+
+ integer, allocatable :: group_info(:,:) ! array storing group id/idx of each group comp/boundary idx/bin comp id
+ integer, parameter   :: igarg  = 1 ! idx of the particle member of a group
+ integer, parameter   :: igcum  = 2 ! cumulative sum of the indices to find the starting and ending point of a group
+ integer, parameter   :: igid   = 3 ! id of the group, correspond to the root of the group in the dfs/union find construction
+ integer, parameter   :: icomp  = 4 ! id of the binary companion if it exists, otherwise equal to the id
+
+ real, allocatable    :: bin_info(:,:) ! array storing important orbital parameters and quantities of each binary
+ integer, parameter   :: isemi = 1 ! semi major axis
+ integer, parameter   :: iecc  = 2 ! eccentricity
+ integer, parameter   :: iapo  = 3 ! apocenter
+ integer, parameter   :: iorb  = 4 ! orbital period
+ integer, parameter   :: ipert = 5 ! perturbation
+ integer, parameter   :: ikap  = 6 ! kappa slow down
+
+
+ ! needed for group identification and sorting
+ integer  :: n_group = 0
+ integer  :: n_ingroup = 0
+ integer  :: n_sing = 0
+ ! Gradient of the time transformation function
+ real, allocatable :: gtgrad(:,:)
+ !
+!-- Regularisation algorithm allocation
+!
+ logical, allocatable :: isionised(:)
 !
 !--derivatives (only needed if derivs is called)
 !
@@ -435,6 +470,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
+ call allocate_array('linklist_ptmass', linklist_ptmass, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -480,6 +516,11 @@ subroutine allocate_part
     call allocate_array('abundance', abundance, nabundances, maxp_h2)
  endif
  call allocate_array('T_gas_cool', T_gas_cool, maxp_krome)
+ call allocate_array('group_info', group_info, 4, maxptmass)
+ call allocate_array('bin_info', bin_info, 6, maxptmass)
+ call allocate_array("nmatrix", nmatrix, maxptmass, maxptmass)
+ call allocate_array("gtgrad", gtgrad, 3, maxptmass)
+ call allocate_array('isionised', isionised, maxp)
 
 
 end subroutine allocate_part
@@ -523,6 +564,7 @@ subroutine deallocate_part
  if (allocated(fxyz_ptmass_sinksink)) deallocate(fxyz_ptmass_sinksink)
  if (allocated(fsink_old))    deallocate(fsink_old)
  if (allocated(dptmass))      deallocate(dptmass)
+ if (allocated(linklist_ptmass)) deallocate(linklist_ptmass)
  if (allocated(dsdt_ptmass))  deallocate(dsdt_ptmass)
  if (allocated(dsdt_ptmass_sinksink)) deallocate(dsdt_ptmass_sinksink)
  if (allocated(poten))        deallocate(poten)
@@ -560,6 +602,11 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(group_info))   deallocate(group_info)
+ if (allocated(bin_info))     deallocate(bin_info)
+ if (allocated(nmatrix))      deallocate(nmatrix)
+ if (allocated(gtgrad))       deallocate(gtgrad)
+ if (allocated(isionised))    deallocate(isionised)
 
 end subroutine deallocate_part
 
@@ -577,10 +624,12 @@ subroutine init_part
  npartoftype(:) = 0
  npartoftypetot(:) = 0
  massoftype(:)  = 0.
+ isionised(:) = .false.
 !--initialise point mass arrays to zero
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
+ linklist_ptmass = -1
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then

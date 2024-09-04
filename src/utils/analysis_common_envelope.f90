@@ -14,7 +14,7 @@ module analysis
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: centreofmass, dust_formation, energies, eos,
+! :Dependencies: centreofmass, dim, dust_formation, energies, eos,
 !   eos_gasradrec, eos_mesa, extern_corotate, io, ionization_mod, kernel,
 !   mesa_microphysics, part, physcon, prompting, ptmass, setbinary,
 !   sortutils, table_utils, units, vectorutils
@@ -71,7 +71,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
             ' 5) Roche-lobe utils', &
             ' 6) Star stabilisation suite', &
             ' 7) Simulation units and particle properties', &
-            ' 8) Output .divv', &
+            ' 8) Output extra quantities', &
             ' 9) EoS testing', &
             '10) Profile of newly unbound particles', &
             '11) Sink properties', &
@@ -129,8 +129,8 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call star_stabilisation_suite(time,npart,particlemass,xyzh,vxyzu)
  case(7) !Units
     call print_simulation_parameters(npart,particlemass)
- case(8) !Output .divv
-    call output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
+ case(8) ! output extra quantities
+    call output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  case(9) !EoS testing
     call eos_surfaces
  case(10) !New unbound particle profiles in time
@@ -1274,110 +1274,183 @@ end subroutine print_simulation_parameters
 
 !----------------------------------------------------------------
 !+
-!  Write quantities (up to four) to divv file
+!  Write extra quantities to .extras files
+!  These files can be read via splash --extracols=[label1],[label2],...
 !+
 !----------------------------------------------------------------
-subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
+subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
  use part,              only:eos_vars,itemp,nucleation,idK0,idK1,idK2,idK3,idJstar,idmu,idgamma
  use eos,               only:entropy
  use eos_mesa,          only:get_eos_kappa_mesa
  use mesa_microphysics, only:getvalue_mesa
  use sortutils,         only:set_r2func_origin,r2func_origin,indexxfunc
  use ionization_mod,    only:ionisation_fraction
- use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H, chemical_equilibrium_light, calc_nucleation!, Scrit
- !use dim,     only:nElements
+ use dust_formation,    only:psat_C,eps,set_abundances,mass_per_H,chemical_equilibrium_light,calc_nucleation
  integer, intent(in)          :: npart
  character(len=*), intent(in) :: dumpfile
  real, intent(in)             :: time,particlemass
  real, intent(inout)          :: xyzh(:,:),vxyzu(:,:)
- integer                      :: i,k,Nquantities,ierr,iu
- integer, save                :: quantities_to_calculate(4)
- integer, allocatable         :: iorder(:)
+ character(len=30)            :: msg
+ character(len=17), allocatable:: labels(:)
+ integer                      :: i,k,Noptions,ierr
+ integer, save                :: Nquant
+ integer, save, allocatable   :: quants(:)
+ integer, allocatable         :: iorder(:),iu(:)
  real                         :: ekini,epoti,egasi,eradi,ereci,ethi,phii,rho_cgs,ponrhoi,spsoundi,tempi,&
-                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,&
+                                 omega_orb,kappai,kappat,kappar,pgas,mu,entropyi,rhopart,v_esci,&
                                  dum1,dum2,dum3,dum4,dum5
+ real                         :: pC,pC2,pC2H,pC2H2,nH_tot,epsC,S,taustar,taugr,JstarS
  real, allocatable, save      :: init_entropy(:)
- real, allocatable            :: quant(:,:)
- real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a
- real                         :: pC, pC2, pC2H, pC2H2, nH_tot, epsC, S
- real                         :: taustar, taugr, JstarS
- real                         :: v_esci
+ real, allocatable            :: arr(:,:)
+ real, dimension(3)           :: com_xyz,com_vxyz,xyz_a,vxyz_a,sinkcom_xyz,sinkcom_vxyz
  real, parameter :: Scrit = 2. ! Critical saturation ratio
- logical :: verbose = .false.
+ logical :: req_eos_call,req_gas_energy,req_thermal_energy,verbose=.false.
 
- allocate(quant(4,npart))
- Nquantities = 14
+ Noptions = 13
+ allocate(labels(Noptions))
+ labels = (/ 'e_kpt       ',&
+             'e_kp        ',&
+             'erec        ',&
+             'mach        ',&
+             'kappa       ',&
+             'omega_sinkCM',&
+             'omega_core  ',&
+             'delta_omega ',&
+             'entropy_mesa',&
+             'entropy_gain',&
+             'm           ',&
+             'vesc        ',&
+             'JstarS      '&
+          /)
+
  if (dump_number == 0) then
-    print "(14(a,/))",&
-           '1) Total energy (kin + pot + therm)', &
-           '2) Mach number', &
-           '3) Opacity from MESA tables', &
-           '4) Gas omega w.r.t. effective CoM', &
-           '5) Fractional difference between gas and orbital omega', &
-           '6) MESA EoS specific entropy', &
-           '7) Fractional entropy gain', &
-           '8) Specific recombination energy', &
-           '9) Total energy (kin + pot)', &
-           '10) Mass coordinate', &
-           '11) Gas omega w.r.t. CoM', &
-           '12) Gas omega w.r.t. sink 1',&
-           '13) JstarS', &
-           '14) Escape velocity'
+    call prompt('Enter number of extra quantities to write out: ',Nquant,0)
+    allocate(quants(Nquant))
 
-    quantities_to_calculate = (/1,2,4,5/)
-    call prompt('Choose first quantity to compute ',quantities_to_calculate(1),0,Nquantities)
-    call prompt('Choose second quantity to compute ',quantities_to_calculate(2),0,Nquantities)
-    call prompt('Choose third quantity to compute ',quantities_to_calculate(3),0,Nquantities)
-    call prompt('Choose fourth quantity to compute ',quantities_to_calculate(4),0,Nquantities)
+    print "(13(a,/))",&
+           '1) Total energy (kin + pot + therm)', &
+           '2) Total energy (kin + pot)', &
+           '3) Specific recombination energy', &
+           '4) Mach number', &
+           '5) Opacity from MESA tables', &
+           '6) Gas omega w.r.t. sink CoM', &
+           '7) Gas omega w.r.t. sink 1',&
+           '8) Fractional difference between gas and orbital omega w.r.t. sink CoM', &
+           '9) MESA EoS specific entropy', &
+           '10) Fractional entropy gain', &
+           '11) Mass coordinate', &
+           '12) Escape velocity', &
+           '13) JstarS'
+
+    do i=1,Nquant
+       write(msg, '(a,i2,a)') 'Enter quantity ',i,':'
+       call prompt(msg,quants(i),0,Noptions)
+    enddo
  endif
+
+ allocate(arr(Nquant,npart),iu(Nquant))
+ arr = 0.
 
  ! Calculations performed outside loop over particles
  call compute_energies(time)
  omega_orb = 0.
  com_xyz = 0.
  com_vxyz = 0.
- do k=1,4
-    select case (quantities_to_calculate(k))
-    case(0,1,2,3,6,8,9,13,14) ! Nothing to do
-    case(4,5,11,12) ! Fractional difference between gas and orbital omega
-       if (quantities_to_calculate(k) == 4 .or. quantities_to_calculate(k) == 5) then
-          com_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-          com_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
-                  / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
-       elseif (quantities_to_calculate(k) == 11 .or. quantities_to_calculate(k) == 12) then
-          com_xyz = xyzmh_ptmass(1:3,1)
-          com_vxyz = vxyz_ptmass(1:3,1)
-       endif
-       do i=1,nptmass
-          xyz_a(1:3) = xyzmh_ptmass(1:3,i) - com_xyz(1:3)
-          vxyz_a(1:3) = vxyz_ptmass(1:3,i) - com_vxyz(1:3)
-          omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-       enddo
-    case(7)
-       if (dump_number==0) allocate(init_entropy(npart))
-    case(10)
-       call set_r2func_origin(0.,0.,0.)
-       allocate(iorder(npart))
-       call indexxfunc(npart,r2func_origin,xyzh,iorder)
-       deallocate(iorder)
-    case default
-       print*,"Error: Requested quantity is invalid."
-       stop
-    end select
- enddo
+ epoti = 0.
+ ekini = 0.
 
- !set initial abundances to get mass_per_H
- call set_abundances
- ! Calculations performed in loop over particles
+ req_eos_call = any(quants==1 .or. quants==2 .or. quants==4 .or. quants==6 .or. quants==7 &
+               .or. quants==9 .or. quants==10 .or. quants==13)
+ req_gas_energy = any(quants==1 .or. quants==2 .or. quants==3)
+ req_thermal_energy = any(quants==1 .or. quants==3)
+ 
+ if (any(quants==6 .or. quants==8)) then
+    sinkcom_xyz  = (xyzmh_ptmass(1:3,1)*xyzmh_ptmass(4,1) + xyzmh_ptmass(1:3,2)*xyzmh_ptmass(4,2)) &
+                 / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+    sinkcom_vxyz = (vxyz_ptmass(1:3,1)*xyzmh_ptmass(4,1)  + vxyz_ptmass(1:3,2)*xyzmh_ptmass(4,2))  &
+                 / (xyzmh_ptmass(4,1) + xyzmh_ptmass(4,2))
+ endif
+
+ if (any(quants==11)) then
+    call set_r2func_origin(0.,0.,0.)
+    allocate(iorder(npart))
+    call indexxfunc(npart,r2func_origin,xyzh,iorder)
+ endif
+
+ if (any(quants==10) .and. dump_number==0) allocate(init_entropy(npart))
+ 
+ if (any(quants==13)) call set_abundances  ! set initial abundances to get mass_per_H
+
+
  do i=1,npart
-    do k=1,4
-       select case (quantities_to_calculate(k))
+    rhopart = rhoh(xyzh(4,i),particlemass)
+    rho_cgs = rhopart*unit_density
+    if (req_eos_call) then
+       call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
+    endif
+
+    if (req_gas_energy) then
+       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+                              epoti,ekini,egasi,eradi,ereci,dum1)
+    endif
+
+    if (req_thermal_energy) then
+       call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
+    endif
+
+    do k=1,Nquant
+       select case (quants(k))
+       case(1)  ! Total energy (kin + pot + therm)
+          arr(k,i) = (ekini + epoti + ethi) / particlemass
+       case(2)  ! Total energy (kin + pot)
+          arr(k,i) = (ekini + epoti) / particlemass
+       case(3)  ! Specific recombination energy
+          arr(k,i) = vxyzu(4,i) - ethi / particlemass
+       case(4) ! Mach number
+          arr(k,i) = distance(vxyzu(1:3,i)) / spsoundi
+       case(5) ! Opacity from MESA tables
+          call ionisation_fraction(rho_cgs,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
+          if (ieos == 10) then
+             call get_eos_kappa_mesa(rho_cgs,eos_vars(itemp,i),kappai,kappat,kappar)
+             arr(k,i) = kappai
+          else
+             arr(k,i) = 0.
+          endif
+       case(6) ! Gas omega w.r.t. sink CoM
+          xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)
+          vxyz_a = vxyzu(1:3,i) - sinkcom_vxyz(1:3)
+          arr(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+       case(7) ! Gas omega w.r.t. sink 1
+          xyz_a  = xyzh(1:3,i)  - xyzmh_ptmass(1:3,1)
+          vxyz_a = vxyzu(1:3,i) - vxyz_ptmass(1:3,1)
+          arr(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+       case(8) ! Fractional difference between gas and orbital omega
+          xyz_a  = xyzh(1:3,i)  - sinkcom_xyz(1:3)
+          vxyz_a = vxyzu(1:3,i) - sinkcom_vxyz(1:3)
+          omega_orb = omega_orb + 0.5 * (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+          arr(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
+          arr(k,i) = arr(k,i)/omega_orb - 1.
+       case(9,10) ! Calculate MESA EoS entropy
+          entropyi = 0.
+          if (ieos==10) then
+             call getvalue_mesa(rho_cgs,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
+             mu = rho_cgs * Rg * eos_vars(itemp,i) / pgas
+             entropyi = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
+          elseif (ieos==2) then
+             entropyi = entropy(rho_cgs,ponrhoi*rhopart*unit_pressure,gmw,1)
+          endif
+          if (quants(k) == 10) then
+             if (dump_number == 0) init_entropy(i) = entropyi ! Store initial entropy on each particle
+             arr(k,i) = entropyi/init_entropy(i) - 1.
+          elseif (quants(k) == 9) then
+             arr(k,i) = entropyi
+          endif
+       case(11) ! Mass coordinate
+          arr(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
+       case(12) ! Escape_velocity
+          call calc_escape_velocities(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,v_esci)
+          arr(k,i) = v_esci
        case(13) !to calculate JstarS
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          rho_cgs = rhopart*unit_density
-          !call equationofstate to obtain temperature and store it in tempi
-          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           JstarS = 0.
           !nH_tot is needed to normalize JstarS
           nH_tot = rho_cgs/mass_per_H
@@ -1405,105 +1478,26 @@ subroutine output_divv_files(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'epsC = ',epsC
              print *,'tempi = ',tempi
              print *,'S = ',S
-             print *,'pC =',pC
-             print *,'psat_C(tempi) = ',psat_C(tempi)
-             print *,'nucleation(idmu,i) = ',nucleation(idmu,i)
-             print *,'nucleation(idgamma,i) = ',nucleation(idgamma,i)
              print *,'taustar = ',taustar
              print *,'eps = ',eps
              print *,'JstarS = ',JstarS
           endif
-          quant(k,i) = JstarS
-
-       case(0) ! Skip
-          quant(k,i) = 0.
-
-       case(1,9) ! Total energy (kin + pot + therm)
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-          call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                                 epoti,ekini,egasi,eradi,ereci,dum1)
-          if (quantities_to_calculate(k)==1) then
-             call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-             quant(k,i) = (ekini + epoti + ethi) / particlemass ! Specific energy
-          elseif (quantities_to_calculate(k)==9) then
-             quant(k,i) = (ekini + epoti) / particlemass ! Specific energy
-          endif
-
-       case(2) ! Mach number
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-          quant(k,i) = distance(vxyzu(1:3,i)) / spsoundi
-
-       case(3) ! Opacity from MESA tables
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          call ionisation_fraction(rhopart*unit_density,eos_vars(itemp,i),X_in,1.-X_in-Z_in,dum1,dum2,dum3,dum4,dum5)
-          if (ieos == 10) then
-             call get_eos_kappa_mesa(rhopart*unit_density,eos_vars(itemp,i),kappai,kappat,kappar)
-             quant(k,i) = kappai
-          else
-             quant(k,i) = 0.
-          endif
-
-       case(4,11,12) ! Gas omega w.r.t. effective CoM
-          xyz_a  = xyzh(1:3,i)  - com_xyz(1:3)
-          vxyz_a = vxyzu(1:3,i) - com_vxyz(1:3)
-          quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-
-       case(5) ! Fractional difference between gas and orbital omega
-          xyz_a  = xyzh(1:3,i)  - com_xyz(1:3)
-          vxyz_a = vxyzu(1:3,i) - com_vxyz(1:3)
-          quant(k,i) = (-xyz_a(2) * vxyz_a(1) + xyz_a(1) * vxyz_a(2)) / dot_product(xyz_a(1:2), xyz_a(1:2))
-          quant(k,i) = (quant(k,i) - omega_orb) / omega_orb
-
-       case(6,7) ! Calculate MESA EoS entropy
-          entropyi = 0.
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-          if (ieos==10) then
-             call getvalue_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,3,pgas,ierr) ! Get gas pressure
-             mu = rhopart*unit_density * Rg * eos_vars(itemp,i) / pgas
-             entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,mu,3,vxyzu(4,i)*unit_ergg,ierr)
-          elseif (ieos==2) then
-             entropyi = entropy(rhopart*unit_density,ponrhoi*rhopart*unit_pressure,gmw,1)
-          endif
-
-          if (quantities_to_calculate(k) == 7) then
-             if (dump_number == 0) then
-                init_entropy(i) = entropyi ! Store initial entropy on each particle
-             endif
-             quant(k,i) = entropyi/init_entropy(i) - 1.
-          elseif (quantities_to_calculate(k) == 6) then
-             quant(k,i) = entropyi
-          endif
-
-       case(8) ! Specific recombination energy
-          rhopart = rhoh(xyzh(4,i), particlemass)
-          call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
-          call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-          quant(k,i) = vxyzu(4,i) - ethi / particlemass ! Specific energy
-
-       case(10) ! Mass coordinate
-          quant(k,iorder(i)) = real(i,kind=kind(time)) * particlemass
-
-       case(14) ! Escape_velocity
-          call calc_escape_velocities(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),xyzmh_ptmass,phii,epoti,v_esci)
-          quant(k,i) = v_esci
+          arr(k,i) = JstarS
        case default
-          print*,"Error: Requested quantity is invalid."
-          stop
+          call fatal('analysis_common_envelope','Requested quantity is invalid.')
        end select
     enddo
  enddo
 
- open(newunit=iu,file=trim(dumpfile)//".divv",status='replace',form='unformatted')
- do k=1,4
-    write(iu) (quant(k,i),i=1,npart)
+ ! Open files
+ do k=1,Nquant
+    open(newunit=iu(k),file=trim(dumpfile)//"."//trim(labels(quants(k)))//".extras",status='replace',form='unformatted')
+    write(iu(k)) (arr(k,i),i=1,npart)
+    close(iu(k))
  enddo
- close(iu)
- deallocate(quant)
+ deallocate(arr)
 
-end subroutine output_divv_files
+end subroutine output_extra_quantities
 
 
 
@@ -2052,7 +2046,7 @@ subroutine energy_profile(time,npart,particlemass,xyzh,vxyzu)
                     '            # HeI', &
                     '           # HeII', &
                     '          # HeIII' /)
-  case(5) ! Sound speed
+ case(5) ! Sound speed
     filename = '       grid_cs.ev'
     headerline = '# cs profile    '
  end select
@@ -2766,8 +2760,7 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  real                      :: etoti,ekini,egasi,eradi,ereci,epoti,ethi,phii,dum,rhopart,&
                               ponrhoi,spsoundi,tempi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
  character(len=40)         :: data_formatter,logical_format
- logical, allocatable      :: isbound(:)
- integer, allocatable      :: H_state(:),He_state(:)
+ integer, allocatable      :: H_state(:),He_state(:),isbound(:)
  integer                   :: i
  real, parameter           :: recomb_th=0.05
 
@@ -2779,17 +2772,16 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,dum)
-    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-    etoti = ekini + epoti + ethi
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rad(:,i))
+    etoti = ekini + epoti! + ethi
 
-    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
-    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    call ionisation_fraction(rhopart*unit_density,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
     ! Is unbound?
     if (etoti > 0.) then
-       isbound(i) = .false.
+       isbound(i) = 0
     else
-       isbound(i) = .true.
+       isbound(i) = 1
     endif
 
     ! H ionisation state
@@ -2813,8 +2805,8 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
     endif
  enddo
 
- write(data_formatter, "(a,I5,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
- write(logical_format, "(a,I5,a)") "(es18.10e3,", npart, "(1x,L))" ! Time column plus npart columns
+ write(data_formatter, "(a,I7,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
+ write(logical_format, "(a,I7,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
 
  if (num == 0) then ! Write header line
     open(unit=1000,file="H_state.ev",status='replace')
@@ -2832,13 +2824,13 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  write(1000,data_formatter) time,H_state(:)
  close(unit=1000)
 
- open(unit=1000,file="He_state.ev", position='append')
- write(1000,data_formatter) time,He_state(:)
- close(unit=1000)
+ open(unit=1001,file="He_state.ev", position='append')
+ write(1001,data_formatter) time,He_state(:)
+ close(unit=1001)
 
- open(unit=1000,file="isbound.ev", position='append')
- write(1000,logical_format) time,isbound(:)
- close(unit=1000)
+ open(unit=1002,file="isbound.ev", position='append')
+ write(1002,logical_format) time,isbound(:)
+ close(unit=1002)
 
  deallocate(isbound,H_state,He_state)
 
@@ -3795,7 +3787,7 @@ subroutine calc_gas_energies(particlemass,poten,xyzh,vxyzu,rad,xyzmh_ptmass,phii
  call get_accel_sink_gas(nptmass,xyzh(1),xyzh(2),xyzh(3),xyzh(4),xyzmh_ptmass,fxi,fyi,fzi,phii)
  epoti = 2.*poten + particlemass * phii ! For individual particles, need to multiply 2 to poten to get \sum_j G*mi*mj/r
  ekini = particlemass * 0.5 * dot_product(vxyzu(1:3),vxyzu(1:3))
-
+ egasradi = 0.
  egasi = 0.
  ereci = 0.
  if (do_radiation) then

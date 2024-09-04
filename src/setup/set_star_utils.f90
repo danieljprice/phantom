@@ -397,7 +397,8 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  real    :: rho_cgs,p_cgs
  integer :: i1
 
- i1 = 0
+ i1  = 0
+ eni = 0.
  if (present(npin)) i1 = npin  ! starting position in particle array
 
  if (do_radiation) then
@@ -439,7 +440,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radxi_from_Trad(tempi)
+          rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        else
           vxyzu(4,i) = eni / unit_ergg
        endif
