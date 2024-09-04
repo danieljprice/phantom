@@ -1478,10 +1478,6 @@ subroutine output_extra_quantities(time,dumpfile,npart,particlemass,xyzh,vxyzu)
              print *,'epsC = ',epsC
              print *,'tempi = ',tempi
              print *,'S = ',S
-             print *,'pC =',pC
-             print *,'psat_C(tempi) = ',psat_C(tempi)
-             print *,'nucleation(idmu,i) = ',nucleation(idmu,i)
-             print *,'nucleation(idgamma,i) = ',nucleation(idgamma,i)
              print *,'taustar = ',taustar
              print *,'eps = ',eps
              print *,'JstarS = ',JstarS
@@ -2764,8 +2760,7 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  real                      :: etoti,ekini,egasi,eradi,ereci,epoti,ethi,phii,dum,rhopart,&
                               ponrhoi,spsoundi,tempi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
  character(len=40)         :: data_formatter,logical_format
- logical, allocatable      :: isbound(:)
- integer, allocatable      :: H_state(:),He_state(:)
+ integer, allocatable      :: H_state(:),He_state(:),isbound(:)
  integer                   :: i
  real, parameter           :: recomb_th=0.05
 
@@ -2777,17 +2772,16 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
     rhopart = rhoh(xyzh(4,i), particlemass)
     call equationofstate(ieos,ponrhoi,spsoundi,rhopart,xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
     call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,epoti,ekini,egasi,eradi,ereci,dum)
-    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi)
-    etoti = ekini + epoti + ethi
+    call calc_thermal_energy(particlemass,ieos,xyzh(:,i),vxyzu(:,i),ponrhoi*rhopart,eos_vars(itemp,i),ethi,rad(:,i))
+    etoti = ekini + epoti! + ethi
 
-    call get_eos_pressure_temp_mesa(rhopart*unit_density,vxyzu(4,i)*unit_ergg,pressure,temperature) ! This should depend on ieos
-    call ionisation_fraction(rhopart*unit_density,temperature,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
+    call ionisation_fraction(rhopart*unit_density,tempi,X_in,1.-X_in-Z_in,xh0,xh1,xhe0,xhe1,xhe2)
 
     ! Is unbound?
     if (etoti > 0.) then
-       isbound(i) = .false.
+       isbound(i) = 0
     else
-       isbound(i) = .true.
+       isbound(i) = 1
     endif
 
     ! H ionisation state
@@ -2811,8 +2805,8 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
     endif
  enddo
 
- write(data_formatter, "(a,I5,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
- write(logical_format, "(a,I5,a)") "(es18.10e3,", npart, "(1x,L))" ! Time column plus npart columns
+ write(data_formatter, "(a,I7,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
+ write(logical_format, "(a,I7,a)") "(es18.10e3,", npart, "(1x,i1))" ! Time column plus npart columns
 
  if (num == 0) then ! Write header line
     open(unit=1000,file="H_state.ev",status='replace')
@@ -2830,13 +2824,13 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  write(1000,data_formatter) time,H_state(:)
  close(unit=1000)
 
- open(unit=1000,file="He_state.ev", position='append')
- write(1000,data_formatter) time,He_state(:)
- close(unit=1000)
+ open(unit=1001,file="He_state.ev", position='append')
+ write(1001,data_formatter) time,He_state(:)
+ close(unit=1001)
 
- open(unit=1000,file="isbound.ev", position='append')
- write(1000,logical_format) time,isbound(:)
- close(unit=1000)
+ open(unit=1002,file="isbound.ev", position='append')
+ write(1002,logical_format) time,isbound(:)
+ close(unit=1002)
 
  deallocate(isbound,H_state,He_state)
 
