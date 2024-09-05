@@ -1446,6 +1446,7 @@ subroutine test_SDAR(ntests,npass)
  call init_step(npart,t,dtmax)
  do while (t < tmax)
     dtext = dt
+    !write(1,*)t,bin_info(:,2)
     call step(npart,npart,t,dt,dtext,dtnew)
     call compute_energies(t)
     errmax = max(errmax,abs(etot - etotin))
