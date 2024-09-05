@@ -13,12 +13,12 @@ module setorbit
 !   0) Campbell elements for bound or unbound orbit (aeiOwf)
 !   1) Flyby parameters (periapsis, initial separation, argument of periapsis, inclination)
 !   2) position and velocity for both bodies
-
-!  While Campbell elements can be used for unbound orbits, they require
-!  specifying the true anomaly at the start of the simulation. This is
-!  not always easy to determine, so the flyby option is provided as an
-!  alternative. There one specifies the initial separation instead, however
-!  the choice of angles is more restricted
+!
+! While Campbell elements can be used for unbound orbits, they require
+! specifying the true anomaly at the start of the simulation. This is
+! not always easy to determine, so the flyby option is provided as an
+! alternative. There one specifies the initial separation instead, however
+! the choice of angles is more restricted
 !
 ! :References: None
 !

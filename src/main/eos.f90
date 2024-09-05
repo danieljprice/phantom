@@ -42,7 +42,7 @@ module eos
 !   - metallicity : *metallicity*
 !   - mu          : *mean molecular weight*
 !
-! :Dependencies: dim, dump_utils, eos_barotropic, eos_gasradrec,
+! :Dependencies: dim, dump_utils, eos_HIIR, eos_barotropic, eos_gasradrec,
 !   eos_helmholtz, eos_idealplusrad, eos_mesa, eos_piecewise, eos_shen,
 !   eos_stratified, infile_utils, io, mesa_microphysics, part, physcon,
 !   units
@@ -478,8 +478,8 @@ subroutine init_eos(eos_type,ierr)
  use eos_shen,       only:init_eos_shen_NL3
  use eos_gasradrec,  only:init_eos_gasradrec
  use eos_stamatellos,only:read_optab,init_S07cool,eos_file
- use dim,            only:maxvxyzu,do_radiation
  use eos_HIIR,       only:init_eos_HIIR
+ use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
  integer              :: ierr_mesakapp
@@ -557,6 +557,7 @@ subroutine init_eos(eos_type,ierr)
     endif
 
  case(21,22)
+
     call init_eos_HIIR()
 
  case(23)

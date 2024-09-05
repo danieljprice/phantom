@@ -12,7 +12,7 @@ rm -f *.ev *txt
 # grab the data file from the server if it doesn't already exist
 file=binary_01000
 if [ ! -f $file ]; then
-   curl -k https://users.monash.edu.au/~dprice/phantom/data/tests/test_analysis_ce/binary_01000 -o binary_01000; err=$?;
+   curl -k https://zenodo.org/records/13163487/files/binary_01000 -o binary_01000; err=$?;
    if [ $err -gt 0 ]; then
       exit $err;
    fi

@@ -3030,6 +3030,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
 
              ! new cleaning evolving d/dt (psi/c_h)
              dBevol(4,i) = -vcleani*fsum(idivBdiffi)*rho1i - psii*dtau - 0.5*psii*divvi
+
              dtclean   = C_cour*hi/(vcleani + tiny(0.))
           endif
        endif

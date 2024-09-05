@@ -19,11 +19,11 @@ module initial
 !   damping, densityforce, deriv, dim, dust, dust_formation,
 !   einsteintk_utils, energies, eos, evwrite, extern_gr, externalforces,
 !   fastmath, fileutils, forcing, growth, inject, io, io_summary,
-!   krome_interface, linklist, metric_tools, mf_write, mpibalance,
-!   mpidomain, mpimemory, mpitree, mpiutils, nicil, nicil_sup, omputils,
-!   options, part, partinject, porosity, ptmass, radiation_utils,
-!   readwrite_dumps, readwrite_infile, subgroup, timestep, timestep_ind,
-!   timestep_sts, timing, tmunu2grid, units, writeheader
+!   krome_interface, linklist, metric, metric_et_utils, metric_tools,
+!   mf_write, mpibalance, mpidomain, mpimemory, mpitree, mpiutils, nicil,
+!   nicil_sup, omputils, options, part, partinject, porosity, ptmass,
+!   radiation_utils, readwrite_dumps, readwrite_infile, subgroup, timestep,
+!   timestep_ind, timestep_sts, timing, tmunu2grid, units, writeheader
 !
 
  implicit none
@@ -41,7 +41,7 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine initialise()
- use dim,              only:mpi
+ use dim,              only:mpi,gr
  use io,               only:fatal,die,id,master,nprocs,ievfile
 #ifdef FINVSQRT
  use fastmath,         only:testsqrt
@@ -56,6 +56,8 @@ subroutine initialise()
  use cpuinfo,          only:print_cpuinfo
  use checkoptions,     only:check_compile_time_settings
  use readwrite_dumps,  only:init_readwrite_dumps
+ use metric,           only:metric_type
+ use metric_et_utils,  only:read_tabulated_metric,gridinit
  integer :: ierr
 !
 !--write 'PHANTOM' and code version
@@ -99,6 +101,13 @@ subroutine initialise()
 !--initialise MPI domains
 !
  call init_domains(nprocs)
+!
+!--initialise metric if tabulated
+!
+ if (gr  .and. metric_type=='et') then
+    call read_tabulated_metric('tabuled_metric.dat',ierr)
+    if (ierr == 0) gridinit = .true.
+ endif
 
  call init_readwrite_dumps()
 
@@ -131,7 +140,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
                             epot_sinksink,get_ntypes,isdead_or_accreted,dustfrac,ddustevol,&
                             nden_nimhd,dustevol,rhoh,gradh, &
                             Bevol,Bxyz,dustprop,filfac,ddustprop,ndustsmall,iboundary,eos_vars,dvdx, &
-                            n_group,n_ingroup,n_sing,nmatrix,group_info,isionised
+                            n_group,n_ingroup,n_sing,nmatrix,group_info,bin_info,isionised
  use part,             only:pxyzu,dens,metrics,rad,radprop,drad,ithick
  use densityforce,     only:densityiterate
  use linklist,         only:set_linklist
@@ -212,7 +221,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
  use checkconserved,   only:get_conserv,etot_in,angtot_in,totmom_in,mdust_in
  use fileutils,        only:make_tags_unique
  use damping,          only:idamp
- use subgroup,         only:group_identify,init_subgroup
+ use subgroup,         only:group_identify,init_subgroup,update_kappa
  use HIIRegion,        only:iH2R,initialize_H2R,update_ionrates
  character(len=*), intent(in)  :: infile
  character(len=*), intent(out) :: logfile,evfile,dumpfile
@@ -508,9 +517,11 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     ! compute initial sink-sink forces and get timestep
     if (use_regnbody) then
        call init_subgroup
-       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+       call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix)
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
-                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                             group_info=group_info,bin_info=bin_info)
+
     else
        call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
                              iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
@@ -527,8 +538,14 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
           if (ntypes > 1 .and. maxphase==maxp) then
              pmassi = massoftype(iamtype(iphase(i)))
           endif
-          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
-                   fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
+          if (use_regnbody) then
+             call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                     fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,&
+                                     dsdt_ptmass,fonrmax,dtphi2,bin_info=bin_info)
+          else
+             call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+            fext(1,i),fext(2,i),fext(3,i),poti,pmassi,fxyz_ptmass,dsdt_ptmass,fonrmax,dtphi2)
+          endif
           dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
        endif
     enddo
@@ -543,6 +560,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
     !  Reduce dt over MPI tasks
     dtsinkgas = reduceall_mpi('min',dtsinkgas)
     dtextforce = reduceall_mpi('min',dtextforce)
+    if (use_regnbody) call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
  endif
  call init_ptmass(nptmass,logfile)
  if (gravity .and. icreate_sinks > 0 .and. id==master) then
