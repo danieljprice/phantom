@@ -7,7 +7,7 @@ Visualisation of Phantom output
 Dump files
 ~~~~~~~~~~
 
-That's what `splash <https://users.monash.edu.au/~splash>`_ is for! Use splash to interactively inspect the dump
+That's what `splash <https://github.com/danieljprice/splash>`_ is for! Use splash to interactively inspect the dump
 files produced by phantom, e.g.:
 
 .. code-block:: bash

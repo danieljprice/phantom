@@ -11,10 +11,10 @@ splash
 ~~~~~~
 For SPH simulations the raw data is not so useful since to visualise
 fields in a smooth manner one needs to use the SPH kernel. This is the
-purpose of `splash <https://users.monash.edu.au/~splash>`_, to enable you to produce smooth plots and visualisations
+purpose of `splash <https://github.com/danieljprice/splash>`_, to enable you to produce smooth plots and visualisations
 from the code. It reads the raw data files and gives you plots and visualisations::
 
-  splash file_00000 -r 6
+  splash file_00000 -r 6 --movie
 
 sarracen
 ~~~~~~~~

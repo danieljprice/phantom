@@ -91,7 +91,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
                             linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
- use part,             only:n_group,n_ingroup,n_sing,group_info,nmatrix
+ use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
                             set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
@@ -143,7 +143,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
- integer         :: dummy,istepHII
+ integer         :: dummy,istepHII,nptmass_old
 
  dummy = 0
 
@@ -279,7 +279,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     !  across all nodes
     nskip = int(ntot)
 #endif
-
+    nptmass_old = nptmass
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
@@ -310,20 +310,21 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           istepHII = 2**nbinmax/HIIuprate
           if (istepHII==0) istepHII = 1
        endif
-       if (mod(istepfrac,istepHII)==0 .or. istepfrac==1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
+       if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
           call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
        endif
     endif
 
     ! Need to recompute the force when sink or stars are created
-    if (ipart_rhomax /= 0 .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
+    if (nptmass > nptmass_old .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
        if (use_regnbody) then
-          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
+                              new_ptmass=.true.,dtext=dtextforce)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,group_info=group_info)
+                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info,group_info=group_info)
        else
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass)
+                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info)
        endif
        if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
        if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
