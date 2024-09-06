@@ -858,6 +858,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use externalforces,  only:update_externalforce
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:group_identify
+ use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
  integer,                  intent(in)    :: nptmass,npart,nsubsteps,ntypes
  integer,                  intent(inout) :: force_count
  integer,                  intent(inout) :: linklist_ptmass(:)
@@ -872,6 +873,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  integer,        optional, intent(inout) :: group_info(:,:)
  integer(kind=1),optional, intent(inout) :: nmatrix(:,:)
  logical,        optional, intent(in)    :: isionised(:)
+ real(kind=4)    :: t1,t2,tcpu1,tcpu2
  integer         :: merge_ij(nptmass)
  integer         :: merge_n
  integer         :: i,itype
@@ -916,6 +918,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  ! Sink-sink interactions (loop over ptmass in get_accel_sink_sink)
  !
  if (nptmass > 0) then
+    call get_timings(t1,tcpu1)
     if (id==master) then
        if (extrap) then
           if (wsub) then
@@ -977,11 +980,14 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtf)
     dtextforcenew = min(dtextforcenew,C_force*dtf)
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_sinksink,t2-t1,tcpu2-tcpu1)
  endif
 
  !
  !-- Forces on gas particles (Sink/gas,extf,damp,cooling,rad pressure)
  !
+ call get_timings(t1,tcpu1)
 
  !$omp parallel default(none) &
  !$omp shared(maxp,maxphase,wsub) &
@@ -1094,6 +1100,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  enddo
  !$omp enddo
  !$omp end parallel
+ call get_timings(t2,tcpu2)
+ call increment_timer(itimer_gasf,t2-t1,tcpu2-tcpu1)
 
 
  if (nptmass > 0) then
