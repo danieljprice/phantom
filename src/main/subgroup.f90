@@ -295,8 +295,9 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
  integer,         intent(inout) :: group_info(4,nptmass)
  integer,         intent(inout) :: n_group,n_ingroup,n_sing
+ logical, allocatable :: visited(:)
  integer :: i,ncg
- logical :: visited(nptmass)
+ allocate(visited(nptmass))
  visited = .false.
  group_info(igcum,1) = 0
  do i=1,nptmass
@@ -315,6 +316,8 @@ subroutine form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
        endif
     endif
  enddo
+ deallocate(visited)
+
 end subroutine form_group
 
 !--------------------------------------------------------------------------
@@ -330,8 +333,10 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
  integer,         intent(inout) :: group_info(4,nptmass)
  integer,         intent(inout) :: n_ingroup
  logical,         intent(inout) :: visited(nptmass)
- integer :: stack(nptmass)
- integer :: j,stack_top,inode
+ integer, allocatable :: stack(:)
+ integer              :: j,stack_top,inode
+
+ allocate(stack(nptmass))
 
  stack_top = 0
  ncg = 1
@@ -358,6 +363,7 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
        endif
     enddo
  enddo
+ deallocate(stack)
 end subroutine dfs
 
 !------------------------------------------------------------------------------------------
