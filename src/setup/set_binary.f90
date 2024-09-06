@@ -413,7 +413,7 @@ function get_period_from_a(m1,m2,a) result(period)
  real, intent(in) :: m1,m2,a
  real :: period
 
-period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
+ period= sqrt(((2.*pi)**2*a**3)/(m1 + m2))
 
 end function get_period_from_a
 
