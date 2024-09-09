@@ -840,7 +840,7 @@ end subroutine calc_rec_ene
 !+
 !-----------------------------------------------------------------------
 subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,X_local,Z_local)
- use physcon,          only:kb_on_mh
+ use physcon,          only:Rg
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
@@ -861,7 +861,7 @@ subroutine calc_temp_and_ene(eos_type,rho,pres,ene,temp,ierr,guesseint,mu_local,
  if (present(Z_local))  Z  = Z_local
  select case(eos_type)
  case(2,5,17) ! Ideal gas
-    temp = pres / (rho * kb_on_mh) * mu
+    temp = pres / (rho * Rg) * mu
     ene = pres / ( (gamma-1.) * rho)
  case(12) ! Ideal gas + radiation
     call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp)
@@ -889,7 +889,7 @@ end subroutine calc_temp_and_ene
 !+
 !-----------------------------------------------------------------------
 subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local)
- use physcon,          only:kb_on_mh
+ use physcon,          only:Rg
  use eos_idealplusrad, only:get_idealplusrad_rhofrompresT
  use eos_mesa,         only:get_eos_eT_from_rhop_mesa
  use eos_gasradrec,    only:calc_uT_from_rhoP_gasradrec
@@ -910,7 +910,7 @@ subroutine calc_rho_from_PT(eos_type,pres,temp,rho,ierr,mu_local,X_local,Z_local
  if (present(Z_local))  Z  = Z_local
  select case(eos_type)
  case(2) ! Ideal gas
-    rho = pres / (temp * kb_on_mh) * mu
+    rho = pres / (temp * Rg) * mu
  case(12) ! Ideal gas + radiation
     call get_idealplusrad_rhofrompresT(pres,temp,mu,rho)
  case default
@@ -1051,7 +1051,7 @@ end subroutine get_rho_from_p_s
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
- use physcon, only:kb_on_mh,radconst,Rg,mass_proton_cgs,kboltz
+ use physcon, only:radconst,Rg,mass_proton_cgs,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use units,   only:unit_density,unit_pressure,unit_ergg

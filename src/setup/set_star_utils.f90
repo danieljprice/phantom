@@ -458,7 +458,7 @@ end subroutine set_star_thermalenergy
 !-----------------------------------------------------------------------
 subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
  use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
- use physcon, only:radconst,kb_on_mh
+ use physcon, only:radconst,Rg
  integer, intent(in) :: eos_type
  real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
  logical, intent(in) :: regrid_core
@@ -475,7 +475,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
     if (i==1) then
        guessene = 1.5*pres(i)/den(i)  ! initial guess
-       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*Rg)) ! guess for temperature
     else
        guessene = en(i-1)
        tempi = temp(i-1)
