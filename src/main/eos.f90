@@ -953,13 +953,16 @@ function entropy(rho,pres,mu_in,ientropy,eint_in,ierr,T_in,Trad_in)
     entropy = kb_on_mh / mu * log(temp**1.5/rho)
 
  case(2) ! Include both gas and radiation contributions (up to additive constants)
-    if (present(Trad_in)) then
-       Trad = Trad_in
-    else
-       if (.not. present(T_in)) then
-          call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
-          Trad = temp  ! assume thermal equilibrium
+    if (present(T_in)) then
+       temp = T_in
+       if (present(Trad_in)) then
+          Trad = Trad_in
+       else
+          Trad = temp
        endif
+    else
+       call get_idealgasplusrad_tempfrompres(pres,rho,mu,temp) ! First solve for temp from rho and pres
+       Trad = temp
     endif
     ! check temp
     if (temp < tiny(0.)) call warning('entropy','temperature = 0 will give minus infinity with s entropy')
