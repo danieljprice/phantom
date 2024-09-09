@@ -1051,7 +1051,7 @@ end subroutine get_rho_from_p_s
 !+
 !-----------------------------------------------------------------------
 subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
- use physcon, only:kb_on_mh,radconst,rg,mass_proton_cgs,kboltz
+ use physcon, only:kb_on_mh,radconst,Rg,mass_proton_cgs,kboltz
  use io,      only:fatal
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_pres
  use units,   only:unit_density,unit_pressure,unit_ergg
@@ -1072,7 +1072,7 @@ subroutine get_p_from_rho_s(ieos,S,rho,mu,P,temp)
  select case (ieos)
  case (2,5,17)
     temp = (cgsrho * exp(mu*cgss*mass_proton_cgs))**(2./3.)
-    cgsP = cgsrho*kb_on_mh*temp / mu
+    cgsP = cgsrho*Rg*temp / mu
  case (12)
     corr = huge(corr)
     do while (abs(corr) > eoserr .and. niter < nitermax)
