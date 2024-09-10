@@ -4488,7 +4488,7 @@ subroutine set_eos_options(analysis_to_perform)
     gamma = 5./3.
     call prompt('Enter gamma:',gamma,0.)
     gmw = 0.618212823
-    call prompt('Enter mean molecular weight for gas+rad EoS:',gmw,0.)
+    call prompt('Enter mean molecular weight:',gmw,0.)
  case(10,20)
     gamma = 5./3.
     X_in = 0.69843
