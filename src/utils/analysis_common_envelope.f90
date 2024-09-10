@@ -2758,7 +2758,7 @@ subroutine recombination_stats(time,num,npart,particlemass,xyzh,vxyzu)
  real,    intent(in)       :: time,particlemass
  real,    intent(inout)    :: xyzh(:,:),vxyzu(:,:)
  real                      :: etoti,ekini,egasi,eradi,ereci,epoti,ethi,phii,dum,rhopart,&
-                              ponrhoi,spsoundi,tempi,pressure,temperature,xh0,xh1,xhe0,xhe1,xhe2
+                              ponrhoi,spsoundi,tempi,xh0,xh1,xhe0,xhe1,xhe2
  character(len=40)         :: data_formatter,logical_format
  integer, allocatable      :: H_state(:),He_state(:),isbound(:)
  integer                   :: i
