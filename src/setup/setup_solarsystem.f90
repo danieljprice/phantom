@@ -19,32 +19,43 @@ module setup
 ! :Dependencies: centreofmass, datautils, ephemeris, infile_utils, io, mpc,
 !   part, physcon, setbinary, timestep, units
 !
+ use setstar,  only:star_t
+!  use setorbit, only:orbit_t
+!  use dim,      only:gr
  implicit none
  public :: setpart
 
  real :: norbits
  integer :: dumpsperorbit
 
+ logical :: relax !,corotate
+ type(star_t)  :: star
+!  type(orbit_t) :: orbit
+ 
  private
 
 contains
-
 !----------------------------------------------------------------
 !+
 !  setup for solar system orbits
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,         only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
-                        grainsize,graindens,ndustlarge,ndusttypes,ihacc
- use setbinary,    only:set_binary
- use units,        only:set_units,umass,udist,unit_density
- use physcon,      only:solarm,au,pi,km,solarr
- use io,           only:master,fatal
- use timestep,     only:tmax,dtmax
- use mpc,          only:read_mpc,mpc_entry
- use datautils,    only:find_datafile
- use centreofmass, only:reset_centreofmass
+ use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,idust,set_particle_type,&
+                          grainsize,graindens,ndustlarge,ndusttypes,ihacc
+ use setorbit,       only:set_defaults_orbit,set_orbit
+ use setstar,        only:set_defaults_star,shift_star,set_star
+ use setbinary,      only:set_binary
+ use options,        only:iexternalforce
+ use externalforces, only:iext_corotate,iext_geopot,iext_star,omega_corotate,mass1,accradius1
+ use units,          only:set_units,umass,udist,unit_density
+ use physcon,        only:solarm,au,pi,km,solarr
+ use io,             only:master,fatal
+ use timestep,       only:tmax,dtmax
+ use mpc,            only:read_mpc,mpc_entry
+ use datautils,      only:find_datafile
+ use centreofmass,   only:reset_centreofmass
+!  use kernel,       only:hfact_default
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -61,6 +72,31 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  integer, parameter :: max_bodies = 2000000
  type(mpc_entry), allocatable :: dat(:)
 !
+!--general parameters
+!
+ dist_unit = 'solarr'
+ mass_unit = 'solarm'
+ time = 0.
+ polyk = 0.
+ gamma = 1.
+!  hfact = hfact_default
+!
+!--space available for injected gas particles
+!  in case only sink particles are used
+!
+ npart = 0
+ npartoftype(:) = 0
+ massoftype = 0.
+
+ xyzh(:,:)  = 0.
+ vxyzu(:,:) = 0.
+ nptmass = 0
+ nstar = 1
+ call set_defaults_star(star)
+ call set_defaults_orbit(orbit)
+ relax = .true.
+ corotate = .false.
+! 
 ! default runtime parameters
 !
  norbits       = 1000.
@@ -68,7 +104,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! read runtime parameters from setup file
 !
- if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",' solar system'
+ if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
+   ' Welcome to the Superb Solar System Setup'
+
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
  if (iexist) call read_setupfile(filename,ierr)
@@ -79,6 +117,20 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     endif
     stop
  endif
+ !
+ !--setup and relax stars as needed
+ !
+ use_var_comp = .false.
+ write_profile = .false.
+ iextern_prev = iexternalforce
+ iexternalforce = 0
+ gamma = 5./3.
+ call set_star(id,master,nstar,star,xyzh,vxyzu,eos_vars,rad,npart,npartoftype,&
+                massoftype,hfact,xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,&
+                X_in,Z_in,relax,use_var_comp,write_profile,&
+                rhozero,npart_total,i_belong,ierr)
+
+ call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
 !
 ! set units
 !
@@ -186,17 +238,18 @@ subroutine set_solarsystem_planets(nptmass,xyzmh_ptmass,vxyz_ptmass)
  use setbinary, only:set_binary
  integer, intent(inout) :: nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer,          parameter :: nplanets = 9
+ integer,          parameter :: nplanets = 10  ! including moon
  character(len=*), parameter :: planet_name(nplanets) = &
      (/'mercury', &
        'venus  ', &
        'earth  ', &
+       'moon   ', &
        'mars   ', &
        'jupiter', &
        'saturn ', &
        'uranus ', &
        'neptune', &
-       'apophis'/)  ! 'moon   ','apophis', 'pluto  ' for nostalgia's sake
+       'pluto  '/)  ! for nostalgia's sake
  real    :: elems(nelem),xyz_tmp(size(xyzmh_ptmass(:,1)),2),vxyz_tmp(3,2),gm_cgs
  real    :: msun,mplanet,a,e,inc,O,w,f
  integer :: i,ierr,ntmp
