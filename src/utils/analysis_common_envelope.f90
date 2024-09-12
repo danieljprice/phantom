@@ -2494,89 +2494,59 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
  integer, intent(in)                :: npart,num
  real,    intent(in)                :: time,particlemass
  real,    intent(inout)             :: xyzh(:,:),vxyzu(:,:)
- integer, dimension(4)              :: npart_hist
- real,    dimension(5,npart)        :: dist_part,rad_part
+ integer, dimension(2)              :: nunbound
+ real,    dimension(2,npart)        :: dist_part,rad_part
  real,    dimension(:), allocatable :: hist_var
- real                               :: etoti,ekini,ereci,egasi,eradi,epoti,phii,dum,maxloga,minloga
- character(len=18), dimension(4)    :: grid_file
+ real                               :: e_kp,e_kpt,etoti,ekini,ereci,egasi,eradi,epoti,phii,sep,maxloga,minloga
+ character(len=18), dimension(2)    :: grid_file
  character(len=40)                  :: data_formatter
- logical, allocatable, save         :: prev_unbound(:,:),prev_bound(:,:)
- integer                            :: i,unitnum,nbins
+ logical, allocatable, save         :: prev_bound(:,:)
+ integer                            :: i,j,unitnum,nbins,maxj
 
  call compute_energies(time)
- npart_hist = 0     ! Stores number of particles fulfilling each of the four bound/unbound criterion
+ nunbound   = 0     ! Stores number of particles that have become newly unbound in this dump according to e_kp or e_kpt criterion
  nbins      = 500
- rad_part   = 0.    ! (4,npart_hist)-array storing separations of particles
- dist_part  = 0.
+ rad_part   = 0.    ! (2,npart_hist)-array storing separations of newly unbound particles
+ dist_part  = 0.    ! Array of ones with size of 2?
  minloga    = 0.5
  maxloga    = 4.3
 
  allocate(hist_var(nbins))
- grid_file = (/ 'grid_unbound_th.ev', &
-                'grid_unbound_kp.ev', &
-                ' grid_bound_kpt.ev', &
-                '  grid_bound_kp.ev' /)
+ grid_file = (/ 'grid_unbound_th.ev', 'grid_unbound_kp.ev' /)
 
  if (dump_number == 0) then
     allocate(prev_bound(2,npart))
-    allocate(prev_unbound(2,npart))
-    prev_bound   = .false.
-    prev_unbound = .false.
+    prev_bound = .true.  ! all particles bound to begin with
  endif
 
-
  do i=1,npart
-    if (.not. isdead_or_accreted(xyzh(4,i))) then
-       call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
-                              epoti,ekini,egasi,eradi,ereci,dum)
-       etoti = ekini + epoti + egasi + eradi
+    if (isdead_or_accreted(xyzh(4,i))) cycle
+    call calc_gas_energies(particlemass,poten(i),xyzh(:,i),vxyzu(:,i),rad(:,i),xyzmh_ptmass,phii,&
+                        epoti,ekini,egasi,eradi,ereci,etoti)
+    e_kp = ekini + epoti
+    e_kpt = e_kp + egasi + eradi
 
-       ! Ekin + Epot + Eth > 0
-       if ((etoti > 0.) .and. (.not. prev_unbound(1,i))) then
-          npart_hist(1) = npart_hist(1) + 1 ! Keeps track of number of particles that have become newly unbound in this dump
-          rad_part(1,npart_hist(1)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          dist_part(1,npart_hist(1)) = 1. ! Array of ones with size of npart_hist(1)?
-          prev_unbound(1,i) = .true.
-       elseif (etoti < 0.) then
-          prev_unbound(1,i) = .false.
-       endif
-
-       ! Ekin + Epot > 0
-       if ((ekini + epoti > 0.) .and. (.not. prev_unbound(2,i))) then
-          npart_hist(2) = npart_hist(2) + 1
-          rad_part(2,npart_hist(2)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          dist_part(2,npart_hist(2)) = 1.
-          prev_unbound(2,i) = .true.
-       elseif (ekini + epoti < 0.) then
-          prev_unbound(2,i) = .false.
-       endif
-
-       ! Ekin + Epot + Eth < 0
-       if ((etoti < 0.) .and. (.not. prev_bound(1,i))) then
-          npart_hist(3) = npart_hist(3) + 1
-          rad_part(3,npart_hist(3)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          dist_part(3,npart_hist(3)) = 1.
-          prev_bound(1,i) = .true.
-       elseif (etoti > 0.) then
-          prev_bound(1,i) = .false.
-       endif
-
-       ! Ekin + Epot < 0
-       if ((ekini + epoti < 0.) .and. (.not. prev_bound(2,i))) then
-          npart_hist(4) = npart_hist(4) + 1
-          rad_part(4,npart_hist(4)) = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
-          dist_part(4,npart_hist(4)) = 1.
-          prev_bound(2,i) = .true.
-       elseif (ekini + epoti > 0.) then
-          prev_bound(2,i) = .false.
-       endif
+    if (e_kp > 0. .and. prev_bound(2,i)) then  ! newly bound by e_kp criterion
+       maxj = 2
+       sep = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    elseif (e_kpt > 0. .and. prev_bound(1,i)) then   ! newly bound by e_kpt but not e_kp criterion
+       maxj = 1
+       sep = separation(xyzh(1:3,i),xyzmh_ptmass(1:3,1))
+    else  ! particle state has not changed
+       cycle
     endif
+
+    do j = 1,maxj
+       nunbound(j) = nunbound(j) + 1
+       rad_part(j,nunbound(j)) = sep
+       dist_part(j,nunbound(j)) = 1.
+       prev_bound(j,i) = .false.
+    enddo
  enddo
 
- do i=1,4
-    call histogram_setup(rad_part(i,1:npart_hist(i)),dist_part(i,1:npart_hist(i)),hist_var,npart_hist(i),maxloga,minloga,nbins,&
+ do i=1,2
+    call histogram_setup(rad_part(i,1:nunbound(i)),dist_part(i,1:nunbound(i)),hist_var,nunbound(i),maxloga,minloga,nbins,&
                         .false.,.true.)
-
     write(data_formatter, "(a,I5,a)") "(", nbins+1, "(3x,es18.10e3,1x))" ! Time column plus nbins columns
 
     if (num == 0) then ! Write header line
@@ -2586,10 +2556,8 @@ subroutine unbound_profiles(time,num,npart,particlemass,xyzh,vxyzu)
     endif
 
     open(newunit=unitnum,file=trim(adjustl(grid_file(i))), position='append')
-
     write(unitnum,"()")
     write(unitnum,data_formatter) time,hist_var(:)
-
     close(unit=unitnum)
  enddo
  deallocate(hist_var)
