@@ -29,6 +29,8 @@ module eos_tillotson
  real :: rho_iv = 2.57 ! g/cm^3 incipient vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 1
 !  real :: rho_cv = 8.47 ! g/cm^3 complete vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 2
  private :: rho0, aparam, bparam, A, B, alpha, beta, u0, rho_iv, u_iv, u_cv
+!  private :: spsoundmin, spsound2, spsound3, pressure2, pressure3
+!  private :: expterm, expterm2, sqrtterm, sqrtterm1, sqrtterm2
 
 contains
 !-----------------------------------------------------------------------
@@ -48,73 +50,62 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  real, intent(out) :: pressure, spsound, gamma
  real :: eta, mu, neu, omega, spsoundmin, spsound2, spsound3, pressure2, pressure3
 
-eta = rho / rho0
-mu = eta - 1.
-neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
-omega = (u / (u0*eta**2) + 1.)
+ eta = rho / rho0
+ mu = eta - 1.
+ neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
+ omega = (u / (u0*eta**2) + 1.)
+ spsoundmin = sqrt(A / rho) ! wave speed estimate
+!  gamma = 2./3.
 
-! Brundage 2013 eq (2)
-pressure2 = (( aparam + ( bparam / omega ) ) * rho*u) + A*mu + B*mu**2
+! Brundage 2013 eq (2) cold expanded and compressed states
+ pressure2 = (( aparam + ( bparam / omega ) ) * rho*u) + A*mu + B*mu**2
+ if (pressure2 <= 0.) then
+  pressure2 = 0.
+ endif
 
-! Brundage 2013 eq (3)
-pressure3 = (aparam*rho*u) + ( ((bparam*rho*u)/omega) + &
+! Brundage 2013 eq (3) completely vaporised
+ pressure3 = (aparam*rho*u) + ( ((bparam*rho*u)/omega) + &
               A*mu*exp(-beta*neu)) * exp(-alpha*(neu**2))
+ if (pressure3 <= 0.) then
+  pressure3 = 0.
+ endif
 
 ! sound speed from Kegereis et al. 2020
-spsound2 = sqrt((pressure / rho) * (1. + aparam + (bparam / omega )) + &
-          ((bparam*(omega - 1.)) / omega**2) * (2.*u - pressure/rho)) + &
+ spsound2 = sqrt((pressure2 / rho) * (1. + aparam + (bparam / omega )) + &
+          ((bparam*(omega - 1.)) / omega**2) * (2.*u - pressure2/rho)) + &
           ((1./rho)*(A + B*((eta**2) - 1.)))
+ if (spsound2 < spsoundmin) then
+  spsound2 = spsoundmin
+ endif
 
-spsound3 = sqrt( (pressure/rho)*( 1. + aparam + ((bparam / omega )*exp(-alpha*(neu**2)))) + &
-            ( ((bparam*rho*u)/((omega**2)*(eta**2))) * ((1. /(u0*rho))*((2.*u) - (pressure/rho)) &
-            + ((2.*alpha*neu*omega)/rho0)) + ((A/rho0)*(1.+ (mu/eta**2)*((beta*2.*alpha*neu) - eta))) &
+ spsound3 = sqrt( (pressure3/rho)*( 1. + aparam + ((bparam / omega )*exp(-alpha*(neu**2)))) + &
+            ( ((bparam*rho*u)/((omega**2)*(eta**2))) * ((1. /(u0*rho))*((2.*u) - (pressure3/rho)) &
+            + ((2.*alpha*neu*omega)/rho0)) + ((A/rho0)*(1. + (mu/eta**2)*((beta*2.*alpha*neu) - eta))) &
             * exp(-beta*neu) )*exp(-alpha*(neu**2)) )
+ if (spsound3 < spsoundmin) then
+  spsound3 = spsoundmin
+ endif
 
-if (rho < rho0) then
-  if (u >= u_cv) then ! completely vaporised
-    pressure = pressure3
-    if (pressure <= 0.) then
-      pressure = 0.
-    endif
-    spsound = spsound3
-    spsoundmin = sqrt(A / rho) ! wave speed estimate
-    if (spsound < spsoundmin) then
-      spsound = spsoundmin
-    endif
-  elseif (rho >= rho_iv) then
-    if (u <= u_iv) then ! cold expanded
-      pressure = pressure2
-      if (pressure <= 0.) then
-        pressure = 0.
-      endif
-      spsound = spsound2
-      spsoundmin = sqrt(A / rho) ! wave speed estimate
-      if (spsound < spsoundmin) then
-        spsound = spsoundmin
-      endif
-    elseif (u < u_cv) then ! hybrid
-      pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-      if (pressure <= 0.) then
-        pressure = 0.
-      endif
-      spsound = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-      spsoundmin = sqrt(A / rho) ! wave speed estimate
-      if (spsound < spsoundmin) then
-        spsound = spsoundmin
-      endif
-    endif
-  endif
-else ! rho >= rho0 compressed state
-  pressure = pressure3
-    if (pressure <= 0.) then
-      pressure = 0.
-    endif
-    spsound = spsound3
-    spsoundmin = sqrt(A / rho) ! wave speed estimate
-    if (spsound < spsoundmin) then
-      spsound = spsoundmin
-    endif
-endif
+
+ if (rho < rho0) then
+   if (rho <= rho_iv) then ! u <= u_iv  cold expanded
+     pressure = pressure2
+     spsound = spsound2
+    !  print*, "cold expanded, pressure = ", pressure
+   elseif (rho > rho_iv) then ! u_iv < u < u_cv   hybrid
+     pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+     spsound = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+    !  print*, "hybrid, pressure = ", pressure
+   else ! u >= u_cv             completely vaporised
+     pressure = pressure3
+     spsound = spsound3
+    !  print*, "vaporised, pressure = ", pressure
+   endif
+ else ! rho >= rho0 ; u >= 0.   compressed state
+   pressure = pressure2
+   spsound = spsound2
+  !  print*, "compressed, pressure = ", pressure
+ endif
 
 end subroutine equationofstate_tillotson
 
@@ -136,29 +127,41 @@ end subroutine eos_info_tillotson
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
-  real, intent(in) :: rho,pres
-  real, intent(out) :: temp,u
-  integer, intent(out) :: ierr
-  real :: eta, mu, neu, omega, expterm
+ real, intent(in) :: rho,pres
+ real, intent(out) :: temp,u
+ integer, intent(out) :: ierr
+ real :: eta, mu, neu, omega, expterm, expterm2, sqrtterm1, sqrtterm2, sqrtterm
  
  eta = rho / rho0
  mu = eta - 1.
  neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
  omega = (u / (u0*eta**2) + 1.)
 
-  if (rho >= rho0) then ! Condensed state
-    u = (pres - A*mu - B*mu**2) / ( aparam + ( bparam / omega )  * rho)
-  else
-    expterm = exp(-alpha*(neu**2))
-    u = (pres - A*mu*exp(-beta*neu)*expterm ) &
-        / (aparam*rho + ((bparam*rho)/omega)*expterm)
-  endif
-  temp = 300.
-  ierr = 0
-  if (u<0.) then
-    u = 0.
-    ierr = 1
-  endif
+ if (rho >= rho0) then ! Condensed state
+  !   u = (pres - A*mu - B*mu**2) / ( aparam + ( bparam / omega )  * rho)
+   sqrtterm1 = ((aparam*(eta**2)*u0 + bparam*(eta**2)*u0 &
+                + (A*mu + B*(mu**2) - pres )/rho )**2 )/(4.*aparam**2)
+   sqrtterm2 = ((A*mu*(eta**2)*u0 + B*mu*(eta**2)*u0 &
+                - (eta**2)*u0*pres) / rho) / aparam
+   sqrtterm = sqrtterm1 - sqrtterm2
+   u = abs(sqrt(sqrtterm)) - ( (aparam*(eta**2)*u0 + bparam*(eta**2)*u0 &
+        + ((A*mu + B*(mu**2) - pres) / rho)) / 2.*aparam)
+ else
+   expterm = exp(-alpha*(neu**2))
+   expterm2 = exp(-beta*neu)
+  !   u = (pres - A*mu*exp(-beta*neu)*expterm ) &
+  !       / (aparam*rho + ((bparam*rho)/omega)*expterm)
+   sqrtterm = u0*(eta**2)*((pres - ((A*mu*expterm2)*expterm))/rho)
+   u = abs(sqrt(sqrtterm)) - (((aparam*(eta**2)*u0 + bparam*(eta**2)*u0*expterm) &
+        - (((pres/rho) + (A*mu*expterm2)/rho)*expterm)) / 2.*aparam)
+ endif
+
+ temp = 300.
+ ierr = 0
+ if (u < 0.) then
+  u = 0.
+  ierr = 1
+ endif
 
 end subroutine calc_uT_from_rhoP_tillotson  
 !-----------------------------------------------------------------------
