@@ -24,7 +24,7 @@ module eos_idealplusrad
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
            get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
-           get_idealplusrad_rhofrompresT
+           get_idealplusrad_rhofrompresT,egas_from_rhoT,erad_from_rhoT
 
  private
 
@@ -125,9 +125,35 @@ subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
  real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = 1.5*Rg*tempi/mu + radconst*tempi**4/densi
+ eni = egas_from_rhoT(tempi,mu) + erad_from_rhoT(densi,tempi,mu)
 
 end subroutine get_idealplusrad_enfromtemp
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates specific gas energy from density and temperature
+!+
+!----------------------------------------------------------------
+real function egas_from_rhoT(tempi,mu) result(egasi)
+ real, intent(in) :: tempi,mu
+
+ egasi = 1.5*Rg*tempi/mu
+
+end function egas_from_rhoT
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates specific radiation energy from density and temperature
+!+
+!----------------------------------------------------------------
+real function erad_from_rhoT(densi,tempi,mu) result(eradi)
+ real, intent(in) :: densi,tempi,mu
+
+ eradi = radconst*tempi**4/densi
+
+end function erad_from_rhoT
 
 
 !----------------------------------------------------------------

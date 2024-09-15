@@ -33,7 +33,7 @@ module setup
 !
  use io,             only:fatal,error,warning,master
  use part,           only:gravity,gr
- use physcon,        only:solarm,solarr,km,pi,c,kb_on_mh,radconst
+ use physcon,        only:solarm,solarr,km,pi,c,radconst
  use options,        only:nfulldump,iexternalforce,calc_erot,use_var_comp
  use timestep,       only:tmax,dtmax
  use eos,                only:ieos
