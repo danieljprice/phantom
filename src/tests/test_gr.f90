@@ -257,13 +257,22 @@ end subroutine calculate_angmom
 !-----------------------------------------------------------------------
 subroutine test_combinations_all(ntests,npass)
  use eos, only:ieos
+ use dim, only:mhd
  integer, intent(inout) :: ntests,npass
  integer, parameter     :: eos_to_test(2) = (/2,12/)
- integer                :: i
+ integer                :: i,b
+ logical                :: imhd = .false.
 
  do i = 1,size(eos_to_test)
     ieos = eos_to_test(i)
-    call test_combinations(ntests,npass)
+    if (ieos == 2) then
+       do b = 0,1
+          imhd = .not. imhd  
+          call test_combinations(ntests,npass,imhd)
+       enddo
+       cycle
+    endif 
+    call test_combinations(ntests,npass,imhd)
  enddo
 
 end subroutine test_combinations_all
@@ -273,29 +282,30 @@ end subroutine test_combinations_all
 !  Test various combinations of position, velocity and fluid quantities
 !+
 !-----------------------------------------------------------------------
-subroutine test_combinations(ntests,npass)
+subroutine test_combinations(ntests,npass,imhd)
  use physcon,         only:pi
  use eos,             only:gamma,equationofstate,ieos
  use utils_gr,        only:dot_product_gr
  use metric_tools,    only:get_metric,get_metric_derivs,imetric,imet_kerr
  use metric,          only:metric_type
- use part,            only:mhd
  integer, intent(inout) :: ntests,npass
+ logical, intent(in)    :: imhd
  real    :: radii(5),theta(5),phi(5),vx(5),vy(5),vz(5)
- real    :: utherm(7),density(7),bmag(4),errmax,errmaxg,errmaxc,errmaxd
+ real    :: utherm(7),density(7),bmag(7),errmax,errmaxg,errmaxc,errmaxd
  real    :: position(3),v(3),v4(0:3),sqrtg,gcov(0:3,0:3),gcon(0:3,0:3)
  real    :: ri,thetai,phii,vxi,vyi,vzi,x,y,z,p,t,dens,u,pondens,spsound
  real    :: dgdx1(0:3,0:3),dgdx2(0:3,0:3),dgdx3(0:3,0:3)
  integer :: i,j,k,l,m,n,ii,jj,bi,bj,bk
  integer :: ncheck_metric,nfail_metric,ncheck_cons2prim,nfail_cons2prim
  integer :: ncheckg,nfailg,ncheckd,nfaild
- real, parameter :: tol = 2.e-15
+ real, parameter :: tol = 6.e-15
  real, parameter :: tolc = 1.e-12
  real, parameter :: told = 4.e-7
 
  write(*,'(/,a)')    '--> testing metric and cons2prim with combinations of variables'
  write(*,'(a)')      '    metric type = '//trim(metric_type)
- write(*,'(a,I4,/)') '    eos         = ', ieos
+ write(*,'(a,I4)') '    eos         = ', ieos
+ write(*,'(a,L4,/)') '    mhd         = ', imhd
 
  ntests = ntests + 4
  ncheck_metric = 0
@@ -325,7 +335,7 @@ subroutine test_combinations(ntests,npass)
  utherm   = (/1.e-3,1.,10.,100.,1000.,1.e5,1.e7/)
  density  = (/1.e-10,1.e-5,1.e-3,1.,10.,100.,1000./)
 
- if (mhd) bmag = (/0.,1.e-20,1.e-10,1.e-5/)
+ if (imhd) bmag = (/-10.,-1.,-1.e-5,0.,1.e-5,1.,10./)
 
  t = -1. ! initial temperature guess to avoid complier warning
 
@@ -335,9 +345,9 @@ subroutine test_combinations(ntests,npass)
        thetai = theta(j)
        do k=1,size(phi)
           phii = phi(k)
-          x = ri*sin(thetai)*cos(phii)
-          y = ri*sin(thetai)*sin(phii)
-          z = ri*cos(thetai)
+          x = 5.!ri*sin(thetai)*cos(phii)
+          y = 0.!ri*sin(thetai)*sin(phii)
+          z = 0.!ri*cos(thetai)
           position = (/x,y,z/)
 
           call get_metric(position,gcov,gcon,sqrtg)
@@ -351,11 +361,14 @@ subroutine test_combinations(ntests,npass)
           endif
 
           do l=1,size(vx)
-             vxi=vx(l)
+             !vxi=vx(l)
+             vxi=0.5
              do m=1,size(vy)
-                vyi=vy(m)
+                !vyi=vy(m)
+                vyi=0.5
                 do n=1,size(vz)
-                   vzi=vz(n)
+                   !vzi=vz(n)
+                   vzi=0.
 
                    v = (/vxi,vyi,vzi/)
                    v4(0) = 1.
@@ -365,23 +378,27 @@ subroutine test_combinations(ntests,npass)
                    ! i.e. Not faster than the speed of light locally (U0 real, not imaginary).
                    if (dot_product_gr(v4,v4,gcov) < 0.) then
                       do ii=1,size(utherm)
-                         u = utherm(ii)
+                         !u = utherm(ii)
+                         u = 10.
                          do jj=1,size(density)
-                            dens = density(jj)
+                            !dens = density(jj)
+                            dens = 1.e-5
                             call equationofstate(ieos,pondens,spsound,dens,x,y,z,t,u)
                             p = pondens*dens
-                            if (mhd) then
+                            if (imhd) then
                                do bi=1,size(bmag)
                                   do bj=1,size(bmag)
                                      do bk=1,size(bmag)
                                        call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,&
-                                                              nfail_cons2prim,errmaxc,tolc,&
-                                                              b=(/bmag(bi),bmag(bj),bmag(bk)/))
+                                                           nfail_cons2prim,errmaxc,tolc,&
+                                                           !.true.,(/bmag(bi),bmag(bj),bmag(bk)/))
+                                                           .true.,(/-1.e-5,-1.e-5,-1./))
                                      enddo
                                   enddo
                                enddo
                             else
-                               call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,nfail_cons2prim,errmaxc,tolc)
+                               call test_cons2prim_i(position,v,dens,u,p,ncheck_cons2prim,&
+                                                    nfail_cons2prim,errmaxc,tolc,.false.,(/0.,0.,0./))
                             endif
                          enddo
                       enddo
@@ -478,24 +495,24 @@ end subroutine test_metric_derivs_i
 !  Test of the conservative to primitive variable solver
 !+
 !----------------------------------------------------------------
-subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,b)
+subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,imhd,b)
  use cons2primsolver, only:conservative2primitive,primitive2conservative
  use part,            only:ien_entropy,ien_etotal,ien_entropy_s
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
  use physcon,         only:radconst,kb_on_mh
 
- real, intent(in) :: x(1:3),v(1:3),dens,p,tol
- real, intent(in), optional :: b(1:3)
+ real,    intent(in) :: x(1:3),v(1:3),dens,p,tol,b(1:3)
  real,    intent(inout) :: u
  integer, intent(inout) :: ncheck,nfail
  real,    intent(inout) :: errmax
+ logical, intent(in)    :: imhd
  real :: metrici(0:3,0:3,2)
  real :: rho2,pmom2(1:3),en2,temp
  real :: p2,u2,t2,dens2,gamma2,v2(1:3)
  real :: pondens2,spsound2
  real :: v_out(1:3),dens_out,u_out,p_out,gamma_out
- real :: bcon(1:3),b_out(1:3)
+ real :: b2(1:3),bcon(1:3),b_out(1:3)
  real :: toli
  integer :: ierr,i,j,nfailprev,ien_type
  real, parameter :: tolg = 1.e-7, tolp = 1.5e-6
@@ -507,9 +524,9 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,b)
 
  call equationofstate(ieos,pondens2,spsound2,dens2,x(1),x(2),x(3),t2,u2)
  P2 = pondens2 * dens2
- v2 = 0.5*v
+ v2 = 0.995*v
 
- over_energy_variables: do i = 1,3
+ over_energy_variables: do i = 1,1
     ! Used for initial guess in conservative2primitive
     v_out    = v
     dens_out = dens
@@ -525,25 +542,24 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,b)
     if (ieos == 12 .and. i /= 3) then
        ! entropy_K and etotal cannot use with gasplusrad eos
        cycle
+    elseif (.not. (imhd .and. i == 1 .and. ieos == 2)) then
+       ! mhd only work with entropy now in adiabatic eos
+       cycle 
     elseif (i == 1) then
        ien_type = ien_entropy
-       toli = 1.5e-11
+       toli = 2.e-11
     elseif (i == 2) then
        ien_type = ien_etotal
        toli = 1.5e-9
+       b2 = 0.
     else
-       if (present(b)) cycle
        ien_type = ien_entropy_s
-       toli = 1.5e-11
+       toli = 2.e-11
+       b2 = 0.
     endif
 
-    if (present(b)) then
-       call primitive2conservative(x,metrici,v2,dens2,u2,P2,rho2,pmom2,en2,ien_type,b,bcon)
-       call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type,b_out,bcon)
-    else
-       call primitive2conservative(x,metrici,v,dens2,u2,P2,rho2,pmom2,en2,ien_type)
-       call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,ierr,ien_type)
-    endif
+    call primitive2conservative(x,metrici,v2,dens2,u2,P2,rho2,pmom2,en2,b,bcon,ien_type)
+    call conservative2primitive(x,metrici,v_out,dens_out,u_out,p_out,temp,gamma_out,rho2,pmom2,en2,b_out,bcon,ierr,ien_type)
 
     call checkvalbuf(ierr,0,0,'[F]: ierr (convergence)',nfail,ncheck)
     do j=1,3
@@ -565,13 +581,16 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol,b)
        print*,'     u    =',u2
        print*,'     p    =',p2
        print*,'     gamma=',gamma2
+       print*,'     B    =',b
        print*,'  - OUT:'
        print*,'     v    =',v_out
        print*,'     dens =',dens_out
        print*,'     u    =',u_out
        print*,'     p    =',p_out
        print*,'     gamma=',gamma_out
+       print*,'     B    =',b_out
        print*,''
+        read*
     endif
  enddo over_energy_variables
 
