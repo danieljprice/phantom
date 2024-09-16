@@ -19,7 +19,7 @@ module utils_gr
  implicit none
 
  public :: dot_product_gr, get_u0, get_bigv, rho2dens, h2dens, get_geodesic_accel, get_sqrtg, get_sqrt_gamma
- public :: perturb_metric
+ public :: perturb_metric, four_mag
 
  private
 
@@ -281,5 +281,31 @@ end subroutine perturb_metric
 ! end subroutine dens2rho
 
 !-------------------------------------------------------------------------------
+
+subroutine four_mag(B,U0,v,gcov,bup,bdown,b2,pmom,enth)
+ real, intent(in)  :: B(1:3),U0,v(1:3),gcov(0:3,0:3)
+ real, intent(in), optional  :: pmom(1:3),enth
+ real, intent(out) :: bup(0:3),bdown(0:3),b2
+ real :: Ui(1:3),Umu(0:3),Ug(1:3)
+ integer :: i
+
+ if (present(pmom) .and. present(enth)) then
+    bup(0) = dot_product(B,pmom)/enth
+ else
+    Ui = v*U0
+    Umu = (/U0, Ui/)
+    do i=1,3
+       Ug(i) = dot_product(Umu,gcov(i,:))
+    enddo
+    bup(0) = dot_product(B,Ug)
+ endif
+ bup(1:3) = B/U0 + bup(0)*v
+
+ do i=0,3
+    bdown(i) = dot_product(bup,gcov(i,:))
+ enddo
+ b2 = dot_product(bdown,bup)
+
+end subroutine four_mag
 
 end module utils_gr
