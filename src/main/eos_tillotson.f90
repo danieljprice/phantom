@@ -35,7 +35,7 @@ module eos_tillotson
 contains
 !-----------------------------------------------------------------------
 !+
-!  EoS from Tillotson et al. (1962) ; Implementation from Benz and Asphaug (1999)
+!  EoS from Tillotson et al. (1962) ; Implementation from Benz and Asphaug (1999) and Brundage (2013)
 !+
 !-----------------------------------------------------------------------
 subroutine init_eos_tillotson(ierr)
@@ -48,7 +48,7 @@ end subroutine init_eos_tillotson
 subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  real, intent(in) :: rho,u
  real, intent(out) :: pressure, spsound, gamma
- real :: eta, mu, neu, omega, spsoundmin, spsound2, spsound3, pressure2, pressure3
+ real :: eta, mu, neu, omega, spsoundmin, spsound2, spsound2h, spsound3, pressure2, pressure3
 
  eta = rho / rho0
  mu = eta - 1.
@@ -71,9 +71,9 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  endif
 
 ! sound speed from Kegereis et al. 2020
- spsound2 = sqrt((pressure2 / rho) * (1. + aparam + (bparam / omega )) + &
-          ((bparam*(omega - 1.)) / omega**2) * (2.*u - pressure2/rho)) + &
-          ((1./rho)*(A + B*((eta**2) - 1.)))
+ spsound2 = sqrt( ((pressure2 / rho) * (1. + aparam + (bparam / omega ))) + &
+            (((bparam*(omega - 1.)) / (omega**2)) * (2.*u - pressure2/rho)) + &
+            ((1./rho)*(A + B*((eta**2) - 1.))))
  if (spsound2 < spsoundmin) then
   spsound2 = spsoundmin
  endif
@@ -86,25 +86,35 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
   spsound3 = spsoundmin
  endif
 
-
- if (rho < rho0) then
-   if (rho <= rho_iv) then ! u <= u_iv  cold expanded
-     pressure = pressure2
-     spsound = spsound2
-    !  print*, "cold expanded, pressure = ", pressure
-   elseif (rho > rho_iv) then ! u_iv < u < u_cv   hybrid
-     pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-     spsound = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-    !  print*, "hybrid, pressure = ", pressure
-   else ! u >= u_cv             completely vaporised
-     pressure = pressure3
-     spsound = spsound3
-    !  print*, "vaporised, pressure = ", pressure
-   endif
- else ! rho >= rho0 ; u >= 0.   compressed state
-   pressure = pressure2
-   spsound = spsound2
-  !  print*, "compressed, pressure = ", pressure
+ spsound2h = sqrt( ((pressure2 / rho) * (1. + aparam + (bparam / omega ))) + &
+            (((bparam*(omega - 1.)) / (omega**2)) * (2.*u - pressure2/rho)) + &
+            ((1./rho)*(A + B*((eta**2) - 1.))) - ((((2.*B)/rho0**2)*rho) - (2.*B/rho0)))
+ if (spsound2h < spsoundmin) then
+  spsound2h = spsoundmin
+ endif
+ 
+ if (rho >= rho0) then !           compressed state
+    pressure = pressure2
+    spsound = spsound2
+ else ! rho < rho0  
+    if (u >= u_cv) then !          vaporised expanded state
+        pressure = pressure3
+        spsound = spsound3
+    ! need to check rho ~0 and u >> u_cv (zero density becomes pressure = rho*gamma*u fermi, gamma = 2/3)
+    else ! u < u_cv
+        if (rho >= rho_iv) then 
+            if (u > u_iv) then !   Hybrid state
+                pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+                spsound = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+            else ! u <= u_iv       cold expanded 
+            pressure = pressure2
+            spsound = spsound2
+            endif
+        else ! rho < rho_iv        Low energy state
+            pressure = pressure2 - (B*mu**2)
+            spsound = spsound2h
+        endif
+    endif
  endif
 
 end subroutine equationofstate_tillotson
@@ -136,24 +146,22 @@ subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  mu = eta - 1.
  neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
  omega = (u / (u0*eta**2) + 1.)
+ expterm2 = exp(-alpha*(neu**2))
+ expterm = exp(-beta*neu)
 
- if (rho >= rho0) then ! Condensed state
-  !   u = (pres - A*mu - B*mu**2) / ( aparam + ( bparam / omega )  * rho)
-   sqrtterm1 = ((aparam*(eta**2)*u0 + bparam*(eta**2)*u0 &
-                + (A*mu + B*(mu**2) - pres )/rho )**2 )/(4.*aparam**2)
-   sqrtterm2 = ((A*mu*(eta**2)*u0 + B*mu*(eta**2)*u0 &
-                - (eta**2)*u0*pres) / rho) / aparam
-   sqrtterm = sqrtterm1 - sqrtterm2
-   u = abs(sqrt(sqrtterm)) - ( (aparam*(eta**2)*u0 + bparam*(eta**2)*u0 &
-        + ((A*mu + B*(mu**2) - pres) / rho)) / 2.*aparam)
- else
-   expterm = exp(-alpha*(neu**2))
-   expterm2 = exp(-beta*neu)
-  !   u = (pres - A*mu*exp(-beta*neu)*expterm ) &
-  !       / (aparam*rho + ((bparam*rho)/omega)*expterm)
-   sqrtterm = u0*(eta**2)*((pres - ((A*mu*expterm2)*expterm))/rho)
-   u = abs(sqrt(sqrtterm)) - (((aparam*(eta**2)*u0 + bparam*(eta**2)*u0*expterm) &
-        - (((pres/rho) + (A*mu*expterm2)/rho)*expterm)) / 2.*aparam)
+ if (rho >= rho0) then !           compressed state
+    u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
+        (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
+ elseif (rho >= rho_iv) then !      cold expanded 
+     u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
+        (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
+ elseif (rho < rho_iv) then ! rho < rho_iv        Low energy state
+     u = (A*mu*(eta**2)*u0*(aparam-bparam)) / &
+         (aparam*(A*mu+bparam*(eta**2)*u0*rho-pres))
+ else ! rho < rho0  vaporised expanded state
+     u = ((eta**2)*u0*(bparam-aparam)*(pres-A*mu*expterm*expterm2) ) / &
+         (aparam*rho*(A*mu*expterm + bparam*(eta**2)*u0 - pres))
+        ! need to check rho ~0 and u >> u_cv (zero density becomes u = pres / (rho*gamma) fermi, gamma = 2/3)
  endif
 
  temp = 300.
