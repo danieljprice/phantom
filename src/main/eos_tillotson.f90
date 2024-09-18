@@ -29,6 +29,7 @@ module eos_tillotson
  real :: rho_iv = 2.57 ! g/cm^3 incipient vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 1
 !  real :: rho_cv = 8.47 ! g/cm^3 complete vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 2
  private :: rho0, aparam, bparam, A, B, alpha, beta, u0, rho_iv, u_iv, u_cv
+!  private :: quadratic_eq
 !  private :: spsoundmin, spsound2, spsound3, pressure2, pressure3
 !  private :: expterm, expterm2, sqrtterm, sqrtterm1, sqrtterm2
 
@@ -53,7 +54,7 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
  eta = rho / rho0
  mu = eta - 1.
  neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
- omega = (u / (u0*eta**2) + 1.)
+ omega = (u / (u0*eta**2)) + 1.
  spsoundmin = sqrt(A / rho) ! wave speed estimate
 !  gamma = 2./3.
 
@@ -137,10 +138,13 @@ end subroutine eos_info_tillotson
 !+
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
+ use cubic, only:cubicsolve
  real, intent(in) :: rho,pres
  real, intent(out) :: temp,u
  integer, intent(out) :: ierr
- real :: eta, mu, neu, omega, expterm, expterm2, sqrtterm1, sqrtterm2, sqrtterm
+ real :: eta, mu, neu, omega, expterm, expterm2, u1, u2, X, Y, quada, quadb, quadc
+ real :: usol(3)
+ integer :: nsol
  
  eta = rho / rho0
  mu = eta - 1.
@@ -150,28 +154,113 @@ subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  expterm = exp(-beta*neu)
 
  if (rho >= rho0) then !           compressed state
-    u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
-        (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
+    quada = 1.
+    X = (pres - (A*mu) - (B*(mu**2)))/rho
+    quadb = -((X-(aparam*u0*(eta**2))-(bparam*u0*(eta**2))) / aparam)
+    quadc = -((u0*(eta**2)*X)/aparam)
+    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+    ! call quadratic_eq(quada,quadb,quadc,u1,u2)
+    ! if (u2 <= 0.) then
+    !     u2 = 0.
+    ! elseif (u2 == u1) then
+    !     u = u1
+    ! elseif (u2 > u1) then
+    !     u = u1
+    ! endif
+        
+    ! u = (((1./aparam)-(1./bparam))*(-A*mu - B*(mu**2))/ &
+    !     (rho*(1. - ((-A*mu - B*(mu**2)+pres)/(bparam*(eta**2)*u0*rho)))))
+    ! u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
+    !     (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
  elseif (rho >= rho_iv) then !      cold expanded 
-     u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
-        (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
+    quada = 1.
+    X = (pres - (A*mu) - (B*(mu**2)))/rho
+    quadb = -((X-(aparam*u0*(eta**2))-(bparam*u0*(eta**2))) / aparam)
+    quadc = -((u0*(eta**2)*X)/aparam)
+    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+    ! call quadratic_eq(quada,quadb,quadc,u1,u2)
+    ! if (u2 <= 0.) then
+    !     u2 = 0.
+    ! elseif (u2 == u1) then
+    !     u = u1
+    ! elseif (u2 > u1) then
+    !     u = u1
+    ! endif
+    ! u = (((1./aparam)-(1./bparam))*(-A*mu - B*(mu**2))/ &
+    !     (rho*(1. - ((-A*mu - B*(mu**2)+pres)/(bparam*(eta**2)*u0*rho)))))
+    !  u = (mu*(eta**2)*u0*(aparam-bparam)*(A+(B*mu))) / &
+    !     (aparam*(A*mu+bparam*(eta**2)*u0*rho+B*(mu**2)-pres))
  elseif (rho < rho_iv) then ! rho < rho_iv        Low energy state
-     u = (A*mu*(eta**2)*u0*(aparam-bparam)) / &
-         (aparam*(A*mu+bparam*(eta**2)*u0*rho-pres))
+    quada = 1.
+    X = (pres - (A*mu))/rho
+    quadb = -((X-(aparam*u0*(eta**2))-(bparam*u0*(eta**2))) / aparam)
+    quadc = -((u0*(eta**2)*X)/aparam)
+    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+    ! call quadratic_eq(quada,quadb,quadc,u1,u2)
+    ! if (u2 <= 0.) then
+    !     u2 = 0.
+    ! elseif (u2 == u1) then
+    !     u = u1
+    ! elseif (u2 > u1) then
+    !     u = u1
+    ! endif
+    ! u = ((-A*mu*((1./aparam)-(1./bparam))) /&
+    !     (rho*(1.-((pres-A*mu)/(bparam*(eta**2)*u0*rho)))))
+    !  u = (A*mu*(eta**2)*u0*(aparam-bparam)) / &
+    !      (aparam*(A*mu+bparam*(eta**2)*u0*rho-pres))
  else ! rho < rho0  vaporised expanded state
-     u = ((eta**2)*u0*(bparam-aparam)*(pres-A*mu*expterm*expterm2) ) / &
-         (aparam*rho*(A*mu*expterm + bparam*(eta**2)*u0 - pres))
+    quada = 1.
+    X = (aparam*rho)/(expterm2)
+    quadb = ((bparam*rho*u0*(eta**2))+((aparam*rho*u0*(eta**2))/expterm2)+(A*mu*expterm)-(pres/(expterm2)))/X
+    quadc = ((A*mu*expterm*u0*(eta**2)) -((pres*u0*(eta**2))/expterm2))/X
+    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+    !call quadratic_eq(quada,quadb,quadc,u1,u2)
+    u = maxval(usol(1:nsol))
+    ! u = ((eta**2)*u0*(bparam-aparam)*(pres-A*mu*expterm*expterm2) ) / &
+        !  (aparam*rho*(A*mu*expterm + bparam*(eta**2)*u0 - pres))
         ! need to check rho ~0 and u >> u_cv (zero density becomes u = pres / (rho*gamma) fermi, gamma = 2/3)
  endif
 
  temp = 300.
  ierr = 0
- if (u < 0.) then
-  u = 0.
-  ierr = 1
+ if (u <= 0.) then
+    u = 0.
+    ierr = 1
  endif
 
 end subroutine calc_uT_from_rhoP_tillotson  
+
+!-----------------------------------------------------------------------
+!+
+!  calc quadratic for internal energy
+!+
+!-----------------------------------------------------------------------
+! function quadratic_eq(a,b,c,x1,x2)
+!  real, intent(in) :: a,b,c
+!  real, intent(out) :: x1,x2
+!  real :: dis, sqrt_val
+
+!  dis = (b**2) - (4. * a * c)       ! calc discriminant using formula
+!  sqrt_val = sqrt(abs(dis)) 
+    
+!  if (dis > 0) then ! check discriminant
+!     ! real and different roots 
+!     x1 = (-b + sqrt_val)/(2 * a)
+!     x2 = (-b - sqrt_val)/(2 * a)
+    
+!  elseif (dis == 0) then 
+!     ! real and same roots
+!     x1 = -b / (2. * a)
+!     x2 = x1
+    
+!  else ! if discriminant < 0
+    ! Complex Roots
+    ! print(- b / (2 * a), + i, sqrt_val / (2 * a)) 
+    ! print(- b / (2 * a), - i, sqrt_val / (2 * a))
+!  endif
+
+! end function quadratic_eq
+
 !-----------------------------------------------------------------------
 !+
 !  reads equation of state options from the input file
