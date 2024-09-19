@@ -903,7 +903,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  use part,        only:rhoh,dvdx
  use nicil,       only:nimhd_get_jcbcb,nimhd_get_dBdt
  use eos,         only:ieos,eos_is_non_ideal
- use eos_stamatellos, only:gradP_cool,Gpot_cool,duFLD,doFLD,getopac_opdep,get_k_fld
+ use eos_stamatellos, only:gradP_cool,getopac_opdep
 #ifdef GRAVITY
  use kernel,      only:kernel_softening
  use ptmass,      only:ptmass_not_obscured
@@ -1024,7 +1024,7 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  real    :: bigv2j,alphagrj,enthi,enthj
  real    :: dlorentzv,lorentzj,lorentzi_star,lorentzj_star,projbigvi,projbigvj
  real    :: bigvj(1:3),velj(3),metricj(0:3,0:3,2),projbigvstari,projbigvstarj
- real    :: radPj,fgravxi,fgravyi,fgravzi,kfldi,kfldj,Ti,Tj,diffterm
+ real    :: radPj,fgravxi,fgravyi,fgravzi
  real    :: gradpx,gradpy,gradpz,gradP_cooli=0d0,gradP_coolj=0d0
 
  ! unpack
@@ -1187,21 +1187,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
  fgravzi = 0.
  if (icooling == 9) then
     gradP_cool(i) = 0d0
-    Gpot_cool(i) = 0d0
-    if (doFLD) then
-       duFLD(i) = 0d0
-       kfldi = 0d0
-       kfldj = 0d0
-    endif
     gradpx = 0d0
     gradpy = 0d0
     gradpz = 0d0
-    diffterm = 0d0
-    Ti=0
-    Tj=0
-    if (doFLD .and. dt > 0d0) then
-       call get_k_fld(rhoi,eni,i,kfldi,Ti)
-    endif
  endif
 
  loop_over_neighbours2: do n = 1,nneigh
@@ -1600,25 +1588,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              gradP_coolj = 0d0
              if (usej) then
                 gradp_coolj =  pmassj*prj*rho1j*rho1j*grkernj
-                if (doFLD .and. dt > 0.) then
-                   call get_k_fld(rhoj,enj,j,kfldj,Tj)
-                   if (rhoj == 0d0) then
-                      diffterm = 0d0
-                      print *, "setting diffterm = 0", i, j, rhoj
-                   elseif ((kfldj + kfldi) < tiny(0.)) then
-                      diffterm = 0d0
-                   else
-                      diffterm = 4d0*pmassj/rhoi/rhoj
-                      diffterm = diffterm * kfldi * kfldj / (kfldi+kfldj)
-                      diffterm = diffterm * (Ti - Tj) / rij2
-                      diffterm = diffterm*cnormk*grkerni*(runix*dx + runiy*dy + runiz*dz)
-                   endif
-                   duFLD(i) = duFLD(i) + diffterm
-                   if (isnan(duFLD(i))) then
-                      print *, "kfldi, kfldj, Ti,Tj,diffterm", kfldi,kfldj, Ti,Tj,diffterm
-                      call fatal('force','duFLD is nan')
-                   endif
-                endif
              endif
           endif
 
@@ -1731,7 +1700,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           fsum(ifzi) = fsum(ifzi) - runiz*(gradp + fgrav) - projsz
           fsum(ipot) = fsum(ipot) + pmassj*phii ! no need to symmetrise (see PM07)
           if (icooling == 9) then
-             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
              gradpx = gradpx + runix*(gradP_cooli + gradP_coolj)
              gradpy = gradpy + runiy*(gradP_cooli + gradP_coolj)
              gradpz = gradpz + runiz*(gradP_cooli + gradP_coolj)
@@ -1745,10 +1713,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
              fsum(idudtdissi) = fsum(idudtdissi) + dudtdissi + dudtresist
              !--energy dissipation due to conductivity
              fsum(idendtdissi) = fsum(idendtdissi) + dendissterm
-          endif
-
-          if (icooling == 9) then
-             Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
           endif
 
           !--add contribution to particle i's force
@@ -2005,9 +1969,6 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
        fsum(ifyi) = fsum(ifyi) - dy*fgravj
        fsum(ifzi) = fsum(ifzi) - dz*fgravj
        fsum(ipot) = fsum(ipot) + pmassj*phii
-
-       !-- add contribution of 'distant neighbour' (outside r_kernel) gas particle to potential
-       if (iamtypej == igas .and. icooling == 9) Gpot_cool(i) = Gpot_cool(i) + pmassj*phii
 
        !--self gravity contribution to total energy equation
        if (gr .and. gravity .and. ien_type == ien_etotal) then
@@ -2617,7 +2578,7 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
  use part,           only:Omega_k
  use io,             only:warning
  use physcon,        only:c,kboltz
- use eos_stamatellos, only:Gpot_cool,duSPH
+ use eos_stamatellos, only:duSPH
  integer,            intent(in)    :: icall
  type(cellforce),    intent(inout) :: cell
  real,               intent(inout) :: fxyzu(:,:)
@@ -2816,7 +2777,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     !--add self-contribution
     call kernel_softening(0.,0.,potensoft0,dum)
     epoti = 0.5*pmassi*(fsum(ipot) + pmassi*potensoft0*hi1)
-    if ((icooling==9) .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + pmassi*potensoft0*hi1
     !
     !--add contribution from distant nodes, expand these in Taylor series about node centre
     !  use xcen directly, -1 is placeholder
@@ -2826,7 +2786,6 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     fsum(ifxi) = fsum(ifxi) + fxi
     fsum(ifyi) = fsum(ifyi) + fyi
     fsum(ifzi) = fsum(ifzi) + fzi
-    if ((icooling==9) .and. iamgasi) Gpot_cool(i) = Gpot_cool(i) + poti ! add contribution from distant nodes
     if (gr .and. ien_type == ien_etotal) then
        fsum(idudtdissi) = fsum(idudtdissi) + vxi*fxi + vyi*fyi + vzi*fzi
     endif
