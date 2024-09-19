@@ -32,7 +32,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  use prompting, only:prompt
  use physcon,  only:au,gg
  use readwrite_dumps_fortran, only:dt_read_in_fortran
- use timestep, only:time,dt,dtmax_max,dtmax_min,dtmax0
+ use timestep, only:time,dt,dtmax_max,dtmax_min
  use centreofmass, only: reset_centreofmass
  integer, intent(inout) :: npart
  integer, intent(inout) :: npartoftype(:)
@@ -82,9 +82,9 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     nptmass = nptmass + npt
     do i=1,npt
        read (iunit,*) junk
-       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,nptmass),j=1,10)
+       read (iunit,'(10E15.6)') (xyzmh_ptmass(j,i),j=1,10)
        read (iunit,*) junk
-       read (iunit,'(3E15.6)') (vxyz_ptmass(j,nptmass),j=1,3)
+       read (iunit,'(3E15.6)') (vxyz_ptmass(j,i),j=1,3)
     enddo
     close(iunit)
  endif
@@ -97,7 +97,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
  enddo
  close(iunit)
 
- print *, 'dtmax0, dtmax_max,dtmax_min',dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min',dtmax_max,dtmax_min
  newutime = sqrt(au**3/(gg*umass))
  print *, "newutime/old", newutime/utime
  time = time * utime / newutime
@@ -177,7 +177,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
       'nptmass:', nptmass
  print *, 'gamma=', gamma
  print *, 'Timestep info:'
- print *, 'dtmax0, dtmax_max,dtmax_min', dtmax0,dtmax_max,dtmax_min
+ print *, 'dtmax_max,dtmax_min', dtmax_max,dtmax_min
  print *, 'utime=', utime
 
  return

@@ -6,7 +6,8 @@
 !--------------------------------------------------------------------------!
 module analysis
 !
-! Analysis routine for discs by DF, adapted from a routine by CJN
+! Analysis routine for discs by DF, adapted from a routine by CJN.
+! Edited for use with variable gammai and mui by AKY
 !
 ! :References: None
 !
@@ -31,7 +32,7 @@ module analysis
  real    :: rin, rout,dr
  integer, allocatable,dimension(:)   :: ipartbin
  real,    allocatable,dimension(:)   :: rad,ninbin,sigma,csbin,vrbin,vphibin, omega
- real,    allocatable,dimension(:)   :: H, toomre_q,epicyc
+ real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
  real,    allocatable,dimension(:,:) :: gravxyz
@@ -45,7 +46,7 @@ contains
 
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
- use part,    only:gravity,mhd
+ use part,    only:gravity,mhd,eos_vars
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -85,7 +86,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  call transform_to_cylindrical(npart,xyzh,vxyzu)
 
 ! Bin particles by radius
- call radial_binning(npart,xyzh,vxyzu,pmass)
+ call radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
 ! Calculate stresses
  call calc_stresses(npart,xyzh,vxyzu,pmass)
@@ -362,7 +363,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
 
  integer,intent(in) :: npart
  real,intent(in) :: pmass
- real,intent(in) :: xyzh(:,:),vxyzu(:,:)
+ real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
  integer :: ibin,ipart,nbinned
  real :: area,csi
@@ -377,6 +378,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  allocate(omega(nbins))
  allocate(vrbin(nbins))
  allocate(vphibin(nbins))
+ allocate(part_scaleheight(nbins))
 
  ipartbin(:) = 0
  ninbin(:) = 0.0
@@ -385,6 +387,15 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  omega(:) = 0.0
  vrbin(:) = 0.0
  vphibin(:) = 0.0
+ part_scaleheight(:) = 0.0
+
+ allocate(zsetgas(npart,nbins),stat=iallocerr)
+ ! If you don't have enough memory to allocate zsetgas, then calculate H the slow way with less memory.
+ if (iallocerr/=0) then
+    write(*,'(/,a)') ' WARNING: Could not allocate memory for array zsetgas!'
+    write(*,'(a)')   '          (It possibly requires too much memory)'
+    write(*,'(a,/)') '          Try calculate scaleheight the slow way.'
+ endif
 
 ! Set up radial bins
 
@@ -423,11 +434,13 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
        vrbin(ibin) = vrbin(ibin) + vrpart(ipart)
        vphibin(ibin) = vphibin(ibin) + vphipart(ipart)
        omega(ibin) = omega(ibin) + vphipart(ipart)/rad(ibin)
-
+       zsetgas(int(ninbin(ibin)),ibin) = xyzh(3,ipart)
     endif
 
  enddo
 
+ call calculate_H(nbins,part_scaleheight,zsetgas,int(ninbin))
+ part_scaleheight(:) = part_scaleheight(:)
  print*, nbinned, ' particles have been binned'
 
  where(ninbin(:)/=0)
@@ -448,11 +461,11 @@ end subroutine radial_binning
 !+
 !--------------------------------------------------------------
 subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
- use physcon, only: pi,gg
+ use physcon, only: pi,gg,kb_on_mh
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind
- use eos,     only: gamma
+ use part,    only: mhd,rhoh,alphaind,eos_vars,imu,itemp
+ use eos,     only: gamma,ieos
 
  implicit none
 
@@ -486,7 +499,9 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- csbin(:) = csbin(:)*unit_velocity
+ if (ieos /= 23) then
+	 csbin(:) = csbin(:)*unit_velocity
+ endif
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -505,9 +520,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
     ibin = ipartbin(ipart)
 
-    if (ibin<=0) cycle
-
-    cs2 = gamma*(gamma-1)*vxyzu(4,ipart)*unit_velocity*unit_velocity
+    if (ibin<=0) cycle                                                                                                                          
+    
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
@@ -515,6 +529,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
     alpha_reyn(ibin) = alpha_reyn(ibin) + dvr*dvphi
 
+!  Handle constant alpha_sph
     alpha_art(ibin) = alpha_art(ibin) + alphaind(1,ipart)*xyzh(4,ipart)*udist
 
     if (gravity) alpha_grav(ibin) = alpha_grav(ibin) + gr(ipart)*gphi(ipart)/rhopart
@@ -592,7 +607,7 @@ subroutine write_radial_data(iunit,output,time)
  print '(a,a)', 'Writing to file ',output
  open(iunit,file=output)
  write(iunit,'("# Disc Stress data at t = ",es20.12)') time
- write(iunit,"('#',11(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',12(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'radius (AU)', &
        2,'sigma (cgs)', &
        3,'cs (cgs)', &
@@ -603,12 +618,13 @@ subroutine write_radial_data(iunit,output,time)
        8,'alpha_reyn',&
        9,'alpha_grav',&
        10,'alpha_mag',&
-       11,'alpha_art'
+       11,'alpha_art',&
+       12,'particle H (au)'
 
  do ibin=1,nbins
-    write(iunit,'(11(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
+    write(iunit,'(12(es18.10,1X))') rad(ibin),sigma(ibin),csbin(ibin), &
             omega(ibin),epicyc(ibin),H(ibin), abs(toomre_q(ibin)),alpha_reyn(ibin), &
-            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin)
+            alpha_grav(ibin),alpha_mag(ibin),alpha_art(ibin),part_scaleheight(ibin)
  enddo
 
  close(iunit)
@@ -616,6 +632,26 @@ subroutine write_radial_data(iunit,output,time)
  print '(a)', 'File Write complete'
 
 end subroutine write_radial_data
+
+subroutine calculate_H(nbin,H,zsetgas,ninbin)
+! copied from utils disc
+ integer, intent(in)  :: nbin
+ real,    intent(out) :: H(:)
+ real,    intent(in)  :: zsetgas(:,:)
+ integer, intent(in)  :: ninbin(:)
+ integer :: ii
+ real    :: meanzii
+
+ do ii = 1,nbin
+    if (ninbin(ii)==0) then
+       meanzii = 0.
+    else
+       meanzii = sum(zsetgas(1:ninbin(ii),ii))/real(ninbin(ii))
+    endif
+    H(ii) = sqrt(sum(((zsetgas(1:ninbin(ii),ii)-meanzii)**2)/(real(ninbin(ii)-1))))
+ enddo
+
+end subroutine calculate_H
 
 !--------------------------------------------------------
 !+
@@ -633,6 +669,7 @@ subroutine deallocate_arrays
  deallocate(gr,gphi,Br,Bphi,vrbin,vphibin)
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
+ deallocate(part_scaleheight)
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------
