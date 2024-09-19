@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module densityforce
 !
@@ -101,7 +101,7 @@ module densityforce
  !real, parameter    :: cnormk = 1./pi, wab0 = 1., gradh0 = -3.*wab0, radkern2 = 4F.0
  integer, parameter :: isizecellcache = 1000
  integer, parameter :: isizeneighcache = 0
- integer, parameter :: maxdensits = 50
+ integer, parameter :: maxdensits = 100
 
  !--statistics which can be queried later
  integer, private         :: maxneighact,nrelink
@@ -348,7 +348,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
     endif
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-    if (icooling==8 .and. doFLD) then
+    if (icooling==9 .and. doFLD .and. icall==1) then
        call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
     endif
     if (do_export) then
@@ -383,7 +383,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              endif
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-             if (icooling==8 .and. doFLD) then
+             if (icooling==9 .and. doFLD) then
                 call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
              endif
              if (do_export) then
@@ -455,7 +455,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
                                   cell_xpos=cell%xpos,cell_xsizei=cell%xsizei,cell_rcuti=cell%rcuti)
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-          if (icooling==8 .and. doFLD) then
+          if (icooling==9 .and. doFLD) then
              call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
           endif
           remote_export = .false.
@@ -518,7 +518,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad)
-             if (icooling==8 .and. doFLD) then
+             if (icooling==9 .and. doFLD) then
                 call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
              endif
 
@@ -939,7 +939,7 @@ pure subroutine calculate_divcurlv_from_sums(rhosum,termnorm,divcurlvi,ndivcurlv
  !--time derivative of div v, needed for Cullen-Dehnen switch
  if (nalpha >= 2) then
     !--Divvdt For switch
-    if (use_exact_linear) then
+    if (use_exact_linear .and. abs(denom) > tiny(denom)) then
        ddenom = 1./denom
        call exactlinear(gradaxdx,gradaxdy,gradaxdz,rhosum(idaxdxi),rhosum(idaxdyi),rhosum(idaxdzi),rmatrix,ddenom)
        call exactlinear(gradaydx,gradaydy,gradaydz,rhosum(idaydxi),rhosum(idaydyi),rhosum(idaydzi),rmatrix,ddenom)
@@ -1664,48 +1664,51 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 end subroutine store_results
 
 subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda,urad_FLD)
-  use io,    only:error
-  use dim,   only:maxp
-  use kernel,only:get_kernel,wab0
-  use part,  only:get_partinfo,iamgas,igas,maxphase,massoftype
-  use part,  only:rhoanddhdrho
-  use physcon, only:radconst
-  use units, only:unit_density,unit_ergg,unit_opacity,get_radconst_code
-  use eos_stamatellos, only:getopac_opdep
+ use io,    only:error
+ use dim,   only:maxp
+ use kernel,only:get_kernel,wab0
+ use part,  only:get_partinfo,iamgas,igas,maxphase,massoftype
+ use part,  only:rhoanddhdrho
+ use physcon, only:radconst
+ use units, only:unit_density,unit_ergg,unit_opacity,get_radconst_code
+ use eos_stamatellos, only:getopac_opdep
 #ifdef PERIODIC
-  use boundary,  only:dxbound,dybound,dzbound
+ use boundary,  only:dxbound,dybound,dzbound
 #endif
 
-  type(celldens),  intent(in)     :: cell
-  integer,         intent(in)     :: listneigh(:)
-  integer,         intent(in)     :: nneigh
-  real,            intent(in)     :: xyzh(:,:)
-  real,            intent(in)     :: xyzcache(:,:)
-  real,            intent(in)     :: vxyzu(:,:)
-  integer(kind=1), intent(in)     :: iphase(:)
-  real(kind=4),    intent(in)     :: gradh(:,:)
-  real,            intent(inout)  :: lambda(:),urad_FLD(:)
+ type(celldens),  intent(in)     :: cell
+ integer,         intent(in)     :: listneigh(:)
+ integer,         intent(in)     :: nneigh
+ real,            intent(in)     :: xyzh(:,:)
+ real,            intent(in)     :: xyzcache(:,:)
+ real,            intent(in)     :: vxyzu(:,:)
+ integer(kind=1), intent(in)     :: iphase(:)
+ real(kind=4),    intent(in)     :: gradh(:,:)
+ real,            intent(inout)  :: lambda(:),urad_FLD(:)
 
-  integer      :: icell,i,iamtypei,iamtypej,j,n
-  logical      :: iactivei,iamgasi,iamdusti,ignoreself
-  logical      :: iactivej,iamgasj,iamdustj
-  real(kind=8) :: hi,hi1,hi21,hi31,hi41
-  real         :: rhoi,rho1i,dhdrhoi,pmassi,kappabari,kappaparti,Ti,gmwi
-  real         :: xj,yj,zj,dx,dy,dz
-  real         :: rij2,rij,q2i,qi,hj1,hj,hj21,q2j
-  real         :: wabi,grkerni,gradhi,wkerni,dwkerni
-  real         :: pmassj,rhoj,rho1j,dhdrhoj,kappabarj,kappaPartj,Tj,gmwj
-  real         :: uradi,dradi,dradxi,dradyi,dradzi,runix,runiy,runiz
-  real         :: dT4,R_rad
-  integer      :: ngradh_err
-  real         :: uradself
+ integer      :: icell,i,iamtypei,iamtypej,j,n
+ logical      :: iactivei,iamgasi,iamdusti,ignoreself
+ logical      :: iactivej,iamgasj,iamdustj
+ real(kind=8) :: hi,hi1,hi21,hi31,hi41
+ real         :: rhoi,rho1i,dhdrhoi,pmassi,kappabari,kappaparti,Ti,gmwi
+ real         :: xj,yj,zj,dx,dy,dz
+ real         :: rij2,rij,q2i,qi,hj1,hj,hj21,q2j
+ real         :: wabi,grkerni,gradhi,wkerni,dwkerni
+ real         :: pmassj,rhoj,rho1j,dhdrhoj,kappabarj,kappaPartj,Tj,gmwj
+ real         :: uradi,dradi,dradxi,dradyi,dradzi,runix,runiy,runiz
+ real         :: dT4,R_rad
+ integer      :: ngradh_err
+ real         :: uradself
 
-  ngradh_err = 0
-  over_parts: do icell = 1,cell%npcell
+ ngradh_err = 0
+ over_parts: do icell = 1,cell%npcell
     i = inodeparts(cell%arr_index(icell))
     ! note: only active particles have been sent here
     if (maxphase==maxp) then
        call get_partinfo(cell%iphase(icell),iactivei,iamgasi,iamdusti,iamtypei)
+       if (.not. iamgasi) then
+          print *, "error not gas", i
+       endif
     else
        iactivei = .true.
        iamtypei = igas
@@ -1729,105 +1732,109 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
     !calculate rhoi
     call rhoanddhdrho(hi,hi1,rhoi,rho1i,dhdrhoi,pmassi)
     ! get Ti from tabulated eos
+    if (vxyzu(4,i) < epsilon(vxyzu(4,i))) then
+       print *, "u=0 in FLD calc", vxyzu(4,i), i,rhoi*unit_density,Ti,&
+            cell%xpartvec(ixi,icell),cell%xpartvec(iyi,icell)
+    endif
     call getopac_opdep(vxyzu(4,i)*unit_ergg,rhoi*unit_density,kappabari, &
      kappaparti,Ti,gmwi)
-    
+
     loop_over_neighbours: do n=1,nneigh
        j = abs(listneigh(n))
        if (i==j) cycle loop_over_neighbours
        xj = xyzh(1,j)
        yj = xyzh(2,j)
        zj = xyzh(3,j)
-       
+
        dx = cell%xpartvec(ixi,icell) - xj
        dy = cell%xpartvec(iyi,icell) - yj
        dz = cell%xpartvec(izi,icell) - zj
 
 #ifdef PERIODIC
-        if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
-        if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
-        if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
+       if (abs(dx) > 0.5*dxbound) dx = dx - dxbound*SIGN(1.0,dx)
+       if (abs(dy) > 0.5*dybound) dy = dy - dybound*SIGN(1.0,dy)
+       if (abs(dz) > 0.5*dzbound) dz = dz - dzbound*SIGN(1.0,dz)
 #endif
 
-        rij2 = dx*dx + dy*dy + dz*dz + TINY(0.)
-        rij = SQRT(rij2)
-        q2i = rij2*hi21
-        qi = SQRT(q2i)
+       rij2 = dx*dx + dy*dy + dz*dz + TINY(0.)
+       rij = SQRT(rij2)
+       q2i = rij2*hi21
+       qi = SQRT(q2i)
 
-        hj1 = 1./xyzh(4,j)
-        hj = 1./hj1
-        hj21 = hj1*hj1
-        q2j  = rij2*hj21
+       hj1 = 1./xyzh(4,j)
+       hj = 1./hj1
+       hj21 = hj1*hj1
+       q2j  = rij2*hj21
 
-        is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
-           if (maxphase==maxp) then
-              call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
-           else
-              iactivej = .true.
-              iamtypej = igas
-              iamgasj  = .true.
-           endif
-           if (.not. iamgasj) cycle loop_over_neighbours
-           if (.not. iactivej) cycle loop_over_neighbours 
-           ! get kernel quantities 
-           if (gradh(1,i) > 0.) then
-              gradhi = gradh(1,i)
-           !elseif (ngradh_err < 20) then
-           !   call error('force','stored gradh is zero, resetting to 1') 
-            !  gradhi = 1.
+       is_sph_neighbour: if (q2i < radkern2 .or. q2j < radkern2) then
+          if (maxphase==maxp) then
+             call get_partinfo(iphase(j),iactivej,iamgasj,iamdustj,iamtypej)
+          else
+             iactivej = .true.
+             iamtypej = igas
+             iamgasj  = .true.
+          endif
+          if (.not. iamgasj) cycle loop_over_neighbours
+          if (.not. iactivej) cycle loop_over_neighbours
+          ! get kernel quantities
+          if (gradh(1,i) > 0.) then
+             gradhi = gradh(1,i)
+             !elseif (ngradh_err < 20) then
+             !   call error('force','stored gradh is zero, resetting to 1')
+             !  gradhi = 1.
              ! ngradh_err = ngradh_err + 1
-           else
-              gradhi = 1.
-              ngradh_err = ngradh_err + 1
-           endif
-           call get_kernel(q2i,qi,wabi,grkerni) 
-           wkerni = wabi*cnormk*hi21*hi1
-           dwkerni = grkerni*cnormk*hi21*hi21*gradh(1,i)
-           pmassj = massoftype(iamtypej)
-           call rhoanddhdrho(hj,hj1,rhoj,rho1j,dhdrhoj,pmassj)
-           call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,&
+          else
+             gradhi = 1.
+             ngradh_err = ngradh_err + 1
+          endif
+          call get_kernel(q2i,qi,wabi,grkerni)
+          wkerni = wabi*cnormk*hi21*hi1
+          dwkerni = grkerni*cnormk*hi21*hi21*gradh(1,i)
+          pmassj = massoftype(iamtypej)
+          call rhoanddhdrho(hj,hj1,rhoj,rho1j,dhdrhoj,pmassj)
+          call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,&
                  kappaBarj,kappaPartj,Tj,gmwj)
-           uradi = uradi + get_radconst_code()*(Tj**4.0d0)*wkerni*pmassj/rhoj
+          uradi = uradi + get_radconst_code()*(Tj**4.0d0)*wkerni*pmassj/rhoj
 
-           ! calculate components of gradient
-           runix = dx/rij
-           runiy = dy/rij
-           runiz = dz/rij
-           
-           dT4 = Ti**4d0 - Tj**4d0
-           dradxi = dradxi + get_radconst_code()*pmassj*dT4*dwkerni*runix/rhoj
-           dradyi = dradyi + get_radconst_code()*pmassj*dT4*dwkerni*runiy/rhoj
-           dradzi = dradzi + get_radconst_code()*pmassj*dT4*dwkerni*runiz/rhoj
-           
-        endif is_sph_neighbour
-    
-     enddo loop_over_neighbours
+          ! calculate components of gradient
+          runix = dx/rij
+          runiy = dy/rij
+          runiz = dz/rij
 
-     ! add self contribution 
+          dT4 = Ti**4d0 - Tj**4d0
+          dradxi = dradxi + get_radconst_code()*pmassj*dT4*dwkerni*runix/rhoj
+          dradyi = dradyi + get_radconst_code()*pmassj*dT4*dwkerni*runiy/rhoj
+          dradzi = dradzi + get_radconst_code()*pmassj*dT4*dwkerni*runiz/rhoj
 
-     uradi = uradi + cnormk*hi31*get_radconst_code()*(Ti**4d0) &
+       endif is_sph_neighbour
+
+    enddo loop_over_neighbours
+
+    ! add self contribution
+
+    uradi = uradi + cnormk*hi31*get_radconst_code()*(Ti**4d0) &
              *wab0*pmassi/rhoi
-     if (uradi > 1.d0) print *, "cnormk,hi31,radconst,Ti,wab0,pmassi,rhoi",&
+    if (uradi > 1.d0) print *, "cnormk,hi31,radconst,Ti,wab0,pmassi,rhoi",&
           cnormk,hi31,get_radconst_code(),Ti,wab0,pmassi,rhoi,"wabi,wkerni,pmassj,rhoj", &
           wabi,wkerni,pmassj,rhoj
 !$omp critical
-     if (iamgasi .and. uradi > 0d0) urad_FLD(i) = uradi        
+    if (iamgasi .and. uradi > 0d0) urad_FLD(i) = uradi
 !$omp end critical
-     !Now calculate flux limiter coefficients                          
-     !Calculate in code units (converted to code units in forcei)
-     dradi = SQRT(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
-     if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
-        R_rad = 0.0d0
-     else
-        R_rad = dradi/(uradi*rhoi*kappaParti/unit_opacity)
-     endif
+    !Now calculate flux limiter coefficients
+    !Calculate in code units (converted to code units in forcei)
+    dradi = SQRT(dradxi*dradxi + dradyi*dradyi + dradzi*dradzi) ! should this be normalised somehow?
+    if ((dradi.eq.0.0d0).or.(uradi.eq.0.0d0)) then
+       R_rad = 0.0d0
+    else
+       R_rad = dradi/(uradi*rhoi*kappaParti/unit_opacity)
+    endif
 !$omp critical
-     lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
+    lambda(i) = (2.0d0+R_rad)/(6.0d0+3.0d0*R_rad+R_rad*R_rad)
 !$omp end critical
-     if (isnan(lambda(i))) then
-        print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
+    if (isnan(lambda(i))) then
+       print *, "lambda isnan when calculated. i, R_Rad, uradi,dradi,rhoi,",&
              "kappaParti, Ti",i,R_Rad,uradi,dradi,rhoi,kappaParti,Ti
-     endif
+    endif
 
  enddo over_parts
 ! if (ngradh_err > 0) print *, "ngradh_errors = ", ngradh_err

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module datautils
 !
@@ -79,11 +79,6 @@ function find_datafile(filename,dir,env_var,url,verbose) result(filepath)
              ! try to download the file from a remote url
              !
              my_url = url
-             if (present(dir)) then
-                if (len_trim(dir) > 0) my_url = trim(url)//'/'//trim(dir)//'/'
-             else
-                my_url = url
-             endif
              call download_datafile(trim(my_url),trim(mydir),trim(filename),filepath,ierr)
              if (ierr == 0) then
                 inquire(file=trim(filepath),exist=iexist)
@@ -209,10 +204,10 @@ logical function has_write_permission(dir)
 
  has_write_permission = .true.
  open(newunit=iunit,file=trim(dir)//'data.tmp.abcd',action='write',iostat=ierr)
- if (ierr /= 0) then
-    has_write_permission = .false.
- endif
- close(iunit,status='delete')
+ if (ierr /= 0) has_write_permission = .false.
+
+ close(iunit,status='delete',iostat=ierr)
+ if (ierr /= 0) has_write_permission = .false.
 
 end function has_write_permission
 

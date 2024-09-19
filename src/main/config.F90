@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module dim
 !
@@ -22,8 +22,6 @@ module dim
  integer, parameter, public :: phantom_version_minor = PHANTOM_VERSION_MINOR
  integer, parameter, public :: phantom_version_micro = PHANTOM_VERSION_MICRO
  character(len=*), parameter, public :: phantom_version_string = PHANTOM_VERSION_STRING
- character(len=80), parameter :: &  ! module version
-    modid="$Id$"
 
  public
 
@@ -44,7 +42,9 @@ module dim
 #else
  integer, parameter :: maxptmass = 1000
 #endif
- integer, parameter :: nsinkproperties = 18
+ integer, parameter :: nsinkproperties = 22
+
+ logical :: store_ll_ptmass = .false.
 
  ! storage of thermal energy or not
 #ifdef ISOTHERMAL
@@ -123,7 +123,6 @@ module dim
 #else
  logical, parameter :: do_radiation = .false.
 #endif
-
  ! rhosum
  integer, parameter :: maxrhosum = 39 + &
                                    maxdustlarge - 1 + &
@@ -139,7 +138,7 @@ module dim
 ! xpartveci
  integer, parameter :: maxxpartvecidens = 14 + radenxpartvetden
 
- integer, parameter :: maxxpartvecvars = 61 ! Number of scalars in xpartvec
+ integer, parameter :: maxxpartvecvars = 62 ! Number of scalars in xpartvec
  integer, parameter :: maxxpartvecarrs = 2  ! Number of arrays in xpartvec
  integer, parameter :: maxxpartvecGR   = 33 ! Number of GR values in xpartvec (1 for dens, 16 for gcov, 16 for gcon)
  integer, parameter :: maxxpartveciforce = maxxpartvecvars + &              ! Total number of values
@@ -243,12 +242,8 @@ module dim
 ! H2 Chemistry
 !--------------------
  integer :: maxp_h2 = 0
-#ifdef H2CHEM
- logical, parameter :: h2chemistry = .true.
-#else
- logical, parameter :: h2chemistry = .false.
-#endif
  integer, parameter :: nabundances = 5
+ logical :: h2chemistry = .false.
 
 !--------------------
 ! Self-gravity
@@ -272,6 +267,15 @@ module dim
  logical, parameter :: gr = .false.
 #endif
 
+!---------------------
+! Numerical relativity
+!---------------------
+#ifdef NR
+ logical, parameter :: nr = .true.
+#else
+ logical, parameter :: nr = .false.
+#endif
+
 !--------------------
 ! Supertimestepping
 !--------------------
@@ -280,10 +284,11 @@ module dim
 !--------------------
 ! Dust formation
 !--------------------
- logical :: do_nucleation = .false.
- integer :: itau_alloc    = 0
- integer :: itauL_alloc   = 0
- integer :: inucleation   = 0
+ logical :: do_nucleation  = .false.
+ logical :: update_muGamma = .false.
+ integer :: itau_alloc     = 0
+ integer :: itauL_alloc    = 0
+ integer :: inucleation    = 0
  !number of elements considered in the nucleation chemical network
  integer, parameter :: nElements = 10
 #ifdef DUST_NUCLEATION
@@ -316,9 +321,9 @@ module dim
 ! logical for bookkeeping
 !--------------------
 #ifdef INJECT_PARTICLES
- logical, parameter :: particles_are_injected = .true.
+ logical, parameter :: inject_parts = .true.
 #else
- logical, parameter :: particles_are_injected = .false.
+ logical, parameter :: inject_parts = .false.
 #endif
 
 !--------------------
@@ -358,9 +363,9 @@ subroutine update_max_sizes(n,ntot)
 
  maxp = n
 
-#ifdef KROME
- maxp_krome = maxp
-#endif
+ if (use_krome) maxp_krome = maxp
+
+ if (h2chemistry) maxp_h2 = maxp
 
 #ifdef SINK_RADIATION
  store_dust_temperature = .true.
@@ -407,10 +412,6 @@ subroutine update_max_sizes(n,ntot)
 #ifdef NONIDEALMHD
  maxmhdni = maxp
 #endif
-#endif
-
-#ifdef H2CHEM
- maxp_h2 = maxp
 #endif
 
 #ifdef GRAVITY

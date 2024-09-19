@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module powerspectrums
 !
@@ -89,7 +89,7 @@ subroutine power_fourier(npts,x,dat,omega,power)
     sum1 = sum1 + dat(i)*cos(-omega*x(i))
     sum2 = sum2 + dat(i)*sin(-omega*x(i))
  enddo
- power= sqrt(sum1**2 + sum2**2)/REAL(npts)
+ power= sqrt(sum1**2 + sum2**2)/real(npts)
 
  return
 end subroutine power_fourier

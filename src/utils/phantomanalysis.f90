@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 program phantomanalysis
 !
@@ -14,8 +14,8 @@ program phantomanalysis
 !
 ! :Usage: phantomanalysis dumpfile(s)
 !
-! :Dependencies: analysis, dim, eos, fileutils, infile_utils, io, kernel,
-!   part, readwrite_dumps
+! :Dependencies: analysis, dim, eos, externalforces, fileutils,
+!   infile_utils, io, kernel, part, readwrite_dumps
 !
  use dim,             only:tagline,do_nucleation,inucleation
  use part,            only:xyzh,hfact,massoftype,vxyzu,npart !,npartoftype
@@ -26,6 +26,7 @@ program phantomanalysis
  use analysis,        only:do_analysis,analysistype
  use eos,             only:ieos
  use kernel,          only:hfact_default
+ use externalforces,  only:mass1,accradius1
  implicit none
  integer            :: nargs,iloc,ierr,iarg,i,idust_opacity
  real               :: time
@@ -58,7 +59,8 @@ program phantomanalysis
 !
     if (iarg==1) then
 
-       iloc = index(dumpfile,'_0')
+       !iloc = index(dumpfile,'_0')
+       iloc = index(dumpfile,'_',.true.) !to load dump > 9999
 
        if (iloc > 1) then
           fileprefix = trim(dumpfile(1:iloc-1))
@@ -75,6 +77,8 @@ program phantomanalysis
              do_nucleation = .true.
              inucleation = 1
           endif
+          call read_inopt(mass1,'mass1',db,ierr)
+          call read_inopt(accradius1,'accradius1',db,ierr)
           call close_db(db)
           close(ianalysis)
        endif

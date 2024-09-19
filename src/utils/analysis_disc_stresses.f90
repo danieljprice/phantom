@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module analysis
 !
@@ -13,10 +13,13 @@ module analysis
 !
 ! :Owner: Daniel Price
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - nbins : *Number of radial bins*
+!   - rin   : *Inner Disc Radius*
+!   - rout  : *Outer Disc Radius*
 !
-! :Dependencies: dim, eos, getneighbours, io, kernel, part, physcon,
-!   prompting, units
+! :Dependencies: dim, eos, getneighbours, infile_utils, io, kernel, part,
+!   physcon, prompting, units
 !
  use getneighbours,    only:generate_neighbour_lists, read_neighbours, write_neighbours, &
                            neighcount,neighb,neighmax
@@ -104,43 +107,47 @@ end subroutine do_analysis
 !+
 !-------------------------------------------
 subroutine read_analysis_options
-
- use prompting, only:prompt
-
- implicit none
-
+ use prompting,    only:prompt
+ use infile_utils, only:open_db_from_file,inopts,read_inopt,write_inopt,close_db
+ use io,           only:fatal
+ type(inopts), allocatable :: db(:)
+ integer :: ierr,nerr
  logical :: inputexist
  character(len=21) :: inputfile
+ integer, parameter :: iunit = 10
 
 ! Check for existence of input file
- inputfile = 'disc_stresses.options'
+ inputfile = trim(analysistype)//'.options'
  inquire(file=inputfile, exist=inputexist)
 
  if (inputexist) then
-
+    nerr = 0
     print '(a,a,a)', "Parameter file ",inputfile, " found: reading analysis options"
-
-    open(10,file=inputfile, form='formatted')
-    read(10,*) nbins
-    read(10,*) rin
-    read(10,*) rout
-    close(10)
+    call open_db_from_file(db,inputfile,iunit,ierr)
+    call read_inopt(nbins,'nbins',db,errcount=nerr)
+    call read_inopt(rin,'rin',db,errcount=nerr)
+    call read_inopt(rout,'rout',db,errcount=nerr)
+    call close_db(db)
+    if (nerr > 0) then
+       call fatal(trim(analysistype),'Error in reading '//trim(inputfile))
+    endif
 
  else
 
     print '(a,a,a)', "Parameter file ",inputfile, " NOT found"
-
+    nbins = 128; rin = 1.; rout = 100.
     call prompt('Enter the number of radial bins: ', nbins)
     call prompt('Enter the disc inner radius: ', rin)
     call prompt('Enter the disc outer radius: ', rout)
 
 ! Write choices to new inputfile
 
-    open(10,file=inputfile, status='new', form='formatted')
-    write(10,*) nbins, "      Number of radial bins"
-    write(10,*) rin,  "      Inner Disc Radius"
-    write(10,*) rout, "      Outer Disc Radius"
-    close(10)
+    open(unit=iunit,file=inputfile,status='new',form='formatted')
+    write(iunit,"(a)") '# parameter options for analysis of '//trim(analysistype)
+    call write_inopt(nbins,'nbins','Number of radial bins',iunit)
+    call write_inopt(rin,'rin','Inner Disc Radius',iunit)
+    call write_inopt(rout,'rout','Outer Disc Radius',iunit)
+    close(iunit)
  endif
 
 
@@ -163,8 +170,6 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
  use part, only:poten,igas,iphase,maxphase,rhoh,massoftype,iamgas
  use kernel, only: get_kernel,get_kernel_grav1,cnormk
 
- implicit none
-
  character(len=*),intent(in) :: dumpfile
  real,intent(in) :: xyzh(:,:),vxyzu(:,:)
  integer,intent(in) :: npart
@@ -185,11 +190,11 @@ subroutine calc_gravitational_forces(dumpfile,npart,xyzh,vxyzu)
 
 ! Construct neighbour lists for derivative calculations
 
- neighbourfile = 'neigh_'//TRIM(dumpfile)
+ neighbourfile = 'neigh_'//trim(dumpfile)
  inquire(file=neighbourfile,exist = existneigh)
 
  if (existneigh.eqv..true.) then
-    print*, 'Neighbour file ', TRIM(neighbourfile), ' found'
+    print*, 'Neighbour file ', trim(neighbourfile), ' found'
     call read_neighbours(neighbourfile,npart)
 
  else
@@ -351,21 +356,17 @@ end subroutine transform_to_cylindrical
 !+
 !---------------------------------------------------------------
 
-subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
- use physcon, only:pi,kb_on_mh
- use eos, only:gamma,ieos
- use part, only:itemp,imu 
- use units, only:udist
-
- implicit none
+subroutine radial_binning(npart,xyzh,vxyzu,pmass)
+ use physcon, only:pi
+ use eos,     only:get_spsound,ieos
+ use part,    only:rhoh,isdead_or_accreted
 
  integer,intent(in) :: npart
  real,intent(in) :: pmass
  real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned,iallocerr
- real :: area
- real,allocatable :: zsetgas(:,:)
+ integer :: ibin,ipart,nbinned
+ real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
 
@@ -409,7 +410,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  do ipart=1,npart
 
     ! i refers to particle, ii refers to bin
-    if (xyzh(4,ipart)  >  tiny(xyzh)) then ! IF ACTIVE
+    if (.not.isdead_or_accreted(xyzh(4,ipart))) then ! IF ACTIVE
 
        ibin = int((rpart(ipart)-rad(1))/dr + 1)
 
@@ -423,14 +424,9 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
 
        ninbin(ibin) = ninbin(ibin) +1
        ipartbin(ipart) = ibin
-	   if (ieos==21) then
-		   csbin(ibin) = csbin(ibin) + sqrt(kb_on_mh * eos_vars(itemp,ipart) / eos_vars(imu,ipart))
-		   if (csbin(ibin) == 0) then
-		   	print *, eos_vars(itemp,ipart)
-		   	endif
-	   else
-    	 csbin(ibin) = csbin(ibin) + sqrt(gamma*(gamma-1)*vxyzu(4,ipart))
-       endif
+
+       csi = get_spsound(ieos,xyzh(1:3,ipart),rhoh(xyzh(4,ipart),pmass),vxyzu(:,ipart))
+       csbin(ibin) = csbin(ibin) + csi
 
        area = pi*((rad(ibin)+0.5*dr)**2-(rad(ibin)- 0.5*dr)**2)
        sigma(ibin) = sigma(ibin) + pmass/area

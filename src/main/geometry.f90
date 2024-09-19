@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module geometry
 !
@@ -203,7 +203,7 @@ subroutine set_rotation_angles(a,b,sin_a,sin_b,cos_a,cos_b)
  endif
  if (present(cos_b)) then
     cosb = cos_b
-    if (.not.present(cos_b)) sinb = sqrt(1. - cosb**2)
+    if (.not.present(sin_b)) sinb = sqrt(1. - cosb**2)
  endif
 
 end subroutine set_rotation_angles

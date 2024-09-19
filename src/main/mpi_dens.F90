@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module mpidens
 !
@@ -74,6 +74,7 @@ module mpidens
     integer                   :: maxlength = 0
     integer                   :: n = 0
     integer                   :: number
+    integer                   :: idum     ! to avoid ifort warning
  end type stackdens
 
 contains
@@ -227,6 +228,8 @@ subroutine free_mpitype_of_celldens(dtype)
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
+#else
+ dtype = 0
 #endif
 
 end subroutine free_mpitype_of_celldens

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module evolve
 !
@@ -16,12 +16,12 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: analysis, boundary_dyn, centreofmass, checkconserved, dim,
-!   energies, evwrite, externalforces, fileutils, forcing, inject, io,
-!   io_summary, mf_write, mpiutils, options, part, partinject, ptmass,
-!   quitdump, radiation_utils, readwrite_dumps, readwrite_infile,
-!   step_lf_global, supertimestep, timestep, timestep_ind, timestep_sts,
-!   timing
+! :Dependencies: HIIRegion, analysis, boundary_dyn, centreofmass,
+!   checkconserved, dim, energies, evwrite, externalforces, fileutils,
+!   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
+!   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
+!   readwrite_infile, step_lf_global, subgroup, substepping, supertimestep,
+!   timestep, timestep_ind, timestep_sts, timing
 !
  implicit none
  public :: evol
@@ -30,18 +30,18 @@ module evolve
 
 contains
 
-subroutine evol(infile,logfile,evfile,dumpfile)
+subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use io,               only:iprint,iwritein,id,master,iverbose,&
                             flush_warnings,nprocs,fatal,warning
  use timestep,         only:time,tmax,dt,dtmax,nmax,nout,nsteps,dtextforce,rhomaxnow,&
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,hdivBonB_max
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,ind_timesteps
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -62,8 +62,8 @@ subroutine evol(infile,logfile,evfile,dumpfile)
 #else
  use timestep,         only:dtforce,dtcourant,dterr,print_dtlog
 #endif
- use timestep_sts,     only: use_sts
- use supertimestep,    only: step_sts
+ use timestep_sts,     only:use_sts
+ use supertimestep,    only:step_sts
 #ifdef DRIVING
  use forcing,          only:write_forcingdump
 #endif
@@ -88,13 +88,20 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
+                            linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
+ use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+                            set_integration_precision,ptmass_create_stars,use_regnbody,ptmass_create_seeds,&
+                            ipart_createseeds,ipart_createstars
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
+ use HIIRegion,        only:HII_feedback,iH2R,HIIuprate
+ use subgroup,         only:group_identify
+ use substepping,      only:get_force
 #ifdef MFLOW
  use mf_write,         only:mflow_write
 #endif
@@ -105,6 +112,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  use mf_write,         only:binpos_write
 #endif
 
+ integer, optional, intent(in)   :: flag
  character(len=*), intent(in)    :: infile
  character(len=*), intent(inout) :: logfile,evfile,dumpfile
  integer         :: i,noutput,noutput_dtmax,nsteplast,ncount_fulldumps
@@ -135,6 +143,9 @@ subroutine evol(infile,logfile,evfile,dumpfile)
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
+ integer         :: dummy,istepHII,nptmass_old
+
+ dummy = 0
 
  tprint    = 0.
  nsteps    = 0
@@ -161,11 +172,16 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     dtmax_log_dratio = 0.0
  endif
 
+ !
+ ! Set substepping integration precision depending on the system (default is FSI)
+ !
+ call set_integration_precision
+
 #ifdef IND_TIMESTEPS
  use_global_dt = .false.
  istepfrac     = 0
  tlast         = tzero
- dt            = dtmax/2**nbinmax
+ dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
  nmovedtot     = 0
  tall          = 0.
  tcheck        = time
@@ -217,15 +233,19 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !
     ! injection of new particles into simulation
     !
-    npart_old=npart
-    call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
-    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    if (.not. present(flag)) then
+       npart_old=npart
+       call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
+       call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
+    endif
 #endif
 
     dtmaxold    = dtmax
 #ifdef IND_TIMESTEPS
     istepfrac   = istepfrac + 1
     nbinmaxprev = nbinmax
+    if (nbinmax > maxbins) call fatal('evolve','timestep too small: try decreasing dtmax?')
+
     !--determine if dt needs to be decreased; if so, then this will be done
     !  in step the next time it is called;
     !  for global timestepping, this is called in the block where at_dump_time==.true.
@@ -259,13 +279,56 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     !  across all nodes
     nskip = int(ntot)
 #endif
-
+    nptmass_old = nptmass
     if (gravity .and. icreate_sinks > 0 .and. ipart_rhomax /= 0) then
        !
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+    endif
+
+    if (icreate_sinks == 2) then
+       !
+       ! creation of new seeds into evolved sinks
+       !
+       if (ipart_createseeds /= 0) then
+          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,time)
+       endif
+       !
+       ! creation of new stars from sinks (cores)
+       !
+       if (ipart_createstars /= 0) then
+          call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
+                               linklist_ptmass,time)
+       endif
+    endif
+
+    if (iH2R > 0 .and. id==master) then
+       istepHII = 1
+       if (ind_timesteps) then
+          istepHII = 2**nbinmax/HIIuprate
+          if (istepHII==0) istepHII = 1
+       endif
+       if (mod(istepfrac,istepHII) == 0 .or. istepfrac == 1 .or. (icreate_sinks == 2 .and. ipart_createstars /= 0)) then
+          call HII_feedback(nptmass,npart,xyzh,xyzmh_ptmass,vxyzu,isionised)
+       endif
+    endif
+
+    ! Need to recompute the force when sink or stars are created
+    if (nptmass > nptmass_old .or. ipart_createseeds /= 0 .or. ipart_createstars /= 0) then
+       if (use_regnbody) then
+          call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
+                              new_ptmass=.true.,dtext=dtextforce)
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info,group_info=group_info)
+       else
+          call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
+               fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info)
+       endif
+       if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
+       if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero
+       dummy = 0
     endif
     !
     ! Strang splitting: implicit update for half step
@@ -273,6 +336,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
     if (do_radiation  .and. exchange_radiation_energy  .and. .not.implicit_radiation) then
        call update_radenergy(npart,xyzh,fxyzu,vxyzu,rad,radprop,0.5*dt)
     endif
+
     nsteps = nsteps + 1
 !
 !--evolve data for one timestep
@@ -385,7 +449,7 @@ subroutine evol(infile,logfile,evfile,dumpfile)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
-       if (mhd) call check_magnetic_stability(hdivBB_xa)
+       if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
@@ -630,7 +694,7 @@ subroutine print_timinginfo(iprint,nsteps,nsteplast)
  use io,     only:formatreal
  use timing, only:timer,timers,print_timer,itimer_fromstart,itimer_lastdump,&
                   itimer_step,itimer_link,itimer_balance,itimer_dens,&
-                  itimer_force,itimer_extf,itimer_ev,itimer_io,ntimers
+                  itimer_force,itimer_ev,itimer_io,ntimers
  integer,      intent(in) :: iprint,nsteps,nsteplast
  real                     :: dfrac,fracinstep
  real(kind=4)             :: time_fullstep

@@ -12,6 +12,9 @@ build/phantom-version.h
 *~
 */*~
 */*/*~
+eos_binary_table.dat
+helm_data.tab
+forcing.dat
 *.bindata
 *.pyc
 #*
@@ -23,3 +26,7 @@ build/phantom-version.h
 *.tar
 .DS_Store
 _build
+*.cmdx
+*.cmod
+*.ilm
+*.stb

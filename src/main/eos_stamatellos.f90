@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module eos_stamatellos
 !
@@ -20,7 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:)
+ real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
@@ -32,18 +32,26 @@ module eos_stamatellos
 contains
 
 subroutine init_S07cool()
- use part, only:npart,maxradprop 
+ use part, only:npart,maxradprop
  print *, "Allocating cooling arrays"
  allocate(gradP_cool(npart))
  allocate(Gpot_cool(npart))
  allocate(duFLD(npart))
  allocate(lambda_fld(npart))
- allocate(urad_FLD(npart))    
- allocate(ttherm_store(npart))    
- allocate(teqi_store(npart))    
- allocate(opac_store(npart))    
+ allocate(urad_FLD(npart))
+ allocate(ttherm_store(npart))
+ allocate(teqi_store(npart))
+ allocate(opac_store(npart))
+ allocate(duSPH(npart))
+ Gpot_cool(:) = 0d0
+ gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
- open (unit=iunitst,file='EOSinfo.dat',status='replace')    
+ duFLD(:) = 0d0
+ teqi_store(:) = 0d0
+ ttherm_store(:) = 0d0
+ opac_store(:) = 0d0
+ duSPH(:) = 0d0
+ open (unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
  else
@@ -61,6 +69,7 @@ subroutine finish_S07cool()
  if (allocated(ttherm_store)) deallocate(ttherm_store)
  if (allocated(teqi_store)) deallocate(teqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
+ if (allocated(duSPH)) deallocate(duSPH)
  close(iunitst)
 end subroutine finish_S07cool
 
@@ -93,13 +102,13 @@ subroutine read_optab(eos_file,ierr)
               OPTABLE(i,j,4),OPTABLE(i,j,5),OPTABLE(i,j,6)
     enddo
  enddo
-! print *, 'nx,ny=', nx, ny
 end subroutine read_optab
 
 !
 ! Main subroutine for interpolating tables to get EOS values
 !
 subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
+ use io, only:fatal
  real, intent(in)  :: ui,rhoi
  real, intent(out) :: kappaBar,kappaPart,Ti,gmwi
 
@@ -114,6 +123,13 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
  rhomin = OPTABLE(1,1,1)
  umin = OPTABLE(1,1,3)
  ! interpolate through OPTABLE to find corresponding kappaBar, kappaPart and T
+
+ ! check values are in range of tables
+ if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+    call fatal('getopac_opdep','rhoi out of range. Collapsing clump?',var='rhoi',val=rhoi)
+ elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
+    call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
+ endif
 
  if (rhoi <  rhomin) then
     rhoi_ = rhomin
@@ -204,6 +220,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 end subroutine getopac_opdep
 
 subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
+ use io, only:warning
  real, intent(out) :: ueqi
  real, intent(in)    :: Teqi,rhoi
 
@@ -211,6 +228,13 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  real m, c
  integer i, j
  real rhoi_
+
+ if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+    call warning('getintenerg_opdep','rhoi out of range',var='rhoi',val=rhoi)
+ elseif (Teqi > OPTABLE(1,ny,2) .or. Teqi < OPTABLE(1,1,2)) then
+    call warning('getintenerg_opdep','Ti out of range',var='Ti',val=Teqi)
+ endif
+
 
  ! interpolate through OPTABLE to obtain equilibrium internal energy
 
@@ -229,6 +253,7 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
  do while ((OPTABLE(i-1,j,2) <= Teqi).and.(j < ny))
     j = j + 1
  enddo
+
 
  m = (OPTABLE(i-1,j-1,3) - OPTABLE(i-1,j,3))/(OPTABLE(i-1,j-1,2) - OPTABLE(i-1,j,2))
  c = OPTABLE(i-1,j,3) - m*OPTABLE(i-1,j,2)
@@ -252,25 +277,25 @@ subroutine getintenerg_opdep(Teqi, rhoi, ueqi)
 end subroutine getintenerg_opdep
 
 subroutine get_k_fld(rhoi,eni,i,ki,Ti)
-  use physcon,  only:c,fourpi
-  use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
-  real,intent(in)    :: rhoi,eni
-  integer,intent(in) :: i
-  real               :: kappaBar,gmwi,kappaPart
-  real,intent(out)   :: ki,Ti
+ use physcon,  only:c,fourpi
+ use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
+ real,intent(in)    :: rhoi,eni
+ integer,intent(in) :: i
+ real               :: kappaBar,gmwi,kappaPart
+ real,intent(out)   :: ki,Ti
 
-  if (lambda_FLD(i) == 0d0) then
-     ki = 0.
-  else
-     call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
-     kappaPart = kappaPart/unit_opacity
-     ! steboltz constant = 4pi/c * arad
-     ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
-     if (isnan(ki)) then
-        print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
+ if (lambda_FLD(i) == 0d0) then
+    ki = 0.
+ else
+    call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+    kappaPart = kappaPart/unit_opacity
+    ! steboltz constant = 4pi/c * arad
+    ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart
+    if (isnan(ki)) then
+       print *, "WARNING k isnan, lambda_FLDi,Ti,rhoi,kappaPart", &
              lambda_FLD(i), Ti, rhoi,kappaPart
-     endif
-  endif
+    endif
+ endif
 end subroutine get_k_fld
 
 end module eos_stamatellos

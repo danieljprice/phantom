@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module ephemeris
 !
@@ -71,7 +71,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  integer,          intent(out) :: ierr
  character(len=3)  :: cmd
  character(len=10) :: start_epoch,end_epoch
- integer(kind=8)   :: values(8),year,month,day
+ integer           :: values(8),year,month,day
 
  ierr = 0
  select case(trim(adjustl(object)))

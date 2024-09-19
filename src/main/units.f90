@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module units
 !
@@ -34,8 +34,8 @@ module units
  public :: set_units, set_units_extra, print_units
  public :: get_G_code, get_c_code, get_radconst_code, get_kbmh_code
  public :: c_is_unity, G_is_unity, in_geometric_units
- public :: is_time_unit, is_length_unit
- public :: in_solarr, in_solarm
+ public :: is_time_unit, is_length_unit, is_mdot_unit
+ public :: in_solarr, in_solarm, in_solarl
 
 contains
 
@@ -100,13 +100,13 @@ subroutine set_units(dist,mass,time,G,c)
        utime = sqrt(udist**3/(gg*umass))
        if (present(time)) print "(a)",' WARNING: over-riding time unit with G=1 assumption'
     elseif (present(dist) .and. present(time)) then
-       umass = udist**2/(gg*utime**2)
+       umass = udist**3/(gg*utime**2)
        if (present(mass)) print "(a)",' WARNING: over-riding mass unit with G=1 assumption'
     elseif (present(mass) .and. present(time)) then
        udist = (utime**2*(gg*umass))**(1.d0/3.d0)
        if (present(dist)) print "(a)",' WARNING: over-riding length unit with G=1 assumption'
     elseif (present(time)) then
-       umass = udist**2/(gg*utime**2)     ! udist is 1
+       umass = udist**3/(gg*utime**2)     ! udist is 1
     else
        utime = sqrt(udist**3/(gg*umass))  ! udist and umass are 1
     endif
@@ -226,6 +226,12 @@ subroutine select_unit(string,unit,ierr)
     unit = minutes
  case('s','sec','second','seconds')
     unit = seconds
+ case("g/s","grams/second","g/second","grams/s","g/sec","grams/sec")
+    unit = 1.d0/seconds
+ case("Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
+      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
+      "M_sun/year","Msolar/year","M_solar/year")
+    unit = solarm/years
  case default
     ierr = 1
     unit = 1.d0
@@ -287,6 +293,32 @@ end function is_length_unit
 
 !------------------------------------------------------------------------------------
 !+
+!  check if string is a unit of mdot
+!+
+!------------------------------------------------------------------------------------
+logical function is_mdot_unit(string)
+ character(len=*), intent(in) :: string
+ character(len=len(string)) :: unitstr
+ real(kind=8) :: fac
+ integer :: ierr
+
+ ierr = 0
+ call get_unit_multiplier(string,unitstr,fac,ierr)
+
+ select case(trim(unitstr))
+ case("g/s","gram/second","g/second","gram/s","g/sec","gram/sec",&
+      "Ms/yr","M_s/yr","ms/yr","m_s/yr","Msun/yr","M_sun/yr","Msolar/yr",&
+      "M_solar/yr","Ms/year","M_s/year","ms/year","m_s/year","Msun/year",&
+      "M_sun/year","Msolar/year","M_solar/year")
+    is_mdot_unit = .true.
+ case default
+    is_mdot_unit = .false.
+ end select
+
+end function is_mdot_unit
+
+!------------------------------------------------------------------------------------
+!+
 !  parse a string like "10.*days" or "10*au" and return the value in code units
 !  if there is no recognisable units, the value is returned unscaled
 !+
@@ -301,6 +333,8 @@ real function in_code_units(string,ierr) result(rval)
     rval = real(val/utime)
  elseif (is_length_unit(string) .and. ierr == 0) then
     rval = real(val/udist)
+ elseif (is_mdot_unit(string) .and. ierr == 0) then
+    rval = real(val/(umass/utime))
  else
     rval = real(val)  ! no unit conversion
  endif
@@ -464,5 +498,17 @@ real(kind=8) function in_solarr(val) result(rval)
  rval = val*(udist/solarr)
 
 end function in_solarr
+!---------------------------------------------------------------------------
+!+
+!  function to convert a luminosity value from code units to solar luminosity
+!+
+!---------------------------------------------------------------------------
+real(kind=8) function in_solarl(val) result(rval)
+ use physcon, only:solarl
+ real, intent(in) :: val
+
+ rval = val*(unit_luminosity/solarl)
+
+end function in_solarl
 
 end module units

@@ -4,9 +4,8 @@
 #
 #   See build/Makefile for the main Makefile
 #
-#   (c) 2007-2023 The Authors (see AUTHORS)
+#   (c) 2007-2024 The Authors (see AUTHORS)
 #
-#  $Id: Makefile,v 98b9fad01f38 2013/03/25 23:02:49 daniel $
 #----------------------------------------------------------------
 
 .PHONY: phantom

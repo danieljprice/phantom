@@ -12,13 +12,16 @@ echo '#'
 echo 'PHANTOMDIR='${0/scripts\/writemake.sh/};
 echo 'SPLASHDIR='$splashdir
 echo 'EDITOR=vi'
+makeflags='RUNDIR=${PWD}';
 if [ $# -ge 1 ]; then
    echo 'ifndef SETUP';
    echo 'SETUP='$1;
    echo 'endif';
-   makeflags='SETUP=${SETUP} RUNDIR=${PWD} KROME='$2;
-else
-   makeflags='RUNDIR=${PWD}';
+   makeflags=$makeflags' SETUP=${SETUP}';
+fi
+if [ $# -ge 2 ]; then
+   echo 'KROMEPATH='${0/phantom\/scripts\/writemake.sh/krome};
+   makeflags=$makeflags' KROME='$2' KROMEPATH=${KROMEPATH}';
 fi
 echo ''
 echo 'again:'
@@ -38,8 +41,8 @@ echo 'libphantom      : phantomlib'
 echo 'mflow           : mflow'
 echo
 echo 'clean:'
-if [ $# -ge 1 ]; then
-    echo '	cd ${PHANTOMDIR}; make clean KROME=krome'
+if [ $# -ge 2 ]; then
+    echo '	cd ${PHANTOMDIR}; make clean KROME='$2' KROMEPATH=${KROMEPATH}'
 else
     echo '	cd ${PHANTOMDIR}; make clean'
 fi

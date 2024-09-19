@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module inject
 !
@@ -24,7 +24,8 @@ module inject
  implicit none
  character(len=*), parameter, public :: inject_type = 'rochelobe'
 
- public :: init_inject,inject_particles,write_options_inject,read_options_inject
+ public :: init_inject,inject_particles,write_options_inject,read_options_inject,&
+      set_default_options_inject,update_injected_par
 
  real, private :: Mdot = 1.0e-9
  real, private :: Mdotcode = 0.
@@ -53,7 +54,7 @@ end subroutine init_inject
 !+
 !-----------------------------------------------------------------------
 subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
-                            npart,npartoftype,dtinject)
+                            npart,npart_old,npartoftype,dtinject)
  use io,        only:fatal
  use part,      only:nptmass,massoftype,igas,hfact
  use partinject,only:add_or_update_particle
@@ -64,7 +65,7 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  use eos,       only:gmw
  real,    intent(in)    :: time, dtlast
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:), xyzmh_ptmass(:,:), vxyz_ptmass(:,:)
- integer, intent(inout) :: npart
+ integer, intent(inout) :: npart, npart_old
  integer, intent(inout) :: npartoftype(:)
  real,    intent(out)   :: dtinject
  real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
@@ -277,6 +278,10 @@ subroutine phi_derivs(phinns,phizzs,xyzL1,xx1,xx2,theta_s,m1,m2,mu,r12,Porb)
 
 end subroutine phi_derivs
 
+subroutine update_injected_par
+ ! -- placeholder function
+ ! -- does not do anything and will never be used
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+
@@ -336,5 +341,10 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  igotall = (ngot >= 1)
 
 end subroutine read_options_inject
+
+subroutine set_default_options_inject(flag)
+
+ integer, optional, intent(in) :: flag
+end subroutine set_default_options_inject
 
 end module inject

@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module wind
 !
@@ -29,8 +29,8 @@ module wind
 
  private
  ! Shared variables
- real, parameter :: Tdust_stop = 1.d-2 ! Temperature at outer boundary of wind simulation
- real, parameter :: dtmin = 1.d-3 ! Minimum allowed timsestep (for 1D integration)
+ real, parameter :: Tdust_stop = 0.01  ! Temperature at outer boundary of wind simulation
+ real, parameter :: dtmin = 1.d-3      ! Minimum allowed timsestep (for 1D integration)
  integer, parameter :: wind_emitting_sink = 1
  character(len=*), parameter :: label = 'wind'
 
@@ -67,7 +67,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
 
  Mstar_cgs  = Mstar_cg
  wind_gamma = gamma
- Mdot_cgs   = Mdot_code * umass/utime
+ Mdot_cgs   = real(Mdot_code * umass/utime)
  u_to_temperature_ratio = u_to_T
 
  if (idust_opacity == 2) then
@@ -91,6 +91,7 @@ subroutine setup_wind(Mstar_cg, Mdot_code, u_to_T, r0, T0, v0, rsonic, tsonic, s
  elseif (iget_tdust == 4) then
     call get_initial_tau_lucy(r0, T0, v0, tau_lucy_init)
  else
+    call set_abundances
     call get_initial_wind_speed(r0, T0, v0, rsonic, tsonic, stype)
  endif
 
@@ -120,14 +121,14 @@ subroutine init_wind(r0, v0, T0, time_end, state, tau_lucy_init)
  Mstar_cgs = xyzmh_ptmass(4,wind_emitting_sink)*umass
 
  state%dt = 1000.
- if (time_end > 0.d0) then
+ if (time_end > 0.) then
     ! integration stops when time = time_end
     state%find_sonic_solution = .false.
     state%time_end = time_end
  else
     ! integration stops once the sonic point is reached
     state%find_sonic_solution = .true.
-    state%time_end = -1.d0
+    state%time_end = -1.
  endif
  state%time   = 0.
  state%r_old  = 0.
@@ -201,15 +202,15 @@ subroutine wind_step(state)
  use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp,isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity
+      calc_Eddington_factor,idust_opacity,calc_muGamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc
+ use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH, pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded, mu_old, dt_old
 
  rvT(1) = state%r
@@ -239,8 +240,9 @@ subroutine wind_step(state)
     state%gamma          = state%JKmuS(idgamma)
     state%kappa          = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
     state%JKmuS(idalpha) = state%alpha_Edd+alpha_rad
- elseif (idust_opacity == 1) then
-    state%kappa = calc_kappa_bowen(state%Tdust)
+ else
+    if (idust_opacity == 1) state%kappa = calc_kappa_bowen(state%Tdust)
+    if (update_muGamma) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then
@@ -312,7 +314,7 @@ subroutine wind_step(state)
     call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
     state%Q = Q_code*unit_ergg
-    state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+    state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
  state%time = state%time + state%dt
@@ -342,15 +344,15 @@ subroutine wind_step(state)
  use ptmass_radiation, only:alpha_rad,iget_tdust,tdust_exp, isink_radiation
  use physcon,          only:pi,Rg
  use dust_formation,   only:evolve_chem,calc_kappa_dust,calc_kappa_bowen,&
-      calc_Eddington_factor,idust_opacity
+      calc_Eddington_factor,idust_opacity, calc_muGamma
  use part,             only:idK3,idmu,idgamma,idsat,idkappa
  use cooling_solver,   only:calc_cooling_rate
  use options,          only:icooling
  use units,            only:unit_ergg,unit_density
- use dim,              only:itau_alloc
+ use dim,              only:itau_alloc,update_muGamma
 
  type(wind_state), intent(inout) :: state
- real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code
+ real :: rvT(3), dt_next, v_old, dlnQ_dlnT, Q_code, pH,pH_tot
  real :: alpha_old, kappa_old, rho_old, Q_old, tau_lucy_bounded
 
  kappa_old  = state%kappa
@@ -361,8 +363,9 @@ subroutine wind_step(state)
     state%mu        = state%JKmuS(idmu)
     state%gamma     = state%JKmuS(idgamma)
     state%kappa     = calc_kappa_dust(state%JKmuS(idK3), state%Tdust, state%rho)
- elseif (idust_opacity == 1) then
-    state%kappa     = calc_kappa_bowen(state%Tdust)
+ else
+    if (idust_opacity == 1) state%kappa     = calc_kappa_bowen(state%Tdust)
+    if (update_muGamma) call calc_muGamma(state%rho, state%Tg,state%mu, state%gamma, pH, pH_tot)
  endif
 
  if (itau_alloc == 1) then
@@ -441,10 +444,10 @@ subroutine wind_step(state)
  !apply cooling
  if (icooling > 0) then
     Q_old = state%Q
-    call calc_cooling_rate(Q_code,dlnQ_dlnT,state%rho/unit_density,state%Tg,state%Tdust,&
+    call calc_cooling_rate(Q_code,dlnQ_dlnT,real(state%rho/unit_density),state%Tg,state%Tdust,&
          state%mu,state%gamma,state%K2,state%kappa)
     state%Q = Q_code*unit_ergg
-    state%dQ_dr = (state%Q-Q_old)/(1.d-10+state%r-state%r_old)
+    state%dQ_dr = (state%Q-Q_old)/(1.e-10+state%r-state%r_old)
  endif
 
  if (state%time_end > 0. .and. state%time + state%dt > state%time_end) then
@@ -910,7 +913,7 @@ subroutine interp_wind_profile(time, local_time, r, v, u, rho, e, GM, fdone, JKm
 
  e = .5*v**2 - GM/r + gammai*u
  if (local_time == 0.) then
-    fdone = 1.d0
+    fdone = 1.
  else
     fdone = ltime/(local_time*utime)
  endif
@@ -929,7 +932,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  real, intent(in) :: r0, v0, T0, tend, rout
  real, intent(out) :: tcross          !time to cross the entire integration domain
  character(*), intent(in) :: filename
- real, parameter :: Tdust_stop = 1.d0 ! Temperature at outer boundary of wind simulation
+ real, parameter :: Tdust_stop = 1.   ! Temperature at outer boundary of wind simulation
  integer, parameter :: nlmax = 8192   ! maxium number of steps store in the 1D profile
  real :: time_end, tau_lucy_init
  real :: r_incr,v_incr,T_incr,mu_incr,gamma_incr,r_base,v_base,T_base,mu_base,gamma_base,eps
@@ -958,7 +961,7 @@ subroutine save_windprofile(r0, v0, T0, rout, tend, tcross, filename)
  eps       = 0.01
  iter      = 0
  itermax   = int(huge(itermax)/10.) !this number is huge but may be needed for RK6 solver
- tcross    = 1.d99
+ tcross    = huge(0.)
  writeline = 0
 
  r_base     = state%r
