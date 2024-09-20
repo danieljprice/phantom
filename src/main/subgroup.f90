@@ -118,11 +118,12 @@ end subroutine group_identify
 !------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,         only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
+ use omputils,     only: omp_num_threads
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: n_group
- integer :: i,k,l,start_id,end_id,gsize
+ integer :: i,k,l,start_id,end_id,gsize,nthreads
  real    :: akl,ekl,apokl,Tkl
 
  bin_info(isemi,:) = 0.
@@ -130,7 +131,17 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  bin_info(iapo,:) = 0.
  bin_info(iorb,:) = 0.
 
-! this loop could be parallelized...
+ if (n_group < omp_num_threads) then
+    nthreads = n_group
+ else
+    nthreads = omp_num_threads
+ endif
+
+!$omp parallel do default(none) num_threads(nthreads)&
+!$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
+!$omp shared(group_info,bin_info)&
+!$omp private(start_id,end_id,gsize)&
+!$omp private(akl,ekl,apokl,Tkl,k,l,i)
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
@@ -158,6 +169,7 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        bin_info(iorb,l)  = Tkl
     endif
  enddo
+!$omp end parallel do
 
 end subroutine find_binaries
 
@@ -391,7 +403,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
 !!TODO MPI Proof version of the matrix construction
 !
 
- !$omp parallel do default(none) &
+ !$omp parallel do default(none) schedule(static) &
  !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
@@ -412,14 +424,14 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
     endif
     do j=1,nptmass
        if (i==j) cycle
-       dx = xi - xyzmh_ptmass(1,j)
-       dy = yi - xyzmh_ptmass(2,j)
-       dz = zi - xyzmh_ptmass(3,j)
        mj = xyzmh_ptmass(4,j)
        if (mj <= 0. ) then
           nmatrix(i,j) = 0 ! killed point masses can't be in a group
           cycle
        endif
+       dx = xi - xyzmh_ptmass(1,j)
+       dy = yi - xyzmh_ptmass(2,j)
+       dz = zi - xyzmh_ptmass(3,j)
        r2 = dx**2+dy**2+dz**2
        r = sqrt(r2)
        !
@@ -467,13 +479,14 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
  use part,     only:igarg,igcum
  use io,       only:id,master
  use mpiutils, only:bcast_mpi
+ use omputils, only:omp_num_threads
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(in)    :: tnext,time
- integer      :: i,start_id,end_id,gsize
+ integer      :: i,start_id,end_id,gsize,nthreads
  real(kind=4) :: t1,t2,tcpu1,tcpu2
 
 
@@ -485,7 +498,12 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
     call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
-       !$omp parallel do default(none)&
+       if (n_group < omp_num_threads) then
+          nthreads = n_group
+       else
+          nthreads = omp_num_threads
+       endif
+       !$omp parallel do default(none) num_threads(nthreads)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize)
@@ -1416,22 +1434,28 @@ end subroutine get_bin_com
 !--------------------------------------------------------
 subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,&
                           gtgrad,epot_sinksink)
- use part, only: igarg,igcum,ikap
- use io, only: id,master,fatal
+ use part,     only: igarg,igcum,ikap
+ use io,       only: id,master,fatal
+ use omputils, only: omp_num_threads
  integer, intent(in)    :: n_group
  real,    intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:),vxyz_ptmass(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(inout) :: epot_sinksink
- integer :: i,start_id,end_id,gsize,prim,sec
+ integer :: i,start_id,end_id,gsize,prim,sec,nthreads
  real :: phitot,phigroup,kappa1
  phitot = 0.
 
- call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
 
  if (n_group>0) then
+    call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
     if (id==master) then
-       !$omp parallel do default(none)&
+       if (n_group < omp_num_threads) then
+          nthreads = n_group
+       else
+          nthreads = omp_num_threads
+       endif
+       !$omp parallel do default(none) num_threads(nthreads)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&
        !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup,kappa1)&
