@@ -789,16 +789,21 @@ subroutine test_createsink(ntests,npass)
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                       ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
-                      ptmass_create_seeds
+                      ptmass_create_seeds,get_accel_sink_sink
  use energies,   only:compute_energies,angtot,etot,totmom
  use mpiutils,   only:bcast_mpi,reduce_in_place_mpi,reduceloc_mpi,reduceall_mpi
  use spherical,  only:set_sphere
  use stretchmap, only:rho_func
+ use units,      only:set_units
+ use physcon,    only:solarm,pc
+
  integer, intent(inout) :: ntests,npass
- integer :: i,itest,itestp,nfailed(4),imin(1)
+ integer :: i,j,itest,itestp,nfailed(6),imin(1)
  integer :: id_rhomax,ipart_rhomax_global
  real :: psep,totmass,r2min,r2,t,coremass,starsmass
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
+ real :: ke,pe,pei,d2,d1,rmax,ri(3)
+ logical :: rtest,stest
  procedure(rho_func), pointer :: density_func
 
  density_func => gaussianr
@@ -818,6 +823,7 @@ subroutine test_createsink(ntests,npass)
     !
     ! initialise arrays to zero
     !
+    call set_units(mass=solarm,dist=pc,G=1.d0)
     call init_part()
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
@@ -922,24 +928,48 @@ subroutine test_createsink(ntests,npass)
     if (itest==3) then
        coremass = 0.
        starsmass = 0.
-       xyzmh_ptmass(4,1) = xyzmh_ptmass(4,1)*6e33
+       ke = 0.
+       pe = 0.
+       rmax = epsilon(rmax)
        coremass = xyzmh_ptmass(4,1)
+       ri(3)    = xyzmh_ptmass(3,1)
+       ri(2)    = xyzmh_ptmass(2,1)
+       ri(1)    = xyzmh_ptmass(1,1)
        call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,0.)
        call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                                 fxyz_ptmass_sinksink,linklist_ptmass,0.)
        do i=1,nptmass
+          pei = 0.
+          do j=1,nptmass
+             if(j/=i) then
+                d2 = (xyzmh_ptmass(1,i)-xyzmh_ptmass(1,j))**2+&
+                     (xyzmh_ptmass(2,i)-xyzmh_ptmass(2,j))**2+&
+                     (xyzmh_ptmass(3,i)-xyzmh_ptmass(3,j))**2
+                d1 = 1./sqrt(d2)
+                pei = pei + xyzmh_ptmass(4,j)*d1
+             endif
+          enddo
+          pe = pe + 0.5*pei*xyzmh_ptmass(4,i)
           starsmass = starsmass + xyzmh_ptmass(4,i)
+          ke  = ke + 0.5*xyzmh_ptmass(4,i)*(vxyz_ptmass(1,i)**2 + vxyz_ptmass(2,i)**2 + vxyz_ptmass(3,i)**2)
+          rmax = max(sqrt((xyzmh_ptmass(1,i)-ri(1))**2+(xyzmh_ptmass(2,i)-ri(2))**2+(xyzmh_ptmass(3,i)-ri(3))**2),rmax)
        enddo
-       xyzmh_ptmass(4,1) = coremass/6e33
-       xyzmh_ptmass(4,:) = 0.
+
+
+
     endif
     !
     ! check that creation succeeded
     !
     nfailed(:) = 0
     if (itest == 3) then
-       call checkval(nptmass,3,3,nfailed(1),'nptmass=nseeds')
-       call checkval(starsmass-coremass,0.,0.,nfailed(4),'Mass conservation')
+       rtest = rmax < h_acc
+       stest = nptmass < 5
+       vxyz_ptmass(1:3,:) = 0.
+       call checkval(stest,.true.,nfailed(1),'nptmass< nseeds max')
+       call checkval(starsmass-coremass,0.,5e-17,nfailed(4),'Mass conservation')
+       call checkval(ke/pe,0.5,5e-16,nfailed(5),'Virialised system')
+       call checkval(rtest,.true.,nfailed(6),'rmax < h_acc')
     else
        call checkval(nptmass,1,0,nfailed(1),'nptmass=1')
     endif

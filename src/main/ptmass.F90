@@ -1683,11 +1683,11 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
        linklist_ptmass(n)    = n + 1 !! link this new seed to the next one
     enddo
     linklist_ptmass(n) = -1 !! null pointer to end the link list
-    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+    write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            nseed+1, ' seeds in sink n° :', itest, " t= ",time
     nptmass = n
  else
-    write(iprint,"(a,i3,a,i3,a,es18.10)") ' Star formation prescription : creation of :',&
+    write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            1, ' seeds in sink n° :', itest, " t= ",time
     linklist_ptmass(itest) = -1 !! null pointer to differentiate mono seed to gas clump
  endif
@@ -1715,10 +1715,10 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  real,    intent(in)    :: time
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
- integer           :: k,n,l
- real              :: mi,hacci,minmass,mcutoff
- real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir
-
+ integer           :: k,l,m,n
+ real, parameter   :: mcutoff = 0.35355339059
+ real              :: mi,hacci,minmass,ke,phitot,phik,vscale,tscale,d2,d1
+ real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir,rvirf
 
  !! save xcom and vcom before placing stars
  xi(1) = xyzmh_ptmass(1,itest)
@@ -1732,30 +1732,30 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  vcom = 0.
  xcom = 0.
 
- write(iprint,"(a,es18.10,a,es18.10)") "ptmass_create_stars : new stars formed at : ",time,"Mass : ",mi
+ write(iprint,"(a,es10.3,a,es10.3,1x,3(es10.3,1x))") " ptmass_create_stars : new stars formed : ",time,"  (m,x,y,z) : ",mi,xi
 
- !! masses sampling method
+ !
+ !-- masses sampling method
+ !
  call ptmass_endsize_lklist(itest,l,n,linklist_ptmass)
  allocate(masses(n))
  minmass  = 0.08/(mi*(umass/solarm))
  call divide_unit_seg(masses,minmass,n,iseed_sf)
- masses = masses*mi
- if (iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*umass/solarm
+
+ if (iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*mi*(umass/solarm)
 
 
- k=itest
  !
  !-- Position and velocity sampling using Plummer methods
  !
+ k=itest
  do while(k>0)
     a(:) = 0.
-    rvir = 0.7*h_acc
-    mcutoff = 0.55
     !
     !-- Positions
     !
     a(1)  = ran2(iseed_sf)*mcutoff
-    rk    = rvir/sqrt((a(1)**(-2./3.)-1.0))
+    rk    = 1./sqrt((a(1)**(-2./3.)-1.0))
     a(2)  = ran2(iseed_sf)
     a(3)  = ran2(iseed_sf)
     xk(3) = (1.0-2.0*a(2))*rk
@@ -1771,12 +1771,12 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        a(6) = a(4)**2*(1.0 - a(4)**2)**3.5
     enddo
 
-    velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)*sqrt(2.0*mi/rvir)
+    velk  = a(4)*sqrt(2.0)*(1.0 + rk**2)**(-0.25)
     a(7)  = ran2(iseed_sf)
     a(8)  = ran2(iseed_sf)
-    vk(3) = (1.0-2.0*a(7))*velk
-    vk(2) = sqrt(velk**2-vk(3)**2)*sin(2*pi*a(8))
-    vk(1) = sqrt(velk**2-vk(3)**2)*cos(2*pi*a(8))
+    vk(3) = (1.0 - 2.0*a(7))*velk
+    vk(2) = sqrt(velk**2 - vk(3)**2)*sin(2*pi*a(8))
+    vk(1) = sqrt(velk**2 - vk(3)**2)*cos(2*pi*a(8))
     !
     !-- Star creation
     !
@@ -1799,8 +1799,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
     n = n - 1
  enddo
+
  !
- !-- Center the system on CoM and add bulk motion from the parental sink
+ !-- Center the system on CoM
  !
  k = itest
  do while(k>0)
@@ -1813,17 +1814,60 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
- xcom = xcom/mi
- vcom = vcom/mi
+ k = itest
+ do while(k>0)
+    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1)
+    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2)
+    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3)
+    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1)
+    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2)
+    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+ !
+ !-- Compute internal kinetic and potential energy
+ !
+ ke = 0.
+ phitot = 0.
 
  k = itest
  do while(k>0)
-    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
-    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
-    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
-    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
-    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
-    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    phik = 0.
+    m = itest
+    do while(m>0)
+       if (m/=k) then
+          d2 = (xyzmh_ptmass(1,k)-xyzmh_ptmass(1,m))**2+&
+              (xyzmh_ptmass(2,k)-xyzmh_ptmass(2,m))**2+&
+              (xyzmh_ptmass(3,k)-xyzmh_ptmass(3,m))**2
+          d1 = 1./sqrt(d2)
+          phik = phik + xyzmh_ptmass(4,m)*d1
+       endif
+       m = linklist_ptmass(m)
+    enddo
+    ke  = ke + xyzmh_ptmass(4,k)*(vxyz_ptmass(1,k)**2 + vxyz_ptmass(2,k)**2 + vxyz_ptmass(3,k)**2)
+    phitot = phitot + 0.5*xyzmh_ptmass(4,k)*phik
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+ ke = 0.5*ke
+
+ !
+ !-- Scale the system to sink dimension, virialisation and add bulk motion from the parental sink
+ !
+ vscale = sqrt(4*ke)
+ rvir   = ((2*phitot))
+ rvirf  = h_acc/rvir
+ tscale = sqrt(rvirf**3/mi)
+
+ k = itest
+ do while(k>0)
+    xyzmh_ptmass(1,k) = (xyzmh_ptmass(1,k) * rvir) * rvirf   + xi(1)
+    xyzmh_ptmass(2,k) = (xyzmh_ptmass(2,k) * rvir) * rvirf   + xi(2)
+    xyzmh_ptmass(3,k) = (xyzmh_ptmass(3,k) * rvir) * rvirf   + xi(3)
+    xyzmh_ptmass(4,k) =  xyzmh_ptmass(4,k) * mi
+    vxyz_ptmass(1,k)  = (vxyz_ptmass(1,k)  / vscale) * (rvirf/tscale) + vi(1)
+    vxyz_ptmass(2,k)  = (vxyz_ptmass(2,k)  / vscale) * (rvirf/tscale) + vi(2)
+    vxyz_ptmass(3,k)  = (vxyz_ptmass(3,k)  / vscale) * (rvirf/tscale) + vi(3)
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
