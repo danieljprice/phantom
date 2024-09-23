@@ -1739,7 +1739,10 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  !
  call ptmass_endsize_lklist(itest,l,n,linklist_ptmass)
  if (n<2) then
-    xyzmh_ptmass(ihacc,itest) = hacci*1.e-3
+    xyzmh_ptmass(ihacc,itest)       = hacci*1.e-3
+    fxyz_ptmass(1:4,itest)          = 0.
+    fxyz_ptmass_sinksink(1:4,itest) = 0.
+    if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
  else
     allocate(masses(n))
     minmass  = 0.08/(mi*(umass/solarm))
@@ -1797,7 +1800,6 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vxyz_ptmass(3,k)            = vk(3)
        fxyz_ptmass(1:4,k)          = 0.
        fxyz_ptmass_sinksink(1:4,k) = 0.
-       if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
 
        k = linklist_ptmass(k) ! acces to the next point mass in the linked list
        n = n - 1
@@ -1871,6 +1873,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vxyz_ptmass(1,k)  = (vxyz_ptmass(1,k)  / vscale) * (rvirf/tscale) + vi(1)
        vxyz_ptmass(2,k)  = (vxyz_ptmass(2,k)  / vscale) * (rvirf/tscale) + vi(2)
        vxyz_ptmass(3,k)  = (vxyz_ptmass(3,k)  / vscale) * (rvirf/tscale) + vi(3)
+       if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
        k = linklist_ptmass(k) ! acces to the next point mass in the linked list
     enddo
 
