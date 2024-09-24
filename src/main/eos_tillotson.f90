@@ -118,36 +118,6 @@ else ! (rho >= rho0)                      compressed state
     spsound = spsound2
 endif
 
-!  else !                  (rho >= rho0)       compressed state
-!     pressure = pressure2
-!     spsound = spsound2
-!  endif
-
-!  if (rho >= rho0) then !           compressed state
-!     pressure = pressure2
-!     spsound = spsound2
-!  else ! rho < rho0  
-!     if (u >= u_cv) then !          vaporised expanded state
-!         pressure = pressure3
-!         spsound = spsound3
-!     ! need to check rho ~0 and u >> u_cv (zero density becomes pressure = rho*gamma*u fermi, gamma = 2/3)
-!     else ! u < u_cv
-!         ! if (rho >= rho_iv) then 
-!             if (u > u_iv) then !   Hybrid state
-!                 pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-!                 spsound = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-!             else ! u <= u_iv       cold expanded 
-!             pressure = pressure2
-!             spsound = spsound2
-!             endif
-!         ! else ! rho < rho_iv        Low energy state
-!         !     pressure = pressure2 - (B*mu_t**2)
-!         !     spsound = spsound2h
-!         ! endif
-!     endif
-!  endif
-! !  print*,' INSIDE EOS: rho ',rho,' u ',u,' OUT pres ',pressure
-
 end subroutine equationofstate_tillotson
 
 !----------------------------------------------------------------
