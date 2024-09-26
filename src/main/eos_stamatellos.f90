@@ -21,7 +21,7 @@ module eos_stamatellos
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: gradP_cool(:)!gradP_cool=gradP/rho
  real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
- character(len=25), public :: eos_file= 'myeos.dat' !default name of tabulated EOS file
+ character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: floor_energy = .False.
  integer,save :: nx,ny ! dimensions of optable read in
 
@@ -62,8 +62,8 @@ subroutine read_optab(eos_file,ierr)
  integer i,j,errread
  character(len=120) :: filepath,junk
 
- ! read in data file for interpolation
- filepath=find_phantom_datafile(eos_file,'cooling')
+ ! read in EOS and opacity data file for interpolation
+ filepath=find_phantom_datafile(eos_file,'eos/lombardi')
  print *,"EOS file: FILEPATH:",filepath
  open(10, file=filepath, form="formatted", status="old",iostat=ierr)
  if (ierr > 0) return
