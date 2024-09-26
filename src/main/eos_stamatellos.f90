@@ -14,7 +14,7 @@ module eos_stamatellos
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: datafiles, part
+! :Dependencies: datafiles, io, part
 !
 
  implicit none
@@ -65,12 +65,12 @@ subroutine read_optab(eos_file,ierr)
  ! read in EOS and opacity data file for interpolation
  filepath=find_phantom_datafile(eos_file,'eos/lombardi')
  print *,"EOS file: FILEPATH:",filepath
- open(10, file=filepath, form="formatted", status="old",iostat=ierr)
+ open(10,file=filepath,form="formatted",status="old",iostat=ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
-    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
+    if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#")  /=  1 )) then !ignore comment lines
        junk = adjustl(junk)
        read(junk, *,iostat=errread) nx, ny
        exit

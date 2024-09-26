@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module cooling_radapprox
 !
@@ -13,8 +13,8 @@ module cooling_radapprox
 ! :Owner: Alison Young
 !
 ! :Runtime parameters:
-!   - EOS_file : File containing tabulated EOS values
-!   - Lstar    : Luminosity of host star for calculating Tmin (Lsun)
+!   - EOS_file : *File containing tabulated EOS values*
+!   - Lstar    : *Luminosity of host star for calculating Tmin (Lsun)*
 !
 ! :Dependencies: eos_stamatellos, infile_utils, io, part, physcon, units
 !
@@ -108,9 +108,9 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  else
     Om2 = 0d0
  endif
-Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
-Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
-coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
+ Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
+ Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
+ coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
 
 !    Tfloor is from input parameters and is background heating
 !    Stellar heating
@@ -166,7 +166,7 @@ coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
  ! evolve energy
  if (tthermi == 0d0) then
     dudti_cool = 0d0 ! condition if denominator above is zero
- elseif ( (dt/tthermi) < TINY(ui) ) then
+ elseif ( (dt/tthermi) < tiny(ui) ) then
     dudti_cool = 0d0
  else
     dudti_cool = ( ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) - ui) / dt !code units

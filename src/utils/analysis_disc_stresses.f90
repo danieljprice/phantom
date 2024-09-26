@@ -500,7 +500,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
  sigma(:) = sigma(:)*umass/(udist*udist)
  if (ieos /= 23) then
-	 csbin(:) = csbin(:)*unit_velocity
+    csbin(:) = csbin(:)*unit_velocity
  endif
  omega(:) = omega(:)/utime
 
@@ -520,8 +520,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  do ipart=1,npart
     ibin = ipartbin(ipart)
 
-    if (ibin<=0) cycle                                                                                                                          
-    
+    if (ibin<=0) cycle
+
 
     dvr = (vrpart(ipart) - vrbin(ibin))*unit_velocity
     dvphi = (vphipart(ipart) -vphibin(ibin))*unit_velocity
