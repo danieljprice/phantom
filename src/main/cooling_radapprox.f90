@@ -76,7 +76,7 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,HLom,du_tot
  real            :: cs2,Om2,Hmod2
- real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb
+ real            :: opaci,ueqi,umini,tthermi,presi,Hcomb
 
  coldensi = huge(coldensi)
  kappaBari = 0d0
