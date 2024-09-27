@@ -450,7 +450,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
- real    :: timei,time_par,dt,t_end_step
+ real    :: timei,time_par,dt,dtgroup,t_end_step
  real    :: dtextforce_min
 !
 ! determine whether or not to use substepping
@@ -544,7 +544,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 
        if (use_regnbody) then
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
-                              dtext=dt)
+                              dtext=dtgroup)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
                          vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
                          bin_info,group_info=group_info,nmatrix=nmatrix)
@@ -571,6 +571,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        done = .true.
     else
        dt = dtextforce
+       dtg = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
