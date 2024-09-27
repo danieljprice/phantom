@@ -571,7 +571,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        done = .true.
     else
        dt = dtextforce
-       dtg = dtextforce
+       dtgroup = dtextforce
        if (timei + dt > t_end_step) then
           dt = t_end_step - timei
           last_step = .true.
