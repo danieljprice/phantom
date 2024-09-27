@@ -1742,7 +1742,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     xyzmh_ptmass(ihacc,itest)       = hacci*1.e-3
     fxyz_ptmass(1:4,itest)          = 0.
     fxyz_ptmass_sinksink(1:4,itest) = 0.
-    if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
+    if (iH2R > 0) call update_ionrate(itest,xyzmh_ptmass,h_acc)
  else
     allocate(masses(n))
     minmass  = 0.08/(mi*(umass/solarm))
