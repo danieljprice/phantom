@@ -118,12 +118,12 @@ end subroutine group_identify
 !------------------------------------------------------------------
 subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  use part,         only: igarg,igcum,icomp,isemi,iecc,iapo,iorb
- use omputils,     only: omp_num_threads
+
  real,    intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(in)    :: n_group
- integer :: i,k,l,start_id,end_id,gsize,nthreads
+ integer :: i,k,l,start_id,end_id,gsize
  real    :: akl,ekl,apokl,Tkl
 
  bin_info(isemi,:) = 0.
@@ -131,17 +131,13 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
  bin_info(iapo,:) = 0.
  bin_info(iorb,:) = 0.
 
- if (n_group < omp_num_threads) then
-    nthreads = n_group
- else
-    nthreads = omp_num_threads
- endif
-
-!$omp parallel do default(none) num_threads(nthreads)&
+!$omp parallel default(none)&
 !$omp shared(n_group,xyzmh_ptmass,vxyz_ptmass)&
 !$omp shared(group_info,bin_info)&
 !$omp private(start_id,end_id,gsize)&
 !$omp private(akl,ekl,apokl,Tkl,k,l,i)
+
+!$omp do
  do i=1,n_group
     start_id = group_info(igcum,i) + 1
     end_id   = group_info(igcum,i+1)
@@ -150,7 +146,6 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        call binaries_in_multiples(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,&
                                   gsize,start_id,end_id)
     else
-       group_info(icomp,start_id:end_id) = -1
        k = group_info(igarg,start_id)
        l = group_info(igarg,end_id)
        group_info(icomp,end_id)   = k
@@ -169,7 +164,8 @@ subroutine find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
        bin_info(iorb,l)  = Tkl
     endif
  enddo
-!$omp end parallel do
+!$omp enddo
+!$omp end parallel
 
 end subroutine find_binaries
 
@@ -479,15 +475,15 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
  use part,     only:igarg,igcum
  use io,       only:id,master
  use mpiutils, only:bcast_mpi
- use omputils, only:omp_num_threads
  use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:)
  integer, intent(inout) :: group_info(:,:)
  real,    intent(in)    :: tnext,time
- integer      :: i,start_id,end_id,gsize,nthreads
+ integer      :: i,start_id,end_id,gsize
  real(kind=4) :: t1,t2,tcpu1,tcpu2
+
 
 
 
@@ -498,15 +494,12 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
     call find_binaries(xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,n_group)
 
     if (id==master) then
-       if (n_group < omp_num_threads) then
-          nthreads = n_group
-       else
-          nthreads = omp_num_threads
-       endif
-       !$omp parallel do default(none) num_threads(nthreads)&
+
+       !$omp parallel default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
        !$omp shared(tnext,time,group_info,bin_info,gtgrad,n_group)&
        !$omp private(i,start_id,end_id,gsize)
+       !$omp do
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
@@ -514,7 +507,8 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,bin_info, &
           call integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_ptmass,&
                                  bin_info,group_info,fxyz_ptmass,gtgrad)
        enddo
-       !$omp end parallel do
+       !$omp enddo
+       !$omp end parallel
     endif
 
     call get_timings(t2,tcpu2)
@@ -1436,13 +1430,12 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
                           gtgrad,epot_sinksink)
  use part,     only: igarg,igcum,ikap
  use io,       only: id,master,fatal
- use omputils, only: omp_num_threads
  integer, intent(in)    :: n_group
  real,    intent(inout) :: xyzmh_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  real,    intent(inout) :: bin_info(:,:),vxyz_ptmass(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(inout) :: epot_sinksink
- integer :: i,start_id,end_id,gsize,prim,sec,nthreads
+ integer :: i,start_id,end_id,gsize,prim,sec
  real :: phitot,phigroup,kappa1
  phitot = 0.
 
@@ -1450,16 +1443,14 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
  if (n_group>0) then
     call update_kappa(xyzmh_ptmass,vxyz_ptmass,bin_info,group_info,n_group)
     if (id==master) then
-       if (n_group < omp_num_threads) then
-          nthreads = n_group
-       else
-          nthreads = omp_num_threads
-       endif
-       !$omp parallel do default(none) num_threads(nthreads)&
+
+       !$omp parallel default(none)&
        !$omp shared(xyzmh_ptmass,fxyz_ptmass)&
        !$omp shared(group_info,gtgrad,n_group,bin_info)&
        !$omp private(i,start_id,end_id,gsize,prim,sec,phigroup,kappa1)&
        !$omp reduction(+:phitot)
+
+       !$omp do
        do i=1,n_group
           start_id = group_info(igcum,i) + 1
           end_id   = group_info(igcum,i+1)
@@ -1479,7 +1470,8 @@ subroutine get_pot_subsys(n_group,group_info,bin_info,xyzmh_ptmass,vxyz_ptmass,f
           endif
           phitot = phitot + phigroup
        enddo
-       !$omp end parallel do
+       !$omp enddo
+       !$omp end parallel
     endif
  endif
 
