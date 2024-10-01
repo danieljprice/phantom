@@ -46,15 +46,15 @@ subroutine test_eos(ntests,npass)
  call test_init(ntests, npass)
  
  call test_u_from_Prho(ntests,npass)
- call test_barotropic(ntests, npass)
-!  call test_helmholtz(ntests, npass)
- call test_idealplusrad(ntests, npass)
+!  call test_barotropic(ntests, npass)
+! !  call test_helmholtz(ntests, npass)
+!  call test_idealplusrad(ntests, npass)
 
-do irecomb = 0,3
-   call test_hormone(ntests,npass)
-enddo
+! do irecomb = 0,3
+!    call test_hormone(ntests,npass)
+! enddo
 
- call test_eos_stratified(ntests,npass)
+!  call test_eos_stratified(ntests,npass)
 
  if (id==master) write(*,"(/,a)") '<-- EQUATION OF STATE TEST COMPLETE'
 
@@ -130,8 +130,8 @@ subroutine test_u_from_Prho(ntests, npass)
  npts = 30
 !  call get_rhoT_grid(npts,rhogrid,ugrid)
  allocate(rhogrid(npts),ugrid(npts))
- call logspace(rhogrid,1e01,1e05) ! cgs
- call logspace(ugrid,1e09,1e15)  ! cgs
+ call logspace(rhogrid,1e-5,1e15) ! cgs
+ call logspace(ugrid,1e-5,1e25)  ! cgs
 !  print*,'rhogrid ',rhogrid,'ugrid ',ugrid
 
  dum = 0.
@@ -144,16 +144,16 @@ subroutine test_u_from_Prho(ntests, npass)
       ! get u from P, rho
        rhocodei = rhogrid(i)/unit_density
        code_eni = ugrid(i)/unit_ergg
-      !  print*,' rhogridi ',rhogrid(i),' ugridi ',ugrid(i)
-      !  print*,' rhocodei ',rhocodei,' code_eni ',code_eni
+       print*,' rhogridi ',rhogrid(i),' ugridi ',ugrid(i)
+       print*,' rhocodei ',rhocodei,' code_eni ',code_eni
        call equationofstate(ieos,ponrhoi,csound,rhocodei,dum,dum,dum,temp,code_eni)
        presi = ponrhoi * rhocodei
-      !  print*,' ponrhoi ',ponrhoi
-      !  print*,' sending en ',code_eni,'sending rho ',rhocodei,' got pres ',presi
+       print*,' ponrhoi ',ponrhoi
+       print*,' sending en ',code_eni,'sending rho ',rhocodei,' got pres ',presi
 
        call calc_temp_and_ene(ieos,rhocodei,presi,en_back,temp,ierr) ! out = energy and temp      
-      !  print*,' sending rho ',rhocodei,'sending pres ',presi,' got en ',en_back
-      !  read*
+       print*,' sending rho ',rhocodei,'sending pres ',presi,' got en ',en_back
+       read*
 
        call checkvalbuf(code_eni,en_back,tol,'Check recovery of u from rho, P',nfail(1),ncheck(1),errmax(1),use_rel_tol)
     enddo

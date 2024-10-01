@@ -94,29 +94,62 @@ subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
   spsound2h = spsoundmin
  endif
  
- if (rho < rho0) then
-    if (rho >= rho_iv) then ! u <= u_iv       cold expanded 
-        if (u < u_cv) then ! hybrid state
-            pressure = pressure2
-            spsound = spsound2
-        elseif (u > u_iv) then ! hybrid state
-            pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-            spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-            if (spsoundh < spsoundmin) then
-                spsound = spsoundmin
-            endif
-        else ! (u >= u_cv)                    vaporised expanded state
+ 
+ if (rho < rho_iv) then !                low energy expanded
+    pressure = pressure2 - (B*mu_t**2)
+    spsound = spsound2h
+    print*,'in low energy state, p = ',pressure
+ else ! (rho >= rho_iv)
+    if (rho >= rho0) then !              compressed
+        pressure = pressure2
+        spsound = spsound2
+        print*,'in compressed state, p = ',pressure
+    else ! (rho_iv <= rho < rho0)
+        if (u >= u_cv) then !            hot / vapourised expanded
             pressure = pressure3
             spsound = spsound3
+            print*,'in hot expanded state, p = ',pressure
+        else ! (u < u_cv)
+            ! if (u <= u_iv) then !        cold expanded
+            pressure = pressure2
+            spsound = spsound2
+            print*,'in cold expanded state, p = ',pressure
+            ! else ! (u > u_iv)            hybrid
+            !     pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+            !     spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+            !     if (spsoundh < spsoundmin) then
+            !         spsound = spsoundmin
+            !     endif
+            !     print*,'in hybrid state, p = ',pressure
+            ! endif
         endif
-    else ! (rho < rho_iv) then (u <u_cv)           low energy expansion state
-        pressure = pressure2 - (B*mu_t**2)
-        spsound = spsound2h
     endif
-else ! (rho >= rho0)                      compressed state
-    pressure = pressure2
-    spsound = spsound2
-endif
+ endif
+
+!  if (rho < rho0) then
+!     if (rho >= rho_iv) then ! u <= u_iv       cold expanded 
+!         if (u < u_cv) then ! hybrid state
+!             pressure = pressure2
+!             spsound = spsound2
+!         elseif (u > u_iv) then ! hybrid state
+!             pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+!             spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+!             if (spsoundh < spsoundmin) then
+!                 spsound = spsoundmin
+!             endif
+!             print*,'in hybrid state, p = ',pressure
+!         else ! (u >= u_cv)                    vaporised expanded state
+!             pressure = pressure3
+!             spsound = spsound3
+!         endif
+!     else ! (rho < rho_iv) then (u <u_cv)           low energy expansion state
+!         pressure = pressure2 - (B*mu_t**2)
+!         spsound = spsound2h
+!     endif
+! else ! (rho >= rho0)                      compressed state
+!     pressure = pressure2
+!     spsound = spsound2
+! endif
 
 end subroutine equationofstate_tillotson
 
@@ -142,7 +175,7 @@ subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  real, intent(in) :: rho,pres
  real, intent(out) :: temp,u
  integer, intent(out) :: ierr
- real :: eta, mu_t, neu, omega, expterm, expterm2, X, quada, quadb, quadc
+ real :: eta, mu_t, neu, omega, expterm, expterm2, X, quada, quadb, quadc, pres_iv
  real :: usol(3)
  integer :: nsol
  
@@ -153,35 +186,83 @@ subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  expterm2 = exp(-alpha*(neu**2))
  expterm = exp(-beta*neu)
 
- if (rho >= rho0) then !           compressed state
-    quada = 1.
-    X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
-    quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-    quadc = -((u0*(eta**2)*X)/aparam)
-    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-    u = maxval(usol(1:nsol))
- elseif (rho >= rho_iv) then !      cold expanded 
-    quada = 1.
-    X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
-    quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-    quadc = -((u0*(eta**2)*X)/aparam)
-    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-    u = maxval(usol(1:nsol))
- elseif (rho < rho_iv) then ! rho < rho_iv        Low energy state
-    quada = 1.
+ pres_iv = (( aparam + ( bparam / ((u_iv / (u0*(rho_iv/rho0)**2) + 1.)) ) ) * rho_iv*u_iv) &
+             + A*((rho_iv/rho0)-1.) + B*((rho_iv/rho0)-1.)**2
+
+ quada = 1.
+
+ if (rho < rho_iv) then !                low energy expanded
+    ! quada = 1.
     X = (pres - (A*mu_t))/rho
     quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
     quadc = -((u0*(eta**2)*X)/aparam)
     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
     u = maxval(usol(1:nsol))
- else ! rho < rho0  vaporised expanded state
-    quada = 1.
-    X = (pres - (A*mu_t*expterm*expterm2))/rho
-    quadb = ((bparam*u0*(eta**2)*expterm2)/aparam)+((u0*(eta**2)))-(X/aparam)
-    quadc = -((X*u0*(eta**2))/aparam)
-    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-    u = maxval(usol(1:nsol))
+    print*,'in low energy state, u = ',u
+ else ! (rho >= rho_iv)
+    if (rho >= rho0) then !              compressed
+        ! quada = 1.
+        X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
+        quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+        quadc = -((u0*(eta**2)*X)/aparam)
+        call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+        u = maxval(usol(1:nsol))
+        print*,'in compressed state, u = ',u
+    else ! (rho_iv <= rho < rho0)
+        if (pres <= pres_iv) then !      cold expanded
+            ! quada = 1.
+            X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
+            quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+            quadc = -((u0*(eta**2)*X)/aparam)
+            call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+            u = maxval(usol(1:nsol))     
+            print*,'in cold expanded state, u = ',u
+        else ! (pres > pres_iv)           hot / vapourised expanded
+            ! quada = 1.
+            X = (pres - (A*mu_t*expterm*expterm2))/rho
+            quadb = ((bparam*u0*(eta**2)*expterm2)/aparam)+((u0*(eta**2)))-(X/aparam)
+            quadc = -((X*u0*(eta**2))/aparam)
+            call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+            u = maxval(usol(1:nsol))
+            print*,'in hot expanded state, u = ',u
+            ! else ! (u > u_iv)            hybrid
+                ! pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+                ! spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+                ! print*,'in hybrid state, u = ',u
+            ! endif
+        endif
+    endif
  endif
+
+!  if (rho >= rho0) then !           compressed state
+!     quada = 1.
+!     X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
+!     quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!     quadc = -((u0*(eta**2)*X)/aparam)
+!     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!     u = maxval(usol(1:nsol))
+!  elseif (rho >= rho_iv) then !      cold expanded 
+!     quada = 1.
+!     X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
+!     quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!     quadc = -((u0*(eta**2)*X)/aparam)
+!     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!     u = maxval(usol(1:nsol))
+!  elseif (rho < rho_iv) then ! rho < rho_iv        Low energy state
+!     quada = 1.
+!     X = (pres - (A*mu_t))/rho
+!     quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!     quadc = -((u0*(eta**2)*X)/aparam)
+!     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!     u = maxval(usol(1:nsol))
+!  else ! rho < rho0  vaporised expanded state
+!     quada = 1.
+!     X = (pres - (A*mu_t*expterm*expterm2))/rho
+!     quadb = ((bparam*u0*(eta**2)*expterm2)/aparam)+((u0*(eta**2)))-(X/aparam)
+!     quadc = -((X*u0*(eta**2))/aparam)
+!     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!     u = maxval(usol(1:nsol))
+!  endif
 
  temp = 300.
  ierr = 0
