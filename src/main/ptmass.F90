@@ -49,7 +49,7 @@ module ptmass
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink
- public :: merge_sinks
+ public :: merge_sinks, update_after_merge
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
@@ -71,13 +71,15 @@ module ptmass
  real,    public :: r_crit = 5.e-3
  real,    public :: h_acc  = 1.e-3
  real,    public :: f_acc  = 0.8
- real,    public :: tmax_acc = huge(f_acc)
- real,    public :: tseeds    = huge(f_acc)
  real,    public :: h_soft_sinkgas  = 0.0
  real,    public :: h_soft_sinksink = 0.0
  real,    public :: r_merge_uncond  = 0.0     ! sinks will unconditionally merge if they touch
  real,    public :: r_merge_cond    = 0.0     ! sinks will merge if bound within this radius
  real,    public :: f_crit_override = 0.0     ! 1000.
+! settings controlling star formation prescription (icreate_sink == 2)
+ real,    public :: tmax_acc = huge(f_acc)
+ real,    public :: tseeds   = huge(f_acc)
+ integer, public :: n_max    = 5
 
  logical, public :: use_regnbody    = .false. ! subsystems switch
  logical, public :: use_fourthorder = .true.
@@ -1671,7 +1673,7 @@ subroutine ptmass_create_seeds(nptmass,itest,xyzmh_ptmass,linklist_ptmass,time)
 !
 !-- Draw the number of star seeds in the core
 !
- nseed = floor(4*ran2(iseed_sf))
+ nseed = floor((n_max-1)*ran2(iseed_sf))
  if (nseed > 0) then
     n = nptmass
     linklist_ptmass(itest) = n + 1 !! link the core to the seeds
@@ -1886,6 +1888,121 @@ end subroutine ptmass_create_stars
 
 !-------------------------------------------------------------------------
 !+
+! subroutine to update the number of seeds inside a merged sink
+! by releasing and killing some of them...
+!+
+!-------------------------------------------------------------------------
+subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass)
+ use random ,   only:ran2,rinsphere
+ integer, intent(in)    :: itest,n
+ integer, intent(inout) :: linklist_ptmass(:)
+ real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ real    :: xi(3),vi(3),xk(3),vk(3),xcom(3),vcom(3),mi,mk,hacci,relfac
+ real    :: r,vl,mrel
+ integer :: nextra,nrel,k,ncur,kextra
+
+ nextra = n-n_max        ! n extra seeds to evacuate (release or kill)
+ relfac = ran2(iseed_sf) ! fraction of extra seeds that will be released
+ nrel   = floor(nextra*relfac)
+ ncur   = 0
+ mrel   = 0.
+
+
+ xi(1) = xyzmh_ptmass(1,itest)
+ xi(2) = xyzmh_ptmass(2,itest)
+ xi(3) = xyzmh_ptmass(3,itest)
+ mi    = xyzmh_ptmass(4,itest)
+ hacci = xyzmh_ptmass(ihacc,itest)
+ vi(1) = vxyz_ptmass(1,itest)
+ vi(2) = vxyz_ptmass(2,itest)
+ vi(3) = vxyz_ptmass(3,itest)
+ vcom = 0.
+ xcom = 0.
+
+ k = itest
+ do while(ncur<n_max) ! reach extra seeds in the linked list
+    ncur = ncur + 1
+    k = linklist_ptmass(k)
+ enddo
+
+ kextra = k
+
+
+ do while (k>0)
+    if (ncur < n_max + nrel) then
+       call rinsphere(xk,iseed_sf)
+       call rinsphere(vk,iseed_sf)
+       xk = xk * hacci
+       r  = xk(1)**2 + xk(2)**2 + xk(3)**2
+       vl = sqrt(2*mi/r)*(0.7+ran2(iseed_sf)*0.5)
+       vk = vk * vl
+       mk = (0.02*ran2(iseed_sf)*0.01)*mi
+       mrel = mrel + mk
+       !
+       !-- Star creation
+       !
+       xyzmh_ptmass(ihacc,k)       = hacci*1.e-3
+       xyzmh_ptmass(ihsoft,k)      = h_soft_sinkgas
+       xyzmh_ptmass(4,k)           = mk
+       xyzmh_ptmass(3,k)           = xk(3)
+       xyzmh_ptmass(2,k)           = xk(2)
+       xyzmh_ptmass(1,k)           = xk(1)
+       xyzmh_ptmass(ispinx,k)      = 0. !
+       xyzmh_ptmass(ispiny,k)      = 0. ! -- No spin for the instant
+       xyzmh_ptmass(ispinz,k)      = 0. !
+       vxyz_ptmass(1,k)            = vk(1)
+       vxyz_ptmass(2,k)            = vk(2)
+       vxyz_ptmass(3,k)            = vk(3)
+       fxyz_ptmass(1:4,k)          = 0.
+       ncur = ncur + 1
+       k = linklist_ptmass(k)
+    else
+       k = linklist_ptmass(k)
+       linklist_ptmass(k) = -2
+    endif
+ enddo
+
+ !
+ !-- Center the system on CoM
+ !
+ k = kextra
+ do while(k>0)
+    xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
+    xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
+    xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
+    vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
+    vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
+    vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+ xcom = xcom/mi
+ vcom = vcom/mi
+
+ k = kextra
+ do while(k>0)
+    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
+    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
+    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
+    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
+    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
+    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    k = linklist_ptmass(k) ! acces to the next point mass in the linked list
+ enddo
+
+
+ xyzmh_ptmass(1,itest) = xyzmh_ptmass(1,itest) - xcom(1)
+ xyzmh_ptmass(2,itest) = xyzmh_ptmass(2,itest) - xcom(2)
+ xyzmh_ptmass(3,itest) = xyzmh_ptmass(3,itest) - xcom(3)
+ xyzmh_ptmass(4,itest) = xyzmh_ptmass(4,itest) - mrel
+ vxyz_ptmass(1,itest)  = vxyz_ptmass(1,itest)  - vcom(1)
+ vxyz_ptmass(2,itest)  = vxyz_ptmass(2,itest)  - vcom(2)
+ vxyz_ptmass(3,itest)  = vxyz_ptmass(3,itest)  - vcom(3)
+
+end subroutine update_after_merge
+
+!-------------------------------------------------------------------------
+!+
 !  subroutine to check if a core needs to create seeds or stars
 !+
 !-------------------------------------------------------------------------
@@ -2017,6 +2134,11 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklis
                 call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
                 if (linklist_ptmass(j)/=0) then
                    linklist_ptmass(l) = j
+                   n = 0
+                   call ptmass_endsize_lklist(k,l,n,linklist_ptmass)
+                   if (n > n_max) then
+                      call update_after_merge(k,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass)
+                   endif
                 else
                    linklist_ptmass(j) = -2 ! special null pointer for dead gas clump
                 endif
@@ -2334,6 +2456,7 @@ subroutine write_options_ptmass(iunit)
           call write_inopt(tmax_acc, "tmax_acc", "Maximum accretion time for star formation scheme", iunit)
           call write_inopt(tseeds, "tseeds", "delay between sink creation and its seeds", iunit)
           call write_inopt(iseed_sf, "iseed_sf", "Initial radom seed for star formation scheme", iunit)
+          call write_inopt(n_max, "n_max","Maximum number of seeds in one sink core",iunit)
        endif
        if (f_crit_override > 0. .or. l_crit_override) then
           call write_inopt(f_crit_override,'f_crit_override' ,'unconditional sink formation if rho > f_crit_override*rho_crit',&
@@ -2439,6 +2562,9 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     ngot = ngot + 1
  case('iseed_sf')
     read(valstring,*,iostat=ierr) iseed_sf
+    ngot = ngot + 1
+ case('n_max')
+    read(valstring,*,iostat=ierr) n_max
     ngot = ngot + 1
  case('use_regnbody')
     read(valstring,*,iostat=ierr) use_regnbody
