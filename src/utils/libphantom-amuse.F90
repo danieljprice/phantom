@@ -1,89 +1,54 @@
 ! AMUSE interface library for Phantom
 ! (c) 2019 - 2024 Steven Rieder
 
-!
-! Initialize Phantom and set default parameters
-!
+module AmusePhantom
 
-subroutine amuse_initialize_code_new()
- use dim,             only:tagline
- use dim, only: maxp_hard
- use memory, only:allocate_memory
- use mpiutils,        only:init_mpi,finalise_mpi
- use initial,         only:initialise,finalise,startrun,endrun
- use io,              only:id,master,nprocs,set_io_unit_numbers,die
- use evolve,          only:evol
- use units, only:set_units,utime,umass,udist,unit_density
- use physcon, only:gram,seconds,solarm,pc,au
- implicit none
- integer            :: nargs
- character(len=120) :: infile,logfile,evfile,dumpfile
+  use iso_fortran_env
+  integer(kind=8), allocatable :: amuse_id_lookup(:)
+  integer :: new_particles_since_last_update = 0
+  integer :: particles_added_by_amuse = 0
+contains
 
- id = 0
-
- call init_mpi(id,nprocs)
- call allocate_memory(int(maxp_hard,kind=8))
- call set_io_unit_numbers()
- call initialise()
- call amuse_set_defaults() ! replaces reading infile
- call set_units(dist=1 * au,mass=1.*solarm,G=1.)
- 
-end subroutine amuse_initialize_code_new
+subroutine construct_id_lookup()
+    ! amuse_id_lookup needs to be rebuilt if/when particles are deleted/added/reshuffled
+    ! easier (though a bit slower) is to do it at the end of an evolve step, and at recommit_particles
+    use dim, only: maxp, maxp_hard
+    use part, only: iorig, norig
+    implicit none
+    integer :: i, j
+    write(*,*) "Rebuilding lookup table"
+    do i=1, maxp
+        amuse_id_lookup(i) = 0
+    enddo
+    do i=1, norig
+        j = iorig(i)
+        if (j > 0) then
+            amuse_id_lookup(j) = i
+        endif
+        !write(*,*) "j = ", j, "i = ", i
+        !flush(output_unit)
+    enddo
+    write(*,*) size(amuse_id_lookup), "?=", norig, maxp, maxp_hard
+    write(*,*) "Lookup table rebuilt"
+    flush(output_unit)
+end subroutine construct_id_lookup
 
 subroutine amuse_initialize_code()
-    use dim, only:maxp,maxp_hard,maxvxyzu
-    use io, only:id,nprocs,iverbose
-    use mpiutils, only:init_mpi
-    use memory, only:allocate_memory
-    use units, only:set_units,utime,umass,udist,unit_density
-    use physcon, only:gram,seconds,solarm,pc,au
-    use timestep, only:dtmax,dtextforce
-    use initial, only:initialise
-#ifdef IND_TIMESTEPS
-    use timestep_ind,     only:istepfrac,ibinnow
-    use part,             only:ibin,ibin_old,ibin_wake
-#else
-    use timestep,         only:dtcourant,dtforce
-#endif
+    use dim,             only:maxp_hard
+    use allocutils,      only:allocate_array        
+    use mpiutils,        only:init_mpi
+    use io,              only:id,nprocs
     implicit none
-    iverbose=5
+
+    id = 0
+
     call init_mpi(id,nprocs)
-    call allocate_memory(int(maxp_hard,kind=8))
-    call initialise()
-    call amuse_set_defaults()
-    call amuse_set_polyk(0.)
-    !print*, "maxvxyzu: ", maxvxyzu
-    !maxvxyzu = 4
-    !call set_units(dist=50.*pc,mass=4600.*solarm,G=1.)
-    !call set_units(dist=1.d20,mass=1.d40,G=1.)
-    !call set_units(dist=1.*pc,mass=1.*solarm,G=1.)
-    ! call set_units(dist=1.,mass=1.,time=1.)
-
-    !umass = 1.98892d33 * gram  ! AMUSE MSun
-    !utime = 60 * 60 * 24 * 365.25 * 1d6 * seconds  ! 10 Julian Kyr
-    !call set_units(time=utime,mass=umass,G=1.)
-    !call set_units(dist=0.1*pc,mass=1.*solarm,G=1.)
-    call set_units(dist=1 * au,mass=1.*solarm,G=1.)
-    !print*, "utime/mass/dist/udens: ", utime, umass, udist, unit_density
-    !dtmax = 0.01 * utime
-    dtextforce = 1.e-6
-
-#ifdef IND_TIMESTEPS
-    ibin(:)       = 0
-    ibin_old(:)   = 0
-    ibin_wake(:)  = 0
-    istepfrac     = 0
-    ibinnow       = 0
-#else
-    dtcourant = huge(dtcourant)
-    dtforce   = huge(dtforce)
-#endif
-
-    !call amuse_initialize_wind()
+    call allocate_array('amuse_id_lookup', amuse_id_lookup, maxp_hard)
 end subroutine amuse_initialize_code
 
 subroutine amuse_set_phantom_option(name, valstring, imatch)
     ! This subroutine is meant to be a replacement for read_infile
+    ! It should be kept up to date and support all options listed there, or raise an error if something is not caught.
     use inject,           only:read_options_inject
     use dust,             only:read_options_dust
     use growth,           only:read_options_growth
@@ -102,7 +67,7 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     use options,  only:alpha,alphaB,alphamax,alphau,twallmax,tolh,rkill,rhofinal_cgs,&
             psidecayfac,overcleanfac,nmaxdumps,nfulldump,limit_radiation_flux,&
             ishock_heating,iresistive_heating,ireconav,ipdv_heating,iopacity_type,&
-            implicit_radiation,hdivbbmax_max,exchange_radiation_energy,calc_erot,&
+            implicit_radiation,exchange_radiation_energy,calc_erot,&
             beta,avdecayconst
     use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
     use radiation_utils,    only:kappa_cgs
@@ -119,139 +84,139 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
     imatch = .true.
     select case(trim(name))
     case('logfile')
-       ! ignored
+        ! ignored
     case('dumpfile')
-       ! ignored
+        ! ignored
     case('tmax')
-       read(valstring,*,iostat=ierr) tmax
+        write(*,*) "Set tmax to ", valstring
+        read(valstring,*,iostat=ierr) tmax
     case('dtmax')
-       read(valstring,*,iostat=ierr) dtmax
+        read(valstring,*,iostat=ierr) dtmax
     case('nmax')
-       read(valstring,*,iostat=ierr) nmax
+        read(valstring,*,iostat=ierr) nmax
     case('nout')
-       read(valstring,*,iostat=ierr) nout
+        read(valstring,*,iostat=ierr) nout
     case('nmaxdumps')
-       read(valstring,*,iostat=ierr) nmaxdumps
+        read(valstring,*,iostat=ierr) nmaxdumps
     case('twallmax')
-       read(valstring,*,iostat=ierr) twallmax
+        read(valstring,*,iostat=ierr) twallmax
     case('dtwallmax')
-       read(valstring,*,iostat=ierr) dtwallmax
+        read(valstring,*,iostat=ierr) dtwallmax
     case('iverbose')
-       read(valstring,*,iostat=ierr) iverbose
+        read(valstring,*,iostat=ierr) iverbose
+        write(*,*) "IVERBOSE: ", iverbose
     case('rhofinal_cgs')
-       read(valstring,*,iostat=ierr) rhofinal_cgs
-       incl_runtime2 = .true.
+        read(valstring,*,iostat=ierr) rhofinal_cgs
+        incl_runtime2 = .true.
     case('calc_erot')
-       read(valstring,*,iostat=ierr) calc_erot
-       incl_runtime2 = .true.
+        read(valstring,*,iostat=ierr) calc_erot
+        incl_runtime2 = .true.
     case('dtmax_dratio')
-       read(valstring,*,iostat=ierr) dtmax_dratio
-       incl_runtime2 = .true.
+        read(valstring,*,iostat=ierr) dtmax_dratio
+        incl_runtime2 = .true.
     case('dtmax_max')
-       read(valstring,*,iostat=ierr) dtmax_max
-       if (dtmax_max <= 0.0) dtmax_max = dtmax
-       ! to prevent comparison errors from round-off
-       ratio = dtmax_max/dtmax
-       ratio = int(ratio+0.5)+0.0001
-       dtmax_max = dtmax*ratio
+        read(valstring,*,iostat=ierr) dtmax_max
+        if (dtmax_max <= 0.0) dtmax_max = dtmax
+        ! to prevent comparison errors from round-off
+        ratio = dtmax_max/dtmax
+        ratio = int(ratio+0.5)+0.0001
+        dtmax_max = dtmax*ratio
     case('dtmax_min')
-       read(valstring,*,iostat=ierr) dtmax_min
-       ! to prevent comparison errors from round-off
-       if (dtmax_min > epsilon(dtmax_min)) then
-          ratio = dtmax/dtmax_min
-          ratio = int(ratio+0.5)+0.0001
-          dtmax_min = dtmax/ratio
-       endif
+        read(valstring,*,iostat=ierr) dtmax_min
+        ! to prevent comparison errors from round-off
+        if (dtmax_min > epsilon(dtmax_min)) then
+            ratio = dtmax/dtmax_min
+            ratio = int(ratio+0.5)+0.0001
+            dtmax_min = dtmax/ratio
+        endif
     case('C_cour')
-       read(valstring,*,iostat=ierr) C_cour
+        read(valstring,*,iostat=ierr) C_cour
     case('C_force')
-       read(valstring,*,iostat=ierr) C_force
+        read(valstring,*,iostat=ierr) C_force
     case('tolv')
-       read(valstring,*,iostat=ierr) tolv
+        read(valstring,*,iostat=ierr) tolv
     case('C_ent')
-       read(valstring,*,iostat=ierr) C_ent
+        read(valstring,*,iostat=ierr) C_ent
     case('xtol')
-       read(valstring,*,iostat=ierr) xtol
+        read(valstring,*,iostat=ierr) xtol
     case('ptol')
-       read(valstring,*,iostat=ierr) ptol
+        read(valstring,*,iostat=ierr) ptol
     case('hfact')
-       read(valstring,*,iostat=ierr) hfact
+        read(valstring,*,iostat=ierr) hfact
     case('tolh')
-       read(valstring,*,iostat=ierr) tolh
+        read(valstring,*,iostat=ierr) tolh
     case('rkill')
-       read(valstring,*,iostat=ierr) rkill
+        read(valstring,*,iostat=ierr) rkill
     case('nfulldump')
-       read(valstring,*,iostat=ierr) nfulldump
+        read(valstring,*,iostat=ierr) nfulldump
     case('alpha')
-       read(valstring,*,iostat=ierr) alpha
+        read(valstring,*,iostat=ierr) alpha
     case('alphamax')
-       read(valstring,*,iostat=ierr) alphamax
+        read(valstring,*,iostat=ierr) alphamax
     case('alphau')
-       read(valstring,*,iostat=ierr) alphau
+        read(valstring,*,iostat=ierr) alphau
     case('alphaB')
-       read(valstring,*,iostat=ierr) alphaB
+        read(valstring,*,iostat=ierr) alphaB
     case('psidecayfac')
-       read(valstring,*,iostat=ierr) psidecayfac
+        read(valstring,*,iostat=ierr) psidecayfac
     case('overcleanfac')
-       read(valstring,*,iostat=ierr) overcleanfac
-    case('hdivbbmax_max')
-       read(valstring,*,iostat=ierr) hdivbbmax_max
+        read(valstring,*,iostat=ierr) overcleanfac
     case('beta')
-       read(valstring,*,iostat=ierr) beta
+        read(valstring,*,iostat=ierr) beta
     case('ireconav')
-       read(valstring,*,iostat=ierr) ireconav
+        read(valstring,*,iostat=ierr) ireconav
     case('avdecayconst')
-       read(valstring,*,iostat=ierr) avdecayconst
+        read(valstring,*,iostat=ierr) avdecayconst
     case('ipdv_heating')
-       read(valstring,*,iostat=ierr) ipdv_heating
+        read(valstring,*,iostat=ierr) ipdv_heating
     case('ishock_heating')
-       read(valstring,*,iostat=ierr) ishock_heating
+        read(valstring,*,iostat=ierr) ishock_heating
     case('iresistive_heating')
-       read(valstring,*,iostat=ierr) iresistive_heating
+        read(valstring,*,iostat=ierr) iresistive_heating
     case('ien_type')
-       read(valstring,*,iostat=ierr) ien_type
+        read(valstring,*,iostat=ierr) ien_type
     case('irealvisc')
-       read(valstring,*,iostat=ierr) irealvisc
+        read(valstring,*,iostat=ierr) irealvisc
     case('shearparam')
-       read(valstring,*,iostat=ierr) shearparam
+        read(valstring,*,iostat=ierr) shearparam
     case('bulkvisc')
-       read(valstring,*,iostat=ierr) bulkvisc
+        read(valstring,*,iostat=ierr) bulkvisc
 #ifdef MCFOST
     case('use_mcfost')
-       read(valstring,*,iostat=ierr) use_mcfost
+        read(valstring,*,iostat=ierr) use_mcfost
     case('Voronoi_limits_file')
-       read(valstring,*,iostat=ierr) Voronoi_limits_file
-       use_Voronoi_limits_file = .true.
+        read(valstring,*,iostat=ierr) Voronoi_limits_file
+        use_Voronoi_limits_file = .true.
     case('use_mcfost_stars')
-       read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
+        read(valstring,*,iostat=ierr) use_mcfost_stellar_parameters
     case('mcfost_computes_Lacc')
-       read(valstring,*,iostat=ierr) mcfost_computes_Lacc
+        read(valstring,*,iostat=ierr) mcfost_computes_Lacc
     case('mcfost_uses_PdV')
-       read(valstring,*,iostat=ierr) mcfost_uses_PdV
+        read(valstring,*,iostat=ierr) mcfost_uses_PdV
     case('mcfost_keep_part')
-       read(valstring,*,iostat=ierr) mcfost_keep_part
+        read(valstring,*,iostat=ierr) mcfost_keep_part
     case('ISM')
-       read(valstring,*,iostat=ierr) ISM
+        read(valstring,*,iostat=ierr) ISM
     case('mcfost_dust_subl')
-       read(valstring,*,iostat=ierr) mcfost_dust_subl
+        read(valstring,*,iostat=ierr) mcfost_dust_subl
 #endif
     case('implicit_radiation')
-       read(valstring,*,iostat=ierr) implicit_radiation
-       if (implicit_radiation) store_dust_temperature = .true.
+        read(valstring,*,iostat=ierr) implicit_radiation
+        if (implicit_radiation) store_dust_temperature = .true.
     case('gas-rad_exchange')
-       read(valstring,*,iostat=ierr) exchange_radiation_energy
+        read(valstring,*,iostat=ierr) exchange_radiation_energy
     case('flux_limiter')
-       read(valstring,*,iostat=ierr) limit_radiation_flux
+        read(valstring,*,iostat=ierr) limit_radiation_flux
     case('iopacity_type')
-       read(valstring,*,iostat=ierr) iopacity_type
+        read(valstring,*,iostat=ierr) iopacity_type
     case('cv_type')
-       read(valstring,*,iostat=ierr) cv_type
+        read(valstring,*,iostat=ierr) cv_type
     case('kappa_cgs')
-       read(valstring,*,iostat=ierr) kappa_cgs
+        read(valstring,*,iostat=ierr) kappa_cgs
     case('tol_rad')
-       read(valstring,*,iostat=ierr) tol_rad
+        read(valstring,*,iostat=ierr) tol_rad
     case('itsmax_rad')
-       read(valstring,*,iostat=ierr) itsmax_rad
+        read(valstring,*,iostat=ierr) itsmax_rad
     case default
         imatch = .false.
         if (.not.imatch) call read_options_inject(name,valstring,imatch,igotall,ierr)
@@ -268,7 +233,7 @@ subroutine amuse_set_phantom_option(name, valstring, imatch)
         if (.not.imatch) call read_options_gravitationalwaves(name,valstring,imatch,igotall,ierr)
         if (.not.imatch) call read_options_boundary(name,valstring,imatch,igotall,ierr)
     end select
-    if (.not.imatch) write(*,*) "Could not set option ", name
+    if (.not.imatch) write(*,*) "Could not set option ", name, ", please check if this is a problem!"
 end subroutine amuse_set_phantom_option
 
 subroutine amuse_initialize_wind()
@@ -301,39 +266,41 @@ subroutine amuse_initialize_wind()
 end subroutine amuse_initialize_wind
 
 subroutine amuse_commit_parameters()
+    use memory,  only:allocate_memory
+    use dim,     only:maxp_hard
+    use initial, only:initialise
+    use io,      only:set_io_unit_numbers
+    use units,   only:set_units,utime,umass,udist,set_units_extra
+    use physcon, only:gram,seconds,solarm,pc,au 
+    
+    call allocate_memory(int(maxp_hard,kind=8))
+    call set_io_unit_numbers()
+    call initialise()
+    call amuse_set_defaults() ! replaces reading infile
+
+    ! Hard coded defaults, should be set in a different way...
+    call set_units(dist=1 * au,mass=1.*solarm,G=1.)
+    call set_units_extra()
+    ! write(*,*) "UNITS: ", udist, utime, umass
 end subroutine amuse_commit_parameters
 
 subroutine amuse_commit_particles()
-    !use eos, only:ieos,init_eos
-    !use deriv, only:derivs
-    !use part, only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-    !        dustprop,ddustprop,dustfrac,ddustevol,dens,drad,radprop,dustevol,&
-    !        eos_vars,metrics,pxyzu,rad
-    !use timestep, only:time,dtmax
-    !use units, only:udist,utime,umass
+    use part, only: norig
     use initial, only:startrun
     use energies, only: mtot
-    !use timestep, only:dtmax
     implicit none
-    !integer :: ierr
-    !integer :: nactive
-    !double precision :: dt, dtnew_first
     character(len=120) :: infile,logfile,evfile,dumpfile
     call startrun(infile,logfile,evfile,dumpfile, .true.)
-    print*, "total mass in code unit: ", mtot
 
-    !dtnew_first = dtmax
-    !dt = 0
-    !nactive = npart
-    print*, "COMMIT_PARTICLES, calling amuse_init_evol"
-    !call amuse_init_evol()
     call amuse_evol(.true.)
+    call construct_id_lookup()    
+    new_particles_since_last_update = norig - particles_added_by_amuse
 end subroutine amuse_commit_particles
 
 subroutine amuse_recommit_particles()
     use deriv, only:derivs
     use part, only:npart,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol,&
-            dustprop,ddustprop,dustfrac,ddustevol,dens,drad,radprop,dustevol,&
+            dustprop,filfac,ddustprop,dustfrac,ddustevol,dens,drad,radprop,dustevol,&
             eos_vars,metrics,pxyzu,rad
     use timestep, only:time,dtmax
     implicit none
@@ -344,9 +311,9 @@ subroutine amuse_recommit_particles()
     dt = 0
     nactive = npart
     call derivs(1,npart,nactive,xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,&
-            Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,&
-            dustevol,ddustevol,dustfrac,eos_vars,time,dt,dtnew_first,pxyzu,dens,metrics)
-    print*, "RECOMMIT_PARTICLES"
+                Bevol,dBevol,rad,drad,radprop,dustprop,ddustprop,dustevol,&
+                ddustevol,filfac,dustfrac,eos_vars,time,dt,dtnew_first,pxyzu,dens,metrics)
+    call construct_id_lookup()
 end subroutine amuse_recommit_particles
 
 subroutine amuse_cleanup_code()
@@ -354,7 +321,15 @@ subroutine amuse_cleanup_code()
     implicit none
 
     call endrun()
+    if (allocated(amuse_id_lookup)) deallocate(amuse_id_lookup)
 end subroutine amuse_cleanup_code
+
+subroutine amuse_get_norig(norig_out)
+    use part, only:norig
+    implicit none
+    integer, intent(out) :: norig_out
+    norig_out = norig
+end subroutine amuse_get_norig
 
 ! Get npart
 subroutine amuse_get_npart(npart_out, nodisabled)
@@ -383,9 +358,6 @@ subroutine amuse_set_defaults()
    implicit none
 
    call set_default_options()
-   ! A few changes to Phantom's defaults
-   call amuse_set_gamma(1.)
-   call amuse_set_ieos(1)
    write_files=.false.
 
 end subroutine amuse_set_defaults
@@ -398,8 +370,7 @@ subroutine amuse_evol(amuse_initialise)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next,dtlast
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBB_xa,&
-                            compute_energies
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,hdivBonB_max,compute_energies
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
                             check_magnetic_stability
@@ -450,10 +421,11 @@ subroutine amuse_evol(amuse_initialise)
  use io,               only:ianalysis
 #endif
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
-                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gravity,iboundary, &
+                            xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere
  use quitdump,         only:quit
- use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot
+ use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
+                            set_integration_precision
  use io_summary,       only:iosum_nreal,summary_counter,summary_printout,summary_printnow
  use externalforces,   only:iext_spiral
  use boundary_dyn,     only:dynamic_bdy,update_boundaries
@@ -468,6 +440,7 @@ subroutine amuse_evol(amuse_initialise)
 #endif
  implicit none
  logical, intent(in) :: amuse_initialise
+ logical :: initialized
 
  integer   :: flag
  character(len=256)    :: infile
@@ -502,12 +475,13 @@ subroutine amuse_evol(amuse_initialise)
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
 
+ initialized = .not. amuse_initialise
  tzero     = time
- tlast         = time
+ tlast     = time
  write(*,*) "AMUSE_EVOL called, amuse_initialise=", amuse_initialise
  write(*,*) "dtlast", dtlast
  write(*,*) "tzero, tmax: ", tzero, dtmax, tmax
- if (amuse_initialise) then
+ if (.not. initialized) then
  tprint    = 0.
  nsteps    = 0
  nsteplast = 0
@@ -532,13 +506,17 @@ subroutine amuse_evol(amuse_initialise)
     dtmax_log_dratio = 0.0
  endif
 
+ !
+ ! Set substepping integration precision depending on the system (default is FSI)
+ !
+ call set_integration_precision
+
 #ifdef IND_TIMESTEPS
+ write(*,*) "Using individual timesteps"
  use_global_dt = .false.
  istepfrac     = 0
  tlast         = time
- write(*,*)
  write(*,*) "***********tlast: ", tlast
- write(*,*)
  dt            = dtmax/2.**nbinmax  ! use 2.0 here to allow for step too small
  nmovedtot     = 0
  tall          = 0.
@@ -551,18 +529,20 @@ subroutine amuse_evol(amuse_initialise)
     call sts_init_step(npart,time,dtmax,dtau)  ! overwrite twas for particles requiring super-timestepping
  endif
 #else
+ write(*,*) "Not using individual timesteps"
  use_global_dt = .true.
  nskip   = int(ntot)
  nactive = npart
  istepfrac = 0 ! dummy values
  nbinmax   = 0
+ write(*,*) "dt, tprint, time:", dt, tprint, time
  if (dt >= (tprint-time)) dt = tprint-time   ! reach tprint exactly
 #endif
 !
 ! threshold for writing to .ev file, to avoid repeatedly computing energies
 ! for all the particles which would add significantly to the cpu time
 !
-
+ 
  nskipped = 0
  if (iexternalforce==iext_spiral) then
     nevwrite_threshold = int(4.99*ntot) ! every 5 full steps
@@ -582,21 +562,18 @@ subroutine amuse_evol(amuse_initialise)
 
  call flush(iprint)
 
-!end subroutine amuse_init_evol
- else ! i.e.: .not. amuse_initialise
- !tcheck = time
- !npart_old = npart
- timesubstepping: do while ((time + 0.01 * dtmax < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0))
-    !dtmax = min(dtmax, tmax-time)  ! tried this, doesn't work.
+ else ! i.e.: initializing done
+ !dtmax = min(dtmax, tmax-time)  ! tried this, doesn't work.
  !timesubstepping: do while (istepfrac < 2**nbinmax)
- 
+
+ timestepping: do while ((time + 0.01 * dtmax < tmax).and.((nsteps < nmax) .or.  (nmax < 0)).and.(rhomaxnow*rhofinal1 < 1.0)) 
+
 #ifdef INJECT_PARTICLES
     !
     ! injection of new particles into simulation
     !
     !if (.not. present(flag)) then
        npart_old=npart
-       !write(*,*) "INJECTING"
        call inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
        call update_injected_particles(npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject)
     !endif
@@ -647,7 +624,7 @@ subroutine amuse_evol(amuse_initialise)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,dptmass,time)
     endif
     !
     ! Strang splitting: implicit update for half step
@@ -738,13 +715,13 @@ subroutine amuse_evol(amuse_initialise)
 !
 !--Determine if this is the correct time to write to the data file
 !
-!    at_dump_time = (time >= tmax) &
-!                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
-!#ifdef IND_TIMESTEPS
-!    if (istepfrac==2**nbinmax) at_dump_time = .true.
-!#else
-!    if (time >= tprint) at_dump_time = .true.
-!#endif
+    at_dump_time = (time >= tmax) &
+                   .or.((nsteps >= nmax).and.(nmax >= 0)).or.(rhomaxnow*rhofinal1 >= 1.0)
+#ifdef IND_TIMESTEPS
+    if (istepfrac==2**nbinmax) at_dump_time = .true.
+#else
+    if (time >= tprint) at_dump_time = .true.
+#endif
 !
 !--Calculate total energy etc and write to ev file
 !  For individual timesteps, we do not want to do this every step, but we want
@@ -758,9 +735,12 @@ subroutine amuse_evol(amuse_initialise)
     if (nskipped >= nevwrite_threshold .or. at_dump_time .or. dt_changed .or. iverbose==5) then
        nskipped = 0
        call get_timings(t1,tcpu1)
-       ! We don't want to write the evfile, but we do want to calculate the energies
-       !call write_evfile(time,dt)
-       call compute_energies(time)
+       ! If we don't want to write the evfile, we do still want to calculate the energies
+       if (write_files) then
+        call write_evfile(time,dt)
+       else
+        call compute_energies(time)
+       endif
        if (should_conserve_momentum) call check_conservation_error(totmom,totmom_in,1.e-1,'linear momentum')
        if (should_conserve_angmom)   call check_conservation_error(angtot,angtot_in,1.e-1,'angular momentum')
        if (should_conserve_energy)   call check_conservation_error(etot,etot_in,1.e-1,'energy')
@@ -769,7 +749,7 @@ subroutine amuse_evol(amuse_initialise)
              call check_conservation_error(mdust(j),mdust_in(j),1.e-1,'dust mass',decrease=.true.)
           enddo
        endif
-       if (mhd) call check_magnetic_stability(hdivBB_xa)
+       if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))
@@ -793,207 +773,205 @@ subroutine amuse_evol(amuse_initialise)
     nskipped_sink = nskipped_sink + nskip
     if (nskipped_sink >= nsinkwrite_threshold .or. at_dump_time .or. dt_changed) then
        nskipped_sink = 0
-       !call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
+       if (write_files) call pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink)
 #ifdef IND_TIMESTEPS
        dt_changed = .false.
 #endif
- write(*,*)
- write(*,*) "***********tlast, dtlast: ", tlast, dtlast
- write(*,*)
+ write(*,*) "***********tlast, dtlast, tmax: ", tlast, dtlast, tmax
     endif
 !
 !--write to data file if time is right
 !
-!    if (at_dump_time) then
-!#ifndef IND_TIMESTEPS
-!!
-!!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
-!       twallperdump = timers(itimer_lastdump)%wall
-!       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
-!                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
-!       dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
-!#endif
+    if (at_dump_time .and. write_files) then
+#ifndef IND_TIMESTEPS
 !
-!       !--modify evfile and logfile names with new number
-!       if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
-!          if (noutput==1) then
-!             evfile  = getnextfilename(evfile)
-!             logfile = getnextfilename(logfile)
-!          endif
-!!         Update values for restart dumps
-!          if (dtmax_ifactorWT ==0) then
-!             idtmax_n_next    =  idtmax_n
-!             idtmax_frac_next =  idtmax_frac
-!          elseif (dtmax_ifactorWT > 0) then
-!             idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
-!             idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
-!          elseif (dtmax_ifactorWT < 0) then
-!             idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
-!             idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
-!          endif
-!          idtmax_frac_next = idtmax_frac_next + 1
-!          idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
-!          dumpfile_orig = trim(dumpfile)
-!          if (idtmax_frac==0) then
-!             dumpfile = getnextfilename(dumpfile,idumpfile)
-!             dumpfile_orig = trim(dumpfile)
-!          else
-!             write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
-!          endif
-!          writedump = .true.
-!       else
-!          writedump = .false.
-!       endif
+!--Global timesteps: Decrease dtmax if requested (done in step for individual timesteps)
+       twallperdump = timers(itimer_lastdump)%wall
+       call check_dtmax_for_decrease(iprint,dtmax,twallperdump,dtmax_log_dratio,&
+                                     rhomaxold,rhomaxnow,nfulldump,use_global_dt)
+       dt = min(dt,dtmax) ! required if decreasing dtmax to ensure that the physically motivated timestep is not too long
+#endif
+
+       !--modify evfile and logfile names with new number
+       if ((nout <= 0) .or. (mod(noutput,nout)==0)) then
+          if (noutput==1) then
+             evfile  = getnextfilename(evfile)
+             logfile = getnextfilename(logfile)
+          endif
+!         Update values for restart dumps
+          if (dtmax_ifactorWT ==0) then
+             idtmax_n_next    =  idtmax_n
+             idtmax_frac_next =  idtmax_frac
+          elseif (dtmax_ifactorWT > 0) then
+             idtmax_n_next    =  idtmax_n   *dtmax_ifactorWT
+             idtmax_frac_next =  idtmax_frac*dtmax_ifactorWT
+          elseif (dtmax_ifactorWT < 0) then
+             idtmax_n_next    = -idtmax_n   /dtmax_ifactorWT
+             idtmax_frac_next = -idtmax_frac/dtmax_ifactorWT
+          endif
+          idtmax_frac_next = idtmax_frac_next + 1
+          idtmax_frac_next = mod(idtmax_frac_next,idtmax_n_next)
+          dumpfile_orig = trim(dumpfile)
+          if (idtmax_frac==0) then
+             dumpfile = getnextfilename(dumpfile,idumpfile)
+             dumpfile_orig = trim(dumpfile)
+          else
+             write(dumpfile,'(2a)') dumpfile(:index(dumpfile,'_')-1),'.restart'
+          endif
+          writedump = .true.
+       else
+          writedump = .false.
+       endif
+
+       !--do not dump dead particles into dump files
+       if (ideadhead > 0) call shuffle_part(npart)
 !
-!       !--do not dump dead particles into dump files
-!       if (ideadhead > 0) call shuffle_part(npart)
-!!
-!!--get timings since last dump and overall code scaling
-!!  (get these before writing the dump so we can check whether or not we
-!!   need to write a full dump based on the wall time;
-!!   move timer_lastdump outside at_dump_time block so that dtmax can
-!!   be reduced it too long between dumps)
-!!
-!       call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
+!--get timings since last dump and overall code scaling
+!  (get these before writing the dump so we can check whether or not we
+!   need to write a full dump based on the wall time;
+!   move timer_lastdump outside at_dump_time block so that dtmax can
+!   be reduced it too long between dumps)
 !
-!       fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
-!!
-!!--if max wall time is set (> 1 sec) stop the run at the last full dump
-!!  that will fit into the walltime constraint, based on the wall time between
-!!  the last two dumps added to the current total walltime used.  The factor of three for
-!!  changing to full dumps is to account for the possibility that the next step will take longer.
-!!  If we are about to write a small dump but it looks like we won't make the next dump,
-!!  write a full dump instead and stop the run
-!!
-!       abortrun = .false.
-!       if (twallmax > 1.) then
-!          twallused    = timers(itimer_fromstart)%wall
-!          twallperdump = timers(itimer_lastdump)%wall
-!          if (fulldump) then
-!             if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
-!                abortrun = .true.
-!             endif
-!          else
-!             if ((twallused + 3.0*twallperdump) > twallmax) then
-!                fulldump = .true.
-!                if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
-!                nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
-!                if ((twallused + twallperdump) > twallmax) abortrun = .true.
-!             endif
-!          endif
-!       endif
-!!
-!!--Promote to full dump if this is the final dump
-!!
-!       if ( (time >= tmax) .or. ( (nmax > 0) .and. (nsteps >= nmax) ) ) fulldump = .true.
-!!
-!!--flush any buffered warnings to the log file
-!!
-!       if (id==master) call flush_warnings()
-!!
-!!--write dump file
-!!
-!       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
-!#ifndef INJECT_PARTICLES
-!       call calculate_mdot(nptmass,time,xyzmh_ptmass)
-!#endif
-!       call get_timings(t1,tcpu1)
-!       if (writedump) then
-!          if (fulldump) then
-!             call write_fulldump(time,dumpfile)
-!             if (id==master) then
-!                call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
-!#ifdef DRIVING
-!                call write_forcingdump(time,dumpfile)
-!#endif
-!             endif
-!             ncount_fulldumps = ncount_fulldumps + 1
-!          else
-!             call write_smalldump(time,dumpfile)
-!          endif
-!       endif
-!       call get_timings(t2,tcpu2)
-!       call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
+       call increment_timer(itimer_fromstart,t2-tstart,tcpu2-tcpustart)
+
+       fulldump = (nout <= 0 .and. mod(noutput,nfulldump)==0) .or. (mod(noutput,nout*nfulldump)==0)
 !
-!#ifdef LIVE_ANALYSIS
-!       if (id==master .and. idtmax_frac==0) then
-!          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
-!                           massoftype(igas),npart,time,ianalysis)
-!       endif
-!#endif
-!       call reduce_timers
-!       if (id==master) then
-!          call print_timinginfo(iprint,nsteps,nsteplast)
-!          !--Write out summary to log file
-!          call summary_printout(iprint,nptmass)
-!       endif
-!#ifdef IND_TIMESTEPS
-!       !--print summary of timestep bins
-!       if (iverbose >= 0) then
-!          call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
-!          timeperbin(:) = 0.
-!          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
-!       endif
-!       tlast = tprint
-!       istepfrac = 0
-!       nmovedtot = 0
-!#endif
-!       !--print summary of energies and other useful values to the log file
-!       if (id==master) call write_evlog(iprint)
+!--if max wall time is set (> 1 sec) stop the run at the last full dump
+!  that will fit into the walltime constraint, based on the wall time between
+!  the last two dumps added to the current total walltime used.  The factor of three for
+!  changing to full dumps is to account for the possibility that the next step will take longer.
+!  If we are about to write a small dump but it looks like we won't make the next dump,
+!  write a full dump instead and stop the run
 !
-!#ifndef IND_TIMESTEPS
-!       !--Implement dynamic boundaries (for global timestepping)
-!       if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
-!#endif
+       abortrun = .false.
+       if (twallmax > 1.) then
+          twallused    = timers(itimer_fromstart)%wall
+          twallperdump = timers(itimer_lastdump)%wall
+          if (fulldump) then
+             if ((twallused + abs(nfulldump)*twallperdump) > twallmax) then
+                abortrun = .true.
+             endif
+          else
+             if ((twallused + 3.0*twallperdump) > twallmax) then
+                fulldump = .true.
+                if (id==master) write(iprint,"(1x,a)") '>> PROMOTING DUMP TO FULL DUMP BASED ON WALL TIME CONSTRAINTS... '
+                nfulldump = 1  !  also set all future dumps to be full dumps (otherwise gets confusing)
+                if ((twallused + twallperdump) > twallmax) abortrun = .true.
+             endif
+          endif
+       endif
 !
-!       !
-!       !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
-!       !  based on the wall time between the last two dumps added to the current total walltime used.
-!       !
-!       if (abortrun) then
-!          if (id==master) then
-!             call print_time(t2-tstart,'>> WALL TIME = ',iprint)
-!             call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
-!             write(iprint,"(1x,a)") '>> ABORTING... '
-!          endif
-!          return
-!       endif
+!--Promote to full dump if this is the final dump
 !
-!       if (abortrun_bdy) then
-!          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
-!          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
-!          write(iprint,"(1x,a)") '>> ABORTING... '
-!          return
-!       endif
+       if ( (time >= tmax) .or. ( (nmax > 0) .and. (nsteps >= nmax) ) ) fulldump = .true.
 !
-!       if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
-!          if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
-!          return
-!       endif
+!--flush any buffered warnings to the log file
 !
-!       twalllast = t2
-!       tcpulast = tcpu2
-!       do i = 1,ntimers
-!          call reset_timer(i)
-!       enddo
+       if (id==master) call flush_warnings()
 !
-!       if (idtmax_frac==0) then
-!          noutput    = noutput + 1           ! required to determine frequency of full dumps
-!       endif
-!       noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
-!       idtmax_n      = idtmax_n_next
-!       idtmax_frac   = idtmax_frac_next
-!       tprint        = tzero + noutput_dtmax*dtmaxold
-!       nsteplast     = nsteps
-!       dumpfile      = trim(dumpfile_orig)
-!       if (dtmax_ifactor/=0) then
-!          tzero           = tprint - dtmaxold
-!          tprint          = tzero  + dtmax
-!          noutput_dtmax   = 1
-!          dtmax_ifactor   = 0
-!          dtmax_ifactorWT = 0
-!       endif
-!    endif
+!--write dump file
+!
+       if (rkill > 0) call accrete_particles_outside_sphere(rkill)
+#ifndef INJECT_PARTICLES
+       call calculate_mdot(nptmass,time,xyzmh_ptmass)
+#endif
+       call get_timings(t1,tcpu1)
+       if (writedump) then
+          if (fulldump) then
+             call write_fulldump(time,dumpfile)
+             if (id==master) then
+                call write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
+#ifdef DRIVING
+                call write_forcingdump(time,dumpfile)
+#endif
+             endif
+             ncount_fulldumps = ncount_fulldumps + 1
+          else
+             call write_smalldump(time,dumpfile)
+          endif
+       endif
+       call get_timings(t2,tcpu2)
+       call increment_timer(itimer_io,t2-t1,tcpu2-tcpu1)
+
+#ifdef LIVE_ANALYSIS
+       if (id==master .and. idtmax_frac==0) then
+          call do_analysis(dumpfile,numfromfile(dumpfile),xyzh,vxyzu, &
+                           massoftype(igas),npart,time,ianalysis)
+       endif
+#endif
+       call reduce_timers
+       if (id==master) then
+          call print_timinginfo(iprint,nsteps,nsteplast)
+          !--Write out summary to log file
+          call summary_printout(iprint,nptmass)
+       endif
+#ifdef IND_TIMESTEPS
+       !--print summary of timestep bins
+       if (iverbose >= 0) then
+          call write_binsummary(npart,nbinmax,dtmax,timeperbin,iphase,ibin,xyzh)
+          timeperbin(:) = 0.
+          if (id==master) call print_dtind_efficiency(iverbose,nalivetot,nmovedtot,tall,timers(itimer_lastdump)%wall,2)
+       endif
+       tlast = tprint
+       istepfrac = 0
+       nmovedtot = 0
+#endif
+       !--print summary of energies and other useful values to the log file
+       if (id==master) call write_evlog(iprint)
+
+#ifndef IND_TIMESTEPS
+       !--Implement dynamic boundaries (for global timestepping)
+       if (dynamic_bdy) call update_boundaries(nactive,nactive,npart,abortrun_bdy)
+#endif
+
+       !
+       !--if twallmax > 1s stop the run at the last full dump that will fit into the walltime constraint,
+       !  based on the wall time between the last two dumps added to the current total walltime used.
+       !
+       if (abortrun) then
+          if (id==master) then
+             call print_time(t2-tstart,'>> WALL TIME = ',iprint)
+             call print_time(twallmax,'>> NEXT DUMP WILL TRIP OVER MAX WALL TIME: ',iprint)
+             write(iprint,"(1x,a)") '>> ABORTING... '
+          endif
+          return
+       endif
+
+       if (abortrun_bdy) then
+          write(iprint,"(1x,a)") 'Will likely surpass maxp_hard next time we need to add particles.'
+          write(iprint,"(1x,a)") 'Recompile with larger maxp_hard.'
+          write(iprint,"(1x,a)") '>> ABORTING... '
+          return
+       endif
+
+       if (nmaxdumps > 0 .and. ncount_fulldumps >= nmaxdumps) then
+          if (id==master) write(iprint,"(a)") '>> reached maximum number of full dumps as specified in input file, stopping...'
+          return
+       endif
+
+       twalllast = t2
+       tcpulast = tcpu2
+       do i = 1,ntimers
+          call reset_timer(i)
+       enddo
+
+       if (idtmax_frac==0) then
+          noutput    = noutput + 1           ! required to determine frequency of full dumps
+       endif
+       noutput_dtmax = noutput_dtmax + 1     ! required to adjust tprint; will account for varying dtmax
+       idtmax_n      = idtmax_n_next
+       idtmax_frac   = idtmax_frac_next
+       tprint        = tzero + noutput_dtmax*dtmaxold
+       nsteplast     = nsteps
+       dumpfile      = trim(dumpfile_orig)
+       if (dtmax_ifactor/=0) then
+          tzero           = tprint - dtmaxold
+          tprint          = tzero  + dtmax
+          noutput_dtmax   = 1
+          dtmax_ifactor   = 0
+          dtmax_ifactorWT = 0
+       endif
+    endif
 
 #ifdef CORRECT_BULK_MOTION
     call correct_bulk_motion()
@@ -1004,16 +982,15 @@ subroutine amuse_evol(amuse_initialise)
     !--Write out log file prematurely (if requested based upon nstep, walltime)
     if ( summary_printnow() ) call summary_printout(iprint,nptmass)
 
- enddo timesubstepping
+ enddo timestepping
 
 endif
-!end subroutine amuse_new_step
 end subroutine amuse_evol
 
 
 ! New particles
 subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
-    use part, only:igas,npart,npartoftype,xyzh,vxyzu,massoftype
+    use part, only:igas,norig,npart,npartoftype,xyzh,vxyzu,massoftype
     use part, only:abundance,iHI,ih2ratio
     use partinject, only:add_or_update_particle
 #ifdef IND_TIMESTEPS
@@ -1082,7 +1059,7 @@ subroutine amuse_new_sph_particle(i, mass, x, y, z, vx, vy, vz, u, h)
         print*, x, y, z, vx, vy, vz, mass, ibin(i), twas(i)
     endif
 #endif
-
+    particles_added_by_amuse = particles_added_by_amuse + 1
 end subroutine amuse_new_sph_particle
 
 subroutine amuse_new_dm_particle(i, mass, x, y, z, vx, vy, vz)
@@ -1119,12 +1096,16 @@ subroutine amuse_new_sink_particle(j, mass, x, y, z, vx, vy, vz, &
     integer :: i, j
     double precision :: mass, x, y, z, vx, vy, vz, radius, accretion_radius, h_smooth
     double precision :: position(3), velocity(3)
-  
     nptmass = nptmass + 1
-    ! Replace this with something AMUSE can handle
+    ! Replace this fatal exception with something AMUSE can handle
     if (nptmass > maxptmass) call fatal('creating new sink', 'nptmass > maxptmass')
     i = nptmass
+    
+    ! Sink particles are stored in different arrays than other particles.
+    ! To be able to distinguish the particle indices on the AMUSE side, we give sinks
+    ! a negative index and other particles a positive index.
     j = -i
+    
     xyzmh_ptmass(:,i) = 0.
     xyzmh_ptmass(1,i) = x
     xyzmh_ptmass(2,i) = y
@@ -1141,15 +1122,21 @@ end subroutine
 
 subroutine amuse_delete_particle(i)
     use part, only:kill_particle,xyzmh_ptmass
+    implicit none
     integer, intent(in) :: i
-    integer :: j
+    integer :: part_index
     if (i == abs(i)) then
-        call kill_particle(i)
+        write(*,*) "AMUSE killing a gas particle?"
+        call amuse_get_index(i, part_index)
+        ! call kill_particle(part_index)
     else
-        j = -i
+        write(*,*) "AMUSE killing a sink particle?"
         ! Sink particles can't be killed - so we just set its mass to zero
-        xyzmh_ptmass(4,j) = 0
+        ! xyzmh_ptmass(4, -i) = 0
     endif
+    !if (i == abs(i)) then
+    !else
+    !endif
 end subroutine
 
 subroutine amuse_get_unit_length(unit_length_out)
@@ -1276,14 +1263,42 @@ subroutine amuse_get_time(time_out)
     time_out = time
 end subroutine amuse_get_time
 
+subroutine amuse_set_time_step(dt_in)
+    use units, only:utime
+    use timestep, only:dtmax
+    implicit none
+    double precision, intent(in) :: dt_in
+    dtmax = dt_in
+    print*, "dtmax: ", dtmax
+end subroutine
+
+subroutine amuse_get_index(i, part_index)
+    use part, only:iorig
+    use io, only:fatal
+    implicit none
+    integer, intent(in) :: i
+    integer, intent(out) :: part_index
+    ! This subroutine maps the unique index (i) to the current index (part_index)
+    ! The map is synchronised after each evolve step - but it should also be synchronised after adding particles
+    ! Note that i is strictly positive, negative indices are sink particles and they do not use this map!
+    if (i /= abs(i)) call fatal('get_index', 'get_index is not for sink particles!')
+    part_index = amuse_id_lookup(i)
+end subroutine amuse_get_index
+
 subroutine amuse_get_density(i, rho)
     use part, only:rhoh,iphase,massoftype,xyzh
     implicit none
     integer :: i
+    integer :: part_index
     double precision :: pmassi
     double precision, intent(out) :: rho
-    pmassi = massoftype(abs(iphase(i)))
-    rho = rhoh(xyzh(4,i), pmassi)
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        rho = 0
+    else    
+        pmassi = massoftype(abs(iphase(part_index)))
+        rho = rhoh(xyzh(4,part_index), pmassi)
+    endif
 end subroutine amuse_get_density
 
 subroutine amuse_get_pressure(i, p)
@@ -1291,36 +1306,46 @@ subroutine amuse_get_pressure(i, p)
     use eos, only:ieos,equationofstate
     implicit none
     integer :: i, eos_type
+    integer :: part_index
     double precision :: pmassi, ponrho, rho, spsound, x, y, z
     double precision, intent(out) :: p
     real :: tempi
-    eos_type = ieos
-    pmassi = massoftype(abs(iphase(i)))
-    call amuse_get_density(i, rho)
-    x = xyzh(1,i)
-    y = xyzh(2,i)
-    z = xyzh(3,i)
-    call equationofstate(eos_type,ponrho,spsound,rho,x,y,z,tempi)
-    p = ponrho * rho
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        p = 0
+    else
+        eos_type = ieos
+        pmassi = massoftype(abs(iphase(part_index)))
+        call amuse_get_density(part_index, rho)
+        x = xyzh(1,part_index)
+        y = xyzh(2,part_index)
+        z = xyzh(3,part_index)
+        call equationofstate(eos_type,ponrho,spsound,rho,x,y,z,tempi)
+        p = ponrho * rho
+    endif
 end subroutine amuse_get_pressure
 
 subroutine amuse_get_mass(i, part_mass)
     use part, only:iphase,massoftype,xyzmh_ptmass
     implicit none
     double precision, intent(out) :: part_mass
-    integer, intent(in) :: i
-    integer :: j
+    integer, intent(inout) :: i
+    integer :: part_index
     if (i == abs(i)) then
-        part_mass = massoftype(abs(iphase(i)))
+        call amuse_get_index(i, part_index)
+        if (part_index == 0) then
+            part_mass = 0
+        else
+            part_mass = massoftype(abs(iphase(part_index)))
+        endif
     else
-        j = -i
-        part_mass = xyzmh_ptmass(4,j)
+        part_mass = xyzmh_ptmass(4, -i)
     endif
 end subroutine amuse_get_mass
 
 subroutine amuse_get_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     implicit none
-    integer :: i
+    integer, intent(inout) :: i
     double precision, intent(inout) :: mass, x, y, z, vx, vy, vz, u, h
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
@@ -1331,8 +1356,8 @@ end subroutine amuse_get_state_gas
 
 subroutine amuse_get_state_dm(i, mass, x, y, z, vx, vy, vz)
     implicit none
-    integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz
+    integer, intent(inout) :: i
+    double precision, intent(inout) :: mass, x, y, z, vx, vy, vz
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
     call amuse_get_velocity(i, vx, vy, vz)
@@ -1341,261 +1366,14 @@ end subroutine amuse_get_state_dm
 
 subroutine amuse_get_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
     implicit none
-    integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius, accretion_radius
+    integer, intent(inout) :: i
+    double precision, intent(inout) :: mass, x, y, z, vx, vy, vz, radius, accretion_radius
     call amuse_get_mass(i, mass)
     call amuse_get_position(i, x, y, z)
     call amuse_get_velocity(i, vx, vy, vz)
     call amuse_get_sink_radius(i, radius)
     call amuse_get_sink_accretion_radius(i, accretion_radius)
 end subroutine amuse_get_state_sink
-
-subroutine amuse_get_sink_radius(j, radius)
-    implicit none
-    integer :: j
-    double precision :: radius
-    call amuse_get_sink_effective_radius(j, radius)
-end subroutine amuse_get_sink_radius
-
-subroutine amuse_get_sink_effective_radius(j, radius)
-    use part, only:xyzmh_ptmass, iReff
-    implicit none
-    integer :: j
-    double precision :: radius
-    radius = xyzmh_ptmass(iReff, -j)
-end subroutine amuse_get_sink_effective_radius
-
-subroutine amuse_get_sink_accretion_radius(j, radius)
-    use part, only:xyzmh_ptmass, ihacc
-    implicit none
-    integer :: j
-    double precision :: radius
-    radius = xyzmh_ptmass(ihacc, -j)
-end subroutine amuse_get_sink_accretion_radius
-
-subroutine amuse_get_sink_temperature(j, temperature)
-    use part, only:xyzmh_ptmass, iTeff
-    implicit none
-    integer, intent(in) :: j
-    double precision :: temperature
-    temperature = xyzmh_ptmass(iTeff, -j)
-end subroutine
-
-subroutine amuse_get_sink_luminosity(j, luminosity)
-    use part, only:xyzmh_ptmass, iLum
-    implicit none
-    integer, intent(in) :: j
-    double precision :: luminosity
-    luminosity = xyzmh_ptmass(iLum, -j)
-end subroutine
-
-subroutine amuse_get_position(i, x, y, z)
-    use part, only:xyzh,xyzmh_ptmass
-    implicit none
-    integer, intent(in) :: i
-    integer :: j
-    double precision, intent(out) :: x, y, z
-    if (i == abs(i)) then
-        x = xyzh(1, i)
-        y = xyzh(2, i)
-        z = xyzh(3, i)
-    else
-        j = -i
-        x = xyzmh_ptmass(1, j)
-        y = xyzmh_ptmass(2, j)
-        z = xyzmh_ptmass(3, j)
-    endif
-end subroutine amuse_get_position
-
-subroutine amuse_get_velocity(i, vx, vy, vz)
-    use part, only:vxyzu,vxyz_ptmass
-    implicit none
-    integer, intent(in) :: i
-    integer :: j
-    double precision, intent(out) :: vx, vy, vz
-    if (i == abs(i)) then
-        vx = vxyzu(1, i)
-        vy = vxyzu(2, i)
-        vz = vxyzu(3, i)
-    else
-        j = -i
-        vx = vxyz_ptmass(1, j)
-        vy = vxyz_ptmass(2, j)
-        vz = vxyz_ptmass(3, j)
-    endif
-end subroutine amuse_get_velocity
-
-subroutine amuse_get_acceleration(i, fx, fy, fz)
-    use part, only:fxyzu,fxyz_ptmass
-    implicit none
-    integer, intent(in) :: i
-    integer :: j
-    double precision, intent(out) :: fx, fy, fz
-    if (i == abs(i)) then
-        fx = fxyzu(1, i)
-        fy = fxyzu(2, i)
-        fz = fxyzu(3, i)
-    else
-        j = -i
-        fx = fxyz_ptmass(1, j)
-        fy = fxyz_ptmass(2, j)
-        fz = fxyz_ptmass(3, j)
-    endif
-end subroutine amuse_get_acceleration
-
-subroutine amuse_get_smoothing_length(i, h)
-    use part, only:xyzh,xyzmh_ptmass,ihsoft
-    implicit none
-    integer, intent(in) :: i
-    integer :: j
-    double precision, intent(out) :: h
-    if (i == abs(i)) then
-        h = xyzh(4, i)
-    else
-        j = -i
-        h = xyzmh_ptmass(ihsoft,j)
-    endif
-end subroutine amuse_get_smoothing_length
-
-subroutine amuse_get_radius(i, radius)
-    implicit none
-    integer, intent(in) :: i
-    integer :: j
-    double precision, intent(out) :: radius
-    if (i == abs(i)) then
-        call amuse_get_smoothing_length(i, radius)
-    else
-        j = -i
-        call amuse_get_sink_radius(i, radius)
-    endif
-end subroutine amuse_get_radius
-
-subroutine amuse_get_internal_energy(i, u)
-    use dim, only:maxvxyzu
-    use part, only:vxyzu
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: u
-
-    if (maxvxyzu >= 4) then
-        u = vxyzu(4, i)
-    else
-        u = 0
-    endif
-end subroutine
-
-subroutine amuse_set_hi_abundance(i, hi_abundance)
-    use part, only:abundance,iHI
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(in) :: hi_abundance
-
-    abundance(iHI, i) = hi_abundance
-end subroutine
-
-subroutine amuse_get_hi_abundance(i, hi_abundance)
-    use part, only:abundance,iHI
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: hi_abundance
-
-    hi_abundance = abundance(iHI, i)
-end subroutine
-
-subroutine amuse_set_proton_abundance(i, proton_abundance)
-    use part, only:abundance,iproton
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(in) :: proton_abundance
-
-    abundance(iproton, i) = proton_abundance
-end subroutine
-
-subroutine amuse_get_proton_abundance(i, proton_abundance)
-    use part, only:abundance,iproton
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: proton_abundance
-
-    proton_abundance = abundance(iproton, i)
-end subroutine
-
-subroutine amuse_set_electron_abundance(i, electron_abundance)
-    use part, only:abundance,ielectron
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(in) :: electron_abundance
-
-    abundance(ielectron, i) = electron_abundance
-end subroutine
-
-subroutine amuse_get_electron_abundance(i, electron_abundance)
-    use part, only:abundance,ielectron
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: electron_abundance
-
-    electron_abundance = abundance(ielectron, i)
-end subroutine
-
-subroutine amuse_set_co_abundance(i, co_abundance)
-    use part, only:abundance,ico
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(in) :: co_abundance
-
-    abundance(ico, i) = co_abundance
-end subroutine
-
-subroutine amuse_get_co_abundance(i, co_abundance)
-    use part, only:abundance,ico
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: co_abundance
-
-    co_abundance = abundance(ico, i)
-end subroutine
-
-subroutine amuse_set_h2ratio(i, h2ratio)
-    use part, only:abundance,iHI,ih2ratio
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(in) :: h2ratio
-
-    abundance(ih2ratio, i) = h2ratio
-end subroutine
-
-subroutine amuse_get_h2ratio(i, h2ratio)
-    use part, only:abundance,iHI,ih2ratio
-    implicit none
-    integer, intent(in) :: i
-    double precision, intent(out) :: h2ratio
-
-    h2ratio = abundance(ih2ratio, i)
-end subroutine
-
-subroutine amuse_set_time_step(dt_in)
-    use units, only:utime
-    use timestep, only:dtmax
-    implicit none
-    double precision, intent(in) :: dt_in
-    dtmax = dt_in
-    print*, "dtmax: ", dtmax
-end subroutine
-
-subroutine amuse_set_mass(i, part_mass)
-    use part, only:iphase,massoftype,xyzmh_ptmass
-    implicit none
-    double precision, intent(in) :: part_mass
-    integer, intent(in) :: i
-    integer :: j
-    if (i == abs(i)) then
-        massoftype(abs(iphase(i))) = part_mass
-    else
-        j = -i
-        xyzmh_ptmass(4,j) = part_mass
-    endif
-end subroutine
 
 subroutine amuse_set_state_gas(i, mass, x, y, z, vx, vy, vz, u, h)
     implicit none
@@ -1617,56 +1395,353 @@ subroutine amuse_set_state_dm(i, mass, x, y, z, vx, vy, vz)
     call amuse_set_velocity(i, vx, vy, vz)
 end subroutine
 
-subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius)
+subroutine amuse_set_state_sink(i, mass, x, y, z, vx, vy, vz, radius, accretion_radius)
     implicit none
     integer :: i
-    double precision :: mass, x, y, z, vx, vy, vz, radius
+    double precision :: mass, x, y, z, vx, vy, vz, radius, accretion_radius
     call amuse_set_mass(i, mass)
     call amuse_set_position(i, x, y, z)
     call amuse_set_velocity(i, vx, vy, vz)
     call amuse_set_sink_radius(i, radius)
+    call amuse_set_sink_accretion_radius(i, accretion_radius)    
 end subroutine
 
-subroutine amuse_set_sink_radius(j, radius)
+subroutine amuse_get_sink_radius(i, radius)
+    implicit none
+    integer :: i
+    double precision :: radius
+    call amuse_get_sink_effective_radius(i, radius)
+end subroutine amuse_get_sink_radius
+
+subroutine amuse_set_sink_radius(i, radius)
     use part, only:xyzmh_ptmass, ihacc, iReff
     implicit none
-    integer :: j
+    integer :: i
     double precision :: radius
-    call amuse_set_sink_effective_radius(j, radius)
-    call amuse_set_sink_accretion_radius(j, radius)
+    call amuse_set_sink_effective_radius(i, radius)
+    call amuse_set_sink_accretion_radius(i, radius)
 end subroutine
 
-subroutine amuse_set_sink_accretion_radius(j, radius)
-    use part, only:xyzmh_ptmass, ihacc
-    implicit none
-    integer :: j
-    double precision :: radius
-    xyzmh_ptmass(ihacc, -j) = radius
-end subroutine
-
-subroutine amuse_set_sink_effective_radius(j, radius)
+subroutine amuse_get_sink_effective_radius(i, radius)
     use part, only:xyzmh_ptmass, iReff
     implicit none
-    integer :: j
+    integer :: i
     double precision :: radius
-    xyzmh_ptmass(iReff, -j) = radius
+    radius = xyzmh_ptmass(iReff, -i)
+end subroutine amuse_get_sink_effective_radius
+
+subroutine amuse_get_sink_accretion_radius(i, radius)
+    use part, only:xyzmh_ptmass, ihacc
+    implicit none
+    integer :: i
+    double precision :: radius
+    radius = xyzmh_ptmass(ihacc, -i)
+end subroutine amuse_get_sink_accretion_radius
+
+subroutine amuse_get_sink_temperature(i, temperature)
+    use part, only:xyzmh_ptmass, iTeff
+    implicit none
+    integer, intent(in) :: i
+    double precision :: temperature
+    temperature = xyzmh_ptmass(iTeff, -i)
+end subroutine
+
+subroutine amuse_get_sink_luminosity(i, luminosity)
+    use part, only:xyzmh_ptmass, iLum
+    implicit none
+    integer, intent(in) :: i
+    double precision :: luminosity
+    luminosity = xyzmh_ptmass(iLum, -i)
+end subroutine
+
+subroutine amuse_get_position(i, x, y, z)
+    use part, only:xyzh,xyzmh_ptmass
+    implicit none
+    integer, intent(inout) :: i
+    integer :: part_index
+    double precision, intent(out) :: x, y, z
+    if (i == abs(i)) then
+        call amuse_get_index(i, part_index)
+        if (part_index == 0) then
+            x = 0
+            y = 0
+            z = 0
+        else
+            x = xyzh(1, part_index)
+            y = xyzh(2, part_index)
+            z = xyzh(3, part_index)
+        endif
+    else
+            x = xyzmh_ptmass(1, -i)
+            y = xyzmh_ptmass(2, -i)
+            z = xyzmh_ptmass(3, -i)
+    endif
+end subroutine amuse_get_position
+
+subroutine amuse_get_velocity(i, vx, vy, vz)
+    use part, only:vxyzu,vxyz_ptmass
+    implicit none
+    integer, intent(inout) :: i
+    integer :: part_index
+    double precision, intent(out) :: vx, vy, vz
+    if (i == abs(i)) then
+        call amuse_get_index(i, part_index)
+        if (part_index == 0) then
+            vx = 0
+            vy = 0
+            vz = 0
+        else
+            vx = vxyzu(1, part_index)
+            vy = vxyzu(2, part_index)
+            vz = vxyzu(3, part_index)
+        endif
+    else
+        vx = vxyz_ptmass(1, -i)
+        vy = vxyz_ptmass(2, -i)
+        vz = vxyz_ptmass(3, -i)
+    endif
+end subroutine amuse_get_velocity
+
+subroutine amuse_get_acceleration(i, fx, fy, fz)
+    use part, only:fxyzu,fxyz_ptmass
+    implicit none
+    integer, intent(inout) :: i
+    integer :: part_index
+    double precision, intent(out) :: fx, fy, fz
+    if (i == abs(i)) then
+        call amuse_get_index(i, part_index)
+        if (part_index == 0) then
+            fx = 0
+            fy = 0
+            fz = 0
+        else
+            fx = fxyzu(1, part_index)
+            fy = fxyzu(2, part_index)
+            fz = fxyzu(3, part_index)
+        endif
+    else
+        fx = fxyz_ptmass(1, -i)
+        fy = fxyz_ptmass(2, -i)
+        fz = fxyz_ptmass(3, -i)
+    endif
+end subroutine amuse_get_acceleration
+
+subroutine amuse_get_smoothing_length(i, h)
+    use part, only:xyzh,xyzmh_ptmass,ihsoft
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: h
+    if (i == abs(i)) then
+        call amuse_get_index(i, part_index)
+        if (part_index == 0) then
+            h = 0
+        else
+            h = xyzh(4, part_index)
+        endif
+    else
+        h = xyzmh_ptmass(ihsoft, -i)
+    endif
+end subroutine amuse_get_smoothing_length
+
+subroutine amuse_get_radius(i, radius)
+    implicit none
+    integer, intent(in) :: i
+    double precision, intent(out) :: radius
+    if (i == abs(i)) then
+        call amuse_get_smoothing_length(i, radius)
+    else
+        call amuse_get_sink_radius(i, radius)
+    endif
+end subroutine amuse_get_radius
+
+subroutine amuse_get_internal_energy(i, u)
+    use dim, only:maxvxyzu
+    use part, only:vxyzu
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: u
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        u = 0
+    else if (maxvxyzu >= 4) then
+        u = vxyzu(4, part_index)
+    else
+        u = 0
+    endif
+end subroutine
+
+subroutine amuse_set_hi_abundance(i, hi_abundance)
+    use part, only:abundance,iHI
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(in) :: hi_abundance
+    call amuse_get_index(i, part_index)
+
+    abundance(iHI, part_index) = hi_abundance
+end subroutine
+
+subroutine amuse_get_hi_abundance(i, hi_abundance)
+    use part, only:abundance,iHI
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: hi_abundance
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        hi_abundance = 0
+    else    
+        hi_abundance = abundance(iHI, part_index)
+    endif
+end subroutine
+
+subroutine amuse_set_proton_abundance(i, proton_abundance)
+    use part, only:abundance,iproton
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(in) :: proton_abundance
+    call amuse_get_index(i, part_index)
+
+    abundance(iproton, part_index) = proton_abundance
+end subroutine
+
+subroutine amuse_get_proton_abundance(i, proton_abundance)
+    use part, only:abundance,iproton
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: proton_abundance
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        proton_abundance = 0
+    else
+        proton_abundance = abundance(iproton, part_index)
+    endif
+end subroutine
+
+subroutine amuse_set_electron_abundance(i, electron_abundance)
+    use part, only:abundance,ielectron
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(in) :: electron_abundance
+    call amuse_get_index(i, part_index)
+
+    abundance(ielectron, part_index) = electron_abundance
+end subroutine
+
+subroutine amuse_get_electron_abundance(i, electron_abundance)
+    use part, only:abundance,ielectron
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: electron_abundance
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        electron_abundance = 0
+    else
+        electron_abundance = abundance(ielectron, part_index)
+    endif
+end subroutine
+
+subroutine amuse_set_co_abundance(i, co_abundance)
+    use part, only:abundance,ico
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(in) :: co_abundance
+    call amuse_get_index(i, part_index)
+
+    abundance(ico, part_index) = co_abundance
+end subroutine
+
+subroutine amuse_get_co_abundance(i, co_abundance)
+    use part, only:abundance,ico
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: co_abundance
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        co_abundance = 0
+    else
+        co_abundance = abundance(ico, part_index)
+    endif
+end subroutine
+
+subroutine amuse_set_h2ratio(i, h2ratio)
+    use part, only:abundance,iHI,ih2ratio
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(in) :: h2ratio
+    call amuse_get_index(i, part_index)
+
+    abundance(ih2ratio, part_index) = h2ratio
+end subroutine
+
+subroutine amuse_get_h2ratio(i, h2ratio)
+    use part, only:abundance,iHI,ih2ratio
+    implicit none
+    integer, intent(in) :: i
+    integer :: part_index
+    double precision, intent(out) :: h2ratio
+    call amuse_get_index(i, part_index)
+    if (part_index == 0) then
+        h2ratio = 0
+    else
+        h2ratio = abundance(ih2ratio, part_index)
+    endif
+end subroutine
+
+subroutine amuse_set_mass(i, part_mass)
+    use part, only:iphase,massoftype,xyzmh_ptmass
+    implicit none
+    double precision, intent(in) :: part_mass
+    integer, intent(in) :: i
+    integer :: part_index
+    if (i == abs(i)) then
+        call amuse_get_index(i, part_index)
+        massoftype(abs(iphase(part_index))) = part_mass
+    else
+        xyzmh_ptmass(4,part_index) = part_mass
+    endif
+end subroutine
+
+subroutine amuse_set_sink_accretion_radius(i, radius)
+    use part, only:xyzmh_ptmass, ihacc
+    implicit none
+    integer :: i
+    double precision :: radius
+    xyzmh_ptmass(ihacc, i) = radius
+end subroutine
+
+subroutine amuse_set_sink_effective_radius(i, radius)
+    use part, only:xyzmh_ptmass, iReff
+    implicit none
+    integer :: i
+    double precision :: radius
+    xyzmh_ptmass(iReff, i) = radius
 end subroutine
 
 subroutine amuse_set_position(i, x, y, z)
     use part, only:xyzh,xyzmh_ptmass
     implicit none
     integer, intent(in) :: i
-    integer :: j
+    integer :: part_index
     double precision, intent(in) :: x, y, z
     if (i == abs(i)) then
-        xyzh(1, i) = x
-        xyzh(2, i) = y
-        xyzh(3, i) = z
+        call amuse_get_index(i, part_index)
+        xyzh(1, part_index) = x
+        xyzh(2, part_index) = y
+        xyzh(3, part_index) = z
     else
-        j = -i
-        xyzmh_ptmass(1, j) = x
-        xyzmh_ptmass(2, j) = y
-        xyzmh_ptmass(3, j) = z
+        xyzmh_ptmass(1, -i) = x
+        xyzmh_ptmass(2, -i) = y
+        xyzmh_ptmass(3, -i) = z
     endif
 end subroutine
 
@@ -1674,17 +1749,17 @@ subroutine amuse_set_velocity(i, vx, vy, vz)
     use part, only:vxyzu,vxyz_ptmass
     implicit none
     integer, intent(in) :: i
-    integer :: j
+    integer :: part_index
     double precision, intent(in) :: vx, vy, vz
     if (i == abs(i)) then
-        vxyzu(1, i) = vx
-        vxyzu(2, i) = vy
-        vxyzu(3, i) = vz
+        call amuse_get_index(i, part_index)
+        vxyzu(1, part_index) = vx
+        vxyzu(2, part_index) = vy
+        vxyzu(3, part_index) = vz
     else
-        j = -i
-        vxyz_ptmass(1, j) = vx
-        vxyz_ptmass(2, j) = vy
-        vxyz_ptmass(3, j) = vz
+        vxyz_ptmass(1, -i) = vx
+        vxyz_ptmass(2, -i) = vy
+        vxyz_ptmass(3, -i) = vz
     endif
 end subroutine
 
@@ -1692,43 +1767,41 @@ subroutine amuse_set_smoothing_length(i, h)
     use part, only:xyzh,xyzmh_ptmass,ihsoft
     implicit none
     integer, intent(in) :: i
-    integer :: j
+    integer :: part_index
     double precision, intent(in) :: h
     if (i == abs(i)) then
-        xyzh(4, i) = h
+        call amuse_get_index(i, part_index)
+        xyzh(4, part_index) = h
     else
-        j = -i
-        xyzmh_ptmass(ihsoft, j) = h
+        xyzmh_ptmass(ihsoft, -i) = h
     endif
 end subroutine
 
 subroutine amuse_set_radius(i, radius)
     implicit none
     integer, intent(in) :: i
-    integer :: j
     double precision :: radius
     if (i == abs(i)) then
         call amuse_set_smoothing_length(i, radius)
     else
-        j = -i
-        call amuse_set_sink_radius(j, radius)
+        call amuse_set_sink_radius(i, radius)
     endif
 end subroutine
 
-subroutine amuse_set_sink_temperature(j, temperature)
+subroutine amuse_set_sink_temperature(i, temperature)
     use part, only:xyzmh_ptmass, iTeff
     implicit none
-    integer, intent(in) :: j
+    integer, intent(in) :: i
     double precision :: temperature
-    xyzmh_ptmass(iTeff, -j) = temperature
+    xyzmh_ptmass(iTeff, -i) = temperature
 end subroutine
 
-subroutine amuse_set_sink_luminosity(j, luminosity)
+subroutine amuse_set_sink_luminosity(i, luminosity)
     use part, only:xyzmh_ptmass, iLum
     implicit none
-    integer, intent(in) :: j
+    integer, intent(in) :: i
     double precision :: luminosity
-    xyzmh_ptmass(iLum, -j) = luminosity
+    xyzmh_ptmass(iLum, -i) = luminosity
 end subroutine
 
 subroutine amuse_set_internal_energy(i, u)
@@ -1737,9 +1810,11 @@ subroutine amuse_set_internal_energy(i, u)
     use timestep, only:dtextforce
     implicit none
     integer, intent(in) :: i
+    integer :: part_index
     double precision, intent(in) :: u
+    call amuse_get_index(i, part_index)
     if (maxvxyzu >= 4) then
-        vxyzu(4, i) = u
+        vxyzu(4, part_index) = u
     endif
     ! Changing temperature -> better use a small cooling step
     dtextforce = 1.e-8
@@ -1747,7 +1822,6 @@ end subroutine
 
 subroutine amuse_evolve_model(tmax_in)
     use timestep, only:tmax, time, dt, dtmax, rhomaxnow, dtlast
-    ! use evolvesplit, only:init_step, finalize_step
 #ifdef IND_TIMESTEPS
     use timestep_ind, only:istepfrac
 #endif
@@ -1758,11 +1832,13 @@ subroutine amuse_evolve_model(tmax_in)
 #endif
     use options, only:rhofinal1
     use ptmass, only:rho_crit
-    use part, only:npart
+    use part, only:npart, norig
     use step_lf_global, only:init_step
 
     use part, only: xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass
     implicit none
+    integer :: number_of_particles_at_start
+    integer :: number_of_particles_at_finish
     logical :: amuse_initialise
     double precision, intent(in) :: tmax_in
     logical :: maximum_density_reached
@@ -1779,6 +1855,7 @@ subroutine amuse_evolve_model(tmax_in)
     dtinject  = huge(dtinject)
     ! dtlast = 0
     nbinmax = 0
+    number_of_particles_at_start = norig
     
     tmax = tmax_in ! - epsilon(tmax_in)
     !dtmax = (tmax - time)
@@ -1790,15 +1867,14 @@ subroutine amuse_evolve_model(tmax_in)
 
 #ifdef IND_TIMESTEPS
         istepfrac = 0
-        !print*, "*****init timestep"
-        !call init_step(npart, time, dtmax)
 #endif
-        !print*, "*****new_step - Time; tmax: ", time, tmax
-        !call amuse_new_step(tlast)
         amuse_initialise = .false.
         call amuse_evol(amuse_initialise)
-        !print*, "*****new_step done - Time; tmax: ", time, tmax
     enddo timestepping
+
+    call construct_id_lookup()
+    number_of_particles_at_finish = norig
+    new_particles_since_last_update = new_particles_since_last_update + number_of_particles_at_finish - number_of_particles_at_start
 end subroutine
 
 !
@@ -2304,3 +2380,5 @@ end subroutine
 !        npart_old,npart,istepfrac,nbinmax,time,dtmax,dt,dtinject&
 !    )
 !end subroutine
+
+end module
