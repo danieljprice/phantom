@@ -172,7 +172,7 @@ subroutine set_default_options
  ! variable composition
  use_var_comp = .false.
 
- ! for use as a library
+ ! enable/disable writing output files
  write_files = .true.
 
 end subroutine set_default_options
