@@ -44,7 +44,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             check_magnetic_stability
  use dim,              only:maxvxyzu,mhd,periodic,idumpfile
  use fileutils,        only:getnextfilename
- use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
+ use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill,write_files
  use readwrite_infile, only:write_infile
  use readwrite_dumps,  only:write_smalldump,write_fulldump
  use step_lf_global,   only:step
@@ -217,7 +217,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 
  call flush(iprint)
 
- initialised = .true.
+ initialized = .true.
  endif ! Initialising done
 !
 ! --------------------- main loop ----------------------------------------
