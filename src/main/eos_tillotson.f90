@@ -28,7 +28,7 @@ module eos_tillotson
  real :: u_iv = 4.72e10 ! erg/g
  real :: u_cv = 1.82e11 ! erg/g
  real :: rho_iv = 2.57 ! g/cm^3 incipient vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 1
-!  real :: rho_cv = 8.47 ! g/cm^3 complete vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 2
+ real :: rho_cv = 8.47 ! g/cm^3 complete vaporisation density of gabbroic anorthosite lpp from Ahrens and Okeefe (1977) table 2
  private :: rho0, aparam, bparam, A, B, alpha, beta, u0, rho_iv, u_iv, u_cv
 !  private :: spsoundmin, spsound2, spsound3, pressure2, pressure3
 !  private :: expterm, expterm2, sqrtterm, sqrtterm1, sqrtterm2
@@ -47,84 +47,112 @@ subroutine init_eos_tillotson(ierr)
 end subroutine init_eos_tillotson
 
 subroutine equationofstate_tillotson(rho,u,pressure,spsound,gamma)
- real, intent(in) :: rho,u
+ use units, only: unit_density, unit_pressure, unit_ergg
+ real, intent(inout) :: rho,u
  real, intent(out) :: pressure, spsound, gamma
  real :: eta, mu_t, neu, omega, spsoundmin, spsound2, spsoundh, spsound2h, spsound3, pressure2, pressure3
+ 
+!  rho = rho*unit_density
+!  u = u*unit_ergg
 
- eta = rho / rho0
+ eta = rho/ rho0
  mu_t = eta - 1.
  neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
- omega = (u / (u0*eta**2)) + 1.
- spsoundmin = sqrt(A / rho) ! wave speed estimate
+ omega = (u / (u0*(eta**2))) + 1.
+ spsoundmin = sqrt(A / rho) ! wave speed estimate Benz and Asphaug
 !  gamma = 2./3.
 
 ! Brundage 2013 eq (2) cold expanded and compressed states
- pressure2 = (( aparam + ( bparam / omega ) ) * rho*u) + A*mu_t + B*mu_t**2
+ pressure2 = (( aparam + ( bparam / omega ) ) * rho*u) + (A*mu_t) + (B*(mu_t**2))
  if (pressure2 <= 0.) then
   pressure2 = 0.
  endif
 
 ! Brundage 2013 eq (3) completely vaporised
  pressure3 = (aparam*rho*u) + ( ((bparam*rho*u)/omega) + &
-              A*mu_t*exp(-beta*neu)) * exp(-alpha*(neu**2))
+              A*mu_t*exp((-1.*beta)*neu)) * exp((-1.*alpha)*(neu**2))
  if (pressure3 <= 0.) then
   pressure3 = 0.
  endif
 
 ! sound speed from Kegereis et al. 2020
  spsound2 = sqrt( ((pressure2 / rho) * (1. + aparam + (bparam / omega ))) + &
-            (((bparam*(omega - 1.)) / (omega**2)) * (2.*u - pressure2/rho)) + &
-            ((1./rho)*(A + B*((eta**2) - 1.))))
+            (((bparam*(omega - 1.)) / (omega**2)) * ((2.*u) - (pressure2/rho))) + &
+            ((1./rho)*(A + (B*((eta**2) - 1.)))))
  if (spsound2 < spsoundmin) then
   spsound2 = spsoundmin
  endif
 
- spsound3 = sqrt( (pressure3/rho)*( 1. + aparam + ((bparam / omega )*exp(-alpha*(neu**2)))) + &
-            ( ((bparam*rho*u)/((omega**2)*(eta**2))) * ((1. /(u0*rho))*((2.*u) - (pressure3/rho)) &
-            + ((2.*alpha*neu*omega)/rho0)) + ((A/rho0)*(1. + (mu_t/eta**2)*((beta*2.*alpha*neu) - eta))) &
-            * exp(-beta*neu) )*exp(-alpha*(neu**2)) )
+ spsound3 = sqrt( ((pressure3/rho)*( 1. + aparam + ((bparam / omega )*exp((-1.*alpha)*(neu**2))))) + &
+            ( (((bparam*rho*u)/((omega**2)*(eta**2))) * ((1. /(u0*rho)) * ((2.*u) - (pressure3/rho)) &
+            + ((2.*alpha*neu*omega)/rho0))) + ((A/rho0)*(1. + ((mu_t/(eta**2))*((beta+(2.*alpha*neu) - eta))) &
+            * exp((-1.*beta)*neu) )*exp((-1.*alpha)*(neu**2)) )))
  if (spsound3 < spsoundmin) then
   spsound3 = spsoundmin
  endif
 
  spsound2h = sqrt( ((pressure2 / rho) * (1. + aparam + (bparam / omega ))) + &
-            (((bparam*(omega - 1.)) / (omega**2)) * (2.*u - pressure2/rho)) + &
-            ((1./rho)*(A + B*((eta**2) - 1.))) - ((((2.*B)/rho0**2)*rho) - (2.*B/rho0)))
+            (((bparam*(omega - 1.)) / (omega**2)) * ((2.*u) - (pressure2/rho))) + &
+            ((1./rho)*(A + (B*((eta**2) - 1.)))) - (((B*(mu_t**2))/rho)*(1+aparam+(bparam/(omega**2)))))
+!  spsound2h = sqrt( ((pressure2 / rho) * (1. + aparam + (bparam / omega ))) + &
+!             (((bparam*(omega - 1.)) / (omega**2)) * ((2.*u) - pressure2/rho)) + &
+!             ((1./rho)*(A + B*((eta**2) - 1.))) - ((((2.*B)/(rho0**2))*rho) - (2.*B/rho0)))
  if (spsound2h < spsoundmin) then
   spsound2h = spsoundmin
  endif
- 
- 
- if (rho < rho_iv) then !                low energy expanded
-    pressure = pressure2 - (B*mu_t**2)
-    spsound = spsound2h
-    print*,'in low energy state, p = ',pressure
- else ! (rho >= rho_iv)
-    if (rho >= rho0) then !              compressed
-        pressure = pressure2
-        spsound = spsound2
-        print*,'in compressed state, p = ',pressure
-    else ! (rho_iv <= rho < rho0)
-        if (u >= u_cv) then !            hot / vapourised expanded
-            pressure = pressure3
-            spsound = spsound3
-            print*,'in hot expanded state, p = ',pressure
-        else ! (u < u_cv)
-            ! if (u <= u_iv) then !        cold expanded
-            pressure = pressure2
-            spsound = spsound2
-            print*,'in cold expanded state, p = ',pressure
-            ! else ! (u > u_iv)            hybrid
-            !     pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-            !     spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-            !     if (spsoundh < spsoundmin) then
-            !         spsound = spsoundmin
-            !     endif
-            !     print*,'in hybrid state, p = ',pressure
-            ! endif
-        endif
-    endif
+             
+!  print*,' in eos - calc pres from rho and u'
+!  print*,' rho in = ',rho,' u in = ',u
+!  print*,'in low energy state, p = ',pressure,' pres in code units = ',pressure/unit_pressure ! rho < rho_iv ; u < u_cv = ISSUES
+!  print*,'in hybrid state, p = ',pressure,' pres in code units = ',pressure/unit_pressure ! ISSUES
+!  print*,'in compressed state, p = ',pressure,' pres in code units = ',pressure/unit_pressure ! rho > rho0 ; u >= u0
+!  print*,'in hot expanded state, p = ',pressure,' pres in code units = ',pressure/unit_pressure ! rho_iv <= rho < rho0 ; u >= u_cv
+
+
+!  if (rho < rho_iv) then !                low energy expanded
+!     pressure = pressure2 - (B*(mu_t**2))
+!     spsound = spsound2h
+!     print*,' in eos - calc pres from rho and u'
+!     print*,' rho in = ',rho,' u in = ',u
+!     print*,'in low energy state, p = ',pressure,' pres in code units = ',pressure/unit_pressure
+!  else ! (rho >= rho_iv)
+ if (rho >= rho0) then !              compressed and cold expanded
+    pressure = pressure2
+    spsound = spsound2
+    ! print*,' in eos - calc pres from rho and u'
+    ! print*,' rho in = ',rho,' u in = ',u
+    ! print*,' spsound = ',spsound
+    ! print*,'in compressed state, p = ',pressure,' pres in code units = ',pressure/unit_pressure
+ else ! (rho_iv <= rho < rho0)
+!         if (u >= u_cv) then !            hot / vapourised expanded
+    pressure = pressure3
+    spsound = spsound3
+    ! print*,' in eos - calc pres from rho and u'
+    ! print*,' rho in = ',rho,' u in = ',u
+    ! print*,' spsound = ',spsound
+    ! print*,'in hot expanded state, p = ',pressure,' pres in code units = ',pressure/unit_pressure
  endif
+!  print*,'leaving eos (pres calc) '
+!         else ! (u < u_cv)
+!             if (u <= u_iv) then !        cold expanded
+!                 pressure = pressure2
+!                 spsound = spsound2
+!                 print*,' in eos - calc pres from rho and u'
+!                 print*,' rho in = ',rho,' u in = ',u
+!                 print*,'in cold expanded state, p = ',pressure,' pres in code units = ',pressure/unit_pressure
+!             else ! (u > u_iv)            hybrid
+!                 pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+!                 spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+!                 if (spsoundh < spsoundmin) then
+!                     spsound = spsoundmin
+!                 endif
+!                 print*,' in eos - calc pres from rho and u'
+!                 print*,' rho in = ',rho,' u in = ',u
+!                 print*,'in hybrid state, p = ',pressure,' pres in code units = ',pressure/unit_pressure
+!             endif
+!         endif
+!     endif
+!  endif
 
 !  if (rho < rho0) then
 !     if (rho >= rho_iv) then ! u <= u_iv       cold expanded 
@@ -172,6 +200,7 @@ end subroutine eos_info_tillotson
 !-----------------------------------------------------------------------
 subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  use cubic, only:cubicsolve
+ use units, only:unit_density,unit_pressure,unit_ergg
  real, intent(in) :: rho,pres
  real, intent(out) :: temp,u
  integer, intent(out) :: ierr
@@ -179,61 +208,92 @@ subroutine calc_uT_from_rhoP_tillotson(rho,pres,temp,u,ierr)
  real :: usol(3)
  integer :: nsol
  
+!  rho = rho*unit_density
+!  pres = pres*unit_pressure
+
  eta = rho / rho0
  mu_t = eta - 1.
  neu = (1. / eta) - 1.  ! Kegerreis et al. 2020
- omega = (u / (u0*eta**2) + 1.)
+ omega = (u / (u0*(eta**2)) + 1.)
  expterm2 = exp(-alpha*(neu**2))
  expterm = exp(-beta*neu)
 
- pres_iv = (( aparam + ( bparam / ((u_iv / (u0*(rho_iv/rho0)**2) + 1.)) ) ) * rho_iv*u_iv) &
-             + A*((rho_iv/rho0)-1.) + B*((rho_iv/rho0)-1.)**2
+!  pres_iv = (( aparam + ( bparam / ((u_iv / (u0*(rho_iv/rho0)**2) + 1.)) ) ) * rho_iv*u_iv) &
+            !  + A*((rho_iv/rho0)-1.) + B*((rho_iv/rho0)-1.)**2
+!  pres_cv = (aparam*rho_cv*u_cv) + ( ((bparam*rho_cv*u_cv)/((u_cv / (u0*(rho_cv/rho0)**2) + 1.))) &
+            !  + A*((rho_cv/rho0) - 1.)*exp((-1.*beta)*((rho0/rho_cv) - 1.))) * exp((-1.*alpha)*(((rho0/rho_cv) - 1.)**2))
 
- quada = 1.
+ 
+!  quada = 1.
+!  X = (pres - (A*mu_t))/rho
+!  quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!  quadc = -((u0*(eta**2)*X)/aparam)
+!  print*,' X = ',X,' a = ',quada,' b = ',quadb,' c = ',quadc
+!  call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!  print*,' Solutions :  ',usol,'  # of sols : ',nsol
+!  u = maxval(usol(1:nsol))
+!  print*,' in eos - calc u from rho and pres'
+!  print*,' rho in = ',rho,' pres in = ',pres
+!  print*,'in low energy state, u = ',u,' u in code units = ',u/unit_ergg ! rho < rho_iv ; pre < pres_cv = ISSUES
+!  print*,'in hot expanded state, u = ',u,' u in code units = ',u/unit_ergg ! rho_iv <= rho < rho0 ; pres >= pres_cv
+!  print*,'in compressed state, u = ',u,' u in code units = ',u/unit_ergg ! rho > rho0 ; pres >= pres0
+!  print*,'leaving eos (u calc) '
 
- if (rho < rho_iv) then !                low energy expanded
-    ! quada = 1.
-    X = (pres - (A*mu_t))/rho
-    quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-    quadc = -((u0*(eta**2)*X)/aparam)
+!  if (rho < rho_iv) then !                low energy expanded
+!     quada = 1.
+!     X = (pres - (A*mu_t))/rho
+!     quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!     quadc = -((u0*(eta**2)*X)/aparam)
+!     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!     u = maxval(usol(1:nsol))
+!     print*,' in eos - calc u from rho and pres'
+!     print*,' rho in = ',rho,' pres in = ',pres
+!     print*,'in low energy state, u = ',u,' u in code units = ',u/unit_ergg
+!  else ! (rho >= rho_iv)
+ if (rho >= rho0) then !              compressed and cold expanded
+    quada = 1.
+    X = pres - (A*mu_t) - (B*(mu_t**2))
+    quadb = (((u0*(eta**2)*rho)*(aparam + bparam)) - X)/(aparam*rho)
+    quadc = -1.*((X*u0*(eta**2))/(rho*aparam))
+    call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+    ! u = maxval(usol(1:nsol))
+    ! print*,' in eos - calc u from rho and pres'
+    ! print*,' rho in = ',rho,' pres in = ',pres
+    ! print*,'in compressed state, u = ',u,' u in code units = ',u/unit_ergg
+ else ! (rho_iv <= rho < rho0)
+!         if (pres >= pres_cv) then !      hot / vapourised expanded
+    quada = 1.
+    X = (pres - (A*mu_t*expterm*expterm2))
+    quadb = ((aparam*rho*u0*(eta**2)) + (bparam*rho*u0*(eta**2)*expterm2) -X)/(rho*aparam) ! (u0*(eta**2))+((bparam*u0*(eta**2)*expterm2)/aparam) - (X/aparam)
+    quadc = -1.*(X*u0*(eta**2))/(aparam*rho) ! -1.*((X*u0*(eta**2))/aparam)
     call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
     u = maxval(usol(1:nsol))
-    print*,'in low energy state, u = ',u
- else ! (rho >= rho_iv)
-    if (rho >= rho0) then !              compressed
-        ! quada = 1.
-        X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
-        quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-        quadc = -((u0*(eta**2)*X)/aparam)
-        call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-        u = maxval(usol(1:nsol))
-        print*,'in compressed state, u = ',u
-    else ! (rho_iv <= rho < rho0)
-        if (pres <= pres_iv) then !      cold expanded
-            ! quada = 1.
-            X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
-            quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
-            quadc = -((u0*(eta**2)*X)/aparam)
-            call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-            u = maxval(usol(1:nsol))     
-            print*,'in cold expanded state, u = ',u
-        else ! (pres > pres_iv)           hot / vapourised expanded
-            ! quada = 1.
-            X = (pres - (A*mu_t*expterm*expterm2))/rho
-            quadb = ((bparam*u0*(eta**2)*expterm2)/aparam)+((u0*(eta**2)))-(X/aparam)
-            quadc = -((X*u0*(eta**2))/aparam)
-            call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
-            u = maxval(usol(1:nsol))
-            print*,'in hot expanded state, u = ',u
-            ! else ! (u > u_iv)            hybrid
-                ! pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
-                ! spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
-                ! print*,'in hybrid state, u = ',u
-            ! endif
-        endif
-    endif
+    ! print*,' in eos - calc u from rho and pres'
+    ! print*,' rho in = ',rho,' pres in = ',pres
+    ! print*,'in hot expanded state, u = ',u,' u in code units = ',u/unit_ergg
  endif
-
+!  print*,'leaving eos (pres calc) '
+!         else ! (pres < pres_cv)
+!             if (pres <= pres_iv) then !      cold expanded
+!                 quada = 1.
+!                 X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
+!                 quadb = ((-X/aparam)+(u0*(eta**2))+((bparam*u0*(eta**2))/aparam))
+!                 quadc = -((u0*(eta**2)*X)/aparam)
+!                 call cubicsolve(0.,quada,quadb,quadc,usol,nsol)
+!                 u = maxval(usol(1:nsol))    
+!                 print*,' in eos - calc u from rho and pres'
+!                 print*,' rho in = ',rho,' pres in = ',pres 
+!                 print*,'in cold expanded state, u = ',u,' u in code units = ',u/unit_ergg
+!             else ! (u > u_iv)            hybrid
+!                 ! pressure = ( (u - u_iv)*pressure3 + (u_cv - u)*pressure2 ) / (u_cv - u_iv)
+!                 ! spsoundh = sqrt(( ((u-u_iv)*(spsound3)**2) + ((u_cv-u)*(spsound2)**2) ) / (u_cv - u_iv))
+!                 ! print*,' in eos - calc u from rho and pres'
+!                 ! print*,' rho in = ',rho,' pres in = ',pres 
+!                 ! print*,'in hybrid state, u = ',u,' u in code units = ',u/unit_ergg
+!             endif
+!         endif
+!     endif
+!  print*,'leaving eos '
 !  if (rho >= rho0) then !           compressed state
 !     quada = 1.
 !     X = (pres - (A*mu_t) - (B*(mu_t**2)))/rho
