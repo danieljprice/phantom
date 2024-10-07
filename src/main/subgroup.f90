@@ -11,51 +11,88 @@ module subgroup
 !
 ! :References: Makkino et Aarseth 2002,Wang et al. 2020, Wang et al. 2021, Rantala et al. 2023
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpiutils, part, utils_kepler, utils_subgroup
+! :Dependencies: io, mpiutils, part, physcon, timing, units, utils_kepler,
+!   utils_subgroup
 !
  use utils_subgroup
  implicit none
  public :: group_identify
  public :: evolve_groups
  public :: get_pot_subsys
- ! parameters for group identification
- real, parameter :: eta_pert = 20
+ public :: init_subgroup
+ !
+ !-- parameters for group identification
+ !
  real, parameter :: time_error = 2.5e-14
- real, parameter :: max_step = 100000000
- real, parameter, public :: r_neigh  = 0.001
- real,            public :: t_crit   = 1.e-9
- real,            public :: C_bin    = 0.02
- real,            public :: r_search = 100.*r_neigh
+ real, parameter :: max_step = 1000000
+ real, parameter :: C_bin    = 0.02
+ real, public    :: r_neigh  = 0.001 ! default value assume udist = 1 pc
+ real            :: r_search
  private
 contains
+!-----------------------------------------------
+!
+! Initialisation routine
+!
+!-----------------------------------------------
+subroutine init_subgroup
+ use units, only:udist
+ use physcon, only:pc
+
+ r_neigh  = r_neigh*(pc/udist)
+ r_search = 100.*r_neigh
+
+end subroutine init_subgroup
 
 !-----------------------------------------------
 !
 ! Group identification routines
 !
 !-----------------------------------------------
-subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
- use io ,only:id,master,iverbose,iprint
- integer, intent(in)            :: nptmass
- real,    intent(in)            :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer, intent(inout)         :: group_info(3,nptmass)
+subroutine group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix,dtext)
+ use io,     only:id,master,iverbose,iprint
+ use timing, only:get_timings,increment_timer,itimer_sg_id
+ integer,         intent(in)    :: nptmass
+ real,            intent(in)    :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
+ integer,         intent(inout) :: group_info(3,nptmass)
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing
  integer(kind=1), intent(inout) :: nmatrix(nptmass,nptmass)
- integer, intent(inout)         :: n_group,n_ingroup,n_sing
+ real, optional,  intent(in)    :: dtext
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+ logical      :: large_search
 
+
+
+ large_search = present(dtext)
  n_group = 0
  n_ingroup = 0
  n_sing = 0
+ if (nptmass > 0) then
 
- call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
- call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+    call get_timings(t1,tcpu1)
+
+    if (large_search) then
+       call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
+    else
+       call matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+    endif
+    call form_group(group_info,nmatrix,nptmass,n_group,n_ingroup,n_sing)
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_sg_id,t2-t1,tcpu2-tcpu1)
+
+ endif
 
  if (id==master .and. iverbose>1) then
     write(iprint,"(i6,a,i6,a,i6,a)") n_group," groups identified, ",n_ingroup," in a group, ",n_sing," singles..."
  endif
+
+
+
 
 end subroutine group_identify
 
@@ -124,22 +161,28 @@ subroutine dfs(iroot,visited,group_info,nmatrix,nptmass,n_ingroup,ncg)
 end subroutine dfs
 
 
-subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
+subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass,dtext)
  use utils_kepler, only: Espec,extract_a,extract_e,extract_ea
- integer, intent(in) :: nptmass
+ integer,         intent(in) :: nptmass
+ real,            intent(in) :: xyzmh_ptmass(:,:)
+ real,            intent(in) :: vxyz_ptmass(:,:)
  integer(kind=1), intent(out):: nmatrix(nptmass,nptmass)
- real,    intent(in) :: xyzmh_ptmass(:,:)
- real,    intent(in) :: vxyz_ptmass(:,:)
+ real, optional,  intent(in) :: dtext
  real :: xi,yi,zi,vxi,vyi,vzi,mi
  real :: dx,dy,dz,dvx,dvy,dvz,r2,r,v2,mu
- real :: aij,eij,B,rperi
+ real :: aij,eij,B,rperi,dtexti
  integer :: i,j
+ if (present(dtext)) then
+    dtexti = dtext
+ else
+    dtexti = 0.
+ endif
 !
 !!TODO MPI Proof version of the matrix construction
 !
 
  !$omp parallel do default(none) &
- !$omp shared(nptmass,C_bin,t_crit,nmatrix) &
+ !$omp shared(nptmass,dtexti,nmatrix,r_neigh) &
  !$omp shared(xyzmh_ptmass,vxyz_ptmass,r_search) &
  !$omp private(xi,yi,zi,mi,vxi,vyi,vzi,i,j) &
  !$omp private(dx,dy,dz,r,r2) &
@@ -153,6 +196,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
     vxi = vxyz_ptmass(1,i)
     vyi = vxyz_ptmass(2,i)
     vzi = vxyz_ptmass(3,i)
+    if (mi < 0 ) cycle
     do j=1,nptmass
        if (i==j) cycle
        dx = xi - xyzmh_ptmass(1,j)
@@ -181,7 +225,7 @@ subroutine matrix_construction(xyzmh_ptmass,vxyz_ptmass,nmatrix,nptmass)
        else
           call extract_e(dx,dy,dz,dvx,dvy,dvz,mu,r,eij)
           rperi = aij*(1-eij)
-          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<t_crit) then
+          if (rperi<r_neigh .and. C_bin*sqrt(r2/v2)<dtexti) then
              nmatrix(i,j) = 1
           endif
        endif
@@ -197,15 +241,23 @@ end subroutine matrix_construction
 !---------------------------------------------
 
 subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
- use part, only: igarg,igcum
- use io, only: id,master
- use mpiutils,only:bcast_mpi
+ use part,     only:igarg,igcum
+ use io,       only:id,master
+ use mpiutils, only:bcast_mpi
+ use timing,   only:get_timings,increment_timer,itimer_sg_evol
  integer, intent(in)    :: n_group,nptmass
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),gtgrad(:,:)
  integer, intent(in)    :: group_info(:,:)
  real,    intent(in)    :: tnext,time
- integer :: i,start_id,end_id,gsize
+ integer      :: i,start_id,end_id,gsize
+ real(kind=4) :: t1,t2,tcpu1,tcpu2
+
+
+
  if (n_group>0) then
+
+    call get_timings(t1,tcpu1)
+
     if (id==master) then
        !$omp parallel do default(none)&
        !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)&
@@ -219,10 +271,15 @@ subroutine evolve_groups(n_group,nptmass,time,tnext,group_info,xyzmh_ptmass,vxyz
        enddo
        !$omp end parallel do
     endif
+
+    call get_timings(t2,tcpu2)
+    call increment_timer(itimer_sg_evol,t2-t1,tcpu2-tcpu1)
+
  endif
 
  call bcast_mpi(xyzmh_ptmass(:,1:nptmass))
  call bcast_mpi(vxyz_ptmass(:,1:nptmass))
+
 
 
 end subroutine evolve_groups
@@ -296,7 +353,7 @@ subroutine integrate_to_time(start_id,end_id,gsize,time,tnext,xyzmh_ptmass,vxyz_
 
     if (step_count_int > max_step) then
        print*,"MAX STEP NUMBER, ABORT !!!"
-       call abort
+       call abort()
     endif
 
     if ((.not.t_end_flag).and.(dt<0.)) then
@@ -582,7 +639,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  integer :: i,j,k,l
  logical :: init
  om = 0.
- dt_init = 0.
+ dt_init = huge(om)
 
 
  if (present(ds_init)) then
@@ -647,7 +704,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,fxyz_ptmass,gtgrad,om,s_id,e_id
  enddo
 
  om = om*0.5
- if (init) ds_init = dt_init/om
+ if (init) ds_init = dt_init*om
 
 end subroutine get_force_TTL
 

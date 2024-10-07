@@ -10,7 +10,7 @@ module utils_kepler
 !
 ! :References: None
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !

@@ -409,7 +409,7 @@ subroutine calc_rho0(rhof)
  enddo
  write(*,'(a11,1x,es10.2,1x,a12,1x,i3,1x,a10)') ' Get rho0 =', rhof_rho0*unit_density, 'g/cm^-3 with', iter, 'iterations'
 
-end subroutine
+end subroutine calc_rho0
 
 !----------------------------------------------------------------
 !+

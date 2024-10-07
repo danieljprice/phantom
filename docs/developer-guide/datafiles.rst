@@ -8,7 +8,7 @@ order for your modules to be portable.
 Small files
 -----------
 
-For *very small files* (under 1Mb), you can simply add these to the git
+For *very small files* (under 100Kb), you can simply add these to the git
 repository in a subdirectory of the phantom/data directory:
 
 ::
@@ -57,10 +57,29 @@ For large data files, the procedure is as follows:
 
 2. Add the name of the file to the **.gitignore** file in the root-level
    phantom directory
-3. Then, send your file to daniel.price@monash.edu (e.g. via Dropbox) to
-   store on the phantom website
-4. Implement the call in the code as previously using the
+3. Then, upload your file(s) to a repository on zenodo.org, obtain
+   the DOI for the repository, and submit it in the phantom zenodo community
+
+   https://zenodo.org/communities/phantom/
+
+   This will allow the file to be downloaded
+   by Phantom users at runtime
+4. Edit the datafiles.f90 module to include the URL for the file in the
+   **map_dir_to_web** routine. This routine maps the directory where the
+   file should be located to the URL where the file can be downloaded
+   from. For example, if the file is in the
+   **star_data_files/red_giant** directory, you would add a case to the
+   routine like so:
+
+::
+
+    case('data/star_data_files/red_giant')
+         url = 'https://zenodo.org/records/12345678/files/'
+
+    where the URL is the URL of the repository on zenodo.org
+
+5. Implement the call in the code as previously using the
    find_phantom_datafile routine. This will automatically retrieve the
-   file from the web into your phantom/data directory at runtime (using
-   wget). Alternatively you can manually place the file in the
+   file from the web into your phantom/data directory at runtime.
+   Alternatively you can manually download the file to the
    appropriate folder

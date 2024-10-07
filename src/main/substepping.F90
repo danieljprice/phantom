@@ -21,7 +21,7 @@ module substepping
 !     Tuckerman, Berne & Martyna (1992), J. Chem. Phys. 97, 1990-2001
 !     Rantala + (2020) (2023),Chin (2007a)
 !
-! :Owner: Yrisch
+! :Owner: Yann Bernard
 !
 ! :Runtime parameters: None
 !
@@ -37,6 +37,7 @@ module substepping
  public :: substep_sph
  public :: substep_sph_gr
  public :: substep
+ public :: get_force
 
  private
 
@@ -426,8 +427,8 @@ end subroutine substep_sph
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
-                   fsink_old,nbinmax,ibin_wake,gtgrad,group_info,nmatrix, &
-                   n_group,n_ingroup,n_sing)
+                   linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                   nmatrix,n_group,n_ingroup,n_sing,isionised)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
  use part,           only:fxyz_ptmass_sinksink,ndptmass
@@ -444,7 +445,9 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:)
  integer(kind=1), intent(in)    :: nbinmax
+ integer        , intent(inout) :: linklist_ptmass(:)
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
+ logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
  integer :: force_count,nsubsteps
  real    :: timei,time_par,dt,t_end_step
@@ -481,7 +484,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
 !
 ! Main integration scheme
 !
-    call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass,dptmass)
+    call kick(dk(1),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
+              fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
 
     if (use_regnbody) then
        call evolve_groups(n_group,nptmass,time_par,time_par+ck(1)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
@@ -489,12 +493,12 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                     vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,group_info=group_info)
+                     vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,group_info=group_info)
     else
        call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
+                   vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,isionised=isionised)
     endif
 
     if (use_fourthorder) then !! FSI 4th order scheme
@@ -502,46 +506,55 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        ! FSI extrapolation method (Omelyan 2006)
        if (use_regnbody) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old,group_info)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass, &
+                         fsink_old,group_info)
 
-          call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass,dptmass)
+          call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                    fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
 
           call evolve_groups(n_group,nptmass,time_par,time_par+ck(2)*dt,group_info,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,gtgrad)
 
           call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
 
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,group_info=group_info)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
+                         group_info=group_info,isionised=isionised)
        else
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,fsink_old)
-          call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext,fxyz_ptmass,dsdt_ptmass,dptmass)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
+                         fsink_old)
+          call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+                    fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass)
 
           call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass,&
+                         isionised=isionised)
           ! the last kick phase of the scheme will perform the accretion loop after velocity update
        endif
 
        call kick(dk(3),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-          fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+                 fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake,nbinmax,timei, &
+                 fxyz_ptmass_sinksink,accreted)
 
        if (use_regnbody) then
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,nmatrix)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,group_info=group_info)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
+                         group_info=group_info)
        elseif (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass)
        endif
     else  !! standard leapfrog scheme
        ! the last kick phase of the scheme will perform the accretion loop after velocity update
        call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,fext, &
-                fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+                fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake,nbinmax,timei, &
+                fxyz_ptmass_sinksink,accreted)
        if (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag)
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass)
        endif
     endif
 
@@ -629,7 +642,8 @@ end subroutine drift
  !----------------------------------------------------------------
 
 subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass, &
-                fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake,nbinmax,timei,fxyz_ptmass_sinksink,accreted)
+                fext,fxyz_ptmass,dsdt_ptmass,dptmass,linklist_ptmass,ibin_wake, &
+                nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
  use externalforces, only:accrete_particles
@@ -645,6 +659,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
  real,                      intent(inout) :: vxyzu(:,:),fext(:,:)
  real,                      intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,                      intent(inout) :: dptmass(ndptmass,nptmass)
+ integer,                   intent(in)    :: linklist_ptmass(:)
  real,            optional, intent(inout) :: fxyz_ptmass_sinksink(:,:)
  real,            optional, intent(in)    :: timei
  integer(kind=1), optional, intent(inout) :: ibin_wake(:)
@@ -711,7 +726,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp parallel do default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,f_acc) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
@@ -750,12 +765,15 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              fxi = fext(1,i)
              fyi = fext(2,i)
              fzi = fext(3,i)
-             if (ind_timesteps) ibin_wakei = ibin_wake(i)
+             if (ind_timesteps) then
+                ibin_wakei = ibin_wake(i)
+                itype = iphase(i)
+             endif
 
              call ptmass_accrete(1,nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),&
                               vxyzu(1,i),vxyzu(2,i),vxyzu(3,i),fxi,fyi,fzi,&
-                              itype,pmassi,xyzmh_ptmass,vxyz_ptmass,&
-                              accreted,dptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
+                              itype,pmassi,xyzmh_ptmass,vxyz_ptmass,accreted, &
+                              dptmass,linklist_ptmass,timei,f_acc,nbinmax,ibin_wakei,nfaili)
              if (accreted) then
                 naccreted = naccreted + 1
                 cycle accreteloop
@@ -817,7 +835,8 @@ end subroutine kick
 !----------------------------------------------------------------
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
-                     force_count,extf_vdep_flag,fsink_old,group_info)
+                     force_count,extf_vdep_flag,linklist_ptmass,fsink_old,group_info,&
+                     isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
@@ -835,6 +854,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  integer,           intent(in)    :: nptmass,npart,nsubsteps,ntypes
  integer,           intent(inout) :: force_count
+ integer,           intent(inout) :: linklist_ptmass(:)
  real,              intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,              intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
  real,              intent(inout) :: dtextforce
@@ -842,6 +862,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  logical,           intent(in)    :: extf_vdep_flag
  real, optional,    intent(inout) :: fsink_old(4,nptmass)
  integer, optional, intent(in)    :: group_info(:,:)
+ logical, optional, intent(in)    :: isionised(:)
  integer         :: merge_ij(nptmass)
  integer         :: merge_n
  integer         :: i,itype
@@ -893,7 +914,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                     extrapfac,fsink_old,group_info)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                        extrapfac,fsink_old,group_info)
@@ -903,7 +924,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                    dtf,iexternalforce,timei,merge_ij,merge_n, &
                                    dsdt_ptmass,extrapfac,fsink_old)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n, &
                                       dsdt_ptmass,extrapfac,fsink_old)
@@ -914,29 +935,29 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                        dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass,group_info=group_info)
                 if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
-             fxyz_ptmass_sinksink(1:4,1:nptmass)=fxyz_ptmass
-             dsdt_ptmass_sinksink(1:3,1:nptmass)=dsdt_ptmass
+             fxyz_ptmass_sinksink(:,1:nptmass) = fxyz_ptmass (:,1:nptmass)
+             dsdt_ptmass_sinksink(:,1:nptmass) = dsdt_ptmass (:,1:nptmass)
           else
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
                 if (iverbose >= 2) write(iprint,*) 'dt(sink-sink) = ',C_force*dtf
              endif
-             fxyz_ptmass_sinksink(1:4,1:nptmass)=fxyz_ptmass
-             dsdt_ptmass_sinksink(1:3,1:nptmass)=dsdt_ptmass
+             fxyz_ptmass_sinksink(:,1:nptmass) = fxyz_ptmass (:,1:nptmass)
+             dsdt_ptmass_sinksink(:,1:nptmass) = dsdt_ptmass (:,1:nptmass)
           endif
        endif
     else
-       fxyz_ptmass(:,:) = 0.
-       dsdt_ptmass(:,:) = 0.
+       fxyz_ptmass(:,1:nptmass) = 0.
+       dsdt_ptmass(:,1:nptmass) = 0.
     endif
     call bcast_mpi(epot_sinksink)
     call bcast_mpi(dtf)
@@ -954,7 +975,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
- !$omp shared(isink_radiation,itau_alloc,tau) &
+ !$omp shared(isink_radiation,itau_alloc,tau,isionised) &
  !$omp private(fextx,fexty,fextz,xi,yi,zi) &
  !$omp private(i,fonrmaxi,dtphi2i,phii,dtf) &
  !$omp firstprivate(pmassi,itype) &
@@ -1037,7 +1058,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
        !
        if (maxvxyzu >= 4 .and. itype==igas .and. last) then
           call cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                    divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
+                                    divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,isionised(i))
        endif
     endif
  enddo
@@ -1079,7 +1100,7 @@ end subroutine get_force
 !+
 !------------------------------------------------------------------------------------
 subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucleation,dust_temp, &
-                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0)
+                                     divcurlv,abundc,abunde,abundo,abundsi,dt,dphot0,isionisedi)
  use dim,             only:h2chemistry,do_nucleation,use_krome,update_muGamma,store_dust_temperature
  use part,            only:idK2,idmu,idkappa,idgamma,imu,igamma,nabundances
  use cooling_ism,     only:nabn,dphotflag
@@ -1100,6 +1121,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  real,         intent(inout) :: abundc,abunde,abundo,abundsi
  real(kind=8), intent(in)    :: dphot0
  real,         intent(in)    :: dt,pmassi
+ logical,      intent(in)    :: isionisedi
  integer,      intent(in)    :: i
 
  real :: dudtcool,rhoi,dphot,pH,pH_tot
@@ -1162,6 +1184,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
+ if (isionisedi) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

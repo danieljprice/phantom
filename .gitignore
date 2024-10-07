@@ -12,6 +12,9 @@ build/phantom-version.h
 *~
 */*~
 */*/*~
+eos_binary_table.dat
+helm_data.tab
+forcing.dat
 *.bindata
 *.pyc
 #*

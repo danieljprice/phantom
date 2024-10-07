@@ -10,7 +10,7 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau & Ana Lourdes Juarez
 !
 ! :Runtime parameters:
 !   - a            : *semi-major axis*
@@ -27,7 +27,8 @@ module setup
 !   mpidomain, options, part, physcon, relaxstar, setbinary, setstar,
 !   setunits, setup_params, units
 !
- 
+
+
  implicit none
  public :: setpart
  real    :: a,mdon,macc,hacc
@@ -66,6 +67,7 @@ use centreofmass,    only:reset_centreofmass
  integer :: ierr
  logical :: iexist
  real    :: period,ecc,hdon,mass_ratio
+ real    :: rhocentre,rmin,pmass,densi,presi,ri
 !
 !--general parameters
 !
@@ -78,9 +80,6 @@ use centreofmass,    only:reset_centreofmass
 !--space available for injected gas particles
 !  in case only sink particles are used
 !
- npart = 0
- npartoftype(:) = 0
- massoftype = 0.
 
  iexternalforce = iext_corotate
  icompanion_grav = 1
@@ -96,8 +95,16 @@ use centreofmass,    only:reset_centreofmass
  ecc  = 0.
  hdon = 1.
 
+! Initialise particle injection
+ call init_inject(ierr)
+ npart = 10
+ npartoftype(:) = 0
+ xyzh(:,:)  = 0.
+ vxyzu(:,:) = 0.
+! massoftype = 0.
+
  if (id==master) print "(/,65('-'),1(/,a),/,65('-'),/)",&
-   ' Welcome to the Ultimate Binary Setup'
+   ' Welcome to the shoot at a star setup'
 
  filename = trim(fileprefix)//'.setup'
  inquire(file=filename,exist=iexist)
@@ -140,9 +147,6 @@ use centreofmass,    only:reset_centreofmass
  xyzmh_ptmass(:,1) = xyzmh_ptmass(:,2)
  vxyz_ptmass(1:3,1) = 0.
   
- !--restore options
- !
- 
 
 end subroutine setpart
 
@@ -154,7 +158,9 @@ end subroutine setpart
 subroutine write_setupfile(filename)
  use infile_utils, only:write_inopt
  use setunits,     only:write_options_units
- use eos,          only:write_options_eos
+ use eos,          only:write_options_eos,gamma
+ use setunits,      only:write_options_units
+ use units,         only:unit_density
  character(len=*), intent(in) :: filename
  integer :: iunit
 
@@ -170,7 +176,6 @@ subroutine write_setupfile(filename)
  call write_inopt(mdon,'mdon','mass of the donor star',iunit)
  call write_inopt(macc,'macc','mass of the companion star',iunit)
  call write_inopt(hacc,'hacc','accretion radius of the companion star',iunit)
-
  close(iunit)
 
 end subroutine write_setupfile
@@ -183,7 +188,9 @@ end subroutine write_setupfile
 subroutine read_setupfile(filename,ieos,polyk,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
  use io,           only:error,fatal
- use setunits,     only:read_options_and_set_units
+ use units,         only:select_unit,unit_density,unit_pressure,unit_velocity
+ use setunits,      only:read_options_and_set_units
+ use eos,           only:gamma
  character(len=*), intent(in) :: filename
  integer,          intent(inout) :: ieos
  real,             intent(inout) :: polyk
@@ -203,6 +210,7 @@ subroutine read_setupfile(filename,ieos,polyk,ierr)
  call read_inopt(mdon,'mdon',db,errcount=nerr)
  call read_inopt(macc,'macc',db,errcount=nerr)
  call read_inopt(hacc,'hacc',db,errcount=nerr)
+
  call close_db(db)
 
   if (nerr > 0) then

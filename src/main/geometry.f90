@@ -203,7 +203,7 @@ subroutine set_rotation_angles(a,b,sin_a,sin_b,cos_a,cos_b)
  endif
  if (present(cos_b)) then
     cosb = cos_b
-    if (.not.present(cos_b)) sinb = sqrt(1. - cosb**2)
+    if (.not.present(sin_b)) sinb = sqrt(1. - cosb**2)
  endif
 
 end subroutine set_rotation_angles

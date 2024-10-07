@@ -14,9 +14,9 @@ module checksetup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, boundary_dyn, centreofmass, dim, dust, eos,
-!   externalforces, io, metric_tools, nicil, options, part, physcon,
-!   ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
+! :Dependencies: HIIRegion, boundary, boundary_dyn, centreofmass, dim,
+!   dust, eos, externalforces, io, metric_tools, nicil, options, part,
+!   physcon, ptmass, ptmass_radiation, sortutils, timestep, units, utils_gr
 !
  implicit none
  public :: check_setup
@@ -105,7 +105,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5 .and. ieos /= 17) then
+    if (polyk < tiny(0.) .and. ieos /= 2 .and. ieos /= 5 .and. ieos /= 17 .and. ieos/= 22) then
        print*,'WARNING! polyk = ',polyk,' in setup, speed of sound will be zero in equation of state'
        nwarn = nwarn + 1
     endif
@@ -239,7 +239,7 @@ subroutine check_setup(nerror,nwarn,restart)
        nerror = nerror + 1
     endif
  else
-    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9 .and. ieos /= 17)) then
+    if (abs(gamma-1.) > tiny(gamma) .and. (ieos /= 2 .and. ieos /= 5 .and. ieos /=9 .and. ieos /= 17 .and. ieos /=22)) then
        print*,'*** ERROR: using isothermal EOS, but gamma = ',gamma
        gamma = 1.
        print*,'*** Resetting gamma to 1, gamma = ',gamma
@@ -437,6 +437,10 @@ subroutine check_setup(nerror,nwarn,restart)
 !--check Regularization imcompatibility
 !
  call check_regnbody (nerror)
+!
+!--check HII region expansion feedback
+!
+ call check_HIIRegion (nerror)
 
  if (.not.h2chemistry .and. maxvxyzu >= 4 .and. icooling == 3 .and. iexternalforce/=iext_corotate .and. nptmass==0) then
     if (dot_product(xcom,xcom) >  1.e-2) then
@@ -528,7 +532,7 @@ end function in_range
 subroutine check_setup_ptmass(nerror,nwarn,hmin)
  use dim,  only:maxptmass
  use part, only:nptmass,xyzmh_ptmass,ihacc,ihsoft,gr,iTeff,sinks_have_luminosity,&
-                ilum,iJ2,ispinx,ispinz,iReff
+                ilum,iJ2,ispinx,ispinz,iReff,linklist_ptmass
  use ptmass_radiation, only:isink_radiation
  use ptmass, only:use_fourthorder
  integer, intent(inout) :: nerror,nwarn
@@ -587,6 +591,7 @@ subroutine check_setup_ptmass(nerror,nwarn,hmin)
        print*,' ERROR: sink ',i,' mass = ',xyzmh_ptmass(4,i)
     elseif (xyzmh_ptmass(4,i) < 0.) then
        print*,' Sink ',i,' has previously merged with another sink'
+       print*,' Connected to sink : ',linklist_ptmass(i)
        n = n + 1
     endif
  enddo
@@ -1044,6 +1049,25 @@ subroutine check_regnbody (nerror)
     nerror = nerror + 1
  endif
 end subroutine check_regnbody
+
+subroutine check_HIIRegion(nerror)
+ use HIIRegion, only:iH2R
+ use eos,       only:ieos
+ use dim,       only:gr,mpi
+ integer, intent(inout) :: nerror
+ if (iH2R > 0 .and. ieos/=21 .and. ieos/=22) then
+    print "(/,a,/)", "Error: If HII activated, eos == 21 or 22 is mandatory..."
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. gr) then
+    print "(/,a,/)", "Error: Gr is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+ if (iH2R > 0 .and. mpi) then
+    print "(/,a,/)", "Error: MPI is not compatible with HII Region"
+    nerror = nerror + 1
+ endif
+end subroutine check_HIIRegion
 
 
 end module checksetup
