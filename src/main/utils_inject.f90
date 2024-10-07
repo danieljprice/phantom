@@ -82,14 +82,14 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
            geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, JKmuS)
  use icosahedron, only:pixel2vector
  use partinject,  only:add_or_update_particle
- use part,        only:hrho
+ use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
  integer, intent(in) :: sphere_number, first_particle, ires, itype
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
 
- real :: rotation_angles(3), h_sim
+ real :: rotation_angles(3), h_sim, vomega_spin(3)
  real :: rotmat(3,3), radial_unit_vector(3), radial_unit_vector_rotated(3)
  real :: particle_position(3), particle_velocity(3)
  integer :: j, particles_per_sphere
@@ -133,9 +133,14 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
     particle_position = r*radial_unit_vector_rotated
+    !include velocity component due to spin of the sink particle
+    vomega_spin(1) = xyzmh_ptmass(ispiny,1)*particle_position(3)-xyzmh_ptmass(ispinz,1)*particle_position(2)
+    vomega_spin(2) = xyzmh_ptmass(ispinz,1)*particle_position(1)-xyzmh_ptmass(ispinx,1)*particle_position(3)
+    vomega_spin(3) = xyzmh_ptmass(ispinx,1)*particle_position(2)-xyzmh_ptmass(ispiny,1)*particle_position(1)
+    vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**2
     particle_velocity = v*radial_unit_vector_rotated
     particle_position = particle_position + x0
-    particle_velocity = particle_velocity + v0
+    particle_velocity = particle_velocity + v0 + vomega_spin
     call add_or_update_particle(itype,particle_position,particle_velocity, &
          h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
  enddo

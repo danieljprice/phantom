@@ -59,6 +59,7 @@ module setup
  integer :: icompanion_star,iwind
  real :: semi_major_axis,semi_major_axis_au,eccentricity
  real :: default_particle_mass
+ real :: omega_spin,omegax,omegay,omegaz
  real :: primary_lum_lsun,primary_mass_msun,primary_Reff_au,primary_racc_au
  real :: secondary_lum_lsun,secondary_mass_msun,secondary_Reff_au,secondary_racc_au
  real :: lum2a_lsun,lum2b_lsun,Teff2a,Teff2b,Reff2a_au,Reff2b_au
@@ -95,6 +96,10 @@ subroutine set_default_parameters_wind()
     !primary_lum_lsun      = 20000.
     !primary_Reff_au       = 0.
  endif
+ omega_spin = 0.
+ omegax = 0.
+ omegay = 0.
+ omegaz = 1.
  icompanion_star = 0
  semi_major_axis       = 4.0
  eccentricity          = 0.
@@ -129,8 +134,8 @@ end subroutine set_default_parameters_wind
 !+
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff
- use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl
+ use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff, ispinx, ispiny, ispinz
+ use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl, gg
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: set_default_options_inject
  use setbinary, only: set_binary
@@ -150,6 +155,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist
+ real :: omega_crit
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
@@ -266,6 +272,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iTeff,1) = primary_Teff
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
+    omega_crit = sqrt(gg*primary_mass/primary_reff**3)*utime
+    xyzmh_ptmass(ispinx,1) = primary_Reff**2*omegax*omega_crit*omega_spin
+    xyzmh_ptmass(ispiny,1) = primary_Reff**2*omegay*omega_crit*omega_spin
+    xyzmh_ptmass(ispinz,1) = primary_Reff**2*omegaz*omega_crit*omega_spin
  endif
 
  !
@@ -529,6 +539,10 @@ subroutine setup_interactive()
     primary_mass = primary_mass_msun * (solarm / umass)
     primary_racc = primary_racc_au * (au / udist)
 
+    !define primary spin properties
+    call get_sink_spin(omegax,omegay,omegaz,omega_spin)
+
+
     if (icompanion_star == 1) then
        ichoice = 1
        print "(a)",'Secondary star parameters'
@@ -566,6 +580,51 @@ subroutine setup_interactive()
  endif
 
 end subroutine setup_interactive
+
+!--------------------------------------------------------
+!+
+! set spin properties of the sink particle :
+! rotation axis + spin rate in unit of critical spin rate
+!+
+!--------------------------------------------------------
+subroutine get_sink_spin(omegax,omegay,omegaz,omega_spin)
+ use prompting, only:prompt
+ real, intent(inout) :: omegax,omegay,omegaz,omega_spin
+ integer :: ichoice
+ real :: omega
+
+ ichoice = 2
+ print "(a)",'Omega spin (in unit of omega_crit >=0)'
+ print "(a)",' 2: no rotation',&
+      ' 1: omega_spin/omega_crit = 0.5', &
+      ' 0: custom'
+ call prompt('select spin velocity of primary',ichoice,0,2)
+ select case(ichoice)
+ case(2)
+    omega_spin = 0.
+ case(1)
+    omega_spin = 0.5
+ case default
+    call prompt('enter omega_spin',omega_spin,0.,10.)
+ end select
+ if (omega_spin /= 0.) then
+    ichoice = 1
+    print "(a)",'spin orientation (unit vector)'
+    print "(a)",' 1: along z-axis',&
+         ' 0: custom'
+    call prompt('select spin orientation',ichoice,0,1)
+    if (ichoice == 0) then
+       call prompt('enter x-component',omegax,-1.,1.)
+       call prompt('enter y-component',omegay,-1.,1.)
+       call prompt('enter z-component',omegaz,-1.,1.)
+!renormalize vector
+       omega = sqrt(omegax**2+omegay**2+omegaz**2)
+       omegax = omegax/omega
+       omegay = omegay/omega
+       omegaz = omegaz/omega
+    endif
+ endif
+end subroutine get_sink_spin
 
 !----------------------------------------------------------------
 !+
@@ -672,6 +731,10 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
     call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
+    call write_inopt(omega_spin,'primary_spin','primary spin rate (in units of critical speed, between 0 and 1)',iunit)
+    call write_inopt(omegax,'primary_spinx','x-component of spin direction',iunit)
+    call write_inopt(omegay,'primary_spiny','y-component of spin direction',iunit)
+    call write_inopt(omegaz,'primary_spinz','z-component of spin direction',iunit)
     call write_inopt(icompanion_star,'icompanion_star','set to 1 for a binary system, 2 for a triple system',iunit)
     if (icompanion_star == 1) then
        call get_lum_and_Reff(secondary_lum_lsun,secondary_Reff_au,secondary_Teff,secondary_lum,secondary_Reff)
@@ -735,6 +798,10 @@ subroutine read_setupfile(filename,ierr)
     print *,'ERROR: primary accretion radius not defined'
     nerr = nerr+1
  endif
+ call read_inopt(omega_spin,'primary_spin',db,min=-10.,max=10.,errcount=nerr)
+ call read_inopt(omegax,'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
+ call read_inopt(omegay,'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
+ call read_inopt(omegaz,'primary_spinz',db,min=-1.,max=1.,errcount=nerr)
 
  call read_inopt(icompanion_star,'icompanion_star',db,min=0,errcount=nerr)
  if (icompanion_star == 1) then

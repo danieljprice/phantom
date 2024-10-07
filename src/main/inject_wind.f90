@@ -286,10 +286,11 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  use units,    only:utime,udist
  use timestep, only:dtmax
  use ptmass_radiation,  only:alpha_rad
+ use part,      only: xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
 
  real, intent(in) :: initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary
  integer :: ires_min
- real :: vesc
+ real :: vesc,omega_sink,omega_crit
 
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
@@ -304,6 +305,12 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print*,'number of shells to sonic  = ',(rsonic/udist-Rinject)/(wind_shell_spacing*neighbour_distance)
     print*,'time_to_sonic_point        = ',tsonic/utime
     print*,'time_boundary              = ',tboundary
+ endif
+ omega_sink = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+ omega_crit = sqrt(gg*xyzmh_ptmass(4,1)/xyzmh_ptmass(iReff,1)**3)*utime
+ if (omega_sink > 0.001*omega_crit) then
+    print*,'omega_spin/omega_crit      = ',omega_sink/omega_crit
+    print*,'omega_spin/vinject         = ',omega_sink/wind_injection_speed
  endif
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'wind_temperature           = ',wind_temperature

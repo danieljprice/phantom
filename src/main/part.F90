@@ -205,7 +205,7 @@ module part
  integer, parameter :: imassenc = 18 ! mass enclosed in sink softening radius
  integer, parameter :: iJ2 = 19      ! 2nd gravity moment due to oblateness
  integer, parameter :: irstrom = 20  ! Stromgren radius of the stars (icreate_sinks == 2)
- integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
+ integer, parameter :: irateion = 21 ! Ionisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
  integer, allocatable :: linklist_ptmass(:)
