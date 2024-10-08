@@ -54,6 +54,8 @@ module inject
  real :: pulsation_period_days = 0.
  real :: piston_velocity_km_s = 0.
  real :: dtpulsation = huge(0.)
+ real :: wind_eject_duration_yr = 0.
+ real :: wind_eject_duration
 
 ! global variables
  integer, parameter :: wind_emitting_sink = 1
@@ -126,6 +128,7 @@ subroutine init_inject(ierr)
     deltaR_osc       = 0.d0
     piston_velocity  = 0.d0
  endif
+ wind_eject_duration = wind_eject_duration_yr * years/utime
  initial_wind_velocity_cgs = (piston_velocity+wind_velocity)*unit_velocity
  if (initial_wind_velocity_cgs == 0. .and. sonic_type == 0) call fatal(label,'zero input wind velocity')
  if (gamma > 1.0001) then
@@ -235,6 +238,7 @@ subroutine init_inject(ierr)
     print *,'time_between_spheres = ',time_between_spheres,' < tmax = ',tmax
     call fatal(label,'no shell ejection : tmax < time_between_spheres')
  endif
+ ! compute matrices for geodesic
  call compute_matrices(geodesic_R)
  call compute_corners(geodesic_v)
 
@@ -315,6 +319,7 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'wind_temperature           = ',wind_temperature
  print*,'injection_radius           = ',Rinject
+ print*,'wind_eject_duration        = ',wind_eject_duration
  print*,'stellar_radius             = ',Rstar_cgs / udist
  print*,'rho_ini                    = ',rho_ini
  if (pulsating_wind) then
@@ -431,6 +436,11 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     ipart = iboundary
     nreleased = 0
     nboundaries = iboundary_spheres+nfill_domain
+ endif
+
+ if (time > wind_eject_duration) then
+    !print *,'end of mass loss'
+    return
  endif
  outer_sphere = floor((time-dtlast)/time_between_spheres) + 1 + nreleased
  inner_sphere = floor(time/time_between_spheres)+nreleased
@@ -696,12 +706,16 @@ subroutine write_options_inject(iunit)
  use infile_utils, only: write_inopt
  integer, intent(in) :: iunit
 
- call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
+ !call write_inopt(sonic_type,'sonic_type','find transonic solution (1=yes,0=no)',iunit)
+ call write_inopt(sonic_type,'sonic_type','wind type 0=std wind, 1=transonic, 2=pulsation',iunit)
  call write_inopt(wind_velocity_km_s,'wind_velocity','injection wind velocity (km/s, if sonic_type = 0)',iunit)
- !call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
- !call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
+ if (sonic_type == 2) then
+    call write_inopt(pulsation_period_days,'pulsation_period','stellar pulsation period (days)',iunit)
+    call write_inopt(piston_velocity_km_s,'piston_velocity','velocity amplitude of the pulsation (km/s)',iunit)
+ endif
  call write_inopt(wind_injection_radius_au,'wind_inject_radius','wind injection radius (au, if 0 takes Rstar)',iunit)
  call write_inopt(wind_mass_rate_Msun_yr,'wind_mass_rate','wind mass loss rate (Msun/yr)',iunit)
+ call write_inopt(wind_eject_duration_yr,'wind_eject_duration','duration of mass loss episode (yr, ignored if <=0)',iunit)
  if (maxvxyzu==4) then
     call write_inopt(wind_temperature,'wind_temperature','wind temperature at injection radius (K, if 0 takes Teff)',iunit)
  endif
@@ -770,29 +784,35 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
  case('sonic_type')
     read(valstring,*,iostat=ierr) sonic_type
     ngot = ngot + 1
-    if (sonic_type < 0 .or. sonic_type > 1 ) call fatal(label,'invalid setting for sonic_type ([0,1])')
+    if (sonic_type < 0 .or. sonic_type > 2 ) call fatal(label,'invalid setting for sonic_type ([0,2])')
  case('wind_mass_rate')
     read(valstring,*,iostat=ierr) wind_mass_rate_Msun_yr
     ngot = ngot + 1
     if (wind_mass_rate_Msun_yr < 0.) call fatal(label,'invalid setting for wind_mass_rate (<0)')
-    !case('pulsation_period')
-    !   read(valstring,*,iostat=ierr) pulsation_period_days
-    !   ngot = ngot + 1
-    !   if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
-    !case('piston_velocity')
-    !   read(valstring,*,iostat=ierr) piston_velocity_km_s
-    !   !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
-    !   ngot = ngot + 1
+ case('wind_eject_duration')
+    read(valstring,*,iostat=ierr) wind_eject_duration_yr
+    if (wind_eject_duration_yr <= 0.) wind_eject_duration_yr = huge(0.)
+    ngot = ngot + 1
+ case('pulsation_period')
+    read(valstring,*,iostat=ierr) pulsation_period_days
+    ngot = ngot + 1
+    if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
+ case('piston_velocity')
+    read(valstring,*,iostat=ierr) piston_velocity_km_s
+    !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
+    ngot = ngot + 1
  case default
     imatch = .false.
  end select
 
  if (isothermal) then
     noptions = 9
- else
+ elseif (sonic_type == 2) then
     noptions = 11
+ else
+    noptions = 9
  endif
- noptions = noptions -2 ! temporarily remove piston & pulsation
+ !noptions = noptions -2 ! temporarily remove piston & pulsation
  !print '(a26,i3,i3)',trim(name),ngot,noptions
  igotall = (ngot >= noptions)
  if (trim(name) == '') ngot = 0
