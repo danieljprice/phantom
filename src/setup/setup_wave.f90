@@ -44,6 +44,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use dust,         only:K_code,idrag
  use set_dust,     only:set_dustfrac
  use mpidomain,    only:i_belong
+ use random,       only:ran2
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -54,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real :: totmass,fac,deltax,deltay,deltaz
- integer :: i
+ integer :: i, iseed=4
  integer :: itype,itypes,ntypes,npartx
  integer :: npart_previous,dust_method
  logical, parameter :: ishift_box =.true.
@@ -68,13 +69,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
  npartx  = 64
  ntypes  = 1
- rhozero = 1.
+ rhozero = 1.5 !1.
  massfac = 1.
- cs      = 1.
- ampl    = 1.d-4
+ cs      = 1.0 !2.236 !1.
+ ampl    = 2.d-2
  use_dustfrac = .false.
  ndustsmall = 0
  ndustlarge = 0
+
  if (id==master) then
     itype = 1
     print "(/,a,/)",'  >>> Setting up particles for linear wave test <<<'
@@ -108,15 +110,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 !
 ! boundaries
 !
- xmini = -0.5
- xmaxi = 0.5
+ xmini = 0.
+ xmaxi = 1.0
  length = xmaxi - xmini
  deltax = length/npartx
  ! try to give y boundary that is a multiple of 6 particle spacings in the low density part
  fac = 6.*(int((1.-epsilon(0.))*radkern/6.) + 1)
  deltay = fac*deltax*sqrt(0.75)
  deltaz = fac*deltax*sqrt(6.)/3.
- call set_boundary(xmini,xmaxi,-deltay,deltay,-deltaz,deltaz)
+ call set_boundary(xmini,xmaxi,xmini,deltay,-deltaz,deltaz)
 !
 ! general parameters
 !
@@ -211,6 +213,13 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
              dustfrac(:,i) = 0.
           endif
        endif
+
+!
+!--add a little perturbation to fake some noise
+!
+!       xyzh(1,i) = xyzh(1,i) + 0.0001*(ran2(iseed)-0.5)
+!       xyzh(2,i) = xyzh(2,i) + 0.0001*(ran2(iseed)-0.5)
+
     enddo
 
     npartoftype(itype) = npart - npart_previous

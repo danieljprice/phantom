@@ -327,6 +327,17 @@ module dim
 #endif
 
 !--------------------
+! Adaptive Particle Refinement (APR)
+!--------------------
+#ifdef APR
+ logical, parameter :: use_apr = .true.
+ integer, parameter :: apr_maxhard = 10
+#else
+ logical, parameter :: use_apr = .false.
+ integer, parameter :: apr_maxhard = 0
+#endif
+
+!--------------------
 ! individual timesteps
 !--------------------
 #ifdef IND_TIMESTEPS
@@ -362,6 +373,7 @@ subroutine update_max_sizes(n,ntot)
  integer(kind=8), optional, intent(in) :: ntot
 
  maxp = n
+ if (use_apr) maxp = 4*n
 
  if (use_krome) maxp_krome = maxp
 
