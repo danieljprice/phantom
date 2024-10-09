@@ -43,12 +43,12 @@ contains
 subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,npart,npartoftype,xyzh,vxyzu,JKmuS)
  use part, only:maxp,iamtype,iphase,maxvxyzu,iboundary,nucleation,eos_vars,abundance
  use part, only:maxalpha,alphaind,maxgradh,gradh,fxyzu,fext,set_particle_type
- use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu!,dust_temp
+ use part, only:mhd,Bevol,dBevol,Bxyz,divBsymm,gr,pxyzu,apr_level
  use part, only:divcurlv,divcurlB,ndivcurlv,ndivcurlB,ntot,ibin,imu,igamma
  use part, only:iorig,norig
  use io,   only:fatal
  use eos,  only:gamma,gmw
- use dim,  only:ind_timesteps,update_muGamma,h2chemistry
+ use dim,  only:ind_timesteps,update_muGamma,h2chemistry,use_apr
  use timestep_ind, only:nbinmax
  use cooling_ism,  only:abund_default
  integer, intent(in)    :: itype
@@ -120,6 +120,8 @@ subroutine add_or_update_particle(itype,position,velocity,h,u,particle_number,np
     eos_vars(igamma,particle_number) = gamma
  endif
  if (h2chemistry) abundance(:,particle_number) = abund_default
+
+ if (use_apr) apr_level(particle_number) = 1 ! since it has the largest mass
 
 end subroutine add_or_update_particle
 

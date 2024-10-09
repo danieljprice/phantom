@@ -917,7 +917,8 @@ end subroutine check_gr
 !------------------------------------------------------------------
 subroutine check_for_identical_positions(npart,xyzh,nbad)
  use sortutils, only:indexxfunc,r2func
- use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted
+ use part,      only:maxphase,maxp,iphase,igas,iamtype,isdead_or_accreted,&
+                     apr_level
  integer, intent(in)  :: npart
  real,    intent(in)  :: xyzh(:,:)
  integer, intent(out) :: nbad
@@ -937,7 +938,7 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
  itypei = igas
  itypej = igas
  !$omp parallel do default(none) &
- !$omp shared(npart,xyzh,index,maxphase,maxp,iphase) &
+ !$omp shared(npart,xyzh,index,maxphase,maxp,iphase,apr_level) &
  !$omp firstprivate(itypei,itypej) &
  !$omp private(i,j,dx,dx2) &
  !$omp reduction(+:nbad)
@@ -955,8 +956,8 @@ subroutine check_for_identical_positions(npart,xyzh,nbad)
              nbad = nbad + 1
              if (nbad <= 10) then
                 print*,'WARNING: particles of same type at same position: '
-                print*,' ',index(i),':',xyzh(1:3,index(i))
-                print*,' ',index(j),':',xyzh(1:3,index(j))
+                print*,' ',index(i),':',xyzh(1:3,index(i)),apr_level(i)
+                print*,' ',index(j),':',xyzh(1:3,index(j)),apr_level(j)
              endif
           endif
           j = j + 1

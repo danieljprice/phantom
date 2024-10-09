@@ -248,12 +248,13 @@ end subroutine setup_interactive
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename,gamma,polyk)
  use infile_utils,  only:write_inopt
- use dim,           only:tagline
+ use dim,           only:tagline,use_apr
  use relaxstar,     only:write_options_relax
  use eos,           only:X_in,Z_in,gmw
  use eos_gasradrec, only:irecomb
  use setstar,       only:write_options_star,need_polyk
  use setunits,      only:write_options_units
+ use apr,           only:write_options_apr
  real,             intent(in) :: gamma,polyk
  character(len=*), intent(in) :: filename
  integer,          parameter  :: iunit = 20
@@ -301,6 +302,11 @@ subroutine write_setupfile(filename,gamma,polyk)
 
  call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile(s) to file',iunit)
 
+ if (use_apr) then
+    write(iunit,"(/,a)") '# apr options'
+   call write_options_apr(iunit)
+ endif
+
  close(iunit)
 
 end subroutine write_setupfile
@@ -318,6 +324,8 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  use eos_gasradrec, only:irecomb
  use setstar,       only:read_options_star
  use setunits,      only:read_options_and_set_units
+ use apr,           only:apr_max_in,ref_dir,apr_type,apr_rad,apr_drad
+ use dim,           only:use_apr
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
  integer,          intent(out) :: need_iso,ierr
@@ -374,6 +382,14 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  if (nerr > 0) then
     print "(1x,a,i2,a)",'setup_star: ',nerr,' error(s) during read of setup file'
     ierr = 1
+ endif
+
+ if (use_apr) then
+   call read_inopt(apr_max_in,'apr_max',db)
+   call read_inopt(ref_dir,'ref_dir',db)
+   call read_inopt(apr_type,'apr_type',db)
+   call read_inopt(apr_rad,'apr_rad',db)
+   call read_inopt(apr_drad,'apr_drad',db)
  endif
 
  call close_db(db)

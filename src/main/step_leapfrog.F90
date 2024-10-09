@@ -89,16 +89,16 @@ end subroutine init_step
 !------------------------------------------------------------
 subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use dim,            only:maxp,ndivcurlv,maxvxyzu,maxptmass,maxalpha,nalpha,h2chemistry,&
-                          use_dustgrowth,use_krome,gr,do_radiation
+                          use_dustgrowth,use_krome,gr,do_radiation,use_apr
  use io,             only:iprint,fatal,iverbose,id,master,warning
  use options,        only:iexternalforce,use_dustfrac,implicit_radiation
  use part,           only:xyzh,vxyzu,fxyzu,fext,divcurlv,divcurlB,Bevol,dBevol, &
                           rad,drad,radprop,isdead_or_accreted,rhoh,dhdrho,&
                           iphase,iamtype,massoftype,maxphase,igas,idust,mhd,&
-                          iamboundary,get_ntypes,npartoftypetot,&
+                          iamboundary,get_ntypes,npartoftypetot,apr_level,&
                           dustfrac,dustevol,ddustevol,eos_vars,alphaind,nptmass,&
                           dustprop,ddustprop,dustproppred,pxyzu,dens,metrics,ics,&
-                          filfac,filfacpred,mprev,filfacprev,isionised
+                          filfac,filfacpred,mprev,filfacprev,aprmassoftype,isionised
  use options,        only:avdecayconst,alpha,ieos,alphamax
  use deriv,          only:derivs
  use timestep,       only:dterr,bignumber,tolv
@@ -143,6 +143,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  logical, parameter :: allow_waking = .true.
  integer, parameter :: maxits = 30
  logical            :: converged,store_itype
+
 !
 ! set initial quantities
 !
@@ -231,7 +232,6 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call check_dustprop(npart,dustprop,filfac,mprev,filfacprev)
  endif
 
-
 !----------------------------------------------------------------------
 ! substepping with external and sink particle forces, using dtextforce
 ! accretion onto sinks/potentials also happens during substepping
@@ -271,7 +271,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 !$omp parallel do default(none) schedule(guided,1) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,vpred,fxyzu,divcurlv,npart,store_itype) &
-!$omp shared(pxyzu,ppred) &
+!$omp shared(pxyzu,ppred,apr_level,aprmassoftype) &
 !$omp shared(Bevol,dBevol,Bpred,dtsph,massoftype,iphase) &
 !$omp shared(dustevol,ddustprop,dustprop,dustproppred,dustfrac,ddustevol,dustpred,use_dustfrac) &
 !$omp shared(filfac,filfacpred,use_porosity) &
@@ -287,7 +287,11 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (store_itype) then
           itype = iamtype(iphase(i))
-          pmassi = massoftype(itype)
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
+          endif
           if (iamboundary(itype)) then
              if (gr) then
                 ppred(:,i) = pxyzu(:,i)
@@ -390,7 +394,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     call derivs(1,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,&
                 divcurlB,Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,&
                 dustpred,ddustevol,filfacpred,dustfrac,eos_vars,timei,dtsph,dtnew,&
-                ppred,dens,metrics)
+                ppred,dens,metrics,apr_level)
 
     if (do_radiation .and. implicit_radiation) then
        rad = radpred
@@ -433,7 +437,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
     p2mean  = 0.
     np      = 0
     itype   = igas
-    pmassi  = massoftype(igas)
+    pmassi  = massoftype(igas) ! this does not appear to be used below
     ntypes  = get_ntypes(npartoftypetot)
     store_itype = (maxphase==maxp .and. ntypes > 1)
 !$omp parallel default(none) &
@@ -679,7 +683,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
        if (gr) vpred = vxyzu ! Need primitive utherm as a guess in cons2prim
        call derivs(2,npart,nactive,xyzh,vpred,fxyzu,fext,divcurlv,divcurlB, &
                      Bpred,dBevol,radpred,drad,radprop,dustproppred,ddustprop,dustpred,ddustevol,filfacpred,&
-                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics)
+                     dustfrac,eos_vars,timei,dtsph,dtnew,ppred,dens,metrics,apr_level)
        if (gr) vxyzu = vpred ! May need primitive variables elsewhere?
        if (do_radiation .and. implicit_radiation) then
           rad = radpred

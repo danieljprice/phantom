@@ -17,10 +17,10 @@ module checkconserved
 !
 ! :Dependencies: boundary_dyn, dim, externalforces, io, options, part
 !
- use dim, only:maxdusttypes
+ use dim, only:maxdusttypes,use_apr
  implicit none
  real, public :: get_conserv = 1.0 ! to track when we have initial values for conservation laws
- real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes)
+ real, public :: etot_in,angtot_in,totmom_in,mdust_in(maxdusttypes),mtot_in
 
  public :: init_conservation_checks, check_conservation_error
  public :: check_magnetic_stability
@@ -36,14 +36,16 @@ contains
 !+
 !----------------------------------------------------------------
 subroutine init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
-                                    should_conserve_angmom,should_conserve_dustmass)
+                                    should_conserve_angmom,should_conserve_dustmass,&
+                                    should_conserve_aprmass)
  use options,     only:icooling,ieos,ipdv_heating,ishock_heating,&
                        iresistive_heating,use_dustfrac,iexternalforce
- use dim,         only:mhd,maxvxyzu,periodic,inject_parts
+ use dim,         only:mhd,maxvxyzu,periodic,inject_parts,use_apr
  use part,        only:iboundary,npartoftype
  use boundary_dyn,only:dynamic_bdy
  logical, intent(out) :: should_conserve_energy,should_conserve_momentum
  logical, intent(out) :: should_conserve_angmom,should_conserve_dustmass
+ logical, intent(out) :: should_conserve_aprmass
 
  !
  ! should conserve energy if using adiabatic equation of state with no cooling
@@ -73,11 +75,15 @@ subroutine init_conservation_checks(should_conserve_energy,should_conserve_momen
  !
  ! Each injection routine will need to bookeep conserved quantities, but until then...
  !
- if (inject_parts .or. dynamic_bdy) then
+ if (inject_parts .or. dynamic_bdy .or. use_apr) then
     should_conserve_energy   = .false.
     should_conserve_momentum = .false.
     should_conserve_angmom   = .false.
  endif
+
+ ! This is to check that total mass is conserved when we use apr
+ ! It can't be used if mass is accreted or injected
+ should_conserve_aprmass = (iexternalforce==0 .and. use_apr .and. .not.inject_parts)
 
 end subroutine init_conservation_checks
 

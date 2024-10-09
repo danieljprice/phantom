@@ -31,7 +31,7 @@ contains
 
 subroutine test_derivs(ntests,npass,string)
  use dim,          only:maxp,maxvxyzu,maxalpha,maxdvdx,ndivcurlv,nalpha,use_dust,&
-                        maxdustsmall,periodic,mpi,ind_timesteps
+                        maxdustsmall,periodic,mpi,ind_timesteps,use_apr
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use eos,          only:polyk,gamma,init_eos
  use io,           only:iprint,id,master,fatal,iverbose,nprocs
@@ -42,7 +42,8 @@ subroutine test_derivs(ntests,npass,string)
                         divcurlv,divcurlB,maxgradh,gradh,divBsymm,Bevol,dBevol,&
                         Bxyz,Bextx,Bexty,Bextz,alphaind,maxphase,rhoh,mhd,&
                         maxBevol,ndivcurlB,dvdx,dustfrac,dustevol,ddustevol,&
-                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,icurlBz,deltav,ndustsmall
+                        idivv,icurlvx,icurlvy,icurlvz,idivB,icurlBx,icurlBy,&
+                        icurlBz,deltav,ndustsmall,apr_level
  use part,         only:rad,radprop
  use unifdis,      only:set_unifdis
  use physcon,      only:pi,au,solarm
@@ -344,7 +345,7 @@ subroutine test_derivs(ntests,npass,string)
        call set_linklist(npart,nactive,xyzh,vxyzu)
        call densityiterate(1,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,&
                            Bevol,stressmax,fxyzu,fext,alphaind,gradh,&
-                           rad,radprop,dvdx)
+                           rad,radprop,dvdx,apr_level)
        if (id==master) call printused(tused)
 
        nfailed(:) = 0; m = 0

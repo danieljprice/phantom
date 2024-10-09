@@ -354,7 +354,7 @@ ifeq ($(SETUP), galcen)
 endif
 
 ifeq ($(SETUP), starcluster)
-#   Cluster of stars (ptmass) 
+#   Cluster of stars (ptmass)
     SETUPFILE= setup_starcluster.f90
     KNOWN_SETUP=yes
 endif
@@ -1046,6 +1046,13 @@ ifeq ($(SETUP), testgr)
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90
+endif
+
+ifeq ($(SETUP), testapr)
+#   unit tests for apr
+    APR=yes
+    KNOWN_SETUP=yes
+    PERIODIC=yes
 endif
 
 ifeq ($(SETUP), flrw)

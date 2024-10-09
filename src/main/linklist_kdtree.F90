@@ -154,7 +154,7 @@ subroutine get_distance_from_centre_of_mass(inode,xi,yi,zi,dx,dy,dz,xcen)
 
 end subroutine get_distance_from_centre_of_mass
 
-subroutine set_linklist(npart,nactive,xyzh,vxyzu)
+subroutine set_linklist(npart,nactive,xyzh,vxyzu,for_apr)
  use io,           only:nprocs
  use dtypekdtree,  only:ndimtree
  use kdtree,       only:maketree,maketreeglobal
@@ -164,11 +164,16 @@ subroutine set_linklist(npart,nactive,xyzh,vxyzu)
  integer, intent(in)    :: nactive
  real,    intent(inout) :: xyzh(:,:)
  real,    intent(in)    :: vxyzu(:,:)
+ logical, optional, intent(in) :: for_apr
+ logical :: apr_tree
+
+ apr_tree = .false.
+ if (present(for_apr)) apr_tree = for_apr
 
  if (mpi .and. nprocs > 1) then
-    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells)
+    call maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,npart,ndimtree,cellatid,ifirstincell,ncells,apr_tree)
  else
-    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells)
+    call maketree(node,xyzh,npart,ndimtree,ifirstincell,ncells,apr_tree)
  endif
 
 end subroutine set_linklist

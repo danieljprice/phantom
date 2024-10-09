@@ -64,7 +64,8 @@ contains
 !----------------------------------------------------------------
 subroutine compute_energies(t)
  use dim,            only:maxp,maxvxyzu,maxalpha,maxtypes,mhd_nonideal,maxp_hard,&
-                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome
+                          lightcurve,use_dust,maxdusttypes,do_radiation,gr,use_krome,&
+                          use_apr
  use part,           only:rhoh,xyzh,vxyzu,massoftype,npart,maxphase,iphase,&
                           alphaind,Bevol,divcurlB,iamtype,igamma,&
                           igas,idust,iboundary,istar,idarkmatter,ibulge,&
@@ -73,7 +74,7 @@ subroutine compute_energies(t)
                           ispinz,mhd,gravity,poten,dustfrac,eos_vars,itemp,igasP,ics,&
                           nden_nimhd,eta_nimhd,iion,ndustsmall,graindens,grainsize,&
                           iamdust,ndusttypes,rad,iradxi,gtgrad,group_info,bin_info,n_group
- use part,           only:pxyzu,fxyzu,fext
+ use part,           only:pxyzu,fxyzu,fext,apr_level,aprmassoftype
  use gravwaveutils,  only:calculate_strain,calc_gravitwaves
  use centreofmass,   only:get_centreofmass_accel
  use eos,            only:polyk,gamma,eos_is_non_ideal,eos_outputs_gasP
@@ -172,7 +173,7 @@ subroutine compute_energies(t)
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase,maxalpha) &
 !$omp shared(xyzh,vxyzu,pxyzu,rad,iexternalforce,npart,t,id) &
-!$omp shared(alphaind,massoftype,irealvisc,iu) &
+!$omp shared(alphaind,massoftype,irealvisc,iu,aprmassoftype) &
 !$omp shared(ieos,gamma,nptmass,xyzmh_ptmass,vxyz_ptmass,xyzcom) &
 !$omp shared(Bevol,divcurlB,iphase,poten,dustfrac,use_dustfrac) &
 !$omp shared(use_ohm,use_hall,use_ambi,nden_nimhd,eta_nimhd,eta_constant) &
@@ -195,7 +196,7 @@ subroutine compute_energies(t)
 !$omp private(pxi,pyi,pzi,gammaijdown,alpha_gr,beta_gr_UP,bigvi,lorentzi,pdotv,angi,fourvel_space) &
 !$omp shared(idrag) &
 !$omp private(tsi,iregime,idusttype,was_not_accreted) &
-!$omp shared(luminosity,track_lum) &
+!$omp shared(luminosity,track_lum,apr_level) &
 !$omp reduction(+:np,npgas,np_cs_eq_0,np_e_eq_0) &
 !$omp reduction(+:xcom,ycom,zcom,mtot,xmom,ymom,zmom,angx,angy,angz,mdust,mgas) &
 !$omp reduction(+:xmomacc,ymomacc,zmomacc,angaccx,angaccy,angaccz) &
@@ -214,7 +215,17 @@ subroutine compute_energies(t)
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype <= 0) call fatal('energies','particle type <= 0')
-          pmassi = massoftype(itype)
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
+          endif
+       else
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
        endif
 
        rhoi = rhoh(hi,pmassi)
@@ -763,7 +774,11 @@ subroutine compute_energies(t)
  if (track_lum) totlum = ev_data(iev_sum,iev_totlum)
 
  if (calc_gravitwaves) then
-    pmassi = massoftype(igas)
+    if (use_apr) then
+       pmassi = aprmassoftype(igas,apr_level(i))
+    else
+       pmassi = massoftype(igas)
+    endif
     x0 = 0.; v0 = 0.; a0 = 0.  ! use the origin by default
     if (gr) then
        !call get_geodesic_accel(axyz,npart,vxyzu(1:3,:),metrics,metricderivs)
@@ -820,7 +835,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
  real, intent(out) :: erotxi,erotyi,erotzi
  real              :: dx,dy,dz,dvx,dvy,dvz
  real              :: rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2
- !
+
  erotxi = 0.0
  erotyi = 0.0
  erotzi = 0.0
@@ -847,7 +862,7 @@ subroutine get_erot(xi,yi,zi,vxi,vyi,vzi,xyzcom,pmassi,erotxi,erotyi,erotzi)
 end subroutine get_erot
 !----------------------------------------------------------------
 !+
-!  initiallised the ev_data array
+!  initialise the ev_data array
 !+
 !----------------------------------------------------------------
 subroutine initialise_ev_data(evdata)
@@ -909,5 +924,5 @@ subroutine finalise_ev_data(evdata,dnptot)
  enddo
 
 end subroutine finalise_ev_data
-!----------------------------------------------------------------
+
 end module energies
