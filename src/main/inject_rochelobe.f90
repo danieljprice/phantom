@@ -71,8 +71,10 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  real :: m1,m2,q,radL1,h,u,theta_s,A,mu,theta_rand,r_rand,dNdt_code,Porb,r12,r2L1,r0L1,smag
  real :: eps, spd_inject, phizzs, phinns, lm12, lm1, lm32, sw_chi, sw_gamma, XL1, U1, lsutime
  real :: xyzL1(3),xyzi(3),vxyz(3),dr(3),x1(3),x2(3),x0(3),dxyz(3),vxyzL1(3),v1(3),v2(3),xyzinj(3),s(3)
- real :: rptmass(3)
- integer :: i_part,part_type,s1,wall_i,particles_to_place,i,handled_particles
+ real :: rptmass(3),rptmass_uni(3)
+ real :: rad_inj,delta_l, delta_x, time_between_walls,local_time
+ integer :: i_part,part_type,s1,wall_i,particles_to_place,i,handled_particles,iy,iz,max_delta_l,ix
+ integer :: particles_per_wall, n_boundary_walls, outer_wall, inner_wall, inner_boundary_wall
 
 !
 !--find the L1 point
@@ -112,12 +114,12 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
  !print*, "DEBUG: r0L1=",r0L1*udist/1e5," km"
  r2L1 = dist(xyzL1, x2)                           ! ... and from the mass donor's center
  !print*, "DEBUG: r2L1=",r2L1*udist/1e5," km"
- s = 0. ! (/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps/200.0   ! last factor still a "magic number". Fix. ANA:WHAT??
+ s =  (/1.,0.,0./)*r2L1*eps/200.0 !(/cos(theta_s),sin(theta_s),0.0/)*r2L1*eps/200.0   ! last factor still a "magic number". Fix. ANA:WHAT??
  !print*, "DEBUG: s=",s*udist/1e5," km"
  smag = sqrt(dot_product(s,s))
  xyzinj(1:3) = xyzL1 + s
  vxyzL1 = v1*dist(xyzL1,x0)/dist(x0, x1) ! orbital motion of L1 point
- U1 = 3*A*sin(2*theta_s)/(4*lsutime/utime)
+ U1 = -3*A*sin(2*theta_s)/(4*lsutime/utime)
  !print*, "DEBUG: U1=", U1/utime, "/s"
  spd_inject = U1*dist(xyzinj,xyzL1)  !L&S75 eq 23b
  !print*, "DEBUG: spd_inject=",spd_inject*udist/(1e2*utime)," m/s"
@@ -151,36 +153,88 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     particles_to_place = max(0, int(0.5 + (time*Mdotcode/massoftype(igas)) - npartoftype(igas) ))
  endif
 
-handled_particles = min(100,npartoftype(igas))
-if (handled_particles > 0) then 
-   do i= npartoftype(igas)+1-handled_particles, npartoftype(igas)
-      rptmass = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
-      vxyz = (rptmass/sqrt(dot_product(rptmass,rptmass)))*spd_inject ! (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
-      vxyzu(1:3,i) = vxyz + vxyzL1
-   enddo
-endif   
+rad_inj = sw_chi**(-0.5)    ! radius of injection
+n_boundary_walls = 4         ! number of layers 
+delta_x = rad_inj/n_boundary_walls                !distance between walls                         
+particles_per_wall = int(particles_to_place/n_boundary_walls)  ! particles in each wall 
+delta_l = (4.*pi*rad_inj**3/(6.*particles_to_place))**(1./3.)  !spacing between particles, assuming they are on a grid
+max_delta_l = int(2*rad_inj/delta_l)          !maximum number of points in every direction
+h = hfact*sw_chi/udist
+rptmass = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)       !vector that connects the donor and accretor star
+rptmass_uni = (rptmass/sqrt(dot_product(rptmass,rptmass)))   !rptmass univector
 
- do wall_i=0,particles_to_place-1
-    ! calculate particle offset
-    theta_rand = ran2(s1)*twopi
-    r_rand = rayleigh_deviate(s1)*(sw_chi**(-0.5))
-    dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
-    ! with a Gaussian density distribution
-    part_type = igas
-    u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
-    i_part = npart + 1
-    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
-    call rotate_into_plane(dxyz,vxyz,xyzL1-xyzinj)
-    rptmass = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
-    vxyz = (rptmass/sqrt(dot_product(rptmass,rptmass)))*spd_inject 
-    vxyz = vxyz + vxyzL1
-    xyzi = xyzL1 + dxyz
-    h = hfact*sw_chi/udist
-    !add the particle
-    call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+!
+!---inject material
+!
 
+ time_between_walls = delta_x/spd_inject
+ outer_wall = ceiling((time-dtlast)/time_between_walls)    ! Comulative number of layers injected at the previous time step
+ inner_wall = ceiling(time/time_between_walls)-1           ! Number of layers that should be presented at the current time
+ inner_boundary_wall = inner_wall+n_boundary_walls         ! ID of the layer closest to L1  
+
+print*, time_between_walls, outer_wall, inner_wall, inner_boundary_wall 
+
+ do i=inner_boundary_wall,outer_wall,-1
+    local_time = time - i*time_between_walls
+    if (i  >  inner_wall) then
+       ! Boundary layer
+       i_part = (inner_boundary_wall-i)*(particles_to_place/n_boundary_walls)
+       part_type = igas
+    else
+       ! Live layer
+       i_part = npart
+       part_type = igas
+    endif
+   do iy = 1,particles_per_wall
+      do iz = 1,particles_per_wall
+          xyzi(1) = local_time * spd_inject       !CHECK
+          xyzi(2) = (-rad_inj + (iy-.5)*delta_l)   !CEHCK
+          xyzi(3) = (-rad_inj + (iz-.5)*delta_l)   !CEHCK
+          ! crop to cylinder
+          if (xyzi(2)**2 + xyzi(3)**2 < rad_inj**2) then           !CHECK
+            ! call rotate_into_plane(dxyz,vxyz,xyzL1-xyzinj)
+             u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
+             vxyz = rptmass_uni*spd_inject !setting the velocity in direction of rptmass vector
+             vxyz = vxyz + vxyzL1
+             xyzi = xyzL1 + xyzi
+             i_part = i_part + 1
+             ! Another brick in the wall
+             call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+          endif
+          print *, '==== ', i, xyzi(1), local_time, spd_inject, 'DEBUGGING'
+       enddo
+    enddo
  enddo
-  
+!handled_particles = min(10000,npartoftype(igas))
+!if (handled_particles > 0) then 
+!   do i= npartoftype(igas)+1-handled_particles, npartoftype(igas)
+!      rptmass = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
+!      vxyz = (rptmass/sqrt(dot_product(rptmass,rptmass)))*spd_inject ! (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
+!      vxyzu(1:3,i) = vxyz + vxyzL1
+!   enddo
+!endif   
+!
+! do wall_i=0,particles_to_place-1
+!    ! calculate particle offset
+!    theta_rand = ran2(s1)*twopi
+!    r_rand = rayleigh_deviate(s1)*(sw_chi**(-0.5))
+!    dxyz=(/0.0, cos(theta_rand), sin(theta_rand)/)*r_rand   ! Stream is placed randomly in a cylinder
+!    ! with a Gaussian density distribution
+!    part_type = igas
+!    u = 3.*(kboltz*gastemp/(mu*mass_proton_cgs))/2. * (utime/udist)**2
+!    i_part = npart + 1
+!    vxyz = (/ cos(theta_s), sin(theta_s), 0.0 /)*spd_inject
+!    call rotate_into_plane(dxyz,vxyz,xyzL1-xyzinj)
+!    rptmass = xyzmh_ptmass(1:3,1)-xyzmh_ptmass(1:3,2)
+!    vxyz = (rptmass/sqrt(dot_product(rptmass,rptmass)))*spd_inject 
+!    vxyz = vxyz + vxyzL1
+!    xyzi = xyzL1 + dxyz
+!    h = hfact*sw_chi/udist
+!    !add the particle
+!    call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
+!
+! enddo
+!  
  !
  !-- no constraint on timestep
  !
