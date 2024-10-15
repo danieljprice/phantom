@@ -469,7 +469,7 @@ end subroutine equationofstate
 subroutine init_eos(eos_type,ierr)
  use units,          only:unit_velocity
  use physcon,        only:Rg
- use io,             only:error,warning,fatal
+ use io,             only:error,warning
  use eos_mesa,       only:init_eos_mesa
  use eos_helmholtz,  only:eos_helmholtz_init
  use eos_piecewise,  only:init_eos_piecewise
@@ -482,7 +482,7 @@ subroutine init_eos(eos_type,ierr)
  use eos_HIIR,       only:init_eos_HIIR
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
- integer              :: ierr_mesakapp
+ integer              :: ierr_mesakapp,ierr_ra
 
  ierr = 0
  !
@@ -562,8 +562,8 @@ subroutine init_eos(eos_type,ierr)
 
  case(23)
 
-    call read_optab(eos_file,ierr)
-    if (ierr > 0) call fatal('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
+    call read_optab(eos_file,ierr_ra)
+    if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_coolra
 
  end select
