@@ -482,7 +482,7 @@ subroutine init_eos(eos_type,ierr)
  use dim,            only:maxvxyzu,do_radiation
  integer, intent(in)  :: eos_type
  integer, intent(out) :: ierr
- integer              :: ierr_mesakapp
+ integer              :: ierr_mesakapp,ierr_ra
 
  ierr = 0
  !
@@ -561,8 +561,8 @@ subroutine init_eos(eos_type,ierr)
     call init_eos_HIIR()
 
  case(23)
-    call read_optab(eos_file,ierr)
-    if (ierr > 0) call error('init_eos','Failed to read EOS file',var='ierr',ival=ierr)
+    call read_optab(eos_file,ierr_ra)
+    if (ierr_ra > 0) call warning('init_eos','Failed to read EOS file')
     call init_S07cool
 
  end select
