@@ -1,25 +1,21 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module apr_region
-  !
-  ! Contains everything for setting the adaptive particle refinement regions
-  !
-  ! :References: None
-  !
-  ! :Owner: Rebecca Nealon
-  !
-  ! :Runtime parameters:
-  !   - apr_max_in        : number of refinement levels (3 -> 2x resolution)
-  !   - ref_dir           : increase (1) or decrease (-1) resolution from the base resolution
-  !   - [x,y,z]_centre    : centre coordinates of the region to be more highly resolved
-  !   - apr_rad           : radius of the region to be more highly resolved
-  !
-  ! :Dependencies: None
-  !
+!
+! apr_region
+!
+! :References: None
+!
+! :Owner: Rebecca Nealon
+!
+! :Runtime parameters: None
+!
+! :Dependencies: part
+!
   implicit none
 
   logical, public :: dynamic_apr = .false., apr_region_is_circle = .false.

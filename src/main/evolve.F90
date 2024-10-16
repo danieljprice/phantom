@@ -16,7 +16,7 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, analysis, boundary_dyn, centreofmass,
+! :Dependencies: HIIRegion, analysis, apr, boundary_dyn, centreofmass,
 !   checkconserved, dim, energies, evwrite, externalforces, fileutils,
 !   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
 !   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,

@@ -18,8 +18,7 @@ module subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpiutils, part, physcon, timing, units, utils_kepler,
-!   utils_subgroup
+! :Dependencies: io, mpiutils, part, timing, utils_kepler, utils_subgroup
 !
  use utils_subgroup
  implicit none

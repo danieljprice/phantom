@@ -16,7 +16,7 @@ module testgravity
 !
 ! :Dependencies: deriv, dim, directsum, energies, eos, io, kdtree,
 !   linklist, mpibalance, mpiutils, options, part, physcon, ptmass,
-!   sort_particles, spherical, testutils, timing
+!   sort_particles, spherical, testapr, testutils, timing
 !
  use io, only:id,master
  implicit none

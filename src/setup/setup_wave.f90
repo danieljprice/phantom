@@ -15,7 +15,8 @@ module setup
 ! :Runtime parameters: None
 !
 ! :Dependencies: boundary, dim, dust, io, kernel, mpidomain, mpiutils,
-!   options, part, physcon, prompting, set_dust, setup_params, unifdis
+!   options, part, physcon, prompting, random, set_dust, setup_params,
+!   unifdis
 !
  implicit none
  public :: setpart

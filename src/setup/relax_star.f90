@@ -17,10 +17,11 @@ module relaxstar
 !   - maxits   : *maximum number of relaxation iterations*
 !   - tol_ekin : *tolerance on ekin/epot to stop relaxation*
 !
-! :Dependencies: checksetup, damping, deriv, dim, dump_utils, energies,
-!   eos, externalforces, fileutils, infile_utils, initial, io, io_summary,
-!   memory, options, part, physcon, ptmass, readwrite_dumps, setstar_utils,
-!   sortutils, step_lf_global, table_utils, units
+! :Dependencies: apr, checksetup, damping, deriv, dim, dump_utils,
+!   energies, eos, externalforces, fileutils, infile_utils, initial, io,
+!   io_summary, linklist, memory, options, part, physcon, ptmass,
+!   readwrite_dumps, setstar_utils, sortutils, step_lf_global, table_utils,
+!   units
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax

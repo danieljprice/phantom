@@ -1,24 +1,29 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module apr
-  !
-  ! Contains everything for live adaptive particle refinement
-  !
-  ! :References: None
-  !
-  ! :Owner: Rebecca Nealon
-  !
-  ! :Runtime parameters:
-  !   - apr_max_in        : number of refinement levels (3 -> 2x resolution)
-  !   - ref_dir           : increase (1) or decrease (-1) resolution from the base resolution
-  !   - apr_type          : choice of region, defined in apr_region.f90
-  !
-  ! :Dependencies: None
-  !
+!
+! apr
+!
+! :References: None
+!
+! :Owner: Rebecca Nealon
+!
+! :Runtime parameters:
+!   - apr_drad   : *size of step to next region*
+!   - apr_max    : *number of additional refinement levels (3 -> 2x resolution)*
+!   - apr_rad    : *radius of innermost region*
+!   - apr_type   : *1: static, 2: moving sink, 3: create clumps*
+!   - ref_dir    : *increase (1) or decrease (-1) resolution*
+!   - track_part : *number of sink to track*
+!
+! :Dependencies: apr_region, dim, infile_utils, io, kdtree, linklist,
+!   mpiforce, part, physcon, ptmass, quitdump, random, relaxem,
+!   timestep_ind, vectorutils
+!
   implicit none
 
   public :: init_apr,update_apr,read_options_apr,write_options_apr

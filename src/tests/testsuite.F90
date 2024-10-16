@@ -15,13 +15,13 @@ module test
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
-!   testcorotate, testdamping, testderivs, testdust, testeos, testexternf,
-!   testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!   testindtstep, testiorig, testkdtree, testkernel, testlink, testmath,
-!   testmpi, testnimhd, testpart, testpoly, testptmass, testradiation,
-!   testrwdump, testsedov, testsetdisc, testsethier, testsmol, teststep,
-!   testwind, timing, testapr
+! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
+!   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
+!   testexternf, testgeometry, testgnewton, testgr, testgravity,
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
+!   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
+!   testsmol, teststep, testwind, timing
 !
  implicit none
  public :: testsuite

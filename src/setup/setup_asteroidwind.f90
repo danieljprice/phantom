@@ -27,7 +27,6 @@ module setup
 !   - npart_at_end  : *number of particles injected after norbits*
 !   - rinject       : *radius of asteroid (km)*
 !   - semia         : *semi-major axis (solar radii)*
-!   - mdot          : *rate of mass to be injected (g/s)*
 !
 ! :Dependencies: eos, extern_lensethirring, externalforces, infile_utils,
 !   inject, io, kernel, options, part, physcon, setbinary, spherical,

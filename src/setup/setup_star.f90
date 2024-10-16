@@ -26,7 +26,7 @@ module setup
 !   - use_var_comp      : *Use variable composition (X, Z, mu)*
 !   - write_rho_to_file : *write density profile(s) to file*
 !
-! :Dependencies: dim, eos, eos_gasradrec, eos_piecewise,
+! :Dependencies: apr, dim, eos, eos_gasradrec, eos_piecewise,
 !   extern_densprofile, externalforces, infile_utils, io, kernel,
 !   mpidomain, mpiutils, options, part, physcon, prompting, relaxstar,
 !   setstar, setunits, setup_params, timestep, units
