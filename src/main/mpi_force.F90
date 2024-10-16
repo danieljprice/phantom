@@ -27,7 +27,7 @@ module mpiforce
  public :: get_mpitype_of_cellforce
  public :: free_mpitype_of_cellforce
 
- integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 20 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_cellforce = 8 * maxxpartveciforce * minpart + &  !  xpartvec(maxxpartveciforce,minpart)
                                           8 * maxfsum * minpart           + &  !  fsums(maxfsum,minpart)
                                           8 * 20                          + &  !  fgrav(20)
