@@ -313,7 +313,7 @@ subroutine test_directsum(ntests,npass)
 !--call apr setup if using it - this must be called after massoftype is set
 !       we're not using this right now, this test fails as is
 !       if (use_apr) call setup_apr_region_for_test()
-         
+
 !
 !--set thermal terms and velocity to zero, so only force is gravity
 !

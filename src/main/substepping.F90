@@ -1017,7 +1017,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
           itype  = iamtype(iphase(i))
           if (use_apr) then
              pmassi = aprmassoftype(itype,apr_level(i))
-          else   
+          else
              pmassi = massoftype(itype)
           endif
        endif

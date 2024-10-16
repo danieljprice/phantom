@@ -919,7 +919,7 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
  if ( j /= i+1) print*,' ERROR ',i,j
  nl = max_l - min_l + 1
  nr = max_r - min_r + 1
- 
+
 end subroutine sort_particles_in_cell
 
 !----------------------------------------------------------------
