@@ -743,7 +743,7 @@ contains
         if ((ibin == (minima(jj))) .or. &
         (ibin - 1 == (minima(jj))) .or. &
         (ibin + 1 == (minima(jj)))) then
-        if((poten(ii)/pmassi) < minpoten) then
+        if ((poten(ii)/pmassi) < minpoten) then
           minpoten = poten(ii)/pmassi
           min_particle(jj) = ii
         endif

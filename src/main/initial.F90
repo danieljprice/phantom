@@ -554,7 +554,7 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
              else
                 pmassi = massoftype(iamtype(iphase(i)))
              endif
-          else if (use_apr) then
+          elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
           if (use_regnbody) then

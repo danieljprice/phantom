@@ -205,7 +205,7 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
              else
                 pmassi = massoftype(itype)
              endif
-          else if (use_apr) then
+          elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
 
@@ -332,7 +332,7 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
                 pmassi = massoftype(itype)
              endif
              !  if (itype==iboundary) cycle accreteloop
-          else if (use_apr) then
+          elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
 
@@ -768,7 +768,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
              else
                 pmassi = massoftype(itype)
              endif
-          else if (use_apr) then
+          elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
           !
