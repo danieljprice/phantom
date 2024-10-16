@@ -1698,7 +1698,6 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
  real         :: uradi,dradi,dradxi,dradyi,dradzi,runix,runiy,runiz
  real         :: dT4,R_rad
  integer      :: ngradh_err
- real         :: uradself
 
  ngradh_err = 0
  over_parts: do icell = 1,cell%npcell
