@@ -1043,8 +1043,8 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
  if (slide_r) then
    do ii = 1,rem_nr
      ! next particle to shift across
-     k = minloc(dpivot,dim=1,mask=dpivot.gt.0.) + imin - 1
-     if (k-imin+1==0) k = maxloc(dpivot,dim=1,mask=dpivot.lt.0.) + imin - 1
+     k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
+     if (k-imin+1==0) k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
 
      ! swap this with the first particle on the j side
      inodeparts_swap = inodeparts(k)
@@ -1069,8 +1069,8 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
  else
    do ii = 1,rem_nl
      ! next particle to shift across
-     k = maxloc(dpivot,dim=1,mask=dpivot.lt.0.) + imin - 1
-     if (k-imin+1==0) k = minloc(dpivot,dim=1,mask=dpivot.gt.0.) + imin - 1
+     k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
+     if (k-imin+1==0) k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
 
      ! swap this with the last particle on the i side
      inodeparts_swap = inodeparts(k)
