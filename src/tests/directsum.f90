@@ -98,12 +98,12 @@ subroutine directsum_grav(xyzh,gradh,fgrav,phitot,ntot)
        iamtypei = iamtype(iphase(i))
        iactivei = iactive(iphase(i))
        if (use_apr) then
-         pmassi = aprmassoftype(iamtypei,apr_level(i))
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
        else
-         pmassi = massoftype(iamtypei)
+          pmassi = massoftype(iamtypei)
        endif
     else
-      if (use_apr) pmassi = aprmassoftype(igas,apr_level(i))
+       if (use_apr) pmassi = aprmassoftype(igas,apr_level(i))
     endif
 
     hi1  = 1./hi

@@ -113,17 +113,17 @@ subroutine get_centreofmass(xcom,vcom,npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz
        if (maxphase==maxp) then
           itype = iamtype(iphase(i))
           if (itype > 0) then ! avoid problems if called from ICs
-            if (use_apr) then
-              pmassi = aprmassoftype(itype,apr_level(i))
-            else
-              pmassi = massoftype(itype)
-            endif
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
           else
-            if (use_apr) then
-              pmassi = aprmassoftype(igas,apr_level(i))
-            else
-              pmassi = massoftype(igas)
-            endif
+             if (use_apr) then
+                pmassi = aprmassoftype(igas,apr_level(i))
+             else
+                pmassi = massoftype(igas)
+             endif
           endif
        endif
        totmass = totmass + pmassi
@@ -208,17 +208,17 @@ subroutine get_centreofmass_accel(acom,npart,xyzh,fxyzu,fext,nptmass,xyzmh_ptmas
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
-         if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-         else
-           pmassi = massoftype(iamtype(iphase(i)))
-        endif
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        else
-         if (use_apr) then
-           pmassi = aprmassoftype(igas,apr_level(i))
-         else
-           pmassi = massoftype(igas)
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
        endif
        totmass = totmass + pmassi
        acom(1) = acom(1) + pmassi*(fxyzu(1,i) + fext(1,i))
@@ -296,17 +296,17 @@ subroutine correct_bulk_motion()
     hi = xyzh(4,i)
     if (.not.isdead_or_accreted(hi)) then
        if (maxphase==maxp) then
-         if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-         else
-           pmassi = massoftype(iamtype(iphase(i)))
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        else
-         if (use_apr) then
-           pmassi = aprmassoftype(igas,apr_level(i))
-         else
-           pmassi = massoftype(igas)
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
+          else
+             pmassi = massoftype(igas)
+          endif
        endif
        totmass = totmass + pmassi
 
@@ -418,9 +418,9 @@ subroutine get_total_angular_momentum(xyzh,vxyz,npart,L_tot,xyzmh_ptmass,vxyz_pt
     if (.not.isdead_or_accreted(xyzh(4,ii))) then
        itype = iamtype(iphase(ii))
        if (use_apr) then
-         pmassi = aprmassoftype(itype,apr_level(ii))
+          pmassi = aprmassoftype(itype,apr_level(ii))
        else
-         pmassi = massoftype(itype)
+          pmassi = massoftype(itype)
        endif
        call cross_product3D(xyzh(1:3,ii),vxyz(1:3,ii),temp)
        L_tot = L_tot + temp*pmassi

@@ -147,9 +147,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
 
  ! if using apr, options set in setup file but needs to be initialised here
  if (use_apr) then
-   call allocate_linklist
-   call init_apr(apr_level,ierr)
-   call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+    call allocate_linklist
+    call init_apr(apr_level,ierr)
+    call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  endif
 
 
@@ -342,9 +342,9 @@ subroutine shift_particles(i1,npart,xyzh,vxyzu,dtmin)
     endif
     hi = xyzh(4,i)
     if (use_apr) then
-      pmassi = aprmassoftype(igas,apr_level(i))
+       pmassi = aprmassoftype(igas,apr_level(i))
     else
-      pmassi = massoftype(igas)
+       pmassi = massoftype(igas)
     endif
     rhoi = rhoh(hi,pmassi)
     cs = get_spsound(ieos,xyzh(:,i),rhoi,vxyzu(:,i))
@@ -407,27 +407,27 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  massrj = 0.
 
  do i = i1+1,npart
-   if (use_apr) then
-      rankj = minval(iorder,mask=iorder_mask)   ! Start from innermost to outermost particles
-      j = sum(minloc(iorder,mask=iorder_mask))  ! ID of first particle with iorder==rankj. Ignore the sum, doesn't do anything in practice.
-      iorder_mask(j) = .false.                  ! Eliminate this particle from next loop
-      npart_with_rank_prev = count(iorder==rank_prev)  ! note that this is 0 for rankj=1
-      pmassj = aprmassoftype(igas,apr_level(j))  ! replace with actual particle mass
-   else
-      j = i
-      pmassj = massoftype(igas)  ! replace with actual particle mass
-   endif
+    if (use_apr) then
+       rankj = minval(iorder,mask=iorder_mask)   ! Start from innermost to outermost particles
+       j = sum(minloc(iorder,mask=iorder_mask))  ! ID of first particle with iorder==rankj. Ignore the sum, doesn't do anything in practice.
+       iorder_mask(j) = .false.                  ! Eliminate this particle from next loop
+       npart_with_rank_prev = count(iorder==rank_prev)  ! note that this is 0 for rankj=1
+       pmassj = aprmassoftype(igas,apr_level(j))  ! replace with actual particle mass
+    else
+       j = i
+       pmassj = massoftype(igas)  ! replace with actual particle mass
+    endif
 
-   rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
+    rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
 
-   if (use_apr) then
-      if (rankj/=rank_prev) massrj = massrj + real(npart_with_rank_prev)*pmassj   ! for rankj=1, this correctly gives 0
-      rank_prev = rankj
-   else
-      massrj = mstar * real(iorder(i-i1)-1) / real(npart-i1)
-   endif
-  !  print*,'rankj=',rankj,'rank_prev=',rank_prev,'npartwithrankprev=',npart_with_rank_prev,'rj=',rj,'massri/pmass=',massrj/pmassj
-  !  read*
+    if (use_apr) then
+       if (rankj/=rank_prev) massrj = massrj + real(npart_with_rank_prev)*pmassj   ! for rankj=1, this correctly gives 0
+       rank_prev = rankj
+    else
+       massrj = mstar * real(iorder(i-i1)-1) / real(npart-i1)
+    endif
+    !  print*,'rankj=',rankj,'rank_prev=',rank_prev,'npartwithrankprev=',npart_with_rank_prev,'rj=',rj,'massri/pmass=',massrj/pmassj
+    !  read*
 
     rhor = yinterp(rho,mr,massrj) ! analytic rho(r)
     rhoj = rhoh(xyzh(4,j),pmassj) ! actual rho

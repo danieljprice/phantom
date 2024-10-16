@@ -225,12 +225,12 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
 !--apr test
 !
-if (use_apr.and.testall) then
-  write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
-  return
-elseif (use_apr.and.doapr) then
-  call test_apr(ntests,npass)
-endif
+ if (use_apr.and.testall) then
+    write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
+    return
+ elseif (use_apr.and.doapr) then
+    call test_apr(ntests,npass)
+ endif
 
 !
 !--test kernel module

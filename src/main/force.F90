@@ -675,9 +675,9 @@ subroutine force(icall,npart,xyzh,vxyzu,fxyzu,divcurlv,divcurlB,Bevol,dBevol,&
              iamtypei = igas
           endif
           if (use_apr) then
-            pmassi = aprmassoftype(iamtypei,apr_level(i))
+             pmassi = aprmassoftype(iamtypei,apr_level(i))
           else
-            pmassi = massoftype(iamtypei)
+             pmassi = massoftype(iamtypei)
           endif
           rhoi = rhoh(hi,pmassi)
           if (rhoi > rho_crit) then
@@ -1320,9 +1320,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
 #endif
        endif
        if (use_apr) then
-         pmassj = aprmassoftype(iamtypej,apr_level(j))
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
-         pmassj = massoftype(iamtypej)
+          pmassj = massoftype(iamtypej)
        endif
 
        fgrav = 0.5*(pmassj*fgravi + pmassi*fgravj)
@@ -1952,9 +1952,9 @@ subroutine compute_forces(i,iamgasi,iamdusti,xpartveci,hi,hi1,hi21,hi41,gradhi,g
           iamtypej = iamtype(iphase(j))
        endif
        if (use_apr) then
-         pmassj = aprmassoftype(iamtypej,apr_level(j))
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
-         pmassj = massoftype(iamtypej)
+          pmassj = massoftype(iamtypej)
        endif
        phii   = -rij1
        fgravj = fgrav*pmassj
@@ -2173,9 +2173,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
     endif
 
     if (use_apr) then
-      pmassi = aprmassoftype(iamtypei,apr_level(i))
+       pmassi = aprmassoftype(iamtypei,apr_level(i))
     else
-      pmassi = massoftype(iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
 
     hi = xyzh(4,i)
@@ -2323,9 +2323,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,gradh,divcurlv,divcurlB,dvdx,Bevol,
        endif
     endif
     if (use_apr) then
-      cell%apr(cell%npcell)                        = apr_level(i)
+       cell%apr(cell%npcell)                        = apr_level(i)
     else
-      cell%apr(cell%npcell)                        = 1
+       cell%apr(cell%npcell)                        = 1
     endif
 
     alphai = alpha
@@ -2489,9 +2489,9 @@ subroutine compute_cell(cell,listneigh,nneigh,Bevol,xyzh,vxyzu,fxyzu, &
     i = inodeparts(cell%arr_index(ip))
 
     if (use_apr) then
-      pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
     else
-      pmassi = massoftype(iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
 
     hi    = cell%xpartvec(ihi,ip)
@@ -2673,9 +2673,9 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
     endif
 
     if (use_apr) then
-      pmassi = aprmassoftype(iamtypei,cell%apr(ip))
+       pmassi = aprmassoftype(iamtypei,cell%apr(ip))
     else
-      pmassi = massoftype(iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
 
     i = inodeparts(cell%arr_index(ip))

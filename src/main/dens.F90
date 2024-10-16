@@ -741,11 +741,11 @@ pure subroutine get_density_sums(i,xpartveci,hi,hi1,hi21,iamtypei,iamgasi,iamdus
        ! adjust masses for apr
        ! this defaults to massoftype if apr_level=1
        if (use_apr) then
-         pmassi = aprmassoftype(iamtypei,apri)
-         pmassj = aprmassoftype(iamtypej,apr_level(j))
+          pmassi = aprmassoftype(iamtypei,apri)
+          pmassj = aprmassoftype(iamtypej,apr_level(j))
        else
-         pmassi = massoftype(iamtypei)
-         pmassj = massoftype(iamtypej)
+          pmassi = massoftype(iamtypei)
+          pmassj = massoftype(iamtypej)
        endif
 
        sametype: if (same_type) then
@@ -1258,9 +1258,9 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
     hi41  = hi21*hi21
 
     if (use_apr) then
-      apri = cell%apr(i)
+       apri = cell%apr(i)
     else
-      apri = 1
+       apri = 1
     endif
 
 
@@ -1376,9 +1376,9 @@ subroutine start_cell(cell,iphase,xyzh,vxyzu,fxyzu,fext,Bevol,rad,apr_level)
     if (do_radiation) cell%xpartvec(iradxii,cell%npcell) = rad(iradxi,i)
 
     if (use_apr) then
-      cell%apr(cell%npcell)                     = apr_level(i)
+       cell%apr(cell%npcell)                     = apr_level(i)
     else
-      cell%apr(cell%npcell)                     = 1
+       cell%apr(cell%npcell)                     = 1
     endif
 
  enddo over_parts
@@ -1422,9 +1422,9 @@ subroutine finish_cell(cell,cell_converged)
 
     apri = cell%apr(i)
     if (use_apr) then
-      pmassi = aprmassoftype(iamtypei,apri)
+       pmassi = aprmassoftype(iamtypei,apri)
     else
-      pmassi = massoftype(iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
 
     call finish_rhosum(rhosum,pmassi,hi,.true.,rhoi=rhoi,rhohi=rhohi,&
@@ -1588,9 +1588,9 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
     apri = cell%apr(i)
     if (use_apr) then
-      pmassi = aprmassoftype(iamtypei,apri)
+       pmassi = aprmassoftype(iamtypei,apri)
     else
-      pmassi = massoftype(iamtypei)
+       pmassi = massoftype(iamtypei)
     endif
 
     if (calculate_density) then

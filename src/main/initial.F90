@@ -372,9 +372,9 @@ subroutine startrun(infile,logfile,evfile,dumpfile,noread)
 
  ! initialise apr if it is being used
  if (use_apr) then
-  call init_apr(apr_level,ierr)
+    call init_apr(apr_level,ierr)
  else
-  apr_level(:) = 1
+    apr_level(:) = 1
  endif
 
 !

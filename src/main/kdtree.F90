@@ -396,7 +396,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
        xyzh_soa(nproot,:) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
        if (use_apr) then
-         apr_level_soa(nproot) = apr_level(i)
+          apr_level_soa(nproot) = apr_level(i)
        endif
     endif isnotdead
  enddo
@@ -573,15 +573,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-         if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-         else
-           pmassi = massoftype(iamtype(iphase_soa(i)))
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+          else
+             pmassi = massoftype(iamtype(iphase_soa(i)))
+          endif
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (use_apr) then
-         pmassi = aprmassoftype(igas,apr_level_soa(i))
-         fac    = pmassi*dfac ! to avoid round-off error
+          pmassi = aprmassoftype(igas,apr_level_soa(i))
+          fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -597,15 +597,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-         if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-         else
-           pmassi = massoftype(iamtype(iphase_soa(i)))
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+          else
+             pmassi = massoftype(iamtype(iphase_soa(i)))
+          endif
           fac    = pmassi*dfac ! to avoid round-off error
        elseif (use_apr) then
-         pmassi = aprmassoftype(igas,apr_level_soa(i))
-         fac    = pmassi*dfac ! to avoid round-off error
+          pmassi = aprmassoftype(igas,apr_level_soa(i))
+          fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
        xcofm = xcofm + fac*xi
@@ -668,11 +668,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-      if (use_apr) then
-        pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
-      else
-        pmassi = massoftype(iamtype(iphase_soa(i)))
-      endif
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+       else
+          pmassi = massoftype(iamtype(iphase_soa(i)))
+       endif
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
     quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
@@ -774,16 +774,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-      if (apr_tree) then
-        ! apr special sort - only used for merging particles
-        call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+       if (apr_tree) then
+          ! apr special sort - only used for merging particles
+          call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
                                     inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,&
                                     npnode,apr_level_soa)
-      else
-        ! regular sort
-        call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+       else
+          ! regular sort
+          call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
                                   inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
-      endif
+       endif
 
        if (nr + nl  /=  npnode) then
           call error('maketree','number of left + right != parent while splitting (likely cause: NaNs in position arrays)')
@@ -947,7 +947,7 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
  nchild_in = 2
 
  if (modulo(npnode,nchild_in) > 0) then
-   call error('apr sort','number of particles sent in to kdtree is not divisible by 2')
+    call error('apr sort','number of particles sent in to kdtree is not divisible by 2')
  endif
 
 ! print*,'nnode ',imin,imax,npnode,' pivot = ',iaxis,xpivot
@@ -999,12 +999,12 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
  enddo
 
  if (.not.i_lt_pivot) then
-   i = i - 1
-   dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+    i = i - 1
+    dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
  endif
  if (j_lt_pivot) then
-   j = j + 1
-   dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+    j = j + 1
+    dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
  endif
 
  min_l = imin
@@ -1023,76 +1023,76 @@ subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_
 
  ! Decide which direction the pivot needs to go
  if (rem_nl < rem_nr) then
-   slide_l = .true.
-   slide_r = .false.
+    slide_l = .true.
+    slide_r = .false.
  else
-   slide_l = .false.
-   slide_r = .true.
+    slide_l = .false.
+    slide_r = .true.
  endif
  ! Override this if there's less than nchild*2 in the cell
  if (nl < nchild_in) then
-   slide_r = .true.
-   slide_l = .false.
+    slide_r = .true.
+    slide_l = .false.
  elseif (nr < nchild_in) then
-   slide_r = .false.
-   slide_l = .true.
+    slide_r = .false.
+    slide_l = .true.
  endif
 
  ! Move across particles by distance from xpivot till we get
  ! the right number of particles in each cell
  if (slide_r) then
-   do ii = 1,rem_nr
-     ! next particle to shift across
-     k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
-     if (k-imin+1==0) k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
+    do ii = 1,rem_nr
+       ! next particle to shift across
+       k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
+       if (k-imin+1==0) k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
 
-     ! swap this with the first particle on the j side
-     inodeparts_swap = inodeparts(k)
-     xyzh_swap(1:4)  = xyzh_soa(k,1:4)
-     iphase_swap     = iphase_soa(k)
+       ! swap this with the first particle on the j side
+       inodeparts_swap = inodeparts(k)
+       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
+       iphase_swap     = iphase_soa(k)
 
-     inodeparts(k)   = inodeparts(j)
-     xyzh_soa(k,1:4) = xyzh_soa(j,1:4)
-     iphase_soa(k)   = iphase_soa(j)
+       inodeparts(k)   = inodeparts(j)
+       xyzh_soa(k,1:4) = xyzh_soa(j,1:4)
+       iphase_soa(k)   = iphase_soa(j)
 
-     inodeparts(j)   = inodeparts_swap
-     xyzh_soa(j,1:4) = xyzh_swap(1:4)
-     iphase_soa(j)   = iphase_swap
+       inodeparts(j)   = inodeparts_swap
+       xyzh_soa(j,1:4) = xyzh_swap(1:4)
+       iphase_soa(j)   = iphase_swap
 
-     ! and now shift to the right
-     i = i + 1
-     j = j + 1
+       ! and now shift to the right
+       i = i + 1
+       j = j + 1
 
-     ! ditch it, go again
-     dpivot(k-imin+1) = huge(k-imin+1)
-   enddo
+       ! ditch it, go again
+       dpivot(k-imin+1) = huge(k-imin+1)
+    enddo
  else
-   do ii = 1,rem_nl
-     ! next particle to shift across
-     k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
-     if (k-imin+1==0) k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
+    do ii = 1,rem_nl
+       ! next particle to shift across
+       k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
+       if (k-imin+1==0) k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
 
-     ! swap this with the last particle on the i side
-     inodeparts_swap = inodeparts(k)
-     xyzh_swap(1:4)  = xyzh_soa(k,1:4)
-     iphase_swap     = iphase_soa(k)
+       ! swap this with the last particle on the i side
+       inodeparts_swap = inodeparts(k)
+       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
+       iphase_swap     = iphase_soa(k)
 
-     inodeparts(k)   = inodeparts(i)
-     xyzh_soa(k,1:4) = xyzh_soa(i,1:4)
-     iphase_soa(k)   = iphase_soa(i)
+       inodeparts(k)   = inodeparts(i)
+       xyzh_soa(k,1:4) = xyzh_soa(i,1:4)
+       iphase_soa(k)   = iphase_soa(i)
 
-     inodeparts(i)   = inodeparts_swap
-     xyzh_soa(i,1:4) = xyzh_swap(1:4)
-     iphase_soa(i)   = iphase_swap
+       inodeparts(i)   = inodeparts_swap
+       xyzh_soa(i,1:4) = xyzh_swap(1:4)
+       iphase_soa(i)   = iphase_swap
 
-     ! and now shift to the left
-     i = i - 1
-     j = j - 1
+       ! and now shift to the left
+       i = i - 1
+       j = j - 1
 
-     ! ditch it, go again
-     dpivot(k-imin+1) = huge(k-imin+1)
+       ! ditch it, go again
+       dpivot(k-imin+1) = huge(k-imin+1)
 
-   enddo
+    enddo
  endif
 
  ! tidy up outputs
@@ -1534,9 +1534,9 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        zi = xyzh(3,i)
        if (maxphase==maxp) then
           if (use_apr) then
-            pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
           else
-            pmassi = massoftype(iamtype(iphase(i)))
+             pmassi = massoftype(iamtype(iphase(i)))
           endif
        endif
        x0(1) = x0(1) + pmassi*xi
@@ -1575,11 +1575,11 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        hmax  = max(hi, hmax)
 #ifdef GRAVITY
        if (maxphase==maxp) then
-         if (use_apr) then
-           pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
-         else
-           pmassi = massoftype(iamtype(iphase(i)))
-         endif
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        endif
        quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
        quads(2) = quads(2) + pmassi*(3.*dx*dy)
@@ -1836,7 +1836,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        xyzh_soa(npnode,:) = xyzh(:,i)
        iphase_soa(npnode) = iphase(i)
        if (use_apr) then
-         apr_level_soa(npnode) = apr_level(i)
+          apr_level_soa(npnode) = apr_level(i)
        endif
     enddo
 

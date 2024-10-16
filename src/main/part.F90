@@ -1250,7 +1250,7 @@ subroutine copy_particle(src,dst,new_part)
     dustevol(:,dst) = dustevol(:,src)
  endif
  if (use_apr) then
-   apr_level(dst) = apr_level(src)
+    apr_level(dst) = apr_level(src)
  endif
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
@@ -1370,8 +1370,8 @@ subroutine copy_particle_all(src,dst,new_part)
     ibin_sts(dst) = ibin_sts(src)
  endif
  if (use_apr) then
-   apr_level(dst)      = apr_level(src)
-   apr_level_soa(dst)  = apr_level_soa(src)
+    apr_level(dst)      = apr_level(src)
+    apr_level_soa(dst)  = apr_level_soa(src)
  endif
 
  if (new_part) then
@@ -1591,7 +1591,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
-  !  call fill_buffer(xtemp,apr_level(i),nbuf)
+    !  call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 

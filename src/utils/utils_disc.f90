@@ -110,7 +110,7 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
     if (allocated(zsetgas)) deallocate(zsetgas)
     allocate(myz(npart))
  else
-   allocate(myz(0)) ! to prevent compiler warnings
+    allocate(myz(0)) ! to prevent compiler warnings
  endif
 
 ! Move everything so that the centre of mass is at the origin

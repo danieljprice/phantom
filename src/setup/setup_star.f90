@@ -304,7 +304,7 @@ subroutine write_setupfile(filename,gamma,polyk)
 
  if (use_apr) then
     write(iunit,"(/,a)") '# apr options'
-   call write_options_apr(iunit)
+    call write_options_apr(iunit)
  endif
 
  close(iunit)
@@ -385,11 +385,11 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  endif
 
  if (use_apr) then
-   call read_inopt(apr_max_in,'apr_max',db)
-   call read_inopt(ref_dir,'ref_dir',db)
-   call read_inopt(apr_type,'apr_type',db)
-   call read_inopt(apr_rad,'apr_rad',db)
-   call read_inopt(apr_drad,'apr_drad',db)
+    call read_inopt(apr_max_in,'apr_max',db)
+    call read_inopt(ref_dir,'ref_dir',db)
+    call read_inopt(apr_type,'apr_type',db)
+    call read_inopt(apr_rad,'apr_rad',db)
+    call read_inopt(apr_drad,'apr_drad',db)
  endif
 
  call close_db(db)

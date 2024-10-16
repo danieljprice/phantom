@@ -83,9 +83,9 @@ subroutine test_apr(ntests,npass)
 
  ! Check that the original particle number returns
  if (npart == original_npart) then
-   npass = 1
+    npass = 1
  else
-   npass = 0
+    npass = 0
  endif
 
  if (id==master) write(*,"(/,a)") '<-- APR TEST COMPLETE'
@@ -108,11 +108,11 @@ subroutine setup_apr_region_for_test()
  if (id==master) write(*,"(/,a)") '--> adding an apr region'
 
  ! set parameters for the region
-  apr_max_in  =   1    ! number of additional refinement levels (3 -> 2x resolution)
-  ref_dir     =   1     ! increase (1) or decrease (-1) resolution
-  apr_type    =  -1     ! choose this so you get the default option which is
-                        ! reserved for the test suite
-  apr_rad     =   0.25  ! radius of innermost region
+ apr_max_in  =   1    ! number of additional refinement levels (3 -> 2x resolution)
+ ref_dir     =   1     ! increase (1) or decrease (-1) resolution
+ apr_type    =  -1     ! choose this so you get the default option which is
+ ! reserved for the test suite
+ apr_rad     =   0.25  ! radius of innermost region
 
 
  ! initialise
