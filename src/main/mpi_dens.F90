@@ -27,7 +27,7 @@ module mpidens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
 
- integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
                                          8 * minpart                    + & !  h_old(minpart)
                                          8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
