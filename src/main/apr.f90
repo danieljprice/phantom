@@ -595,6 +595,7 @@ subroutine write_options_apr(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
 
+ write(iwritein,"(/,a)") '# options for adaptive particle refinement'
  call write_inopt(apr_max_in,'apr_max','number of additional refinement levels (3 -> 2x resolution)',iunit)
  call write_inopt(ref_dir,'ref_dir','increase (1) or decrease (-1) resolution',iunit)
  call write_inopt(apr_type,'apr_type','1: static, 2: moving sink, 3: create clumps',iunit)

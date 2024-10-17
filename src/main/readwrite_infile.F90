@@ -308,10 +308,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
 
- if (use_apr) then
-    write(iwritein,"(/,a)") '# options for adaptive particle refinement'
-    call write_options_apr(iwritein)
- endif
+ if (use_apr) call write_options_apr(iwritein)
+
  call write_options_H2R(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
@@ -565,9 +563,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
-       if (use_apr) then
-          if (.not.imatch) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
-       endif
+       if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
