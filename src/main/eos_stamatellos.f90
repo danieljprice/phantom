@@ -33,16 +33,18 @@ contains
 
 subroutine init_S07cool()
  use part, only:npart,maxradprop
+ use allocutils, only:allocate_array
+
  print *, "Allocating cooling arrays"
- allocate(gradP_cool(npart))
- allocate(Gpot_cool(npart))
- allocate(duFLD(npart))
- allocate(lambda_fld(npart))
- allocate(urad_FLD(npart))
- allocate(ttherm_store(npart))
- allocate(teqi_store(npart))
- allocate(opac_store(npart))
- allocate(duSPH(npart))
+ call allocate_array('gradP_cool',gradP_cool,npart)
+ call allocate_array('Gpot_cool',Gpot_cool,npart)
+ call allocate_array('duFLD',duFLD,npart)
+ call allocate_array('lambda_fld',lambda_fld,npart)
+ call allocate_array('urad_FLD',urad_FLD,npart)
+ call allocate_array('ttherm_store',ttherm_store,npart)
+ call allocate_array('teqi_store',teqi_store,npart)
+ call allocate_array('opac_store',opac_store,npart)
+ call allocate_array('duSPH',duSPH,npart)
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
