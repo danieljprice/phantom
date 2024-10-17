@@ -304,6 +304,8 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
     do i=npart_old+1,npart
        call set_particle_type(i,itype+istar_offset)
     enddo
+    npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) + npart - npart_old
+    npartoftype(igas) = npartoftype(igas) - (npart - npart_old)
  endif
  !
  ! Print summary to screen
@@ -388,7 +390,7 @@ end subroutine set_stars
 !+
 !-----------------------------------------------------------------------
 subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
- use part,        only:get_particle_type,set_particle_type,igas
+ use part,        only:get_particle_type,set_particle_type,igas,npartoftype
  use vectorutils, only:cross_product3D
  integer, intent(in) :: npart
  real, intent(inout) :: xyz(:,:),vxyz(:,:)
@@ -421,6 +423,8 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
        if (mytype /= itype+istar_offset) cycle over_parts
        ! reset type back to gas
        call set_particle_type(i,igas)
+       npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) - 1
+       npartoftype(igas) = npartoftype(igas) + 1
     endif
     xyz(1:3,i) = xyz(1:3,i) + x0(:)
     vxyz(1:3,i) = vxyz(1:3,i) + v0(:)
