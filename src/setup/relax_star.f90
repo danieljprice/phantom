@@ -188,7 +188,7 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     return
  endif
  if (id==master) print "(/,3(a,1pg11.3),/,a,1pg11.3,a,i4)",&
-   ' s-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
+   ' RELAX-A-STAR-O-MATIC: Etherm:',etherm,' Epot:',Epot, ' R*:',maxval(r), &
    '       WILL stop when Ekin/Epot < ',tol_ekin,' OR Iter=',maxits
 
  if (write_files) then
