@@ -802,17 +802,10 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
 
  select case(star%iprofile)
  case(imesa)
-    ! core softening options
-    call read_inopt(star%isinkcore,'isinkcore'//trim(c),db,errcount=nerr)
-
-    if (star%isinkcore) then
-       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
-       if (ierr==0) star%lcore = lcore_lsun*real(solarl/unit_luminosity)
-    endif
-
     call read_inopt(star%isoftcore,'isoftcore'//trim(c),db,errcount=nerr,min=0)
 
     if (star%isoftcore <= 0) then ! sink particle core without softening
+       call read_inopt(star%isinkcore,'isinkcore'//trim(c),db,errcount=nerr)
        if (star%isinkcore) then
           call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
           if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
@@ -820,6 +813,7 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           if (ierr==0) star%hsoft = hsoft_rsun*real(solarr/udist)
        endif
     else
+       star%isinkcore = .true.
        call read_inopt(star%outputfilename,'outputfilename'//trim(c),db,errcount=nerr)
        if (star%isoftcore==2) then
           star%isofteningopt=3
@@ -836,6 +830,11 @@ subroutine read_options_star(star,need_iso,ieos,polyk,db,nerr,label)
           call read_inopt(mcore_msun,'mcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
           if (ierr==0) star%mcore = mcore_msun*real(solarm/umass)
        endif
+    endif
+
+    if (star%isinkcore) then
+       call read_inopt(lcore_lsun,'lcore'//trim(c),db,errcount=nerr,min=0.,err=ierr)
+       if (ierr==0) star%lcore = lcore_lsun*real(solarl/unit_luminosity)
     endif
  case(ievrard)
     call read_inopt(star%ui_coef,'ui_coef'//trim(c),db,errcount=nerr,min=0.)
