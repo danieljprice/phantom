@@ -18,7 +18,7 @@ module testapr
 !   part, physcon, testutils, unifdis, units
 !
  use testutils, only:checkval,update_test_scores
- use io,        only:id,master
+ use io,        only:id,master,fatal
  implicit none
  public :: test_apr,setup_apr_region_for_test
 
@@ -32,10 +32,7 @@ contains
 !+
 !--------------------------------------------
 subroutine test_apr(ntests,npass)
- use physcon, only:solarm,kpc
- use units,   only:set_units
  use unifdis,      only:set_unifdis
- use io,           only:id,master,fatal
  use boundary,     only:dxbound,dybound,dzbound,xmin,xmax,ymin,ymax,zmin,zmax
  use part,         only:npart,npartoftype,hfact,xyzh,init_part,massoftype
  use part,         only:isetphase,igas,iphase,vxyzu,fxyzu,apr_level
@@ -45,7 +42,7 @@ subroutine test_apr(ntests,npass)
  use apr,          only:apr_centre,update_apr
  integer, intent(inout) :: ntests,npass
  real :: psep,rhozero,time,totmass
- integer :: original_npart,splitted
+ integer :: original_npart,splitted,nfailed(1)
 
  if (use_apr) then
     if (id==master) write(*,"(/,a)") '--> TESTING APR MODULE'
@@ -53,8 +50,6 @@ subroutine test_apr(ntests,npass)
     if (id==master) write(*,"(/,a)") '--> SKIPPING APR TEST (REQUIRES -DAPR)'
     return
  endif
-
- ntests = 1
 
  ! Set up a uniform box of particles
  call init_part()
@@ -68,7 +63,7 @@ subroutine test_apr(ntests,npass)
                   hfact,npart,xyzh,periodic,mask=i_belong)
 
  original_npart = npart
- massoftype(1) = totmass/reduceall_mpi('+',npart)
+ massoftype(igas) = totmass/reduceall_mpi('+',npart)
  iphase(1:npart) = isetphase(igas,iactive=.true.)
 
  ! Now set up an APR zone
@@ -82,11 +77,8 @@ subroutine test_apr(ntests,npass)
  call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
  ! Check that the original particle number returns
- if (npart == original_npart) then
-    npass = 1
- else
-    npass = 0
- endif
+ call checkval(npart,original_npart,0,nfailed(1),'number of particles == original number')
+ call update_test_scores(ntests,nfailed,npass)
 
  if (id==master) write(*,"(/,a)") '<-- APR TEST COMPLETE'
 
@@ -101,8 +93,6 @@ subroutine setup_apr_region_for_test()
  use apr,  only:init_apr,update_apr,apr_max_in,ref_dir
  use apr,  only:apr_type,apr_rad
  use part, only:npart,xyzh,vxyzu,fxyzu,apr_level
- use linklist, only:set_linklist
- !real :: ratesq(nrates)
  integer :: ierr
 
  if (id==master) write(*,"(/,a)") '--> adding an apr region'
@@ -113,7 +103,6 @@ subroutine setup_apr_region_for_test()
  apr_type    =  -1     ! choose this so you get the default option which is
  ! reserved for the test suite
  apr_rad     =   0.25  ! radius of innermost region
-
 
  ! initialise
  call init_apr(apr_level,ierr)
