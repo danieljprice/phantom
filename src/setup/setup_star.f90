@@ -302,10 +302,7 @@ subroutine write_setupfile(filename,gamma,polyk)
 
  call write_inopt(write_rho_to_file,'write_rho_to_file','write density profile(s) to file',iunit)
 
- if (use_apr) then
-    write(iunit,"(/,a)") '# apr options'
-    call write_options_apr(iunit)
- endif
+ if (use_apr) call write_options_apr(iunit)
 
  close(iunit)
 
@@ -379,17 +376,17 @@ subroutine read_setupfile(filename,gamma,polyk,need_iso,ierr)
  ! option to write density profile to file
  call read_inopt(write_rho_to_file,'write_rho_to_file',db)
 
+ if (use_apr) then
+    call read_inopt(apr_max_in,'apr_max',db,errcount=nerr)
+    call read_inopt(ref_dir,'ref_dir',db,errcount=nerr)
+    call read_inopt(apr_type,'apr_type',db,errcount=nerr)
+    call read_inopt(apr_rad,'apr_rad',db,errcount=nerr)
+    call read_inopt(apr_drad,'apr_drad',db,errcount=nerr)
+ endif
+
  if (nerr > 0) then
     print "(1x,a,i2,a)",'setup_star: ',nerr,' error(s) during read of setup file'
     ierr = 1
- endif
-
- if (use_apr) then
-    call read_inopt(apr_max_in,'apr_max',db)
-    call read_inopt(ref_dir,'ref_dir',db)
-    call read_inopt(apr_type,'apr_type',db)
-    call read_inopt(apr_rad,'apr_rad',db)
-    call read_inopt(apr_drad,'apr_drad',db)
  endif
 
  call close_db(db)

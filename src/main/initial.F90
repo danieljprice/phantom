@@ -96,11 +96,9 @@ subroutine initialise()
 !
 !--initialise openMP things if required
 !
-! if (id==master) call print_cpuinfo() ! I have no idea why this doesn't work on my laptop
- print*,'cpu info'
+ if (id==master) call print_cpuinfo()
  if (id==master) call info_omp
  call init_omp
- print*,'init_omp'
 !
 !--initialise MPI domains
 !
