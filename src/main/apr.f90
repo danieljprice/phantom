@@ -623,6 +623,7 @@ subroutine closest_neigh(i,next_door,rmin)
  real :: dx,dy,dz,rtest
  integer :: j
 
+ ! DP note: this is not MPI safe...
  rmin = huge(rmin)
  next_door = 0
  do j = 1,npart

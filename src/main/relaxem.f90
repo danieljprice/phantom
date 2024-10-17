@@ -24,6 +24,8 @@ contains
 ! Subroutine to relax the new set of particles to a reference particle distribution
 subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  use deriv,     only:get_derivs_global
+ use dim,       only:mpi
+ use io,        only:error
  integer,           intent(in)    :: npart,n_ref,nrelax
  real,              intent(in)    :: force_ref(3,n_ref),xyzh_ref(4,n_ref)
  integer,           intent(in)    :: relaxlist(1:nrelax)
@@ -33,6 +35,10 @@ subroutine relax_particles(npart,n_ref,xyzh_ref,force_ref,nrelax,relaxlist)
  integer :: ishift,nshifts
 
  write(*,"(/,70('-'),/,/,2x,a,/,/)") 'APR: time to relax ...'
+ if (mpi) then
+    call error('APR','relax_particles is not compatible with MPI')
+    return
+ endif
 
  write(*,"(1x,1(a,i8,a,i8,a))") 'Relaxing',nrelax,' particles the heavenly way from',n_ref,' references.'
 
