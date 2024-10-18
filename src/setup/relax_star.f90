@@ -25,7 +25,6 @@ module relaxstar
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
- public :: get_mass_coord ! checked in test suite
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
  integer, private :: maxits = 1000
@@ -377,11 +376,12 @@ end subroutine shift_particles
 !----------------------------------------------------------------
 subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
                                   utherm,entrop,fix_entrop,rmax,rmserr)
- use table_utils, only:yinterp
- use part,        only:rhoh,massoftype,igas,maxvxyzu,ll
- use part,        only:apr_level,aprmassoftype
- use dim,         only:do_radiation,use_apr
- use eos,         only:gamma
+ use table_utils,   only:yinterp
+ use part,          only:rhoh,massoftype,igas,maxvxyzu,ll
+ use part,          only:apr_level,aprmassoftype
+ use dim,           only:do_radiation,use_apr
+ use eos,           only:gamma
+ use setstar_utils, only:get_mass_coord
  integer, intent(in) :: i1,npart,nt
  real, intent(in)    :: xyzh(:,:),mr(nt),rho(nt),utherm(nt),entrop(nt)
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
@@ -396,7 +396,6 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  rmserr = 0.
 
  call get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
- print*,' mass enclosed is ',maxval(mass_enclosed_r)
  mstar = mr(nt)
 
  do i = i1+1,npart
@@ -426,62 +425,6 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  deallocate(mass_enclosed_r)
 
 end subroutine reset_u_and_get_errors
-
-!----------------------------------------------------------------
-!+
-!  get the mass coordinate of a particle m(r)
-!  this gives the mass enclosed EXCLUSIVE of self, i.e. m(<r)
-!+
-!----------------------------------------------------------------
-subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
- use dim,       only:use_apr
- use part,      only:igas,apr_level,massoftype,aprmassoftype
- use sortutils, only:sort_by_radius,r2func,find_rank
- integer, intent(in)  :: i1,npart
- real,    intent(in)  :: xyzh(:,:)
- real,    intent(out), allocatable :: mass_enclosed_r(:)
- integer, allocatable :: iorder(:)
- real :: massri,mass_at_r,pmassi,r2,r2prev,ri
- integer :: i,j,iprev
-
- ! allocate memory
- allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
-
- ! sort particles by radius
- call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
-
- ! calculate cumulative mass
- massri = 0.
- mass_at_r = 0.
- r2prev = huge(0.)
- iprev = i1+1
- do i=i1+1,npart
-    j = i1 + iorder(i-i1)
-    if (use_apr) then
-       pmassi = aprmassoftype(igas,apr_level(j))
-    else
-       pmassi = massoftype(igas)
-    endif
-    r2 = dot_product(xyzh(1:3,j),xyzh(1:3,j))
-    !
-    ! key point here is to handle the situation where particles are at the same
-    ! radius, in which case they should get the same mass coordinate so that
-    ! they interpolate identical stellar properties from the table
-    !
-    if (abs(r2 - r2prev) > tiny(0.)) then
-       massri = massri + mass_at_r
-       mass_at_r = pmassi
-       r2prev = r2
-    else
-       mass_at_r = mass_at_r + pmassi
-    endif
-    mass_enclosed_r(j-i1) = massri
- enddo
-
- ! clean up
- deallocate(iorder)
-
-end subroutine get_mass_coord
 
 !----------------------------------------------------------------
 !+
