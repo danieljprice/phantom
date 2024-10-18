@@ -508,8 +508,11 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
  integer,          intent(out) :: ierr
  integer, save :: ngot = 0
  character(len=30), parameter :: label = 'read_options_apr'
+ logical :: igotall1,igotall2
 
  imatch  = .true.
+ igotall1 = .true.
+ igotall2 = .true.
  select case(trim(name))
  case('apr_max')
     read(valstring,*,iostat=ierr) apr_max_in
@@ -533,13 +536,13 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
     imatch = .false.
     select case(apr_type)
     case(1)
-       call read_options_apr1(name,valstring,imatch,igotall,ierr)
+       call read_options_apr1(name,valstring,imatch,igotall1,ierr)
     case(2)
-       call read_options_apr2(name,valstring,imatch,igotall,ierr)
+       call read_options_apr2(name,valstring,imatch,igotall2,ierr)
     end select
  end select
+ igotall = (ngot >= 5) .and. igotall1 .and. igotall2
 
- igotall = (ngot == 5)
 end subroutine read_options_apr
 
 !-----------------------------------------------------------------------
@@ -569,6 +572,7 @@ subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+ igotall = (ngot >= 3)
 
 end subroutine read_options_apr1
 
@@ -589,6 +593,7 @@ subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
  case default
     imatch = .false.
  end select
+ igotall = (ngot >= 1)
 
 end subroutine read_options_apr2
 
