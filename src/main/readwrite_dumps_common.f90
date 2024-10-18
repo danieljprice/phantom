@@ -794,7 +794,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        ierr = ierr + 1
     endif
     if (.not.got_radprop(ikappa)) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: RADIATION=yes but opacity not found in Phantom dump file'
     endif
  endif
 
@@ -803,10 +803,10 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (mhd) then
     if (.not.all(got_Bxyz(1:3))) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: MHD but magnetic field arrays not found in Phantom dump file'
     endif
     if (.not.got_psi) then
-       if (id==master .and. i1==1) write(*,"(/,a,/)") &
+       if (id==master .and. i1==1) write(*,"(/,1x,a,/)") &
           'WARNING! div B cleaning field (Psi) not found in Phantom dump file: assuming psi=0'
        Bevol(maxBevol,i1:i2) = 0.
     endif
@@ -817,7 +817,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (gr) then
     if (.not.all(got_pxyzu(1:3))) then
-       write(*,"(/,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
+       write(*,"(/,1x,a,/)") 'WARNING: GR but momentum arrays not found in Phantom dump file'
        pxyzu(:,i1:i2) = 0.
     endif
  endif
@@ -826,7 +826,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
  !
  if (do_nucleation) then
     if (.not.all(got_nucleation)) then
-       write(*,"(/,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
+       write(*,"(/,1x,a,/)") 'WARNING: DUST_NUCLEATION=yes but nucleation arrays not found in Phantom dump file'
        call init_nucleation()
     endif
  endif
@@ -839,7 +839,7 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
        iorig(i) = i + noffset
     enddo
     norig = i2
-    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
+    if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: Particle IDs not in dump; resetting IDs'
  else
     norig = 0
     do i=i1,i2
@@ -850,11 +850,11 @@ subroutine check_arrays(i1,i2,noffset,npartoftype,npartread,nptmass,nsinkpropert
 !
 ! APR
 !
- if (.not.got_apr_level) then
+ if (use_apr .and. .not.got_apr_level) then
     do i = i1,i2
        apr_level(i) = 1
     enddo
-    if (id==master .and. i1==1) write(*,"(/,a,/)") 'WARNING: APR levels not in dump; setting to default'
+    if (id==master .and. i1==1) write(*,"(/,1x,a,/)") 'WARNING: APR levels not in dump; setting to default'
  endif
 
 end subroutine check_arrays
