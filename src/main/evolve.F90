@@ -139,11 +139,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
 
+ tzero     = time
  if (.not. initialized) then
  tprint    = 0.
  nsteps    = 0
  nsteplast = 0
- tzero     = time
  dtlast    = 0.
  dtinject  = huge(dtinject)
  dtrad     = huge(dtrad)
