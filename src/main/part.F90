@@ -663,7 +663,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
- apr_level = 1 ! this is reset if the simulation is to derefine
+ if (use_apr) apr_level = 1 ! this is reset if the simulation is to derefine
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.
@@ -1249,9 +1249,7 @@ subroutine copy_particle(src,dst,new_part)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
- if (use_apr) then
-    apr_level(dst) = apr_level(src)
- endif
+ if (use_apr) apr_level(dst) = apr_level(src)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)

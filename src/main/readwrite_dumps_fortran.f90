@@ -982,7 +982,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
  use dump_utils, only:read_array,match_tag
  use dim,        only:use_dust,h2chemistry,maxalpha,maxp,gravity,maxgrav,maxvxyzu,do_nucleation, &
                       use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature,&
-                      ind_timesteps,use_krome,use_apr,store_ll_ptmass
+                      ind_timesteps,use_krome,use_apr,store_ll_ptmass,mhd
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
                       alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,linklist_ptmass, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
@@ -1140,8 +1140,10 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           end select
           select case(iarr)   ! MHD arrays can either be in block 1 or block 4
           case(1,4)
-             call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-             call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             if (mhd) then
+                call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+             endif
           end select
           if (.not.match) then
              !write(*,*) 'skipping '//trim(tag)

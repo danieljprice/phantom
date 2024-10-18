@@ -323,11 +323,10 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
 #endif
-#ifdef IND_TIMESTEPS
  use part, only:iphase,iactive
-#endif
  use part, only:isdead_or_accreted
  use io,   only:fatal
+ use dim,  only:ind_timesteps
  integer,         intent(in)  :: np,irootnode,ndim
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
@@ -383,21 +382,19 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
        nproot = nproot + 1
 
-#ifdef IND_TIMESTEPS
-       if (iactive(iphase(i))) then
-          inodeparts(nproot) = i  ! +ve if active
+       if (ind_timesteps) then
+          if (iactive(iphase(i))) then
+             inodeparts(nproot) = i  ! +ve if active
+          else
+             inodeparts(nproot) = -i ! -ve if inactive
+          endif
+          if (use_apr) inodeparts(nproot) = abs(inodeparts(nproot))
        else
-          inodeparts(nproot) = -i ! -ve if inactive
+          inodeparts(nproot) = i
        endif
-       if (use_apr) inodeparts(nproot) = abs(inodeparts(nproot))
-#else
-       inodeparts(nproot) = i
-#endif
        xyzh_soa(nproot,:) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
-       if (use_apr) then
-          apr_level_soa(nproot) = apr_level(i)
-       endif
+       if (use_apr) apr_level_soa(nproot) = apr_level(i)
     endif isnotdead
  enddo
 
@@ -888,17 +885,17 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
           inodeparts_swap = inodeparts(i)
           xyzh_swap(1:4)  = xyzh_soa(i,1:4)
           iphase_swap     = iphase_soa(i)
-          apr_swap        = apr_level_soa(i)
+          if (use_apr) apr_swap = apr_level_soa(i)
 
           inodeparts(i)   = inodeparts(j)
           xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
           iphase_soa(i)   = iphase_soa(j)
-          apr_level_soa(i)= apr_level_soa(j)
+          if (use_apr) apr_level_soa(i)= apr_level_soa(j)
 
           inodeparts(j)   = inodeparts_swap
           xyzh_soa(j,1:4) = xyzh_swap(1:4)
           iphase_soa(j)   = iphase_swap
-          apr_level_soa(j)= apr_swap
+          if (use_apr) apr_level_soa(j)= apr_swap
 
           i = i + 1
           j = j - 1
