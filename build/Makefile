@@ -658,12 +658,14 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
+SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+            set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+            set_star_utils.f90 relax_star.f90 set_star.f90 
+
+SRCSETUP= utils_omp.F90 setup_params.f90 \
           set_dust_options.f90 set_units.f90 \
-          density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
-          set_slab.f90 set_disc.F90 set_orbit.f90 \
-          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
+          ${SRCSETSTAR} set_slab.f90 set_disc.F90 set_orbit.f90 \
+          set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
@@ -694,7 +696,7 @@ SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
+         test_step.F90 test_indtstep.F90 ${SRCSETSTAR} set_disc.F90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \

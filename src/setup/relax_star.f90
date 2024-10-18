@@ -25,6 +25,7 @@ module relaxstar
 !
  implicit none
  public :: relax_star,write_options_relax,read_options_relax
+ public :: get_mass_coord ! checked in test suite
 
  real,    private :: tol_ekin = 1.e-7 ! criteria for being converged
  integer, private :: maxits = 1000
@@ -377,7 +378,6 @@ end subroutine shift_particles
 subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
                                   utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils, only:yinterp
- use sortutils,   only:find_rank,r2func
  use part,        only:rhoh,massoftype,igas,maxvxyzu,ll
  use part,        only:apr_level,aprmassoftype
  use dim,         only:do_radiation,use_apr
@@ -387,66 +387,101 @@ subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
  real, intent(inout) :: vxyzu(:,:),rad(:,:)
  real, intent(out)   :: rmax,rmserr
  logical, intent(in) :: fix_entrop
- real :: rj,rhor,rhoj,rho1,mstar,massrj,pmassj
- integer :: i,j,rankj,rank_prev,npart_with_rank_prev
- integer, allocatable :: iorder(:)
- logical, allocatable :: iorder_mask(:)
+ real :: ri,rhor,rhoi,rho1,mstar,massri,pmassi
+ real, allocatable :: mass_enclosed_r(:)
+ integer :: i
 
  rho1 = yinterp(rho,mr,0.)
  rmax = 0.
  rmserr = 0.
- ll = 0 ! this reassignment without changing length is essential for apr
- allocate(iorder(npart-i1))
- call find_rank(npart-i1,r2func,xyzh(1:3,i1+1:npart),iorder)
- ll(1:npart-i1) = iorder(1:npart-i1)
 
+ call get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+ print*,' mass enclosed is ',maxval(mass_enclosed_r)
  mstar = mr(nt)
- allocate(iorder_mask(size(iorder)))
- iorder_mask = .true.
- rank_prev = 0
- massrj = 0.
 
  do i = i1+1,npart
-    if (use_apr) then
-       rankj = minval(iorder,mask=iorder_mask)   ! Start from innermost to outermost particles
-       j = sum(minloc(iorder,mask=iorder_mask))  ! ID of first particle with iorder==rankj. Ignore the sum, doesn't do anything in practice.
-       iorder_mask(j) = .false.                  ! Eliminate this particle from next loop
-       npart_with_rank_prev = count(iorder==rank_prev)  ! note that this is 0 for rankj=1
-       pmassj = aprmassoftype(igas,apr_level(j))  ! replace with actual particle mass
-    else
-       j = i
-       pmassj = massoftype(igas)  ! replace with actual particle mass
-    endif
-
-    rj = sqrt(dot_product(xyzh(1:3,j),xyzh(1:3,j)))
+    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+    massri = mass_enclosed_r(i-i1)/mstar
+    rhor = yinterp(rho,mr,massri) ! analytic rho(r)
 
     if (use_apr) then
-       if (rankj/=rank_prev) massrj = massrj + real(npart_with_rank_prev)*pmassj   ! for rankj=1, this correctly gives 0
-       rank_prev = rankj
+       pmassi = aprmassoftype(igas,apr_level(i))
     else
-       massrj = mstar * real(iorder(i-i1)-1) / real(npart-i1)
+       pmassi = massoftype(igas)
     endif
-    !  print*,'rankj=',rankj,'rank_prev=',rank_prev,'npartwithrankprev=',npart_with_rank_prev,'rj=',rj,'massri/pmass=',massrj/pmassj
-    !  read*
-
-    rhor = yinterp(rho,mr,massrj) ! analytic rho(r)
-    rhoj = rhoh(xyzh(4,j),pmassj) ! actual rho
+    rhoi = rhoh(xyzh(4,i),pmassi) ! actual rho
     if (maxvxyzu >= 4) then
        if (fix_entrop) then
-          vxyzu(4,j) = (yinterp(entrop,mr,massrj)*rhoj**(gamma-1.))/(gamma-1.)
+          vxyzu(4,i) = (yinterp(entrop,mr,massri)*rhoi**(gamma-1.))/(gamma-1.)
        else
-          vxyzu(4,j) = yinterp(utherm,mr,massrj)
+          vxyzu(4,i) = yinterp(utherm,mr,massri)
        endif
     endif
-    rmserr = rmserr + (rhor - rhoj)**2
-    rmax   = max(rmax,rj)
+    rmserr = rmserr + (rhor - rhoi)**2
+    rmax   = max(rmax,ri)
  enddo
  if (do_radiation) rad = 0.
  rmserr = sqrt(rmserr/npart)/rho1
 
- deallocate(iorder,iorder_mask)
+ deallocate(mass_enclosed_r)
 
 end subroutine reset_u_and_get_errors
+
+!----------------------------------------------------------------
+!+
+!  get the mass coordinate of a particle m(r)
+!  this gives the mass enclosed EXCLUSIVE of self, i.e. m(<r)
+!+
+!----------------------------------------------------------------
+subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+ use dim,       only:use_apr
+ use part,      only:igas,apr_level,massoftype,aprmassoftype
+ use sortutils, only:sort_by_radius,r2func,find_rank
+ integer, intent(in)  :: i1,npart
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(out), allocatable :: mass_enclosed_r(:)
+ integer, allocatable :: iorder(:)
+ real :: massri,mass_at_r,pmassi,r2,r2prev,ri
+ integer :: i,j,iprev
+
+ ! allocate memory
+ allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
+
+ ! sort particles by radius
+ call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
+
+ ! calculate cumulative mass
+ massri = 0.
+ mass_at_r = 0.
+ r2prev = huge(0.)
+ iprev = i1+1
+ do i=i1+1,npart
+    j = i1 + iorder(i-i1)
+    if (use_apr) then
+       pmassi = aprmassoftype(igas,apr_level(j))
+    else
+       pmassi = massoftype(igas)
+    endif
+    r2 = dot_product(xyzh(1:3,j),xyzh(1:3,j))
+    !
+    ! key point here is to handle the situation where particles are at the same
+    ! radius, in which case they should get the same mass coordinate so that
+    ! they interpolate identical stellar properties from the table
+    !
+    if (abs(r2 - r2prev) > tiny(0.)) then
+       massri = massri + mass_at_r
+       mass_at_r = pmassi
+       r2prev = r2
+    else
+       mass_at_r = mass_at_r + pmassi
+    endif
+    mass_enclosed_r(j-i1) = massri
+ enddo
+
+ ! clean up
+ deallocate(iorder)
+
+end subroutine get_mass_coord
 
 !----------------------------------------------------------------
 !+

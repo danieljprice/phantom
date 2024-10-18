@@ -60,6 +60,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
  use testsetdisc,  only:test_setdisc
+ use testsetstar,  only:test_setstar
  use testsethier,  only:test_sethier
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
@@ -80,7 +81,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
- logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
+ logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
  logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,&
             doiorig,doapr
 #ifdef FINVSQRT
@@ -123,6 +124,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dogravity  = .false.
  dorwdump   = .false.
  dosetdisc  = .false.
+ dosetstar  = .false.
  doeos      = .false.
  dodust     = .false.
  dogrowth   = .false.
@@ -195,6 +197,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
+ case('setstar','star')
+    dosetstar = .true.
  case('eos')
     doeos = .true.
  case('dust')
@@ -385,6 +389,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 !
  if (dosetdisc.or.testall) then
     call test_setdisc(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
+!--test of set_star module
+!
+ if (dosetstar.or.testall) then
+    call test_setstar(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
