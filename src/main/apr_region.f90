@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module apr_region
 !
-! apr_region
+! Everything for setting the adaptive particle refinement regions
 !
 ! :References: None
 !
@@ -25,12 +25,11 @@ module apr_region
 
 contains
 
- !-----------------------------------------------------------------------
- !+
- !  Setting/updating the centre of the apr region (as it may move)
- !+
- !-----------------------------------------------------------------------
-
+!-----------------------------------------------------------------------
+!+
+!  Setting/updating the centre of the apr region (as it may move)
+!+
+!-----------------------------------------------------------------------
 subroutine set_apr_centre(apr_type,apr_centre,ntrack,track_part)
  use part, only: xyzmh_ptmass,xyzh
  integer, intent(in)  :: apr_type
@@ -72,7 +71,6 @@ end subroutine set_apr_centre
 !  the spatial arrangement of the regions
 !+
 !-----------------------------------------------------------------------
-
 subroutine set_apr_regions(ref_dir,apr_max,apr_regions,apr_rad,apr_drad)
  integer, intent(in) :: ref_dir,apr_max
  real, intent(in)    :: apr_rad,apr_drad

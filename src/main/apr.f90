@@ -6,7 +6,7 @@
 !--------------------------------------------------------------------------!
 module apr
 !
-! apr
+! Everything needed for live adaptive particle refinement
 !
 ! :References: None
 !
@@ -50,11 +50,11 @@ module apr
 
 contains
 
- !-----------------------------------------------------------------------
- !+
- !  Initialising all the apr arrays and properties
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Initialising all the apr arrays and properties
+!+
+!-----------------------------------------------------------------------
 subroutine init_apr(apr_level,ierr)
  use dim, only:maxp_hard
  use part, only:npart,massoftype,aprmassoftype
@@ -110,11 +110,11 @@ subroutine init_apr(apr_level,ierr)
 
 end subroutine init_apr
 
- !-----------------------------------------------------------------------
- !+
- !  Subroutine to check if particles need to be split or merged
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Subroutine to check if particles need to be split or merged
+!+
+!-----------------------------------------------------------------------
 subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
  use dim,      only:maxp_hard,ind_timesteps
  use part,     only:ntot,isdead_or_accreted,igas,aprmassoftype,&
@@ -276,12 +276,12 @@ subroutine update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
 
 end subroutine update_apr
 
- !-----------------------------------------------------------------------
- !+
- !  routine to return the adaptive particle refinement level based on position
- !  and the boundaries set by the apr_* arrays
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  routine to return the adaptive particle refinement level based on position
+!  and the boundaries set by the apr_* arrays
+!+
+!-----------------------------------------------------------------------
 subroutine get_apr(pos,apri)
  use io, only:fatal
  use apr_region, only:apr_region_is_circle
@@ -316,11 +316,11 @@ subroutine get_apr(pos,apri)
 
 end subroutine get_apr
 
- !-----------------------------------------------------------------------
- !+
- !  routine to split one particle into two
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  routine to split one particle into two
+!+
+!-----------------------------------------------------------------------
 subroutine splitpart(i,npartnew)
  use part,         only:copy_particle_all,apr_level,xyzh,vxyzu,npartoftype,igas
  use part,         only:set_particle_type
@@ -418,12 +418,12 @@ subroutine splitpart(i,npartnew)
 
 end subroutine splitpart
 
- !-----------------------------------------------------------------------
- !+
- !  Take in all particles that *might* be merged at this apr_level
- !  and use our special tree to merge what has left the region
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Take in all particles that *might* be merged at this apr_level
+!  and use our special tree to merge what has left the region
+!+
+!-----------------------------------------------------------------------
 subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,current_apr,&
                                      xyzh,vxyzu,apr_level,nkilled,nrelax,relaxlist,npartnew)
  use linklist, only:set_linklist,ncells,ifirstincell,get_cell_location
@@ -496,11 +496,11 @@ subroutine merge_with_special_tree(nmerge,mergelist,xyzh_merge,vxyzu_merge,curre
 
 end subroutine merge_with_special_tree
 
- !-----------------------------------------------------------------------
- !+
- !  reads input options from the input file
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  reads input options from the input file
+!+
+!-----------------------------------------------------------------------
 subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
  use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
@@ -542,12 +542,11 @@ subroutine read_options_apr(name,valstring,imatch,igotall,ierr)
  igotall = (ngot == 5)
 end subroutine read_options_apr
 
- !-----------------------------------------------------------------------
- !+
- !  extra subroutines for reading in different styles of apr zones
- !+
- !-----------------------------------------------------------------------
-
+!-----------------------------------------------------------------------
+!+
+!  extra subroutines for reading in different styles of apr zones
+!+
+!-----------------------------------------------------------------------
 subroutine read_options_apr1(name,valstring,imatch,igotall,ierr)
  use io, only:fatal
  character(len=*), intent(in)  :: name,valstring
@@ -593,11 +592,11 @@ subroutine read_options_apr2(name,valstring,imatch,igotall,ierr)
 
 end subroutine read_options_apr2
 
- !-----------------------------------------------------------------------
- !+
- !  Writes input options to the input file.
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  Writes input options to the input file.
+!+
+!-----------------------------------------------------------------------
 subroutine write_options_apr(iunit)
  use infile_utils, only:write_inopt
  integer, intent(in) :: iunit
@@ -649,11 +648,11 @@ subroutine closest_neigh(i,next_door,rmin)
 
 end subroutine closest_neigh
 
- !-----------------------------------------------------------------------
- !+
- !  routine to put a particle on the shortest timestep
- !+
- !-----------------------------------------------------------------------
+!-----------------------------------------------------------------------
+!+
+!  routine to put a particle on the shortest timestep
+!+
+!-----------------------------------------------------------------------
 subroutine put_in_smallest_bin(i)
  use timestep_ind, only:nbinmax
  use part,         only:ibin
@@ -663,13 +662,12 @@ subroutine put_in_smallest_bin(i)
 
 end subroutine put_in_smallest_bin
 
- !-----------------------------------------------------------------------
- !+
- !  Create a new apr region that is centred on a dense clump
- !  (This is work in progress)
- !+
- !-----------------------------------------------------------------------
-
+!-----------------------------------------------------------------------
+!+
+!  Create a new apr region that is centred on a dense clump
+!  (This is work in progress)
+!+
+!-----------------------------------------------------------------------
 subroutine create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
  use apr_region, only:set_apr_centre
  use part, only:igas,rhoh
