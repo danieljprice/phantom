@@ -307,7 +307,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
           uui = vxyzu(4,i)
           if (uui < 0.) then
              call warning('cons2prim','Internal energy < 0',i,'u',uui)
-             print*,'apr',apr_level(i)
           endif
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
                                gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i,isionised=isionised(i))

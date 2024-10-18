@@ -635,7 +635,7 @@ subroutine find_rank(npart,func,xyzh,ranki)
  do i=2,npart ! Loop over ranks sorted by indexxfunc
     j = iorder(i)
     k = iorder(i-1)
-    if (func(xyzh(:,j))/func(xyzh(:,k)) - 1. > min_diff) then ! If particles have distinct radii
+    if (abs(func(xyzh(:,j)) - func(xyzh(:,k))) > min_diff) then ! If particles have distinct radii
        ranki(j) = i
     else
        ranki(j) = ranki(k)       ! Else, give same ranks

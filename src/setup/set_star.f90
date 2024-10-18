@@ -129,7 +129,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  use centreofmass,       only:reset_centreofmass
  use dim,                only:do_radiation,gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu
+ use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -194,6 +194,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         star%isoftcore,star%isofteningopt,star%rcore,star%mcore,&
                         star%hsoft,star%outputfilename,composition,&
                         comp_label,ncols_compo)
+
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -242,6 +243,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
+       polyk_eos = polyk
        call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
                        mu,ierr_relax,npin=npart_old,label=star%label,&
                        write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)

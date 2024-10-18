@@ -85,8 +85,7 @@ subroutine test_get_mass_coord(ntests,npass)
  call update_test_scores(ntests,nfail,npass)
 
  ! check that the mass ranking is correct
- ncheck = 0
- nfail = 0
+ ncheck = 0; nfail = 0; errmax = 0.
  do i=i1+1,np
     call checkvalbuf(mass_enclosed_r(i-i1),(i-i1-1)*massoftype(igas),&
                      tol,'m(x) for particles in x=[0,1]',nfail(1),ncheck,errmax)
@@ -106,7 +105,9 @@ subroutine test_get_mass_coord(ntests,npass)
     ! works only for equal mass particles
     !
     mass_enclosed_r = mass_enclosed_r / ((np-i1)*massoftype(igas))  ! make it a mass fraction
-    call find_rank(np-i1,r2func,xyzh(1:3,i1+1:np),iorder)
+    call find_rank(np-i1,r2func,xyzh(:,i1+1:np),iorder)
+
+    ncheck = 0; nfail = 0; errmax = 0.
     do i=i1+1,np
        massri = real(iorder(i-i1)-1) / real(np-i1)
        call checkvalbuf(mass_enclosed_r(i-i1),massri,tol,'m(<r) agrees with previous method',nfail(1),ncheck,errmax)
@@ -131,7 +132,7 @@ subroutine test_polytrope(ntests,npass)
  use options,   only:ieos
  use physcon,   only:solarr,solarm,pi
  use eos,       only:gamma,X_in,Z_in
- use setstar,   only:star_t,set_star,set_defaults_star
+ use setstar,   only:star_t,set_star,set_defaults_star,ipoly
  use units,     only:set_units
  use checksetup, only:check_setup
  integer, intent(inout) :: ntests,npass
@@ -147,8 +148,9 @@ subroutine test_polytrope(ntests,npass)
  call set_units(dist=solarr,mass=solarm,G=1.d0)
  ieos = 2
  gamma = 5./3.
+ polyk = 1.
  call set_defaults_star(star)
- star%iprofile = 2  ! a polytrope
+ star%iprofile = ipoly  ! a polytrope
  star%np = 1000
  x0 = 0.
  ! do this test twice, to check the second star relaxes...
