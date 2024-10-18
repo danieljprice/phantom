@@ -66,8 +66,10 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
-    integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
     integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+
+    ! pad the array to 8-byte boundaries
+    integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
  type stackdens

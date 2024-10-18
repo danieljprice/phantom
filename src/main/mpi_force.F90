@@ -68,8 +68,10 @@ module mpiforce
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
     integer(kind=1)  :: ibinneigh(minpart)
-    integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
     integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+
+    ! pad the array to 8-byte boundaries
+    integer(kind=1)  :: pad(8 - mod(nbytes_cellforce, 8)) !padding to maintain alignment of elements
  end type cellforce
 
  type stackforce
