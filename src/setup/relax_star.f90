@@ -56,7 +56,8 @@ contains
 !    xyzh(:,:) - positions and smoothing lengths of all particles
 !+
 !----------------------------------------------------------------
-subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,npin,label)
+subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,npin,label,&
+                      write_dumps,density_error,energy_error)
  use table_utils,     only:yinterp
  use deriv,           only:get_derivs_global
  use dim,             only:maxp,maxvxyzu,gr,gravity,use_apr
@@ -85,16 +86,23 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
  integer, intent(out)   :: ierr
  integer, intent(in), optional :: npin
  character(len=*), intent(in), optional :: label
+ logical, intent(in),  optional :: write_dumps
+ real,    intent(out), optional :: density_error,energy_error
  integer :: nits,nerr,nwarn,iunit,i1
  real    :: t,dt,dtmax,rmserr,rstar,mstar,tdyn
  real    :: entrop(nt),utherm(nt),mr(nt),rmax,dtext,dtnew
  logical :: converged,use_step,restart
  logical, parameter :: fix_entrop = .true. ! fix entropy instead of thermal energy
- logical, parameter :: write_files = .true.
+ logical :: write_files
  character(len=20) :: filename,mylabel
 
  i1 = 0
  if (present(npin)) i1 = npin  ! starting position in particle array
+ !
+ ! optional argument to not write files to disk
+ !
+ write_files = .true.
+ if (present(write_dumps)) write_files = write_dumps
  !
  ! label for relax_star snapshots
  !
@@ -204,6 +212,9 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     call init_step(npart,t,dtmax)
  endif
  nits = 0
+ rmserr = 0.
+ ekin = 0.
+ epot = 1. ! to avoid compiler warning
  do while (.not. converged .and. nits < maxits)
     nits = nits + 1
     !
@@ -282,6 +293,11 @@ subroutine relax_star(nt,rho,pr,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr,np
     endif
  enddo
  if (write_files) close(iunit)
+ !
+ ! optional diagnostics
+ !
+ if (present(density_error)) density_error = rmserr
+ if (present(energy_error))  energy_error = ekin/abs(epot)
  !
  ! warn if relaxation finished due to hitting nits=nitsmax
  !
@@ -377,7 +393,7 @@ end subroutine shift_particles
 subroutine reset_u_and_get_errors(i1,npart,xyzh,vxyzu,rad,nt,mr,rho,&
                                   utherm,entrop,fix_entrop,rmax,rmserr)
  use table_utils,   only:yinterp
- use part,          only:rhoh,massoftype,igas,maxvxyzu,ll
+ use part,          only:rhoh,massoftype,igas,maxvxyzu
  use part,          only:apr_level,aprmassoftype
  use dim,           only:do_radiation,use_apr
  use eos,           only:gamma
