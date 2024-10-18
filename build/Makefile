@@ -663,8 +663,8 @@ SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_me
             set_star_utils.f90 relax_star.f90 set_star.f90 
 
 SRCSETUP= utils_omp.F90 setup_params.f90 \
-          set_dust_options.f90 set_units.f90 \
-          ${SRCSETSTAR} set_slab.f90 set_disc.F90 set_orbit.f90 \
+          ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
+          set_slab.f90 set_disc.F90 set_orbit.f90 \
           set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}

@@ -270,7 +270,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               xyzh,Xfrac,Yfrac,mu,mtab,star%mstar,eos_vars,npin=npart_old)
  endif
  !
- ! Write composition file called kepler.comp containing composition of each particle after interpolation
+ ! Write .comp file containing composition of each particle after interpolation
  !
  if (star%iprofile==iKepler) call write_kepler_comp(composition,comp_label,ncols_compo,r,&
                                   xyzh,npart,npts,composition_exists,npin=npart_old)

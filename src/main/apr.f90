@@ -28,8 +28,15 @@ module apr
 
  public :: init_apr,update_apr,read_options_apr,write_options_apr
  public :: create_or_update_apr_clump
- integer, public :: apr_max_in = 3, ref_dir = 1, apr_type = 1, apr_max
- real,    public :: apr_rad = 1.0, apr_drad = 0.1, apr_centre(3)
+
+ ! default values for runtime parameters
+ integer, public :: apr_max_in = 3
+ integer, public :: ref_dir = 1
+ integer, public :: apr_type = 1
+ integer, public :: apr_max = 4
+ real,    public :: apr_rad = 1.0
+ real,    public :: apr_drad = 0.1
+ real,    public :: apr_centre(3) = 0.
 
  private
  integer :: top_level = 1, ntrack = 0, track_part = 0
