@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxhard
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -396,7 +396,7 @@ module part
 
  integer         :: npartoftype(maxtypes)
  integer(kind=8) :: npartoftypetot(maxtypes)
- real            :: massoftype(maxtypes),aprmassoftype(maxtypes,apr_maxhard)
+ real            :: massoftype(maxtypes),aprmassoftype(maxtypes,apr_maxlevel)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -449,8 +449,8 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
- call allocate_array('apr_level',apr_level,maxp)
- call allocate_array('apr_level_soa',apr_level_soa,maxp)
+ call allocate_array('apr_level',apr_level,maxp_apr)
+ call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
