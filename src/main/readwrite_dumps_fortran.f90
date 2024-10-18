@@ -1142,7 +1142,8 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
           case(1,4)
              if (mhd) then
                 call read_array(Bxyz,Bxyz_label,got_Bxyz,ik,i1,i2,noffset,idisk1,tag,match,ierr)
-                call read_array(Bevol(4,:),'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                call read_array(tmparray,'psi',got_psi,ik,i1,i2,noffset,idisk1,tag,match,ierr)
+                Bevol(4,i1:i2) = tmparray(i1:i2)
              endif
           end select
           if (.not.match) then
