@@ -289,7 +289,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  !
  ! set particle type as gas particles
  !
- npartoftype(igas) = npart   ! npart is number on this thread only
+ npartoftype(igas) = npartoftype(igas) + npart - npart_old   ! npart is number on this thread only
  do i=npart_old+1,npart_old+npart
     call set_particle_type(i,igas)
  enddo
