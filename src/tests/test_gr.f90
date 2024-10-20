@@ -468,7 +468,7 @@ subroutine test_cons2prim_i(x,v,dens,u,p,ncheck,nfail,errmax,tol)
  use part,            only:ien_entropy,ien_etotal,ien_entropy_s
  use metric_tools,    only:pack_metric,unpack_metric
  use eos,             only:ieos,equationofstate,calc_temp_and_ene
- use physcon,         only:radconst,kb_on_mh
+ use physcon,         only:radconst
 
  real, intent(in) :: x(1:3),v(1:3),dens,p,tol
  real,    intent(inout) :: u

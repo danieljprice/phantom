@@ -339,7 +339,7 @@ end subroutine get_erec_components
 !  gas particle. Inputs and outputs in code units
 !+
 !----------------------------------------------------------------
-subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,radprop)
+subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad)
  use dim,              only:do_radiation
  use part,             only:rhoh,iradxi
  use eos_idealplusrad, only:get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
@@ -347,20 +347,19 @@ subroutine calc_thermal_energy(particlemass,ieos,xyzh,vxyzu,presi,tempi,ethi,rad
  use units,            only:unit_density,unit_pressure,unit_ergg,unit_pressure
  integer, intent(in) :: ieos
  real, intent(in)    :: particlemass,presi,tempi,xyzh(4),vxyzu(4)
- real, intent(in), optional :: radprop(:)
+ real, intent(in), optional :: rad(:)
  real, intent(out)   :: ethi
- real                :: hi,densi_cgs,mui
+ real                :: densi_cgs,mui
 
  select case (ieos)
  case(10,20) ! calculate just gas + radiation thermal energy
-    hi = xyzh(4)
-    densi_cgs = rhoh(hi,particlemass)*unit_density
+    densi_cgs = rhoh(xyzh(4),particlemass)*unit_density
     mui = densi_cgs * Rg * tempi / (presi*unit_pressure - radconst * tempi**4 / 3.) ! Get mu from pres and temp
     call get_idealplusrad_enfromtemp(densi_cgs,tempi,mui,ethi)
     ethi = particlemass * ethi / unit_ergg
  case default ! assuming internal energy = thermal energy
     ethi = particlemass * vxyzu(4)
-    if (do_radiation) ethi  = ethi + particlemass*radprop(iradxi)
+    if (do_radiation) ethi  = ethi + particlemass*rad(iradxi)
  end select
 
 end subroutine calc_thermal_energy
@@ -420,9 +419,9 @@ subroutine ionisation_fraction(dens,temp,X,Y,xh0,xh1,xhe0,xhe1,xhe2)
     xhe2g = xhe2g + dx(3)
  enddo
 
- xh1 = xh1g * n / nh
- xhe1 = xhe1g * n / nhe
- xhe2 = xhe2g * n / nhe
+ xh1 = max(xh1g * n / nh,1.e-99)
+ xhe1 = max(xhe1g * n / nhe,1.e-99)
+ xhe2 = max(xhe2g * n / nhe,1.e-99)
  xh0 = ((nh/n) - xh1g) * n / nh
  xhe0 = ((nhe/n) - xhe1g - xhe2g) * n / nhe
 
