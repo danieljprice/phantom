@@ -90,7 +90,7 @@ end subroutine get_kernel_grav1
 pure subroutine kernel_softening(q2,q,potensoft,fsoft)
  real, intent(in)  :: q2,q
  real, intent(out) :: potensoft,fsoft
- real :: q4
+ real :: q4, q6
 
  if (q < 2.) then
     q4 = q2*q2

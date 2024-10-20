@@ -26,7 +26,14 @@ forcing.dat
 *.tar
 .DS_Store
 _build
+build/wind_profile1D.dat
+build/radiation-test01explicit.ev
+build/radiation-test01implicit.ev
+build/radiation-test02explicit.ev
+build/radiation-test02implicit.ev
+build/test000
 *.cmdx
 *.cmod
 *.ilm
 *.stb
+

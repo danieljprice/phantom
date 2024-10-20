@@ -17,7 +17,9 @@ module sortutils
 ! :Dependencies: None
 !
  implicit none
- public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank,r2func,r2func_origin,set_r2func_origin
+ public :: indexx,indexxfunc,Knnfunc,parqsort,find_rank
+ public :: sort_by_radius
+ public :: r2func,r2func_origin,set_r2func_origin
  interface indexx
   module procedure indexx_r4, indexx_i8
  end interface indexx
@@ -633,7 +635,7 @@ subroutine find_rank(npart,func,xyzh,ranki)
  do i=2,npart ! Loop over ranks sorted by indexxfunc
     j = iorder(i)
     k = iorder(i-1)
-    if (func(xyzh(:,j))/func(xyzh(:,k)) - 1. > min_diff) then ! If particles have distinct radii
+    if (abs(func(xyzh(:,j)) - func(xyzh(:,k))) > min_diff) then ! If particles have distinct radii
        ranki(j) = i
     else
        ranki(j) = ranki(k)       ! Else, give same ranks
@@ -641,5 +643,25 @@ subroutine find_rank(npart,func,xyzh,ranki)
  enddo
 
 end subroutine find_rank
+
+!----------------------------------------------------------------
+!+
+!  simplified interface to sort by radius given 3D cartesian
+!  coordinates as input
+!+
+!----------------------------------------------------------------
+subroutine sort_by_radius(n,xyz,iorder,x0)
+ integer, intent(in)  :: n
+ real, intent(in)     :: xyz(3,n)
+ integer, intent(out) :: iorder(n)
+ real, intent(in), optional :: x0(3)
+
+ ! optional argument x0=[1,1,1] to set the origin
+ if (present(x0)) call set_r2func_origin(x0(1),x0(2),x0(3))
+
+ ! sort by r^2 using the r2func function
+ call indexxfunc(n,r2func,xyz,iorder)
+
+end subroutine sort_by_radius
 
 end module sortutils

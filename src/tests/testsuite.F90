@@ -15,13 +15,13 @@ module test
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: dim, io, io_summary, mpiutils, options, testcooling,
-!   testcorotate, testdamping, testderivs, testdust, testeos, testexternf,
-!   testgeometry, testgnewton, testgr, testgravity, testgrowth,
-!   testindtstep, testiorig, testkdtree, testkernel, testlink, testmath,
-!   testmpi, testnimhd, testpart, testpoly, testptmass, testradiation,
-!   testrwdump, testsedov, testsetdisc, testsethier, testsmol, teststep,
-!   testwind, timing
+! :Dependencies: dim, io, io_summary, mpiutils, options, testapr,
+!   testcooling, testcorotate, testdamping, testderivs, testdust, testeos,
+!   testexternf, testgeometry, testgnewton, testgr, testgravity,
+!   testgrowth, testindtstep, testiorig, testkdtree, testkernel, testlink,
+!   testmath, testmpi, testnimhd, testpart, testpoly, testptmass,
+!   testradiation, testrwdump, testsedov, testsetdisc, testsethier,
+!   testsmol, teststep, testwind, timing
 !
  implicit none
  public :: testsuite
@@ -31,7 +31,7 @@ module test
 contains
 
 subroutine testsuite(string,first,last,ntests,npass,nfail)
- use io,           only:iprint,id,master,iverbose
+ use io,           only:iprint,id,master,iverbose,error
  use io_summary,   only:summary_initialise
  use testderivs,   only:test_derivs
  use teststep,     only:test_step
@@ -44,6 +44,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testsmol,     only:test_smol
  use testpart,     only:test_part
  use testnimhd,    only:test_nonidealmhd
+ use testapr,      only:test_apr
 #ifdef FINVSQRT
  use testmath,     only:test_math
 #endif
@@ -59,6 +60,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  use testindtstep, only:test_indtstep
  use testrwdump,   only:test_rwdump
  use testsetdisc,  only:test_setdisc
+ use testsetstar,  only:test_setstar
  use testsethier,  only:test_sethier
  use testeos,      only:test_eos
  use testcooling,  only:test_cooling
@@ -73,14 +75,15 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #endif
  use timing,       only:get_timings,print_time
  use mpiutils,     only:barrier_mpi
- use dim,          only:do_radiation
+ use dim,          only:do_radiation,use_apr
  character(len=*), intent(in)    :: string
  logical,          intent(in)    :: first,last
  integer,          intent(inout) :: ntests,npass,nfail
  logical :: testall,dolink,dokdtree,doderivs,dokernel,dostep,dorwdump,dosmol
  logical :: doptmass,dognewton,dosedov,doexternf,doindtstep,dogravity,dogeom
- logical :: dosetdisc,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
- logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,doiorig
+ logical :: dosetdisc,dosetstar,doeos,docooling,dodust,donimhd,docorotate,doany,dogrowth
+ logical :: dogr,doradiation,dopart,dopoly,dompi,dohier,dodamp,dowind,&
+            doiorig,doapr
 #ifdef FINVSQRT
  logical :: usefsqrt,usefinvsqrt
 #endif
@@ -121,6 +124,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dogravity  = .false.
  dorwdump   = .false.
  dosetdisc  = .false.
+ dosetstar  = .false.
  doeos      = .false.
  dodust     = .false.
  dogrowth   = .false.
@@ -135,6 +139,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  dohier     = .false.
  dodamp     = .false.
  dowind     = .false.
+ doapr      = .false.
  doiorig    = .false.
 
  if (index(string,'deriv')     /= 0) doderivs  = .true.
@@ -159,10 +164,11 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
  if (index(string,'wind')      /= 0) dowind    = .true.
  if (index(string,'iorig')     /= 0) doiorig   = .true.
  if (index(string,'ptmass')    /= 0) doptmass  = .true.
+ if (index(string,'apr')       /= 0) doapr     = .true.
 
  doany = any((/doderivs,dogravity,dodust,dogrowth,donimhd,dorwdump,&
                doptmass,docooling,dogeom,dogr,dosmol,doradiation,&
-               dopart,dopoly,dohier,dodamp,dowind,doiorig/))
+               dopart,dopoly,dohier,dodamp,dowind,doiorig,doapr/))
 
  select case(trim(string))
  case('kernel','kern')
@@ -191,6 +197,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     dorwdump = .true.
  case('setdisc','disc')
     dosetdisc = .true.
+ case('setstar','star')
+    dosetstar = .true.
  case('eos')
     doeos = .true.
  case('dust')
@@ -207,6 +215,8 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     doiorig = .true.
  case('mpi')
     dompi = .true.
+ case('apr')
+    doapr = .true.
  case default
     if (.not.doany) testall = .true.
  end select
@@ -215,9 +225,21 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
 #ifdef FINVSQRT
  call test_math(ntests,npass,usefsqrt,usefinvsqrt)
 #endif
+
+!
+!--apr test
+!
+ if (use_apr.and.testall) then
+    write(*,*) '-DAPR not currently compatible with test suite, recompile with APR=no'
+    return
+ elseif (use_apr.and.doapr) then
+    call test_apr(ntests,npass)
+ endif
+
 !
 !--test kernel module
 !
+
  if (dokernel.or.testall) then
     call test_kernel(ntests,npass)
  endif
@@ -370,6 +392,13 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
 !
+!--test of set_star module
+!
+ if (dosetstar.or.testall) then
+    call test_setstar(ntests,npass)
+    call set_default_options_testsuite(iverbose) ! restore defaults
+ endif
+!
 !--test of set_hier module
 !
  if (dohier.or.testall) then
@@ -411,6 +440,7 @@ subroutine testsuite(string,first,last,ntests,npass,nfail)
     call test_wind(ntests,npass)
     call set_default_options_testsuite(iverbose) ! restore defaults
  endif
+
 !
 !--test of particle id
 !
