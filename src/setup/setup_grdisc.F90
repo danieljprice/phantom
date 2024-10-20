@@ -227,7 +227,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
        ! shift the star to the position of the second body
        if (star(i)%iprofile > 0) then
-          call shift_star(npart,xyzh,vxyzu,x0=xyzmh_ptmass_in(:,2),v0=vxyz_ptmass_in(:,2),itype=i)
+          call shift_star(npart,npartoftype,xyzh,vxyzu,&
+                          x0=xyzmh_ptmass_in(:,2),v0=vxyz_ptmass_in(:,2),itype=i)
        else
           nptmass = nptmass + 1
           xyzmh_ptmass(:,nptmass) = xyzmh_ptmass_in(:,2)

@@ -400,10 +400,11 @@ end subroutine set_stars
 !  shift star to the desired position and velocity
 !+
 !-----------------------------------------------------------------------
-subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
- use part,        only:get_particle_type,set_particle_type,igas,npartoftype
+subroutine shift_star(npart,npartoftype,xyz,vxyz,x0,v0,itype,corotate)
+ use part,        only:get_particle_type,set_particle_type,igas
  use vectorutils, only:cross_product3D
- integer, intent(in) :: npart
+ integer, intent(in)    :: npart
+ integer, intent(inout) :: npartoftype(:)
  real, intent(inout) :: xyz(:,:),vxyz(:,:)
  real, intent(in)    :: x0(3),v0(3)
  integer, intent(in), optional :: itype
@@ -434,7 +435,7 @@ subroutine shift_star(npart,xyz,vxyz,x0,v0,itype,corotate)
        if (mytype /= itype+istar_offset) cycle over_parts
        ! reset type back to gas
        call set_particle_type(i,igas)
-       npartoftype(itype+istar_offset) = npartoftype(itype+istar_offset) - 1
+       npartoftype(mytype) = npartoftype(mytype) - 1
        npartoftype(igas) = npartoftype(igas) + 1
     endif
     xyz(1:3,i) = xyz(1:3,i) + x0(:)
@@ -453,13 +454,13 @@ end subroutine shift_star
 !+
 !-----------------------------------------------------------------------
 subroutine shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
-                       xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,nptmass,corotate)
+                       xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,nptmass,corotate)
  integer,      intent(in)    :: nstar,npart
  type(star_t), intent(in)    :: star(nstar)
  real,         intent(inout) :: xyzh(:,:),vxyzu(:,:)
  real,         intent(in)    :: xyzmh_ptmass_in(:,:),vxyz_ptmass_in(:,:)
  real,         intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
- integer,      intent(inout) :: nptmass
+ integer,      intent(inout) :: nptmass,npartoftype(:)
  logical,      intent(in), optional :: corotate
  integer :: i
  logical :: do_corotate
@@ -469,7 +470,7 @@ subroutine shift_stars(nstar,star,xyzmh_ptmass_in,vxyz_ptmass_in,&
 
  do i=1,min(nstar,size(xyzmh_ptmass_in(1,:)))
     if (star(i)%iprofile > 0) then
-       call shift_star(npart,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
+       call shift_star(npart,npartoftype,xyzh,vxyzu,x0=xyzmh_ptmass_in(1:3,i),&
                        v0=vxyz_ptmass_in(1:3,i),itype=i,corotate=do_corotate)
     else
        nptmass = nptmass + 1

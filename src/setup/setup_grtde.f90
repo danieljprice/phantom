@@ -216,7 +216,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     print "(a,3f10.3,/)",'       Pericentre = ',rp
  endif
 
- call shift_star(npart,xyzh,vxyzu,x0=xyzstar,v0=vxyzstar)
+ call shift_star(npart,npartoftype,xyzh,vxyzu,x0=xyzstar,v0=vxyzstar)
 
  if (id==master) print "(/,a,i10,/)",' Number of particles setup = ',npart
 
