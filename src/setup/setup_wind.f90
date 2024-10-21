@@ -59,7 +59,7 @@ module setup
  integer :: icompanion_star,iwind
  real :: semi_major_axis,semi_major_axis_au,eccentricity
  real :: default_particle_mass
- real :: omega_spin,omegax,omegay,omegaz
+ real :: wind_rotation_speed,wind_rotation_speed_km_s,omegax,omegay,omegaz
  real :: primary_lum_lsun,primary_mass_msun,primary_Reff_au,primary_racc_au
  real :: secondary_lum_lsun,secondary_mass_msun,secondary_Reff_au,secondary_racc_au
  real :: lum2a_lsun,lum2b_lsun,Teff2a,Teff2b,Reff2a_au,Reff2b_au
@@ -96,7 +96,8 @@ subroutine set_default_parameters_wind()
     !primary_lum_lsun      = 20000.
     !primary_Reff_au       = 0.
  endif
- omega_spin = 0.
+ wind_rotation_speed = 0.
+ wind_rotation_speed_km_s = 0.
  omegax = 0.
  omegay = 0.
  omegaz = 1.
@@ -135,7 +136,7 @@ end subroutine set_default_parameters_wind
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only: xyzmh_ptmass, vxyz_ptmass, nptmass, igas, iTeff, iLum, iReff, ispinx, ispiny, ispinz
- use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl, gg
+ use physcon,   only: au, solarm, mass_proton_cgs, kboltz, solarl, km
  use units,     only: umass,set_units,unit_velocity,utime,unit_energ,udist
  use inject,    only: set_default_options_inject
  use setbinary, only: set_binary
@@ -155,7 +156,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=len(fileprefix)+6) :: filename
  integer :: ierr,k
  logical :: iexist
- real :: omega_crit
 
  call set_units(dist=au,mass=solarm,G=1.)
  call set_default_parameters_wind()
@@ -272,10 +272,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iTeff,1) = primary_Teff
     xyzmh_ptmass(iReff,1) = primary_Reff
     xyzmh_ptmass(iLum,1)  = primary_lum
-    omega_crit = sqrt(gg*primary_mass/primary_reff**3)*utime
-    xyzmh_ptmass(ispinx,1) = primary_Reff**2*omegax*omega_crit*omega_spin
-    xyzmh_ptmass(ispiny,1) = primary_Reff**2*omegay*omega_crit*omega_spin
-    xyzmh_ptmass(ispinz,1) = primary_Reff**2*omegaz*omega_crit*omega_spin
+    wind_rotation_speed = wind_rotation_speed_km_s * (km / unit_velocity)
+    xyzmh_ptmass(ispinx,1) = primary_Reff**2*omegax*wind_rotation_speed
+    xyzmh_ptmass(ispiny,1) = primary_Reff**2*omegay*wind_rotation_speed
+    xyzmh_ptmass(ispinz,1) = primary_Reff**2*omegaz*wind_rotation_speed
  endif
 
  !
@@ -540,7 +540,7 @@ subroutine setup_interactive()
     primary_racc = primary_racc_au * (au / udist)
 
     !define primary spin properties
-    call get_sink_spin(omegax,omegay,omegaz,omega_spin)
+    call get_sink_spin(omegax,omegay,omegaz,wind_rotation_speed_km_s)
 
 
     if (icompanion_star == 1) then
@@ -587,27 +587,28 @@ end subroutine setup_interactive
 ! rotation axis + spin rate in unit of critical spin rate
 !+
 !--------------------------------------------------------
-subroutine get_sink_spin(omegax,omegay,omegaz,omega_spin)
+subroutine get_sink_spin(omegax,omegay,omegaz,wind_rotation_speed_km_s)
  use prompting, only:prompt
- real, intent(inout) :: omegax,omegay,omegaz,omega_spin
+ real, intent(inout) :: omegax,omegay,omegaz
+ real, intent(inout) :: wind_rotation_speed_km_s
  integer :: ichoice
  real :: omega
 
  ichoice = 2
- print "(a)",'Omega spin (in unit of omega_crit >=0)'
+ print "(a)",'Omega spin at the equator (in km/s)'
  print "(a)",' 2: no rotation',&
-      ' 1: omega_spin/omega_crit = 0.5', &
+      ' 1: equatorial rotation speed = 10 km/s', &
       ' 0: custom'
  call prompt('select spin velocity of primary',ichoice,0,2)
  select case(ichoice)
  case(2)
-    omega_spin = 0.
+    wind_rotation_speed_km_s = 0.
  case(1)
-    omega_spin = 0.5
+   wind_rotation_speed_km_s = 10.
  case default
-    call prompt('enter omega_spin',omega_spin,0.,10.)
+    call prompt('enter wind rotation speed',wind_rotation_speed_km_s,0.,1000.)
  end select
- if (omega_spin /= 0.) then
+ if (wind_rotation_speed_km_s /= 0.) then
     ichoice = 1
     print "(a)",'spin orientation (unit vector)'
     print "(a)",' 1: along z-axis',&
@@ -731,7 +732,7 @@ subroutine write_setupfile(filename)
     call write_inopt(primary_lum_lsun,'primary_lum','primary star luminosity (Lsun)',iunit)
     call write_inopt(primary_Teff,'primary_Teff','primary star effective temperature (K)',iunit)
     call write_inopt(primary_Reff_au,'primary_Reff','primary star effective radius (au)',iunit)
-    call write_inopt(omega_spin,'primary_spin','primary spin rate (in units of critical speed, between 0 and 1)',iunit)
+    call write_inopt(wind_rotation_speed_km_s,'wind_rotation_speed','primary spin rate at the equator (in km/s)',iunit)
     call write_inopt(omegax,'primary_spinx','x-component of spin direction',iunit)
     call write_inopt(omegay,'primary_spiny','y-component of spin direction',iunit)
     call write_inopt(omegaz,'primary_spinz','z-component of spin direction',iunit)
@@ -773,7 +774,7 @@ end subroutine write_setupfile
 !----------------------------------------------------------------
 subroutine read_setupfile(filename,ierr)
  use infile_utils, only:open_db_from_file,inopts,read_inopt,close_db
- use physcon,      only:au,steboltz,solarl,solarm,pi
+ use physcon,      only:au,steboltz,solarl,solarm,pi,km
  use units,        only:udist,umass,utime,unit_energ
  character(len=*), intent(in)  :: filename
  integer,          intent(out) :: ierr
@@ -798,7 +799,7 @@ subroutine read_setupfile(filename,ierr)
     print *,'ERROR: primary accretion radius not defined'
     nerr = nerr+1
  endif
- call read_inopt(omega_spin,'primary_spin',db,min=-10.,max=10.,errcount=nerr)
+ call read_inopt(wind_rotation_speed_km_s,'wind_rotation_speed',db,min=0.,max=1000.,errcount=nerr)
  call read_inopt(omegax,'primary_spinx',db,min=-1.,max=1.,errcount=nerr)
  call read_inopt(omegay,'primary_spiny',db,min=-1.,max=1.,errcount=nerr)
  call read_inopt(omegaz,'primary_spinz',db,min=-1.,max=1.,errcount=nerr)

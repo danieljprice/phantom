@@ -286,15 +286,15 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
 
 !-----------------------------------------------------------------------
 
- use physcon,  only:pi,gg
- use units,    only:utime,udist
- use timestep, only:dtmax
+ use physcon,           only:pi,gg,au,solarm,km
+ use units,             only:utime,udist,unit_velocity
+ use timestep,          only:dtmax
  use ptmass_radiation,  only:alpha_rad
- use part,      only: xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
+ use part,              only: xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
 
  real, intent(in) :: initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary
  integer :: ires_min
- real :: vesc,omega_sink,omega_crit
+ real :: vesc,wind_rotation_speed,rotation_speed_crit
 
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
@@ -310,11 +310,19 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print*,'time_to_sonic_point        = ',tsonic/utime
     print*,'time_boundary              = ',tboundary
  endif
- omega_sink = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
- omega_crit = sqrt(gg*xyzmh_ptmass(4,1)/xyzmh_ptmass(iReff,1)**3)*utime
- if (omega_sink > 0.001*omega_crit) then
-    print*,'omega_spin/omega_crit      = ',omega_sink/omega_crit
-    print*,'omega_spin/vinject         = ',omega_sink/wind_injection_speed
+ wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+ rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/utime
+ if (wind_rotation_speed /= 0.) then
+   ! problem about code units, need to update
+    print*,'rotation_vel (km/s)        = ',wind_rotation_speed/(km/unit_velocity)
+    print*,'break-up velocity (km/s)   = ',rotation_speed_crit*(utime/km)
+    print*,'rotation_vel (code units)  = ',wind_rotation_speed
+    print*,'break-up velocity (code u) = ',rotation_speed_crit
+    print*,'rotation_vel/critical_vel  = ',(wind_rotation_speed*unit_velocity/km)/(rotation_speed_crit*(utime/km))
+    if (wind_rotation_speed/rotation_speed_crit > 1.) then
+      print*,'CAREFUL : rotation velocity exceeding equatorial break-up velocity'
+    endif
+    print*,'rotation_vel/vinject       = ',wind_rotation_speed/wind_injection_speed
  endif
  print*,'time_between_spheres       = ',time_between_spheres
  print*,'wind_temperature           = ',wind_temperature
@@ -799,7 +807,7 @@ subroutine read_options_inject(name,valstring,imatch,igotall,ierr)
     if (pulsation_period_days < 0.) call fatal(label,'invalid setting for pulsation_period (<0)')
  case('piston_velocity')
     read(valstring,*,iostat=ierr) piston_velocity_km_s
-    !wind_velocity_km_s = 0. ! set wind veolicty to zero when pulsating star
+    !wind_velocity_km_s = 0. ! set wind velocity to zero when pulsating star
     ngot = ngot + 1
  case default
     imatch = .false.
