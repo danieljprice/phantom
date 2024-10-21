@@ -84,8 +84,8 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  use partinject,  only:add_or_update_particle
  use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
  use geometry,    only:vector_transform, coord_transform
- use units,       only:utime,unit_velocity
- use physcon,     only:gg,au,solarm,km
+ use units,       only:unit_velocity
+ use physcon,     only:gg,au,solarm
  integer, intent(in) :: sphere_number, first_particle, ires, itype
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
@@ -127,15 +127,16 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  h_sim = hrho(rho)
  particles_per_sphere = get_parts_per_sphere(ires)
 
- rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/utime
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
- omega = (wind_rotation_speed*unit_velocity/km)/(rotation_speed_crit*(utime/km))
+ rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/unit_velocity
+ omega = wind_rotation_speed/rotation_speed_crit
 
  ! if the rotation axis is not the z-axis, need to rotate the coordinate system
  omega_axis(1) = xyzmh_ptmass(ispinx,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
  omega_axis(2) = xyzmh_ptmass(ispiny,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
  omega_axis(3) = xyzmh_ptmass(ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
 
+ rot_particle_position = 0.
  call make_rotation_matrix(rotation_angles, rotmat)
  do j=0,particles_per_sphere-1
     call pixel2vector(j, ires, geodesic_R, geodesic_v, radial_unit_vector)
@@ -226,8 +227,8 @@ end subroutine make_rotation_matrix
 
 !-----------------------------------------------------------------------
 !+
-!  Rotate the reference frame using the 3 Euler angles when
-!  the rotation axis is different from the z-axis
+!  Rotate the reference frame using the 3 Euler angles to
+!  make the z-axis coincide with the axis of rotation
 !+
 !-----------------------------------------------------------------------
 subroutine Euler_rotation(particle_position,omega_axis,rot_particle_position)
@@ -238,14 +239,14 @@ subroutine Euler_rotation(particle_position,omega_axis,rot_particle_position)
  real :: rotation_matrix(3,3)
 
  rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,1) = 0.
+ rotation_matrix(1,2) = 0.
+ rotation_matrix(1,3) = 0.
+ rotation_matrix(2,1) = 0.
+ rotation_matrix(2,2) = 0.
+ rotation_matrix(2,3) = 0.
+ rotation_matrix(3,1) = 0.
+ rotation_matrix(3,2) = 0.
+ rotation_matrix(3,3) = 0.
 
  rot_particle_position(1) = dot_product(rotation_matrix(1,1:3),particle_position(1:3))
  rot_particle_position(2) = dot_product(rotation_matrix(2,1:3),particle_position(1:3))

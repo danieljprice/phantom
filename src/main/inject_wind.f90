@@ -287,10 +287,10 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
 !-----------------------------------------------------------------------
 
  use physcon,           only:pi,gg,au,solarm,km
- use units,             only:utime,udist,unit_velocity
+ use units,             only:udist,unit_velocity,utime
  use timestep,          only:dtmax
  use ptmass_radiation,  only:alpha_rad
- use part,              only: xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
+ use part,              only:xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
 
  real, intent(in) :: initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary
  integer :: ires_min
@@ -311,14 +311,12 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
     print*,'time_boundary              = ',tboundary
  endif
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
- rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/utime
+ rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/unit_velocity
  if (wind_rotation_speed /= 0.) then
    ! problem about code units, need to update
     print*,'rotation_vel (km/s)        = ',wind_rotation_speed/(km/unit_velocity)
-    print*,'break-up velocity (km/s)   = ',rotation_speed_crit*(utime/km)
-    print*,'rotation_vel (code units)  = ',wind_rotation_speed
-    print*,'break-up velocity (code u) = ',rotation_speed_crit
-    print*,'rotation_vel/critical_vel  = ',(wind_rotation_speed*unit_velocity/km)/(rotation_speed_crit*(utime/km))
+    print*,'break-up velocity (km/s)   = ',rotation_speed_crit/(km/unit_velocity)
+    print*,'rotation_vel/critical_vel  = ',wind_rotation_speed/rotation_speed_crit
     if (wind_rotation_speed/rotation_speed_crit > 1.) then
       print*,'CAREFUL : rotation velocity exceeding equatorial break-up velocity'
     endif
