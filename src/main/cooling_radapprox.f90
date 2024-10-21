@@ -77,7 +77,7 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  real,intent(out)::dudti_cool
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Hmod2
+ real            :: cs2,Om2,Hmod2,rhoi_cgs,ui_cgs
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
 
  coldensi = huge(coldensi)
@@ -99,7 +99,9 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  endif
 
  ! get opacities & Ti for ui
- call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+ ui_cgs = ui*unit_ergg
+ rhoi_cgs = rhoi*unit_density
+ call getopac_opdep(ui_cgs,rhoi_cgs,kappaBari,kappaParti,&
            Ti,gmwi)
  presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
  presi = presi/unit_pressure !code units
@@ -146,7 +148,7 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
     Tmini4 = Tfloor**4d0
  endif
 
- call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+ call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi_cgs,umini)
  umini = umini/unit_ergg
 
  opaci = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
@@ -195,7 +197,8 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
  endif
 
- call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+ rhoi_cgs = rhoi*unit_density
+ call getintenerg_opdep(Teqi,rhoi_cgs,ueqi)
  ueqi = ueqi/unit_ergg
 
  ! calculate thermalization timescale
@@ -248,7 +251,7 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
  real,intent(inout) :: energ(:),dudt_sph(:)
  real            :: ui,rhoi,coldensi,kappaBari,kappaParti,ri2,dti
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Hmod2
+ real            :: cs2,Om2,Hmod2,ui_cgs,rhoi_cgs
  real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
  integer         :: i,ratefile,n_uevo
 
@@ -262,8 +265,8 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
  !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure,ratefile) &
  !$omp shared(opac_store,Tfloor,dtsph,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool,Lstar) &
  !$omp private(i,poti,du_FLDi,ui,rhoi,ri2,coldensi,kappaBari,Ti,iphase) &
- !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot) &
- !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,dti) &
+ !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot,ui_cgs) &
+ !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,dti,rhoi_cgs) &
  !$omp shared(maxp,maxphase,ibin) reduction(+:n_uevo)
 
  overpart: do i=1,npart
@@ -292,7 +295,9 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
     endif
 
     ! get opacities & Ti for ui
-    call getopac_opdep(ui*unit_ergg,rhoi*unit_density,kappaBari,kappaParti,&
+    ui_cgs = ui*unit_ergg
+    rhoi_cgs = rhoi*unit_density
+    call getopac_opdep(ui_cgs,rhoi_cgs,kappaBari,kappaParti,&
            Ti,gmwi)
     presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
     presi = presi/unit_pressure !code units
@@ -377,10 +382,11 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
     endif
 
-    call getintenerg_opdep(Teqi,rhoi*unit_density,ueqi)
+	rhoi_cgs = rhoi*unit_density
+    call getintenerg_opdep(Teqi,rhoi_cgs,ueqi)
     ueqi = ueqi/unit_ergg
 
-    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi*unit_density,umini)
+    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi_cgs,umini)
     umini = umini/unit_ergg
 
     ! calculate thermalization timescale

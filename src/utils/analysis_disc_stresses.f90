@@ -35,7 +35,7 @@ module analysis
  real,    allocatable,dimension(:)   :: H, toomre_q,epicyc,part_scaleheight
  real,    allocatable,dimension(:)   :: alpha_reyn,alpha_grav,alpha_mag,alpha_art
  real,    allocatable,dimension(:)   :: rpart,phipart,vrpart,vphipart, gr,gphi,Br,Bphi
- real,    allocatable,dimension(:,:) :: gravxyz
+ real,    allocatable,dimension(:,:) :: gravxyz,zsetgas
 
  logical :: write_neighbour_list = .true.  ! Write the neighbour list to file, if true
 
@@ -356,7 +356,7 @@ end subroutine transform_to_cylindrical
 !+
 !---------------------------------------------------------------
 
-subroutine radial_binning(npart,xyzh,vxyzu,pmass)
+subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  use physcon, only:pi
  use eos,     only:get_spsound,ieos
  use part,    only:rhoh,isdead_or_accreted
@@ -365,7 +365,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass)
  real,intent(in) :: pmass
  real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned
+ integer :: ibin,ipart,nbinned,iallocerr
  real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
@@ -464,8 +464,8 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use physcon, only: pi,gg,kb_on_mh
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
- use part,    only: mhd,rhoh,alphaind,eos_vars,imu,itemp
- use eos,     only: gamma,ieos
+ use part,    only: mhd,rhoh,alphaind,imu,itemp
+ use eos,     only: ieos
 
  implicit none
 
@@ -500,7 +500,7 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
 
  sigma(:) = sigma(:)*umass/(udist*udist)
  if (ieos /= 21) then
-	 csbin(:) = csbin(:)*unit_velocity
+    csbin(:) = csbin(:)*unit_velocity
  endif
  omega(:) = omega(:)/utime
 

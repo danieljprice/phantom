@@ -283,13 +283,15 @@ subroutine get_k_fld(rhoi,eni,i,ki,Ti)
  use units,    only:unit_density,unit_ergg,unit_opacity,get_radconst_code
  real,intent(in)    :: rhoi,eni
  integer,intent(in) :: i
- real               :: kappaBar,gmwi,kappaPart
+ real               :: kappaBar,gmwi,kappaPart,eni_ergg,rhoi_g
  real,intent(out)   :: ki,Ti
 
  if (lambda_FLD(i) == 0d0) then
     ki = 0.
  else
-    call getopac_opdep(eni*unit_ergg,rhoi*unit_density,kappaBar,kappaPart,Ti,gmwi)
+ 	eni_ergg = eni*unit_ergg
+ 	rhoi_g = rhoi*unit_density
+    call getopac_opdep(eni_ergg,rhoi_g,kappaBar,kappaPart,Ti,gmwi)
     kappaPart = kappaPart/unit_opacity
     ! steboltz constant = 4pi/c * arad
     ki = 16d0*(fourpi/c)*get_radconst_code()*lambda_FLD(i)*Ti**3 /rhoi/kappaPart

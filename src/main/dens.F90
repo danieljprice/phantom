@@ -302,6 +302,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 !$omp reduction(max:rhomax) &
 !$omp private(i)
 
+
  call init_cell_exchange(xrecvbuf,irequestrecv,thread_complete,ncomplete_mpi,mpitype)
 
  !$omp master
@@ -1689,14 +1690,14 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
  integer      :: icell,i,iamtypei,iamtypej,j,n
  logical      :: iactivei,iamgasi,iamdusti,ignoreself
  logical      :: iactivej,iamgasj,iamdustj
- real(kind=8) :: hi,hi1,hi21,hi31,hi41
- real         :: rhoi,rho1i,dhdrhoi,pmassi,kappabari,kappaparti,Ti,gmwi
+ real(kind=8) :: hi1,hi21,hi31,hi41,hj1,hj21
+ real         :: hi,hj,rhoi,rho1i,dhdrhoi,pmassi,kappabari,kappaparti,Ti,gmwi
  real         :: xj,yj,zj,dx,dy,dz
- real         :: rij2,rij,q2i,qi,hj1,hj,hj21,q2j
+ real         :: rij2,rij,q2i,qi,q2j
  real         :: wabi,grkerni,gradhi,wkerni,dwkerni
  real         :: pmassj,rhoj,rho1j,dhdrhoj,kappabarj,kappaPartj,Tj,gmwj
  real         :: uradi,dradi,dradxi,dradyi,dradzi,runix,runiy,runiz
- real         :: dT4,R_rad
+ real         :: dT4,R_rad,u_cgs,rho_cgs
  integer      :: ngradh_err
 
  ngradh_err = 0
@@ -1735,8 +1736,9 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
        print *, "u=0 in FLD calc", vxyzu(4,i), i,rhoi*unit_density,Ti,&
             cell%xpartvec(ixi,icell),cell%xpartvec(iyi,icell)
     endif
-    call getopac_opdep(vxyzu(4,i)*unit_ergg,rhoi*unit_density,kappabari, &
-     kappaparti,Ti,gmwi)
+    u_cgs = vxyzu(4,i)*unit_ergg
+    rho_cgs = rhoi*unit_density
+    call getopac_opdep(u_cgs,rho_cgs,kappabari,kappaparti,Ti,gmwi)
 
     loop_over_neighbours: do n=1,nneigh
        j = abs(listneigh(n))
@@ -1791,7 +1793,9 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
           dwkerni = grkerni*cnormk*hi21*hi21*gradh(1,i)
           pmassj = massoftype(iamtypej)
           call rhoanddhdrho(hj,hj1,rhoj,rho1j,dhdrhoj,pmassj)
-          call getopac_opdep(vxyzu(4,j)*unit_ergg,rhoj*unit_density,&
+          u_cgs = vxyzu(4,j)*unit_ergg
+          rho_cgs = rhoj*unit_density
+          call getopac_opdep(u_cgs,rho_cgs,&
                  kappaBarj,kappaPartj,Tj,gmwj)
           uradi = uradi + get_radconst_code()*(Tj**4.0d0)*wkerni*pmassj/rhoj
 
