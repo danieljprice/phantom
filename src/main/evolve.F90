@@ -16,7 +16,7 @@ module evolve
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, analysis, boundary_dyn, centreofmass,
+! :Dependencies: HIIRegion, analysis, apr, boundary_dyn, centreofmass,
 !   checkconserved, dim, energies, evwrite, externalforces, fileutils,
 !   forcing, inject, io, io_summary, mf_write, mpiutils, options, part,
 !   partinject, ptmass, quitdump, radiation_utils, readwrite_dumps,
@@ -37,11 +37,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
                             dtmax_ifactor,dtmax_ifactorWT,dtmax_dratio,check_dtmax_for_decrease,&
                             idtmax_n,idtmax_frac,idtmax_n_next,idtmax_frac_next
  use evwrite,          only:write_evfile,write_evlog
- use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,hdivBonB_max
+ use energies,         only:etot,totmom,angtot,mdust,np_cs_eq_0,np_e_eq_0,hdivBonB_ave,&
+                            hdivBonB_max,mtot
  use checkconserved,   only:etot_in,angtot_in,totmom_in,mdust_in,&
                             init_conservation_checks,check_conservation_error,&
-                            check_magnetic_stability
- use dim,              only:maxvxyzu,mhd,periodic,idumpfile,ind_timesteps
+                            check_magnetic_stability,mtot_in
+ use dim,              only:maxvxyzu,mhd,periodic,idumpfile,use_apr,ind_timesteps
  use fileutils,        only:getnextfilename
  use options,          only:nfulldump,twallmax,nmaxdumps,rhofinal1,iexternalforce,rkill
  use readwrite_infile, only:write_infile
@@ -78,7 +79,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  use dim,              only:do_radiation
  use options,          only:exchange_radiation_energy,implicit_radiation
- use part,             only:rad,radprop
+ use part,             only:rad,radprop,igas
  use radiation_utils,  only:update_radenergy
  use timestep,         only:dtrad
 #ifdef LIVE_ANALYSIS
@@ -87,9 +88,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use fileutils,        only:numfromfile
  use io,               only:ianalysis
 #endif
+ use apr,              only:update_apr,create_or_update_apr_clump
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
-                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
+                            fxyz_ptmass_sinksink,ntot,poten,ndustsmall,&
+                            accrete_particles_outside_sphere,apr_level,aprmassoftype,&
                             linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
@@ -139,7 +142,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
 #endif
  logical         :: fulldump,abortrun,abortrun_bdy,at_dump_time,writedump
  logical         :: should_conserve_energy,should_conserve_momentum,should_conserve_angmom
- logical         :: should_conserve_dustmass
+ logical         :: should_conserve_dustmass,should_conserve_aprmass
  logical         :: use_global_dt
  integer         :: j,nskip,nskipped,nevwrite_threshold,nskipped_sink,nsinkwrite_threshold
  character(len=120) :: dumpfile_orig
@@ -159,7 +162,8 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  abortrun_bdy = .false.
 
  call init_conservation_checks(should_conserve_energy,should_conserve_momentum,&
-                               should_conserve_angmom,should_conserve_dustmass)
+                               should_conserve_angmom,should_conserve_dustmass,&
+                               should_conserve_aprmass)
 
  noutput          = 1
  noutput_dtmax    = 1
@@ -240,6 +244,11 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
     endif
 #endif
 
+    if (use_apr) then
+       ! split or merge as required
+       call update_apr(npart,xyzh,vxyzu,fxyzu,apr_level)
+    endif
+
     dtmaxold    = dtmax
 #ifdef IND_TIMESTEPS
     istepfrac   = istepfrac + 1
@@ -284,8 +293,12 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        !
        ! creation of new sink particles
        !
-       call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
+       if (use_apr) then
+          call create_or_update_apr_clump(npart,xyzh,vxyzu,poten,apr_level,xyzmh_ptmass,aprmassoftype)
+       else
+          call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
                           poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+       endif
     endif
 
     if (icreate_sinks == 2) then
@@ -450,6 +463,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           enddo
        endif
        if (mhd) call check_magnetic_stability(hdivBonB_ave,hdivBonB_max)
+       if (should_conserve_aprmass) call check_conservation_error(mtot,mtot_in,massoftype(igas),'total mass')
        if (id==master) then
           if (np_e_eq_0  > 0) call warning('evolve','N gas particles with energy = 0',var='N',ival=int(np_e_eq_0,kind=4))
           if (np_cs_eq_0 > 0) call warning('evolve','N gas particles with sound speed = 0',var='N',ival=int(np_cs_eq_0,kind=4))

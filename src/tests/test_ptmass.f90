@@ -14,11 +14,11 @@ module testptmass
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: HIIRegion, boundary, checksetup, deriv, dim, energies,
-!   eos, eos_HIIR, extern_binary, externalforces, gravwaveutils, io,
-!   kdtree, kernel, mpiutils, options, part, physcon, ptmass, random,
-!   setbinary, setdisc, spherical, step_lf_global, stretchmap, testutils,
-!   timestep, timing, units
+! :Dependencies: HIIRegion, boundary, centreofmass, checksetup, deriv, dim,
+!   energies, eos, eos_HIIR, extern_binary, externalforces, gravwaveutils,
+!   io, kdtree, kernel, mpiutils, options, part, physcon, ptmass, random,
+!   setbinary, setdisc, spherical, step_lf_global, stretchmap, subgroup,
+!   testutils, timestep, timing, units
 !
  use testutils, only:checkval,update_test_scores
  implicit none

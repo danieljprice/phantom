@@ -110,12 +110,13 @@ subroutine substep_sph_gr(dt,npart,xyzh,vxyzu,dens,pxyzu,metrics)
 end subroutine substep_sph_gr
 
 subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metrics,metricderivs,fext,time)
- use dim,            only:maxptmass,maxp,maxvxyzu
+ use dim,            only:maxptmass,maxp,maxvxyzu,use_apr
  use io,             only:iverbose,id,master,iprint,warning,fatal
  use externalforces, only:externalforce,accrete_particles,update_externalforce
  use options,        only:iexternalforce
  use part,           only:maxphase,isdead_or_accreted,iamboundary,igas,iphase,iamtype,&
-                             massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP
+                             massoftype,rhoh,ien_type,eos_vars,igamma,itemp,igasP,&
+                             aprmassoftype,apr_level
  use io_summary,     only:summary_variable,iosumextr,iosumextt,summary_accrete
  use timestep,       only:bignumber,C_force,xtol,ptol
  use eos,            only:equationofstate,ieos
@@ -183,7 +184,7 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
     !
     !$omp parallel do default(none) &
     !$omp shared(npart,xyzh,vxyzu,fext,iphase,ntypes,massoftype) &
-    !$omp shared(maxphase,maxp,eos_vars) &
+    !$omp shared(maxphase,maxp,eos_vars,aprmassoftype,apr_level) &
     !$omp shared(dt,hdt,xtol,ptol) &
     !$omp shared(ieos,pxyzu,dens,metrics,metricderivs,ien_type) &
     !$omp private(i,its,spsoundi,tempi,rhoi,hi,eni,uui,densi) &
@@ -199,7 +200,13 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
        if (.not.isdead_or_accreted(hi)) then
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
-             pmassi = massoftype(itype)
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
 
           its       = 0
@@ -306,7 +313,7 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
     dtextforce_min = bignumber
     !$omp parallel default(none) &
     !$omp shared(npart,xyzh,metrics,metricderivs,vxyzu,fext,iphase,ntypes,massoftype,hdt,timei) &
-    !$omp shared(maxphase,maxp) &
+    !$omp shared(maxphase,maxp,apr_level,aprmassoftype) &
     !$omp private(i,accreted) &
     !$omp shared(ieos,dens,pxyzu,iexternalforce,C_force) &
     !$omp private(pri,pondensi,spsoundi,tempi,dtf) &
@@ -319,8 +326,14 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
-             pmassi = massoftype(itype)
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
              !  if (itype==iboundary) cycle accreteloop
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
 
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
@@ -654,13 +667,14 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
                 fext,fxyz_ptmass,dsdt_ptmass,dptmass,ibin_wake, &
                 nbinmax,timei,fxyz_ptmass_sinksink,accreted)
  use part,           only:isdead_or_accreted,massoftype,iamtype,iamboundary,iphase,ispinx,ispiny,ispinz,igas,ndptmass
+ use part,           only:apr_level,aprmassoftype
  use ptmass,         only:f_acc,ptmass_accrete,pt_write_sinkev,update_ptmass,ptmass_kick
  use externalforces, only:accrete_particles
  use options,        only:iexternalforce
  use io  ,           only:id,master,fatal,iprint,iverbose
  use io_summary,     only:summary_accrete,summary_accrete_fail
  use mpiutils,       only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
- use dim,            only:ind_timesteps,maxp,maxphase
+ use dim,            only:ind_timesteps,maxp,maxphase,use_apr
  use timestep_sts,   only:sts_it_n
  real,                      intent(in)    :: dt,dki
  integer,                   intent(in)    :: npart,nptmass,ntypes
@@ -734,7 +748,7 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
     !$omp parallel do default(none) &
     !$omp shared(maxp,maxphase) &
     !$omp shared(npart,xyzh,vxyzu,fext,dkdt,iphase,ntypes,massoftype,timei,nptmass,sts_it_n) &
-    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc) &
+    !$omp shared(xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,f_acc,apr_level,aprmassoftype) &
     !$omp shared(iexternalforce) &
     !$omp shared(nbinmax,ibin_wake) &
     !$omp private(i,accreted,nfaili,fxi,fyi,fzi) &
@@ -748,8 +762,14 @@ subroutine kick(dki,dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,
        if (.not.isdead_or_accreted(xyzh(4,i))) then
           if (ntypes > 1 .and. maxphase==maxp) then
              itype = iamtype(iphase(i))
-             pmassi = massoftype(itype)
              if (iamboundary(itype)) cycle accreteloop
+             if (use_apr) then
+                pmassi = aprmassoftype(itype,apr_level(i))
+             else
+                pmassi = massoftype(itype)
+             endif
+          elseif (use_apr) then
+             pmassi = aprmassoftype(igas,apr_level(i))
           endif
           !
           ! correct v to the full step using only the external force
@@ -843,14 +863,14 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                      force_count,extf_vdep_flag,linklist_ptmass,bin_info,fsink_old,&
                      group_info,isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
- use dim,             only:maxp,maxvxyzu,itau_alloc
+ use dim,             only:maxp,maxvxyzu,itau_alloc,use_apr
  use ptmass,          only:get_accel_sink_gas,get_accel_sink_sink,merge_sinks, &
                            ptmass_vdependent_correction,n_force_order
  use options,         only:iexternalforce
  use part,            only:maxphase,abundance,nabundances,epot_sinksink,eos_vars,&
                            isdead_or_accreted,iamboundary,igas,iphase,iamtype,massoftype,divcurlv, &
                            fxyz_ptmass_sinksink,dsdt_ptmass_sinksink,dust_temp,tau,&
-                           nucleation,idK2,idmu,idkappa,idgamma,imu,igamma
+                           nucleation,idK2,idmu,idkappa,idgamma,imu,igamma,apr_level,aprmassoftype
  use cooling_ism,     only:dphot0,dphotflag,abundsi,abundo,abunde,abundc,nabn
  use timestep,        only:bignumber,C_force
  use mpiutils,        only:bcast_mpi,reduce_in_place_mpi,reduceall_mpi
@@ -980,7 +1000,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  !$omp shared(maxp,maxphase,wsub) &
  !$omp shared(npart,nptmass,xyzh,vxyzu,xyzmh_ptmass,fext) &
  !$omp shared(eos_vars,dust_temp,idamp,damp_fac,abundance,iphase,ntypes,massoftype) &
- !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last) &
+ !$omp shared(dkdt,dt,timei,iexternalforce,extf_vdep_flag,last,aprmassoftype,apr_level) &
  !$omp shared(divcurlv,dphotflag,dphot0,nucleation,extrap) &
  !$omp shared(abundc,abundo,abundsi,abunde,extrapfac,fsink_old) &
  !$omp shared(isink_radiation,itau_alloc,tau,isionised) &
@@ -995,7 +1015,11 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        if (ntypes > 1 .and. maxphase==maxp) then
           itype  = iamtype(iphase(i))
-          pmassi = massoftype(itype)
+          if (use_apr) then
+             pmassi = aprmassoftype(itype,apr_level(i))
+          else
+             pmassi = massoftype(itype)
+          endif
        endif
        fextx = 0.
        fexty = 0.

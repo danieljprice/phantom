@@ -289,8 +289,8 @@ subroutine get_k_fld(rhoi,eni,i,ki,Ti)
  if (lambda_FLD(i) == 0d0) then
     ki = 0.
  else
- 	eni_ergg = eni*unit_ergg
- 	rhoi_g = rhoi*unit_density
+    eni_ergg = eni*unit_ergg
+    rhoi_g = rhoi*unit_density
     call getopac_opdep(eni_ergg,rhoi_g,kappaBar,kappaPart,Ti,gmwi)
     kappaPart = kappaPart/unit_opacity
     ! steboltz constant = 4pi/c * arad

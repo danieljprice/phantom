@@ -382,7 +382,7 @@ subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
     endif
 
-	rhoi_cgs = rhoi*unit_density
+    rhoi_cgs = rhoi*unit_density
     call getintenerg_opdep(Teqi,rhoi_cgs,ueqi)
     ueqi = ueqi/unit_ergg
 

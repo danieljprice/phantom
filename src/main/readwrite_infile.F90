@@ -65,7 +65,7 @@ module readwrite_infile
 !   - use_mcfost         : *use the mcfost library*
 !   - xtol               : *tolerance on xyz iterations*
 !
-! :Dependencies: HIIRegion, boundary_dyn, cooling, damping, dim, dust,
+! :Dependencies: HIIRegion, apr, boundary_dyn, cooling, damping, dim, dust,
 !   dust_formation, eos, externalforces, forcing, gravwaveutils, growth,
 !   infile_utils, inject, io, linklist, metric, nicil_sup, options, part,
 !   porosity, ptmass, ptmass_radiation, radiation_implicit,
@@ -110,6 +110,7 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
 #ifdef INJECT_PARTICLES
  use inject,          only:write_options_inject,inject_type,update_injected_par
 #endif
+ use apr,             only:write_options_apr
  use dust_formation,  only:write_options_dust_formation
  use nicil_sup,       only:write_options_nicil
  use metric,          only:write_options_metric
@@ -120,7 +121,8 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  use gravwaveutils,   only:write_options_gravitationalwaves
  use radiation_utils,    only:kappa_cgs
  use radiation_implicit, only:tol_rad,itsmax_rad,cv_type
- use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,nalpha
+ use dim,                only:maxvxyzu,maxptmass,gravity,sink_radiation,gr,&
+                              nalpha,use_apr
  use part,               only:maxp,mhd,maxalpha,nptmass
  use boundary_dyn,       only:write_options_boundary
  use HIIRegion,          only:write_options_H2R
@@ -305,6 +307,9 @@ subroutine write_infile(infile,logfile,evfile,dumpfile,iwritein,iprint)
  if (gr) call write_options_metric(iwritein)
  call write_options_gravitationalwaves(iwritein)
  call write_options_boundary(iwritein)
+
+ if (use_apr) call write_options_apr(iwritein)
+
  call write_options_H2R(iwritein)
 
  if (iwritein /= iprint) close(unit=iwritein)
@@ -319,7 +324,7 @@ end subroutine write_infile
 !-----------------------------------------------------------------
 subroutine read_infile(infile,logfile,evfile,dumpfile)
  use dim,             only:maxvxyzu,maxptmass,gravity,sink_radiation,nucleation,&
-                           itau_alloc,store_dust_temperature,gr,do_nucleation
+                           itau_alloc,store_dust_temperature,gr,do_nucleation,use_apr
  use timestep,        only:tmax,dtmax,nmax,nout,C_cour,C_force,C_ent
  use eos,             only:read_options_eos,ieos
  use io,              only:ireadin,iwritein,iprint,warn,die,error,fatal,id,master,fileprefix
@@ -337,6 +342,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
  use inject,          only:read_options_inject
 #endif
+ use apr,             only:read_options_apr
  use dust_formation,  only:read_options_dust_formation,idust_opacity
  use nicil_sup,       only:read_options_nicil
  use part,            only:mhd,nptmass
@@ -361,7 +367,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  real    :: ratio
  logical :: imatch,igotallrequired,igotallturb,igotalllink,igotloops
  logical :: igotallbowen,igotallcooling,igotalldust,igotallextern,igotallinject,igotallgrowth,igotallporosity
- logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping
+ logical :: igotallionise,igotallnonideal,igotalleos,igotallptmass,igotalldamping,igotallapr
  logical :: igotallprad,igotalldustform,igotallgw,igotallgr,igotallbdy,igotallH2R
  integer, parameter :: nrequired = 1
 
@@ -381,6 +387,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
  igotalllink     = .true.
  igotallextern   = .true.
  igotallinject   = .true.
+ igotallapr      = .true.
  igotalleos      = .true.
  igotallcooling  = .true.
  igotalldamping  = .true.
@@ -556,6 +563,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifdef INJECT_PARTICLES
        if (.not.imatch) call read_options_inject(name,valstring,imatch,igotallinject,ierr)
 #endif
+       if (.not.imatch .and. use_apr) call read_options_apr(name,valstring,imatch,igotallapr,ierr)
        if (.not.imatch .and. nucleation) call read_options_dust_formation(name,valstring,imatch,igotalldustform,ierr)
        if (.not.imatch .and. sink_radiation) then
           call read_options_ptmass_radiation(name,valstring,imatch,igotallprad,ierr)
@@ -589,7 +597,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
                     .and. igotalleos    .and. igotallcooling .and. igotallextern  .and. igotallturb &
                     .and. igotallptmass .and. igotallinject  .and. igotallionise  .and. igotallnonideal &
                     .and. igotallgrowth  .and. igotallporosity .and. igotalldamping .and. igotallprad &
-                    .and. igotalldustform .and. igotallgw    .and. igotallgr      .and. igotallbdy
+                    .and. igotalldustform .and. igotallgw .and. igotallgr .and. igotallbdy .and. igotallapr
 
  if (ierr /= 0 .or. ireaderr > 0 .or. .not.igotallrequired) then
     ierr = 1
@@ -618,6 +626,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
              endif
           endif
           if (.not.igotallinject) write(*,*) 'missing inject-particle options'
+          if (.not.igotallapr) write(*,*) 'missing apr options'
           if (.not.igotallionise) write(*,*) 'missing ionisation options'
           if (.not.igotallnonideal) write(*,*) 'missing non-ideal MHD options'
           if (.not.igotallturb) write(*,*) 'missing turbulence-driving options'
