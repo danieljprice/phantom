@@ -299,6 +299,10 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/Rstar_cgs)
  print*,'mass_of_particles          = ',mass_of_particles
  print*,'particles per sphere       = ',particles_per_sphere
+ if (wind_eject_duration < 1e20) then
+    print*,'wind_eject_duration        = ',wind_eject_duration
+    print*,'ejected particles          = ',wind_eject_duration/time_between_spheres*particles_per_sphere
+ endif
  print*,'distance between spheres   = ',wind_shell_spacing*neighbour_distance
  print*,'distance between injection = ',time_between_spheres*wind_injection_speed
  print*,'hmax/dist_between_spheres  = ',wind_shell_spacing*neighbour_distance*initial_wind_velocity_cgs**2/&

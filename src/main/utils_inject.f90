@@ -149,13 +149,16 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     radial_unit_vector_rotated(3) = radial_unit_vector(1)*rotmat(3,1) &
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
+
+    !print *,'######',j,radial_unit_vector
+!    radial_unit_vector_rotated = radial_unit_vector
     particle_position = r*radial_unit_vector_rotated
-    particle_velocity = v*radial_unit_vector_rotated 
+    particle_velocity = v*radial_unit_vector_rotated
 
     if (omega_axis(3) /= 1.) then
       ! to do
       ! call Euler_rotation(particle_position,omega_axis,rot_particle_position)
-    else 
+    else
       rot_particle_position = particle_position
     endif
 
@@ -167,23 +170,22 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
     particle_velocity = particle_velocity + vomega_spin
 
-    ! geometry subroutines to switch from Cartesian to spherical coordinates 
+    ! geometry subroutines to switch from Cartesian to spherical coordinates
     ! and impose Dwarkadas & Owocki (2002) velocity profile on the radial component
-    ndim = 3    
-    igeom = 3   
+    ndim = 3
+    igeom = 3
     ierr = 0
 
     ! input is cartesian, output spherical polar
     call coord_transform(rot_particle_position, ndim, 1, position_out, ndim, igeom, ierr)
     call vector_transform(rot_particle_position, particle_velocity, ndim, 1, velocity_out, ndim, igeom, ierr)
-    velocity_out(1) = velocity_out(1) * sqrt(1 - omega**2 * sin(position_out(3))**2)
-    particle_velocity = 0.
+    velocity_out(1) = velocity_out(1) * sqrt(1. - omega**2 * sin(position_out(3))**2)
 
     ! input is spherical polars, output cartesian
     call vector_transform(position_out, velocity_out, ndim, igeom, particle_velocity, ndim, 1, ierr)
 
     particle_velocity = particle_velocity + v0
-    particle_position = particle_position + x0 
+    particle_position = particle_position + x0
     call add_or_update_particle(itype,particle_position,particle_velocity, &
          h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
  enddo
@@ -251,7 +253,7 @@ subroutine Euler_rotation(particle_position,omega_axis,rot_particle_position)
  rot_particle_position(1) = dot_product(rotation_matrix(1,1:3),particle_position(1:3))
  rot_particle_position(2) = dot_product(rotation_matrix(2,1:3),particle_position(1:3))
  rot_particle_position(3) = dot_product(rotation_matrix(3,1:3),particle_position(1:3))
- 
+
  end subroutine Euler_rotation
- 
+
 end module injectutils
