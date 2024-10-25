@@ -32,13 +32,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,isetphase,iphase
  use units,     only:set_units,umass,unit_velocity,udist
  use physcon,   only:solarm,pc,pi,au,kboltz,mass_proton_cgs
- use io,        only:fatal,master
+ use io,        only:fatal,master,iprint
  use eos,       only:gmw,ieos
  use dim,       only: maxp,maxphase
  use timestep,  only:dtmax
  use spherical, only:set_sphere
  use datafiles, only:find_phantom_datafile
  use HIIRegion, only:iH2R
+ use utils_shuffleparticles, only:shuffleparticles
+
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -63,11 +65,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  gmw = 1.  ! completely ionized, solar abu; eventually needs to be WR abu
  dtmax = 0.01
  rmin  = 0.
- rmax  = 6*pc/udist
+ rmax  = 2.91*pc/udist
  ieos  = 21
  IH2R  = 1
  temp = 1000.
- totmass  = 6.4e4*solarm/umass
+ totmass  = 1.e3*solarm/umass
  totvol   = 4./3.*pi*rmax**3
  rho0 = totmass/totvol
  polyk = ((gamma*kboltz*temp)/(gmw*mass_proton_cgs))*(1./unit_velocity)**2
@@ -94,7 +96,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! setup initial sphere of particles
  !
- np       = 8000000
+ np       = 800000
  nx       = int(np**(1./3.))
  psep     = totvol**(1./3.)/real(nx)
  npart    = 0
@@ -117,6 +119,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
        iphase(i) = isetphase(igas,iactive=.true.)
     enddo
  endif
+
+ call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rho0,dmedium=0.,&
+ is_setup=.true.,prefix=trim(fileprefix))
 
 
  if (nptmass == 0) call fatal('setup','no particles setup')
