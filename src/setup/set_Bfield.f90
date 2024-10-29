@@ -49,7 +49,7 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  real :: totmass,przero,fracx,fracy,fracz,fractot
  real :: Bzero,Bzero2,Bxzero,Byzero,Bzzero
  real :: c1,area,rmasstoflux_crit,rmasstoflux,betazero,valfven
- real :: theta
+ real :: theta,Rs,r2,r
  logical :: reverse_field_dir,ians
 
  maxp = size(xyzh(1,:))
@@ -60,10 +60,11 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 ! choose field geometry
 !
- print "(2(/,a))",' 1) uniform cartesian field ', &
-                  ' 2) uniform toroidal field  '
+ print "(3(/,a))",' 1) uniform cartesian field ', &
+                  ' 2) uniform toroidal field  ', &
+                  ' 3) z-magnetic dipole field'
  igeom = 1
- call prompt('Choose initial magnetic field geometry ',igeom,1,2)
+ call prompt('Choose initial magnetic field geometry ',igeom,1,3)
 
 ! set initial mean pressure for use in beta calculations
  przero = polyk*rhozero
@@ -79,6 +80,7 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 !
 ! choose field strength
 !
+ if (igeom==3) print*,'Please specify magnetic field strength of the dipole at a given radius R'
  print "(/,' Do you want to enter: ',/,"// &
         "'         magnetic field strength in Gauss (m)',/,"// &
         "' or magnetic field strength in code units (c)',/,"// &
@@ -223,6 +225,21 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
        Bxyz(2,i) = -Bzero*cos(theta)
        Bxyz(3,i) = 0.
     enddo
+
+ case(3)
+!
+!--field of magnetic dipole along z-direction (Ohlmann et al. 2016)
+!
+ Rs = 1.
+ call prompt('Enter spherical radius of specified B-field',Rs,0.)
+ do i=1,npart
+    r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
+    r = sqrt(r2)
+    Bxyz(1,i) = 3*xyzh(1,i)*xyzh(3,i)/r2
+    Bxyz(2,i) = 3*xyzh(2,i)*xyzh(3,i)/r2
+    Bxyz(3,i) = 3*xyzh(3,i)**2/r2 - 1.
+    Bxyz(1:3,i) =  Bxyz(1:3,i) * 0.5*Bzero*(Rs/r)**3
+ enddo
 
  case default
     call fatal('set_Bfield','unknown field geometry')

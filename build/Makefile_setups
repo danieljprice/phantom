@@ -751,6 +751,16 @@ ifeq ($(SETUP), star)
     GRAVITY=yes
 endif
 
+ifeq ($(SETUP), mhdstar)
+#   set up a magnetic star
+    SETUPFILE= setup_star.f90
+    MODFILE= utils_binary.f90 set_binary.f90 moddump_binary.f90
+    ANALYSIS= ${SRCNIMHD} utils_summary.o utils_omp.o ptmass.o energies.o analysis_common_envelope.f90
+    KNOWN_SETUP=yes
+    GRAVITY=yes
+    MHD=yes
+endif
+
 ifeq ($(SETUP), grstar)
 #   star in GR using Minkowski metric
     GR=yes
