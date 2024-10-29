@@ -58,6 +58,7 @@ subroutine test_rwdump(ntests,npass)
  real    :: xminwas,xmaxwas,yminwas,ymaxwas,zminwas,zmaxwas
  logical :: test_speed
  real(kind=4) :: t1
+ real, allocatable :: tmparray(:)
 
  if (id==master) write(*,"(/,a,/)") '--> TESTING READ/WRITE from dump file'
  test_speed = .false.
@@ -316,7 +317,10 @@ subroutine test_rwdump(ntests,npass)
        if (id==master) write(*,"(/,a)") '--> checking read of single array from file'
        xyzh(2,:) = 0.
        nfailed = 0
-       call read_array_from_file(idisk1,'test.dump','y',xyzh(1,:),ierr)
+       allocate(tmparray(size(xyzh,dim=2)))
+       call read_array_from_file(idisk1,'test.dump','y',tmparray,ierr)
+       xyzh(1,:) = tmparray
+       deallocate(tmparray)
        call checkval(ierr,0,0,nfailed(1),'error flag')
        call checkval(npart,xyzh(1,:),2.,tiny(xyzh),nfailed(2),'y')
        ntests = ntests + 1

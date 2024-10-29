@@ -84,6 +84,7 @@ LIBTOOL=ar rcs
 # -DMHD                 ! magnetic fields
 # -DNONIDEALMHD         ! non-ideal magnetic fields including ionisation; uses NICIL
 # -DLIGHTCURVE          ! lightcurve estimation
+# -DAPR									! live adaptive particle refinement
 
 include Makefile_setups
 
@@ -295,6 +296,13 @@ endif
 ifeq ($(AOCC), yes)
     FPPFLAGS += -DAOCC
 endif
+
+SRCAPR=relaxem.f90 apr_region.f90 apr.f90
+ifeq ($(APR), yes)
+		FPPFLAGS += -DAPR
+		KERNEL=WendlandC2
+endif
+
 #
 # kernel choice
 #
@@ -537,7 +545,7 @@ SOURCES= physcon.f90 ${CONFIG} ${SRCKERNEL} io.F90 units.f90 \
          ${SRCKROME} memory.f90 ${SRCREADWRITE_DUMPS} ${SRCINJECT} \
          H2regions.f90 subgroup.f90 \
          quitdump.f90 ptmass.F90\
-         readwrite_infile.F90 dens.F90 force.F90 deriv.F90 energies.F90 sort_particles.f90 \
+         dens.F90 force.F90 deriv.F90 ${SRCAPR} readwrite_infile.F90 energies.F90 sort_particles.f90 \
          utils_shuffleparticles.F90 evwrite.f90 substepping.F90 step_leapfrog.F90 writeheader.F90 ${SRCAN} step_supertimestep.F90 \
          mf_write.f90 evolve.F90 utils_orbits.f90 utils_linalg.f90 \
          checksetup.f90 initial.F90
@@ -650,12 +658,14 @@ libsetup: $(OBJLIBSETUP)
 .PHONY: phantomsetup
 phantomsetup: setup
 
-SRCSETUP= prompting.f90 utils_omp.F90 setup_params.f90 \
-          set_dust_options.f90 set_units.f90 \
-          density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+SRCSETSTAR= prompting.f90 density_profiles.f90 readwrite_kepler.f90 readwrite_mesa.f90 \
+            set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
+            set_star_utils.f90 relax_star.f90 set_star.f90 
+
+SRCSETUP= utils_omp.F90 setup_params.f90 \
+          ${SRCSETSTAR} set_dust_options.f90 set_units.f90 \
           set_slab.f90 set_disc.F90 set_orbit.f90 \
-          set_cubic_core.f90 set_fixedentropycore.f90 set_softened_core.f90 \
-          set_star_utils.f90 relax_star.f90 set_star.f90 set_hierarchical.f90 \
+          set_hierarchical.f90 \
           set_vfield.f90 set_Bfield.f90 \
           ${SETUPFILE}
 
@@ -682,11 +692,11 @@ endif
 
 # 22/4/24: added setup_params to avoid weird build failure with ifort on Mac OS
 SRCTESTS=utils_testsuite.f90 ${TEST_FASTMATH} test_kernel.f90 \
-         test_dust.f90 test_growth.f90 test_smol.F90 \
+         ${SRCAPR} test_apr.f90 test_dust.f90 test_growth.f90 test_smol.F90 \
          test_nonidealmhd.F90 directsum.f90 test_gravity.f90 \
          test_derivs.F90 test_cooling.f90 test_eos_stratified.f90 \
          test_eos.f90 test_externf.f90 test_rwdump.f90 \
-         test_step.F90 test_indtstep.F90 set_disc.F90 test_setdisc.F90 \
+         test_step.F90 test_indtstep.F90 ${SRCSETSTAR} set_disc.F90 test_setdisc.F90 test_setstar.f90 \
          test_hierarchical.f90 test_damping.f90 test_wind.f90 test_iorig.f90 \
          test_link.F90 test_kdtree.F90 test_part.f90 test_ptmass.f90 test_luminosity.F90\
          test_gnewton.f90 test_corotate.f90 test_geometry.f90 \

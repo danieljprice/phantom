@@ -76,7 +76,7 @@ end subroutine write_codeinfo
 !-----------------------------------------------------------------
 subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
  use dim,              only:maxp,maxvxyzu,maxalpha,ndivcurlv,mhd_nonideal,nalpha,use_dust,&
-        use_dustgrowth,gr,h2chemistry
+                            use_dustgrowth,gr,h2chemistry,use_apr
  use io,               only:iprint
  use boundary,         only:xmin,xmax,ymin,ymax,zmin,zmax
  use boundary_dyn,     only:dynamic_bdy,rho_thresh_bdy,width_bkg
@@ -142,6 +142,7 @@ subroutine write_header(icall,infile,evfile,logfile,dumpfile,ntot)
        enddo
        write(iprint,"(a)") " "
     endif
+    if (use_apr) write(iprint,"(1x,a)") 'Adapative particle refinement is ON'
     if (periodic) then
        write(iprint,"(1x,a)") 'Periodic boundaries: '
        if (abs(xmin) > 1.0d4 .or. abs(xmax) > 1.0d4 .or. &

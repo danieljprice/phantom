@@ -304,7 +304,7 @@ subroutine get_accel_sink_gas(nptmass,xi,yi,zi,hi,xyzmh_ptmass,fxi,fyi,fzi,phi, 
        ! timestep is sqrt(separation/force)
        fonrmax = max(f1,f2,fonrmax)
        if (kappa) then
-          if(abs(bin_info(isemi,j))>tiny(f2)) then
+          if (abs(bin_info(isemi,j))>tiny(f2)) then
              bin_info(ipert,j) = bin_info(ipert,j) + f2
           endif
        endif
@@ -1078,8 +1078,8 @@ end subroutine update_ptmass
 subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
                          massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
  use part,   only:ihacc,ihsoft,itbirth,igas,iamtype,get_partinfo,iphase,iactive,maxphase,rhoh, &
-                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass
- use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps
+                  ispinx,ispiny,ispinz,eos_vars,igasP,igamma,ndptmass,apr_level,aprmassoftype
+ use dim,    only:maxp,maxneigh,maxvxyzu,maxptmass,ind_timesteps,use_apr
  use kdtree, only:getneigh
  use kernel, only:kernel_softening,radkern
  use io,     only:id,iprint,fatal,iverbose,nprocs
@@ -1256,7 +1256,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
 #ifdef PERIODIC
 !$omp shared(dxbound,dybound,dzbound) &
 #endif
-!$omp shared(ibin_wake,ibin_itest) &
+!$omp shared(ibin_wake,ibin_itest,apr_level,aprmassoftype) &
 !$omp private(n,j,xj,yj,zj,hj1,hj21,psoftj,rij2,nk,k,xk,yk,zk,hk1,psoftk,rjk2,psofti,rik2) &
 !$omp private(dx,dy,dz,dvx,dvy,dvz,dv2,isgasj,isdustj) &
 !$omp private(rhoj,q2i,qi,fsoft,rcrossvx,rcrossvy,rcrossvz,radxy2,radyz2,radxz2) &
@@ -1270,7 +1270,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     ! get mass and particle type to immediately determine if active and accretable
     if (maxphase==maxp) then
        call get_partinfo(iphase(j),iactivej,isgasj,isdustj,itypej)
-       pmassj = massoftype(itypej)
+       if (use_apr) then
+          pmassj = aprmassoftype(itypej,apr_level(j))
+       else
+          pmassj = massoftype(itypej)
+       endif
        if (.not. is_accretable(itypej) ) cycle over_neigh ! Verify particle is 'accretable'
     endif
 
@@ -1372,7 +1376,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
                 if (k==itest .and. id==id_rhomax) cycle over_neigh_k ! contribution already added
                 if (maxphase==maxp) then
                    itypek = iamtype(iphase(k))
-                   pmassk = massoftype(itypek)
+                   if (use_apr) then
+                      pmassk = aprmassoftype(itypek,apr_level(k))
+                   else
+                      pmassk = massoftype(itypek)
+                   endif
                    if (.not. is_accretable(itypek) ) cycle over_neigh_k
                 endif
 
@@ -1596,7 +1604,11 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
        j = listneigh(n)
        if (maxphase==maxp) then
           itypej = iamtype(iphase(j))
-          pmassj = massoftype(itypej)
+          if (use_apr) then
+             pmassj = aprmassoftype(itypej,apr_level(j))
+          else
+             pmassj = massoftype(itypej)
+          endif
        endif
        fxj = fxyzu(1,j) + fext(1,j)
        fyj = fxyzu(2,j) + fext(2,j)
@@ -2226,9 +2238,11 @@ end subroutine calculate_mdot
 !+
 !-----------------------------------------------------------------------
 subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
- use part, only:sink_has_heating,imassenc,ihsoft,massoftype,igas,xyzmh_ptmass,isdead_or_accreted
+ use part,           only:sink_has_heating,imassenc,ihsoft,massoftype,&
+                     igas,xyzmh_ptmass,isdead_or_accreted,aprmassoftype,apr_level
  use ptmass_heating, only:isink_heating,heating_kernel
  use kernel,         only:radkern2
+ use dim,            only:use_apr
  integer, intent(in) :: nptmass,npart
  real,    intent(in) :: xyzh(:,:)
  integer             :: i,j
@@ -2253,7 +2267,11 @@ subroutine ptmass_calc_enclosed_mass(nptmass,npart,xyzh)
        endif
     enddo
     !$omp end parallel do
-    xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
+    if (use_apr) then
+       xyzmh_ptmass(imassenc,i) = wi * aprmassoftype(igas,apr_level(i))
+    else
+       xyzmh_ptmass(imassenc,i) = wi * massoftype(igas)
+    endif
  enddo
 
 end subroutine ptmass_calc_enclosed_mass

@@ -124,11 +124,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                     npart,npartoftype,massoftype,hfact,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ieos,polyk,gamma,X_in,Z_in,&
                     relax,use_var_comp,write_rho_to_file,&
-                    rhozero,npart_total,mask,ierr,x0,v0,itype)
+                    rhozero,npart_total,mask,ierr,x0,v0,itype,&
+                    write_files,density_error,energy_error)
  use centreofmass,       only:reset_centreofmass
  use dim,                only:do_radiation,gr,gravity,maxvxyzu
  use io,                 only:fatal,error,warning
- use eos,                only:eos_outputs_mu
+ use eos,                only:eos_outputs_mu,polyk_eos=>polyk
  use setstar_utils,      only:set_stellar_core,read_star_profile,set_star_density, &
                               set_star_composition,set_star_thermalenergy,&
                               write_kepler_comp
@@ -154,23 +155,28 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  real,         intent(out)    :: rhozero
  integer(kind=8), intent(out) :: npart_total
  integer,      intent(out)    :: ierr
- real,         intent(in), optional :: x0(3),v0(3)
- integer,      intent(in), optional :: itype
+ real,         intent(in),  optional :: x0(3),v0(3)
+ integer,      intent(in),  optional :: itype
+ logical,      intent(in),  optional :: write_files
+ real,         intent(out), optional :: density_error,energy_error
  procedure(mask_prototype)      :: mask
  integer                        :: npts,ierr_relax
  integer                        :: ncols_compo,npart_old,i
  real, allocatable              :: r(:),den(:),pres(:),temp(:),en(:),mtab(:),Xfrac(:),Yfrac(:),mu(:)
  real, allocatable              :: composition(:,:)
- real                           :: rmin,rhocentre
+ real                           :: rmin,rhocentre,rmserr,en_err
  character(len=20), allocatable :: comp_label(:)
  character(len=30)              :: lattice  ! The lattice type if stretchmap is used
- logical                        :: use_exactN,composition_exists
+ logical                        :: use_exactN,composition_exists,write_dumps
 
  use_exactN = .true.
  composition_exists = .false.
  ierr_relax = 0
  rhozero = 0.
  npart_old = npart
+ write_dumps = .true.
+ ierr = 0
+ if (present(write_files)) write_dumps = write_files
  !
  ! do nothing if iprofile is invalid or zero (sink particle)
  !
@@ -188,6 +194,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                         star%isoftcore,star%isofteningopt,star%rcore,star%mcore,&
                         star%hsoft,star%outputfilename,composition,&
                         comp_label,ncols_compo)
+
  !
  ! set up particles to represent the desired stellar profile
  !
@@ -236,8 +243,12 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
  !
  if (relax) then
     if (reduceall_mpi('+',npart)==npart) then
+       polyk_eos = polyk
        call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,&
-                       mu,ierr_relax,npin=npart_old,label=star%label)
+                       mu,ierr_relax,npin=npart_old,label=star%label,&
+                       write_dumps=write_dumps,density_error=rmserr,energy_error=en_err)
+       if (present(density_error)) density_error = rmserr
+       if (present(energy_error)) energy_error = en_err
     else
        call error('setup_star','cannot run relaxation with MPI setup, please run setup on ONE MPI thread')
     endif
@@ -261,7 +272,7 @@ subroutine set_star(id,master,star,xyzh,vxyzu,eos_vars,rad,&
                               xyzh,Xfrac,Yfrac,mu,mtab,star%mstar,eos_vars,npin=npart_old)
  endif
  !
- ! Write composition file called kepler.comp containing composition of each particle after interpolation
+ ! Write .comp file containing composition of each particle after interpolation
  !
  if (star%iprofile==iKepler) call write_kepler_comp(composition,comp_label,ncols_compo,r,&
                                   xyzh,npart,npts,composition_exists,npin=npart_old)

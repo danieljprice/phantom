@@ -54,7 +54,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
                             mass1,accradius1
  use io,        only:master,fatal
  use timestep,  only:tmax,dtmax
- !use inject,    only:inject_particles
  use eos,       only:gmw
  use options,   only:iexternalforce
  use extern_lensethirring, only:blackhole_spin

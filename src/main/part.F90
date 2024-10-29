@@ -33,7 +33,7 @@ module part
                maxphase,maxgradh,maxan,maxdustan,maxmhdan,maxneigh,maxprad,maxp_nucleation,&
                maxTdust,store_dust_temperature,use_krome,maxp_krome, &
                do_radiation,gr,maxgr,maxgran,n_nden_phantom,do_nucleation,&
-               inucleation,itau_alloc,itauL_alloc
+               inucleation,itau_alloc,itauL_alloc,use_apr,apr_maxlevel,maxp_apr
  use dtypekdtree, only:kdnode
 #ifdef KROME
  use krome_user, only: krome_nmols
@@ -296,6 +296,13 @@ module part
 !
  real(kind=4), allocatable :: luminosity(:)
 !
+
+!--APR - we need these arrays whether we use apr or not
+!
+ integer(kind=1), allocatable :: apr_level(:)
+ integer(kind=1), allocatable :: apr_level_soa(:)
+!
+
 !-- Regularisation algorithm allocation
 !
  integer(kind=1), allocatable :: nmatrix(:,:)    ! adjacency matrix used to construct each groups
@@ -389,7 +396,7 @@ module part
 
  integer         :: npartoftype(maxtypes)
  integer(kind=8) :: npartoftypetot(maxtypes)
- real            :: massoftype(maxtypes)
+ real            :: massoftype(maxtypes),aprmassoftype(maxtypes,apr_maxlevel)
 
  integer :: ndustsmall,ndustlarge,ndusttypes
 !
@@ -442,6 +449,8 @@ subroutine allocate_part
  call allocate_array('dvdx', dvdx, 9, maxp)
  call allocate_array('divcurlB', divcurlB, ndivcurlB, maxp)
  call allocate_array('Bevol', Bevol, maxBevol, maxmhd)
+ call allocate_array('apr_level',apr_level,maxp_apr)
+ call allocate_array('apr_level_soa',apr_level_soa,maxp_apr)
  call allocate_array('Bxyz', Bxyz, 3, maxmhd)
  call allocate_array('iorig', iorig, maxp)
  call allocate_array('dustprop', dustprop, 2, maxp_growth)
@@ -602,6 +611,8 @@ subroutine deallocate_part
  if (allocated(ibelong))      deallocate(ibelong)
  if (allocated(istsactive))   deallocate(istsactive)
  if (allocated(ibin_sts))     deallocate(ibin_sts)
+ if (allocated(apr_level))    deallocate(apr_level)
+ if (allocated(apr_level_soa)) deallocate(apr_level_soa)
  if (allocated(group_info))   deallocate(group_info)
  if (allocated(bin_info))     deallocate(bin_info)
  if (allocated(nmatrix))      deallocate(nmatrix)
@@ -652,6 +663,7 @@ subroutine init_part
  ndustsmall = 0
  ndustlarge = 0
  if (lightcurve) luminosity = 0.
+ if (use_apr) apr_level = 1 ! this is reset if the simulation is to derefine
  if (do_radiation) then
     rad(:,:) = 0.
     radprop(:,:) = 0.
@@ -718,6 +730,7 @@ real function get_pmass(i,use_gas)
  endif
 
 end function get_pmass
+
 !
 !----------------------------------------------------------------
 !+
@@ -1236,6 +1249,7 @@ subroutine copy_particle(src,dst,new_part)
     dustfrac(:,dst) = dustfrac(:,src)
     dustevol(:,dst) = dustevol(:,src)
  endif
+ if (use_apr) apr_level(dst) = apr_level(src)
  if (maxp_h2==maxp .or. maxp_krome==maxp) abundance(:,dst) = abundance(:,src)
  eos_vars(:,dst) = eos_vars(:,src)
  if (store_dust_temperature) dust_temp(dst) = dust_temp(src)
@@ -1352,6 +1366,10 @@ subroutine copy_particle_all(src,dst,new_part)
  if (maxsts==maxp) then
     istsactive(dst) = istsactive(src)
     ibin_sts(dst) = ibin_sts(src)
+ endif
+ if (use_apr) then
+    apr_level(dst)      = apr_level(src)
+    apr_level_soa(dst)  = apr_level_soa(src)
  endif
 
  if (new_part) then
@@ -1571,6 +1589,7 @@ subroutine fill_sendbuf(i,xtemp,nbuf)
        call fill_buffer(xtemp,twas(i),nbuf)
     endif
     call fill_buffer(xtemp,iorig(i),nbuf)
+    if (use_apr) call fill_buffer(xtemp,apr_level(i),nbuf)
  endif
  if (nbuf > ipartbufsize) call fatal('fill_sendbuf','error: send buffer size overflow',var='nbuf',ival=nbuf)
 
@@ -1656,6 +1675,7 @@ subroutine unfill_buffer(ipart,xbuf)
     twas(ipart)         = unfill_buf(xbuf,j)
  endif
  iorig(ipart)           = nint(unfill_buf(xbuf,j),kind=8)
+ if (use_apr) apr_level(ipart) = nint(unfill_buf(xbuf,j),kind=kind(apr_level))
 
 !--just to be on the safe side, set other things to zero
  if (mhd) then

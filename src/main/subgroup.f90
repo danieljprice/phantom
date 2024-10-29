@@ -18,8 +18,7 @@ module subgroup
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: io, mpiutils, part, physcon, timing, units, utils_kepler,
-!   utils_subgroup
+! :Dependencies: io, mpiutils, part, timing, utils_kepler, utils_subgroup
 !
  use utils_subgroup
  implicit none
@@ -844,7 +843,7 @@ subroutine kick_TTL(h,W,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,fxyz_ptmass
     do k=s_id,e_id
        i      = group_info(igarg,k)
        compi  = group_info(icomp,k)
-       if(i/=compi) then
+       if (i/=compi) then
 
           kappai = bin_info(ikap,i)
           if (kappai >= 1.) then
@@ -1088,7 +1087,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        ddr  = 1./sqrt(r2)
        mj = xyzmh_ptmass(4,j)
        if (j == compi) then
-          if(present(potonly) .and. present(energ)) then
+          if (present(potonly) .and. present(energ)) then
              gtk = mj*ddr
           else
              gtk = mj*ddr*kappa1i
@@ -1126,7 +1125,7 @@ subroutine get_force_TTL(xyzmh_ptmass,group_info,bin_info,fxyz_ptmass,gtgrad,om,
        if (compi /=i) then
           semii = bin_info(isemi,i)
           mcomp = xyzmh_ptmass(4,compi)
-          if(semii >= 0) then
+          if (semii >= 0) then
              dsi = mi*mcomp*sqrt(semii/(mi+mcomp))*elli_res
           else
              dsi = mi*mcomp*sqrt(-semii/(mi+mcomp))*hyper_res
@@ -1297,7 +1296,7 @@ subroutine get_force_TTL_bin(xyzmh_ptmass,fxyz_ptmass,gtgrad,om,kappa1,i,j,poton
  om = gtki*mi
 
  if (present(ds_init) .and. .not.present(potonly)) then
-    if(semiij >= 0) then
+    if (semiij >= 0) then
        ds_init = mi*mj*sqrt(semiij/(mi+mj))*elli_res
     else
        ds_init = mi*mj*sqrt(-semiij/(mi+mj))*hyper_res
@@ -1384,7 +1383,7 @@ subroutine get_bin_com(i,j,xyzmh_ptmass,vxyz_ptmass,vcom,xcom)
  vcom(2) = (m1*vxyz_ptmass(2,i)+m2*vxyz_ptmass(2,j))/mtot
  vcom(3) = (m1*vxyz_ptmass(3,i)+m2*vxyz_ptmass(3,j))/mtot
 
- if(present(xcom)) then
+ if (present(xcom)) then
     xcom(1) = (m1*xyzmh_ptmass(1,i)+m2*xyzmh_ptmass(1,j))/mtot
     xcom(2) = (m1*xyzmh_ptmass(2,i)+m2*xyzmh_ptmass(2,j))/mtot
     xcom(3) = (m1*xyzmh_ptmass(3,i)+m2*xyzmh_ptmass(3,j))/mtot
