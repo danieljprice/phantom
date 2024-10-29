@@ -702,7 +702,7 @@ subroutine read_infile(infile,logfile,evfile,dumpfile)
 #ifndef MCFOST
     if (maxvxyzu >= 4 .and. (ieos /= 2 .and. ieos /= 5  .and. ieos /= 4  .and. ieos /= 10 .and. &
              ieos /=11 .and. ieos /=12 .and. ieos /= 15 .and. ieos /= 16 .and. ieos /= 17 .and. &
-             ieos /= 20 .and. ieos/=22)) &
+             ieos /= 20 .and. ieos/=22 .and. ieos /= 9)) &
        call fatal(label,'only ieos=2 makes sense if storing thermal energy')
 #endif
     if (irealvisc < 0 .or. irealvisc > 12)  call fatal(label,'invalid setting for physical viscosity')
