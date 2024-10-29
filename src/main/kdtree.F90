@@ -20,10 +20,11 @@ module kdtree
 ! :Dependencies: allocutils, boundary, dim, dtypekdtree, fastmath, io,
 !   kernel, mpibalance, mpidomain, mpitree, mpiutils, part, timing
 !
- use dim,         only:maxp,ncellsmax,minpart
+ use dim,         only:maxp,ncellsmax,minpart,use_apr
  use io,          only:nprocs
  use dtypekdtree, only:kdnode,ndimtree
- use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi
+ use part,        only:ll,iphase,xyzh_soa,iphase_soa,maxphase,dxi, &
+                       apr_level,apr_level_soa,aprmassoftype
 
  implicit none
 
@@ -107,7 +108,7 @@ end subroutine deallocate_kdtree
 !  -implement revtree routine to update tree w/out rebuilding (done - Sep 2015)
 !+
 !-------------------------------------------------------------------------------
-subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
+subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, apr_tree, refinelevels)
  use io,   only:fatal,warning,iprint,iverbose
 !$ use omp_lib
  type(kdnode),    intent(out)   :: node(:) !ncellsmax+1)
@@ -115,6 +116,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
  real,            intent(inout) :: xyzh(:,:)  ! inout because of boundary crossing
  integer,         intent(out)   :: ifirstincell(:) !ncellsmax+1)
  integer(kind=8), intent(out)   :: ncells
+ logical,         intent(in)    :: apr_tree
  integer, optional, intent(out)  :: refinelevels
 
  integer :: i,npnode,il,ir,istack,nl,nr,mymum
@@ -197,7 +199,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     ! construct node
     call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .true., &  ! construct in parallel
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.)
+            ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
 
     if (wassplit) then ! add children to back of queue
        if (istack+2 > istacksize) call fatal('maketree',&
@@ -224,7 +226,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
     !$omp shared(xyzh) &
     !$omp shared(np, ndim) &
     !$omp shared(node, ncells) &
-    !$omp shared(nqueue) &
+    !$omp shared(nqueue,apr_tree) &
     !$omp private(istack) &
     !$omp private(nnode, mymum, level, npnode, xmini, xmaxi) &
     !$omp private(ir, il, nl, nr) &
@@ -247,7 +249,7 @@ subroutine maketree(node, xyzh, np, ndim, ifirstincell, ncells, refinelevels)
           ! construct node
           call construct_node(node(nnode), nnode, mymum, level, xmini, xmaxi, npnode, .false., &  ! don't construct in parallel
               il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
-              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.)
+              ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, .false.,apr_tree)
 
           if (wassplit) then ! add children to top of stack
              if (istack+2 > istacksize) call fatal('maketree',&
@@ -321,11 +323,10 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  use boundary, only:cross_boundary
  use mpidomain,only:isperiodic
 #endif
-#ifdef IND_TIMESTEPS
  use part, only:iphase,iactive
-#endif
  use part, only:isdead_or_accreted
  use io,   only:fatal
+ use dim,  only:ind_timesteps
  integer,         intent(in)  :: np,irootnode,ndim
  integer,         intent(out) :: nproot
  real,            intent(out) :: xmini(ndim), xmaxi(ndim)
@@ -346,7 +347,7 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
  nproot = 0
  !$omp parallel default(none) &
  !$omp shared(np,xyzh) &
- !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot) &
+ !$omp shared(inodeparts,iphase,xyzh_soa,iphase_soa,nproot,apr_level_soa) &
 #ifdef PERIODIC
  !$omp shared(isperiodic) &
  !$omp reduction(+:ncross) &
@@ -381,17 +382,19 @@ subroutine construct_root_node(np,nproot,irootnode,ndim,xmini,xmaxi,ifirstincell
     isnotdead: if (.not.isdead_or_accreted(xyzh(4,i))) then
        nproot = nproot + 1
 
-#ifdef IND_TIMESTEPS
-       if (iactive(iphase(i))) then
-          inodeparts(nproot) = i  ! +ve if active
+       if (ind_timesteps) then
+          if (iactive(iphase(i))) then
+             inodeparts(nproot) = i  ! +ve if active
+          else
+             inodeparts(nproot) = -i ! -ve if inactive
+          endif
+          if (use_apr) inodeparts(nproot) = abs(inodeparts(nproot))
        else
-          inodeparts(nproot) = -i ! -ve if inactive
+          inodeparts(nproot) = i
        endif
-#else
-       inodeparts(nproot) = i
-#endif
        xyzh_soa(nproot,:) = xyzh(:,i)
        iphase_soa(nproot) = iphase(i)
+       if (use_apr) apr_level_soa(nproot) = apr_level(i)
     endif isnotdead
  enddo
 
@@ -457,7 +460,7 @@ end subroutine pop_off_stack
 subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, doparallel,&
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
-            global_build)
+            global_build,apr_tree)
  use dim,       only:maxtypes,mpi
  use part,      only:massoftype,igas,iamtype,maxphase,maxp,npartoftype
  use io,        only:fatal,error
@@ -476,6 +479,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  real,              intent(in)    :: xyzh(:,:)
  logical,           intent(out)   :: wassplit
  logical,           intent(in)    :: global_build
+ logical,           intent(in)    :: apr_tree
 
  real                           :: xyzcofm(ndim)
  real                           :: totmass_node
@@ -546,14 +550,15 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        dfac = 1.
     endif
  endif
+ ! note that dfac can be a constant value across all particles even if APR is used
 
  i1=inoderange(1,nnode)
  ! during initial queue build which is serial, we can parallelise this loop
  if (npnode > 1000 .and. doparallel) then
     !$omp parallel do schedule(static) default(none) &
     !$omp shared(maxp,maxphase) &
-    !$omp shared(npnode,massoftype,dfac) &
-    !$omp shared(xyzh_soa,i1,iphase_soa) &
+    !$omp shared(npnode,massoftype,dfac,aprmassoftype) &
+    !$omp shared(xyzh_soa,apr_level_soa,i1,iphase_soa) &
     !$omp private(i,xi,yi,zi,hi) &
     !$omp firstprivate(pmassi,fac) &
     !$omp reduction(+:xcofm,ycofm,zcofm,totmass_node) &
@@ -565,7 +570,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+          else
+             pmassi = massoftype(iamtype(iphase_soa(i)))
+          endif
+          fac    = pmassi*dfac ! to avoid round-off error
+       elseif (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -582,7 +594,14 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
        hi = xyzh_soa(i,4)
        hmax  = max(hmax,hi)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase_soa(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+          else
+             pmassi = massoftype(iamtype(iphase_soa(i)))
+          endif
+          fac    = pmassi*dfac ! to avoid round-off error
+       elseif (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level_soa(i))
           fac    = pmassi*dfac ! to avoid round-off error
        endif
        totmass_node = totmass_node + pmassi
@@ -624,10 +643,10 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
  !--compute size of node
  !!$omp parallel do if (npnode > 1000 .and. doparallel) &
  !!$omp default(none) schedule(static) &
- !!$omp shared(npnode,xyzh_soa,x0,i1) &
+ !!$omp shared(npnode,xyzh_soa,x0,i1,apr_level_soa) &
+ !!$omp shared(iphase_soa,massoftype) &
  !!$omp private(i,xi,yi,zi,dx,dy,dz,dr2,pmassi) &
 #ifdef GRAVITY
- !!$omp shared(iphase_soa,massoftype) &
  !!$omp reduction(+:quads) &
 #endif
  !!$omp reduction(max:r2max)
@@ -646,7 +665,11 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     r2max = max(r2max,dr2)
 #ifdef GRAVITY
     if (maxphase==maxp) then
-       pmassi = massoftype(iamtype(iphase_soa(i)))
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtype(iphase_soa(i)),apr_level_soa(i))
+       else
+          pmassi = massoftype(iamtype(iphase_soa(i)))
+       endif
     endif
     quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)  ! Q_xx
     quads(2) = quads(2) + pmassi*(3.*dx*dy)        ! Q_xy = Q_yx
@@ -698,6 +721,7 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
 #endif
 
  wassplit = (npnodetot > minpart)
+ if (apr_tree) wassplit = (npnode > 2)
 
  if (.not. wassplit) then
     nodeentry%leftchild  = 0
@@ -747,8 +771,16 @@ subroutine construct_node(nodeentry, nnode, mymum, level, xmini, xmaxi, npnode, 
     ifirstincell(nnode) = 0
 
     if (npnode > 0) then
-       call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
-                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+       if (apr_tree) then
+          ! apr special sort - only used for merging particles
+          call special_sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+                                    inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,&
+                                    npnode,apr_level_soa)
+       else
+          ! regular sort
+          call sort_particles_in_cell(iaxis,inoderange(1,nnode),inoderange(2,nnode),inoderange(1,il),inoderange(2,il),&
+                                  inoderange(1,ir),inoderange(2,ir),nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
+       endif
 
        if (nr + nl  /=  npnode) then
           call error('maketree','number of left + right != parent while splitting (likely cause: NaNs in position arrays)')
@@ -821,14 +853,14 @@ end subroutine construct_node
 !  fall to the left or the right of the pivot axis
 !+
 !----------------------------------------------------------------
-subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts)
+subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,apr_level_soa)
  integer, intent(in)  :: iaxis,imin,imax
  integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
  real, intent(inout)  :: xpivot,xyzh_soa(:,:)
- integer(kind=1), intent(inout) :: iphase_soa(:)
+ integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
  integer,         intent(inout) :: inodeparts(:)
  logical :: i_lt_pivot,j_lt_pivot
- integer(kind=1) :: iphase_swap
+ integer(kind=1) :: iphase_swap,apr_swap
  integer :: inodeparts_swap,i,j
  real :: xyzh_swap(4)
 
@@ -838,7 +870,8 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
 
  i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
  j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
- ! k = 0
+ !  k = 0
+
  do while(i < j)
     if (i_lt_pivot) then
        i = i + 1
@@ -852,14 +885,17 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
           inodeparts_swap = inodeparts(i)
           xyzh_swap(1:4)  = xyzh_soa(i,1:4)
           iphase_swap     = iphase_soa(i)
+          if (use_apr) apr_swap = apr_level_soa(i)
 
           inodeparts(i)   = inodeparts(j)
           xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
           iphase_soa(i)   = iphase_soa(j)
+          if (use_apr) apr_level_soa(i)= apr_level_soa(j)
 
           inodeparts(j)   = inodeparts_swap
           xyzh_soa(j,1:4) = xyzh_swap(1:4)
           iphase_soa(j)   = iphase_swap
+          if (use_apr) apr_level_soa(j)= apr_swap
 
           i = i + 1
           j = j - 1
@@ -882,6 +918,187 @@ subroutine sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,nl,nr,
  nr = max_r - min_r + 1
 
 end subroutine sort_particles_in_cell
+
+!----------------------------------------------------------------
+!+
+!  Categorise particles into daughter nodes by whether they
+!  fall to the left or the right of the pivot axis, but additionally
+!  force the cells to have a certain minimum number of particles per cell
+!+
+!----------------------------------------------------------------
+subroutine special_sort_particles_in_cell(iaxis,imin,imax,min_l,max_l,min_r,max_r,&
+                                nl,nr,xpivot,xyzh_soa,iphase_soa,inodeparts,npnode,apr_level_soa)
+ use io, only:error
+ integer, intent(in)  :: iaxis,imin,imax,npnode
+ integer, intent(out) :: min_l,max_l,min_r,max_r,nl,nr
+ real, intent(inout)  :: xpivot,xyzh_soa(:,:)
+ integer(kind=1), intent(inout) :: iphase_soa(:),apr_level_soa(:)
+ integer,         intent(inout) :: inodeparts(:)
+ logical :: i_lt_pivot,j_lt_pivot,slide_l,slide_r
+ integer(kind=1) :: iphase_swap,apr_swap
+ integer :: inodeparts_swap,i,j,nchild_in
+ integer :: k,ii,rem_nr,rem_nl
+ real :: xyzh_swap(4),dpivot(npnode)
+
+ dpivot = 0.0
+ nchild_in = 2
+
+ if (modulo(npnode,nchild_in) > 0) then
+    call error('apr sort','number of particles sent in to kdtree is not divisible by 2')
+ endif
+
+! print*,'nnode ',imin,imax,npnode,' pivot = ',iaxis,xpivot
+ i = imin
+ j = imax
+
+ i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+ j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+ dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+ dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+ !k = 0
+ do while(i < j)
+    if (i_lt_pivot) then
+       i = i + 1
+       dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+       i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+    else
+       if (.not.j_lt_pivot) then
+          j = j - 1
+          dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+       else
+          ! swap i and j positions in list
+          inodeparts_swap = inodeparts(i)
+          xyzh_swap(1:4)  = xyzh_soa(i,1:4)
+          iphase_swap     = iphase_soa(i)
+          apr_swap        = apr_level_soa(i)
+
+          inodeparts(i)   = inodeparts(j)
+          xyzh_soa(i,1:4) = xyzh_soa(j,1:4)
+          iphase_soa(i)   = iphase_soa(j)
+          apr_level_soa(i)= apr_level_soa(j)
+
+          inodeparts(j)   = inodeparts_swap
+          xyzh_soa(j,1:4) = xyzh_swap(1:4)
+          iphase_soa(j)   = iphase_swap
+          apr_level_soa(j)= apr_swap
+
+          i = i + 1
+          j = j - 1
+
+          dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+          dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+
+          i_lt_pivot = xyzh_soa(i,iaxis) <= xpivot
+          j_lt_pivot = xyzh_soa(j,iaxis) <= xpivot
+       endif
+    endif
+ enddo
+
+ if (.not.i_lt_pivot) then
+    i = i - 1
+    dpivot(i-imin+1) = xpivot - xyzh_soa(i,iaxis)
+ endif
+ if (j_lt_pivot) then
+    j = j + 1
+    dpivot(j-imin+1) = xpivot - xyzh_soa(j,iaxis)
+ endif
+
+ min_l = imin
+ max_l = i
+ min_r = j
+ max_r = imax
+
+ if ( j /= i+1) print*,' ERROR ',i,j
+ nl = max_l - min_l + 1
+ nr = max_r - min_r + 1
+
+ ! does the pivot need to be adjusted?
+ rem_nl = modulo(nl,nchild_in)
+ rem_nr = modulo(nr,nchild_in)
+ if (rem_nl == 0 .and. rem_nr == 0) return
+
+ ! Decide which direction the pivot needs to go
+ if (rem_nl < rem_nr) then
+    slide_l = .true.
+    slide_r = .false.
+ else
+    slide_l = .false.
+    slide_r = .true.
+ endif
+ ! Override this if there's less than nchild*2 in the cell
+ if (nl < nchild_in) then
+    slide_r = .true.
+    slide_l = .false.
+ elseif (nr < nchild_in) then
+    slide_r = .false.
+    slide_l = .true.
+ endif
+
+ ! Move across particles by distance from xpivot till we get
+ ! the right number of particles in each cell
+ if (slide_r) then
+    do ii = 1,rem_nr
+       ! next particle to shift across
+       k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
+       if (k-imin+1==0) k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
+
+       ! swap this with the first particle on the j side
+       inodeparts_swap = inodeparts(k)
+       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
+       iphase_swap     = iphase_soa(k)
+
+       inodeparts(k)   = inodeparts(j)
+       xyzh_soa(k,1:4) = xyzh_soa(j,1:4)
+       iphase_soa(k)   = iphase_soa(j)
+
+       inodeparts(j)   = inodeparts_swap
+       xyzh_soa(j,1:4) = xyzh_swap(1:4)
+       iphase_soa(j)   = iphase_swap
+
+       ! and now shift to the right
+       i = i + 1
+       j = j + 1
+
+       ! ditch it, go again
+       dpivot(k-imin+1) = huge(k-imin+1)
+    enddo
+ else
+    do ii = 1,rem_nl
+       ! next particle to shift across
+       k = maxloc(dpivot,dim=1,mask=dpivot < 0.) + imin - 1
+       if (k-imin+1==0) k = minloc(dpivot,dim=1,mask=dpivot > 0.) + imin - 1
+
+       ! swap this with the last particle on the i side
+       inodeparts_swap = inodeparts(k)
+       xyzh_swap(1:4)  = xyzh_soa(k,1:4)
+       iphase_swap     = iphase_soa(k)
+
+       inodeparts(k)   = inodeparts(i)
+       xyzh_soa(k,1:4) = xyzh_soa(i,1:4)
+       iphase_soa(k)   = iphase_soa(i)
+
+       inodeparts(i)   = inodeparts_swap
+       xyzh_soa(i,1:4) = xyzh_swap(1:4)
+       iphase_soa(i)   = iphase_swap
+
+       ! and now shift to the left
+       i = i - 1
+       j = j - 1
+
+       ! ditch it, go again
+       dpivot(k-imin+1) = huge(k-imin+1)
+
+    enddo
+ endif
+
+ ! tidy up outputs
+ max_l = i
+ min_r = j
+ nl = max_l - min_l + 1
+ nr = max_r - min_r + 1
+
+end subroutine special_sort_particles_in_cell
 
 !----------------------------------------------------------------
 !+
@@ -1289,8 +1506,8 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
 
 !$omp parallel default(none) &
 !$omp shared(maxp,maxphase) &
-!$omp shared(xyzh, ifirstincell, ncells) &
-!$omp shared(node, ll, iphase, massoftype, maxlevel) &
+!$omp shared(xyzh, ifirstincell, ncells, apr_level) &
+!$omp shared(node, ll, iphase, massoftype, maxlevel,aprmassoftype) &
 !$omp private(hmax, r2max, xi, yi, zi, hi, il, ir, nodel, noder) &
 !$omp private(dx, dy, dz, dr2, icell, i, x0) &
 #ifdef GRAVITY
@@ -1313,7 +1530,11 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        yi = xyzh(2,i)
        zi = xyzh(3,i)
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        endif
        x0(1) = x0(1) + pmassi*xi
        x0(2) = x0(2) + pmassi*yi
@@ -1351,7 +1572,11 @@ subroutine revtree(node, xyzh, ifirstincell, ncells)
        hmax  = max(hi, hmax)
 #ifdef GRAVITY
        if (maxphase==maxp) then
-          pmassi = massoftype(iamtype(iphase(i)))
+          if (use_apr) then
+             pmassi = aprmassoftype(iamtype(iphase(i)),apr_level(i))
+          else
+             pmassi = massoftype(iamtype(iphase(i)))
+          endif
        endif
        quads(1) = quads(1) + pmassi*(3.*dx*dx - dr2)
        quads(2) = quads(2) + pmassi*(3.*dx*dy)
@@ -1481,7 +1706,8 @@ end subroutine add_child_nodes
 !  Routine to build the global level tree
 !+
 !-------------------------------------------------------------------------------
-subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,np,ndim,cellatid,ifirstincell,ncells)
+subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,&
+                          np,ndim,cellatid,ifirstincell,ncells,apr_tree)
  use io,           only:fatal,warning,id,nprocs
  use mpiutils,     only:reduceall_mpi
  use mpibalance,   only:balancedomains
@@ -1499,6 +1725,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  real,         intent(inout)   :: xyzh(:,:)
  integer,      intent(out)     :: cellatid(:)      ! ncellsmax+1
  integer,      intent(out)     :: ifirstincell(:)  ! ncellsmax+1)
+ logical,      intent(in)      :: apr_tree
  real                          :: xmini(ndim),xmaxi(ndim)
  real                          :: xminl(ndim),xmaxl(ndim)
  real                          :: xminr(ndim),xmaxr(ndim)
@@ -1543,7 +1770,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
     call construct_node(mynode(1), iself, parent, level, xmini, xmaxi, npcounter, .false., &
             il, ir, nl, nr, xminl, xmaxl, xminr, xmaxr, &
             ncells, ifirstincell, minlevel, maxlevel, ndim, xyzh, wassplit, &
-            .true.)
+            .true.,apr_tree)
 
     if (.not.wassplit) then
        call fatal('maketreeglobal','insufficient particles for splitting at the global level: '// &
@@ -1599,11 +1826,15 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
        else
           inodeparts(npnode) = -i
        endif
+       !if (use_apr) inodeparts(npnode) = abs(inodeparts(npnode)) ! Don't think this is necessary anymore
 #else
        inodeparts(npnode) = i
 #endif
        xyzh_soa(npnode,:) = xyzh(:,i)
        iphase_soa(npnode) = iphase(i)
+       if (use_apr) then
+          apr_level_soa(npnode) = apr_level(i)
+       endif
     enddo
 
     ! set all particles to belong to this node
@@ -1626,7 +1857,7 @@ subroutine maketreeglobal(nodeglobal,node,nodemap,globallevel,refinelevels,xyzh,
  enddo levels
 
  ! local tree
- call maketree(node,xyzh,np,ndim,ifirstincell,ncells,refinelevels)
+ call maketree(node,xyzh,np,ndim,ifirstincell,ncells,apr_tree,refinelevels)
 
  ! tree refinement
  refinelevels = int(reduceall_mpi('min',refinelevels),kind=kind(refinelevels))
