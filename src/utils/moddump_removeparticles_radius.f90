@@ -17,11 +17,7 @@ module moddump
 ! :Dependencies: part, prompting
 !
 
-<<<<<<< HEAD
- use part,         only:delete_particles_outside_sphere,delete_particles_inside_radius
-=======
  use part,         only:delete_particles_outside_sphere,igas,idust
->>>>>>> e805ed68f91e4a807462a786fb1447b541deb978
  use prompting,    only:prompt
 
  implicit none
