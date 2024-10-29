@@ -528,12 +528,13 @@ end subroutine read_inopt_real
 !  read a string variable from an input options database
 !+
 !-----------------------------------------------------------------
-subroutine read_inopt_string(valstring,tag,db,err,errcount)
+subroutine read_inopt_string(valstring,tag,db,err,errcount,default)
  character(len=*),          intent(out)   :: valstring
  character(len=*),          intent(in)    :: tag
  type(inopts), allocatable, intent(inout) :: db(:)
  integer,                   intent(out),   optional :: err
  integer,                   intent(inout), optional :: errcount
+ character(len=*),          intent(in),    optional :: default
  integer :: ierr
 
  ierr = 0
@@ -545,6 +546,12 @@ subroutine read_inopt_string(valstring,tag,db,err,errcount)
  endif
  if (present(errcount)) then
     if (ierr /= 0) errcount = errcount + 1
+ endif
+ ! default string to use if the string read is blank
+ if (present(default)) then
+    if (len_trim(valstring) <= 0) then
+       valstring = default
+    endif
  endif
 
 end subroutine read_inopt_string
