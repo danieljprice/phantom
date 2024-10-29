@@ -1,8 +1,8 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
@@ -10,11 +10,25 @@ module setup
 !
 ! :References: None
 !
-! :Owner: Daniel Price
+! :Owner: Mike Lau
 !
-! :Runtime parameters: None
+! :Runtime parameters:
+!   - Mstar            : *sphere mass in code units*
+!   - Rstar            : *sphere radius in code units*
+!   - gamma            : *adiabatic index*
+!   - handled_layers   : *number of handled layers*
+!   - lattice_type     : *0: cubic, 1: close-packed cubic*
+!   - nstar            : *number of particles resolving gas sphere*
+!   - pres_inf         : *wind pressure / dyn cm^2*
+!   - rho_inf          : *wind density / g cm^-3*
+!   - v_inf            : *wind speed / km s^-1*
+!   - wind_injection_x : *injection x in units of Rstar*
+!   - wind_length      : *wind length in units of Rstar*
+!   - wind_radius      : *injection radius in units of Rstar*
 !
-! :Dependencies: inject, part, physcon, units
+! :Dependencies: dim, eos, extern_densprofile, infile_utils, inject, io,
+!   kernel, mpidomain, part, physcon, rho_profile, setstar_utils, setunits,
+!   setup_params, table_utils, timestep, unifdis, units
 !
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
@@ -25,6 +39,7 @@ module setup
  public :: setpart
 
  real    :: Mstar
+ integer :: nstar_in  ! guess for no. of star prticles
 
  private
 
@@ -63,7 +78,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  logical            :: use_exactN,setexists,use_var_comp
  character(len=30)  :: lattice
  character(len=120) :: setupfile
- 
+
  call set_units(mass=solarm,dist=solarr,G=1.)
  !
  ! Initialise parameters, including those that will not be included in *.setup
@@ -87,7 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Star parameters
  Rstar = 0.1
  Mstar = 1.e-3
- nstar = 1000
+ nstar_in = 1000
  lattice = 'closepacked'
  use_exactN = .true.
 
@@ -117,8 +132,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call write_setupfile(setupfile)
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
- 
- pmass = Mstar / real(nstar)
+
+ pmass = Mstar / real(nstar_in)
  massoftype(igas) = pmass
  call check_setup(pmass,ierr)
  if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
@@ -141,7 +156,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,&
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
-
+    nstar = npart
     use_var_comp = .false.
     call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr_relax)
 
@@ -169,7 +184,6 @@ end subroutine setpart
 !-----------------------------------------------------------------------
 subroutine write_setupfile(filename)
  use infile_utils,  only:write_inopt
- use part,          only:npart
  use dim,           only:tagline
  use eos,           only:gamma
  use setunits,      only:write_options_units
@@ -185,10 +199,10 @@ subroutine write_setupfile(filename)
  call write_options_units(iunit)
 
  write(iunit,"(/,a)") '# sphere settings'
- call write_inopt(npart,'nstar','number of particles resolving gas sphere',iunit)  ! note: npart is output of set_sphere
+ call write_inopt(nstar_in,'nstar','number of particles resolving gas sphere',iunit)  ! note: this is an estimate, actual no. of particles is npart outputted from set_sphere
  call write_inopt(Mstar,'Mstar','sphere mass in code units',iunit)
  call write_inopt(Rstar,'Rstar','sphere radius in code units',iunit)
- 
+
  write(iunit,"(/,a)") '# wind settings'
  call write_inopt(v_inf*unit_velocity/1.e5,'v_inf','wind speed / km s^-1',iunit)
  call write_inopt(rho_inf*unit_density,'rho_inf','wind density / g cm^-3',iunit)
@@ -231,7 +245,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_options_and_set_units(db,nerr)
 
- call read_inopt(nstar,'nstar',db,errcount=nerr)
+ call read_inopt(nstar_in,'nstar',db,errcount=nerr)
  call read_inopt(Mstar,'Mstar',db,errcount=nerr)
  call read_inopt(Rstar,'Rstar',db,errcount=nerr)
 
@@ -289,6 +303,6 @@ subroutine check_setup(pmass,ierr)
  endif
 
 end subroutine check_setup
-    
+
 end module setup
-    
+

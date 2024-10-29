@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -42,7 +42,7 @@ module cooling_solver
  public :: init_cooling_solver,read_options_cooling_solver,write_options_cooling_solver
  public :: energ_cooling_solver,calc_cooling_rate, calc_Q
  public :: testfunc,print_cooling_rates
- public :: T0_value ! expose to cooling module
+ public :: T0_value,lambda_shock_cgs ! expose to cooling module
  logical, public :: Townsend_test = .false. !for analysis_cooling
 
  private
@@ -266,13 +266,26 @@ subroutine exact_cooling(ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
     !argument of Y^(-1) in eq 26
     dy = -Qref*dt*T_on_u/Tref
     y  = y + dy
+    !find new k for eq A7 (not necessarily the same as k for eq A5)
+    do while(y>yk .AND. k>1)
+       k = k-1
+       call calc_cooling_rate(Q, dlnQ_dlnT, rho, Tgrid(k), Tdust, mu, gamma, K2, kappa)
+       dlnQ_dlnT = log(Qi/Q)/log(Tgrid(k+1)/Tgrid(k))
+       Qi = Q
+       ! eqs A6 to get Yk
+       if (abs(dlnQ_dlnT-1.) < tol) then
+          yk = yk - Qref*Tgrid(k)/(Q*Tref)*log(Tgrid(k)/Tgrid(k+1))
+       else
+          yk = yk - Qref*Tgrid(k)/(Q*Tref*(1.-dlnQ_dlnT))*(1.-(Tgrid(k)/Tgrid(k+1))**(dlnQ_dlnT-1.))
+       endif
+    enddo
     !compute Yinv (eqs A7)
     if (abs(dlnQ_dlnT-1.) < tol) then
        Temp = max(Tgrid(k)*exp(-Q*Tref*(y-yk)/(Qref*Tgrid(k))),T_floor)
     else
        Yinv = 1.-(1.-dlnQ_dlnT)*Q*Tref/(Qref*Tgrid(k))*(y-yk)
        if (Yinv > 0.) then
-          Temp = Tgrid(k)*(Yinv**(1./(1.-dlnQ_dlnT)))
+          Temp = max(Tgrid(k)*(Yinv**(1./(1.-dlnQ_dlnT))),T_floor)
        else
           Temp = T_floor
        endif
@@ -290,7 +303,7 @@ end subroutine exact_cooling
 !+
 !-----------------------------------------------------------------------
 subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
- use units,   only:unit_ergg,unit_density
+ use units,   only:unit_ergg,unit_density,utime
  use physcon, only:mass_proton_cgs
  use cooling_functions, only:cooling_neutral_hydrogen,&
      cooling_Bowen_relaxation,cooling_dust_collision,&
@@ -330,7 +343,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
                                                         mu, Q_col_dust, dlnQ_col_dust)
  if (relax_Stefan   == 1) call cooling_radiative_relaxation(T, Teq, kappa, Q_relax_Stefan,&
                                                         dlnQ_relax_Stefan)
- if (shock_problem  == 1) call piecewise_law(T, T0_value, ndens, Q_H0, dlnQ_H0)
+ if (shock_problem  == 1) call piecewise_law(T, T0_value, rho_cgs, ndens, Q_H0, dlnQ_H0)
 
  if (excitation_HI  == 99) call testing_cooling_functions(int(K2), T, Q_H0, dlnQ_H0)
  !if (do_molecular_cooling) call calc_cool_molecular(T, r, rho_cgs, Q_molec, dlnQ_molec)
@@ -344,7 +357,7 @@ subroutine calc_cooling_rate(Q, dlnQ_dlnT, rho, T, Teq, mu, gamma, K2, kappa)
  endif
  !limit exponent to prevent overflow
  dlnQ_dlnT = sign(min(50.,abs(dlnQ_dlnT)),dlnQ_dlnT)
- Q         = Q_cgs/unit_ergg
+ Q         = Q_cgs/(unit_ergg/utime)
 
  !call testfunc()
  !call exit

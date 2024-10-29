@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -30,7 +30,7 @@ contains
 !+
 !-----------------------------------------------------------------------
 subroutine test_sedov(ntests,npass)
- use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation
+ use dim,      only:maxp,maxvxyzu,maxalpha,use_dust,periodic,do_radiation,ind_timesteps
  use io,       only:id,master,iprint,ievfile,iverbose,real4
  use boundary, only:set_boundary,xmin,xmax,ymin,ymax,zmin,zmax,dxbound,dybound,dzbound
  use unifdis,  only:set_unifdis
@@ -43,9 +43,7 @@ subroutine test_sedov(ntests,npass)
  use deriv,    only:get_derivs_global
  use timestep, only:time,tmax,dtmax,C_cour,C_force,dt,tolv,bignumber
  use units,    only:set_units
-#ifndef IND_TIMESTEPS
  use timestep, only:dtcourant,dtforce,dtrad
-#endif
  use testutils, only:checkval,update_test_scores
  use evwrite,   only:init_evfile,write_evfile
  use energies,  only:etot,totmom,angtot,mdust
@@ -67,10 +65,10 @@ subroutine test_sedov(ntests,npass)
  real    :: temp
  character(len=20) :: logfile,evfile,dumpfile
 
-#ifndef PERIODIC
- if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs -DPERIODIC)'
- return
-#endif
+ if (.not.periodic) then
+    if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (needs -DPERIODIC)'
+    return
+ endif
 #ifdef DISC_VISCOSITY
  if (id==master) write(*,"(/,a)") '--> SKIPPING Sedov blast wave (cannot use -DDISC_VISCOSITY)'
  return
@@ -154,9 +152,7 @@ subroutine test_sedov(ntests,npass)
 !
 !--now call evolve
 !
-#ifndef IND_TIMESTEPS
-    dt = min(dtcourant,dtforce,dtrad)
-#endif
+    if (.not.ind_timesteps) dt = min(dtcourant,dtforce,dtrad)
     call init_step(npart,time,dtmax)
     iprint = 6
     logfile  = 'test01.log'

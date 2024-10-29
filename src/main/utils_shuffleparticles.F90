@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -70,7 +70,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
  use io,           only:id,master,fatal
  use dim,          only:maxneigh,maxp_hard
  use part,         only:vxyzu,divcurlv,divcurlB,Bevol,fxyzu,fext,alphaind,iphase,igas
- use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho
+ use part,         only:gradh,rad,radprop,dvdx,rhoh,hrho,apr_level
  use densityforce, only:densityiterate
  use linklist,     only:ncells,ifirstincell,set_linklist,get_neighbour_list,allocate_linklist,listneigh
  use kernel,       only:cnormk,wkern,grkern,radkern2
@@ -300,7 +300,7 @@ subroutine shuffleparticles(iprint,npart,xyzh,pmass,duniform,rsphere,dsphere,dme
        link_shift = 0.
     endif
     call densityiterate(2,npart,npart,xyzh,vxyzu,divcurlv,divcurlB,Bevol,stressmax,&
-                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx)
+                               fxyzu,fext,alphaind,gradh,rad,radprop,dvdx,apr_level)
     if (iprofile==ireference) then
        call set_linklist(n_part,n_part,xyzh,vxyzu)
     endif

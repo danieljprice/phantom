@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -149,10 +149,10 @@ subroutine get_structure_fn(sf,nbins,norder,distmin,distmax,xbins,ncount,npart,x
     !$omp reduction(+:sf)
     do ipt=1,npts
 !$     if (.false.) then
-       if (mod(ipt,100)==0) then
-          call cpu_time(tcpu2)
-          print*,' ipt = ',ipt,tcpu2-tcpu1
-       endif
+          if (mod(ipt,100)==0) then
+             call cpu_time(tcpu2)
+             print*,' ipt = ',ipt,tcpu2-tcpu1
+          endif
 !$     endif
        i = list(ipt)
        xpt(1) = xyz(1,i)

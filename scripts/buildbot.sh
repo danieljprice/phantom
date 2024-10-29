@@ -13,7 +13,7 @@
 #
 # Written by Daniel Price, 2012-2023, daniel.price@monash.edu
 #
-if [ X$SYSTEM == X ]; then
+if [ "X$SYSTEM" == "X" ]; then
    echo "Error: Need SYSTEM environment variable set to check PHANTOM build";
    echo "Usage: $0 [max idim to check] [url]";
    exit;
@@ -77,7 +77,6 @@ listofcomponents='main setup analysis utils';
 # get list of targets, components and setups to check
 #
 allsetups=`grep 'ifeq ($(SETUP)' $phantomdir/build/Makefile_setups | grep -v skip | cut -d, -f 2 | cut -d')' -f 1`
-#allsetups='star'
 setuparr=($allsetups)
 batchsize=$(( ${#setuparr[@]} / $nbatch + 1 ))
 offset=$(( ($batch-1) * $batchsize ))
@@ -184,9 +183,10 @@ check_phantomsetup ()
    #
    myinput="\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n";
    prefix="myrun";
+   flags="--np=1000"
    echo -e "$myinput" > myinput.txt;
    sed '/-e/d' myinput.txt > mycleanin.txt
-   ./phantomsetup $prefix < mycleanin.txt > /dev/null; err=$?;
+   ./phantomsetup $prefix $flags < mycleanin.txt > /dev/null; err=$?;
    if [ $err -eq 0 ]; then
       print_result "runs" $pass;
    else
@@ -197,8 +197,8 @@ check_phantomsetup ()
    # run phantomsetup up to 3 times to successfully create/rewrite the .setup file
    #
    infile="${prefix}.in"
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
-   ./phantomsetup $prefix < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
+   ./phantomsetup $prefix $flags < myinput.txt > /dev/null;
    if [ -e "$prefix.setup" ]; then
       print_result "creates .setup file" $pass;
       #test_setupfile_options "$prefix" "$prefix.setup" $infile;

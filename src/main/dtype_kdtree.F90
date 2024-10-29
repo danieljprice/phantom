@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -51,9 +51,11 @@ module dtypekdtree
     real :: xcen(ndimtree)
     real :: size
     real :: hmax
+    real :: dum   ! avoid ifort warning: align on 4-byte boundary
     integer :: leftchild
     integer :: rightchild
     integer :: parent
+    integer :: idum ! avoid ifort warning: align on 4-byte boundary
 #ifdef GRAVITY
     real :: mass
     real :: quads(6)

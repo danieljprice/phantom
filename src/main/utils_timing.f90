@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -60,10 +60,13 @@ module timing
                                  itimer_rad_update    = 19, &
                                  itimer_rad_store     = 20, &
                                  itimer_cons2prim     = 21, &
-                                 itimer_extf          = 22, &
-                                 itimer_ev            = 23, &
-                                 itimer_io            = 24
- integer, public, parameter :: ntimers = 24 ! should be equal to the largest itimer index
+                                 itimer_substep       = 22, &
+                                 itimer_sg_id         = 23, &
+                                 itimer_sg_evol       = 24, &
+                                 itimer_HII           = 25, &
+                                 itimer_ev            = 26, &
+                                 itimer_io            = 27
+ integer, public, parameter :: ntimers = 27 ! should be equal to the largest itimer index
  type(timer), public :: timers(ntimers)
 
  private
@@ -75,13 +78,16 @@ contains
 !+
 !--------------------------------------
 subroutine setup_timers
+ !
  ! These timers must be initialised with the correct tree hierarchy,
  ! i.e. children must immediately follow their parents or siblings
  !
+
  !               timer from array     label          parent
  call init_timer(itimer_fromstart   , 'all',         0            )
  call init_timer(itimer_lastdump    , 'last',        0            )
  call init_timer(itimer_step        , 'step',        0            )
+ call init_timer(itimer_HII         , 'HII_regions', 0            )
  call init_timer(itimer_link        , 'tree',        itimer_step  )
  call init_timer(itimer_balance     , 'balance',     itimer_link  )
  call init_timer(itimer_dens        , 'density',     itimer_step  )
@@ -100,7 +106,9 @@ subroutine setup_timers
  call init_timer(itimer_rad_update  , 'update',      itimer_rad_its    )
  call init_timer(itimer_rad_store   , 'store',       itimer_radiation  )
  call init_timer(itimer_cons2prim   , 'cons2prim',   itimer_step  )
- call init_timer(itimer_extf        , 'extf',        itimer_step  )
+ call init_timer(itimer_substep     , 'substep',     itimer_step  )
+ call init_timer(itimer_sg_id       , 'subg_id',     itimer_substep  )
+ call init_timer(itimer_sg_evol     , 'subg_evol',   itimer_substep  )
  call init_timer(itimer_ev          , 'write_ev',    0            )
  call init_timer(itimer_io          , 'write_dump',  0            )
 

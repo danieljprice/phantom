@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -9,9 +9,9 @@ module testradiation
 ! Unit tests for radiation hydro
 !
 ! :References:
-!    Whitehouse & Bate (2004), 353, 1078
-!    Whitehouse, Bate & Monaghan (2005), 364, 1367
-!    Biriukov (2019), PhD thesis, Monash Univ.
+!   - Whitehouse & Bate (2004), 353, 1078
+!   - Whitehouse, Bate & Monaghan (2005), 364, 1367
+!   - Biriukov (2019), PhD thesis, Monash Univ.
 !
 ! :Owner: Daniel Price
 !
@@ -89,7 +89,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  use io,         only:iverbose
  use part,       only:init_part,npart,rhoh,xyzh,fxyzu,vxyzu,massoftype,igas,&
                       iphase,maxphase,isetphase,rhoh,drad,&
-                      npartoftype,rad,radprop,maxvxyzu
+                      npartoftype,rad,radprop,maxvxyzu,luminosity
  use kernel,     only:hfact_default
  use unifdis,    only:set_unifdis
  use eos,        only:gmw,gamma,polyk,iopacity_type
@@ -105,7 +105,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  real :: dt,t,physrho,rhoi,maxt,laste
  integer :: i,nerr(1),ndiff(1),ncheck,ierrmax,ierr,itest
  integer(kind=8) :: nptot
- logical, parameter :: write_output = .true.
+ logical, parameter :: write_output = .false.
  character(len=12) :: string,filestr
 
  call init_part()
@@ -142,7 +142,6 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
  pmassi = massoftype(igas)
 
  if (use_implicit) call set_linklist(npart,npart,xyzh,vxyzu)
-
  !
  ! first version of the test: set gas temperature high and radiation temperature low
  ! so that gas cools towards radiation temperature (itest=1)
@@ -161,6 +160,7 @@ subroutine test_exchange_terms(ntests,npass,use_implicit)
        endif
        vxyzu(4,i)        = vxyzu(4,i)/rhoi
        fxyzu(4,i)        = 0.
+       luminosity(i)     = 0.
     enddo
 
     if (write_output) then
@@ -450,7 +450,7 @@ subroutine setup_radiation_diffusion_problem_sinusoid(kappa_code,c_code,xi0,rho0
  nptot = reduceall_mpi('+',npart)
 
  rho0 = 2.5e-24
- massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot  !*1e-25
+ massoftype(igas) = rho0*dxbound*dybound*dzbound/nptot
  pmassi = massoftype(igas)
  if (maxphase==maxp) iphase(1:npart) = isetphase(igas,iactive=.true.)
  npartoftype(:) = 0

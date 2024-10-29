@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -54,7 +54,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
  real,              intent(inout) :: time
  character(len=*),  intent(in)    :: fileprefix
  logical :: iexist
- integer :: ierr,nspheres
+ integer :: ierr,nspheres,npart_old
  real :: dtinject,tinfall,fac
 
  if (.not.gr) call fatal('setup','This setup only works with GR on')
@@ -100,7 +100,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma_eos,hf
     nspheres = int(tinfall/dtsphere) !27!100!20!
     write(iprint,*) 'number of "real" spheres: ',nspheres
     fac = 1.+1.e-15
-    call inject_particles(dtsphere*nspheres*fac,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npartoftype,dtinject)
+    npart_old = npart
+    call inject_particles(dtsphere*nspheres*fac,dtsphere*nspheres,xyzh,vxyzu,xyzmh_ptmass,&
+                          vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
  endif
 
 end subroutine setpart

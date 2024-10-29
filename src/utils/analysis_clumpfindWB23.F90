@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -687,7 +687,7 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
 
  !--Write results to file (both all the clumps at the current time, and to the file for each clump)
  write(filename,'(2a)') trim(dumpfile),'clumps'
- open (unit=iunit,file=trim(filename))
+ open(unit=iunit,file=trim(filename))
  write(iunit,'(a,I6,a,Es18.6)') '#Nclumps = ',nclump,'; Time = ',time
  write(iunit,"('#',24(1x,'[',i2.2,1x,a11,']',2x))") &
        1,'clump ID',    &

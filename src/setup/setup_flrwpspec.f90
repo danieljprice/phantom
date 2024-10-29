@@ -1,14 +1,14 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
-! http://phantomsph.bitbucket.io/                                          !
+! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
 module setup
 !
 ! Setup routine for realistic cosmological initial conditions based
-! on the Zeldovich approximation. 
-! Requries velocity files generated from a powerspectrum. 
+! on the Zeldovich approximation.
+! Requries velocity files generated from a powerspectrum.
 !
 ! :References: None
 !
@@ -24,8 +24,8 @@ module setup
 !   - rhozero             : *initial density in code units*
 !
 ! :Dependencies: boundary, dim, eos_shen, infile_utils, io, mpidomain,
-!   mpiutils, options, part, physcon, prompting, setup_params, stretchmap,
-!   unifdis, units, utils_gr   
+!   mpiutils, part, physcon, prompting, setup_params, stretchmap, unifdis,
+!   units, utils_gr
 !
  use dim,          only:use_dust
  use setup_params, only:rhozero
@@ -82,7 +82,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real    :: scale_factor,gradphi(3),vxyz(3),dxgrid,gridorigin
  integer :: nghost, gridres, gridsize
  real, allocatable    :: vxgrid(:,:,:),vygrid(:,:,:),vzgrid(:,:,:)
- 
+
  !
  !--general parameters
  !
@@ -117,7 +117,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  perturb  = '"no"'
  perturb_direction = '"none"'
  radiation_dominated = '"no"'
- ampl = 0. 
+ ampl = 0.
 
  ! Ideally this should read the values of the box length
  ! and initial Hubble parameter from the par file.
@@ -141,7 +141,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  isperiodic = .true.
  ncross = 0
 
- 
+
 
  ! Approx Temp of the CMB in Kelvins
  last_scattering_temp = 3000
@@ -188,8 +188,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_units(dist=udist,mass=umass,G=1.)
  endif
  call set_boundary(xmini,xmaxi,ymini,ymaxi,zmini,zmaxi)
- 
- 
+
+
  allocate(vxgrid(gridsize,gridsize,gridsize))
  allocate(vygrid(gridsize,gridsize,gridsize))
  allocate(vzgrid(gridsize,gridsize,gridsize))
@@ -238,14 +238,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  pspec_filename1 = 'init_vel1_64.dat'
  pspec_filename2 = 'init_vel2_64.dat'
  pspec_filename3 = 'init_vel3_64.dat'
- 
+
  ! Check if files exist otherwise skip and return flat space
- if (.not. check_files(pspec_filename1,pspec_filename2,pspec_filename3)) then 
-   print*, "Velocity files not found..."
-   print*, "Setting up flat space!"
-   return 
- endif 
- 
+ if (.not. check_files(pspec_filename1,pspec_filename2,pspec_filename3)) then
+    print*, "Velocity files not found..."
+    print*, "Setting up flat space!"
+    return
+ endif
+
 
  ! Read in velocities from vel file here
  ! Should be made into a function at some point
@@ -359,7 +359,7 @@ subroutine setup_interactive(id,polyk)
     call prompt(' enter sound speed in code units (sets polyk)',cs0,0.)
  endif
  call bcast_mpi(cs0)
- 
+
  !
  ! type of lattice
  !
@@ -592,16 +592,16 @@ subroutine get_grid_neighbours(position,gridorigin,dx,xlower,ylower,zlower)
 end subroutine get_grid_neighbours
 
 logical function check_files(file1,file2,file3)
-   character(len=*), intent(in) :: file1,file2,file3
-   logical :: file1_exist, file2_exist, file3_exist
+ character(len=*), intent(in) :: file1,file2,file3
+ logical :: file1_exist, file2_exist, file3_exist
 
-   inquire(file=file1,exist=file1_exist)
-   inquire(file=file2,exist=file2_exist)
-   inquire(file=file3,exist=file3_exist) 
-   
-   if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then 
-      check_files =  .false. 
-   endif 
+ inquire(file=file1,exist=file1_exist)
+ inquire(file=file2,exist=file2_exist)
+ inquire(file=file3,exist=file3_exist)
+
+ if ((.not. file1_exist) .or. (.not. file2_exist) .or. (.not. file3_exist)) then
+    check_files =  .false.
+ endif
 end function check_files
 
 end module setup

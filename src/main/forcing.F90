@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -1076,8 +1076,8 @@ subroutine st_calcAccel(npart,xyzh,fxyzu)
 
   my_file = find_phantom_datafile(infile,'forcing')
 
-  open (unit=42, file=my_file, iostat=ierr, status='old', action='read', &
-        access='sequential', form='unformatted')
+  open(unit=42,file=my_file,iostat=ierr,status='old',action='read', &
+        access='sequential',form='unformatted')
   ! header contains number of times and number of modes, end time, autocorrelation time, ...
   if (ierr==0) then
      if (Debug) write (*,'(A)') 'reading header...'

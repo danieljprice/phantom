@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -62,7 +62,7 @@ subroutine modify_dump(npart,npartoftype,massoftype,xyzh,vxyzu)
     call prompt('Enter number of bins per dex',bins_per_dex,1)
  else
     !- file created by phantom/scripts/growthtomcfost.py module
-    open (unit=420, file=infile)
+    open(unit=420,file=infile)
     read(420,*) force_smax, smax_user, bins_per_dex
     close(unit=420)
  endif

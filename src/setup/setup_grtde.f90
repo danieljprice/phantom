@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -22,8 +22,9 @@ module setup
 !   - theta         : *inclination of orbit (degrees)*
 !
 ! :Dependencies: eos, externalforces, gravwaveutils, infile_utils, io,
-!   kernel, metric, mpidomain, part, physcon, relaxstar, setbinary,
-!   setstar, setup_params, timestep, units, vectorutils
+!   kernel, metric, mpidomain, options, part, physcon, relaxstar,
+!   setbinary, setstar, setup_params, systemutils, timestep, units,
+!   vectorutils
 !
  use setstar, only:star_t
  implicit none
@@ -45,7 +46,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,      only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas,&
-                     gravity,eos_vars,rad
+                     gravity,eos_vars,rad,gr
  use setbinary, only:set_binary
  use setstar,   only:set_star,shift_star
  use units,     only:set_units,umass,udist
@@ -60,6 +61,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use vectorutils,    only:rotatevec
  use gravwaveutils,  only:theta_gw,calc_gravitwaves
  use setup_params,   only:rhozero,npart_total
+ use systemutils,    only:get_command_option
+ use options,        only:iexternalforce
  integer,           intent(in)    :: id
  integer,           intent(inout) :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -70,7 +73,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr
+ integer :: ierr,np_default
  logical :: iexist,write_profile,use_var_comp
  real    :: rtidal,rp,semia,period,hacc1,hacc2
  real    :: vxyzstar(3),xyzstar(3)
@@ -100,7 +103,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(mass=mhole*solarm,c=1.d0,G=1.d0) !--Set central mass to M=1 in code units
  star%mstar      = 1.*solarm/umass
  star%rstar      = 1.*solarr/udist
- star%np         = 1e6
+ np_default      = 1e6
+ star%np         = int(get_command_option('np',default=np_default)) ! can set default value with --np=1e5 flag (mainly for testsuite)
  star%iprofile   = 2
  beta            = 5.
  ecc             = 0.8
@@ -109,7 +113,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  theta           = 0.
  write_profile   = .false.
  use_var_comp    = .false.
- relax           = .false.
+ relax           = .true.
 !
 !-- Read runtime parameters from setup file
 !
@@ -225,6 +229,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  else
     theta_gw = -theta*180./pi
  endif
+
+ if (.not.gr) iexternalforce = 1
 
  if (npart == 0)   call fatal('setup','no particles setup')
  if (ierr /= 0)    call fatal('setup','ERROR during setup')

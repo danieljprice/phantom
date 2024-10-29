@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,7 @@ module mpidens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
 
- integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
                                          8 * minpart                    + & !  h_old(minpart)
                                          8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
@@ -44,7 +44,8 @@ module mpidens
                                          4                              + & !  nneightry
                                          4 * minpart                    + & !  nneigh(minpart)
                                          4                              + & !  waiting_index
-                                         1 * minpart                        !  iphase(minpart)
+                                         1 * minpart                    + & !  iphase(minpart)
+                                         1 * minpart                        !  apr_level
 
  type celldens
     sequence
@@ -65,6 +66,9 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+
+    ! pad the array to 8-byte boundaries
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
@@ -74,6 +78,7 @@ module mpidens
     integer                   :: maxlength = 0
     integer                   :: n = 0
     integer                   :: number
+    integer                   :: idum     ! to avoid ifort warning
  end type stackdens
 
 contains
@@ -204,6 +209,12 @@ subroutine get_mpitype_of_celldens(dtype)
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
  disp(nblock) = addr - start
 
+ nblock = nblock + 1
+ blens(nblock) = size(cell%apr)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
+ disp(nblock) = addr - start
+
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)
  call MPI_TYPE_COMMIT(dtype,mpierr)
 
@@ -227,6 +238,8 @@ subroutine free_mpitype_of_celldens(dtype)
  integer                :: mpierr
 
  call MPI_Type_free(dtype,mpierr)
+#else
+ dtype = 0
 #endif
 
 end subroutine free_mpitype_of_celldens

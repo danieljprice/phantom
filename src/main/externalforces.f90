@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -19,9 +19,9 @@ module externalforces
 !   - mass1           : *mass of central object in code units*
 !
 ! :Dependencies: dump_utils, extern_Bfield, extern_binary, extern_corotate,
-!   extern_densprofile, extern_gnewton, extern_gwinspiral,
+!   extern_densprofile, extern_geopot, extern_gnewton, extern_gwinspiral,
 !   extern_lensethirring, extern_prdrag, extern_spiral, extern_staticsine,
-!   infile_utils, io, lumin_nsdisc, part, units
+!   infile_utils, io, part, units
 !
  use extern_binary,   only:accradius1,mass1,accretedmass1,accretedmass2
  use extern_corotate, only:omega_corotate  ! so public from this module
@@ -33,7 +33,7 @@ module externalforces
  public :: accradius1,omega_corotate,accretedmass1,accretedmass2
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
- public :: update_vdependent_extforce_leapfrog
+ public :: update_vdependent_extforce
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
@@ -65,12 +65,13 @@ module externalforces
    iext_staticsine    = 13, &
    iext_gwinspiral    = 14, &
    iext_discgravity   = 15, &
-   iext_corot_binary  = 16
+   iext_corot_binary  = 16, &
+   iext_geopot        = 17
 
  !
  ! Human-readable labels for these
  !
- integer, parameter, public  :: iexternalforce_max = 16
+ integer, parameter, public  :: iexternalforce_max = 17
  character(len=*), parameter, public :: externalforcetype(iexternalforce_max) = (/ &
     'star                 ', &
     'corotate             ', &
@@ -87,7 +88,8 @@ module externalforces
     'static sinusoid      ', &
     'grav. wave inspiral  ', &
     'disc gravity         ', &
-    'corotating binary    '/)
+    'corotating binary    ', &
+    'geopotential model   '/)
 
 contains
 !-----------------------------------------------------------------------
@@ -109,6 +111,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
  use extern_Bfield,      only:get_externalB_force
  use extern_staticsine,  only:staticsine_force
  use extern_gwinspiral,  only:get_gw_force_i
+ use extern_geopot,      only:get_geopot_force,J2,spinvec
  use units,              only:get_G_code
  use io,                 only:fatal
  use part,               only:rhoh,massoftype,igas
@@ -133,7 +136,7 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
 
  select case(iexternalforce)
 
- case(iext_star, iext_lensethirring)
+ case(iext_star,iext_lensethirring,iext_geopot)
 !
 !--1/r^2 force from central point mass
 !
@@ -146,6 +149,10 @@ subroutine externalforce(iexternalforce,xi,yi,zi,hi,ti,fextxi,fextyi,fextzi,phi,
        fextyi = fextyi - yi*dr3
        fextzi = fextzi - zi*dr3
        phi    = -mass1*dr
+    endif
+
+    if (iexternalforce==iext_geopot) then
+       call get_geopot_force(xi,yi,zi,dr,dr3,accradius1,J2,spinvec,fextxi,fextyi,fextzi,phi)
     endif
 
  case(iext_corotate)
@@ -486,14 +493,14 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
-           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
- use extern_corotate,      only:update_coriolis_leapfrog
- use extern_prdrag,        only:update_prdrag_leapfrog
- use extern_lensethirring, only:update_ltforce_leapfrog
- use extern_gnewton,       only:update_gnewton_leapfrog
+subroutine update_vdependent_extforce(iexternalforce, &
+           vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,densi,ui)
+ use extern_corotate,      only:update_coriolis
+ use extern_prdrag,        only:update_prdrag
+ use extern_lensethirring, only:update_ltforce
+ use extern_gnewton,       only:update_gnewton
  integer, intent(in)    :: iexternalforce
- real,    intent(in)    :: dt,xi,yi,zi
+ real,    intent(in)    :: dkdt,xi,yi,zi
  real,    intent(in)    :: vhalfx,vhalfy,vhalfz
  real,    intent(inout) :: fxi,fyi,fzi
  real,    intent(out)   :: fexti(3)
@@ -501,16 +508,16 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
 
  select case(iexternalforce)
  case(iext_corotate,iext_corot_binary)
-    call update_coriolis_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt)
+    call update_coriolis(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt)
  case(iext_prdrag)
-    call update_prdrag_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_prdrag(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_lensethirring,iext_einsteinprec)
-    call update_ltforce_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_ltforce(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  case(iext_gnewton)
-    call update_gnewton_leapfrog(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,mass1)
+    call update_gnewton(vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dkdt,xi,yi,zi,mass1)
  end select
 
-end subroutine update_vdependent_extforce_leapfrog
+end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
 !+
@@ -518,9 +525,8 @@ end subroutine update_vdependent_extforce_leapfrog
 !+
 !-----------------------------------------------------------------------
 subroutine update_externalforce(iexternalforce,ti,dmdt)
- use io,                only:iprint,iverbose,warn
- use lumin_nsdisc,      only:set_Lstar,BurstProfile,LumAcc,make_beta_grids
- use part,              only:xyzh,vxyzu,massoftype,npartoftype,igas,npart,nptmass,&
+ use io,                only:warn
+ use part,              only:xyzh,vxyzu,igas,npart,nptmass,&
                              xyzmh_ptmass,vxyz_ptmass
  use extern_gwinspiral, only:gw_still_inspiralling,get_gw_force
  use extern_binary,     only:update_binary
@@ -531,12 +537,6 @@ subroutine update_externalforce(iexternalforce,ti,dmdt)
  select case(iexternalforce)
  case(iext_binary,iext_corot_binary)
     call update_binary(ti)
- case(iext_prdrag)
-    call make_beta_grids( xyzh, massoftype(igas), npartoftype(igas) )
-    call set_Lstar( BurstProfile, ti, dmdt, mass1 )
-    if (iverbose >= 1) then
-       write(iprint,*) 'updating prdrag at t = ',ti,' Mdot = ',dmdt,' LAcc = ',LumAcc
-    endif
  case(iext_gwinspiral)
     call gw_still_inspiralling(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass,stopped_now)
     call get_gw_force()
@@ -553,12 +553,13 @@ end subroutine update_externalforce
 !   add checks to see if particle is bound etc. here)
 !+
 !-----------------------------------------------------------------------
-subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted)
+subroutine accrete_particles(iexternalforce,xi,yi,zi,hi,mi,ti,accreted,i)
  use extern_binary, only:binary_accreted,accradius1
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: xi,yi,zi,mi,ti
  real,    intent(inout) :: hi
  logical, intent(out)   :: accreted
+ integer, intent(in), optional :: i  ! for compatibility with GR routine
  real :: r2
 
  accreted = .false.
@@ -617,6 +618,7 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  use extern_Bfield,        only:write_options_externB
  use extern_staticsine,    only:write_options_staticsine
  use extern_gwinspiral,    only:write_options_gwinspiral
+ use extern_geopot,        only:write_options_geopot
  integer, intent(in) :: iunit,iexternalforce
  character(len=80) :: string
 
@@ -626,7 +628,7 @@ subroutine write_options_externalforces(iunit,iexternalforce)
  call write_inopt(iexternalforce,'iexternalforce',trim(string),iunit)
 
  select case(iexternalforce)
- case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_star,iext_prdrag,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
     call write_inopt(mass1,'mass1','mass of central object in code units',iunit)
     if (accradius1_hard < tiny(0.)) accradius1_hard = accradius1
     call write_inopt(accradius1,'accradius1','soft accretion radius of central object',iunit)
@@ -658,6 +660,8 @@ subroutine write_options_externalforces(iunit,iexternalforce)
     call write_options_staticsine(iunit)
  case(iext_gwinspiral)
     call write_options_gwinspiral(iunit)
+ case(iext_geopot)
+    call write_options_geopot(iunit)
  end select
 
 end subroutine write_options_externalforces
@@ -723,6 +727,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  use extern_Bfield,        only:read_options_externB
  use extern_staticsine,    only:read_options_staticsine
  use extern_gwinspiral,    only:read_options_gwinspiral
+ use extern_geopot,        only:read_options_geopot
  character(len=*), intent(in)    :: name,valstring
  logical,          intent(out)   :: imatch,igotall
  integer,          intent(out)   :: ierr
@@ -730,7 +735,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  integer, save :: ngot = 0
  logical :: igotallcorotate,igotallbinary,igotallprdrag
  logical :: igotallltforce,igotallspiral,igotallexternB
- logical :: igotallstaticsine,igotallgwinspiral
+ logical :: igotallstaticsine,igotallgwinspiral,igotallgeopot
  character(len=30), parameter :: tag = 'externalforces'
 
  imatch            = .true.
@@ -743,6 +748,7 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
  igotallltforce    = .true.
  igotallstaticsine = .true.
  igotallgwinspiral = .true.
+ igotallgeopot     = .true.
 
  !call read_inopt(db,'iexternalforce',iexternalforce,min=0,max=9,required=true)
  !if (imatch) ngot = ngot + 1
@@ -792,17 +798,19 @@ subroutine read_options_externalforces(name,valstring,imatch,igotall,ierr,iexter
        call read_options_staticsine(name,valstring,imatch,igotallstaticsine,ierr)
     case(iext_gwinspiral)
        call read_options_gwinspiral(name,valstring,imatch,igotallgwinspiral,ierr)
+    case(iext_geopot)
+       call read_options_geopot(name,valstring,imatch,igotallgwinspiral,ierr)
     end select
  end select
  igotall = (ngot >= 1      .and. igotallcorotate   .and. &
             igotallbinary  .and. igotallprdrag     .and. &
             igotallspiral  .and. igotallltforce    .and. &
             igotallexternB .and. igotallstaticsine .and. &
-            igotallgwinspiral)
+            igotallgwinspiral .and. igotallgeopot)
 
  !--make sure mass is read where relevant
  select case(iexternalforce)
- case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton)
+ case(iext_star,iext_lensethirring,iext_einsteinprec,iext_gnewton,iext_geopot)
     igotall = igotall .and. (ngot >= 2)
  end select
 

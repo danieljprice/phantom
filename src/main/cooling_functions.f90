@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -40,6 +40,7 @@ module cooling_functions
            testing_cooling_functions
 
  private
+ real, parameter  :: xH = 0.7, xHe = 0.28 !assumed H and He mass fractions
 
 contains
 !-----------------------------------------------------------------------
@@ -47,9 +48,9 @@ contains
 !  Piecewise cooling law for simple shock problem (Creasey et al. 2011)
 !+
 !-----------------------------------------------------------------------
-subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
+subroutine piecewise_law(T, T0, rho_cgs, ndens, Q, dlnQ)
 
- real, intent(in)  :: T, T0, ndens
+ real, intent(in)  :: T, T0, rho_cgs, ndens
  real, intent(out) :: Q, dlnQ
  real :: T1,Tmid !,dlnT,fac
 
@@ -60,12 +61,12 @@ subroutine piecewise_law(T, T0, ndens, Q, dlnQ)
     dlnQ = 0.
  elseif (T >= T0 .and. T <= Tmid) then
     !dlnT = (T-T0)/(T0/100.)
-    Q = -lambda_shock_cgs*ndens**2*(T-T0)/T0
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T-T0)/T0
     !fac = 2./(1.d0 + exp(dlnT))
-    dlnQ = 1./(T-T0+1.d-10)
+    dlnQ = 1./(T-T0+epsilon(0.))
  elseif (T >= Tmid .and. T <= T1) then
-    Q = -lambda_shock_cgs*ndens**2*(T1-T)/T0
-    dlnQ = -1./(T1-T+1.d-10)
+    Q = -lambda_shock_cgs*ndens**2/rho_cgs*(T1-T)/T0
+    dlnQ = -1./(T1-T+epsilon(0.))
  else
     Q    = 0.
     dlnQ = 0.
@@ -79,14 +80,14 @@ end subroutine piecewise_law
 !  Bowen 1988 cooling prescription
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_Bowen_relaxation(T, Tdust, rho, mu, gamma, Q, dlnQ_dlnT)
+subroutine cooling_Bowen_relaxation(T, Tdust, rho_cgs, mu, gamma, Q_cgs, dlnQ_dlnT)
 
  use physcon, only:Rg
 
- real, intent(in)  :: T, Tdust, rho, mu, gamma
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(in)  :: T, Tdust, rho_cgs, mu, gamma
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
- Q         = Rg/((gamma-1.)*mu)*rho*(Tdust-T)/bowen_Cprime
+ Q_cgs     = Rg/((gamma-1.)*mu)*rho_cgs*(Tdust-T)/bowen_Cprime
  dlnQ_dlnT = -T/(Tdust-T+1.d-10)
 
 end subroutine cooling_Bowen_relaxation
@@ -96,22 +97,22 @@ end subroutine cooling_Bowen_relaxation
 !  collisionnal cooling
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q, dlnQ_dlnT)
+subroutine cooling_dust_collision(T, Tdust, rho, K2, mu, Q_cgs, dlnQ_dlnT)
 
  use physcon, only: kboltz, mass_proton_cgs, pi
 
  real, intent(in)  :: T, Tdust, rho, K2, mu
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
  real, parameter   :: f = 0.15, a0 = 1.28e-8
  real              :: A
 
  A = 2. * f * kboltz * a0**2/(mass_proton_cgs**2*mu) &
          * (1.05/1.54) * sqrt(2.*pi*kboltz/mass_proton_cgs) * 2.*K2 * rho
- Q = A * sqrt(T) * (Tdust-T)
- if (Q  >  1.d6) then
+ Q_cgs = A * sqrt(T) * (Tdust-T)
+ if (Q_cgs  >  1.d6) then
     print *, f, kboltz, a0, mass_proton_cgs, mu
-    print *, mu, K2, rho, T, Tdust, A, Q
+    print *, mu, K2, rho, T, Tdust, A, Q_cgs
     stop 'cooling'
  else
     dlnQ_dlnT = 0.5+T/(Tdust-T+1.d-10)
@@ -124,14 +125,14 @@ end subroutine cooling_dust_collision
 !  Woitke (2006 A&A) cooling term
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q, dlnQ_dlnT)
+subroutine cooling_radiative_relaxation(T, Tdust, kappa, Q_cgs, dlnQ_dlnT)
 
  use physcon, only: steboltz
 
  real, intent(in) :: T, Tdust, kappa
- real, intent(out) :: Q, dlnQ_dlnT
+ real, intent(out) :: Q_cgs, dlnQ_dlnT
 
- Q         = 4.*steboltz*(Tdust**4-T**4)*kappa
+ Q_cgs     = 4.*steboltz*(Tdust**4-T**4)*kappa
  dlnQ_dlnT = -4.*T**4/(Tdust**4-T**4+1.d-10)
 
 end subroutine cooling_radiative_relaxation
@@ -141,22 +142,25 @@ end subroutine cooling_radiative_relaxation
 !  Cooling due to electron excitation of neutral H (Spitzer 1978)
 !+
 !-----------------------------------------------------------------------
-subroutine cooling_neutral_hydrogen(T, rho_cgs, Q, dlnQ_dlnT)
+subroutine cooling_neutral_hydrogen(T, rho_cgs, Q_cgs, dlnQ_dlnT)
 
- use physcon, only: mass_proton_cgs, pi
+ use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T, rho_cgs
- real, intent(out) :: Q,dlnQ_dlnT
+ real, intent(out) :: Q_cgs,dlnQ_dlnT
 
  real, parameter   :: f = 1.0d0
- real              :: eps_e
+ real              :: ne,nH
 
  if (T > 3000.) then
-    eps_e = calc_eps_e(T)
-    Q = -f*7.3d-19*eps_e*exp(-118400./T)*rho_cgs/(1.4*mass_proton_cgs)**2
-    dlnQ_dlnT = -118400./T+log(calc_eps_e(1.001*T)/eps_e)/log(1.001)
+    nH = rho_cgs/(1.4*mass_proton_cgs)
+    ne = calc_eps_e(T)*nH
+    !the term 1/(1+sqrt(T)) comes from Cen (1992, ApjS, 78, 341)
+    Q_cgs  = -f*7.3d-19*ne*nH*exp(-118400./T)/rho_cgs/(1.+sqrt(T/1.d5))
+    dlnQ_dlnT = -118400./T+log(nH*calc_eps_e(1.001*T)/ne)/log(1.001) &
+         - 0.5*sqrt(T/1.d5)/(1.+sqrt(T/1.d5))
  else
-    Q = 0.
+    Q_cgs = 0.
     dlnQ_dlnT = 0.
  endif
 
@@ -164,7 +168,7 @@ end subroutine cooling_neutral_hydrogen
 
 !-----------------------------------------------------------------------
 !+
-!  compute electron equilibrium abundance (Palla et al 1983)
+!  compute electron equilibrium abundance per nH atom (Palla et al 1983)
 !+
 !-----------------------------------------------------------------------
 real function calc_eps_e(T)
@@ -235,21 +239,26 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
 
  real, intent(in) :: T_gas, rho_gas, mu, nH, nHe
 
+ real, parameter  :: H2_diss = 7.178d-12    !  4.48 eV in erg
  real, parameter  :: H_ion   = 2.179d-11    ! 13.60 eV in erg
  real, parameter  :: He_ion  = 3.940d-11    ! 24.59 eV in erg
  real, parameter  :: He2_ion = 8.720d-11    ! 54.42 eV in erg
- real             :: n_gas, X, KH, xx, Y, KHe, KHe2, z1, z2, cst
+ real             :: KH, KH2, xx, yy, KHe, KHe2, z1, z2, cst
 
- n_gas  = rho_gas/(mu*mass_proton_cgs)
- X      = nH /n_gas
- Y      = nHe/n_gas
- cst    = mass_proton_cgs/rho_gas * sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
+ cst = mass_proton_cgs/rho_gas*sqrt(mass_electron_cgs*kboltz*T_gas/(2.*pi*planckhbar**2))**3
  if (T_gas > 1.d5) then
     xx = 1.
  else
-    KH   = cst/X * exp(-H_ion /(kboltz*T_gas))
+    KH   = cst/xH * exp(-H_ion /(kboltz*T_gas))
     ! solution to quadratic SAHA equations (Eq. 16 in D'Angelo et al 2013)
-    xx   = (1./2.) * (-KH    + sqrt(KH**2+4.*KH))
+    xx   = 0.5 * (-KH    + sqrt(KH**2+4.*KH))
+ endif
+ if (T_gas > 1.d4) then
+    yy = 1.
+ else
+    KH2  = 0.5*sqrt(0.5*mass_proton_cgs/mass_electron_cgs)**3*cst/xH * exp(-H2_diss/(kboltz*T_gas))
+    ! solution to quadratic SAHA equations (Eq. 15 in D'Angelo et al 2013)
+    yy   = 0.5 * (-KH    + sqrt(KH2**2+4.*KH2))
  endif
  if (T_gas > 3.d5) then
     z1 = 1.
@@ -257,13 +266,13 @@ real function n_e(T_gas, rho_gas, mu, nH, nHe)
  else
     KHe    = 4.*cst * exp(-He_ion/(kboltz*T_gas))
     KHe2   =    cst * exp(-He2_ion/(kboltz*T_gas))
-
 ! solution to quadratic SAHA equations (Eq. 17 in D'Angelo et al 2013)
-    z1     = (2./Y ) * (-KHe-X + sqrt((KHe+X)**2+KHe*Y))
+    z1     = (2./XHe ) * (-KHe-xH + sqrt((KHe+xH)**2+KHe*xHe))
 ! solution to quadratic SAHA equations (Eq. 18 in D'Angelo et al 2013)
-    z2     = (2./Y ) * (-KHe2-X + sqrt((KHe+X+Y/4.)**2+KHe2*Y))
+    z2     = (2./xHe ) * (-KHe2-xH + sqrt((KHe+xH+xHe/4.)**2+KHe2*xHe))
  endif
- n_e    = xx * nH + z1*(1.+z2) * nHe
+ n_e       = xx * nH + z1*(1.+z2) * nHe
+ !mu  = 4./(2.*xH*(1.+xx+2.*xx*yy)+xHe*(1+z1+z1*z2))
 
 end function n_e
 
@@ -288,7 +297,7 @@ end function v_th
 !  ADDITIONAL PHYSICS: compute fraction of gas that has speeds lower than v_crit
 !                      from the cumulative distribution function of the
 !                      Maxwell-Boltzmann distribution
-!+
+! doi : 10.4236/ijaa.2020.103010
 !-----------------------------------------------------------------------
 real function MaxBol_cumul(T_gas, mu,  v_crit)
 
@@ -298,8 +307,8 @@ real function MaxBol_cumul(T_gas, mu,  v_crit)
 
  real             :: a
 
- a            = sqrt( kboltz*T_gas/(mu*mass_proton_cgs) )
- MaxBol_cumul = erf(v_crit/(sqrt(2.)*a)) - sqrt(2./pi) * (v_crit*exp(-v_crit**2/(2.*a**2))) / a
+ a            = sqrt(2.*kboltz*T_gas/(mu*mass_proton_cgs))
+ MaxBol_cumul = erf(v_crit/a) - 2./sqrt(pi) * v_crit/a *exp(-(v_crit/a)**2)
 
 end function MaxBol_cumul
 
@@ -332,7 +341,7 @@ end function n_dust
 !=======================================================================
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !
-!  Cooling functions
+!  Cooling functions    **** ALL IN cgs  ****
 !
 !\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\/\
 !=======================================================================
@@ -489,7 +498,7 @@ real function cool_coulomb(T_gas, rho_gas, mu, nH, nHe)
  real, parameter   :: G=1.68 ! ratio of true background UV field to Habing field
  real, parameter   :: D0=0.4255, D1=2.457, D2=-6.404, D3=1.513, D4=0.05343 ! see Table 3 in Weingartner & Draine 2001, last line
 
- if (T_gas > 1000.) then
+ if (T_gas > 1000.) then !. .and. T_gas < 1.e4) then
     ne = n_e(T_gas, rho_gas, mu, nH, nHe)
     x  = log(G*sqrt(T_gas)/ne)
     cool_coulomb = 1.d-28*ne*nH*T_gas**(D0+D1/x)*exp(D2+D3*x-D4*x**2)
@@ -507,7 +516,6 @@ end function cool_coulomb
 real function heat_CosmicRays(nH, nH2)
 
  real, intent(in) :: nH, nH2
-
  real, parameter  :: Rcr = 5.0d-17  !cosmic ray ionisation rate [s^-1]
 
  heat_CosmicRays = Rcr*(5.5d-12*nH+2.5d-11*nH2)
@@ -524,7 +532,6 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
@@ -532,6 +539,7 @@ real function cool_HI(T_gas, rho_gas, mu, nH, nHe)
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 3000.) then
     n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_HI = 7.3d-19*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas/(1.+sqrt(T_gas/1.d5))*exp(-118400./T_gas)
  else
     cool_HI = 0.0
@@ -549,13 +557,13 @@ real function cool_H_ionisation(T_gas, rho_gas, mu, nH, nHe)
  use physcon, only: mass_proton_cgs
 
  real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
-
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
-    n_gas             = rho_gas/(mu*mass_proton_cgs)
+    n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_H_ionisation = 1.27d-21*n_e(T_gas, rho_gas, mu, nH, nHe)*n_gas*sqrt(T_gas)/(1.+sqrt(T_gas/1.d5))*exp(-157809./T_gas)
  else
     cool_H_ionisation = 0.0
@@ -569,15 +577,17 @@ end function cool_H_ionisation
 !+
 !-----------------------------------------------------------------------
 real function cool_He_ionisation(T_gas, rho_gas, mu, nH, nHe)
- use physcon, only:mass_proton_cgs
- real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
 
+ use physcon, only:mass_proton_cgs
+
+ real, intent(in)  :: T_gas, rho_gas, mu, nH, nHe
  real              :: n_gas
 
  ! all hydrogen atomic, so nH = n_gas
  ! (1+sqrt(T_gas/1.d5))**(-1) correction factor added by Cen 1992
  if (T_gas > 4000.) then
-    n_gas              = rho_gas/(mu*mass_proton_cgs)
+    n_gas   = rho_gas/(mu*mass_proton_cgs)
+    !nH      = XH*n_gas
     cool_He_ionisation = 9.38d-22*n_e(T_gas, rho_gas, mu, nH, nHe)*nHe*sqrt(T_gas)*(1+sqrt(T_gas/1.d5))**(-1)*exp(-285335./T_gas)
  else
     cool_He_ionisation = 0.0
@@ -588,12 +598,12 @@ end function cool_He_ionisation
 !-----------------------------------------------------------------------
 !+
 !  CHEMICAL: Cooling due to ro-vibrational excitation of H2 (Lepp & Shull 1983)
+!            (Smith & Rosen, 2003, MNRAS, 339)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_rovib(T_gas, nH, nH2)
 
  real, intent(in)  :: T_gas, nH, nH2
-
  real              :: kH_01, kH2_01
  real              :: Lvh, Lvl, Lrh, Lrl
  real              :: x, Qn
@@ -604,8 +614,8 @@ real function cool_H2_rovib(T_gas, nH, nH2)
     kH_01 = 1.0d-12*sqrt(T_gas)*exp(-1000./T_gas)
  endif
  kH2_01 = 1.45d-12*sqrt(T_gas)*exp(-28728./(T_gas+1190.))
- Lvh    = 1.1d-13*exp(-6744./T_gas)
- Lvl    = 8.18d-13*(nH*kH_01+nH2*kH2_01)
+ Lvh    = 1.1d-18*exp(-6744./T_gas)
+ Lvl    = 8.18d-13*(nH*kH_01+nH2*kH2_01)*exp(-6840./T_gas)
 
  x   = log10(T_gas/1.0d4)
  if (T_gas < 1087.) then
@@ -627,7 +637,7 @@ end function cool_H2_rovib
 
 !-----------------------------------------------------------------------
 !+
-!  CHEMICAL: H2 dissociation cooling (Shapiro & Kang 1987)
+!  CHEMICAL: H2 dissociation cooling (Shapiro & Kang 1987, Smith & Rosen 2003)
 !+
 !-----------------------------------------------------------------------
 real function cool_H2_dissociation(T_gas, rho_gas, mu, nH, nH2)
@@ -655,7 +665,7 @@ end function cool_H2_dissociation
 !-----------------------------------------------------------------------
 !+
 !  CHEMICAL: H2 recombination heating (Hollenbach & Mckee 1979)
-!            for an overview, see Valentine Wakelama et al. 2017
+!            for an overview, see Wakelam et al. 2017, Smith & Rosen 2003
 !+
 !-----------------------------------------------------------------------
 real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
@@ -675,8 +685,8 @@ real function heat_H2_recombination(T_gas, rho_gas, mu, nH, nH2, T_dust)
  beta   = 1./(1.+n_gas*(2.*nH2/n_gas*((1./n2)-(1./n1))+1./n1))
  xi     = 7.18d-12*n_gas*nH*(1.-beta)
 
- fa     = (1.+1.0d4*exp(-600./T_dust))**(-1.)    ! eq 3.4
- k_rec  = 3.0d-1*(sqrt(T_gas)*fa)/(1.+0.04*sqrt(T_gas+T_dust)+2.0d-3*T_gas+8.0d-6*T_gas**2) ! eq 3.8
+ fa     = 1./(1.+1.d4*exp(-600./T_dust))    ! eq 3.4
+ k_rec  = 3.d-18*(sqrt(T_gas)*fa)/(1.+0.04*sqrt(T_gas+T_dust)+2.d-3*T_gas+8.d-6*T_gas**2) ! eq 3.8
 
  heat_H2_recombination = k_rec*xi
 
@@ -701,16 +711,22 @@ real function cool_CO_rovib(T_gas, rho_gas, mu, nH, nH2, nCO)
 ! use cumulative distribution of Maxwell-Boltzmann
 ! to account for collisions that destroy CO
 
+ if (T_gas > 3000. .or. T_gas < 250.) then
+    cool_CO_rovib = 0.
+    return
+ endif
  v_crit = sqrt( 2.*1.78d-11/(mu*mass_proton_cgs) )  ! kinetic energy
  nfCO   = MaxBol_cumul(T_gas, mu,  v_crit) * nCO
 
  n_gas  = rho_gas/(mu*mass_proton_cgs)
- n_crit = 3.3d6*(T_gas/1000.)**0.75                                                                             !McKee et al. 1982 eq. 5.3
- sigma  = 3.0d-16*(T_gas/1000.)**(-1./4.)                                                                       !McKee et al. 1982 eq. 5.4
- Qrot   = n_gas*nfCO*0.5*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1. + (n_gas/n_crit) + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
+ n_crit = 3.3d6*(T_gas/1000.)**0.75      !McKee et al. 1982 eq. 5.3
+ sigma  = 3.d-16*(T_gas/1000.)**(-0.25)  !McKee et al. 1982 eq. 5.4
+ !v_th = sqrt((8.*kboltz*T_gas)/(pi*mH2_cgs)) !3.1
+ Qrot   = 0.5*n_gas*nfCO*kboltz*T_gas*sigma*v_th(T_gas, mu) / (1. + (n_gas/n_crit) + 1.5*sqrt(n_gas/n_crit))
+!McKee et al. 1982 eq. 5.2
 
- QvibH2 = 1.83d-26*nH2*nfCO*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.))) !Neufeld & Kaufman 1993
- QvibH  = 1.28d-24*nH *nfCO*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43)  !Neufeld & Kaufman 1993
+ QvibH2 = 1.83d-26*nH2*nfCO*T_gas*exp(-3080./T_gas)*exp(-68./(T_gas**(1./3.)))  !Smith & Rosen
+ QvibH  = 1.28d-24*nH *nfCO*sqrt(T_gas)*exp(-3080./T_gas)*exp(-(2000./T_gas)**3.43) !Smith & Rosen
 
  cool_CO_rovib = Qrot+QvibH+QvibH2
 
@@ -772,7 +788,8 @@ real function cool_OH_rot(T_gas, rho_gas, mu, nOH)
 
  n_gas     = rho_gas/(mu*mass_proton_cgs)
  sigma     = 2.0d-16
- n_crit    = 1.33d7*sqrt(T_gas)
+ !n_crit    = 1.33d7*sqrt(T_gas)
+ n_crit    = 1.5d10*sqrt(T_gas/1000.) !table 3 Hollenbach & McKee 1989
 
  cool_OH_rot = n_gas*nfOH*(kboltz*T_gas*sigma*v_th(T_gas, mu)) / (1 + n_gas/n_crit + 1.5*sqrt(n_gas/n_crit))  !McKee et al. 1982 eq. 5.2
 

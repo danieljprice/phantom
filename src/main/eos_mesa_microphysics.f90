@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -69,7 +69,7 @@ subroutine get_opacity_constants_mesa
  opacs_file = find_phantom_datafile(filename,'eos/mesa')
 
  ! Read the constants from the header of the opacity file
- open(newunit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
+ open(newunit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
  close(fnum)
 
@@ -102,7 +102,7 @@ subroutine read_opacity_mesa(x,z)
  filename = trim(mesa_opacs_dir)//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
 ! filename = trim(mesa_opacs_dir)//'/'//'opacs'//trim(mesa_opacs_suffix)//'.bindata'
  opacs_file = find_phantom_datafile(filename,'eos/mesa')
- open(unit=fnum, file=trim(opacs_file), status='old', action='read', form='unformatted')
+ open(unit=fnum,file=trim(opacs_file),status='old',action='read',form='unformatted')
  read(fnum) mesa_opacs_nz,mesa_opacs_nx,mesa_opacs_nr,mesa_opacs_nt
 
  ! Read in the size of the table and the data
@@ -259,8 +259,9 @@ subroutine get_kappa_mesa(rho,temp,kap,kapt,kapr)
 end subroutine get_kappa_mesa
 
 
-real function get_1overmu_mesa(rho,u,Rg) result(rmu)
- real, intent(in) :: rho,u,Rg
+real function get_1overmu_mesa(rho,u) result(rmu)
+ real, parameter :: Rg = 8.31446261815324d7             !Gas constant              erg/K/g
+ real, intent(in) :: rho,u
  real :: temp,pgas
  integer :: ierr
 
@@ -307,7 +308,7 @@ subroutine get_eos_constants_mesa(ierr)
  filename = find_phantom_datafile(filename,'eos/mesa')
 
  ! Read constants from the header of first EoS tables
- open(unit=fnum, file=trim(filename), status='old', action='read', form='unformatted',iostat=ierr)
+ open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted',iostat=ierr)
  if (ierr /= 0) return
  read(fnum) mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
  close(fnum)
@@ -363,7 +364,7 @@ subroutine read_eos_mesa(x,z,ierr)
        ! Read in the size of the tables and the data
        ! i and j hold the Z and X values respectively
        ! k, l and m hold the values of V, Eint and the data respectively
-       open(unit=fnum, file=trim(filename), status='old', action='read', form='unformatted')
+       open(unit=fnum,file=trim(filename),status='old',action='read',form='unformatted')
        read(fnum) mesa_eos_ne, mesa_eos_nv, mesa_eos_nvar2
        read(fnum)(mesa_eos_logVs(k),k=1,mesa_eos_nv)
        read(fnum)(mesa_eos_logEs(l),l=1,mesa_eos_ne)

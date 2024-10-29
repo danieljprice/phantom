@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -27,7 +27,7 @@ module externalforces
  public :: accrete_particles,was_accreted
  public :: write_options_externalforces,read_options_externalforces
  public :: initialise_externalforces,is_velocity_dependent
- public :: update_vdependent_extforce_leapfrog
+ public :: update_vdependent_extforce
  public :: update_externalforce
  public :: write_headeropts_extern,read_headeropts_extern
 
@@ -124,7 +124,7 @@ end subroutine externalforce_vdependent
 !  necessary for using v-dependent forces in leapfrog
 !+
 !-----------------------------------------------------------------------
-subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
+subroutine update_vdependent_extforce(iexternalforce, &
            vhalfx,vhalfy,vhalfz,fxi,fyi,fzi,fexti,dt,xi,yi,zi,densi,ui)
  integer, intent(in)    :: iexternalforce
  real,    intent(in)    :: dt,xi,yi,zi
@@ -136,7 +136,7 @@ subroutine update_vdependent_extforce_leapfrog(iexternalforce, &
  !
  ! This doesn't doesn't actually get used in gr...
  !
-end subroutine update_vdependent_extforce_leapfrog
+end subroutine update_vdependent_extforce
 
 !-----------------------------------------------------------------------
 !+

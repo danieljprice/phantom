@@ -1,6 +1,6 @@
 !--------------------------------------------------------------------------!
 ! The Phantom Smoothed Particle Hydrodynamics code, by Daniel Price et al. !
-! Copyright (c) 2007-2023 The Authors (see AUTHORS)                        !
+! Copyright (c) 2007-2024 The Authors (see AUTHORS)                        !
 ! See LICENCE file for usage and distribution conditions                   !
 ! http://phantomsph.github.io/                                             !
 !--------------------------------------------------------------------------!
@@ -20,10 +20,11 @@ module eos_idealplusrad
 !
  use physcon,  only:Rg,radconst
  implicit none
- real, parameter :: tolerance = 1e-15
+ real, parameter :: tolerance = 1.e-15
 
  public :: get_idealplusrad_temp,get_idealplusrad_pres,get_idealplusrad_spsoundi,&
-           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp
+           get_idealgasplusrad_tempfrompres,get_idealplusrad_enfromtemp,&
+           get_idealplusrad_rhofrompresT
 
  private
 
@@ -35,15 +36,15 @@ contains
 !  per unit mass (eni) and density (rhoi)
 !+
 !----------------------------------------------------------------
-subroutine get_idealplusrad_temp(rhoi,eni,mu,gamma,tempi,ierr)
- real, intent(in)    :: rhoi,eni,mu,gamma
+subroutine get_idealplusrad_temp(rhoi,eni,mu,tempi,ierr)
+ real, intent(in)    :: rhoi,eni,mu
  real, intent(inout) :: tempi
  integer, intent(out):: ierr
  real                :: gasfac,imu,numerator,denominator,correction
  integer             :: iter
  integer, parameter  :: iter_max = 1000
 
- gasfac = 1./(gamma-1.)
+ gasfac = 3./2. !this is NOT gamma = cp/cv, it refers to the gas being monoatomic
  imu = 1./mu
  if (tempi <= 0. .or. isnan(tempi)) tempi = eni*mu/(gasfac*Rg)  ! Take gas temperature as initial guess
 
@@ -63,22 +64,20 @@ end subroutine get_idealplusrad_temp
 
 
 subroutine get_idealplusrad_pres(rhoi,tempi,mu,presi)
- real, intent(in)    :: rhoi,mu
- real, intent(in)    :: tempi
+ real, intent(in)    :: rhoi,tempi,mu
  real, intent(out)   :: presi
 
- presi = Rg*rhoi*tempi/mu + 1./3.*radconst*tempi**4 ! Eq 13.2 (Kippenhahn et al.)
+ presi = (Rg*rhoi/mu + radconst*tempi**3/3.)*tempi ! Eq 13.2 (Kippenhahn et al.)
 
 end subroutine get_idealplusrad_pres
 
 
-subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi)
+subroutine get_idealplusrad_spsoundi(rhoi,presi,eni,spsoundi,gammai)
  real, intent(in)  :: rhoi,presi,eni
- real, intent(out) :: spsoundi
- real              :: gamma
+ real, intent(out) :: spsoundi,gammai
 
- gamma = 1. + presi/(eni*rhoi)
- spsoundi = sqrt(gamma*presi/rhoi)
+ gammai = 1. + presi/(eni*rhoi)
+ spsoundi = sqrt(gammai*presi/rhoi)
 
 end subroutine get_idealplusrad_spsoundi
 
@@ -122,12 +121,26 @@ end subroutine get_idealgasplusrad_tempfrompres
 !  and temperature
 !+
 !----------------------------------------------------------------
-subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,gamma,eni)
- real, intent(in)  :: densi,tempi,mu,gamma
+subroutine get_idealplusrad_enfromtemp(densi,tempi,mu,eni)
+ real, intent(in)  :: densi,tempi,mu
  real, intent(out) :: eni
 
- eni = Rg*tempi/((gamma-1.)*mu) + radconst*tempi**4/densi
+ eni = 1.5*Rg*tempi/mu + radconst*tempi**4/densi
 
 end subroutine get_idealplusrad_enfromtemp
+
+
+!----------------------------------------------------------------
+!+
+!  Calculates density from pressure and temperature
+!+
+!----------------------------------------------------------------
+subroutine get_idealplusrad_rhofrompresT(presi,tempi,mu,densi)
+ real, intent(in)  :: presi,tempi,mu
+ real, intent(out) :: densi
+
+ densi = (presi - radconst*tempi**4 /3.) * mu / (Rg*tempi)
+
+end subroutine get_idealplusrad_rhofrompresT
 
 end module eos_idealplusrad
