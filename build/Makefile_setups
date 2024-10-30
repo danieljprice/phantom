@@ -77,7 +77,17 @@ endif
 ifeq ($(SETUP), asteroidwind)
 #   asteroid emitting a wind (Trevascus et al. 2021)
     SETUPFILE=setup_asteroidwind.f90
-    SRCINJECT=utils_binary.f90 inject_asteroidwind.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
+    IND_TIMESTEPS=yes
+    CONST_AV=yes
+    ISOTHERMAL=yes
+    KNOWN_SETUP=yes
+endif
+
+ifeq ($(SETUP), randomwind)
+#   asteroid emitting a wind (Trevascus et al. 2021)
+    SETUPFILE=setup_disc.f90
+    SRCINJECT=utils_binary.f90 inject_randomwind.f90
     IND_TIMESTEPS=yes
     CONST_AV=yes
     ISOTHERMAL=yes
@@ -344,7 +354,7 @@ ifeq ($(SETUP), galcen)
 endif
 
 ifeq ($(SETUP), starcluster)
-#   Cluster of stars (ptmass) 
+#   Cluster of stars (ptmass)
     SETUPFILE= setup_starcluster.f90
     KNOWN_SETUP=yes
 endif
@@ -845,6 +855,15 @@ ifeq ($(SETUP), windtunnel)
     ANALYSIS=analysis_common_envelope.f90
 endif
 
+ifeq ($(SETUP), masstransfer)
+#   Wind tunnel setup
+    SETUPFILE= setup_masstransfer.f90
+    GRAVITY=yes
+    KNOWN_SETUP=yes
+    IND_TIMESTEPS=yes
+    ANALYSIS=analysis_common_envelope.f90
+endif
+
 ifeq ($(SETUP), jet)
 #   Jet simulation from Price, Tricco & Bate (2012)
     SETUPFILE= velfield_fromcubes.f90 setup_sphereinbox.f90
@@ -1027,6 +1046,13 @@ ifeq ($(SETUP), testgr)
     KNOWN_SETUP=yes
     METRIC=kerr
     SETUPFILE= setup_grdisc.f90
+endif
+
+ifeq ($(SETUP), testapr)
+#   unit tests for apr
+    APR=yes
+    KNOWN_SETUP=yes
+    PERIODIC=yes
 endif
 
 ifeq ($(SETUP), flrw)

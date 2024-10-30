@@ -22,10 +22,12 @@ module setup
 !   - mass_fac    : *mass unit in Msun*
 !   - mu          : *mean molecular mass*
 !   - n_particles : *number of particles in sphere*
+!   - relax       : *relax the cloud ?*
 !
-! :Dependencies: centreofmass, datafiles, dim, eos, infile_utils, io,
-!   kernel, mpidomain, part, physcon, prompting, ptmass, setup_params,
-!   setvfield, spherical, timestep, units, velfield
+! :Dependencies: HIIRegion, centreofmass, cooling, datafiles, dim, eos,
+!   infile_utils, io, kernel, mpidomain, options, part, physcon, prompting,
+!   ptmass, setup_params, setvfield, spherical, subgroup, timestep, units,
+!   utils_shuffleparticles, velfield
 !
  use dim, only: maxvxyzu,mhd
  implicit none
@@ -36,6 +38,7 @@ module setup
  real              :: Rsink_au,Rcloud_pc,Mcloud_msun,Temperature,mu
  real(kind=8)      :: mass_fac,dist_fac
  character(len=32) :: default_cluster
+ logical           :: relax
 
 contains
 
@@ -45,21 +48,28 @@ contains
 !
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
- use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au
+ use physcon,      only:pi,solarm,pc,years,kboltz,mass_proton_cgs,au,myr
  use velfield,     only:set_velfield_from_cubes
  use setup_params, only:rmax,rhozero,npart_total
  use spherical,    only:set_sphere
  use part,         only:igas,set_particle_type
- use io,           only:fatal,master
+ use io,           only:fatal,master,iprint
  use units,        only:umass,udist,utime,set_units
  use setvfield,    only:normalise_vfield
  use timestep,     only:dtmax,tmax
  use centreofmass, only:reset_centreofmass
- use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks
+ use ptmass,       only:h_acc,r_crit,rho_crit_cgs,icreate_sinks,tmax_acc,h_soft_sinkgas, &
+                        r_merge_uncond,use_regnbody,f_crit_override,tseeds
  use datafiles,    only:find_phantom_datafile
  use eos,          only:ieos,gmw
  use kernel,       only:hfact_default
  use mpidomain,    only:i_belong
+ use HIIRegion,    only:iH2R
+ use subgroup,     only:r_neigh
+ use utils_shuffleparticles, only:shuffleparticles
+ use cooling,      only:Tfloor
+ use options,      only:icooling
+
  integer,           intent(in)    :: id
  integer,           intent(out)   :: npart
  integer,           intent(out)   :: npartoftype(:)
@@ -77,7 +87,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=16)            :: lattice
  character(len=120)           :: filex,filey,filez,filein,fileset
  logical                      :: inexists,setexists
- logical                      :: BBB03 = .true. ! use the BB03 defaults, else that of a YMC (S. Jaffa)
+ integer                      :: icluster = 3 ! BBBO3 = 1, (S. Jaffa) = 2, Embedded = 3
 
  !--Ensure this is pure hydro
  if (mhd) call fatal('setup_cluster','This setup is not consistent with MHD.')
@@ -94,7 +104,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  Temperature = 10.0          ! Temperature in Kelvin (required for polyK only)
  Rsink_au    = 5.            ! Sink radius [au]
  mu          = 2.46          ! Mean molecular weight (required for polyK only)
- if (BBB03) then
+ relax       = .false.
+
+ select case (icluster)
+ case (1)
     ! from Bate, Bonnell & Bromm (2003)
     default_cluster = "Bate, Bonnell & Bromm (2003)"
     Rcloud_pc   = 0.1875  ! Input radius [pc]
@@ -102,7 +115,8 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 8       ! Barotropic equation of state
     mass_fac    = 1.0     ! mass code unit: mass_fac * solarm
     dist_fac    = 0.1     ! distance code unit: dist_fac * pc
- else
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
+ case(2)
     ! Young Massive Cluster (S. Jaffa, University of Hertfordshire)
     default_cluster = "Young Massive Cluster"
     Rcloud_pc   = 5.0     ! Input radius [pc]
@@ -110,9 +124,40 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     ieos_in     = 1       ! Isothermal equation of state
     mass_fac    = 1.0d5   ! mass code unit: mass_fac * solarm
     dist_fac    = 1.0     ! distance code unit: dist_fac * pc
- endif
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
 
- if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
+ case(3)
+    ! Young Massive Cluster (Yann Bernard, IPAG)
+    default_cluster = "Embedded cluster"
+    Rcloud_pc   = 10.0    ! Input radius [pc]
+    Mcloud_msun = 1.0d4   ! Input mass [Msun]
+    ieos_in     = 21      ! Isothermal equation of state + HII
+    mass_fac    = 1.0d4   ! mass code unit: mass_fac * solarm
+    dist_fac    = 1.0     ! distance code unit: dist_fac * pc
+    iH2R        = 1       ! switch HII regions
+    Rsink_au    = 4000.   ! Sink radius [au]
+    mu          = 2.35    ! mean molecular weight
+    if (maxvxyzu >= 4) then
+       ieos_in = 22 ! Adiabatic equation of state + HII
+       gamma   = 5./3.
+       Tfloor  = 6.
+       icooling = 6
+       Temperature = 40.
+    endif
+
+
+ case default
+    ! from Bate, Bonnell & Bromm (2003)
+    default_cluster = "Bate, Bonnell & Bromm (2003)"
+    Rcloud_pc       = 0.1875  ! Input radius [pc]
+    Mcloud_msun     = 50.     ! Input mass [Msun]
+    ieos_in         = 8       ! Barotropic equation of state
+    mass_fac        = 1.0     ! mass code unit: mass_fac * solarm
+    dist_fac        = 0.1     ! distance code unit: dist_fac * pc
+    if (maxvxyzu >= 4) ieos_in = 2 ! Adiabatic equation of state
+ end select
+
+
 
  !--Read values from .setup
  if (setexists) then
@@ -132,7 +177,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call set_units(dist=dist_fac*pc,mass=mass_fac*solarm,G=1.)
 
  !--Define remaining variables using the inputs
- polyk         = kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
+ polyk         = gamma*kboltz*Temperature/(mu*mass_proton_cgs)*(utime/udist)**2
  rmax          = Rcloud_pc*(pc/udist)
  r2            = rmax*rmax
  totmass       = Mcloud_msun*(solarm/umass)
@@ -153,6 +198,10 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     call set_particle_type(i,igas)
  enddo
 
+ if (relax) then
+    call shuffleparticles(iprint,npart,xyzh,massoftype(1),rsphere=rmax,dsphere=rhozero,dmedium=0.,&
+                          is_setup=.true.,prefix=trim(fileprefix))
+ endif
  !--Set velocities (from pre-made velocity cubes)
  write(*,"(1x,a)") 'Setting up velocity field on the particles...'
  vxyzu(:,:) = 0.
@@ -167,6 +216,14 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call normalise_vfield(npart,vxyzu,ierr,ke=epotgrav)
  if (ierr /= 0) call fatal('setup','error normalising velocity field')
 
+ if (maxvxyzu >= 4) then
+    if (gamma > 1.) then
+       vxyzu(4,:) = polyk/(gamma*(gamma-1.))
+    else
+       vxyzu(4,:) = 1.5*polyk
+    endif
+ endif
+
  !--Setting the centre of mass of the cloud to be zero
  call reset_centreofmass(npart,xyzh,vxyzu)
 
@@ -175,9 +232,23 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     tmax          = 2.*t_ff
     dtmax         = 0.002*t_ff
     h_acc         = Rsink_au*au/udist
-    r_crit        = 2.*h_acc
-    icreate_sinks = 1
-    rho_crit_cgs  = 1.d-10
+    if (icluster == 3) then
+       r_crit          = h_acc
+       icreate_sinks   = 2
+       rho_crit_cgs    = 1.d-18
+       h_soft_sinkgas  = h_acc
+       tmax_acc        = 0.5*(myr/utime)
+       tseeds          = 0.1*(myr/utime)
+       r_merge_uncond  = h_acc
+       use_regnbody    = .true.
+       r_neigh         = 5e-2*h_acc
+       f_crit_override = 100.
+    else
+       r_crit        = 2.*h_acc
+       icreate_sinks = 1
+       rho_crit_cgs  = 1.d-10
+    endif
+
     ieos          = ieos_in
     gmw           = mu       ! for consistency; gmw will never actually be used
  endif
@@ -211,7 +282,8 @@ subroutine get_input_from_prompts()
  call prompt('Enter the radius of the sink particles (in au)',Rsink_au)
  call prompt('Enter the Temperature of the cloud (used for initial sound speed)',Temperature)
  call prompt('Enter the mean molecular mass (used for initial sound speed)',mu)
- if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic)',ieos_in)
+ call prompt('Do you want to relax your cloud',relax)
+ if (maxvxyzu < 4) call prompt('Enter the EOS id (1: isothermal, 8: barotropic, 21: HII region expansion)',ieos_in)
 
 end subroutine get_input_from_prompts
 !----------------------------------------------------------------
@@ -235,6 +307,7 @@ subroutine write_setupfile(filename)
  write(iunit,"(/,a)") '# options for sphere'
  call write_inopt(Mcloud_msun,'M_cloud','mass of cloud in solar masses',iunit)
  call write_inopt(Rcloud_pc,'R_cloud','radius of cloud in pc',iunit)
+ call write_inopt(relax, 'relax', 'relax the cloud ?', iunit)
  write(iunit,"(/,a)") '# options required for initial sound speed'
  call write_inopt(Temperature,'Temperature','Temperature',iunit)
  call write_inopt(mu,'mu','mean molecular mass',iunit)

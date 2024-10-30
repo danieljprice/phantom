@@ -42,6 +42,12 @@ pure real function get_alphaloc(divvdti,spsoundi,hi,xi_limiter,alphamin,alphamax
 
 end function get_alphaloc
 
+!-------------------------------------------------------------------------------
+!+
+!  return the xi_limiter function used in the Cullen & Dehnen switch
+!  based on the spatial velocity gradients
+!+
+!-------------------------------------------------------------------------------
 pure real function xi_limiter(dvdx)
  real(kind=4), intent(in) :: dvdx(9)
  real  :: dvxdx,dvxdy,dvxdz,dvydx,dvydy,dvydz,dvzdx,dvzdy,dvzdz

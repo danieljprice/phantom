@@ -55,7 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  character(len=20), intent(in)    :: fileprefix
  real,              intent(out)   :: vxyzu(:,:)
  character(len=120) :: filename
- integer :: ierr,nbodies,i
+ integer :: ierr,nbodies,i,j,n,nsample
  logical :: iexist
  real    :: period,semia,mtot,hpart
  integer, parameter :: max_bodies = 2000000
@@ -100,7 +100,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
 
  semia  = 1.  !  Earth
  mtot   = solarm/umass
- hpart  = 100.*au/udist
+ hpart  = 10.*au/udist
 
  period = 2.*pi*sqrt(semia**3/mtot)
  tmax   = norbits*period
@@ -110,23 +110,36 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  call read_mpc(filename,nbodies,dat=dat)
  print "(a,i0,a)",' read orbital data for ',nbodies,' minor planets'
 
+ n = 0
+ nsample = 1  ! can place many particles evenly sampling the orbit if desired
  do i=1,nbodies
     !
     ! for each solar system object get the xyz positions from the orbital parameters
     !
     !print*,i,'aeiOwM=',dat(i)%a,dat(i)%ecc,dat(i)%inc,dat(i)%O,dat(i)%w,dat(i)%M
-    call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
+    do j=1,nsample
+       n = n + 1
+       if (nsample==1) then
+          call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
                     xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,incl=dat(i)%inc,&
                     arg_peri=dat(i)%w,posang_ascnode=dat(i)%O,&
                     mean_anomaly=dat(i)%M,verbose=.false.)
-    !
-    ! now delete the point masses but set a dust particle as the secondary
-    !
-    nptmass = 0
-    xyzh(1:3,i)  = xyzmh_ptmass(1:3,2)
-    xyzh(4,i)    = hpart  ! give a random length scale as the smoothing length
-    vxyzu(1:3,i) = vxyz_ptmass(1:3,2)
-    call set_particle_type(i,idust)
+       else
+          call set_binary(mtot,epsilon(0.),dat(i)%a,dat(i)%ecc,0.02,1.e-15,&
+                    xyzmh_ptmass,vxyz_ptmass,nptmass,ierr,incl=dat(i)%inc,&
+                    arg_peri=dat(i)%w,posang_ascnode=dat(i)%O,&
+                    f=360.*(n-1)/nsample,verbose=.false.)
+       endif
+       !
+       ! now delete the point masses but set a dust particle as the secondary
+       !
+       nptmass = 0
+       xyzh(1:3,n)  = xyzmh_ptmass(1:3,2)
+       xyzh(4,n)    = hpart  ! give a random length scale as the smoothing length
+       vxyzu(1:3,n) = vxyz_ptmass(1:3,2)
+       call set_particle_type(n,idust)
+    enddo
+
  enddo
  !
  ! restore the Sun
@@ -135,10 +148,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! set mass of all the minor bodies equal
  !
- npart = nbodies
+ npart = nbodies*nsample
+ print*,' n = ',n,' npart = ',npart
  ndustlarge = 1
  ndusttypes = 1
- npartoftype(idust) = nbodies
+ npartoftype(idust) = nbodies*nsample
  massoftype(idust) = 1.e-20
  grainsize(1:ndustlarge) = km/udist         ! assume km-sized bodies
  graindens(1:ndustlarge) = 2./unit_density  ! 2 g/cm^3

@@ -32,7 +32,7 @@ jobs:
           - ['testkd', '']
           - ['testdust', 'dust']
           - ['testgr', 'gr']
-          - ['testgrav', 'gravity ptmass']
+          - ['testgrav', 'gravity ptmass setstar']
           - ['testgrowth', 'dustgrowth']
           - ['testnimhd', 'nimhd']
           - ['test2', '']
