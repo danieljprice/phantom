@@ -106,7 +106,6 @@ subroutine do_analysis(dumpfile,num,xyzh,vxyzu,particlemass,npart,time,iunit)
     call prompt('Choose analysis type ',analysis_to_perform,1,38)
  endif
 
- call reset_centreofmass(npart,xyzh,vxyzu,nptmass,xyzmh_ptmass,vxyz_ptmass)
  call adjust_corotating_velocities(npart,particlemass,xyzh,vxyzu,&
                                    xyzmh_ptmass,vxyz_ptmass,omega_corotate,dump_number)
 
@@ -338,7 +337,7 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  real, intent(in)               :: time,xyzh(:,:),vxyzu(:,:),particlemass
  character(len=17), allocatable :: columns(:)
  real, dimension(3)             :: planet_com,planet_vel,sep,vel
- real                           :: rhoi,rhoprev,sepi,si,smin,presi,Rthreshold
+ real                           :: rhoi,rhoprev,sepi,si,smin,presi,Rthreshold,xyz_origin(3),vxyz_origin(3)
  real, allocatable              :: data_cols(:),mass(:),vthreshold(:)
  integer                        :: i,j,ncols,maxrho_ID,ientropy,Nmasks
  integer, save                  :: nplanet
@@ -368,6 +367,14 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  if (dump_number == 0) call get_planetIDs(nplanet,planetIDs)
  isfulldump = (vxyzu(4,1) > 0.)
 
+ if (nptmass > 0) then
+    xyz_origin = xyzmh_ptmass(1:3,1)
+    vxyz_origin = vxyz_ptmass(1:3,1)
+ else
+    xyz_origin = (/0.,0.,0./)
+    vxyz_origin = (/0.,0.,0./)
+ endif
+
  ! Find highest density and lowest entropy in planet
  rhoprev = 0.
  maxrho_ID = 1
@@ -390,11 +397,11 @@ subroutine planet_rvm(time,particlemass,xyzh,vxyzu)
  enddo
 
  planet_com = xyzh(1:3,maxrho_ID)
- sep = planet_com - xyzmh_ptmass(1:3,1)
+ sep = planet_com - xyz_origin(1:3)
 
  if (isfulldump) then
     planet_vel = vxyzu(1:3,maxrho_ID)
-    vel = planet_vel - vxyz_ptmass(1:3,1)
+    vel = planet_vel - vxyz_origin(1:3)
  else
     vel = 0.
     smin = 0.
