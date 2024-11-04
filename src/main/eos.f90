@@ -635,6 +635,7 @@ subroutine get_TempPresCs(eos_type,xyzi,vxyzui,rhoi,tempi,presi,spsoundi,gammai,
  endif
 
  if (maxvxyzu==4) then
+    if (vxyzui(4) < 0d0) print *, "ui NEGATIVE in eos"
     if (use_gamma) then
        call equationofstate(eos_type,ponrhoi,csi,rhoi,xyzi(1),xyzi(2),xyzi(3),tempi,vxyzui(4),&
                             gamma_local=gammai,mu_local=mu,Xlocal=X,Zlocal=Z)

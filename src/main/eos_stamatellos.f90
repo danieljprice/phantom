@@ -20,7 +20,7 @@ module eos_stamatellos
  implicit none
  real,allocatable,public :: optable(:,:,:)
  real,allocatable,public :: Gpot_cool(:),duFLD(:),gradP_cool(:),lambda_FLD(:),urad_FLD(:) !gradP_cool=gradP/rho
- real,allocatable,public :: ttherm_store(:),teqi_store(:),opac_store(:),duSPH(:)
+ real,allocatable,public :: ttherm_store(:),ueqi_store(:),opac_store(:),duSPH(:)
  character(len=25), public :: eos_file= 'eos_lom.dat' !default name of tabulated EOS file
  logical,public :: doFLD = .True., floor_energy = .False.
  integer,public :: iunitst=19
@@ -42,14 +42,14 @@ subroutine init_S07cool()
  call allocate_array('lambda_fld',lambda_fld,npart)
  call allocate_array('urad_FLD',urad_FLD,npart)
  call allocate_array('ttherm_store',ttherm_store,npart)
- call allocate_array('teqi_store',teqi_store,npart)
+ call allocate_array('ueqi_store',ueqi_store,npart)
  call allocate_array('opac_store',opac_store,npart)
  call allocate_array('duSPH',duSPH,npart)
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
  duFLD(:) = 0d0
- teqi_store(:) = 0d0
+ ueqi_store(:) = 0d0
  ttherm_store(:) = 0d0
  opac_store(:) = 0d0
  duSPH(:) = 0d0
@@ -69,7 +69,7 @@ subroutine finish_S07cool()
  if (allocated(lambda_fld)) deallocate(lambda_fld)
  if (allocated(urad_FLD)) deallocate(urad_FLD)
  if (allocated(ttherm_store)) deallocate(ttherm_store)
- if (allocated(teqi_store)) deallocate(teqi_store)
+ if (allocated(ueqi_store)) deallocate(ueqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
  if (allocated(duSPH)) deallocate(duSPH)
  close(iunitst)
@@ -128,6 +128,7 @@ subroutine getopac_opdep(ui,rhoi,kappaBar,kappaPart,Ti,gmwi)
 
  ! check values are in range of tables
  if (rhoi > OPTABLE(nx,1,1) .or. rhoi < OPTABLE(1,1,1)) then
+    print *, "optable rho min =", rhomin
     call fatal('getopac_opdep','rhoi out of range. Collapsing clump?',var='rhoi',val=rhoi)
  elseif (ui > OPTABLE(1,ny,3) .or. ui < OPTABLE(1,1,3)) then
     call fatal('getopac_opdep','ui out of range',var='ui',val=ui)
