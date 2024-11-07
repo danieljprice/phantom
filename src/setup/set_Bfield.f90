@@ -26,6 +26,12 @@ module setBfield
 
  private
 
+ integer, public           :: igeom=1
+ character(len=1), public  :: isetB='m'
+ real, public              :: Bzero=0.,valfven=0.,przero=1.,betazero=0.,&
+                              fracx,fracy,fracz,Rs,h,rmasstoflux
+ logical, public           :: reverse_field_dir
+
 contains
 
 subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
@@ -35,6 +41,7 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  use physcon,      only:pi
  use io,           only:fatal
  use prompting,    only:prompt
+ use kernel,       only:kernel_softening,kernel_fsoft_derivative
  integer,      intent(in)  :: npart
  integer,      intent(in)  :: npartoftype(:)
  real,         intent(in)  :: xyzh(:,:), vxyzu(:,:)
@@ -43,14 +50,13 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  real,         intent(out) :: Bxyz(:,:)
  real,         intent(out) :: Bextx,Bexty,Bextz
  integer :: maxp
- integer :: igeom,i
- character(len=1)  :: isetB
+ integer :: i
  character(len=10) :: string
- real :: totmass,przero,fracx,fracy,fracz,fractot
- real :: Bzero,Bzero2,Bxzero,Byzero,Bzzero
- real :: c1,area,rmasstoflux_crit,rmasstoflux,betazero,valfven
- real :: theta,Rs,r2,r
- logical :: reverse_field_dir,ians
+ real :: totmass,fractot
+ real :: Bzero2,Bxzero,Byzero,Bzzero
+ real :: c1,area,rmasstoflux_crit
+ real :: theta,r2,r,q,q2,dfsoft_dq,potensoft,fsoft
+ logical :: ians
 
  maxp = size(xyzh(1,:))
 !
@@ -228,17 +234,32 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
 
  case(3)
 !
-!--field of magnetic dipole along z-direction (Ohlmann et al. 2016)
+!--field of magnetic dipole along z-direction (Ohlmann et al. 2016) + cublic spline softening
 !
  Rs = 1.
+ h = -1.
  call prompt('Enter spherical radius of specified B-field',Rs,0.)
+ call prompt('Enter softening radius of B-field (<= 0: no softening)',h)
+
  do i=1,npart
     r2 = dot_product(xyzh(1:3,i),xyzh(1:3,i))
     r = sqrt(r2)
-    Bxyz(1,i) = 3*xyzh(1,i)*xyzh(3,i)/r2
-    Bxyz(2,i) = 3*xyzh(2,i)*xyzh(3,i)/r2
-    Bxyz(3,i) = 3*xyzh(3,i)**2/r2 - 1.
-    Bxyz(1:3,i) =  Bxyz(1:3,i) * 0.5*Bzero*(Rs/r)**3
+
+    if (h<=0) then  ! no softening
+       Bxyz(1,i) = 3*xyzh(1,i)*xyzh(3,i)/r2
+       Bxyz(2,i) = 3*xyzh(2,i)*xyzh(3,i)/r2
+       Bxyz(3,i) = 3*xyzh(3,i)**2/r2 - 1.
+       Bxyz(1:3,i) =  Bxyz(1:3,i) * 0.5*Bzero*(Rs/r)**3
+    else
+       q = r/h
+       q2 = r2/(h*h)
+       call kernel_softening(q2,q,potensoft,fsoft)
+       call kernel_fsoft_derivative(q2,q,dfsoft_dq)
+       Bxyz(1,i) = xyzh(1,i)*xyzh(3,i)*(1.-q/fsoft*dfsoft_dq)
+       Bxyz(2,i) = xyzh(2,i)*xyzh(3,i)*(1.-q/fsoft*dfsoft_dq)
+       Bxyz(3,i) = q/fsoft * dfsoft_dq * (1.-(xyzh(3,i)/r)**2) + (xyzh(3,i)/r)**2 + 1.
+       Bxyz(1:3,i) =  Bxyz(1:3,i) * 0.5*Bzero*(Rs/r)**3*q2*fsoft
+    endif
  enddo
 
  case default
