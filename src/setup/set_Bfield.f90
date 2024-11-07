@@ -307,4 +307,53 @@ subroutine set_Bfield(npart,npartoftype,xyzh,massoftype,vxyzu,polyk, &
  return
 end subroutine set_Bfield
 
+
+!-----------------------------------------------------------------------
+!+
+!  writes B-field setup options to input file
+!+
+!-----------------------------------------------------------------------
+subroutine write_options_Bfield(iunit)
+ use infile_utils, only:write_inopt
+ use setup_params, only:rmax,rhozero
+ integer, intent(in) :: iunit
+
+ write(iunit,"(/,a)") '# options for B-field setup'
+ call write_inopt(igeom,'igeom',' ',iunit)
+ call write_inopt(isetB,'isetB',' ',iunit)
+
+ select case(isetB)
+ case('m')
+    call write_inopt(Bzero,'Bzero',' ',iunit)
+ case('c')
+    call write_inopt(Bzero,'Bzero',' ',iunit)
+ case('a')
+    if (rhozero <= 0.) call write_inopt(rhozero,'rhozero',' ',iunit)
+    call write_inopt(valfven,'valfven',' ',iunit)
+ case('b')
+    if (przero <= 0.) call write_inopt(przero,'przero',' ',iunit)
+    call write_inopt(betazero,'betazero',' ',iunit)
+ case('f')
+    if (rmax <= 0. .or. rmax > 1e3) call write_inopt(rmax,'rmax',' ',iunit)
+    call write_inopt(rmasstoflux,'rmasstoflux',' ',iunit)
+ case default
+    call fatal('write_options_Bfield','unknown isetB')
+ end select
+
+ select case (igeom)
+ case(1)
+    call write_inopt(fracx,'fracx',' ',iunit)
+    call write_inopt(fracy,'fracy',' ',iunit)
+    call write_inopt(fracz,'fracz',' ',iunit)
+ case(2)
+    call write_inopt(reverse_field_dir,'reverse_field_dir',' ',iunit)
+ case(3)
+    call write_inopt(Rs,'Rs',' ',iunit)
+    call write_inopt(h,'h',' ',iunit)
+ case default
+    call fatal('write_options_Bfield','unknown field geometry')
+ end select
+
+end subroutine write_options_Bfield
+
 end module setBfield
