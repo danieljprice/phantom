@@ -120,6 +120,27 @@ pure subroutine kernel_softening(q2,q,potensoft,fsoft)
 end subroutine kernel_softening
 
 !------------------------------------------
+! second derivative of softened potential
+!------------------------------------------
+pure subroutine kernel_fsoft_derivative(q2,q,dfsoft_dq)
+ real, intent(in)  :: q2,q
+ real, intent(out) :: dfsoft_dq
+ real :: q4,q3
+
+ if (q < 1.) then
+    dfsoft_dq = (20. - 54.*q2 + 30.*q*q2)/15.
+ elseif (q < 2.) then
+    q3 = q*q2
+    q4 = q2*q2
+    dfsoft_dq = (40.*q3 - 90.*q4 + 54.*q4*q - 10.*q3*q3 + 2.)/(15.*q3)
+ else
+    q3 = q*q2
+    dfsoft_dq = -2./q3
+ endif
+
+end subroutine kernel_fsoft_derivative
+
+!------------------------------------------
 ! gradient acceleration kernel needed for
 ! use in Forward symplectic integrator
 !------------------------------------------
