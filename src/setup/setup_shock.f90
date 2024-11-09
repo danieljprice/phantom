@@ -40,7 +40,7 @@ module setup
 !   prompting, radiation_utils, set_dust, setshock, setunits, setup_params,
 !   timestep, unifdis, units
 !
- use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
+ use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,mhd,gr
  use options,   only:use_dustfrac,icooling
  use timestep,  only:dtmax,tmax
  use dust,      only:K_code
@@ -54,7 +54,6 @@ module setup
  real    :: dxleft, smooth_fac
  logical :: set_radiation_and_gas_temperature_equal = .true.
  character(len=100) :: latticetype = 'closepacked'
- integer :: nstates
  integer, parameter :: max_states = 9
  integer, parameter :: &
     idens  = 1, &
@@ -89,15 +88,15 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use io,              only:fatal,master,iprint,error
  use boundary,        only:ymin,zmin,ymax,zmax,set_boundary
  use mpiutils,        only:bcast_mpi
- use dim,             only:ndim,mhd
+ use dim,             only:ndim
  use options,         only:use_dustfrac,ieos
- use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,mhd,&
+ use part,            only:labeltype,set_particle_type,igas,iboundary,hrho,Bxyz,&
                            periodic,dustfrac,gr,ndustsmall,ndustlarge,ndusttypes,ikappa
  use part,            only:rad,radprop,iradxi
  use kernel,          only:radkern,hfact_default
  use prompting,       only:prompt
  use set_dust,        only:set_dustfrac
- use units,           only:set_units,udist,umass,unit_opacity,unit_pressure,unit_density,unit_ergg,udist,unit_velocity
+ use units,           only:set_units,udist,unit_opacity,unit_pressure,unit_density,unit_ergg,udist,unit_velocity
  use dust,            only:idrag
  use unifdis,         only:is_closepacked,is_valid_lattice
  use physcon,         only:au,solarm,kboltz,mass_proton_cgs
@@ -149,8 +148,6 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  kappa_cgs = 1.e6
  smooth_fac = 0. ! smooth shock front
  if (.not.iexist) hfact = hfact_default
- nstates = max_states
- if (.not.mhd) nstates = max_states - 3
  if (use_dust) dust_method = 1 ! one fluid by default
  !
  ! setup particles
@@ -168,12 +165,12 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  shkfile = trim(fileprefix)//'.setup'
  inquire(file=shkfile,exist=jexist)
  if (jexist) then
-    call read_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg,ierr)
+    call read_setupfile(shkfile,iprint,gamma,polyk,dtg,ierr)
  else
     if (id==master) call choose_shock(gamma,polyk,dtg,iexist) ! Choose shock
  endif
  if ((.not. jexist .or. ierr /= 0) .and. id==master) then
-    call write_setupfile(shkfile,iprint,nstates,gamma,polyk,dtg) ! write shock file with defaults
+    call write_setupfile(shkfile,iprint,gamma,polyk,dtg) ! write shock file with defaults
     print "(/,a,/)",' please check/edit .setup and rerun phantomsetup'
     stop
  endif
@@ -205,7 +202,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  !
  ! print setup parameters
  !
- if (id==master) call print_shock_params(nstates)
+ if (id==master) call print_shock_params
  !
  ! adjust boundaries to allow space for boundary particles and inflow
  !
@@ -403,7 +400,7 @@ end subroutine set_dust_particles
 !-----------------------------------------------------------------------
 subroutine choose_shock(gamma,polyk,dtg,iexist)
  use io,        only:fatal,id,master
- use dim,       only:mhd,maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
+ use dim,       only:maxvxyzu,use_dust,do_radiation,mhd_nonideal,gr
  use eos,       only:equationofstate
  use physcon,   only:pi,Rg,au,solarm
  use prompting, only:prompt
@@ -518,8 +515,8 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
        dtmax    =   0.00175
     endif
     gamma      = 5./3.
-    leftstate  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0.,0./)
-    rightstate = (/0.1,10.,0.,2.,1.,3./const,1./const,0.,0./)
+    leftstate(1:iBz)  = (/1.0,1. ,0.,0.,0.,3./const,6./const,0./)
+    rightstate(1:iBz) = (/0.1,10.,0.,2.,1.,3./const,1./const,0./)
  case(6)
     !--Brio-Wu shock
     if (.not. iexist) then
@@ -631,16 +628,17 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     if (maxvxyzu < 4) call fatal('setup','Sod shock tube requires ISOTHERMAL=no')
  case(11)
     ! Radiation pulse
+    ! NOTE: Requires set_boundaries_to_active = .true. in derivs
+    if (.not. do_radiation) call fatal('setup','Radiation pulse is only possible with "RADIATION=yes"')
     set_radiation_and_gas_temperature_equal = .false.
     gamma = 5./3.
     gmw   = 2.
     dens  = 0.025/unit_density
     nx = 10
-    ! (/'dens','pr  ','vx  ','vy  ','vz  ','Bx  ','By  ','Bz  '/)
     leftstate(1:iBz)  = (/dens,0.,0.,0.,0.,0.,0.,0./)
     rightstate(1:iBz) = (/dens,0.,0.,0.,0.,0.,0.,0./)
     tmax   = 1.e-11/utime
-    dtmax  = 1e-11/utime
+    dtmax  = tmax/100.
     kappa_cgs  = 0.4
     xiright = 0.4
     xileft  = 4.
@@ -669,7 +667,7 @@ subroutine choose_shock(gamma,polyk,dtg,iexist)
     endif
     if (abs(rightstate(ixi)) < epsilon(rightstate(ixi))) then
        uu = rightstate(ipr) / ((gamma-1.)*rightstate(idens))
-       leftstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma,gmw)
+       rightstate(ixi) = radiation_and_gas_temperature_equal(rightstate(idens),uu,gamma,gmw)
     endif
  endif
 
@@ -694,12 +692,16 @@ end subroutine choose_shock
 !  Pretty-print the shock parameters
 !+
 !------------------------------------------
-subroutine print_shock_params(nstates)
- integer, intent(in) :: nstates
+subroutine print_shock_params
  integer             :: i
 
- write(*,"(/,1x,'Setup_shock: ',/,8(11x,a4,' L: ',f8.3,' R:',f8.3,/))") &
-     (trim(var_label(i)),leftstate(i),rightstate(i),i=1,nstates)
+ write(*,"(/,1x,'Setup_shock: ')")
+ do i=1,max_states
+    if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
+    if (.not. do_radiation .and. (i==ixi)) cycle
+    write(*,"(/,11x,a4,' L: ',e11.5,'  R: ',e11.5,/)") &
+         trim(var_label(i)),leftstate(i),rightstate(i)
+ enddo
 
 end subroutine print_shock_params
 
@@ -728,11 +730,11 @@ end function get_conserved_density
 !  Write setup parameters to input file
 !+
 !------------------------------------------
-subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
+subroutine write_setupfile(filename,iprint,gamma,polyk,dtg)
  use infile_utils, only:write_inopt
  use dim,          only:tagline
  use setunits,     only:write_options_units
- integer,          intent(in) :: iprint,numstates
+ integer,          intent(in) :: iprint
  real,             intent(in) :: gamma,polyk,dtg
  character(len=*), intent(in) :: filename
  integer, parameter           :: lu = 20
@@ -746,7 +748,9 @@ subroutine write_setupfile(filename,iprint,numstates,gamma,polyk,dtg)
  if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call write_options_units(lu,gr)
 
  write(lu,"(/,a)") '# shock tube'
- do i=1,numstates
+ do i=1,max_states
+    if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
+    if (.not. do_radiation .and. (i==ixi)) cycle
     call write_inopt(leftstate(i), trim(var_label(i))//'left', trim(var_label(i))//' (left)', lu,ierr1)
     call write_inopt(rightstate(i),trim(var_label(i))//'right',trim(var_label(i))//' (right)',lu,ierr2)
     if (ierr1 /= 0 .or. ierr2 /= 0) write(*,*) 'ERROR writing '//trim(var_label(i))
@@ -809,12 +813,12 @@ end subroutine write_setupfile
 !  Read setup parameters from input file
 !+
 !------------------------------------------
-subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
+subroutine read_setupfile(filename,iprint,gamma,polyk,dtg,ierr)
  use infile_utils, only:open_db_from_file,inopts,close_db,read_inopt
  use setunits,     only:read_options_and_set_units
  character(len=*), intent(in)  :: filename
  integer,          parameter   :: lu = 21
- integer,          intent(in)  :: iprint,numstates
+ integer,          intent(in)  :: iprint
  integer,          intent(out) :: ierr
  real,             intent(out) :: gamma,polyk,dtg
  integer                       :: i,nerr
@@ -829,7 +833,9 @@ subroutine read_setupfile(filename,iprint,numstates,gamma,polyk,dtg,ierr)
  ! units
  if (do_radiation .or. icooling > 0 .or. mhd_nonideal) call read_options_and_set_units(db,nerr,gr)
 
- do i=1,numstates
+ do i=1,max_states
+    if (.not. mhd .and. (i==iBx .or. i==iBy .or. i==iBz)) cycle
+    if (.not. do_radiation .and. (i==ixi)) cycle
     call read_inopt(leftstate(i), trim(var_label(i))//'left',db,errcount=nerr)
     call read_inopt(rightstate(i),trim(var_label(i))//'right',db,errcount=nerr)
  enddo
