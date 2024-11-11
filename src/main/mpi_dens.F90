@@ -27,7 +27,7 @@ module mpidens
  public :: get_mpitype_of_celldens
  public :: free_mpitype_of_celldens
 
- integer, parameter :: ndata = 18 ! number of elements in the cell (including padding)
+ integer, parameter :: ndata = 19 ! number of elements in the cell (including padding)
  integer, parameter :: nbytes_celldens = 8 * minpart                    + & !  h(minpart)
                                          8 * minpart                    + & !  h_old(minpart)
                                          8 * maxxpartvecidens * minpart + & !  xpartvec(maxxpartvecidens,minpart)
@@ -44,7 +44,8 @@ module mpidens
                                          4                              + & !  nneightry
                                          4 * minpart                    + & !  nneigh(minpart)
                                          4                              + & !  waiting_index
-                                         1 * minpart                        !  iphase(minpart)
+                                         1 * minpart                    + & !  iphase(minpart)
+                                         1 * minpart                        !  apr_level
 
  type celldens
     sequence
@@ -65,6 +66,9 @@ module mpidens
     integer          :: nneigh(minpart)                        ! number of actual neighbours (diagnostic)
     integer          :: waiting_index
     integer(kind=1)  :: iphase(minpart)
+    integer(kind=1)  :: apr(minpart)                           ! apr resolution level (not in xpartvec because integer)
+
+    ! pad the array to 8-byte boundaries
     integer(kind=1)  :: pad(8 - mod(nbytes_celldens, 8))
  end type celldens
 
@@ -203,6 +207,12 @@ subroutine get_mpitype_of_celldens(dtype)
  blens(nblock) = 8 - mod(4 * (6 + 2 * minpart) + minpart, 8)
  mpitypes(nblock) = MPI_INTEGER1
  call MPI_GET_ADDRESS(cell%pad,addr,mpierr)
+ disp(nblock) = addr - start
+
+ nblock = nblock + 1
+ blens(nblock) = size(cell%apr)
+ mpitypes(nblock) = MPI_INTEGER1
+ call MPI_GET_ADDRESS(cell%apr,addr,mpierr)
  disp(nblock) = addr - start
 
  call MPI_TYPE_CREATE_STRUCT(nblock,blens(1:nblock),disp(1:nblock),mpitypes(1:nblock),dtype,mpierr)

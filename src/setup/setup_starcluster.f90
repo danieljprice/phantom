@@ -42,7 +42,7 @@ contains
 !----------------------------------------------------------------
 subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,time,fileprefix)
  use part,        only:nptmass,xyzmh_ptmass,vxyz_ptmass,ihacc,ihsoft,igas
- use units,       only:set_units,umass !,udist
+ use units,       only:set_units,umass,unit_velocity !,udist
  use physcon,     only:solarm,kpc,pi,au,years,pc
  use io,          only:fatal,iprint,master
  use eos,         only:gmw
@@ -82,9 +82,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  dtmax = 1.e-5
  tmax = 0.001
  use_fourthorder = .true.
- use_regnbody = .false.
- m_gas = 1.e-4
- ntot = 2**21
+ use_regnbody = .true.
+ m_gas = 1.e-3
+ ntot = 2**20
  !
  ! read setup parameters from the .setup file
  ! if file does not exist, then ask for user input
@@ -122,7 +122,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vcom = vcom/mtot
 
  print*,"xcom",xcom
- print*,"vcom",vcom
+ print*,"vcom",vcom/1e5*unit_velocity
 
  do i=1,nptmass
     xyzmh_ptmass(1:3,i) = xyzmh_ptmass(1:3,i) - xcom(1:3)

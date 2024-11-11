@@ -50,6 +50,7 @@ module setstar_utils
  public :: set_stellar_core
  public :: write_kepler_comp
  public :: need_inputprofile,need_polyk,need_rstar
+ public :: get_mass_coord
 
  private
 
@@ -288,7 +289,7 @@ subroutine set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
  !
  ! set particle type as gas particles
  !
- npartoftype(igas) = npart   ! npart is number on this thread only
+ npartoftype(igas) = npartoftype(igas) + npart - npart_old   ! npart is number on this thread only
  do i=npart_old+1,npart_old+npart
     call set_particle_type(i,igas)
  enddo
@@ -337,6 +338,62 @@ subroutine set_stellar_core(nptmass,xyzmh_ptmass,vxyz_ptmass,ihsoft,mcore,&
 
 end subroutine set_stellar_core
 
+!----------------------------------------------------------------
+!+
+!  get the mass coordinate of a particle m(r)
+!  this gives the mass enclosed EXCLUSIVE of self, i.e. m(<r)
+!+
+!----------------------------------------------------------------
+subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+ use dim,       only:use_apr
+ use part,      only:igas,apr_level,massoftype,aprmassoftype
+ use sortutils, only:sort_by_radius
+ integer, intent(in)  :: i1,npart
+ real,    intent(in)  :: xyzh(:,:)
+ real,    intent(out), allocatable :: mass_enclosed_r(:)
+ integer, allocatable :: iorder(:)
+ real :: massri,mass_at_r,pmassi,r2,r2prev
+ integer :: i,j,iprev
+
+ ! allocate memory
+ allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
+
+ ! sort particles by radius
+ call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
+
+ ! calculate cumulative mass
+ massri = 0.
+ mass_at_r = 0.
+ r2prev = huge(0.)
+ iprev = i1+1
+ do i=i1+1,npart
+    j = i1 + iorder(i-i1)
+    if (use_apr) then
+       pmassi = aprmassoftype(igas,apr_level(j))
+    else
+       pmassi = massoftype(igas)
+    endif
+    r2 = dot_product(xyzh(1:3,j),xyzh(1:3,j))
+    !
+    ! key point here is to handle the situation where particles are at the same
+    ! radius, in which case they should get the same mass coordinate so that
+    ! they interpolate identical stellar properties from the table
+    !
+    if (abs(r2 - r2prev) > tiny(0.)) then
+       massri = massri + mass_at_r
+       mass_at_r = pmassi
+       r2prev = r2
+    else
+       mass_at_r = mass_at_r + pmassi
+    endif
+    mass_enclosed_r(j-i1) = massri
+ enddo
+
+ ! clean up
+ deallocate(iorder)
+
+end subroutine get_mass_coord
+
 !-----------------------------------------------------------------------
 !+
 !  Set the composition, if variable composition is used
@@ -344,8 +401,7 @@ end subroutine set_stellar_core
 !-----------------------------------------------------------------------
 subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
            mu,mtab,Mstar,eos_vars,npin)
- use part,        only:iorder=>ll,iX,iZ,imu  ! borrow the unused linklist array for the sort
- use sortutils,   only:find_rank,r2func
+ use part,        only:iX,iZ,imu  ! borrow the unused linklist array for the sort
  use table_utils, only:yinterp
  logical, intent(in)  :: use_var_comp,use_mu
  integer, intent(in)  :: npart
@@ -353,17 +409,18 @@ subroutine set_star_composition(use_var_comp,use_mu,npart,xyzh,Xfrac,Yfrac,&
  real,    intent(in)  :: Xfrac(:),Yfrac(:),mu(:),mtab(:),Mstar
  real,    intent(out) :: eos_vars(:,:)
  integer, intent(in), optional :: npin
- real :: ri,massri
+ real, allocatable :: mass_enclosed_r(:)
+ real :: massri
  integer :: i,i1
 
  i1 = 0
  if (present(npin)) i1 = npin  ! starting position in particle array
 
  ! this does NOT work with MPI
- call find_rank(npart-i1,r2func,xyzh(1:3,i1:npart),iorder)
+ call get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
+
  do i = i1+1,npart
-    ri  = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    massri = Mstar * real(iorder(i)-1) / real(npart-i1) ! mass coordinate of particle i
+    massri = mass_enclosed_r(i-i1)/Mstar
     if (use_var_comp) then
        eos_vars(iX,i) = yinterp(Xfrac,mtab,massri)
        eos_vars(iZ,i) = 1. - eos_vars(iX,i) - yinterp(Yfrac,mtab,massri)
@@ -382,7 +439,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
                                   relaxed,use_var_comp,initialtemp,npin)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
- use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
+ use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
  integer, intent(in)    :: ieos,npart,npts
@@ -398,7 +455,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
  integer :: i1
 
  i1  = 0
- eni = 0.
+ eni = 0. ! to prevent compiler warning
  if (present(npin)) i1 = npin  ! starting position in particle array
 
  if (do_radiation) then
@@ -440,7 +497,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        else
           vxyzu(4,i) = eni / unit_ergg
        endif
@@ -450,7 +507,6 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
 
 end subroutine set_star_thermalenergy
 
-
 !-----------------------------------------------------------------------
 !+
 !  Solve for u, T profiles given rho, P
@@ -458,7 +514,7 @@ end subroutine set_star_thermalenergy
 !-----------------------------------------------------------------------
 subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
  use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
- use physcon, only:radconst,kb_on_mh
+ use physcon, only:radconst,Rg
  integer, intent(in) :: eos_type
  real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
  logical, intent(in) :: regrid_core
@@ -475,7 +531,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
     if (i==1) then
        guessene = 1.5*pres(i)/den(i)  ! initial guess
-       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*Rg)) ! guess for temperature
     else
        guessene = en(i-1)
        tempi = temp(i-1)
@@ -484,6 +540,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     en(i) = eni
     temp(i) = tempi
  enddo
+
 end subroutine solve_uT_profiles
 
 end module setstar_utils

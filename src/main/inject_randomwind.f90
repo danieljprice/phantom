@@ -12,7 +12,7 @@ module inject
 ! :References:
 !   Trevascus et al. (2021), MNRAS 505, L21-L25
 !
-! :Owner: Shunquan Huang
+! :Owner: Daniel Price
 !
 ! :Runtime parameters:
 !   - delta_theta : *standard deviation for the gaussion distribution*

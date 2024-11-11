@@ -109,6 +109,8 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
     write(*,'(a,/)') '          Height of the disc, H, will be calculated the slow way.'
     if (allocated(zsetgas)) deallocate(zsetgas)
     allocate(myz(npart))
+ else
+    allocate(myz(0)) ! to prevent compiler warnings
  endif
 
 ! Move everything so that the centre of mass is at the origin
@@ -228,8 +230,8 @@ subroutine disc_analysis(xyzh,vxyz,npart,pmass,time,nbin,rmin,rmax,G,M_star,&
     deallocate(zsetgas) ! clean up
  else
     call calculate_H_slow(nbin,npart,H,mybin,ninbin,myz)
-    deallocate(myz) ! clean up
  endif
+ deallocate(myz) ! clean up
 
 ! Print angular momentum of accreted particles
  angtot = sqrt(angx*angx + angy*angy + angz*angz)
