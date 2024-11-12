@@ -183,7 +183,7 @@ subroutine write_options_cooling(iunit)
  use cooling_ism,       only:write_options_cooling_ism
  use cooling_gammie,    only:write_options_cooling_gammie
  use cooling_gammie_PL, only:write_options_cooling_gammie_PL
- use cooling_molecular, only:write_options_molecularcooling
+ !use cooling_molecular, only:write_options_molecularcooling
  use cooling_solver,    only:write_options_cooling_solver
  integer, intent(in) :: iunit
 
@@ -217,7 +217,7 @@ subroutine read_options_cooling(name,valstring,imatch,igotall,ierr)
  use cooling_gammie,    only:read_options_cooling_gammie
  use cooling_gammie_PL, only:read_options_cooling_gammie_PL
  use cooling_ism,       only:read_options_cooling_ism
- use cooling_molecular, only:read_options_molecular_cooling
+ !use cooling_molecular, only:read_options_molecular_cooling
  use cooling_solver,    only:read_options_cooling_solver
  character(len=*), intent(in)  :: name,valstring
  logical,          intent(out) :: imatch,igotall

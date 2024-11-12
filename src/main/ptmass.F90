@@ -42,7 +42,7 @@ module ptmass
 !   part, physcon, ptmass_heating, random, subgroup, units, vectorutils
 !
  use part, only:nsinkproperties,gravity,is_accretable,&
-                ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff,imloss
+                ihsoft,ihacc,ispinx,ispiny,ispinz,imacc,iJ2,iReff
  use io,   only:iscfile,iskfile,id,master
  implicit none
 
@@ -2079,7 +2079,7 @@ subroutine pt_open_sinkev(num)
  if (write_one_ptfile) then
     write(iunit,'(a)') 'To extract one file per sink: make sinks; ./phantomsinks '
  endif
- write(iunit,"('#',21(1x,'[',i2.2,1x,a11,']',2x))") &
+ write(iunit,"('#',20(1x,'[',i2.2,1x,a11,']',2x))") &
           1,'time',    &
           2,'x',       &
           3,'y',       &
@@ -2098,9 +2098,8 @@ subroutine pt_open_sinkev(num)
          16,'fssx',    &
          17,'fssy',    &
          18,'fssz',    &
-         19,'mdot_wind',&
-         20,'sink ID', &
-         21,'nptmass'
+         19,'sink ID', &
+         20,'nptmass'
 
 end subroutine pt_open_sinkev
 !-----------------------------------------------------------------------
@@ -2143,8 +2142,7 @@ subroutine pt_write_sinkev(nptmass,time,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxy
        write(iunit,"(18(1pe18.9,1x),2(I18,1x))") &
        time, xyzmh_ptmass(1:4,i),vxyz_ptmass(1:3,i), &
        xyzmh_ptmass(ispinx,i),xyzmh_ptmass(ispiny,i),xyzmh_ptmass(ispinz,i), &
-       xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),&
-       xyzmh_ptmass(imloss,i),i,nptmass
+       xyzmh_ptmass(imacc,i),fxyz_ptmass(1:3,i),fxyz_ptmass_sinksink(1:3,i),i,nptmass
        if (i==nptmass .or. (.not. write_one_ptfile)) call flush(iunit)
     endif
  enddo
