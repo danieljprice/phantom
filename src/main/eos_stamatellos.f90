@@ -32,19 +32,19 @@ module eos_stamatellos
 contains
 
 subroutine init_S07cool()
- use part, only:npart,maxradprop
+ use dim, only:maxp
  use allocutils, only:allocate_array
 
- print *, "Allocating cooling arrays"
- call allocate_array('gradP_cool',gradP_cool,npart)
- call allocate_array('Gpot_cool',Gpot_cool,npart)
- call allocate_array('duFLD',duFLD,npart)
- call allocate_array('lambda_fld',lambda_fld,npart)
- call allocate_array('urad_FLD',urad_FLD,npart)
- call allocate_array('ttherm_store',ttherm_store,npart)
- call allocate_array('teqi_store',teqi_store,npart)
- call allocate_array('opac_store',opac_store,npart)
- call allocate_array('duSPH',duSPH,npart)
+ print *, "Allocating cooling arrays for maxp=",maxp
+ call allocate_array('gradP_cool',gradP_cool,maxp)
+ call allocate_array('Gpot_cool',Gpot_cool,maxp)
+ call allocate_array('duFLD',duFLD,maxp)
+ call allocate_array('lambda_fld',lambda_fld,maxp)
+ call allocate_array('urad_FLD',urad_FLD,maxp)
+ call allocate_array('ttherm_store',ttherm_store,maxp)
+ call allocate_array('teqi_store',teqi_store,maxp)
+ call allocate_array('opac_store',opac_store,maxp)
+ call allocate_array('duSPH',duSPH,maxp)
  Gpot_cool(:) = 0d0
  gradP_cool(:) = 0d0
  urad_FLD(:) = 0d0
@@ -53,7 +53,7 @@ subroutine init_S07cool()
  ttherm_store(:) = 0d0
  opac_store(:) = 0d0
  duSPH(:) = 0d0
- open (unit=iunitst,file='EOSinfo.dat',status='replace')
+ !open (unit=iunitst,file='EOSinfo.dat',status='replace')
  if (doFLD) then
     print *, "Using Forgan+ 2009 hybrid cooling method (FLD)"
  else
@@ -62,7 +62,7 @@ subroutine init_S07cool()
 end subroutine init_S07cool
 
 subroutine finish_S07cool()
- deallocate(optable)
+ if (allocated(optable)) deallocate(optable)
  if (allocated(gradP_cool)) deallocate(gradP_cool)
  if (allocated(Gpot_cool)) deallocate(Gpot_cool)
  if (allocated(duFLD)) deallocate(duFLD)
@@ -72,7 +72,7 @@ subroutine finish_S07cool()
  if (allocated(teqi_store)) deallocate(teqi_store)
  if (allocated(opac_store)) deallocate(opac_store)
  if (allocated(duSPH)) deallocate(duSPH)
- close(iunitst)
+! close(iunitst)
 end subroutine finish_S07cool
 
 subroutine read_optab(eos_file,ierr)
@@ -89,6 +89,7 @@ subroutine read_optab(eos_file,ierr)
  if (ierr > 0) return
  do
     read(10,'(A120)') junk
+    print *, junk
     if (len(trim(adjustl(junk))) == 0) cycle ! blank line
     if ((index(adjustl(junk),"::") == 0) .and. (index(adjustl(junk),"#") .ne. 1 )) then !ignore comment lines
        junk = adjustl(junk)
