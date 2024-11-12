@@ -511,18 +511,16 @@ end subroutine calc_wind_profile
 !-----------------------------------------------------------------------
 !
 !  Determine the initial wind speed for a given stellar radius
-!    stype = 0 : do nothing, initial velocity is set
-!    stype = 1 : determine the trans-sonic solution
 !
 !-----------------------------------------------------------------------
-subroutine get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
+subroutine get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, wind_type)
 !all quantities in cgs
  use io,       only:fatal,iverbose
  use units,    only:utime,udist
  use eos,      only:gmw,gamma
  use physcon,  only:Rg,Gg,au,years
  use ptmass_radiation, only:alpha_rad
- integer, intent(in) :: stype
+ integer, intent(in) :: wind_type
  real, intent(in)    :: r0, T0, time_end
  real, intent(inout) :: v0
  real, intent(out)   :: rsonic, tsonic
@@ -532,9 +530,16 @@ subroutine get_initial_wind_speed(r0, T0, time_end, v0, rsonic, tsonic, stype)
  real :: v0min, v0max, v0last, vesc, cs, Rs, alpha_max, vin, gmax
  real, parameter :: v_over_cs_min = 1.d-4
  integer, parameter :: ncount_max = 20
- integer :: icount
+ integer :: icount,stype
  character(len=*), parameter :: label = 'get_initial_wind_speed'
 
+ if (wind_type == 1) then
+    !trans-sonic solution
+    stype = 1
+ else
+    ! do nothing, only display information and initialize variables
+    stype = 0
+ endif
  vesc = sqrt(2.*Gg*Mstar_cgs*(1.-alpha_rad)/r0)
  cs   = sqrt(gamma*Rg*T0/gmw)
  vin  = cs*(vesc/2./cs)**2*exp(-(vesc/cs)**2/2.+1.5)
