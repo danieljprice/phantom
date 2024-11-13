@@ -69,7 +69,6 @@ subroutine init_cooling(id,master,iprint,ierr)
  use cooling_ism,       only:init_cooling_ism,abund_default
  use cooling_koyamainutsuka, only:init_cooling_KI02
  use cooling_solver,         only:init_cooling_solver
- use eos_stamatellos,   only:read_optab,eos_file
  use cooling_radapprox, only:init_star,od_method
  use viscosity,         only:irealvisc
 
@@ -89,8 +88,6 @@ subroutine init_cooling(id,master,iprint,ierr)
          var='ieos',ival=ieos)
     if (irealvisc > 0 .and. od_method == 4) call warning('cooling',&
          'Using real viscosity will affect optical depth estimate',var='irealvisc',ival=irealvisc)
-    if (ieos == 2)  call read_optab(eos_file,ierr)
-    if (ierr > 0) call fatal('cooling','Failed to read EOS file',var='ierr',ival=ierr)
     call init_star()
  case(6)
     call init_cooling_KI02(ierr)
