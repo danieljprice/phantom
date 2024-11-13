@@ -335,7 +335,10 @@ subroutine substep_gr(npart,ntypes,dtsph,dtextforce,xyzh,vxyzu,pxyzu,dens,metric
           elseif (use_apr) then
              pmassi = aprmassoftype(igas,apr_level(i))
           endif
-
+          
+          if (vxyzu(4,i) < 0d0) then
+             print *, "u is NEGATIVE in SUBSTEPPING!", vxyzu(4,i),i,dens(i)
+          endif
           call equationofstate(ieos,pondensi,spsoundi,dens(i),xyzh(1,i),xyzh(2,i),xyzh(3,i),tempi,vxyzu(4,i))
           pri = pondensi*dens(i)
           call get_grforce(xyzh(:,i),metrics(:,:,:,i),metricderivs(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i),pri,fext(1:3,i),dtf)
@@ -1205,7 +1208,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  !
  ! COOLING
  !
- if (icooling > 0 .and. cooling_in_step) then
+ if (icooling > 0 .and. cooling_in_step .and. icooling/=9) then
     if (h2chemistry) then
        !
        ! Call cooling routine, requiring total density, some distance measure and
@@ -1224,8 +1227,8 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
        else
           call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,dust_temp(i))
        endif
-    elseif (icooling == 9) then
-       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,ipart=i)
+!    elseif (icooling == 9) then
+!       call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,ipart=i)
     else
        ! cooling without stored dust temperature
        call energ_cooling(xyzh(1,i),xyzh(2,i),xyzh(3,i),vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool)
@@ -1233,7 +1236,7 @@ subroutine cooling_abundances_update(i,pmassi,xyzh,vxyzu,eos_vars,abundance,nucl
  endif
 #endif
  ! update internal energy
- if (isionisedi) dudtcool = 0.
+ if (isionisedi .or. icooling == 9) dudtcool = 0.
  if (cooling_in_step .or. use_krome) vxyzu(4,i) = vxyzu(4,i) + dt * dudtcool
 
 

@@ -25,8 +25,8 @@ module cooling_radapprox
  integer :: isink_star ! index of sink to use as illuminating star
  integer :: od_method = 4 ! default = Modified Lombardi method (Young et al. 2024)
  integer :: fld_opt = 1 ! by default FLD is switched on
- public :: radcool_update_energ,write_options_cooling_radapprox,read_options_cooling_radapprox
- public :: init_star, radcool_update_energ_loop
+ public :: radcool_update_du,write_options_cooling_radapprox,read_options_cooling_radapprox
+ public :: init_star,radcool_evolve_ui
 
 contains
 
@@ -59,22 +59,72 @@ subroutine init_star()
       "at (xyz)",xyzmh_ptmass(1:3,isink_star)!"as illuminating star."
 end subroutine init_star
 
+subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
+  use eos_stamatellos, only:ttherm_store,ueqi_store,getintenerg_opdep
+  use io,              only:warning
+  use units,           only:unit_density,unit_ergg
+  use part,            only:rhoh,massoftype,igas
+  real, intent(inout) :: ui
+  real, intent(in)    :: dt,Tfloor,h
+  integer,intent(in)  :: i
+  real,optional,intent(out) :: uout
+  real :: tthermi,ueqi,utemp,ufloor_cgs,rhoi_cgs
+  real :: expdtonttherm
+
+  tthermi = ttherm_store(i)
+  ueqi = ueqi_store(i)
+  utemp = ui
+  rhoi_cgs = rhoh(h,massoftype(igas))*unit_density
+  call getintenerg_opdep(Tfloor**(1.0/4.0),rhoi_cgs,ufloor_cgs)  
+  
+  if (tthermi > epsilon(tthermi) .and. ui /= ueqi) then
+     if (dt > 0d0) then
+        ! evolve energy
+        expdtonttherm = exp(-dt/tthermi) 
+        utemp = ui*expdtonttherm + ueqi*(1.d0-expdtonttherm)
+     elseif (dt < 0d0) then 
+        ! i.e. for the backwards step in the leapfrog integrator
+        expdtonttherm = exp(dt/tthermi) 
+        utemp = (ui - ueqi*(1-expdtonttherm))/expdtonttherm
+     endif
+        
+     ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
+     if (isnan(utemp) .or. utemp < epsilon(utemp)) then 
+!        print *, "oh no i=",i,"ui=",ui,"tthermi=",tthermi,dt,"ueqi",ueqi,rhoi_cgs
+ !       print *, exp(-dt/tthermi),1.d0-exp(-dt/tthermi)
+!        call warning("In radcool_evolve_ui","energ=NaN or 0. ui=",val=utemp)
+        utemp = ui
+     endif
+  endif
+!else
+   !  print *, "no_update", tthermi,dt,ui,ueqi
+  !endif
+  if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
+  if (utemp < 0d0) print *, "ERRRORRR! i=",i, ui,ueqi 
+  
+  if (present(uout)) then 
+     uout = utemp
+  else
+     ui = utemp
+  endif
+
+end subroutine radcool_evolve_ui
+
 
 !
 ! Do cooling calculation
 !
 ! update energy to return evolved energy array. Called from substep
-subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
+subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use io,       only:warning
  use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          duFLD,doFLD,ttherm_store,teqi_store,opac_store,duSPH
- use part,       only:xyzmh_ptmass,igas
+          duFLD,doFLD,ttherm_store,ueqi_store,opac_store
+ use part,       only:xyzmh_ptmass,igas,eos_vars,iTemp
  integer,intent(in) :: i
- real,intent(in) :: xi,yi,zi,rhoi,Tfloor
- real,intent(in) :: ui,dt
- real,intent(out)::dudti_cool
+ real,intent(in) :: xi,yi,zi,rhoi
+ real,intent(in) :: ui,duhydro,Tfloor
  real            :: coldensi,kappaBari,kappaParti,ri2
  real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
  real            :: cs2,Om2,Hmod2,rhoi_cgs,ui_cgs
@@ -103,6 +153,7 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  rhoi_cgs = rhoi*unit_density
  call getopac_opdep(ui_cgs,rhoi_cgs,kappaBari,kappaParti,&
            Ti,gmwi)
+ eos_vars(iTemp,i) = Ti ! save temperature
  presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
  presi = presi/unit_pressure !code units
 
@@ -156,39 +207,25 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
 
  if (doFLD) then
-    du_tot = duSPH(i) + du_FLDi
+    du_tot = duhydro + du_FLDi
  else
-    du_tot = duSPH(i)
- endif
-
- ! If radiative cooling is negligible compared to hydrodynamical heating
- ! don't use this method to update energy, just use hydro du/dt. Does it conserve u alright?
-
- if (abs(du_tot) > epsilon(du_tot) .and.  abs(dudti_rad/du_tot) < dtcool_crit) then
-    !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
-    !                 dusph(i)
-    dudti_cool = du_tot
-    if ( (dudti_cool*dt + ui) < umini) then
-       dudti_cool = (umini - ui)/dt
-    endif
-    return
+    du_tot = duhydro
  endif
 
  Teqi = du_tot * opaci*unit_ergg/utime ! physical units
  Teqi = Teqi/4.d0/steboltz
  Teqi = Teqi + Tmini4
  du_tot = du_tot + dudti_rad
+ !Check if we need to use the temperature floor
  if (Teqi < Tmini4) then
     Teqi = Tmini4**(1.0/4.0)
  else
     Teqi = Teqi**(1.0/4.0)
  endif
- teqi_store(i) = Teqi
 
  if (Teqi > 9e5) then
-    print *,"i=",i, "duSPH(i)=", duSPH(i), "duradi=", dudti_rad, "Ti=", Ti, &
-            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dti=", dusph(i)*dt
+    print *,"i=",i, "duhydro=", duhydro, "duradi=", dudti_rad, "Ti=", Ti, &
+            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui
  elseif (Teqi < epsilon(Teqi)) then
     print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
             "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
@@ -200,7 +237,7 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
  rhoi_cgs = rhoi*unit_density
  call getintenerg_opdep(Teqi,rhoi_cgs,ueqi)
  ueqi = ueqi/unit_ergg
-
+ ueqi_store(i) = ueqi
  ! calculate thermalization timescale
  if ((du_tot) == 0.d0) then
     tthermi = 0d0
@@ -210,220 +247,19 @@ subroutine radcool_update_energ(i,xi,yi,zi,rhoi,ui,Tfloor,dt,dudti_cool)
 
  ttherm_store(i) = tthermi
 
- ! evolve energy
- if (tthermi == 0d0) then
-    dudti_cool = 0d0 ! condition if denominator above is zero
- elseif ( (dt/tthermi) < TINY(ui) ) then
-    dudti_cool = 0d0
- else
-    dudti_cool = ( ui*exp(-dt/tthermi) + ueqi*(1.d0-exp(-dt/tthermi)) - ui) / dt !code units
- endif
 
- if (isnan(dudti_cool)) then
+ if (isnan(tthermi) .or. isnan(ueqi)) then
     !    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
     print *, "rhoi=",rhoi*unit_density, "Ti=", Ti, "Teqi=", Teqi
     print *, "Tmini=",Tmini4**(1.0/4.0), "ri=", ri2**(0.5)
-    print *, "opaci=",opaci,"coldensi=",coldensi,"dusph(i)",duSPH(i)
-    print *,  "dt=",dt,"tthermi=", tthermi,"umini=", umini
+    print *, "opaci=",opaci,"coldensi=",coldensi,"duhydro",duhydro
+    print *,  "tthermi=", tthermi,"umini=", umini
     print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
     call warning("In Stamatellos cooling","energ=NaN or 0. ui=",val=ui)
     stop
  endif
 
-end subroutine radcool_update_energ
-
-
-!
-! Do cooling calculation
-!
-! update energy to return evolved energy array. Called from evolve.F90
-subroutine radcool_update_energ_loop(dtsph,npart,xyzh,energ,dudt_sph,Tfloor)
- use io,       only:warning
- use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
- use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
- use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
-          duFLD,doFLD,ttherm_store,teqi_store,opac_store
- use part,       only:xyzmh_ptmass,rhoh,massoftype,igas,iactive,isdead_or_accreted
- use part,       only:iphase,maxphase,maxp,iamtype,ibin
- use timestep_ind, only:get_dt
- integer,intent(in) :: npart
- real,intent(in) :: xyzh(:,:),dtsph,Tfloor
- real,intent(inout) :: energ(:),dudt_sph(:)
- real            :: ui,rhoi,coldensi,kappaBari,kappaParti,ri2,dti
- real            :: gmwi,Tmini4,Ti,dudti_rad,Teqi,Hstam,HLom,du_tot
- real            :: cs2,Om2,Hmod2,ui_cgs,rhoi_cgs
- real            :: opaci,ueqi,umini,tthermi,poti,presi,Hcomb,du_FLDi
- integer         :: i,ratefile,n_uevo
-
- coldensi = huge(coldensi)
-! write (temp,'(E5.2)') dt
- print *, "radcool min/maxGpot", minval(Gpot_cool),maxval(Gpot_cool)
- print *, "radcool min/max", minval(gradP_cool),maxval(gradP_cool)
- n_uevo = 0
- !$omp parallel do default(none) schedule(runtime) &
- !$omp shared(npart,duFLD,xyzh,energ,massoftype,xyzmh_ptmass,unit_density,Gpot_cool) &
- !$omp shared(isink_star,doFLD,ttherm_store,teqi_store,od_method,unit_pressure,ratefile) &
- !$omp shared(opac_store,Tfloor,dtsph,dudt_sph,utime,udist,umass,unit_ergg,gradP_cool,Lstar) &
- !$omp private(i,poti,du_FLDi,ui,rhoi,ri2,coldensi,kappaBari,Ti,iphase) &
- !$omp private(kappaParti,gmwi,Tmini4,dudti_rad,Teqi,Hstam,HLom,du_tot,ui_cgs) &
- !$omp private(cs2,Om2,Hmod2,opaci,ueqi,umini,tthermi,presi,Hcomb,dti,rhoi_cgs) &
- !$omp shared(maxp,maxphase,ibin) reduction(+:n_uevo)
-
- overpart: do i=1,npart
-    if (maxphase==maxp) then
-       if (iamtype(iphase(i)) /= igas) cycle
-       if (isdead_or_accreted(xyzh(4,i))) cycle
-       if (.not. iactive(iphase(i)) ) then
-          n_uevo = n_uevo + 1
-          cycle
-       endif
-    endif
-
-    dti = get_dt(dtsph,ibin(i))
-    poti = Gpot_cool(i)
-    du_FLDi = duFLD(i)
-    ui = energ(i)
-    if (abs(ui) < epsilon(ui)) print *, "ui zero", i
-    rhoi =  rhoh(xyzh(4,i),massoftype(igas))
-
-    if (isink_star > 0) then
-       ri2 = (xyzh(1,i)-xyzmh_ptmass(1,isink_star))**2d0 &
-            + (xyzh(2,i)-xyzmh_ptmass(2,isink_star))**2d0 &
-            + (xyzh(3,i)-xyzmh_ptmass(3,isink_star))**2d0
-    else
-       ri2 = xyzh(1,i)**2d0 + xyzh(2,i)**2d0 + xyzh(3,i)**2d0
-    endif
-
-    ! get opacities & Ti for ui
-    ui_cgs = ui*unit_ergg
-    rhoi_cgs = rhoi*unit_density
-    call getopac_opdep(ui_cgs,rhoi_cgs,kappaBari,kappaParti,&
-           Ti,gmwi)
-    presi = kb_on_mh*rhoi*unit_density*Ti/gmwi ! cgs
-    presi = presi/unit_pressure !code units
-
-    select case (od_method)
-    case (1)
-       ! Stamatellos+ 2007 method
-       coldensi = sqrt(abs(poti*rhoi)/4.d0/pi) ! G cancels out as G=1 in code
-       coldensi = 0.368d0*coldensi ! n=2 in polytrope formalism Forgan+ 2009
-       coldensi = coldensi*umass/udist/udist ! physical units
-    case (2)
-       ! Lombardi+ 2015 method of estimating the mean column density
-       coldensi = 1.014d0 * presi / abs(gradP_cool(i))! 1.014d0 * P/(-gradP/rho)
-       coldensi = coldensi *umass/udist/udist ! physical units
-    case (3)
-       ! Combined method
-       HStam = sqrt(abs(poti*rhoi)/4.0d0/pi)*0.368d0/rhoi
-       HLom  = 1.014d0*presi/abs(gradP_cool(i))/rhoi
-       Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/HStam)**2.0d0)
-       coldensi = Hcomb*rhoi
-       coldensi = coldensi*umass/udist/udist ! physical units
-    case (4)
-       ! Modified Lombardi method
-       HLom  = presi/abs(gradP_cool(i))/rhoi
-       cs2 = presi/rhoi
-       if (isink_star > 0 .and. ri2 > 0d0) then
-          Om2 = xyzmh_ptmass(4,isink_star)/(ri2**(1.5)) !NB we are using spherical radius here
-       else
-          Om2 = 0d0
-       endif
-       Hmod2 = cs2 * piontwo / (Om2 + 8d0*rpiontwo*rhoi)
-       Hcomb = 1.d0/sqrt((1.0d0/HLom)**2.0d0 + (1.0d0/Hmod2))
-       coldensi = 1.014d0 * Hcomb *rhoi*umass/udist/udist ! physical units
-    case default
-       print *, "no case!"
-       stop
-    end select
-
-!    Tfloor is from input parameters and is background heating
-!    Stellar heating
-    if (isink_star > 0 .and. Lstar > 0.d0) then
-       Tmini4 = Tfloor**4d0 + exp(-coldensi*kappaBari)*(Lstar*solarl/(16d0*pi*steboltz*ri2*udist*udist))
-    else
-       Tmini4 = Tfloor**4d0
-    endif
-
-    opaci = (coldensi**2d0)*kappaBari + (1.d0/kappaParti) ! physical units
-    opac_store(i) = opaci
-    dudti_rad = 4.d0*steboltz*(Tmini4 - Ti**4.d0)/opaci/unit_ergg*utime! code units
-
-    if (doFLD) then
-       du_tot = dudt_sph(i) + du_FLDi
-    else
-       du_tot = dudt_sph(i)
-    endif
-    !If radiative cooling is negligible compared to hydrodynamical heating
-    ! don't use this method to update energy, just use hydro du/dt
-    if (abs(dudti_rad/du_tot) < dtcool_crit) then
-       !      print *, "not cooling/heating for r=",sqrt(ri2),".", dudti_rad,&
-       !                 dudt_sph(i)
-       energ(i) = ui + du_tot*dti
-       cycle
-    endif
-
-    Teqi = du_tot * opaci*unit_ergg/utime ! physical units
-    du_tot = du_tot + dudti_rad
-    Teqi = Teqi/4.d0/steboltz
-    Teqi = Teqi + Tmini4
-    if (Teqi < Tmini4) then
-       Teqi = Tmini4**(1.0/4.0)
-    else
-       Teqi = Teqi**(1.0/4.0)
-    endif
-    teqi_store(i) = Teqi
-
-    if (Teqi > 9e5) then
-       print *,"i=",i, "dudt_sph(i)=", dudt_sph(i), "duradi=", dudti_rad, "Ti=", Ti, &
-            "Tmini=", Tmini4**(1.0/4.0),du_tot,Hcomb, "r=",sqrt(ri2), "ui=", ui, &
-            "dudt_sph * dti=", dudt_sph(i)*dti
-    elseif (Teqi < epsilon(Teqi)) then
-       print *,  "Teqi=0.0", "Tmini4=", Tmini4, "coldensi=", coldensi, "Tfloor=",Tfloor,&
-            "Ti=", Ti, "poti=",poti, "rhoi=", rhoi
-    endif
-
-    rhoi_cgs = rhoi*unit_density
-    call getintenerg_opdep(Teqi,rhoi_cgs,ueqi)
-    ueqi = ueqi/unit_ergg
-
-    call getintenerg_opdep(Tmini4**(1.0/4.0),rhoi_cgs,umini)
-    umini = umini/unit_ergg
-
-    ! calculate thermalization timescale
-    if ((du_tot) == 0.d0) then
-       tthermi = 0d0
-    else
-       tthermi = abs((ueqi - ui)/(du_tot))
-    endif
-
-    ttherm_store(i) = tthermi
-
-    ! evolve energy
-    if (tthermi == 0d0) then
-       energ(i) = ui ! condition if denominator above is zero
-    elseif ( (dti/tthermi) < TINY(ui) ) then
-       energ(i) = ui
-    else
-       energ(i) = ui*exp(-dti/tthermi) + ueqi*(1.d0-exp(-dti/tthermi))  !code units
-    endif
-
-    if (isnan(energ(i)) .or. energ(i) < epsilon(ui)) then
-       !    print *, "kappaBari=",kappaBari, "kappaParti=",kappaParti
-       print *, "rhoi=",rhoi*unit_density, "Ti=", Ti, "Teqi=", Teqi
-       print *, "Tmini=",Tmini4**(1.0/4.0), "ri=", ri2**(0.5)
-       print *, "opaci=",opaci,"coldensi=",coldensi,"dudt_sphi",dudt_sph(i)
-       print *,  "dt=",dti,"tthermi=", tthermi,"umini=", umini
-       print *, "dudti_rad=", dudti_rad ,"dudt_fld=",du_fldi,"ueqi=",ueqi,"ui=",ui
-       call warning("In Stamatellos cooling","energ=NaN or 0. ui",val=ui)
-       stop
-    endif
-
- enddo overpart
- !$omp end parallel do
-
- print *, "radcool min/max u():", minval(energ(1:npart)), maxval(energ(1:npart))
- print *, "radcool min/max Teqi():", minval(Teqi_store(1:npart)), maxval(Teqi_store(1:npart))
-end subroutine radcool_update_energ_loop
+end subroutine radcool_update_du
 
 
 subroutine write_options_cooling_radapprox(iunit)

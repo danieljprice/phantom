@@ -74,7 +74,6 @@ subroutine init_cooling(id,master,iprint,ierr)
 
  integer, intent(in)  :: id,master,iprint
  integer, intent(out) :: ierr
- logical :: ex
 
  cooling_in_step = .true.
  ierr = 0
@@ -127,7 +126,7 @@ end subroutine init_cooling
 !
 !-----------------------------------------------------------------------
 
-subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,ipart)
+subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2_in,kappa_in,abund_in,duhydro,ipart)
  use io,      only:fatal
  use dim,     only:nabundances
  use eos,     only:gmw,gamma,ieos,get_temperature_from_u
@@ -138,12 +137,12 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  use cooling_solver,         only:energ_cooling_solver
  use cooling_koyamainutsuka, only:cooling_KoyamaInutsuka_explicit,&
                                   cooling_KoyamaInutsuka_implicit
- use cooling_radapprox,      only:radcool_update_energ
+ use cooling_radapprox,      only:radcool_update_du
 
  real(kind=4), intent(in)   :: divv               ! in code units
  real, intent(in)           :: xi,yi,zi,ui,rho,dt                      ! in code units
  real, intent(in), optional :: Tdust_in,mu_in,gamma_in,K2_in,kappa_in   ! in cgs
- real, intent(in), optional :: abund_in(nabn)
+ real, intent(in), optional :: abund_in(nabn),duhydro
  integer,intent(in),optional:: ipart
  real, intent(out)          :: dudt                                ! in code units
  real                       :: mui,gammai,Tgas,Tdust,K2,kappa
@@ -182,7 +181,7 @@ subroutine energ_cooling(xi,yi,zi,ui,rho,dt,divv,dudt,Tdust_in,mu_in,gamma_in,K2
  case (7)
     call cooling_Gammie_PL_explicit(xi,yi,zi,ui,dudt)
  case (9)
-    call radcool_update_energ(ipart,xi,yi,zi,rho,ui,Tfloor,dt,dudt)
+    call radcool_update_du(ipart,xi,yi,zi,rho,ui,duhydro,Tfloor)
  case default
     call energ_cooling_solver(ui,dudt,rho,dt,mui,gammai,Tdust,K2,kappa)
  end select
