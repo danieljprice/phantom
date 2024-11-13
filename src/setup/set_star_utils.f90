@@ -439,7 +439,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
                                   relaxed,use_var_comp,initialtemp,npin)
  use part,            only:do_radiation,rhoh,massoftype,igas,itemp,igasP,iX,iZ,imu,iradxi
  use eos,             only:equationofstate,calc_temp_and_ene,gamma,gmw
- use radiation_utils, only:ugas_from_Tgas,radE_from_Trad
+ use radiation_utils, only:ugas_from_Tgas,radxi_from_Trad
  use table_utils,     only:yinterp
  use units,           only:unit_density,unit_ergg,unit_pressure
  integer, intent(in)    :: ieos,npart,npts
@@ -497,7 +497,7 @@ subroutine set_star_thermalenergy(ieos,den,pres,r,npts,npart,xyzh,vxyzu,rad,eos_
        endif
        if (do_radiation) then
           vxyzu(4,i) = ugas_from_Tgas(tempi,gamma,gmw)
-          rad(iradxi,i) = radE_from_Trad(tempi)/densi
+          rad(iradxi,i) = radxi_from_Trad(densi,tempi)
        else
           vxyzu(4,i) = eni / unit_ergg
        endif
@@ -514,7 +514,7 @@ end subroutine set_star_thermalenergy
 !-----------------------------------------------------------------------
 subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en,mu)
  use eos,     only:get_mean_molecular_weight,calc_temp_and_ene
- use physcon, only:radconst,kb_on_mh
+ use physcon, only:radconst,Rg
  integer, intent(in) :: eos_type
  real, intent(in)    :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:)
  logical, intent(in) :: regrid_core
@@ -531,7 +531,7 @@ subroutine solve_uT_profiles(eos_type,r,den,pres,Xfrac,Yfrac,regrid_core,temp,en
     mu(i) = get_mean_molecular_weight(Xfrac(i),1.-Xfrac(i)-Yfrac(i))  ! only used in u, T calculation if ieos==2,12
     if (i==1) then
        guessene = 1.5*pres(i)/den(i)  ! initial guess
-       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*kb_on_mh)) ! guess for temperature
+       tempi = min((3.*pres(i)/radconst)**0.25, pres(i)*mu(i)/(den(i)*Rg)) ! guess for temperature
     else
        guessene = en(i-1)
        tempi = temp(i-1)
