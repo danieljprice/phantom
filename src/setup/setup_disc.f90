@@ -621,6 +621,7 @@ subroutine equation_of_state(gamma)
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  use eos_stamatellos, only:init_S07cool
+ use physcon, only:twopi
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -722,7 +723,7 @@ subroutine equation_of_state(gamma)
           print *, "We can't set up multiple radapprox discs yet :,("
           stop
        else
-          cs = get_cs_from_lum(L_star(1),R_ref(1))
+          cs = get_cs_from_lum(L_star(1),R_ref(1)) / sqrt(twopi)  
           H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
        endif
     else
@@ -3069,7 +3070,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_inopt(discstrat,'discstrat',db,errcount=nerr)
  call read_inopt(lumdisc,'lumdisc',db,errcount=nerr)
- print *, "read lumdisc=", lumdisc
+
  if (discstrat==1) then
     call read_inopt(istrat,'istrat',db,errcount=nerr)
     call read_inopt(z0_ref,'z0',db,errcount=nerr)
@@ -3262,10 +3263,8 @@ subroutine read_setupfile(filename,ierr)
  if (do_radiation) call read_inopt(iradkappa,'radkappa',db,err=ierr)
 
  if (lumdisc > 0) then
-    call read_inopt(L_star(1),'L_star',db,min=0.,errcount=ierr)
-    print *, "read L_star", L_star
-    call read_inopt(T_bg,'T_bg',db,min=0.,errcount=ierr)
-    print *, "read T_bg", T_bg
+    call read_inopt(L_star(1),'L_star',db,min=0.,errcount=nerr)
+    call read_inopt(T_bg,'T_bg',db,min=0.,errcount=nerr)
  endif
 
  call close_db(db)
