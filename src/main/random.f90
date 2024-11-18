@@ -248,10 +248,10 @@ end subroutine divide_unit_seg
 
 subroutine rinsphere(x,iseed)
  integer, intent(inout) :: iseed
- real,    intent(inout) :: x(3)
+ real,    intent(out) :: x(3)
  real :: d
  d = huge(d)
- do while (d > 1)
+ do while (d > 1.)
     x(1) = ran2(iseed)
     x(2) = ran2(iseed)
     x(3) = ran2(iseed)

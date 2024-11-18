@@ -48,7 +48,7 @@ module ptmass
 
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
- public :: get_accel_sink_gas, get_accel_sink_sink
+ public :: get_accel_sink_gas, get_accel_sink_sink,get_accel_sink_slow
  public :: merge_sinks, update_after_merge
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
@@ -81,6 +81,11 @@ module ptmass
  real,    public :: tseeds   = huge(f_acc)
  integer, public :: n_max    = 5
 
+ logical, public :: is_sinkgas_slow = .false.
+ logical, public :: update_sgforce  = .false.
+ real,    public :: dtsinkgasslow   = huge(dtsinkgasslow)
+ integer, public :: nstep_sinkgas   = 0
+
  logical, public :: use_regnbody    = .false. ! subsystems switch
  logical, public :: use_fourthorder = .true.
  integer, public :: n_force_order   = 3
@@ -91,6 +96,7 @@ module ptmass
 
  real, public :: dk(3)
  real, public :: ck(2)
+
 
 
  ! Note for above: if f_crit_override > 0, then will unconditionally make a sink when rho > f_crit_override*rho_crit_cgs
@@ -617,6 +623,99 @@ subroutine get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,phitot,dtsinksin
  enddo
 
 end subroutine get_accel_sink_sink
+
+
+subroutine get_accel_sink_slow(nptmass,npart,time,dtext,xyzmh_ptmass,xyzh,fxyz_ptmass,fsinkgas_slow,&
+                               fgasink_slow,dsdt_ptmass,group_info,bin_info)
+ use options,  only : iexternalforce
+ use dim,      only : maxp
+ use part,     only : epot_sinksink,massoftype,get_ntypes,npartoftype,maxphase,&
+                      isdead_or_accreted,iamtype,iphase,igas
+ use timestep, only : C_force
+ integer,           intent(in)    :: npart,nptmass
+ real,              intent(in)    :: time
+ real,              intent(out)   :: dtext
+ real,              intent(inout) :: xyzmh_ptmass(:,:),xyzh(:,:)
+ real,              intent(inout) :: fxyz_ptmass(:,:),fsinkgas_slow(:,:),fgasink_slow(:,:)
+ real,              intent(inout) :: dsdt_ptmass(:,:)
+ integer, optional, intent(inout) :: group_info(:,:)
+ real,    optional, intent(inout) :: bin_info(:,:)
+ integer, allocatable :: merge_ij(:)
+ logical              :: wsub
+ integer              :: merge_n,i,itype
+ real                 :: dtsinksink,dtsinkgas,pmassi,ntypes
+ real                 :: dtphi2,fonrmax,dtphi2i,fonrmaxi,poti
+
+
+ dtext = huge(dtext)
+ dtsinksink = huge(dtext)
+ dtsinkgas  = huge(dtext)
+ allocate(merge_ij(nptmass))
+ if(present(group_info) .and. present(bin_info)) then
+    wsub = .true.
+ else
+    wsub = .false.
+ endif
+
+ if (wsub) then
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                             iexternalforce,time,merge_ij,merge_n,dsdt_ptmass,&
+                             group_info=group_info,bin_info=bin_info)
+
+ else
+    call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,dtsinksink,&
+                            iexternalforce,time,merge_ij,merge_n,dsdt_ptmass)
+ endif
+
+ dtsinksink = C_force*dtsinksink
+ dtext = min (dtext,dtsinksink)
+
+
+
+ pmassi = massoftype(igas)
+ ntypes = get_ntypes(npartoftype)
+ dtphi2 = huge(dtphi2)
+ fonrmax = 0.
+ !$omp parallel default(none) &
+ !$omp shared(maxp,maxphase,wsub) &
+ !$omp shared(npart,nptmass,xyzh,xyzmh_ptmass,fgasink_slow) &
+ !$omp shared(iphase,ntypes,massoftype) &
+ !$omp private(i,fonrmaxi,dtphi2i,poti) &
+ !$omp firstprivate(pmassi,itype) &
+ !$omp reduction(min:dtphi2,dtsinkgas) &
+ !$omp reduction(max:fonrmax) &
+ !$omp reduction(+:fsinkgas_slow,dsdt_ptmass,bin_info)
+ !$omp do
+ do i=1,npart
+    if (.not.isdead_or_accreted(xyzh(4,i))) then
+       if (ntypes > 1 .and. maxphase==maxp) then
+          pmassi = massoftype(iamtype(iphase(i)))
+       endif
+       if (wsub) then
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                    fgasink_slow(1,i),fgasink_slow(2,i),fgasink_slow(3,i),poti,pmassi,fsinkgas_slow,&
+                                    dsdt_ptmass,fonrmaxi,dtphi2i,bin_info=bin_info)
+       else
+          call get_accel_sink_gas(nptmass,xyzh(1,i),xyzh(2,i),xyzh(3,i),xyzh(4,i),xyzmh_ptmass, &
+                                    fgasink_slow(1,i),fgasink_slow(2,i),fgasink_slow(3,i),poti,pmassi,fsinkgas_slow,&
+                                    dsdt_ptmass,fonrmaxi,dtphi2i)
+       endif
+       fonrmax = max(fonrmax,fonrmaxi)
+       dtphi2  = min(dtphi2,dtphi2i)
+    endif
+ enddo
+ !$omp enddo
+ !$omp end parallel
+
+ dtsinkgas = min(dtsinkgas,C_force*1./sqrt(fonrmax),C_force*sqrt(dtphi2))
+
+ dtsinkgasslow = dtsinkgas
+
+ dtext = min(dtext,dtsinkgas)
+
+ deallocate(merge_ij)
+
+end subroutine get_accel_sink_slow
 
 !----------------------------------------------------------------
 !+
@@ -1748,6 +1847,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  else
     allocate(masses(n))
     minmass  = 0.08/(mi*(umass/solarm))
+
+    if (iverbose > 1) write(iprint,*) "Mass sharing start ! "
+
     call divide_unit_seg(masses,minmass,n,iseed_sf)
 
     if (iverbose > 1) write(iprint,*) "Mass sharing  : ", masses*mi*(umass/solarm)
@@ -1894,12 +1996,17 @@ end subroutine ptmass_create_stars
 !-------------------------------------------------------------------------
 subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass)
  use random ,   only:ran2,rinsphere
+ use io,        only: iverbose,iprint
  integer, intent(in)    :: itest,n
  integer, intent(inout) :: linklist_ptmass(:)
  real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
  real    :: xi(3),vi(3),xk(3),vk(3),xcom(3),vcom(3),mi,mk,hacci,relfac
  real    :: r,vl,mrel
- integer :: nextra,nrel,k,ncur,kextra
+ integer :: nextra,nrel,k,ncur,kextra,k_old
+
+ if (iverbose >1) then
+    write(iprint,*) 'Update after merge !! '
+ endif
 
  nextra = n-n_max        ! n extra seeds to evacuate (release or kill)
  relfac = ran2(iseed_sf) ! fraction of extra seeds that will be released
@@ -1957,8 +2064,9 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linkl
        ncur = ncur + 1
        k = linklist_ptmass(k)
     else
+       k_old = k
        k = linklist_ptmass(k)
-       linklist_ptmass(k) = -2
+       linklist_ptmass(k_old) = -2
     endif
  enddo
 
@@ -1967,12 +2075,14 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linkl
  !
  k = kextra
  do while(k>0)
-    xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
-    xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
-    xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
-    vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
-    vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
-    vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
+    if(xyzmh_ptmass(4,k) > 0.) then
+       xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
+       xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
+       xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
+       vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
+       vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
+       vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
+    endif
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
@@ -1981,23 +2091,26 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linkl
 
  k = kextra
  do while(k>0)
-    xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
-    xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
-    xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
-    vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
-    vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
-    vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    if(xyzmh_ptmass(4,k) > 0.) then
+       xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
+       xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
+       xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
+       vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1) + vi(1)
+       vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2) + vi(2)
+       vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3) + vi(3)
+    endif
     k = linklist_ptmass(k) ! acces to the next point mass in the linked list
  enddo
 
-
- xyzmh_ptmass(1,itest) = xyzmh_ptmass(1,itest) - xcom(1)
- xyzmh_ptmass(2,itest) = xyzmh_ptmass(2,itest) - xcom(2)
- xyzmh_ptmass(3,itest) = xyzmh_ptmass(3,itest) - xcom(3)
- xyzmh_ptmass(4,itest) = xyzmh_ptmass(4,itest) - mrel
- vxyz_ptmass(1,itest)  = vxyz_ptmass(1,itest)  - vcom(1)
- vxyz_ptmass(2,itest)  = vxyz_ptmass(2,itest)  - vcom(2)
- vxyz_ptmass(3,itest)  = vxyz_ptmass(3,itest)  - vcom(3)
+ if (mrel > 0.) then
+    xyzmh_ptmass(1,itest) = xyzmh_ptmass(1,itest) - xcom(1)
+    xyzmh_ptmass(2,itest) = xyzmh_ptmass(2,itest) - xcom(2)
+    xyzmh_ptmass(3,itest) = xyzmh_ptmass(3,itest) - xcom(3)
+    xyzmh_ptmass(4,itest) = xyzmh_ptmass(4,itest) - mrel
+    vxyz_ptmass(1,itest)  = vxyz_ptmass(1,itest)  - vcom(1)
+    vxyz_ptmass(2,itest)  = vxyz_ptmass(2,itest)  - vcom(2)
+    vxyz_ptmass(3,itest)  = vxyz_ptmass(3,itest)  - vcom(3)
+ endif
 
 end subroutine update_after_merge
 
@@ -2476,6 +2589,10 @@ subroutine write_options_ptmass(iunit)
     call write_inopt(r_neigh, 'r_neigh', 'searching radius to detect subgroups', iunit)
  endif
 
+ if (is_sinkgas_slow) then
+    call write_inopt(is_sinkgas_slow, 'is_sinkgas_slow', 'sink-gas interactions are computed in outer integration loop', iunit)
+ endif
+
 end subroutine write_options_ptmass
 
 !-----------------------------------------------------------------------
@@ -2570,6 +2687,8 @@ subroutine read_options_ptmass(name,valstring,imatch,igotall,ierr)
     read(valstring,*,iostat=ierr) use_regnbody
  case('r_neigh')
     read(valstring,*,iostat=ierr) r_neigh
+ case('is_sinkgas_slow')
+    read(valstring,*,iostat=ierr) is_sinkgas_slow
  case default
     imatch = .false.
  end select
