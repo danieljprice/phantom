@@ -1358,56 +1358,56 @@ function allocate_header(nint,nint1,nint2,nint4,nint8,nreal,nreal4,nreal8,err) r
  integer, intent(in),  optional :: nint,nint1,nint2,nint4,nint8,nreal,nreal4,nreal8
  integer, intent(out), optional :: err
  type(dump_h) :: hdr
- integer      :: size(ndatatypes)
+ integer      :: size_type(ndatatypes)
  integer      :: ierrs(ndatatypes)
  integer      :: ierr
 
  ! make sure header is deallocated first
  call free_header(hdr,ierr)
 
- size(:) = maxphead
- if (present(nint))   size(i_int)  = nint
- if (present(nint1))  size(i_int1) = nint1
- if (present(nint2))  size(i_int2) = nint2
- if (present(nint4))  size(i_int4) = nint4
- if (present(nint8))  size(i_int8) = nint8
- if (present(nreal))  size(i_real) = nreal
- if (present(nreal4)) size(i_real4) = nreal4
- if (present(nreal8)) size(i_real8) = nreal8
+ size_type(:) = maxphead
+ if (present(nint))   size_type(i_int)  = nint
+ if (present(nint1))  size_type(i_int1) = nint1
+ if (present(nint2))  size_type(i_int2) = nint2
+ if (present(nint4))  size_type(i_int4) = nint4
+ if (present(nint8))  size_type(i_int8) = nint8
+ if (present(nreal))  size_type(i_real) = nreal
+ if (present(nreal4)) size_type(i_real4) = nreal4
+ if (present(nreal8)) size_type(i_real8) = nreal8
 
  if (present(err)) err = 0
  ierrs(:) = 0
  hdr%nums(:) = 0
- if (size(i_int) > 0)  then
-    allocate(hdr%inttags(size(i_int)),hdr%intvals(size(i_int)),stat=ierrs(1))
+ if (size_type(i_int) > 0)  then
+    allocate(hdr%inttags(size_type(i_int)),hdr%intvals(size_type(i_int)),stat=ierrs(1))
     if (ierrs(1)==0) hdr%inttags(:) = ''
  endif
- if (size(i_int1) > 0) then
-    allocate(hdr%int1tags(size(i_int1)),hdr%int1vals(size(i_int1)),stat=ierrs(2))
+ if (size_type(i_int1) > 0) then
+    allocate(hdr%int1tags(size_type(i_int1)),hdr%int1vals(size_type(i_int1)),stat=ierrs(2))
     if (ierrs(2)==0) hdr%int1tags(:) = ''
  endif
- if (size(i_int2) > 0) then
-    allocate(hdr%int2tags(size(i_int2)),hdr%int2vals(size(i_int2)),stat=ierrs(3))
+ if (size_type(i_int2) > 0) then
+    allocate(hdr%int2tags(size_type(i_int2)),hdr%int2vals(size_type(i_int2)),stat=ierrs(3))
     if (ierrs(3)==0) hdr%int2tags(:) = ''
  endif
- if (size(i_int4) > 0) then
-    allocate(hdr%int4tags(size(i_int4)),hdr%int4vals(size(i_int4)),stat=ierrs(4))
+ if (size_type(i_int4) > 0) then
+    allocate(hdr%int4tags(size_type(i_int4)),hdr%int4vals(size_type(i_int4)),stat=ierrs(4))
     if (ierrs(4)==0) hdr%int4tags(:) = ''
  endif
- if (size(i_int8) > 0) then
-    allocate(hdr%int8tags(size(i_int8)),hdr%int8vals(size(i_int8)),stat=ierrs(5))
+ if (size_type(i_int8) > 0) then
+    allocate(hdr%int8tags(size_type(i_int8)),hdr%int8vals(size_type(i_int8)),stat=ierrs(5))
     if (ierrs(5)==0) hdr%int8tags(:) = ''
  endif
- if (size(i_real) > 0)  then
-    allocate(hdr%realtags(size(i_real)),hdr%realvals(size(i_real)),stat=ierrs(6))
+ if (size_type(i_real) > 0)  then
+    allocate(hdr%realtags(size_type(i_real)),hdr%realvals(size_type(i_real)),stat=ierrs(6))
     if (ierrs(6)==0) hdr%realtags(:) = ''
  endif
- if (size(i_real4) > 0)  then
-    allocate(hdr%real4tags(size(i_real4)),hdr%real4vals(size(i_real4)),stat=ierrs(7))
+ if (size_type(i_real4) > 0)  then
+    allocate(hdr%real4tags(size_type(i_real4)),hdr%real4vals(size_type(i_real4)),stat=ierrs(7))
     if (ierrs(7)==0) hdr%real4tags(:) = ''
  endif
- if (size(i_real8) > 0)  then
-    allocate(hdr%real8tags(size(i_real8)),hdr%real8vals(size(i_real8)),stat=ierrs(8))
+ if (size_type(i_real8) > 0)  then
+    allocate(hdr%real8tags(size_type(i_real8)),hdr%real8vals(size_type(i_real8)),stat=ierrs(8))
     if (ierrs(8)==0) hdr%real8tags(:) = ''
  endif
 

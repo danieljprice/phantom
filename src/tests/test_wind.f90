@@ -14,9 +14,10 @@ module testwind
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: boundary, checksetup, dim, eos, inject, io, options, part,
-!   partinject, physcon, step_lf_global, testutils, timestep, timestep_ind,
-!   units, wind
+! :Dependencies: allocutils, boundary, checksetup, dim, dust_formation,
+!   eos, inject, io, options, part, partinject, physcon, ptmass,
+!   ptmass_radiation, readwrite_infile, step_lf_global, testutils,
+!   timestep, timestep_ind, units, wind
 !
  implicit none
  public :: test_wind
@@ -25,7 +26,7 @@ module testwind
 
  logical :: vb = .false.
 
- contains
+contains
 !----------------------------------------------------------
 !+
 !  Unit tests of timestepping and boundary crossing
@@ -105,7 +106,7 @@ subroutine test_wind(ntests,npass)
     call allocate_array('dust_temp',dust_temp,maxTdust)
 
     call init_testwind(2,ntests,npass,npart_old,istepfrac,dtinject)
- !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
+    !if (id==master) call write_infile('w2.in','w2.log','w2.ev','w2_00000',iwritein,iprint)
     call integrate_wind(npart_old,istepfrac,dtinject)
     nfailed(:) = 0
     eint = sum(vxyzu(4,1:npart))
@@ -227,38 +228,38 @@ subroutine init_testwind(icase,ntests,npass,npart_old,istepfrac,dtinject)
  npart_old = npart
 
 !trans-sonic wind - no radiation
-if (icase == 1) then
-   ! check particle's mass
-   call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
+ if (icase == 1) then
+    ! check particle's mass
+    call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
         npart,npart_old,npartoftype,dtinject)
-   call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
+    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
     ! check 1D wind profile
-   i = size(trvurho_1D(1,:))
-   if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
-   call checkval(massoftype(igas),1.490822861042279E-9,epsilon(0.),nfailed(1),'setting particle mass')
-   call checkval(trvurho_1D(2,i),7.058624412798283E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
-   call checkval(trvurho_1D(3,i),1.112160584479353E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
-   call checkval(trvurho_1D(4,i),2.031820842001706E+12,epsilon(0.),nfailed(4),'1D wind internal energy')
-   call checkval(trvurho_1D(5,i),8.878887149408118E-15,epsilon(0.),nfailed(5),'1D wind terminal density')
-   call update_test_scores(ntests,nfailed,npass)
+    i = size(trvurho_1D(1,:))
+    if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+    call checkval(massoftype(igas),1.490822861042279E-9,epsilon(0.),nfailed(1),'setting particle mass')
+    call checkval(trvurho_1D(2,i),7.058624412798283E+13,epsilon(0.),nfailed(2),'1D wind terminal radius')
+    call checkval(trvurho_1D(3,i),1.112160584479353E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
+    call checkval(trvurho_1D(4,i),2.031820842001706E+12,epsilon(0.),nfailed(4),'1D wind internal energy')
+    call checkval(trvurho_1D(5,i),8.878887149408118E-15,epsilon(0.),nfailed(5),'1D wind terminal density')
+    call update_test_scores(ntests,nfailed,npass)
  endif
 
  !wind + radiation
  if (icase == 2) then
-   ! check particle's mass
-   call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
-   call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
+    ! check particle's mass
+    call inject_particles(t,0.,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,npart,npart_old,npartoftype,dtinject)
+    call update_injected_particles(npart_old,npart,istepfrac,nbinmax,t,dtmax,dt,dtinject)
 
-   ! check 1D wind profile
-   i = size(trvurho_1D(1,:))
-   if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
-   call checkval(massoftype(igas),6.820748526700016E-10,epsilon(0.),nfailed(1),'setting particle mass')
-   call checkval(trvurho_1D(2,i), 1.546371444697654E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
-   call checkval(trvurho_1D(3,i), 4.298693548460183E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
-   call checkval(trvurho_1D(4,i), 4.318674031561777E+10,epsilon(0.),nfailed(4),'1D wind internal energy')
-   call checkval(trvurho_1D(5,i), 4.879641694552266E-16,epsilon(0.),nfailed(5),'1D wind terminal density')
-   call update_test_scores(ntests,nfailed,npass)
+    ! check 1D wind profile
+    i = size(trvurho_1D(1,:))
+    if (vb) print '((6(1x,es22.15)))',trvurho_1D(:,i),massoftype(igas)
+    call checkval(massoftype(igas),6.820748526700016E-10,epsilon(0.),nfailed(1),'setting particle mass')
+    call checkval(trvurho_1D(2,i), 1.546371444697654E+14,epsilon(0.),nfailed(2),'1D wind terminal radius')
+    call checkval(trvurho_1D(3,i), 4.298693548460183E+06,epsilon(0.),nfailed(3),'1D wind terminal velocity')
+    call checkval(trvurho_1D(4,i), 4.318674031561777E+10,epsilon(0.),nfailed(4),'1D wind internal energy')
+    call checkval(trvurho_1D(5,i), 4.879641694552266E-16,epsilon(0.),nfailed(5),'1D wind terminal density')
+    call update_test_scores(ntests,nfailed,npass)
  endif
 
 end subroutine init_testwind

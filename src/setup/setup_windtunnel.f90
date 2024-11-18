@@ -33,12 +33,13 @@ module setup
  use io,     only:master,fatal
  use inject, only:init_inject,nstar,Rstar,lattice_type,handled_layers,&
                   wind_radius,wind_injection_x,wind_length,&
-                  rho_inf,pres_inf,v_inf
+                  rho_inf,pres_inf,v_inf,windonly
 
  implicit none
  public :: setpart
 
  real    :: Mstar
+ integer :: nstar_in  ! guess for no. of star prticles
 
  private
 
@@ -54,6 +55,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  use eos,         only:ieos,gmw
  use setstar_utils,only:set_star_density
  use rho_profile, only:rho_polytrope
+ use relaxstar,   only:relax_star
  use extern_densprofile, only:nrhotab
  use physcon,     only:solarm,solarr
  use units,       only:udist,umass,utime,set_units,unit_velocity,unit_density,unit_pressure
@@ -71,9 +73,9 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  real,              intent(inout) :: time
  character(len=20), intent(in)    :: fileprefix
  real               :: rhocentre,rmin,pmass,densi,presi,ri
- real, allocatable  :: r(:),den(:),pres(:)
- integer            :: ierr,npts,np,i
- logical            :: use_exactN,setexists
+ real, allocatable  :: r(:),den(:),pres(:),Xfrac(:),Yfrac(:),mu(:)
+ integer            :: ierr,ierr_relax,npts,np,i
+ logical            :: use_exactN,setexists,use_var_comp
  character(len=30)  :: lattice
  character(len=120) :: setupfile
 
@@ -100,7 +102,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  ! Star parameters
  Rstar = 0.1
  Mstar = 1.e-3
- nstar = 1000
+ nstar_in = 1000
  lattice = 'closepacked'
  use_exactN = .true.
 
@@ -131,7 +133,7 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     stop 'please check and edit .setup file and rerun phantomsetup'
  endif
 
- pmass = Mstar / real(nstar)
+ pmass = Mstar / real(nstar_in)
  massoftype(igas) = pmass
  call check_setup(pmass,ierr)
  if (ierr /= 0) call fatal('windtunnel','errors in setup parameters')
@@ -146,23 +148,29 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
  vxyzu(:,:) = 0.
 
  ! Set polytropic star
- allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
- call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
- pres = polyk*den**gamma
- rmin = r(1)
- call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
+ if (.not. windonly) then
+    allocate(r(nrhotab),den(nrhotab),pres(nrhotab))
+    call rho_polytrope(gamma,polyk,Mstar,r,den,npts,rhocentre,set_polyk=.true.,Rstar=Rstar)
+    pres = polyk*den**gamma
+    rmin = r(1)
+    call set_star_density(lattice,id,master,rmin,Rstar,Mstar,hfact,&
                        npts,den,r,npart,npartoftype,massoftype,xyzh,&
                        use_exactN,np,rhozero,npart_total,i_belong) ! Note: mass_is_set = .true., so np is not used
- ! Set thermal energy
- do i = 1,npart
-    ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
-    densi = yinterp(den(1:npts),r(1:npts),ri)
-    presi = yinterp(pres(1:npts),r(1:npts),ri)
-    vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
- enddo
+    nstar = npart
+    use_var_comp = .false.
+    call relax_star(npts,den,pres,r,npart,xyzh,use_var_comp,Xfrac,Yfrac,mu,ierr_relax)
 
- deallocate(r,den,pres)
+    ! Set thermal energy
+    do i = 1,npart
+       ri = sqrt(dot_product(xyzh(1:3,i),xyzh(1:3,i)))
+       densi = yinterp(den(1:npts),r(1:npts),ri)
+       presi = yinterp(pres(1:npts),r(1:npts),ri)
+       vxyzu(4,i) =  presi / ( (gamma-1.) * densi)
+    enddo
 
+   deallocate(r,den,pres)
+ endif
+ 
  print*, "udist = ", udist, "; umass = ", umass, "; utime = ", utime
 
 end subroutine setpart
@@ -191,7 +199,7 @@ subroutine write_setupfile(filename)
  call write_options_units(iunit)
 
  write(iunit,"(/,a)") '# sphere settings'
- call write_inopt(nstar,'nstar','number of particles resolving gas sphere',iunit)
+ call write_inopt(nstar_in,'nstar','number of particles resolving gas sphere',iunit)  ! note: this is an estimate, actual no. of particles is npart outputted from set_sphere
  call write_inopt(Mstar,'Mstar','sphere mass in code units',iunit)
  call write_inopt(Rstar,'Rstar','sphere radius in code units',iunit)
 
@@ -237,7 +245,7 @@ subroutine read_setupfile(filename,ierr)
 
  call read_options_and_set_units(db,nerr)
 
- call read_inopt(nstar,'nstar',db,errcount=nerr)
+ call read_inopt(nstar_in,'nstar',db,errcount=nerr)
  call read_inopt(Mstar,'Mstar',db,errcount=nerr)
  call read_inopt(Rstar,'Rstar',db,errcount=nerr)
 

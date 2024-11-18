@@ -165,7 +165,6 @@ subroutine inject_particles(time,dtlast,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
     h = hfact*sw_chi/udist
     !add the particle
     call add_or_update_particle(part_type, xyzi, vxyz, h, u, i_part, npart, npartoftype, xyzh, vxyzu)
-
  enddo
  !
  !-- no constraint on timestep
@@ -281,7 +280,7 @@ end subroutine phi_derivs
 subroutine update_injected_par
  ! -- placeholder function
  ! -- does not do anything and will never be used
-end subroutine
+end subroutine update_injected_par
 
 !-----------------------------------------------------------------------
 !+

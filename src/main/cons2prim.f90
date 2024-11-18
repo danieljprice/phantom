@@ -6,9 +6,19 @@
 !--------------------------------------------------------------------------!
 module cons2prim
 !
-! None
+! Subroutines to swap between primitive variables needed on RHS of fluid
+! equations (density,velocity,internal energy) and conserved/evolved
+! variables on the LHS of the fluid equations (rho*,momentum,entropy)
 !
-! :References: None
+! This is complicated in the GR code but also useful to structure
+! things this way in the non-GR code, e.g. B/rho is the evolved variable
+! while B is the "primitive" variable for magnetic field. Similarly
+! sqrt(rho_d) is the evolved variable for dust species but the primitive
+! variable is the dust mass fraction.
+!
+! :References:
+!   Liptai & Price (2019), MNRAS 485, 819-842
+!   Ballabio et al. (2018), MNRAS 477, 2766-2771
 !
 ! :Owner: Elisabeth Borchert
 !
@@ -26,12 +36,14 @@ module cons2prim
 
 contains
 
-!-------------------------------------
-!
-!  Primitive to conservative routines
-!
-!-------------------------------------
-
+!----------------------------------------------------------------------
+!+
+!  Primitive to conservative transform (for GR):
+!  Construct conserved variables (rho*,momentum,entropy)
+!  from the primitive/fluid rest frame variables
+!  (density,velocity,internal energy), for ALL particles
+!+
+!----------------------------------------------------------------------
 subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
  use part, only:isdead_or_accreted,ien_type,eos_vars,igasP,igamma,itemp
  use eos,  only:gamma,ieos
@@ -75,6 +87,12 @@ subroutine prim2consall(npart,xyzh,metrics,vxyzu,dens,pxyzu,use_dens)
 
 end subroutine prim2consall
 
+!----------------------------------------------------------------------
+!+
+!  Primitive to conservative transform (for GR):
+!  for a single SPH particle
+!+
+!----------------------------------------------------------------------
 subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_type)
  use cons2primsolver, only:primitive2conservative
  use utils_gr,        only:h2dens
@@ -112,38 +130,46 @@ subroutine prim2consi(xyzhi,metrici,vxyzui,dens_i,pri,tempi,pxyzui,use_dens,ien_
 
 end subroutine prim2consi
 
-!---------------------------------------------
-!
-!  Conservative to primitive routines (for GR)
-!
-!---------------------------------------------
-
+!----------------------------------------------------------------------
+!+
+!  Conservative to primitive routines (for GR):
+!  Solve for primitive variables (density,velocity,internal energy)
+!  from the evolved/conservative variables (rho*,momentum,entropy)
+!+
+!----------------------------------------------------------------------
 subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
  use cons2primsolver, only:conservative2primitive
  use part,            only:isdead_or_accreted,massoftype,igas,rhoh,igasP,ics,ien_type,&
-                           itemp,igamma
+                           itemp,igamma,aprmassoftype,apr_level
  use io,              only:fatal
+ use eos,             only:ieos,done_init_eos,init_eos,get_spsound
+ use dim,             only:use_apr
  use eos,             only:ieos,done_init_eos,init_eos,get_spsound
  integer, intent(in)    :: npart
  real,    intent(in)    :: pxyzu(:,:),xyzh(:,:),metrics(:,:,:,:)
  real,    intent(inout) :: vxyzu(:,:),dens(:)
  real,    intent(out)   :: eos_vars(:,:)
  integer :: i, ierr
- real    :: p_guess,rhoi,tempi,gammai
+ real    :: p_guess,rhoi,tempi,gammai,pmassi
 
  if (.not.done_init_eos) call init_eos(ieos,ierr)
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype) &
-!$omp shared(ieos,eos_vars,ien_type) &
-!$omp private(i,ierr,p_guess,rhoi,tempi,gammai)
+!$omp shared(xyzh,metrics,vxyzu,dens,pxyzu,npart,massoftype,aprmassoftype) &
+!$omp shared(ieos,eos_vars,ien_type,apr_level) &
+!$omp private(i,ierr,p_guess,rhoi,tempi,gammai,pmassi)
  do i=1,npart
     if (.not.isdead_or_accreted(xyzh(4,i))) then
        ! get pressure, temperature and gamma from previous step as the initial guess
        p_guess = eos_vars(igasP,i)
        tempi   = eos_vars(itemp,i)
        gammai  = eos_vars(igamma,i)
-       rhoi    = rhoh(xyzh(4,i),massoftype(igas))
+       if (use_apr) then
+          pmassi = aprmassoftype(igas,apr_level(i))
+       else
+          pmassi = massoftype(igas)
+       endif
+       rhoi    = rhoh(xyzh(4,i),pmassi)
 
        call conservative2primitive(xyzh(1:3,i),metrics(:,:,:,i),vxyzu(1:3,i),dens(i),vxyzu(4,i), &
                                   p_guess,tempi,gammai,rhoi,pxyzu(1:3,i),pxyzu(4,i),ierr,ien_type)
@@ -165,22 +191,25 @@ subroutine cons2primall(npart,xyzh,metrics,pxyzu,vxyzu,dens,eos_vars)
 
 end subroutine cons2primall
 
-!-------------------------------------
+!-----------------------------------------------------------------------------
+!+
+!  Solve for primitive variables (v,u,P,B,dustfrac) from evolved variables
+!  (v,energy variable,B/rho,sqrt(rho*eps)) in the non-relativistic code
 !
-!  Primitive variables from conservative variables
-!
-!-------------------------------------
-
+!  In this case no "solver" is required, but we do need to call the
+!  equation of state to get the pressure
+!+
+!-----------------------------------------------------------------------------
 subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
                                 Bevol,Bxyz,dustevol,dustfrac,alphaind)
  use part,              only:isdead_or_accreted,massoftype,igas,rhoh,igasP,iradP,iradxi,ics,imu,iX,iZ,&
                              iohm,ihall,nden_nimhd,eta_nimhd,iambi,get_partinfo,iphase,this_is_a_test,&
-                             ndustsmall,itemp,ikappa,idmu,idgamma,icv
+                             ndustsmall,itemp,ikappa,idmu,idgamma,icv,aprmassoftype,apr_level,isionised
  use part,              only:nucleation,igamma
  use eos,               only:equationofstate,ieos,eos_outputs_mu,done_init_eos,init_eos,gmw,X_in,Z_in,gamma
  use radiation_utils,   only:radiation_equation_of_state,get_opacity
  use dim,               only:mhd,maxvxyzu,maxphase,maxp,use_dustgrowth,&
-                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma
+                             do_radiation,nalpha,mhd_nonideal,do_nucleation,use_krome,update_muGamma,use_apr
  use nicil,             only:nicil_update_nimhd,nicil_translate_error,n_warn
  use io,                only:fatal,real4,warning
  use cullendehnen,      only:get_alphaloc,xi_limiter
@@ -213,9 +242,9 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
  Z_i    = Z_in
 
 !$omp parallel do default (none) &
-!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz) &
+!$omp shared(xyzh,vxyzu,npart,rad,eos_vars,radprop,Bevol,Bxyz,apr_level) &
 !$omp shared(ieos,nucleation,nden_nimhd,eta_nimhd) &
-!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype) &
+!$omp shared(alpha,alphamax,iphase,maxphase,maxp,massoftype,aprmassoftype,isionised) &
 !$omp shared(use_dustfrac,dustfrac,dustevol,this_is_a_test,ndustsmall,alphaind,dvdx) &
 !$omp shared(iopacity_type,use_var_comp,do_nucleation,update_muGamma,implicit_radiation) &
 !$omp private(i,spsound,rhoi,p_on_rhogas,rhogas,gasfrac,uui) &
@@ -235,7 +264,11 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
 
        if (maxphase==maxp) call get_partinfo(iphase(i),iactivei,iamgasi,iamdusti,iamtypei)
 
-       pmassi  = massoftype(iamtypei)
+       if (use_apr) then
+          pmassi = aprmassoftype(iamtypei,apr_level(i))
+       else
+          pmassi  = massoftype(iamtypei)
+       endif
        rhoi    = rhoh(hi,pmassi)
        !
        !--Convert dust variable to dustfrac
@@ -272,12 +305,15 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        if (use_krome) gammai = eos_vars(igamma,i)
        if (maxvxyzu >= 4) then
           uui = vxyzu(4,i)
-          if (uui < 0.) call warning('cons2prim','Internal energy < 0',i,'u',uui)
+          if (uui < 0.) then
+             call warning('cons2prim','Internal energy < 0',i,'u',uui)
+          endif
           call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,eni=uui,&
-                               gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i)
+                               gamma_local=gammai,mu_local=mui,Xlocal=X_i,Zlocal=Z_i,isionised=isionised(i))
        else
           !isothermal
-          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui)
+          call equationofstate(ieos,p_on_rhogas,spsound,rhogas,xi,yi,zi,temperaturei,mu_local=mui, &
+                               isionised=isionised(i))
        endif
 
        eos_vars(igasP,i)  = p_on_rhogas*rhogas
@@ -345,7 +381,6 @@ subroutine cons2prim_everything(npart,xyzh,vxyzu,dvdx,rad,eos_vars,radprop,&
        call fatal('cons2prim_everything','error in Nicil')
     endif
  endif
-
 
 end subroutine cons2prim_everything
 

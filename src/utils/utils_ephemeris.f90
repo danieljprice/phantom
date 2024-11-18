@@ -71,7 +71,7 @@ subroutine construct_horizons_api_url(object,url,ierr)
  integer,          intent(out) :: ierr
  character(len=3)  :: cmd
  character(len=10) :: start_epoch,end_epoch
- integer(kind=8)   :: values(8),year,month,day
+ integer           :: values(8),year,month,day
 
  ierr = 0
  select case(trim(adjustl(object)))

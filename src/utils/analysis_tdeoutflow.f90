@@ -10,19 +10,16 @@ module analysis
 !
 ! :References: None
 !
-! :Owner: Fitz Hu
+! :Owner: Fitz) Hu
 !
 ! :Runtime parameters:
-!   - drad_cap  : *capture thickness (in cm) (-ve for all particles at outer radius)*
-!   - phi_max   : *max phi (in deg)*
-!   - phi_min   : *min phi (in deg)*
-!   - rad_cap   : *capture inner radius (in cm)*
-!   - theta_max : *max theta (in deg)*
-!   - theta_min : *min theta (in deg)*
-!   - v_max     : *max velocity (in c)*
-!   - v_min     : *min velocity (in c)*
+!   - phi_max   : *max phi (in deg) (-ve = ignore)*
+!   - phi_min   : *min phi (in deg) (-ve = ignore)*
+!   - r_in      : *radius to count outflow (in cm)*
+!   - theta_max : *max theta (in deg) (-ve = ignore)*
+!   - theta_min : *min theta (in deg) (-ve = ignore)*
 !
-! :Dependencies: infile_utils, io, physcon, readwrite_dumps, units
+! :Dependencies: infile_utils, io, part, physcon, readwrite_dumps, units
 !
  implicit none
  character(len=10), parameter, public :: analysistype = 'tdeoutflow'
@@ -34,7 +31,7 @@ module analysis
  real, dimension(:), allocatable    :: rad_all,vr_all,v_all
  real, dimension(:), allocatable    :: theta,plot_theta,phi,vr,vtheta,vphi
  logical, dimension(:), allocatable :: cap
- real    :: m_accum, m_cap 
+ real    :: m_accum, m_cap
  real    :: vr_accum_mean, vr_accum_max, vr_cap_mean, vr_cap_max
  real    :: r_accum_maxv, r_cap_maxv
  real    :: v_accum_mean, v_cap_mean
@@ -122,7 +119,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
     vout = 0.
     macc = 0.
     dt = 1.
- else  
+ else
     call outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all,mout,vrout,vout,macc)
     dt = time - told
  endif
@@ -137,7 +134,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  else
     open(iunit,file=outfile,status='new')
  endif
- 
+
  if (first) then
     write(iunit,"('#',5(1x,'[',i2.2,1x,a11,']',2x))") &
            1,'time [s]',    &
@@ -152,7 +149,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
            mout/dt*umass/utime,   &
            vrout, &
            vout, &
-           macc/dt*umass/utime    
+           macc/dt*umass/utime
  close(iunit)
  first = .false.
 
@@ -208,7 +205,7 @@ subroutine outflow_analysis(npart,pmass,xyzh,vxyzu,rad_all,vr_all,v_all,mout,vro
           if (theta_max < theta_min .or. theta_max > 180.) theta_max = 180.
           if (phi_min < -90. .or. phi_min > 90.) phi_min = -90.
           if (phi_max < phi_min .or. phi_max > 90.) phi_max = 90.
-     
+
           x = xyzh(1,i)
           y = xyzh(2,i)
           z = xyzh(3,i)

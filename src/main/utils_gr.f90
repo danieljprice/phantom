@@ -6,15 +6,15 @@
 !--------------------------------------------------------------------------!
 module utils_gr
 !
-! None
+! Utility routines for the GR code
 !
-! :References: None
+! :References: Liptai & Price (2019), MNRAS 485, 819-842
 !
 ! :Owner: David Liptai
 !
 ! :Runtime parameters: None
 !
-! :Dependencies: fastmath, io, metric, metric_tools, part
+! :Dependencies: io, metric, metric_tools, part
 !
  implicit none
 
@@ -42,15 +42,14 @@ pure real function dot_product_gr(vec1,vec2,gcov)
     dot_product_gr = dot_product_gr + dot_product(gcov(:,i),vec1(i)*vec2(:))
  enddo
 
- return
 end function dot_product_gr
 
-!-------------------------------------------------------------------------------
-
+!----------------------------------------------------------------
+!+
+!  Function to return U^0, the time component of the 4-velocity
+!+
+!----------------------------------------------------------------
 pure subroutine get_u0(gcov,v,U0,ierr)
-#ifdef FINVSQRT
- use fastmath, only:finvsqrt
-#endif
  real,    intent(in)  :: gcov(0:3,0:3), v(1:3)
  real,    intent(out) :: U0
  integer, intent(out) :: ierr
@@ -60,23 +59,19 @@ pure subroutine get_u0(gcov,v,U0,ierr)
  v4(0)   = 1.
  v4(1:3) = v(1:3)
  vv      = dot_product_gr(v4,v4,gcov)
-#ifdef FINVSQRT
- U0      = finvsqrt(-vv)
-#else
  U0      = 1./sqrt(-vv)
-#endif
  if (vv > 0.) ierr = 1
 
 end subroutine get_u0
 
-!-------------------------------------------------------------------------------
-
+!----------------------------------------------------------------
+!+
+!  Function to return V^i, the velocity of an Eulerian observer
+!+
+!----------------------------------------------------------------
 subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
  use metric_tools, only:unpack_metric
  use io,           only:fatal
-#ifdef FINVSQRT
- use fastmath,     only:finvsqrt
-#endif
  real, intent(in)  :: metrici(0:3,0:3,2),v(1:3)
  real, intent(out) :: bigv(1:3),bigv2,alpha,lorentz
  real :: betaUP(1:3),gammaijdown(1:3,1:3)
@@ -85,16 +80,16 @@ subroutine get_bigv(metrici,v,bigv,bigv2,alpha,lorentz)
  bigv = (v + betaUP)/alpha
  bigv2 = dot_product_gr(bigv,bigv,gammaijdown)
  if (bigv2 > 1.) call fatal('get_bigv','velocity faster than speed of light -- bigv2',val=bigv2)
-#ifdef FINVSQRT
- lorentz = finvsqrt(1.-bigv2)
-#else
  lorentz = 1./sqrt(1.-bigv2)
-#endif
 
 end subroutine get_bigv
 
-!-------------------------------------------------------------------------------
-
+!----------------------------------------------------------------
+!+
+!  get density in the fluid rest frame (primitive dens) from
+!  the conserved density rho* (stored as the smoothing length)
+!+
+!----------------------------------------------------------------
 subroutine h2dens(dens,xyzh,metrici,v)
  use part, only: rhoh,massoftype,igas
  real, intent(in) :: xyzh(1:4),metrici(:,:,:),v(1:3)
@@ -108,6 +103,12 @@ subroutine h2dens(dens,xyzh,metrici,v)
 
 end subroutine h2dens
 
+!----------------------------------------------------------------
+!+
+!  get density in the fluid rest frame (primitive dens) from
+!  the conserved density rho*
+!+
+!----------------------------------------------------------------
 subroutine rho2dens(dens,rho,position,metrici,v)
  use metric_tools, only:unpack_metric
  use io,           only:error
@@ -115,7 +116,6 @@ subroutine rho2dens(dens,rho,position,metrici,v)
  real, intent(out):: dens
  integer :: ierror
  real :: gcov(0:3,0:3), sqrtg, U0
-
 
  call unpack_metric(metrici,gcov=gcov)
  call get_sqrtg(gcov, sqrtg)
@@ -126,6 +126,12 @@ subroutine rho2dens(dens,rho,position,metrici,v)
 
 end subroutine rho2dens
 
+!----------------------------------------------------------------
+!+
+!  get terms required on the RHS of the geodesic equation
+!  in the form dp_i/dt = a_i, as described in Liptai & Price (2019)
+!+
+!----------------------------------------------------------------
 subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
  use metric_tools, only:unpack_metric
  integer, intent(in) :: npart
@@ -157,6 +163,11 @@ subroutine get_geodesic_accel(axyz,npart,vxyz,metrics,metricderivs)
 
 end subroutine get_geodesic_accel
 
+!----------------------------------------------------------------
+!+
+!  get determininant of the 4-metric
+!+
+!----------------------------------------------------------------
 subroutine get_sqrtg(gcov, sqrtg)
  use metric, only: metric_type
  real, intent(in) :: gcov(0:3,0:3)
@@ -205,6 +216,11 @@ subroutine get_sqrtg(gcov, sqrtg)
 
 end subroutine get_sqrtg
 
+!----------------------------------------------------------------
+!+
+!  get determininant of the 3-metric
+!+
+!----------------------------------------------------------------
 subroutine get_sqrt_gamma(gcov,sqrt_gamma)
  use metric, only: metric_type
  real, intent(in)  :: gcov(0:3,0:3)
@@ -235,17 +251,19 @@ subroutine get_sqrt_gamma(gcov,sqrt_gamma)
 
  else
     sqrt_gamma = 1.
-
  endif
-
 
 end subroutine get_sqrt_gamma
 
+!----------------------------------------------------------------
+!+
+!  add a Newtonian gravitational perturbation to the metric
+!+
+!----------------------------------------------------------------
 subroutine perturb_metric(phi,gcovper,gcov)
  real, intent(in) :: phi
  real, intent(out) :: gcovper(0:3,0:3)
  real, optional, intent(in) :: gcov(0:3,0:3)
-
 
  if (present(gcov)) then
     gcovper = gcov
@@ -257,29 +275,12 @@ subroutine perturb_metric(phi,gcovper,gcov)
     gcovper(3,3) = 1.
  endif
 
- ! Set the pertubed metric based on the Bardeen formulation
+ ! Set the perturbed metric based on the Bardeen formulation
  gcovper(0,0) = gcovper(0,0) - 2.*phi
  gcovper(1,1) = gcovper(1,1) - 2.*phi
  gcovper(2,2) = gcovper(2,2) - 2.*phi
  gcovper(3,3) = gcovper(3,3) - 2.*phi
 
-
 end subroutine perturb_metric
-
-! This is not being used at the moment.
-! subroutine dens2rho(rho,dens,position,v)
-!  use metric_tools, only: get_metric
-!  real, intent(in) :: dens,position(1:3),v(1:3)
-!  real, intent(out):: rho
-!  real :: gcov(0:3,0:3), gcon(0:3,0:3), sqrtg, U0
-!
-!  call get_metric(position,gcov,gcon,sqrtg)
-!  call get_u0(gcov,v,U0)
-!
-!  rho = sqrtg*U0*dens
-!
-! end subroutine dens2rho
-
-!-------------------------------------------------------------------------------
 
 end module utils_gr
