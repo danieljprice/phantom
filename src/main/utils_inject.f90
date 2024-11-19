@@ -79,17 +79,16 @@ end function get_neighb_distance
 !+
 !-----------------------------------------------------------------------
 subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, rho, &
-        geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, JKmuS, iomega)
+        geodesic_R, geodesic_v, npart, npartoftype, xyzh, vxyzu, itype, x0, v0, JKmuS)
  use icosahedron, only:pixel2vector
  use partinject,  only:add_or_update_particle
  use part,        only:hrho,xyzmh_ptmass, iReff, ispinx, ispiny, ispinz
  use geometry,    only:vector_transform, coord_transform
  use units,       only:unit_velocity
- use physcon,     only:gg,au,solarm
+ use physcon,     only:gg,au,solarm,km
  integer, intent(in) :: sphere_number, first_particle, ires, itype
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
- integer, intent(in), optional :: iomega
  integer, intent(inout) :: npart, npartoftype(:)
  real,    intent(inout) :: xyzh(:,:), vxyzu(:,:)
 
@@ -128,8 +127,9 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  h_sim = hrho(rho)
  particles_per_sphere = get_parts_per_sphere(ires)
 
- if (present(iomega)) then
-    wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+ omega = 0.
+ wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
+ if (wind_rotation_speed > 0.001*km/unit_velocity) then
     rotation_speed_crit = sqrt((gg*xyzmh_ptmass(4,1)*solarm)/(xyzmh_ptmass(iReff,1)*au))/unit_velocity
     omega = wind_rotation_speed/rotation_speed_crit
 
@@ -155,7 +155,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     particle_position = r*radial_unit_vector_rotated
     particle_velocity = v*radial_unit_vector_rotated
 
-    if (present(iomega)) then
+    if (omega > 0.) then
 
        if (omega_axis(3) /= 1.) then
           rot_particle_position = 0.
