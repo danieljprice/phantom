@@ -621,7 +621,7 @@ subroutine equation_of_state(gamma)
  use options, only:ieos,icooling
  use options, only:nfulldump,alphau,ipdv_heating,ishock_heating
  use eos_stamatellos, only:init_S07cool
- use physcon, only:twopi
+ use physcon, only:rpiontwo
  real, intent(out) :: gamma
  real              :: H_R_atm, cs
 
@@ -722,8 +722,8 @@ subroutine equation_of_state(gamma)
        if (ndiscs > 1) then
           print *, "We can't set up multiple radapprox discs yet :,("
           stop
-       else
-          cs = get_cs_from_lum(L_star(1),R_ref(1)) / sqrt(twopi)  
+       else  
+          cs = get_cs_from_lum(L_star(1),R_ref(1)) / rpiontwo  
           H_R(1) = cs * R_ref(1)**0.5 / sqrt(m1) ! single central star, G=1
        endif
     else
