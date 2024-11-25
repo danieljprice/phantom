@@ -3042,25 +3042,28 @@ subroutine finish_cell_and_store_results(icall,cell,fxyzu,xyzh,vxyzu,poten,dt,dv
              !fxyzu(4,i) = 0.
           else
              if (maxvxyzu >= 4) fxyzu(4,i) = fxyz4
-             if (icooling == 9) duSPH(i) = fxyz4
+             if (icooling == 9) then                                                                                               
+                call energ_cooling(xi,yi,zi,vxyzu(4,i),rhoi,dt,divcurlv(1,i),dudtcool,duhydro=fxyz4,ipart=i)
+                dusph(i) = fxyz4
+             endif
           endif
        endif
 
        if (mhd) then
           !
-          ! sum returns d(B/rho)/dt, just what we want!
+          ! sum returns d(b/rho)/dt, just what we want!
           !
-          dBevol(1,i) = fsum(idBevolxi)
-          dBevol(2,i) = fsum(idBevolyi)
-          dBevol(3,i) = fsum(idBevolzi)
+          dbevol(1,i) = fsum(idbevolxi)
+          dbevol(2,i) = fsum(idbevolyi)
+          dbevol(3,i) = fsum(idbevolzi)
           !
-          ! hyperbolic/parabolic cleaning terms (dpsi/dt) from Tricco & Price (2012)
+          ! hyperbolic/parabolic cleaning terms (dpsi/dt) from tricco & price (2012)
           !
           if (psidecayfac > 0.) then
              vcleani = overcleanfac*vwavei
              dtau = psidecayfac*vcleani*hi1
              !
-             ! we clean using the difference operator for div B
+             ! we clean using the difference operator for div b
              !
              psii = xpartveci(ipsi)
 

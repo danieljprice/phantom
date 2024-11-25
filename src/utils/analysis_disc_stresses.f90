@@ -47,6 +47,8 @@ contains
 subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  use io,      only:fatal
  use part,    only:gravity,mhd,eos_vars
+ use eos,     only:ieos
+ use eos_stamatellos, only:eos_file,read_optab
 
  character(len=*), intent(in) :: dumpfile
  real,             intent(in) :: xyzh(:,:),vxyzu(:,:)
@@ -54,6 +56,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
  integer,          intent(in) :: npart,iunit,numfile
 
  character(len=9) :: output
+ integer          :: ierr
 
 
  ! Code calculates the following alphas:
@@ -71,6 +74,7 @@ subroutine do_analysis(dumpfile,numfile,xyzh,vxyzu,pmass,npart,time,iunit)
 
 ! Read analysis options
  call read_analysis_options
+ if (ieos==23) call read_optab(eos_file,ierr)
 
  if (mhd) print*, 'This is an MHD dump: will calculate Maxwell Stress'
 
@@ -365,7 +369,7 @@ subroutine radial_binning(npart,xyzh,vxyzu,pmass,eos_vars)
  real,intent(in) :: pmass
  real,intent(in) :: xyzh(:,:),vxyzu(:,:),eos_vars(:,:)
 
- integer :: ibin,ipart,nbinned,iallocerr
+ integer :: ibin,ipart,nbinned,iallocerr,ierr
  real :: area,csi
 
  print '(a,I4)', 'Carrying out radial binning, number of bins: ',nbins
@@ -465,7 +469,6 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  use units,   only: print_units, umass,udist,utime,unit_velocity,unit_density,unit_Bfield
  use dim,     only: gravity
  use part,    only: mhd,rhoh,alphaind,imu,itemp
- use eos,     only: ieos
 
  implicit none
 
@@ -499,9 +502,9 @@ subroutine calc_stresses(npart,xyzh,vxyzu,pmass)
  call print_units
 
  sigma(:) = sigma(:)*umass/(udist*udist)
- if (ieos /= 21) then
+! if (ieos /= 23) then
     csbin(:) = csbin(:)*unit_velocity
- endif
+ !endif
  omega(:) = omega(:)/utime
 
  Keplog = 1.5
@@ -659,7 +662,7 @@ end subroutine calculate_H
 !+
 !-------------------------------------------------------
 subroutine deallocate_arrays
-
+ use eos_stamatellos, only:optable
  implicit none
 
  deallocate(gravxyz)
@@ -670,6 +673,7 @@ subroutine deallocate_arrays
  deallocate(sigma,csbin,H,toomre_q,omega,epicyc)
  deallocate(alpha_reyn,alpha_grav,alpha_mag,alpha_art)
  deallocate(part_scaleheight)
+ if (allocated(optable)) deallocate(optable)
 
 end subroutine deallocate_arrays
 !-------------------------------------------------------

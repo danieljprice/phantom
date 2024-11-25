@@ -353,7 +353,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
     call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
     if (icooling==9 .and. doFLD .and. icall==1) then
-       call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+       call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
     endif
 
     if (do_export) then
@@ -389,7 +389,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
              if (icooling==9 .and. doFLD) then
-                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
              endif
 
              if (do_export) then
@@ -462,7 +462,7 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
 
           call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
           if (icooling==9 .and. doFLD) then
-             call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+             call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
           endif
 
           remote_export = .false.
@@ -523,10 +523,9 @@ subroutine densityiterate(icall,npart,nactive,xyzh,vxyzu,divcurlv,divcurlB,Bevol
              enddo
              call reserve_stack(stack_redo,cell%waiting_index)
              call send_cell(cell,remote_export,irequestsend,xsendbuf,cell_counters,mpitype) ! send the cell to remote
-
              call compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,fxyzu,fext,xyzcache,rad,apr_level)
              if (icooling==9 .and. doFLD) then
-                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
+                call calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda_FLD,urad_FLD)
              endif
 
              call write_cell(stack_redo,cell)
@@ -1293,7 +1292,6 @@ pure subroutine compute_cell(cell,listneigh,nneigh,getdv,getdB,Bevol,xyzh,vxyzu,
 
     cell%nneightry = nneigh
     cell%nneigh(i) = nneighi
-
  enddo over_parts
 
 end subroutine compute_cell
@@ -1708,7 +1706,7 @@ subroutine store_results(icall,cell,getdv,getdb,realviscosity,stressmax,xyzh,&
 
 end subroutine store_results
 
-subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gradh,lambda,urad_FLD)
+subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,vxyzu,iphase,gradh,lambda,urad_FLD)
  use io,    only:error
  use dim,   only:maxp
  use kernel,only:get_kernel,wab0
@@ -1725,7 +1723,6 @@ subroutine calc_lambda_cell(cell,listneigh,nneigh,xyzh,xyzcache,vxyzu,iphase,gra
  integer,         intent(in)     :: listneigh(:)
  integer,         intent(in)     :: nneigh
  real,            intent(in)     :: xyzh(:,:)
- real,            intent(in)     :: xyzcache(:,:)
  real,            intent(in)     :: vxyzu(:,:)
  integer(kind=1), intent(in)     :: iphase(:)
  real(kind=4),    intent(in)     :: gradh(:,:)
