@@ -90,7 +90,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
  use part,             only:npart,nptmass,xyzh,vxyzu,fxyzu,fext,divcurlv,massoftype, &
                             xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dptmass,gravity,iboundary, &
                             fxyz_ptmass_sinksink,ntot,poten,ndustsmall,accrete_particles_outside_sphere,&
-                            linklist_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
+                            ll_ptmass,isionised,dsdt_ptmass,isdead_or_accreted
  use part,             only:n_group,n_ingroup,n_sing,group_info,bin_info,nmatrix
  use quitdump,         only:quit
  use ptmass,           only:icreate_sinks,ptmass_create,ipart_rhomax,pt_write_sinkev,calculate_mdot, &
@@ -286,7 +286,7 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new sink particles
        !
        call ptmass_create(nptmass,npart,ipart_rhomax,xyzh,vxyzu,fxyzu,fext,divcurlv,&
-                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,time)
+                          poten,massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,ll_ptmass,dptmass,time)
     endif
 
     if (icreate_sinks == 2) then
@@ -294,14 +294,14 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
        ! creation of new seeds into evolved sinks
        !
        if (ipart_createseeds /= 0) then
-          call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,time)
+          call ptmass_create_seeds(nptmass,ipart_createseeds,ll_ptmass,time)
        endif
        !
        ! creation of new stars from sinks (cores)
        !
        if (ipart_createstars /= 0) then
           call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink, &
-                               linklist_ptmass,time)
+                               ll_ptmass,time)
        endif
     endif
 
@@ -322,10 +322,10 @@ subroutine evol(infile,logfile,evfile,dumpfile,flag)
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
                               new_ptmass=.true.,dtext=dtextforce)
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info,group_info=group_info)
+                 fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,ll_ptmass,bin_info,group_info=group_info)
        else
           call get_force(nptmass,npart,0,1,time,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass,vxyz_ptmass,&
-                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,linklist_ptmass,bin_info)
+                fxyz_ptmass,dsdt_ptmass,0.,0.,dummy,.false.,ll_ptmass,bin_info)
        endif
        if (ipart_createseeds /= 0) ipart_createseeds = 0 ! reset pointer to zero
        if (ipart_createstars /= 0) ipart_createstars = 0 ! reset pointer to zero

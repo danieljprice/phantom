@@ -785,7 +785,7 @@ subroutine test_createsink(ntests,npass)
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
                       nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ndptmass, &
-                      dptmass,fxyz_ptmass_sinksink,linklist_ptmass
+                      dptmass,fxyz_ptmass_sinksink,ll_ptmass
  use ptmass,     only:ptmass_accrete,update_ptmass,icreate_sinks,&
                       ptmass_create,finish_ptmass,ipart_rhomax,h_acc,rho_crit,rho_crit_cgs, &
                       ptmass_create_stars,tmax_acc,tseeds,ipart_createseeds,ipart_createstars,&
@@ -858,7 +858,7 @@ subroutine test_createsink(ntests,npass)
     tree_accuracy = 0.
     if (itest==3) then
        icreate_sinks = 2
-       linklist_ptmass = -1
+       ll_ptmass = -1
        tmax_acc = 0.
        tseeds = 0.
        ipart_createseeds = 1
@@ -924,7 +924,7 @@ subroutine test_createsink(ntests,npass)
        call reduceloc_mpi('max',ipart_rhomax_global,id_rhomax)
     endif
     call ptmass_create(nptmass,npart,itestp,xyzh,vxyzu,fxyzu,fext,divcurlv,poten,&
-                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,linklist_ptmass,dptmass,0.)
+                       massoftype,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,fxyz_ptmass_sinksink,ll_ptmass,dptmass,0.)
     if (itest==3) then
        coremass = 0.
        starsmass = 0.
@@ -935,9 +935,9 @@ subroutine test_createsink(ntests,npass)
        ri(3)    = xyzmh_ptmass(3,1)
        ri(2)    = xyzmh_ptmass(2,1)
        ri(1)    = xyzmh_ptmass(1,1)
-       call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,linklist_ptmass,0.)
+       call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,ll_ptmass,0.)
        call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                                fxyz_ptmass_sinksink,linklist_ptmass,0.)
+                                fxyz_ptmass_sinksink,ll_ptmass,0.)
        do i=1,nptmass
           pei = 0.
           do j=1,nptmass

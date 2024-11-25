@@ -55,7 +55,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
  use part,  only:xyzh,xyzh_label,vxyzu,vxyzu_label,Bevol,Bevol_label,Bxyz,Bxyz_label,npart,maxtypes, &
                  npartoftypetot,update_npartoftypetot, &
                  alphaind,rhoh,divBsymm,maxphase,iphase,iamtype_int1,iamtype_int11, &
-                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, linklist_ptmass, &
+                 nptmass,nsinkproperties,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label, ll_ptmass, &
                  maxptmass,get_pmass,nabundances,abundance,abundance_label,mhd,&
                  divcurlv,divcurlv_label,divcurlB,divcurlB_label,poten,dustfrac,deltav,deltav_label,tstop,&
                  dustfrac_label,tstop_label,dustprop,dustprop_label,eos_vars,eos_vars_label,ndusttypes,ndustsmall,VrelVf,&
@@ -307,7 +307,7 @@ subroutine write_fulldump_fortran(t,dumpfile,ntotal,iorder,sphNG)
           call write_array(2,xyzmh_ptmass,xyzmh_ptmass_label,nsinkproperties,nptmass,k,ipass,idump,nums,nerr)
           call write_array(2,vxyz_ptmass,vxyz_ptmass_label,3,nptmass,k,ipass,idump,nums,nerr)
           if (store_ll_ptmass) then
-             call write_array(2,linklist_ptmass,"linklist_ptmass",nptmass,k,ipass,idump,nums,nerr)
+             call write_array(2,ll_ptmass,"ll_ptmass",2,nptmass,k,ipass,idump,nums,nerr)
           endif
           if (nerr > 0) call error('write_dump','error writing sink particle arrays')
        endif
@@ -976,7 +976,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
                       use_dustgrowth,maxdusttypes,ndivcurlv,maxphase,gr,store_dust_temperature,&
                       ind_timesteps,use_krome,store_ll_ptmass
  use part,       only:xyzh,xyzh_label,vxyzu,vxyzu_label,dustfrac,dustfrac_label,abundance,abundance_label, &
-                      alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,linklist_ptmass, &
+                      alphaind,poten,xyzmh_ptmass,xyzmh_ptmass_label,vxyz_ptmass,vxyz_ptmass_label,ll_ptmass, &
                       Bevol,Bxyz,Bxyz_label,nabundances,iphase,idust, &
                       eos_vars,eos_vars_label,maxeosvars,dustprop,dustprop_label,divcurlv,divcurlv_label,iX,iZ,imu, &
                       VrelVf,VrelVf_label,dustgasprop,dustgasprop_label,filfac,filfac_label,pxyzu,pxyzu_label,dust_temp, &
@@ -1122,7 +1122,7 @@ subroutine read_phantom_arrays(i1,i2,noffset,narraylengths,nums,npartread,nparto
              call read_array(xyzmh_ptmass,xyzmh_ptmass_label,got_sink_data,ik,1,nptmass,0,idisk1,tag,match,ierr)
              call read_array(vxyz_ptmass, vxyz_ptmass_label, got_sink_vels,ik,1,nptmass,0,idisk1,tag,match,ierr)
              if (store_ll_ptmass) then
-                call read_array(linklist_ptmass,'linklist_ptmass',got_sink_llist,ik,1,nptmass,0,idisk1,tag,match,ierr)
+                call read_array(ll_ptmass,'ll_ptmass',got_sink_llist,ik,1,nptmass,0,idisk1,tag,match,ierr)
              endif
           end select
           select case(iarr)   ! MHD arrays can either be in block 1 or block 4

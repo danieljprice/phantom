@@ -427,7 +427,7 @@ end subroutine substep_sph
  !----------------------------------------------------------------
 subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                    xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dptmass, &
-                   linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
+                   ll_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad,group_info, &
                    bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
  use io,             only:iverbose,id,master,iprint,fatal
  use options,        only:iexternalforce
@@ -445,7 +445,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  real,            intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:),dsdt_ptmass(:,:)
  real,            intent(inout) :: dptmass(ndptmass,nptmass),fsink_old(:,:),gtgrad(:,:),bin_info(:,:)
  integer(kind=1), intent(in)    :: nbinmax
- integer        , intent(inout) :: linklist_ptmass(:)
+ integer        , intent(inout) :: ll_ptmass(:,:)
  integer(kind=1), intent(inout) :: ibin_wake(:),nmatrix(nptmass,nptmass)
  logical,         intent(in)    :: isionised(:)
  logical :: extf_vdep_flag,done,last_step,accreted
@@ -494,13 +494,13 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,ll_ptmass,&
                       bin_info,group_info=group_info,nmatrix=nmatrix)
     else
        call drift(ck(1),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
        call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
+                      vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,ll_ptmass,&
                       bin_info,isionised=isionised)
     endif
 
@@ -509,7 +509,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
        ! FSI extrapolation method (Omelyan 2006)
        if (use_regnbody) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,ll_ptmass, &
                          bin_info,fsink_old,group_info=group_info,nmatrix=nmatrix)
 
           call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
@@ -521,11 +521,11 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
           call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass,n_ingroup,group_info)
 
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,ll_ptmass, &
                          bin_info,group_info=group_info,nmatrix=nmatrix,isionised=isionised)
        else
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,ll_ptmass,&
                          bin_info,fsink_old)
           call kick(dk(2),dt,npart,nptmass,ntypes,xyzh,vxyzu,xyzmh_ptmass,vxyz_ptmass,&
                     fext,fxyz_ptmass,dsdt_ptmass,dptmass)
@@ -533,7 +533,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
           call drift(ck(2),dt,time_par,npart,nptmass,ntypes,xyzh,xyzmh_ptmass,vxyzu,vxyz_ptmass)
 
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass,&
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,ll_ptmass,&
                          bin_info,isionised=isionised)
           ! the last kick phase of the scheme will perform the accretion loop after velocity update
        endif
@@ -546,11 +546,11 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
           call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,bin_info,nmatrix,&
                               dtext=dtgroup)
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass, &
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,ll_ptmass, &
                          bin_info,group_info=group_info,nmatrix=nmatrix)
        elseif (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,linklist_ptmass,&
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(3),force_count,extf_vdep_flag,ll_ptmass,&
                          bin_info)
        endif
     else  !! standard leapfrog scheme
@@ -560,7 +560,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
                 fxyz_ptmass_sinksink,accreted)
        if (accreted) then
           call get_force(nptmass,npart,nsubsteps,ntypes,time_par,dtextforce,xyzh,vxyzu,fext,xyzmh_ptmass, &
-                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,linklist_ptmass,&
+                         vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dk(2),force_count,extf_vdep_flag,ll_ptmass,&
                          bin_info)
        endif
     endif
@@ -579,7 +579,7 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
     endif
  enddo substeps
 
- if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,linklist_ptmass,nptmass,timei)
+ if (icreate_sinks == 2) call ptmass_check_stars(xyzmh_ptmass,ll_ptmass,nptmass,timei)
 
  if (nsubsteps > 1) then
     if (iverbose >=1 .and. id==master) then
@@ -841,7 +841,7 @@ end subroutine kick
 !----------------------------------------------------------------
 subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu, &
                      fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,dt,dki, &
-                     force_count,extf_vdep_flag,linklist_ptmass,bin_info,fsink_old,&
+                     force_count,extf_vdep_flag,ll_ptmass,bin_info,fsink_old,&
                      group_info,nmatrix,isionised)
  use io,              only:iverbose,master,id,iprint,warning,fatal
  use dim,             only:maxp,maxvxyzu,itau_alloc
@@ -862,7 +862,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
  integer,                  intent(in)    :: nptmass,npart,nsubsteps,ntypes
  integer,                  intent(inout) :: force_count
- integer,                  intent(inout) :: linklist_ptmass(:)
+ integer,                  intent(inout) :: ll_ptmass(:,:)
  real,                     intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,                     intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
  real,                     intent(inout) :: fxyz_ptmass(4,nptmass),dsdt_ptmass(3,nptmass)
@@ -927,7 +927,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                     extrapfac,fsink_old,group_info,bin_info)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass,merge_ij)
                 call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,&
                                     bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -939,7 +939,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                    dtf,iexternalforce,timei,merge_ij,merge_n, &
                                    dsdt_ptmass,extrapfac,fsink_old)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                       dtf,iexternalforce,timei,merge_ij,merge_n, &
                                       dsdt_ptmass,extrapfac,fsink_old)
@@ -951,7 +951,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
                                     dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass, &
                                     group_info=group_info,bin_info=bin_info)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass,merge_ij)
                 call group_identify(nptmass,n_group,n_ingroup,n_sing,xyzmh_ptmass,vxyz_ptmass,group_info,&
                                     bin_info,nmatrix,dtext=dt)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
@@ -965,7 +965,7 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
              call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
              if (merge_n > 0) then
-                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,linklist_ptmass,merge_ij)
+                call merge_sinks(timei,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass,merge_ij)
                 call get_accel_sink_sink(nptmass,xyzmh_ptmass,fxyz_ptmass,epot_sinksink,&
                                   dtf,iexternalforce,timei,merge_ij,merge_n,dsdt_ptmass)
              endif

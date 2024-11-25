@@ -104,7 +104,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
  use timestep,       only:dterr,bignumber,tolv
  use mpiutils,       only:reduceall_mpi
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,linklist_ptmass
+                          dsdt_ptmass,fsink_old,ibin_wake,dptmass,ll_ptmass
  use part,           only:n_group,n_ingroup,n_sing,gtgrad,group_info,bin_info,nmatrix
  use io_summary,     only:summary_printout,summary_variable,iosumtvi,iowake, &
                           iosumflrp,iosumflrps,iosumflrc
@@ -250,7 +250,7 @@ subroutine step(npart,nactive,t,dtsph,dtextforce,dtnew)
 
        call substep(npart,ntypes,nptmass,dtsph,dtextforce,t,xyzh,vxyzu,&
                     fext,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,dsdt_ptmass,&
-                    dptmass,linklist_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
+                    dptmass,ll_ptmass,fsink_old,nbinmax,ibin_wake,gtgrad, &
                     group_info,bin_info,nmatrix,n_group,n_ingroup,n_sing,isionised)
     else
        call substep_sph(dtsph,npart,xyzh,vxyzu)
