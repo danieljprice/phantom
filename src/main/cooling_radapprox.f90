@@ -90,17 +90,11 @@ subroutine radcool_evolve_ui(ui,dt,i,Tfloor,h,uout)
         
      ! if tthermi ==0 or dt/thermi is neglible then ui doesn't change
      if (isnan(utemp) .or. utemp < epsilon(utemp)) then 
-!        print *, "oh no i=",i,"ui=",ui,"tthermi=",tthermi,dt,"ueqi",ueqi,rhoi_cgs
- !       print *, exp(-dt/tthermi),1.d0-exp(-dt/tthermi)
-!        call warning("In radcool_evolve_ui","energ=NaN or 0. ui=",val=utemp)
         utemp = ui
      endif
   endif
-!else
-   !  print *, "no_update", tthermi,dt,ui,ueqi
-  !endif
   if (utemp < ufloor_cgs/unit_ergg) utemp = ufloor_cgs/unit_ergg
-  if (utemp < 0d0) print *, "ERRRORRR! i=",i, ui,ueqi 
+  if (utemp < 0d0) print *, "ERROR! i=",i, ui,ueqi 
   
   if (present(uout)) then 
      uout = utemp
