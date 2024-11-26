@@ -111,7 +111,7 @@ end subroutine radcool_evolve_ui
 ! update energy to return evolved energy array. Called from substep
 subroutine radcool_update_du(i,xi,yi,zi,rhoi,ui,duhydro,Tfloor)
  use io,       only:warning
- use physcon,  only:steboltz,pi,solarl,Rg,kb_on_mh,piontwo,rpiontwo
+ use physcon,  only:steboltz,pi,solarl,kb_on_mh,piontwo,rpiontwo
  use units,    only:umass,udist,unit_density,unit_ergg,utime,unit_pressure
  use eos_stamatellos, only:getopac_opdep,getintenerg_opdep,gradP_cool,Gpot_cool,&
           duFLD,doFLD,ttherm_store,ueqi_store,opac_store

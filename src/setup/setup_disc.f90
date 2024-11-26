@@ -3551,7 +3551,7 @@ real function get_cs_from_lum(L_star,r)
   real,intent(in) :: L_star,r
   real :: mu
 
-  mu = 2.3 !mean molecular mass
+  mu = 2.381 !mean molecular mass
   get_cs_from_lum = sqrt(kb_on_mh/mu) * ( (L_star*solarl/(fourpi*steboltz))**0.125 / &
                (r*udist)**0.25 + sqrt(T_bg) )
   get_cs_from_lum = get_cs_from_lum/unit_velocity
