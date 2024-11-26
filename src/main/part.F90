@@ -208,7 +208,7 @@ module part
  integer, parameter :: irateion = 21 ! Inoisation rate of the stars (log)(icreate_sinks == 2)
  integer, parameter :: itbirth = 22  ! birth time of the new sink
  integer, parameter :: ndptmass = 13 ! number of properties to conserve after a accretion phase or merge
- integer, allocatable :: ll_ptmass(:,:)
+ integer, allocatable :: ll_ptmass(:,:) ! 1 : type (1 sink ,2 star, 3 dead sink ), 2 : number of seeds, 3 : origin
  real,    allocatable :: xyzmh_ptmass(:,:)
  real,    allocatable :: vxyz_ptmass(:,:)
  real,    allocatable :: fxyz_ptmass(:,:),fxyz_ptmass_sinksink(:,:),fsink_old(:,:)
@@ -223,6 +223,7 @@ module part
     'mdotav   ','mprev    ','massenc  ','J2       ','Rstrom   ',&
     'rate_ion ','tbirth   '/)
  character(len=*), parameter :: vxyz_ptmass_label(3) = (/'vx','vy','vz'/)
+ character(len=*), parameter :: ll_ptmass_label(3) = (/'type  ','nseed ','origin'/)
 !
 !--self-gravity
 !
@@ -470,7 +471,7 @@ subroutine allocate_part
  call allocate_array('fxyz_ptmass_sinksink', fxyz_ptmass_sinksink, 4, maxptmass)
  call allocate_array('fsink_old', fsink_old, 4, maxptmass)
  call allocate_array('dptmass', dptmass, ndptmass,maxptmass)
- call allocate_array('ll_ptmass', ll_ptmass, 2, maxptmass)
+ call allocate_array('ll_ptmass', ll_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass', dsdt_ptmass, 3, maxptmass)
  call allocate_array('dsdt_ptmass_sinksink', dsdt_ptmass_sinksink, 3, maxptmass)
  call allocate_array('poten', poten, maxgrav)
@@ -629,7 +630,7 @@ subroutine init_part
  xyzmh_ptmass = 0.
  vxyz_ptmass  = 0.
  dsdt_ptmass  = 0.
- ll_ptmass = -1
+ ll_ptmass = 0
 
  ! initialise arrays not passed to setup routine to zero
  if (mhd) then

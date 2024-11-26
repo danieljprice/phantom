@@ -49,7 +49,7 @@ module ptmass
  public :: init_ptmass, finish_ptmass
  public :: pt_write_sinkev, pt_close_sinkev
  public :: get_accel_sink_gas, get_accel_sink_sink,get_accel_sink_slow
- public :: merge_sinks, update_after_merge
+ public :: merge_sinks, ptmass_merge_release
  public :: ptmass_kick, ptmass_drift,ptmass_vdependent_correction
  public :: ptmass_not_obscured
  public :: ptmass_accrete, ptmass_create
@@ -1205,7 +1205,7 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
  real(4),         intent(in)    :: divcurlv(:,:),poten(:)
  real,            intent(inout) :: xyzmh_ptmass(:,:),dptmass(ndptmass,maxptmass)
  real,            intent(inout) :: vxyz_ptmass(:,:),fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
- integer,         intent(inout) :: ll_ptmass(2,maxptmass)
+ integer,         intent(inout) :: ll_ptmass(3,maxptmass)
  real,            intent(in)    :: time
  integer(kind=1)    :: iphasei,ibin_wakei,ibin_itest
  integer            :: nneigh
@@ -1727,7 +1727,9 @@ subroutine ptmass_create(nptmass,npart,itest,xyzh,vxyzu,fxyzu,fext,divcurlv,pote
     nptmass = new_nptmass
     ! link the new sink to nothing (waiting for age > tseeds)
     if (icreate_sinks == 2) then
-       ll_ptmass(:,nptmass) = 0
+       ll_ptmass(1,nptmass) = 1
+       ll_ptmass(2,nptmass) = 0
+       ll_ptmass(3,nptmass) = nptmass
     endif
     !
     ! open new file to track new sink particle details & and update all sink-tracking files;
@@ -1767,12 +1769,12 @@ subroutine ptmass_create_seeds(nptmass,itest,ll_ptmass,time)
  integer, intent(in)    :: itest
  integer, intent(inout) :: ll_ptmass(:,:)
  real,    intent(in)    :: time
- integer :: j,nseed,n
+ integer :: nseed
 !
 !-- Draw the number of star seeds in the core
 !
  nseed = ceiling(n_max*ran2(iseed_sf))
- ll_ptmass(1,itest) = nseed
+ ll_ptmass(2,itest) = nseed
 
  write(iprint,"(a,i3,a,i3,a,es10.3)") ' Star formation prescription : creation of :',&
                                            nseed, ' seeds in sink n° :', itest, " t= ",time
@@ -1793,14 +1795,14 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  use part,      only:itbirth,ihacc,ihsoft,ispinx,ispiny,ispinz
  use random ,   only:ran2,gauss_random,divide_unit_seg
  use HIIRegion, only:update_ionrate,iH2R
- integer, intent(in)    :: nptmass,itest
- integer, intent(in)    :: ll_ptmass(:,:)
+ integer, intent(in)    :: itest
+ integer, intent(inout) :: nptmass,ll_ptmass(3,maxptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass),vxyz_ptmass(3,maxptmass)
  real,    intent(inout) :: fxyz_ptmass(4,maxptmass),fxyz_ptmass_sinksink(4,maxptmass)
  real,    intent(in)    :: time
  real, allocatable :: masses(:)
  real              :: xi(3),vi(3)
- integer           :: k,k_old,l,m,n
+ integer           :: k,k_old,m,n
  real, parameter   :: mcutoff = 0.35355339059
  real              :: mi,hacci,minmass,ke,phitot,phik,vscale,tscale,d2,d1
  real              :: a(8),velk,rk,xk(3),vk(3),xcom(3),vcom(3),rvir,rvirf
@@ -1814,7 +1816,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
  vi(1) = vxyz_ptmass(1,itest)
  vi(2) = vxyz_ptmass(2,itest)
  vi(3) = vxyz_ptmass(3,itest)
- n     = ll_ptmass(1,itest)
+ n     = ll_ptmass(2,itest)
  vcom = 0.
  xcom = 0.
 
@@ -1827,6 +1829,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     xyzmh_ptmass(ihacc,itest)       = hacci*1.e-3
     fxyz_ptmass(1:4,itest)          = 0.
     fxyz_ptmass_sinksink(1:4,itest) = 0.
+    ll_ptmass(1,itest)              = 2
     if (iH2R > 0) call update_ionrate(itest,xyzmh_ptmass,h_acc)
  else
     allocate(masses(n))
@@ -1844,9 +1847,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
     !
     !-- Position and velocity sampling using Plummer methods
     !
-    k = itest
+    k     = itest
+    k_old = k
     do while(n>0)
-       if (k/=itest) nptmass = nptmass + 1
        a(:) = 0.
        !
        !-- Positions
@@ -1891,13 +1894,21 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vxyz_ptmass(3,k)            = vk(3)
        fxyz_ptmass(1:4,k)          = 0.
        fxyz_ptmass_sinksink(1:4,k) = 0.
+       ll_ptmass(1,k) = 2
 
-       if (k /= itest) then
-          ll_ptmass(2,k_old) = k
+       if (k /= itest) then ! use ll_ptmass(3,:) as a linked list to make the index selection easy during star creation
+          ll_ptmass(2,k)     = 0
+          ll_ptmass(3,k_old) = k
        endif
-       k_old = k
        n = n - 1
+       if (n > 0) then
+          nptmass = nptmass + 1
+          k_old = k
+          k = nptmass
+       endif
     enddo
+
+    ll_ptmass(3,k) = -1
 
     !
     !-- Center the system on CoM
@@ -1910,7 +1921,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vcom(1) = vcom(1) + xyzmh_ptmass(4,k) * vxyz_ptmass(1,k)
        vcom(2) = vcom(2) + xyzmh_ptmass(4,k) * vxyz_ptmass(2,k)
        vcom(3) = vcom(3) + xyzmh_ptmass(4,k) * vxyz_ptmass(3,k)
-       k = ll_ptmass(2,k) ! acces to the next point mass in the linked list
+       k = ll_ptmass(3,k) ! acces to the next point mass in the linked list
     enddo
 
     k = itest
@@ -1921,7 +1932,7 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vxyz_ptmass(1,k)  = vxyz_ptmass(1,k)  - vcom(1)
        vxyz_ptmass(2,k)  = vxyz_ptmass(2,k)  - vcom(2)
        vxyz_ptmass(3,k)  = vxyz_ptmass(3,k)  - vcom(3)
-       k = ll_ptmass(2,k) ! acces to the next point mass in the linked list
+       k = ll_ptmass(3,k) ! acces to the next point mass in the linked list
     enddo
 
     !
@@ -1942,11 +1953,11 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
              d1 = 1./sqrt(d2)
              phik = phik + xyzmh_ptmass(4,m)*d1
           endif
-          m = ll_ptmass(2,m)
+          m = ll_ptmass(3,m)
        enddo
        ke  = ke + xyzmh_ptmass(4,k)*(vxyz_ptmass(1,k)**2 + vxyz_ptmass(2,k)**2 + vxyz_ptmass(3,k)**2)
        phitot = phitot + 0.5*xyzmh_ptmass(4,k)*phik
-       k = ll_ptmass(2,k) ! acces to the next point mass in the linked list
+       k = ll_ptmass(3,k) ! acces to the next point mass in the linked list
     enddo
     ke = 0.5*ke
 
@@ -1968,7 +1979,9 @@ subroutine ptmass_create_stars(nptmass,itest,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmas
        vxyz_ptmass(2,k)  = (vxyz_ptmass(2,k)  / vscale) * (rvirf/tscale) + vi(2)
        vxyz_ptmass(3,k)  = (vxyz_ptmass(3,k)  / vscale) * (rvirf/tscale) + vi(3)
        if (iH2R > 0) call update_ionrate(k,xyzmh_ptmass,h_acc)
-       k = ll_ptmass(2,k) ! acces to the next point mass in the linked list
+       k_old = k
+       k = ll_ptmass(3,k) ! acces to the next point mass in the linked list
+       ll_ptmass(3,k_old) = itest
     enddo
 
     deallocate(masses)
@@ -1984,14 +1997,17 @@ end subroutine ptmass_create_stars
 ! by releasing and killing some of them...
 !+
 !-------------------------------------------------------------------------
-subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
+subroutine ptmass_merge_release(itest,n,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass)
  use random ,   only:ran2,rinsphere
+ use dim,       only: maxptmass
  use io,        only: iverbose,iprint
  integer, intent(in)    :: itest,n
- real,    intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:),fxyz_ptmass(:,:)
+ integer, intent(inout) :: nptmass,ll_ptmass(3,maxptmass)
+ real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,maxptmass), &
+                           vxyz_ptmass(3,maxptmass),fxyz_ptmass(4,maxptmass)
  real    :: xi(3),vi(3),xk(3),vk(3),xcom(3),vcom(3),mi,mk,hacci,relfac
  real    :: r,vl,mrel
- integer :: nextra,nrel,k,ncur,kextra,k_old
+ integer :: nextra,nrel,k,npt_old
 
  if (iverbose >1) then
     write(iprint,*) 'Update after merge !! '
@@ -2005,19 +2021,22 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
 
  mrel   = 0.
 
+ npt_old = nptmass + 1
+ nptmass = nptmass + nrel
+ xi(1)   = xyzmh_ptmass(1,itest)
+ xi(2)   = xyzmh_ptmass(2,itest)
+ xi(3)   = xyzmh_ptmass(3,itest)
+ mi      = xyzmh_ptmass(4,itest)
+ hacci   = xyzmh_ptmass(ihacc,itest)
+ vi(1)   = vxyz_ptmass(1,itest)
+ vi(2)   = vxyz_ptmass(2,itest)
+ vi(3)   = vxyz_ptmass(3,itest)
+ ll_ptmass(2,itest) = n-nrel
 
- xi(1) = xyzmh_ptmass(1,itest)
- xi(2) = xyzmh_ptmass(2,itest)
- xi(3) = xyzmh_ptmass(3,itest)
- mi    = xyzmh_ptmass(4,itest)
- hacci = xyzmh_ptmass(ihacc,itest)
- vi(1) = vxyz_ptmass(1,itest)
- vi(2) = vxyz_ptmass(2,itest)
- vi(3) = vxyz_ptmass(3,itest)
  vcom = 0.
  xcom = 0.
 
- do k=nptmass+1,nptmass+(nrel-1)
+ do k=npt_old,nptmass
     call rinsphere(xk,iseed_sf)
     call rinsphere(vk,iseed_sf)
     xk = xk * hacci
@@ -2042,12 +2061,15 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
     vxyz_ptmass(2,k)            = vk(2)
     vxyz_ptmass(3,k)            = vk(3)
     fxyz_ptmass(1:4,k)          = 0.
+    ll_ptmass(1,k)              = 2
+    ll_ptmass(2,k)              = 0
+    ll_ptmass(3,k)              = itest
  enddo
 
  !
  !-- Center the system on CoM
  !
- do k=nptmass+1,nptmass+(nrel-1)
+ do k=npt_old,nptmass
     xcom(1) = xcom(1) + xyzmh_ptmass(4,k) * xyzmh_ptmass(1,k)
     xcom(2) = xcom(2) + xyzmh_ptmass(4,k) * xyzmh_ptmass(2,k)
     xcom(3) = xcom(3) + xyzmh_ptmass(4,k) * xyzmh_ptmass(3,k)
@@ -2059,7 +2081,7 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
  xcom = xcom/mi
  vcom = vcom/mi
 
- do k=nptmass+1,nptmass+(nrel-1)
+ do k=npt_old,nptmass
     xyzmh_ptmass(1,k) = xyzmh_ptmass(1,k) - xcom(1) + xi(1)
     xyzmh_ptmass(2,k) = xyzmh_ptmass(2,k) - xcom(2) + xi(2)
     xyzmh_ptmass(3,k) = xyzmh_ptmass(3,k) - xcom(3) + xi(3)
@@ -2078,7 +2100,7 @@ subroutine update_after_merge(itest,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass)
     vxyz_ptmass(3,itest)  = vxyz_ptmass(3,itest)  - vcom(3)
  endif
 
-end subroutine update_after_merge
+end subroutine ptmass_merge_release
 
 !-------------------------------------------------------------------------
 !+
@@ -2092,17 +2114,17 @@ subroutine ptmass_check_stars(xyzmh_ptmass,ll_ptmass,nptmass,time)
  real,    intent(in) :: xyzmh_ptmass(:,:)
  integer, intent(in) :: ll_ptmass(:,:)
  integer :: i
- real    :: tbirthi,hacci
+ real    :: tbirthi
  do i=1,nptmass
-    hacci = xyzmh_ptmass(ihacc,i)
     tbirthi = xyzmh_ptmass(itbirth,i)
-    if (hacci < h_acc ) cycle
-    if (tbirthi + tmax_acc < time) then
-       if (ipart_createstars == 0) ipart_createstars = i
-    endif
-    if ((tbirthi + tseeds < time) .and. (ll_ptmass(1,i) == 0) .and. &
+    if (ll_ptmass(1,i) == 1) then
+       if (tbirthi + tmax_acc < time) then
+          if (ipart_createstars == 0) ipart_createstars = i
+       endif
+       if ((tbirthi + tseeds < time) .and. (ll_ptmass(2,i) == 0) .and. &
         (ipart_createseeds == 0)) then
-       ipart_createseeds = i
+          ipart_createseeds = i
+       endif
     endif
  enddo
 end subroutine ptmass_check_stars
@@ -2134,11 +2156,12 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptma
  use io,    only:iprint,warning,iverbose,id,master,fatal
  use part,  only:itbirth
  real,    intent(in)    :: time
- integer, intent(in)    :: nptmass,merge_ij(nptmass)
- integer, intent(inout) :: ll_ptmass(2,nptmass)
+ integer, intent(inout) :: nptmass
+ integer, intent(in)    :: merge_ij(nptmass)
+ integer, intent(inout) :: ll_ptmass(3,nptmass)
  real,    intent(inout) :: xyzmh_ptmass(nsinkproperties,nptmass)
  real,    intent(inout) :: vxyz_ptmass(3,nptmass),fxyz_ptmass(4,nptmass)
- integer :: i,j,k,l,n
+ integer :: i,j,k,n
  real    :: rr2,xi,yi,zi,mi,vxi,vyi,vzi,xj,yj,zj,mj,vxj,vyj,vzj,Epot,Ekin
  real    :: mij,mij1,tbirthi,tbirthj
  logical :: lmerge
@@ -2210,17 +2233,17 @@ subroutine merge_sinks(time,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptma
              xyzmh_ptmass(4,j)      = -abs(mj)
              xyzmh_ptmass(ihacc,j)  = -1.
              if (icreate_sinks == 2) then
-                ! Connect linked list of the merged sink to the survivor
-                if (ll_ptmass(1,j)==0) then
-                   ll_ptmass(1,j) = -2 ! special null pointer for dead gas clump
-                elseif (ll_ptmass(1,j)>0) then
-                   n = ll_ptmass(1,j) + ll_ptmass(1,k)
+                ! Merge stars seeds and release escapers
+                if (ll_ptmass(2,j)>=0) then
+                   n = ll_ptmass(2,j) + ll_ptmass(2,k)
                    if (n > n_max) then
-                      call update_after_merge(k,n,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass)
+                      call ptmass_merge_release(k,n,nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass,ll_ptmass)
                    endif
                 else
                    call fatal(label,'Merge with a star or a dead clump of gas... Something wrong')
                 endif
+                ll_ptmass(1,j) = 3
+                ll_ptmass(3,j) = k
              endif
              ! print success
              write(iprint,"(/,1x,3a,I8,a,I8,a,F10.4)") 'merge_sinks: ',typ,' merged sinks ',k,' & ',j,' at time = ',time

@@ -858,7 +858,7 @@ subroutine test_createsink(ntests,npass)
     tree_accuracy = 0.
     if (itest==3) then
        icreate_sinks = 2
-       ll_ptmass = -1
+       ll_ptmass = 0.
        tmax_acc = 0.
        tseeds = 0.
        ipart_createseeds = 1
@@ -935,7 +935,7 @@ subroutine test_createsink(ntests,npass)
        ri(3)    = xyzmh_ptmass(3,1)
        ri(2)    = xyzmh_ptmass(2,1)
        ri(1)    = xyzmh_ptmass(1,1)
-       call ptmass_create_seeds(nptmass,ipart_createseeds,xyzmh_ptmass,ll_ptmass,0.)
+       call ptmass_create_seeds(nptmass,ipart_createseeds,ll_ptmass,0.)
        call ptmass_create_stars(nptmass,ipart_createstars,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
                                 fxyz_ptmass_sinksink,ll_ptmass,0.)
        do i=1,nptmass
@@ -1002,10 +1002,11 @@ subroutine test_merger(ntests,npass)
  use dim,            only:periodic
  use io,             only:id,master,iverbose
  use part,           only:nptmass,xyzmh_ptmass,vxyz_ptmass,fxyz_ptmass, &
-                          npart,ihacc,epot_sinksink,dsdt_ptmass
+                          npart,ihacc,itbirth,epot_sinksink,dsdt_ptmass,&
+                          ll_ptmass
  use ptmass,         only:h_acc,h_soft_sinksink,get_accel_sink_sink, &
                           r_merge_uncond,r_merge_cond,r_merge_uncond2,&
-                          r_merge_cond2,r_merge2
+                          r_merge_cond2,r_merge2,icreate_sinks,n_max
  use random,         only:ran2
  use step_lf_global, only:init_step,step
  use timestep,       only:dtmax
@@ -1014,7 +1015,7 @@ subroutine test_merger(ntests,npass)
  integer, intent(inout) :: ntests,npass
  integer, parameter :: max_to_test = 100
  logical, parameter :: print_sink_paths = .false. ! print sink paths in the merger test
- integer :: i,j,iseed,itest,nfailed(56),merge_ij(max_to_test),merge_n
+ integer :: i,j,iseed,itest,nfailed(80),merge_ij(max_to_test),merge_n
  integer :: nsink0,nsinkf,nsteps
  logical :: merged,merged_expected
  real :: t,dt,dtext,dtnew,dtsinksink,r2,v2
@@ -1033,12 +1034,13 @@ subroutine test_merger(ntests,npass)
  r_merge_uncond2 = r_merge_uncond**2
  r_merge_cond2   = r_merge_cond**2
  r_merge2        = max(r_merge_uncond2,r_merge_cond2)
- do itest=1,8
+ do itest=1,10
     t                 = 0.
     xyzmh_ptmass(:,:) = 0.
     xyzmh_ptmass(4,:) = 1.
     xyzmh_ptmass(ihacc,:) = h_acc
     vxyz_ptmass(:,:)  = 0.
+    icreate_sinks = 1
     select case(itest)
     case(1)
        if (id==master) write(*,"(/,a)") '--> testing fast flyby: no merger'
@@ -1095,6 +1097,36 @@ subroutine test_merger(ntests,npass)
           vxyz_ptmass(1:3,i)  = ( (/ran2(iseed),ran2(iseed),ran2(iseed)/) - 0.5) * 6.  ! in range (-3,3)
        enddo
        merged_expected   = .true. ! this logical does not have meaning here
+    case(9)
+       if (id==master) write(*,"(/,a)") '--> testing release during merging with icreate_sinks == 2'
+       nptmass = 2
+       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(2,1) =  0.5*h_acc
+       vxyz_ptmass(1,1)  = -10.
+       xyzmh_ptmass(1,itbirth) = 0.2
+       xyzmh_ptmass(2,itbirth) = 0.4
+       n_max = 5
+       icreate_sinks     = 2
+       ll_ptmass(1,:)    = 1
+       ll_ptmass(2,1)    = 4
+       ll_ptmass(2,2)    = 3
+       merged_expected   = .true.
+    case(10)
+       if (id==master) write(*,"(/,a)") '--> testing merging with icreate_sinks == 2 (one sink is only gas)'
+       nptmass = 2
+       xyzmh_ptmass(1,1) =  1.
+       xyzmh_ptmass(2,1) =  0.5*h_acc
+       vxyz_ptmass(1,1)  = -10.
+       xyzmh_ptmass(1,itbirth) = 0.01
+       xyzmh_ptmass(2,itbirth) = 0.4
+       n_max = 5
+       icreate_sinks     = 2
+       ll_ptmass(1,:)    = 1
+       ll_ptmass(2,1)    = 0
+       ll_ptmass(2,2)    = 3
+       merged_expected   = .true.
+
+
     end select
     if (itest /= 8) then
        xyzmh_ptmass(1:3,2) = -xyzmh_ptmass(1:3,1)
@@ -1173,7 +1205,7 @@ subroutine test_merger(ntests,npass)
        call checkval(nsinkF,41,0,nfailed(itest),'final number of sinks')
     else
        call checkval(merged,merged_expected,nfailed(itest),'merger')
-       if (merged_expected) then
+       if (merged_expected .and. itest/=9) then
           call checkval(xyzmh_ptmass(1,1),0.,epsilon(0.),nfailed(2*itest),'final x-position')
           call checkval(xyzmh_ptmass(2,1),0.,epsilon(0.),nfailed(3*itest),'final y-position')
           v2 = dot_product(vxyz_ptmass(1:2,1),vxyz_ptmass(1:2,1))
@@ -1181,10 +1213,17 @@ subroutine test_merger(ntests,npass)
        endif
     endif
     call checkval(totmom,    mv0,1.e-13,nfailed(5*itest),'conservation of linear momentum')
-    call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
+    if( itest/=9) then
+       call checkval(angtot,angmom0,1.e-13,nfailed(6*itest),'conservation of angular momentum')
+    endif
     call checkval(mtot,    mtot0,1.e-13,nfailed(7*itest),'conservation of mass')
+    if (itest==9)then
+       call checkval(ll_ptmass(2,1)+nsinkF,8,0,nfailed(8*itest),'conservation of star seeds')
+    elseif (itest==10) then
+       call checkval(ll_ptmass(2,2)+nsinkF,4,0,nfailed(8*itest),'conservation of star seeds')
+    endif
  enddo
- call update_test_scores(ntests,nfailed(1:56),npass)
+ call update_test_scores(ntests,nfailed(1:80),npass)
 
  ! reset options
  r_merge_uncond = 0.

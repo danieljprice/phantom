@@ -436,8 +436,8 @@ subroutine substep(npart,ntypes,nptmass,dtsph,dtextforce,time,xyzh,vxyzu,fext, &
  use externalforces, only:is_velocity_dependent
  use ptmass,         only:use_fourthorder,use_regnbody,ck,dk,ptmass_check_stars,icreate_sinks
  use subgroup,     only:group_identify,evolve_groups
- integer,         intent(in)    :: npart,ntypes,nptmass
- integer,         intent(inout) :: n_group,n_ingroup,n_sing
+ integer,         intent(in)    :: npart,ntypes
+ integer,         intent(inout) :: n_group,n_ingroup,n_sing,nptmass
  integer,         intent(inout) :: group_info(:,:)
  real,            intent(in)    :: dtsph,time
  real,            intent(inout) :: dtextforce
@@ -860,8 +860,8 @@ subroutine get_force(nptmass,npart,nsubsteps,ntypes,timei,dtextforce,xyzh,vxyzu,
  use ptmass_radiation,only:get_rad_accel_from_ptmass,isink_radiation
  use subgroup,        only:group_identify
  use timing,          only:get_timings,increment_timer,itimer_gasf,itimer_sinksink
- integer,                  intent(in)    :: nptmass,npart,nsubsteps,ntypes
- integer,                  intent(inout) :: force_count
+ integer,                  intent(in)    :: npart,nsubsteps,ntypes
+ integer,                  intent(inout) :: force_count,nptmass
  integer,                  intent(inout) :: ll_ptmass(:,:)
  real,                     intent(inout) :: xyzh(:,:),vxyzu(:,:),fext(:,:)
  real,                     intent(inout) :: xyzmh_ptmass(:,:),vxyz_ptmass(:,:)
