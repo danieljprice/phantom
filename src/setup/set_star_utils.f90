@@ -49,7 +49,7 @@ module setstar_utils
  public :: set_star_thermalenergy
  public :: set_stellar_core
  public :: write_kepler_comp
- public :: need_inputprofile,need_polyk,need_rstar
+ public :: need_inputprofile,need_polyk,need_rstar,need_mu
  public :: get_mass_coord
 
  private
@@ -199,7 +199,7 @@ end function need_inputprofile
 !  polytropic constant
 !+
 !-------------------------------------------------------------------------------
-logical function need_polyk(iprofile)
+logical elemental function need_polyk(iprofile)
  integer, intent(in) :: iprofile
 
  select case(iprofile)
@@ -210,6 +210,18 @@ logical function need_polyk(iprofile)
  end select
 
 end function need_polyk
+
+!-------------------------------------------------------------------------------
+!+
+!  query function for whether mean molecular weight is needed
+!+
+!-------------------------------------------------------------------------------
+logical elemental function need_mu(isoftcore)
+ integer, intent(in) :: isoftcore
+
+ need_mu = (isoftcore <= 0)
+
+end function need_mu
 
 !-------------------------------------------------------------------------------
 !+
@@ -359,7 +371,7 @@ subroutine get_mass_coord(i1,npart,xyzh,mass_enclosed_r)
  allocate(mass_enclosed_r(npart-i1),iorder(npart-i1))
 
  ! sort particles by radius
- call sort_by_radius(npart-i1,xyzh(1:3,i1+1:npart),iorder)
+ call sort_by_radius(npart-i1,xyzh(:,i1+1:npart),iorder)
 
  ! calculate cumulative mass
  massri = 0.
