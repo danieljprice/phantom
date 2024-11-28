@@ -200,6 +200,11 @@ subroutine setpart(id,npart,npartoftype,xyzh,massoftype,vxyzu,polyk,gamma,hfact,
     xyzmh_ptmass(iTeff,2) = secondary_Teff
     xyzmh_ptmass(iReff,2) = secondary_Reff
     xyzmh_ptmass(iLum,2)  = secondary_lum
+    ! maybe code it in a more general way
+    wind_rotation_speed = wind_rotation_speed_km_s * (km / unit_velocity)
+    xyzmh_ptmass(ispinx,1) = primary_Reff**2*omegax*wind_rotation_speed
+    xyzmh_ptmass(ispiny,1) = primary_Reff**2*omegay*wind_rotation_speed
+    xyzmh_ptmass(ispinz,1) = primary_Reff**2*omegaz*wind_rotation_speed
  elseif (icompanion_star == 2) then
     !-- hierarchical triple
     nptmass  = 0

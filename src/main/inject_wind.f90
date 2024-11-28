@@ -345,7 +345,6 @@ subroutine logging(initial_wind_velocity_cgs,rsonic,Tsonic,Tboundary)
  wind_rotation_speed = sqrt(sum(xyzmh_ptmass(ispinx:ispinz,1)**2))/xyzmh_ptmass(iReff,1)**2
  rotation_speed_crit = sqrt(xyzmh_ptmass(4,1)/xyzmh_ptmass(iReff,1))
  if (wind_rotation_speed > 1e-20) then
-   ! problem about code units, need to update
     write (*,'(2(3x,A,es11.4))') &
          'rotation speed (km/s)      = ',wind_rotation_speed*unit_velocity/km,&
          'break-up velocity (km/s)   = ',rotation_speed_crit*unit_velocity/km,&

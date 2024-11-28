@@ -86,6 +86,7 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
  use geometry,    only:vector_transform, coord_transform
  use units,       only:unit_velocity
  use physcon,     only:gg,au,solarm,km
+ use vectorutils, only:cross_product3D
  integer, intent(in) :: sphere_number, first_particle, ires, itype
  real,    intent(in) :: r,v,u,rho,geodesic_R(0:19,3,3),geodesic_v(0:11,3),x0(3),v0(3)
  real,    intent(in), optional :: JKmuS(:)
@@ -94,11 +95,13 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
  real :: rotation_angles(3), h_sim
  real :: rotmat(3,3), radial_unit_vector(3), radial_unit_vector_rotated(3)
- real :: particle_position(3), particle_velocity(3)
- real :: rot_particle_position(3), velocity_out(3), position_out(3), vomega_spin(3)
+ real :: radial_unit_vector_rotated_new(3), z_axis(3), omega_axis(3)
+ real :: particle_position(3), particle_velocity(3), particle_position_proj(3)
+ real :: velocity_out(3), position_out(3), vomega_spin(3)
+ real :: rot_particle_position(3), rot_particle_velocity(3)
  integer :: j, particles_per_sphere
 
- real :: omega, rotation_speed_crit, wind_rotation_speed, omega_axis(3)
+ real :: omega, rotation_speed_crit, wind_rotation_speed
  integer, parameter :: ndim = 3, igeom = 3
 
  select case (ires)
@@ -134,9 +137,9 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
     omega = wind_rotation_speed/rotation_speed_crit
 
     ! if the rotation axis is not the z-axis, need to rotate the coordinate system
-    omega_axis(1) = xyzmh_ptmass(ispinx,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
-    omega_axis(2) = xyzmh_ptmass(ispiny,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
-    omega_axis(3) = xyzmh_ptmass(ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
+    omega_axis = xyzmh_ptmass(ispinx:ispinz,1)/(wind_rotation_speed*xyzmh_ptmass(iReff,1)**2)
+    ! not exactly a unit vector, coulb be annoying
+    omega_axis = merge(omega_axis, 0.0, abs(omega_axis) > 1e-5)
  endif
 
  call make_rotation_matrix(rotation_angles, rotmat)
@@ -152,40 +155,49 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
                                   + radial_unit_vector(2)*rotmat(3,2) &
                                   + radial_unit_vector(3)*rotmat(3,3)
 
+    !print '("particle_number = ",i5, " Rinject = ",f9.5," wind_inject = ", f9.5)',j,r,v  
     particle_position = r*radial_unit_vector_rotated
     particle_velocity = v*radial_unit_vector_rotated
+
+    ! get the projected position of particles to compute the centrifugal force
+    particle_position_proj = xyzmh_ptmass(iReff,1)*radial_unit_vector_rotated
 
     if (omega > 0.) then
 
        if (omega_axis(3) /= 1.) then
-          rot_particle_position = 0.
-          ! to do
-          ! call Euler_rotation(particle_position,omega_axis,rot_particle_position)
+          z_axis = [0., 0., 1.0]
+          ! rotate the frame to make the omega_axis coincide with z_axis (needed to switch to spherical)
+          call rotation_frame(radial_unit_vector_rotated,omega_axis,z_axis,radial_unit_vector_rotated_new)
+
+          rot_particle_position = r*radial_unit_vector_rotated_new
+          rot_particle_velocity = v*radial_unit_vector_rotated_new
        else
           rot_particle_position = particle_position
+          rot_particle_velocity = particle_velocity
        endif
 
        ! include velocity component due to spin of the sink particle (Centrifugal force)
-       vomega_spin(1) = xyzmh_ptmass(ispiny,1)*rot_particle_position(3)-xyzmh_ptmass(ispinz,1)*rot_particle_position(2)
-       vomega_spin(2) = xyzmh_ptmass(ispinz,1)*rot_particle_position(1)-xyzmh_ptmass(ispinx,1)*rot_particle_position(3)
-       vomega_spin(3) = xyzmh_ptmass(ispinx,1)*rot_particle_position(2)-xyzmh_ptmass(ispiny,1)*rot_particle_position(1)
-       vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**2
-
-       particle_velocity = particle_velocity + vomega_spin
-
+       call cross_product3D(xyzmh_ptmass(ispinx:ispinz,1),particle_position_proj,vomega_spin)
+       vomega_spin =  vomega_spin/xyzmh_ptmass(iReff,1)**3
+       
       ! geometry subroutines to switch from Cartesian to spherical coordinates
       ! and impose Dwarkadas & Owocki (2002) velocity profile on the radial component
+      
       ! input is cartesian, output spherical polar
        call coord_transform(rot_particle_position, ndim, 1, position_out, ndim, igeom)
-       call vector_transform(rot_particle_position, particle_velocity, ndim, 1, velocity_out, ndim, igeom)
+       call vector_transform(rot_particle_position, rot_particle_velocity, ndim, 1, velocity_out, ndim, igeom)
        velocity_out(1) = velocity_out(1) * sqrt(1. - omega**2 * sin(position_out(3))**2)
 
       ! input is spherical polars, output cartesian
-       call vector_transform(position_out, velocity_out, ndim, igeom, particle_velocity, ndim, 1)
+       call vector_transform(position_out, velocity_out, ndim, igeom, rot_particle_velocity, ndim, 1)
+      
+      ! rotate the frame to make the z_axis coincide with omega_axis
+       call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
+       call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
     endif
 
     particle_position = particle_position + x0
-    particle_velocity = particle_velocity + v0
+    particle_velocity = particle_velocity + v0 + vomega_spin
     call add_or_update_particle(itype,particle_position,particle_velocity, &
          h_sim,u,first_particle+j,npart,npartoftype,xyzh,vxyzu,JKmuS)
  enddo
@@ -229,31 +241,37 @@ end subroutine make_rotation_matrix
 
 !-----------------------------------------------------------------------
 !+
-!  Rotate the reference frame using the 3 Euler angles to
-!  make the z-axis coincide with the axis of rotation
+!  Rotate the reference frame using Rodrigues' rotation formula 
+!  to make axis_A coincide with axis_B (unit vectors)
 !+
 !-----------------------------------------------------------------------
-subroutine Euler_rotation(particle_position,omega_axis,rot_particle_position)
- real, intent(in)  :: particle_position(3),omega_axis(3)
- real, intent(out) :: rot_particle_position(3)
+subroutine rotation_frame(vector,axis_A,axis_B,rot_vector)
+ use vectorutils, only:cross_product3D
+ real, intent(in)  :: vector(3), axis_A(3), axis_B(3)
+ real, intent(out) :: rot_vector(3)
 
- !real :: cosalpha, sinalpha, cosbeta, sinbeta, cosgamma, singamma
- real :: rotation_matrix(3,3)
+ real :: rotation_matrix(3,3), cross_vec(3), cos_theta, sin_theta
 
- rotation_matrix(1,1) = 0.
- rotation_matrix(1,2) = 0.
- rotation_matrix(1,3) = 0.
- rotation_matrix(2,1) = 0.
- rotation_matrix(2,2) = 0.
- rotation_matrix(2,3) = 0.
- rotation_matrix(3,1) = 0.
- rotation_matrix(3,2) = 0.
- rotation_matrix(3,3) = 0.
+ call cross_product3D(axis_A,axis_B,cross_vec)
 
- rot_particle_position(1) = dot_product(rotation_matrix(1,1:3),particle_position(1:3))
- rot_particle_position(2) = dot_product(rotation_matrix(2,1:3),particle_position(1:3))
- rot_particle_position(3) = dot_product(rotation_matrix(3,1:3),particle_position(1:3))
+ cos_theta = dot_product(axis_A,axis_B)
+ sin_theta = sqrt(dot_product(cross_vec,cross_vec))
 
- end subroutine Euler_rotation
+! Rodrigues' formula in matrix notation
+ rotation_matrix(1,1) = cos_theta + (cross_vec(1)**2)*(1-cos_theta)
+ rotation_matrix(1,2) = -cross_vec(3)*sin_theta + cross_vec(1)*cross_vec(2)*(1-cos_theta)
+ rotation_matrix(1,3) = cross_vec(2)*sin_theta + cross_vec(1)*cross_vec(3)*(1-cos_theta)
+ rotation_matrix(2,1) = cross_vec(3)*sin_theta + cross_vec(1)*cross_vec(2)*(1-cos_theta)
+ rotation_matrix(2,2) = cos_theta + (cross_vec(2)**2)*(1-cos_theta)
+ rotation_matrix(2,3) = -cross_vec(1)*sin_theta + cross_vec(2)*cross_vec(3)*(1-cos_theta)
+ rotation_matrix(3,1) = -cross_vec(2)*sin_theta + cross_vec(1)*cross_vec(3)*(1-cos_theta)
+ rotation_matrix(3,2) = cross_vec(1)*sin_theta + cross_vec(2)*cross_vec(3)*(1-cos_theta)
+ rotation_matrix(3,3) = cos_theta + (cross_vec(3)**2)*(1-cos_theta)
+
+ rot_vector(1) = dot_product(rotation_matrix(1,1:3),vector(1:3))
+ rot_vector(2) = dot_product(rotation_matrix(2,1:3),vector(1:3))
+ rot_vector(3) = dot_product(rotation_matrix(3,1:3),vector(1:3))
+
+ end subroutine rotation_frame
 
 end module injectutils
