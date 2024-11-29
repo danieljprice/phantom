@@ -190,10 +190,15 @@ subroutine inject_geodesic_sphere(sphere_number, first_particle, ires, r, v, u, 
 
       ! input is spherical polars, output cartesian
        call vector_transform(position_out, velocity_out, ndim, igeom, rot_particle_velocity, ndim, 1)
-      
-      ! rotate the frame to make the z_axis coincide with omega_axis
-       call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
-       call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
+       
+       if (omega_axis(3) /= 1.) then
+         ! rotate the frame to make the z_axis coincide with omega_axis
+         call rotation_frame(rot_particle_position,z_axis,omega_axis,particle_position)
+         call rotation_frame(rot_particle_velocity,z_axis,omega_axis,particle_velocity)
+       else
+         particle_position = rot_particle_position
+         particle_velocity = rot_particle_velocity
+       endif
     endif
 
     particle_position = particle_position + x0
