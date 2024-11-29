@@ -2117,7 +2117,7 @@ subroutine ptmass_check_stars(xyzmh_ptmass,ll_ptmass,nptmass,time)
  real    :: tbirthi
  do i=1,nptmass
     tbirthi = xyzmh_ptmass(itbirth,i)
-    if (ll_ptmass(1,i) == 1) then
+    if (ll_ptmass(1,i) == 1 .and. xyzmh_ptmass(4,i)>0.) then
        if (tbirthi + tmax_acc < time) then
           if (ipart_createstars == 0) ipart_createstars = i
        endif
