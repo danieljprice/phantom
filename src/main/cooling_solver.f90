@@ -79,17 +79,17 @@ end subroutine init_cooling_solver
 !   cooling prescription and choice of solver
 !+
 !-----------------------------------------------------------------------
-subroutine energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
- real, intent(in)  :: ui,rho,dt                ! in code units
- real, intent(in)  :: Tdust,mu,gamma,K2,kappa  ! in cgs
- real, intent(out) :: dudt                     ! in code units
+subroutine energ_cooling_solver(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa,Tfloor)
+ real, intent(in)  :: ui,rho,dt                       ! in code units
+ real, intent(in)  :: Tdust,mu,gamma,K2,kappa,Tfloor  ! in cgs
+ real, intent(out) :: dudt                            ! in code units
 
  if (icool_method == 2) then
     call exact_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
  elseif (icool_method == 0) then
     call implicit_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
  else
-    call explicit_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa)
+    call explicit_cooling(ui,dudt,rho,dt,mu,gamma,Tdust,K2,kappa,Tfloor)
  endif
 
 end subroutine energ_cooling_solver
@@ -99,13 +99,13 @@ end subroutine energ_cooling_solver
 !   explicit cooling
 !+
 !-----------------------------------------------------------------------
-subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
+subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa, Tfloor)
 
  use physcon, only:Rg
  use units,   only:unit_ergg
 
  real, intent(in)  :: ui, rho, dt, Tdust, mu, gamma !code units
- real, intent(in)  :: K2, kappa
+ real, intent(in)  :: K2, kappa, Tfloor
  real, intent(out) :: dudt                         !code units
 
  real              :: u,Q,dlnQ_dlnT,T,T_on_u
@@ -118,7 +118,7 @@ subroutine explicit_cooling (ui, dudt, rho, dt, mu, gamma, Tdust, K2, kappa)
        !special fix for Townsend benchmark
        u = Tcap/T_on_u
     else
-       u = Tdust/T_on_u     ! set T=Tdust
+       u = Tfloor/T_on_u
     endif
     dudt = (u-ui)/dt
  else
