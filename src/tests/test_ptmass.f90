@@ -780,7 +780,9 @@ subroutine test_createsink(ntests,npass)
  use dim,        only:gravity,maxp,maxphase
  use boundary,   only:set_boundary
  use deriv,      only:get_derivs_global
+ use eos,        only:ieos,polyk
  use kdtree,     only:tree_accuracy
+ use units,      only:set_units
  use io,         only:id,master,iverbose
  use part,       only:init_part,npart,npartoftype,igas,xyzh,massoftype,hfact,rhoh,&
                       iphase,isetphase,fext,divcurlv,vxyzu,fxyzu,poten, &
@@ -801,10 +803,13 @@ subroutine test_createsink(ntests,npass)
  real :: etotin,angmomin,totmomin,rhomax,rhomax_test
  procedure(rho_func), pointer :: density_func
 
+ call set_units(mass=1.d0,dist=1.d0,G=1.d0)
  density_func => gaussianr
  t        = 0.
  iverbose = 1
  rho_crit = rho_crit_cgs
+ ieos     = 1
+ polyk    = 0.
 
  do itest=1,3
     select case(itest)
@@ -822,6 +827,7 @@ subroutine test_createsink(ntests,npass)
     vxyzu(:,:) = 0.
     fxyzu(:,:) = 0.
     fext(:,:)  = 0.
+
     !
     ! set a boundary that is larger than the sphere size, so test still works with periodic boundaries
     !
@@ -1318,6 +1324,7 @@ subroutine test_SDAR(ntests,npass)
  real :: fxyz_sinksink(4,3),dsdt_sinksink(3,3) ! we only use 3 sink particles in the tests here
  real :: xsec(3),vsec(3)
  real(kind=4) :: t1
+ if (id==master) write(*,"(/,a)") '--> testing SDAR module : Kozai-Lidov effect'
  !
  !--no gas particles
  !
